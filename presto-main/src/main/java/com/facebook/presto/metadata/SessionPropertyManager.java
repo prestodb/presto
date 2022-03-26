@@ -32,6 +32,8 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Parameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
@@ -223,7 +225,7 @@ public final class SessionPropertyManager
         }
     }
 
-    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, List<Expression> parameters)
+    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
         Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);

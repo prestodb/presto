@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.267-SNAPSHOT</version>
+    <version>0.273-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -38,7 +38,6 @@
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
-        <air.check.skip-jacoco>true</air.check.skip-jacoco>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
 
         <air.java.version>1.8.0-151</air.java.version>
@@ -65,11 +64,12 @@
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.0</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
-        <dep.alluxio.version>2.7.0</dep.alluxio.version>
+        <dep.alluxio.version>2.7.3</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
+        <dep.pinot.version>0.9.3</dep.pinot.version>
         <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
-        <dep.hudi.version>0.9.0</dep.hudi.version>
+        <dep.hudi.version>0.10.1</dep.hudi.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <!--
           America/Bahia_Banderas has:
@@ -82,6 +82,7 @@
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>4g</air.test.jvmsize>
+        <grpc.version>1.35.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
@@ -175,6 +176,12 @@
         <module>presto-cluster-ttl-providers</module>
         <module>presto-google-sheets</module>
         <module>presto-clickhouse</module>
+        <module>presto-hive-function-namespace</module>
+        <module>presto-delta</module>
+        <module>presto-grpc-api</module>
+        <module>presto-grpc-testing-udf-server</module>
+        <module>presto-lark-sheets</module>
+        <module>presto-test-coverage</module>
     </modules>
 
     <dependencyManagement>
@@ -245,6 +252,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cluster-ttl-providers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-hive-function-namespace</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -398,6 +411,98 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-prometheus</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-protobuf</artifactId>
+                <version>${grpc.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.errorprone</groupId>
+                        <artifactId>error_prone_annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>animal-sniffer-annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-stub</artifactId>
+                <version>${grpc.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.errorprone</groupId>
+                        <artifactId>error_prone_annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>animal-sniffer-annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-api</artifactId>
+                <version>${grpc.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.errorprone</groupId>
+                        <artifactId>error_prone_annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>animal-sniffer-annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-netty-shaded</artifactId>
+                <version>${grpc.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.errorprone</groupId>
+                        <artifactId>error_prone_annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>animal-sniffer-annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-core</artifactId>
+                <version>${grpc.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>3.14.0</version>
             </dependency>
 
             <dependency>
@@ -625,7 +730,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.0.0-7</version>
+                <version>3.0.0-8</version>
             </dependency>
 
             <dependency>
@@ -675,6 +780,18 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-function-namespace-managers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-grpc-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-grpc-testing-udf-server</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1091,109 +1208,31 @@
                 </exclusions>
             </dependency>
 
+            <!-- Start dependencies for querying Hudi table-->
             <dependency>
                 <groupId>org.apache.hudi</groupId>
-                <artifactId>hudi-common</artifactId>
+                <artifactId>hudi-presto-bundle</artifactId>
                 <version>${dep.hudi.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>org.apache.hbase</groupId>
-                        <artifactId>hbase-server</artifactId>
+                        <groupId>com.google.protobuf</groupId>
+                        <artifactId>protobuf-java</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>org.apache.orc</groupId>
-                        <artifactId>orc-core</artifactId>
+                        <groupId>commons-lang</groupId>
+                        <artifactId>commons-lang</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>org.objenesis</groupId>
-                        <artifactId>objenesis</artifactId>
+                        <groupId>org.apache.hudi</groupId>
+                        <artifactId>hudi-common</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>jcl-over-slf4j</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-annotations</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-databind</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpclient</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>fluent-hc</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.rocksdb</groupId>
-                        <artifactId>rocksdbjni</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.esotericsoftware</groupId>
-                        <artifactId>kryo-shaded</artifactId>
+                        <groupId>org.apache.hudi</groupId>
+                        <artifactId>hudi-hadoop-mr-bundle</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
-
-            <dependency>
-                <groupId>org.apache.hudi</groupId>
-                <artifactId>hudi-hadoop-mr</artifactId>
-                <version>${dep.hudi.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.hbase</groupId>
-                        <artifactId>hbase-server</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.orc</groupId>
-                        <artifactId>orc-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.objenesis</groupId>
-                        <artifactId>objenesis</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>jcl-over-slf4j</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-annotations</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-databind</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpclient</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>fluent-hc</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.rocksdb</groupId>
-                        <artifactId>rocksdbjni</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.esotericsoftware</groupId>
-                        <artifactId>kryo-shaded</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
+            <!-- End dependencies for querying Hudi table-->
 
             <dependency>
                 <groupId>net.sf.opencsv</groupId>
@@ -1670,6 +1709,219 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.pinot</groupId>
+                <artifactId>presto-pinot-driver</artifactId>
+                <version>${dep.pinot.version}</version>
+                <classifier>shaded</classifier>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.pinot</groupId>
+                        <artifactId>pinot-spi</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.pinot</groupId>
+                        <artifactId>pinot-common</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.pinot</groupId>
+                        <artifactId>pinot-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.pinot</groupId>
+                        <artifactId>pinot-segment-spi</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.pinot</groupId>
+                        <artifactId>pinot-segment-local</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.pinot</groupId>
+                        <artifactId>pinot-yammer</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-context</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>animal-sniffer-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.protobuf</groupId>
+                        <artifactId>protobuf-java</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-codec</groupId>
+                        <artifactId>commons-codec</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-codec</groupId>
+                        <artifactId>commons-lang3</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.commons</groupId>
+                        <artifactId>commons-lang3</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpclient</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.thrift</groupId>
+                        <artifactId>libthrift</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.github.luben</groupId>
+                        <artifactId>zstd-jni</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish.jersey.core</groupId>
+                        <artifactId>jersey-common</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.errorprone</groupId>
+                        <artifactId>error_prone_annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.checkerframework</groupId>
+                        <artifactId>checker-compat-qual</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.reflections</groupId>
+                        <artifactId>reflections</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>jline</artifactId>
+                        <groupId>jline</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.antlr</groupId>
+                        <artifactId>antlr4-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.kafka</groupId>
+                        <artifactId>kafka-clients</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.codehaus.jackson</groupId>
+                        <artifactId>jackson-mapper-asl</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.kafka</groupId>
+                        <artifactId>kafka_2.10</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-beanutils</groupId>
+                        <artifactId>commons-beanutils-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>javax.validation</groupId>
+                        <artifactId>validation-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>javax.servlet</groupId>
+                        <artifactId>javax.servlet-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish.hk2.external</groupId>
+                        <artifactId>jakarta.inject</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>jakarta.ws.rs</groupId>
+                        <artifactId>jakarta.ws.rs-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>jakarta.annotation</groupId>
+                        <artifactId>jakarta.annotation-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>joda-time</groupId>
+                        <artifactId>joda-time</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpcore</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.zookeeper</groupId>
+                        <artifactId>zookeeper</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-codec</groupId>
+                        <artifactId>commons-codec</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>jcl-over-slf4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>javax.servlet</groupId>
+                        <artifactId>servlet-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.clearspring.analytics</groupId>
+                        <artifactId>stream</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.tdunning</groupId>
+                        <artifactId>t-digest</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.datasketches</groupId>
+                        <artifactId>datasketches-java</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.roaringbitmap</groupId>
+                        <artifactId>RoaringBitmap</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>javax.inject</groupId>
+                        <artifactId>javax.inject</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.reflections</groupId>
+                        <artifactId>reflections</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>javax.validation</groupId>
+                        <artifactId>validation-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
                 <version>1.1.7.1</version>
@@ -1678,7 +1930,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.4.9-2</version>
+                <version>1.5.0-4</version>
             </dependency>
 
             <dependency>
@@ -1884,55 +2136,15 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.pinot</groupId>
-                <artifactId>pinot-driver</artifactId>
-                <version>0.1.2</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId> org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>log4j-over-slf4j</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.logging.log4j</groupId>
-                        <artifactId>log4j-slf4j-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.logging.log4j</groupId>
-                        <artifactId>log4j-slf4j-impl</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.logging.log4j</groupId>
-                        <artifactId>log4j-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.logging.log4j</groupId>
-                        <artifactId>log4j-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.logging.log4j</groupId>
-                        <artifactId>log4j-1.2-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpclient</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpcore</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.lucene</groupId>
-                        <artifactId>lucene-analyzers-common</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.roaringbitmap</groupId>
-                        <artifactId>RoaringBitmap</artifactId>
-                    </exclusion>
-                </exclusions>
+                <groupId>io.delta</groupId>
+                <artifactId>delta-standalone_2.12</artifactId>
+                <version>0.3.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-delta</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
@@ -2075,6 +2287,12 @@
                     <extensions>true</extensions>
                 </plugin>
 
+                <plugin>
+                    <groupId>org.xolstice.maven.plugins</groupId>
+                    <artifactId>protobuf-maven-plugin</artifactId>
+                    <version>0.5.1</version>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
@@ -2158,6 +2376,18 @@
                         </DynamicDependency>
                     </dynamicDependencies>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.7</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -21,7 +21,9 @@ import com.facebook.presto.common.block.ClosingBlockLease;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.SmallintType;
@@ -32,7 +34,6 @@ import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Stripe;
-import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -62,8 +63,8 @@ import java.util.Set;
 import java.util.SortedMap;
 
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
@@ -331,7 +332,7 @@ public class MapFlatSelectiveStreamReader
         readOffset = offset + streamPosition;
 
         if (!nonNullsAllowed) {
-            checkState(nullPositionCount == (positionCount - nonNullPositionCount), "nullPositionCount should be equal to postitionCount - nonNullPositionCount");
+            checkState(nullPositionCount == (positionCount - nonNullPositionCount), "nullPositionCount should be equal to positionCount - nonNullPositionCount");
             outputPositionCount = nullPositionCount;
             allNulls = true;
             System.arraycopy(nullPositions, 0, outputPositions, 0, nullPositionCount);
@@ -477,7 +478,13 @@ public class MapFlatSelectiveStreamReader
         int count = 0;
 
         Type valueType = outputType.getValueType();
-        BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(null, offset);
+        BlockBuilder valueBlockBuilder;
+        if (valueType instanceof FixedWidthType) {
+            valueBlockBuilder = ((FixedWidthType) valueType).createFixedSizeBlockBuilder(offset);
+        }
+        else {
+            valueBlockBuilder = valueType.createBlockBuilder(null, offset);
+        }
 
         int[] valueBlockPositions = new int[keyCount];
 
@@ -502,7 +509,11 @@ public class MapFlatSelectiveStreamReader
             }
         }
 
-        return outputType.createBlockFromKeyValue(outputPositionCount, Optional.ofNullable(includeNulls ? nulls : null), offsets, new DictionaryBlock(keyBlock, keyIds), valueBlockBuilder);
+        return outputType.createBlockFromKeyValue(outputPositionCount,
+                Optional.ofNullable(includeNulls ? nulls : null),
+                offsets,
+                new DictionaryBlock(keyBlock, keyIds),
+                valueBlockBuilder.build());
     }
 
     private static RunLengthEncodedBlock createNullBlock(Type type, int positionCount)

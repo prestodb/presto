@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.UUID;
 
-import static com.facebook.presto.common.predicate.Utils.nativeValueToBlock;
+import static com.facebook.presto.common.Utils.nativeValueToBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;

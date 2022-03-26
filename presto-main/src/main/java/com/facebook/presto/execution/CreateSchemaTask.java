@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.Expression;
@@ -32,11 +33,12 @@ import java.util.Optional;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
+import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class CreateSchemaTask
-        implements DataDefinitionTask<CreateSchema>
+        implements DDLDefinitionTask<CreateSchema>
 {
     @Override
     public String getName()
@@ -51,9 +53,8 @@ public class CreateSchemaTask
     }
 
     @Override
-    public ListenableFuture<?> execute(CreateSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(CreateSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
         // TODO: validate that catalog exists
@@ -76,7 +77,7 @@ public class CreateSchemaTask
                 mapFromProperties(statement.getProperties()),
                 session,
                 metadata,
-                parameters);
+                parameterExtractor(statement, parameters));
 
         metadata.createSchema(session, schema, properties);
 

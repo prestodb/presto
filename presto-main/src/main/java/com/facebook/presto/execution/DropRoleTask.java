@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.Expression;
@@ -31,7 +32,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class DropRoleTask
-        implements DataDefinitionTask<DropRole>
+        implements DDLDefinitionTask<DropRole>
 {
     @Override
     public String getName()
@@ -40,9 +41,8 @@ public class DropRoleTask
     }
 
     @Override
-    public ListenableFuture<?> execute(DropRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(DropRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
         String catalog = createCatalogName(session, statement);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         accessControl.checkCanDropRole(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), role, catalog);

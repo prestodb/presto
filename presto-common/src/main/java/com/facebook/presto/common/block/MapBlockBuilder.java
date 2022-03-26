@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.common.block.MapBlock.createMapBlockInternal;
@@ -160,14 +160,14 @@ public class MapBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(keyBlockBuilder, keyBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -194,6 +194,7 @@ public class MapBlockBuilder
      * This method beginDirectEntry along with exposing keyBlockBuilder and valueBlockBuilder addresses
      * this concern. BenchmarkMapBlockBuilder shows that both approaches are comparable.
      */
+    @Override
     public void beginDirectEntry()
     {
         if (currentEntryOpened) {

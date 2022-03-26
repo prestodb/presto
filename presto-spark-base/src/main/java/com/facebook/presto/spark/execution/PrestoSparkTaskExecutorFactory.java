@@ -22,6 +22,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.execution.MemoryRevokingSchedulerUtils;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageId;
@@ -116,6 +117,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.CRC32;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
@@ -131,6 +133,7 @@ import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMemoryRevokingTarget;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMemoryRevokingThreshold;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getShuffleOutputTargetAverageRowSize;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
@@ -426,6 +429,11 @@ public class PrestoSparkTaskExecutorFactory
                 false);
 
         final double memoryRevokingThreshold = getMemoryRevokingThreshold(session);
+        final double memoryRevokingTarget = getMemoryRevokingTarget(session);
+        checkArgument(
+                memoryRevokingTarget <= memoryRevokingThreshold,
+                "memoryRevokingTarget should be less than or equal memoryRevokingThreshold, but got %s and %s respectively",
+                memoryRevokingTarget, memoryRevokingThreshold);
         if (isSpillEnabled(session)) {
             memoryPool.addListener((pool, queryId, totalMemoryReservationBytes) -> {
                 if (totalMemoryReservationBytes > queryContext.getPeakNodeTotalMemory()) {
@@ -435,19 +443,23 @@ public class PrestoSparkTaskExecutorFactory
                 if (totalMemoryReservationBytes > pool.getMaxBytes() * memoryRevokingThreshold && memoryRevokeRequestInProgress.compareAndSet(false, true)) {
                     memoryRevocationExecutor.execute(() -> {
                         try {
-                            taskContext.accept(new VoidTraversingQueryContextVisitor<Void>()
+                            AtomicLong remainingBytesToRevoke = new AtomicLong(totalMemoryReservationBytes - (long) (memoryRevokingTarget * pool.getMaxBytes()));
+                            remainingBytesToRevoke.addAndGet(-MemoryRevokingSchedulerUtils.getMemoryAlreadyBeingRevoked(ImmutableList.of(taskContext), remainingBytesToRevoke.get()));
+                            taskContext.accept(new VoidTraversingQueryContextVisitor<AtomicLong>()
                             {
                                 @Override
-                                public Void visitOperatorContext(OperatorContext operatorContext, Void nothing)
+                                public Void visitOperatorContext(OperatorContext operatorContext, AtomicLong remainingBytesToRevoke)
                                 {
-                                    operatorContext.requestMemoryRevoking();
-                                    // If revoke was requested, set memoryRevokePending to true
-                                    if (operatorContext.isMemoryRevokingRequested()) {
-                                        memoryRevokePending.set(true);
+                                    if (remainingBytesToRevoke.get() > 0) {
+                                        long revokedBytes = operatorContext.requestMemoryRevoking();
+                                        if (revokedBytes > 0) {
+                                            memoryRevokePending.set(true);
+                                            remainingBytesToRevoke.addAndGet(-revokedBytes);
+                                        }
                                     }
                                     return null;
                                 }
-                            }, null);
+                            }, remainingBytesToRevoke);
                             memoryRevokeRequestInProgress.set(false);
                         }
                         catch (Exception e) {
@@ -503,7 +515,7 @@ public class PrestoSparkTaskExecutorFactory
                 }
 
                 if (inMemoryInput != null) {
-                    // for inmemory inputs pages can be released incrementally to save memory
+                    // for in-memory inputs pages can be released incrementally to save memory
                     remoteSourcePageInputs.add(getNullifyingIterator(inMemoryInput));
                     continue;
                 }
@@ -879,7 +891,9 @@ public class PrestoSparkTaskExecutorFactory
                     taskStats.getFullGcCount(),
                     taskStats.getFullGcTimeInMillis(),
                     taskStats.getTotalCpuTimeInNanos(),
-                    System.currentTimeMillis() - taskStats.getCreateTime().getMillis());
+                    System.currentTimeMillis() - taskStats.getCreateTime().getMillis(),
+                    taskStats.getQueuedPartitionedSplitsWeight(),
+                    taskStats.getRunningPartitionedSplitsWeight());
 
             OutputBufferInfo outputBufferInfo = new OutputBufferInfo(
                     outputBufferType.name(),

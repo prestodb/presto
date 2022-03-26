@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.267-SNAPSHOT</version>
+        <version>0.273-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-pinot-toolkit</artifactId>
@@ -20,16 +20,64 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto.pinot</groupId>
-            <artifactId>pinot-driver</artifactId>
+            <groupId>org.apache.pinot</groupId>
+            <artifactId>presto-pinot-driver</artifactId>
+            <classifier>shaded</classifier>
+        </dependency>
+
+        <dependency>
+            <groupId>io.perfmark</groupId>
+            <artifactId>perfmark-api</artifactId>
+            <version>0.19.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.clearspring.analytics</groupId>
+            <artifactId>stream</artifactId>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>animal-sniffer-annotations</artifactId>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
                 </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.tdunning</groupId>
+            <artifactId>t-digest</artifactId>
+            <version>3.2</version>
+            <scope>test</scope>
+            <exclusions>
                 <exclusion>
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.datasketches</groupId>
+            <artifactId>datasketches-java</artifactId>
+            <version>1.2.0-incubating</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.roaringbitmap</groupId>
+            <artifactId>RoaringBitmap</artifactId>
+            <version>0.9.23</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -47,6 +95,11 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
         </dependency>
 
         <dependency>
@@ -86,13 +139,20 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>org.reflections</groupId>
+            <artifactId>reflections</artifactId>
+            <version>0.9.9</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
         </dependency>
 
         <!-- Presto SPI -->
@@ -209,6 +269,16 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.thrift</groupId>
+            <artifactId>libthrift</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
@@ -218,4 +288,39 @@
             <artifactId>concurrent</artifactId>
         </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>2.10</version>
+                    <executions>
+                        <execution>
+                            <id>default</id>
+                            <phase>process-test-classes</phase>
+                            <goals>
+                                <goal>analyze-only</goal>
+                                <goal>analyze-duplicate</goal>
+                                <goal>analyze-dep-mgt</goal>
+                            </goals>
+                            <configuration>
+                                <ignoredDependencies>
+                                    <!-- pinot-common depends on this but does not include this itself -->
+                                    <ignoredDependency>org.apache.commons:commons-lang3::</ignoredDependency>
+                                    <!-- antlr runtime version differs -->
+                                    <ignoredDependency>org.antlr:antlr4-runtime::</ignoredDependency>
+
+                                    <ignoredDependency>org.reflections:reflections::</ignoredDependency>
+                                    <ignoredDependency>org.apache.thrift:libthrift::</ignoredDependency>
+                                    <ignoredDependency>io.perfmark:perfmark-api::</ignoredDependency>
+                                </ignoredDependencies>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

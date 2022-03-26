@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -21,6 +22,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static java.util.Collections.singletonList;
@@ -36,17 +38,19 @@ public final class ProjectNode
 
     public ProjectNode(PlanNodeId id, PlanNode source, Assignments assignments)
     {
-        this(id, source, assignments, UNKNOWN);
+        this(source.getSourceLocation(), id, source, assignments, UNKNOWN);
     }
 
     // TODO: pass in the "assignments" and the "outputs" separately (i.e., get rid if the symbol := symbol idiom)
     @JsonCreator
-    public ProjectNode(@JsonProperty("id") PlanNodeId id,
+    public ProjectNode(
+            Optional<SourceLocation> sourceLocation,
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("assignments") Assignments assignments,
             @JsonProperty("locality") Locality locality)
     {
-        super(id);
+        super(sourceLocation, id);
 
         requireNonNull(source, "source is null");
         requireNonNull(assignments, "assignments is null");
@@ -100,7 +104,7 @@ public final class ProjectNode
         if (newChildren.size() != 1) {
             throw new IllegalArgumentException("newChildren list has multiple items");
         }
-        return new ProjectNode(getId(), newChildren.get(0), assignments, locality);
+        return new ProjectNode(getSourceLocation(), getId(), newChildren.get(0), assignments, locality);
     }
 
     @Override

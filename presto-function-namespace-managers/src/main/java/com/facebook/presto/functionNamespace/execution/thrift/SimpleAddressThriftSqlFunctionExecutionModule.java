@@ -14,44 +14,55 @@
 package com.facebook.presto.functionNamespace.execution.thrift;
 
 import com.facebook.drift.client.address.SimpleAddressSelectorConfig;
+import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutionModule;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
+import com.facebook.presto.spi.function.SqlFunctionExecutor;
 import com.facebook.presto.thrift.api.udf.ThriftUdfService;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.util.Providers;
+import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 
 import java.util.Map;
 
 import static com.facebook.drift.client.guice.DriftClientBinder.driftClientBinder;
 import static com.facebook.presto.functionNamespace.execution.thrift.ContextualSimpleAddressSelectorBinder.contextualSimpleAddressSelector;
+import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.inject.Scopes.SINGLETON;
-import static java.util.Objects.requireNonNull;
 
 public class SimpleAddressThriftSqlFunctionExecutionModule
-        implements Module
+        extends SqlFunctionExecutionModule
 {
-    private final Map<Language, SimpleAddressSelectorConfig> supportedLanguages;
-
-    public SimpleAddressThriftSqlFunctionExecutionModule(Map<Language, SimpleAddressSelectorConfig> supportedLanguages)
-    {
-        this.supportedLanguages = requireNonNull(supportedLanguages, "supportedLanguages is null");
-    }
-
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
-        if (supportedLanguages.isEmpty()) {
-            binder.bind(ThriftSqlFunctionExecutor.class).toProvider(Providers.of(null));
+        ImmutableMap.Builder<Language, SimpleAddressSelectorConfig> thriftConfigBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Language, ThriftSqlFunctionExecutionConfig> thriftExecutionConfigs = ImmutableMap.builder();
+        for (Map.Entry<String, FunctionImplementationType> entry : supportedLanguages.entrySet()) {
+            String languageName = entry.getKey();
+            Language language = new Language(languageName);
+            FunctionImplementationType implementationType = entry.getValue();
+            if (implementationType.equals(THRIFT)) {
+                thriftConfigBuilder.put(language, buildConfigObject(SimpleAddressSelectorConfig.class, languageName));
+                thriftExecutionConfigs.put(language, buildConfigObject(ThriftSqlFunctionExecutionConfig.class, languageName));
+            }
+        }
+
+        Map<Language, SimpleAddressSelectorConfig> thriftConfigs = thriftConfigBuilder.build();
+        if (thriftConfigs.isEmpty()) {
+            binder.bind(SqlFunctionExecutor.class).to(NoopSqlFunctionExecutor.class).in(Scopes.SINGLETON);
             return;
         }
-        binder.bind(ThriftSqlFunctionExecutor.class).in(SINGLETON);
+        binder.bind(SqlFunctionExecutor.class).to(ThriftSqlFunctionExecutor.class).in(Scopes.SINGLETON);
 
         driftClientBinder(binder)
                 .bindDriftClient(ThriftUdfService.class)
                 .withAddressSelector(
                         contextualSimpleAddressSelector(
-                                supportedLanguages.entrySet().stream()
+                                thriftConfigs.entrySet().stream()
                                         .collect(toImmutableMap(entry -> entry.getKey().getLanguage(), Map.Entry::getValue))));
+        binder.bind(new TypeLiteral<Map<Language, ThriftSqlFunctionExecutionConfig>>() {}).toInstance(thriftExecutionConfigs.build());
     }
 }

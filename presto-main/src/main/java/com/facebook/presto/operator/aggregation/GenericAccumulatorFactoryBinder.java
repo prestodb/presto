@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import com.facebook.presto.spiller.StandaloneSpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -71,7 +72,8 @@ public class GenericAccumulatorFactoryBinder
             JoinCompiler joinCompiler,
             List<LambdaProvider> lambdaProviders,
             boolean spillEnabled,
-            Session session)
+            Session session,
+            StandaloneSpillerFactory standaloneSpillerFactory)
     {
         return new GenericAccumulatorFactory(
                 stateDescriptors,
@@ -87,7 +89,8 @@ public class GenericAccumulatorFactoryBinder
                 joinCompiler,
                 session,
                 distinct,
-                spillEnabled);
+                spillEnabled,
+                standaloneSpillerFactory);
     }
 
     @VisibleForTesting

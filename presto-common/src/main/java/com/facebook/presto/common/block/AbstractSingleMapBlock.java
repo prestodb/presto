@@ -142,6 +142,18 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        position = getAbsolutePosition(position);
+        if (position % 2 == 0) {
+            getRawKeyBlock().writeBytesTo(position / 2, offset, length, sliceOutput);
+        }
+        else {
+            getRawValueBlock().writeBytesTo(position / 2, offset, length, sliceOutput);
+        }
+    }
+
+    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         position = getAbsolutePosition(position);
@@ -232,7 +244,7 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
         throw new UnsupportedOperationException();
     }

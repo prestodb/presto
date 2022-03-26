@@ -153,6 +153,8 @@ public class TestPinotExpressionConverters
         testFilter("city not in ('San Jose', 'Campbell', 'Union City')", "(city NOT IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
         testFilterUnsupported("secondssinceepoch + 1 in (234, 24324)", sessionHolder);
         testFilterUnsupported("NOT (secondssinceepoch = 2323)", sessionHolder);
+        testFilter("city is null", "(city IS NULL)", sessionHolder);
+        testFilter("city is not null", "(city IS NOT NULL)", sessionHolder);
 
         // combinations
         testFilter("totalfare between 20 and 30 AND regionid > 20 OR city = 'Campbell'",

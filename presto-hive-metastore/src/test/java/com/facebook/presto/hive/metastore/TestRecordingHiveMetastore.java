@@ -65,7 +65,8 @@ public class TestRecordingHiveMetastore
     private static final Column TABLE_COLUMN = new Column(
             "column",
             HiveType.HIVE_INT,
-            Optional.of("comment"));
+            Optional.of("comment"),
+            Optional.empty());
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
             "location",
@@ -151,7 +152,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getPartition(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
         assertEquals(hiveMetastore.getPartitionNames(TEST_METASTORE_CONTEXT, "database", "table"), Optional.of(ImmutableList.of("value")));
         Map<Column, Domain> map = new HashMap<>();
-        Column column = new Column("column", HiveType.HIVE_STRING, Optional.empty());
+        Column column = new Column("column", HiveType.HIVE_STRING, Optional.empty(), Optional.empty());
         map.put(column, Domain.singleValue(VARCHAR, utf8Slice("value")));
         assertEquals(hiveMetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, "database", "table", map), ImmutableList.of("value"));
         assertEquals(hiveMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));

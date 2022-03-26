@@ -26,8 +26,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.USE_MARK_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static java.util.regex.Pattern.DOTALL;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -121,7 +125,10 @@ public abstract class AbstractTestVerboseMemoryExceededErrors
     private void assertMemoryExceededDetails(String sql, String expectedTopConsumerOperatorName, Optional<String> expectedTopConsumerOperatorInfo)
     {
         try {
-            getQueryRunner().execute(getSession(), sql);
+            getQueryRunner().execute(Session.builder(getSession())
+                    .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
+                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                    .build(), sql);
             fail("query expected to fail");
         }
         catch (RuntimeException e) {

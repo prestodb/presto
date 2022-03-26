@@ -25,8 +25,8 @@ session property, with the ``optimizer.join-reordering-strategy``
 configuration property providing the default value.
 
 The valid values are:
- * ``AUTOMATIC`` - full automatic join enumeration enabled
- * ``ELIMINATE_CROSS_JOINS`` (default) - eliminate unnecessary cross joins
+ * ``AUTOMATIC`` (default) - full automatic join enumeration enabled
+ * ``ELIMINATE_CROSS_JOINS`` - eliminate unnecessary cross joins
  * ``NONE`` - purely syntactic join order
 
 If using ``AUTOMATIC`` and statistics are not available, or if for any other
@@ -64,10 +64,10 @@ session property, with the ``join-distribution-type`` configuration
 property providing the default value.
 
 The valid values are:
- * ``AUTOMATIC`` - join distribution type is determined automatically
+ * ``AUTOMATIC`` (default) - join distribution type is determined automatically
    for each join
  * ``BROADCAST`` - broadcast join distribution is used for all joins
- * ``PARTITIONED`` (default) - partitioned join distribution is used for all join
+ * ``PARTITIONED`` - partitioned join distribution is used for all join
 
 Capping replicated table size
 -----------------------------

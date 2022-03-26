@@ -174,7 +174,7 @@ public abstract class AbstractTestJoinQueries
     }
 
     @Test
-    public void testJoinWithRangePredicatesinJoinClause()
+    public void testJoinWithRangePredicatesInJoinClause()
     {
         assertQuery("SELECT COUNT(*) " +
                 "FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem " +
@@ -559,7 +559,7 @@ public abstract class AbstractTestJoinQueries
     }
 
     @Test
-    public void testNonEqalityJoinWithScalarRequiringSessionParameter()
+    public void testNonEqualityJoinWithScalarRequiringSessionParameter()
     {
         assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND from_unixtime(b) > current_timestamp",
                 "VALUES (1, 1, NULL, NULL), (1, 2, NULL, NULL)");
@@ -910,6 +910,15 @@ public abstract class AbstractTestJoinQueries
                             condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
                     ".*IN with subquery predicate in join condition is not supported");
         }
+    }
+
+    @Test(enabled = false)
+    public void testOuterJoinWithExpression()
+    {
+        assertQuery("SELECT o.orderkey FROM orders o RIGHT JOIN lineitem l ON l.orderkey * 2 + 1 = o.orderkey");
+        assertQuery("SELECT o.orderkey FROM orders o RIGHT JOIN lineitem l ON l.orderkey * 5 - o.orderkey * 10 = 1");
+        assertQuery("SELECT o.orderkey FROM orders o LEFT JOIN lineitem l ON l.orderkey * 2 + 1 = o.orderkey");
+        assertQuery("SELECT o.orderkey FROM orders o LEFT JOIN lineitem l ON l.orderkey * 5 - o.orderkey * 10 = 1");
     }
 
     @Test
@@ -1628,7 +1637,7 @@ public abstract class AbstractTestJoinQueries
     }
 
     @Test
-    public void testUnionWithJoinOnNonTranslateableSymbols()
+    public void testUnionWithJoinOnNonTranslatableSymbols()
     {
         assertQuery("SELECT *\n" +
                 "FROM (SELECT orderdate ds, orderkey\n" +

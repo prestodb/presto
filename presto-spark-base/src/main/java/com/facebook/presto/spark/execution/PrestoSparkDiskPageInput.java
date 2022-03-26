@@ -16,6 +16,7 @@ package com.facebook.presto.spark.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.StageId;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spi.PrestoException;
@@ -61,6 +62,8 @@ public class PrestoSparkDiskPageInput
     private List<Iterator<Page>> pageIterators;
     @GuardedBy("this")
     private int currentIteratorIndex;
+    @GuardedBy("this")
+    private long stagingBroadcastTableSizeInBytes;
 
     public PrestoSparkDiskPageInput(
             PagesSerde pagesSerde,
@@ -81,15 +84,15 @@ public class PrestoSparkDiskPageInput
     }
 
     @Override
-    public Page getNextPage()
+    public Page getNextPage(UpdateMemory updateMemory)
     {
         Page page = null;
         synchronized (this) {
             while (page == null) {
-                if (currentIteratorIndex >= getPageIterators().size()) {
+                if (currentIteratorIndex >= getPageIterators(updateMemory).size()) {
                     return null;
                 }
-                Iterator<Page> currentIterator = getPageIterators().get(currentIteratorIndex);
+                Iterator<Page> currentIterator = getPageIterators(updateMemory).get(currentIteratorIndex);
                 if (currentIterator.hasNext()) {
                     page = currentIterator.next();
                 }
@@ -101,10 +104,10 @@ public class PrestoSparkDiskPageInput
         return page;
     }
 
-    private List<Iterator<Page>> getPageIterators()
+    private List<Iterator<Page>> getPageIterators(UpdateMemory updateMemory)
     {
         if (pageIterators == null) {
-            pageIterators = getPages(broadcastTableFilesInfo, tempStorage, tempDataOperationContext, prestoSparkBroadcastTableCacheManager, stageId, planNodeId);
+            pageIterators = getPages(broadcastTableFilesInfo, tempStorage, tempDataOperationContext, prestoSparkBroadcastTableCacheManager, stageId, planNodeId, updateMemory);
         }
         return pageIterators;
     }
@@ -115,32 +118,35 @@ public class PrestoSparkDiskPageInput
             TempDataOperationContext tempDataOperationContext,
             PrestoSparkBroadcastTableCacheManager prestoSparkBroadcastTableCacheManager,
             StageId stageId,
-            PlanNodeId planNodeId)
+            PlanNodeId planNodeId,
+            UpdateMemory updateMemory)
     {
         // Try to get table from cache
         List<List<Page>> pages = prestoSparkBroadcastTableCacheManager.getCachedBroadcastTable(stageId, planNodeId);
         if (pages == null) {
             pages = broadcastTableFilesInfo.stream()
-                    .map(tableFiles -> {
-                        List<SerializedPage> serializedPages = loadBroadcastTable(tableFiles, tempStorage, tempDataOperationContext);
-                        return serializedPages.stream().map(serializedPage -> pagesSerde.deserialize(serializedPage)).collect(toImmutableList());
-                    }).collect(toImmutableList());
+                    .map(tableFiles -> loadBroadcastTable(tableFiles, tempStorage, tempDataOperationContext, updateMemory))
+                    .collect(toImmutableList());
 
             // Cache deserialized pages
             prestoSparkBroadcastTableCacheManager.cache(stageId, planNodeId, pages);
+
+            // Reset staging table size
+            stagingBroadcastTableSizeInBytes = 0;
         }
 
         return pages.stream().map(List::iterator).collect(toImmutableList());
     }
 
-    private List<SerializedPage> loadBroadcastTable(
+    private List<Page> loadBroadcastTable(
             List<PrestoSparkStorageHandle> broadcastTaskFilesInfo,
             TempStorage tempStorage,
-            TempDataOperationContext tempDataOperationContext)
+            TempDataOperationContext tempDataOperationContext,
+            UpdateMemory updateMemory)
     {
         try {
             CRC32 checksum = new CRC32();
-            ImmutableList.Builder<SerializedPage> pages = ImmutableList.builder();
+            ImmutableList.Builder<Page> pages = ImmutableList.builder();
             List<PrestoSparkStorageHandle> broadcastTaskFilesInfoCopy = new ArrayList<>(broadcastTaskFilesInfo);
             shuffle(broadcastTaskFilesInfoCopy);
             for (PrestoSparkTaskOutput taskFileInfo : broadcastTaskFilesInfoCopy) {
@@ -152,10 +158,13 @@ public class PrestoSparkDiskPageInput
                         InputStreamSliceInput inputStreamSliceInput = new InputStreamSliceInput(inputStream)) {
                     Iterator<SerializedPage> pagesIterator = readSerializedPages(inputStreamSliceInput);
                     while (pagesIterator.hasNext()) {
-                        SerializedPage page = pagesIterator.next();
-                        checksum.update(page.getSlice().byteArray(), page.getSlice().byteArrayOffset(), page.getSlice().length());
-                        pages.add(page);
+                        SerializedPage serializedPage = pagesIterator.next();
+                        checksum.update(serializedPage.getSlice().byteArray(), serializedPage.getSlice().byteArrayOffset(), serializedPage.getSlice().length());
+                        Page deserializedPage = pagesSerde.deserialize(serializedPage);
+                        pages.add(deserializedPage);
+                        stagingBroadcastTableSizeInBytes += deserializedPage.getRetainedSizeInBytes();
                     }
+                    updateMemory.update();
                 }
 
                 if (checksum.getValue() != prestoSparkStorageHandle.getChecksum()) {
@@ -173,5 +182,10 @@ public class PrestoSparkDiskPageInput
     public long getRetainedSizeInBytes()
     {
         return prestoSparkBroadcastTableCacheManager.getBroadcastTableSizeInBytes(stageId, planNodeId);
+    }
+
+    public long getStagingBroadcastTableSizeInBytes()
+    {
+        return stagingBroadcastTableSizeInBytes;
     }
 }

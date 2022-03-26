@@ -27,7 +27,7 @@ public interface LocationFactory
     URI createLocalTaskLocation(TaskId taskId);
 
     /**
-     * TODO: this method is required since not not all RPC call is supported by thrift.
+     * TODO: this method is required since not all RPC calls are supported by thrift.
      *     It should be merged into {@code createTaskLocation} once full thrift support is in-place for v1/task
      */
     @Deprecated

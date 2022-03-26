@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -24,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,11 +38,12 @@ public class MetadataDeleteNode
 
     @JsonCreator
     public MetadataDeleteNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("target") TableHandle tableHandle,
             @JsonProperty("output") VariableReferenceExpression output)
     {
-        super(id);
+        super(sourceLocation, id);
 
         this.tableHandle = requireNonNull(tableHandle, "target is null");
         this.output = requireNonNull(output, "output is null");
@@ -79,6 +82,6 @@ public class MetadataDeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MetadataDeleteNode(getId(), tableHandle, output);
+        return new MetadataDeleteNode(getSourceLocation(), getId(), tableHandle, output);
     }
 }

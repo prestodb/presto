@@ -54,6 +54,7 @@ public class TestBasicQueryInfo
                         ImmutableList.of("2", "3"),
                         "SELECT 4",
                         Optional.empty(),
+                        Optional.empty(),
                         new QueryStats(
                                 DateTime.parse("1991-09-06T05:00-05:30"),
                                 DateTime.parse("1991-09-06T05:01-05:30"),
@@ -164,7 +165,7 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("23GB"));
         assertEquals(basicInfo.getQueryStats().getPeakTotalMemoryReservation(), DataSize.valueOf("24GB"));
         assertEquals(basicInfo.getQueryStats().getPeakTaskTotalMemoryReservation(), DataSize.valueOf("26GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakNodeTotalMemorReservation(), DataSize.valueOf("42GB"));
+        assertEquals(basicInfo.getQueryStats().getPeakNodeTotalMemoryReservation(), DataSize.valueOf("42GB"));
 
         assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), Duration.valueOf("24m"));
 

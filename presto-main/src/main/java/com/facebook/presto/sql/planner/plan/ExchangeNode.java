@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -93,6 +94,7 @@ public class ExchangeNode
 
     @JsonCreator
     public ExchangeNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
             @JsonProperty("scope") Scope scope,
@@ -102,7 +104,7 @@ public class ExchangeNode
             @JsonProperty("ensureSourceOrdering") boolean ensureSourceOrdering,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme)
     {
-        super(id);
+        super(sourceLocation, id);
 
         requireNonNull(type, "type is null");
         requireNonNull(scope, "scope is null");
@@ -181,6 +183,7 @@ public class ExchangeNode
             return gatheringExchange(id, scope, child);
         }
         return new ExchangeNode(
+                child.getSourceLocation(),
                 id,
                 REPARTITION,
                 scope,
@@ -194,6 +197,7 @@ public class ExchangeNode
     public static ExchangeNode replicatedExchange(PlanNodeId id, Scope scope, PlanNode child)
     {
         return new ExchangeNode(
+                child.getSourceLocation(),
                 id,
                 REPLICATE,
                 scope,
@@ -217,6 +221,7 @@ public class ExchangeNode
     private static ExchangeNode gatheringExchange(PlanNodeId id, Scope scope, PlanNode child, boolean ensureSourceOrdering)
     {
         return new ExchangeNode(
+                child.getSourceLocation(),
                 id,
                 GATHER,
                 scope,
@@ -240,6 +245,7 @@ public class ExchangeNode
     {
         PartitioningHandle partitioningHandle = scope.isLocal() ? FIXED_PASSTHROUGH_DISTRIBUTION : SINGLE_DISTRIBUTION;
         return new ExchangeNode(
+                child.getSourceLocation(),
                 id,
                 GATHER,
                 scope,
@@ -308,6 +314,6 @@ public class ExchangeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExchangeNode(getId(), type, scope, partitioningScheme, newChildren, inputs, ensureSourceOrdering, orderingScheme);
+        return new ExchangeNode(getSourceLocation(), getId(), type, scope, partitioningScheme, newChildren, inputs, ensureSourceOrdering, orderingScheme);
     }
 }

@@ -62,7 +62,7 @@ public class TestLocalDynamicFilter
             throws ExecutionException, InterruptedException
     {
         LocalDynamicFilter filter = new LocalDynamicFilter(
-                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression("a", INTEGER), EQUAL)),
+                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression(Optional.empty(), "a", INTEGER), EQUAL)),
                 ImmutableMap.of("123", 0),
                 1);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of("123", 0));
@@ -75,7 +75,7 @@ public class TestLocalDynamicFilter
         assertEquals(
                 result.get(),
                 TupleDomain.withColumnDomains(
-                        ImmutableMap.of(new VariableReferenceExpression("a", INTEGER), Domain.singleValue(INTEGER, 7L))));
+                        ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "a", INTEGER), Domain.singleValue(INTEGER, 7L))));
     }
 
     @Test
@@ -83,7 +83,7 @@ public class TestLocalDynamicFilter
             throws ExecutionException, InterruptedException
     {
         LocalDynamicFilter filter = new LocalDynamicFilter(
-                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression("a1", INTEGER), EQUAL), "123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression("a2", INTEGER), EQUAL)),
+                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression(Optional.empty(), "a1", INTEGER), EQUAL), "123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression(Optional.empty(), "a2", INTEGER), EQUAL)),
                 ImmutableMap.of("123", 0),
                 1);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of("123", 0));
@@ -94,8 +94,8 @@ public class TestLocalDynamicFilter
         consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 "123", Domain.singleValue(INTEGER, 7L))));
         assertEquals(result.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
-                new VariableReferenceExpression("a1", INTEGER), Domain.singleValue(INTEGER, 7L),
-                new VariableReferenceExpression("a2", INTEGER), Domain.singleValue(INTEGER, 7L))));
+                new VariableReferenceExpression(Optional.empty(), "a1", INTEGER), Domain.singleValue(INTEGER, 7L),
+                new VariableReferenceExpression(Optional.empty(), "a2", INTEGER), Domain.singleValue(INTEGER, 7L))));
     }
 
     @Test
@@ -103,7 +103,7 @@ public class TestLocalDynamicFilter
             throws ExecutionException, InterruptedException
     {
         LocalDynamicFilter filter = new LocalDynamicFilter(
-                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression("a", INTEGER), EQUAL)),
+                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression(Optional.empty(), "a", INTEGER), EQUAL)),
                 ImmutableMap.of("123", 0),
                 2);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of("123", 0));
@@ -119,7 +119,7 @@ public class TestLocalDynamicFilter
                 "123", Domain.singleValue(INTEGER, 20L))));
 
         assertEquals(result.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
-                new VariableReferenceExpression("a", INTEGER), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)))));
+                new VariableReferenceExpression(Optional.empty(), "a", INTEGER), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)))));
     }
 
     @Test
@@ -127,7 +127,7 @@ public class TestLocalDynamicFilter
             throws ExecutionException, InterruptedException
     {
         LocalDynamicFilter filter = new LocalDynamicFilter(
-                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression("a", INTEGER), EQUAL)),
+                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression(Optional.empty(), "a", INTEGER), EQUAL)),
                 ImmutableMap.of("123", 0),
                 1);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of("123", 0));
@@ -139,7 +139,7 @@ public class TestLocalDynamicFilter
                 "123", Domain.none(INTEGER))));
 
         assertEquals(result.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
-                new VariableReferenceExpression("a", INTEGER), Domain.none(INTEGER))));
+                new VariableReferenceExpression(Optional.empty(), "a", INTEGER), Domain.none(INTEGER))));
     }
 
     @Test
@@ -147,7 +147,7 @@ public class TestLocalDynamicFilter
             throws ExecutionException, InterruptedException
     {
         LocalDynamicFilter filter = new LocalDynamicFilter(
-                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression("a", INTEGER), EQUAL), "456", new DynamicFilterPlaceholder("456", new VariableReferenceExpression("b", INTEGER), EQUAL)),
+                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression(Optional.empty(), "a", INTEGER), EQUAL), "456", new DynamicFilterPlaceholder("456", new VariableReferenceExpression(Optional.empty(), "b", INTEGER), EQUAL)),
                 ImmutableMap.of("123", 0, "456", 1),
                 1);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of("123", 0, "456", 1));
@@ -159,8 +159,8 @@ public class TestLocalDynamicFilter
                 "123", Domain.singleValue(INTEGER, 10L),
                 "456", Domain.singleValue(INTEGER, 20L))));
         assertEquals(result.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
-                new VariableReferenceExpression("a", INTEGER), Domain.singleValue(INTEGER, 10L),
-                new VariableReferenceExpression("b", INTEGER), Domain.singleValue(INTEGER, 20L))));
+                new VariableReferenceExpression(Optional.empty(), "a", INTEGER), Domain.singleValue(INTEGER, 10L),
+                new VariableReferenceExpression(Optional.empty(), "b", INTEGER), Domain.singleValue(INTEGER, 20L))));
     }
 
     @Test
@@ -168,7 +168,7 @@ public class TestLocalDynamicFilter
             throws ExecutionException, InterruptedException
     {
         LocalDynamicFilter filter = new LocalDynamicFilter(
-                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression("a", INTEGER), EQUAL), "456", new DynamicFilterPlaceholder("456", new VariableReferenceExpression("b", BIGINT), EQUAL)),
+                ImmutableMultimap.of("123", new DynamicFilterPlaceholder("123", new VariableReferenceExpression(Optional.empty(), "a", INTEGER), EQUAL), "456", new DynamicFilterPlaceholder("456", new VariableReferenceExpression(Optional.empty(), "b", BIGINT), EQUAL)),
                 ImmutableMap.of("123", 0, "456", 1),
                 2);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of("123", 0, "456", 1));
@@ -186,8 +186,8 @@ public class TestLocalDynamicFilter
                 "456", Domain.singleValue(BIGINT, 200L))));
 
         assertEquals(result.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
-                new VariableReferenceExpression("a", INTEGER), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)),
-                new VariableReferenceExpression("b", BIGINT), Domain.multipleValues(BIGINT, ImmutableList.of(100L, 200L)))));
+                new VariableReferenceExpression(Optional.empty(), "a", INTEGER), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)),
+                new VariableReferenceExpression(Optional.empty(), "b", BIGINT), Domain.multipleValues(BIGINT, ImmutableList.of(100L, 200L)))));
     }
 
     @Test
@@ -250,8 +250,8 @@ public class TestLocalDynamicFilter
                 filterIds.get(1), Domain.singleValue(BIGINT, 5L))));
 
         TupleDomain<VariableReferenceExpression> expected = TupleDomain.withColumnDomains(ImmutableMap.of(
-                new VariableReferenceExpression("partkey", BIGINT), Domain.singleValue(BIGINT, 4L),
-                new VariableReferenceExpression("suppkey", BIGINT), Domain.singleValue(BIGINT, 5L)));
+                new VariableReferenceExpression(Optional.empty(), "partkey", BIGINT), Domain.singleValue(BIGINT, 4L),
+                new VariableReferenceExpression(Optional.empty(), "suppkey", BIGINT), Domain.singleValue(BIGINT, 5L)));
         assertEquals(filter.getResultFuture().get(), expected);
     }
 
@@ -297,8 +297,8 @@ public class TestLocalDynamicFilter
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterId, Domain.singleValue(BIGINT, 7L))));
         TupleDomain<VariableReferenceExpression> expected = TupleDomain.withColumnDomains(ImmutableMap.of(
-                new VariableReferenceExpression("partkey", BIGINT), Domain.singleValue(BIGINT, 7L),
-                new VariableReferenceExpression("suppkey", BIGINT), Domain.singleValue(BIGINT, 7L)));
+                new VariableReferenceExpression(Optional.empty(), "partkey", BIGINT), Domain.singleValue(BIGINT, 7L),
+                new VariableReferenceExpression(Optional.empty(), "suppkey", BIGINT), Domain.singleValue(BIGINT, 7L)));
         assertEquals(filter.getResultFuture().get(), expected);
     }
 

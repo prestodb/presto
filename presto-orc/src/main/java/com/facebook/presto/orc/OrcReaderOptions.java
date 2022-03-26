@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import io.airlift.units.DataSize;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class OrcReaderOptions
@@ -25,10 +26,24 @@ public class OrcReaderOptions
     private final boolean zstdJniDecompressionEnabled;
     private final boolean mapNullKeysEnabled;
     private final boolean enableTimestampMicroPrecision;
+    // if the option is set to true, OrcSelectiveReader will append a row number block at the end of the page
+    private final boolean appendRowNumber;
 
-    public OrcReaderOptions(DataSize maxMergeDistance, DataSize tinyStripeThreshold, DataSize maxBlockSize, boolean zstdJniDecompressionEnabled)
+    public OrcReaderOptions(DataSize maxMergeDistance,
+            DataSize tinyStripeThreshold,
+            DataSize maxBlockSize,
+            boolean zstdJniDecompressionEnabled)
     {
-        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, false);
+        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, false, false);
+    }
+
+    public OrcReaderOptions(DataSize maxMergeDistance,
+            DataSize tinyStripeThreshold,
+            DataSize maxBlockSize,
+            boolean zstdJniDecompressionEnabled,
+            boolean appendRowNumber)
+    {
+        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, false, appendRowNumber);
     }
 
     public OrcReaderOptions(
@@ -37,7 +52,8 @@ public class OrcReaderOptions
             DataSize maxBlockSize,
             boolean zstdJniDecompressionEnabled,
             boolean mapNullKeysEnabled,
-            boolean enableTimestampMicroPrecision)
+            boolean enableTimestampMicroPrecision,
+            boolean appendRowNumber)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
@@ -45,6 +61,7 @@ public class OrcReaderOptions
         this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
         this.mapNullKeysEnabled = mapNullKeysEnabled;
         this.enableTimestampMicroPrecision = enableTimestampMicroPrecision;
+        this.appendRowNumber = appendRowNumber;
     }
 
     public DataSize getMaxMergeDistance()
@@ -75,5 +92,96 @@ public class OrcReaderOptions
     public boolean enableTimestampMicroPrecision()
     {
         return enableTimestampMicroPrecision;
+    }
+
+    public boolean appendRowNumber()
+    {
+        return appendRowNumber;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("maxMergeDistance", maxMergeDistance)
+                .add("tinyStripeThreshold", tinyStripeThreshold)
+                .add("maxBlockSize", maxBlockSize)
+                .add("zstdJniDecompressionEnabled", zstdJniDecompressionEnabled)
+                .add("mapNullKeysEnabled", mapNullKeysEnabled)
+                .add("enableTimestampMicroPrecision", enableTimestampMicroPrecision)
+                .add("appendRowNumber", appendRowNumber)
+                .toString();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private DataSize maxMergeDistance;
+        private DataSize tinyStripeThreshold;
+        private DataSize maxBlockSize;
+        private boolean zstdJniDecompressionEnabled;
+        private boolean mapNullKeysEnabled;
+        private boolean enableTimestampMicroPrecision;
+        private boolean appendRowNumber;
+
+        private Builder() {}
+
+        public Builder withMaxMergeDistance(DataSize maxMergeDistance)
+        {
+            this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
+            return this;
+        }
+
+        public Builder withTinyStripeThreshold(DataSize tinyStripeThreshold)
+        {
+            this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
+            return this;
+        }
+
+        public Builder withMaxBlockSize(DataSize maxBlockSize)
+        {
+            this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
+            return this;
+        }
+
+        public Builder withZstdJniDecompressionEnabled(boolean zstdJniDecompressionEnabled)
+        {
+            this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
+            return this;
+        }
+
+        public Builder withMapNullKeysEnabled(boolean mapNullKeysEnabled)
+        {
+            this.mapNullKeysEnabled = mapNullKeysEnabled;
+            return this;
+        }
+
+        public Builder withEnableTimestampMicroPrecision(boolean enableTimestampMicroPrecision)
+        {
+            this.enableTimestampMicroPrecision = enableTimestampMicroPrecision;
+            return this;
+        }
+
+        public Builder withAppendRowNumber(boolean appendRowNumber)
+        {
+            this.appendRowNumber = appendRowNumber;
+            return this;
+        }
+
+        public OrcReaderOptions build()
+        {
+            return new OrcReaderOptions(
+                    maxMergeDistance,
+                    tinyStripeThreshold,
+                    maxBlockSize,
+                    zstdJniDecompressionEnabled,
+                    mapNullKeysEnabled,
+                    enableTimestampMicroPrecision,
+                    appendRowNumber);
+        }
     }
 }

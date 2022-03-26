@@ -318,6 +318,7 @@ public class ExtractSpatialJoins
             if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
                 newRadiusVariable = newRadiusVariable(context, radius);
                 newComparison = new CallExpression(
+                        spatialComparison.getSourceLocation(),
                         spatialComparison.getDisplayName(),
                         spatialComparison.getFunctionHandle(),
                         spatialComparison.getType(),
@@ -336,6 +337,7 @@ public class ExtractSpatialJoins
                 OperatorType flippedOperatorType = flip(spatialComparisonMetadata.getOperatorType().get());
                 FunctionHandle flippedHandle = getFlippedFunctionHandle(spatialComparison, metadata.getFunctionAndTypeManager());
                 newComparison = new CallExpression(
+                        spatialComparison.getSourceLocation(),
                         flippedOperatorType.getOperator(), // TODO verify if this is the correct function displayName
                         flippedHandle,
                         spatialComparison.getType(),
@@ -350,6 +352,7 @@ public class ExtractSpatialJoins
         PlanNode newRightNode = newRadiusVariable.map(variable -> addProjection(context, rightNode, variable, radius)).orElse(rightNode);
 
         JoinNode newJoinNode = new JoinNode(
+                joinNode.getSourceLocation(),
                 joinNode.getId(),
                 joinNode.getType(),
                 leftNode,
@@ -435,8 +438,8 @@ public class ExtractSpatialJoins
         Optional<VariableReferenceExpression> leftPartitionVariable = Optional.empty();
         Optional<VariableReferenceExpression> rightPartitionVariable = Optional.empty();
         if (kdbTree.isPresent()) {
-            leftPartitionVariable = Optional.of(context.getVariableAllocator().newVariable("pid", INTEGER));
-            rightPartitionVariable = Optional.of(context.getVariableAllocator().newVariable("pid", INTEGER));
+            leftPartitionVariable = Optional.of(context.getVariableAllocator().newVariable(newFirstArgument.getSourceLocation(), "pid", INTEGER));
+            rightPartitionVariable = Optional.of(context.getVariableAllocator().newVariable(newSecondArgument.getSourceLocation(), "pid", INTEGER));
 
             if (alignment > 0) {
                 newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
@@ -448,10 +451,11 @@ public class ExtractSpatialJoins
             }
         }
 
-        CallExpression newSpatialFunction = new CallExpression(spatialFunction.getDisplayName(), spatialFunction.getFunctionHandle(), spatialFunction.getType(), ImmutableList.of(newFirstArgument, newSecondArgument));
+        CallExpression newSpatialFunction = new CallExpression(spatialFunction.getSourceLocation(), spatialFunction.getDisplayName(), spatialFunction.getFunctionHandle(), spatialFunction.getType(), ImmutableList.of(newFirstArgument, newSecondArgument));
         RowExpression newFilter = RowExpressionNodeInliner.replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
 
         return Result.ofPlanNode(new SpatialJoinNode(
+                joinNode.getSourceLocation(),
                 nodeId,
                 SpatialJoinNode.Type.fromJoinNodeType(joinNode.getType()),
                 newLeftNode,
@@ -645,7 +649,7 @@ public class ExtractSpatialJoins
         }
 
         projections.put(variable, expression);
-        return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build(), LOCAL);
+        return new ProjectNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), node, projections.build(), LOCAL);
     }
 
     private static PlanNode addPartitioningNodes(Context context, FunctionAndTypeManager functionAndTypeManager, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, RowExpression geometry, Optional<RowExpression> radius)
@@ -655,10 +659,10 @@ public class ExtractSpatialJoins
             projections.put(outputVariable, outputVariable);
         }
 
-        FunctionHandle castFunctionHandle = functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), KDB_TREE.getTypeSignature());
+        FunctionHandle castFunctionHandle = functionAndTypeManager.lookupCast(CAST, VARCHAR, KDB_TREE);
 
         ImmutableList.Builder partitioningArgumentsBuilder = ImmutableList.builder()
-                .add(new CallExpression(CAST.name(), castFunctionHandle, KDB_TREE, ImmutableList.of(Expressions.constant(utf8Slice(KdbTreeUtils.toJson(kdbTree)), VARCHAR))))
+                .add(new CallExpression(partitionVariable.getSourceLocation(), CAST.name(), castFunctionHandle, KDB_TREE, ImmutableList.of(Expressions.constant(utf8Slice(KdbTreeUtils.toJson(kdbTree)), VARCHAR))))
                 .add(geometry);
         radius.map(partitioningArgumentsBuilder::add);
         List<RowExpression> partitioningArguments = partitioningArgumentsBuilder.build();
@@ -669,13 +673,14 @@ public class ExtractSpatialJoins
                 fromTypes(partitioningArguments.stream()
                         .map(RowExpression::getType).collect(toImmutableList())));
 
-        CallExpression partitioningFunction = new CallExpression(spatialPartitionsFunctionName, functionHandle, new ArrayType(INTEGER), partitioningArguments);
+        CallExpression partitioningFunction = new CallExpression(partitionVariable.getSourceLocation(), spatialPartitionsFunctionName, functionHandle, new ArrayType(INTEGER), partitioningArguments);
         VariableReferenceExpression partitionsVariable = context.getVariableAllocator().newVariable(partitioningFunction);
         projections.put(partitionsVariable, partitioningFunction);
 
         return new UnnestNode(
+                node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
-                new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build(), LOCAL),
+                new ProjectNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), node, projections.build(), LOCAL),
                 node.getOutputVariables(),
                 ImmutableMap.of(partitionsVariable, ImmutableList.of(partitionVariable)),
                 Optional.empty());

@@ -48,15 +48,7 @@ public interface PositionLinks
 
         Factory build();
 
-        /**
-         * @return number of linked elements
-         */
-        int size();
-
-        default boolean isEmpty()
-        {
-            return size() == 0;
-        }
+        boolean isEmpty();
     }
 
     interface Factory

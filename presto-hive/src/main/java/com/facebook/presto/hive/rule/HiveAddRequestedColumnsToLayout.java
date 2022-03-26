@@ -93,6 +93,7 @@ public class HiveAddRequestedColumnsToLayout
                     hiveLayout.isPartialAggregationsPushedDown());
 
             return new TableScanNode(
+                    tableScan.getSourceLocation(),
                     tableScan.getId(),
                     new TableHandle(
                             tableScan.getTable().getConnectorId(),

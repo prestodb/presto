@@ -20,6 +20,7 @@ import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
+import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfWriterEncryption;
 import com.facebook.presto.orc.OrcDataSource;
@@ -59,7 +60,8 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
-import static com.facebook.presto.hive.HiveSessionProperties.getDwrfWriterStripeCacheeMaxSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getCompressionLevel;
+import static com.facebook.presto.hive.HiveSessionProperties.getDwrfWriterStripeCacheMaxSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
@@ -224,14 +226,17 @@ public class OrcFileWriterFactory
                     compression,
                     orcFileWriterConfig
                             .toOrcWriterOptionsBuilder()
-                            .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
-                            .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
-                            .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
+                            .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                                    .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
+                                    .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
+                                    .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
+                                    .build())
                             .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
                             .withIgnoreDictionaryRowGroupSizes(isExecutionBasedMemoryAccountingEnabled(session))
                             .withDwrfStripeCacheEnabled(isDwrfWriterStripeCacheEnabled(session))
-                            .withDwrfStripeCacheMaxSize(getDwrfWriterStripeCacheeMaxSize(session))
+                            .withDwrfStripeCacheMaxSize(getDwrfWriterStripeCacheMaxSize(session))
+                            .withCompressionLevel(getCompressionLevel(session))
                             .build(),
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()

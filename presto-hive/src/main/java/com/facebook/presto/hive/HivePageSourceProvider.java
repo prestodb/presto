@@ -69,8 +69,10 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseRecordPageSourceForCustomSplit;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
+import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
@@ -408,6 +410,38 @@ public class HivePageSourceProvider
 
         Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber, ColumnMapping::getIndex));
 
+        if (isUseRecordPageSourceForCustomSplit(session) && shouldUseRecordReaderFromInputFormat(configuration, storage, customSplitInfo)) {
+            return getPageSourceFromCursorProvider(
+                    cursorProviders,
+                    configuration,
+                    session,
+                    path,
+                    start,
+                    length,
+                    fileSize,
+                    storage,
+                    effectivePredicate,
+                    hiveColumns,
+                    hiveStorageTimeZone,
+                    typeManager,
+                    tableName,
+                    partitionKeyColumnHandles,
+                    tableDataColumns,
+                    tableParameters,
+                    partitionDataColumnCount,
+                    tableToPartitionMapping,
+                    s3SelectPushdownEnabled,
+                    remainingPredicate,
+                    isPushdownFilterEnabled,
+                    rowExpressionService,
+                    customSplitInfo,
+                    allColumns,
+                    columnMappings,
+                    outputIndices,
+                    regularAndInterimColumnMappings,
+                    bucketAdaptation);
+        }
+
         for (HiveBatchPageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
@@ -447,6 +481,67 @@ public class HivePageSourceProvider
             }
         }
 
+        return getPageSourceFromCursorProvider(
+                cursorProviders,
+                configuration,
+                session,
+                path,
+                start,
+                length,
+                fileSize,
+                storage,
+                effectivePredicate,
+                hiveColumns,
+                hiveStorageTimeZone,
+                typeManager,
+                tableName,
+                partitionKeyColumnHandles,
+                tableDataColumns,
+                tableParameters,
+                partitionDataColumnCount,
+                tableToPartitionMapping,
+                s3SelectPushdownEnabled,
+                remainingPredicate,
+                isPushdownFilterEnabled,
+                rowExpressionService,
+                customSplitInfo,
+                allColumns,
+                columnMappings,
+                outputIndices,
+                regularAndInterimColumnMappings,
+                bucketAdaptation);
+    }
+
+    private static Optional<ConnectorPageSource> getPageSourceFromCursorProvider(
+            Set<HiveRecordCursorProvider> cursorProviders,
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            long fileSize,
+            Storage storage,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            List<HiveColumnHandle> hiveColumns,
+            DateTimeZone hiveStorageTimeZone,
+            TypeManager typeManager,
+            SchemaTableName tableName,
+            List<HiveColumnHandle> partitionKeyColumnHandles,
+            List<Column> tableDataColumns,
+            Map<String, String> tableParameters,
+            int partitionDataColumnCount,
+            TableToPartitionMapping tableToPartitionMapping,
+            boolean s3SelectPushdownEnabled,
+            RowExpression remainingPredicate,
+            boolean isPushdownFilterEnabled,
+            RowExpressionService rowExpressionService,
+            Map<String, String> customSplitInfo,
+            List<HiveColumnHandle> allColumns,
+            List<ColumnMapping> columnMappings,
+            Set<Integer> outputIndices,
+            List<ColumnMapping> regularAndInterimColumnMappings,
+            Optional<BucketAdaptation> bucketAdaptation)
+    {
         if (!hiveColumns.isEmpty() && hiveColumns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
             throw new UnsupportedOperationException("Partial aggregation pushdown only supported for ORC/Parquet files. " +
                     "Table " + tableName.toString() + " has file (" + path.toString() + ") of format " + storage.getStorageFormat().getOutputFormat() +
@@ -462,9 +557,6 @@ public class HivePageSourceProvider
                     partitionDataColumnCount,
                     tableToPartitionMapping.getPartitionSchemaDifference(),
                     tableToPartitionMapping.getTableToPartitionColumns());
-            List<Column> partitionKeyColumns = partitionKeyColumnHandles.stream()
-                    .map(handle -> new Column(handle.getName(), handle.getHiveType(), handle.getComment()))
-                    .collect(toImmutableList());
 
             Properties schema = getHiveSchema(
                     storage,
@@ -473,7 +565,8 @@ public class HivePageSourceProvider
                     tableParameters,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
-                    partitionKeyColumns);
+                    partitionKeyColumnHandles.stream().map(column -> column.getName()).collect(toImmutableList()),
+                    partitionKeyColumnHandles.stream().map(column -> column.getHiveType()).collect(toImmutableList()));
 
             Optional<RecordCursor> cursor = provider.createRecordCursor(
                     configuration,

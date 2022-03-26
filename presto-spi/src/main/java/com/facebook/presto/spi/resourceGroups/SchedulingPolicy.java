@@ -13,10 +13,27 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
+@ThriftEnum
 public enum SchedulingPolicy
 {
-    FAIR,
-    WEIGHTED,
-    WEIGHTED_FAIR,
-    QUERY_PRIORITY
+    FAIR(0),
+    WEIGHTED(1),
+    WEIGHTED_FAIR(2),
+    QUERY_PRIORITY(3);
+
+    private final int value;
+
+    SchedulingPolicy(int value)
+    {
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
+    }
 }

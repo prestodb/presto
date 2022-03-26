@@ -152,11 +152,11 @@ public class TestMapTransformKeyFunction
         assertFunction(
                 "transform_keys(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY ['abc', 'def', 'xyz']), (k, v) -> CAST(k AS VARCHAR) || substr(v, 1, 1))",
                 mapType(VARCHAR, createVarcharType(3)),
-                ImmutableMap.of("25.5a", "abc", "26.5d", "def", "27.5x", "xyz"));
+                ImmutableMap.of("2.55E1a", "abc", "2.65E1d", "def", "2.75E1x", "xyz"));
         assertFunction(
                 "transform_keys(map(ARRAY [25.5E0, 26.5E0], ARRAY [ARRAY ['a'], ARRAY ['b']]), (k, v) -> ARRAY [CAST(k AS VARCHAR)] || v)",
                 mapType(new ArrayType(VARCHAR), new ArrayType(createVarcharType(1))),
-                ImmutableMap.of(ImmutableList.of("25.5", "a"), ImmutableList.of("a"), ImmutableList.of("26.5", "b"), ImmutableList.of("b")));
+                ImmutableMap.of(ImmutableList.of("2.55E1", "a"), ImmutableList.of("a"), ImmutableList.of("2.65E1", "b"), ImmutableList.of("b")));
 
         assertFunction(
                 "transform_keys(map(ARRAY [true, false], ARRAY [25, 26]), (k, v) -> if(k, 2 * v, 3 * v))",

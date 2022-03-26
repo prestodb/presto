@@ -24,12 +24,16 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.MaterializedViewColumnMappingExtractor;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -43,8 +47,8 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.sql.MaterializedViewUtils.computeMaterializedViewToBaseTableColumnMappings;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
+import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -53,7 +57,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 public class CreateMaterializedViewTask
-        implements DataDefinitionTask<CreateMaterializedView>
+        implements DDLDefinitionTask<CreateMaterializedView>
 {
     private final SqlParser sqlParser;
 
@@ -70,9 +74,8 @@ public class CreateMaterializedViewTask
     }
 
     @Override
-    public ListenableFuture<?> execute(CreateMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(CreateMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
 
         Optional<TableHandle> viewHandle = metadata.getTableHandle(session, viewName);
@@ -86,7 +89,8 @@ public class CreateMaterializedViewTask
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
         accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
 
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, stateMachine.getWarningCollector());
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, warningCollector);
         Analysis analysis = analyzer.analyze(statement);
 
         ConnectorId connectorId = metadata.getCatalogHandle(session, viewName.getCatalogName())
@@ -103,7 +107,7 @@ public class CreateMaterializedViewTask
                 sqlProperties,
                 session,
                 metadata,
-                parameters);
+                parameterLookup);
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
                 toSchemaTableName(viewName),
@@ -128,13 +132,16 @@ public class CreateMaterializedViewTask
                 .distinct()
                 .collect(toImmutableList());
 
+        MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session);
         ConnectorMaterializedViewDefinition viewDefinition = new ConnectorMaterializedViewDefinition(
                 sql,
                 viewName.getSchemaName(),
                 viewName.getObjectName(),
                 baseTables,
                 Optional.of(session.getUser()),
-                computeMaterializedViewToBaseTableColumnMappings(analysis),
+                extractor.getMaterializedViewColumnMappings(),
+                extractor.getMaterializedViewDirectColumnMappings(),
+                extractor.getBaseTablesOnOuterJoinSide(),
                 Optional.empty());
         try {
             metadata.createMaterializedView(session, viewName.getCatalogName(), viewMetadata, viewDefinition, statement.isNotExists());

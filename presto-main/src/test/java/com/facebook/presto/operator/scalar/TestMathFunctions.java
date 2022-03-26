@@ -694,6 +694,22 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testSecureRandom()
+    {
+        // secure_random is non-deterministic
+        functionAssertions.tryEvaluateWithAll("secure_rand()", DOUBLE, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random()", DOUBLE, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random(0, 1000)", INTEGER, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random(0, 3000000000)", BIGINT, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random(-3000000000, -1)", BIGINT, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_rand(-3000000000, 3000000000)", BIGINT, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random(DECIMAL '0.0', DECIMAL '1.0')", DOUBLE, TEST_SESSION);
+
+        assertInvalidFunction("secure_random(1, 1)", "upper bound must be greater than lower bound");
+        assertInvalidFunction("secure_random(DECIMAL '5.0', DECIMAL '-5.0')", "upper bound must be greater than lower bound");
+    }
+
+    @Test
     public void testRound()
     {
         assertFunction("round(TINYINT '3')", TINYINT, (byte) 3);

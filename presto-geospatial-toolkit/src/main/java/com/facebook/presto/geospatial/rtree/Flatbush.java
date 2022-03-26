@@ -65,7 +65,7 @@ import static java.util.Objects.requireNonNull;
  * matter.  This could be done with quicksort, stopping once all items at index
  * `n * degree` are correctly placed.
  * <p>
- * Original implementation in Javascript: https://github.com/mourner/flatbush
+ * Original implementation in JavaScript: https://github.com/mourner/flatbush
  */
 public class Flatbush<T extends HasExtent>
 {

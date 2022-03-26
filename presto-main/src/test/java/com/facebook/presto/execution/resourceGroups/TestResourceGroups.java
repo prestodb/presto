@@ -51,6 +51,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.reverse;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -923,7 +924,12 @@ public class TestResourceGroups
         int existingCount = existingQueries.size();
         Set<MockManagedQueryExecution> queries = new HashSet<>(existingQueries);
         for (int i = 0; i < count - existingCount; i++) {
-            MockManagedQueryExecution query = new MockManagedQueryExecution(0, group.getId().toString().replace(".", "") + Integer.toString(i), queryPriority ? i + 1 : 1);
+            MockManagedQueryExecution query = new MockManagedQueryExecution(
+                    0,
+                    group.getId().toString().replace(".", "") + Integer.toString(i),
+                    queryPriority ? i + 1 : 1,
+                    new Duration(0, MILLISECONDS),
+                    group.getId());
             queries.add(query);
             group.run(query);
         }

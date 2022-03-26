@@ -240,7 +240,7 @@ public class TestJdbcComputePushdown
 
     private static VariableReferenceExpression newVariable(String name, Type type)
     {
-        return new VariableReferenceExpression(name, type);
+        return new VariableReferenceExpression(Optional.empty(), name, type);
     }
 
     private static JdbcColumnHandle integerJdbcColumnHandle(String name)

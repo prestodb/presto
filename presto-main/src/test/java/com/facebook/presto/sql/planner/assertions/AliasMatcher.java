@@ -18,10 +18,10 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +57,7 @@ public class AliasMatcher
     {
         Optional<VariableReferenceExpression> variable = matcher.getAssignedVariable(node, session, metadata, symbolAliases);
         if (variable.isPresent() && alias.isPresent()) {
-            return match(alias.get(), new SymbolReference(variable.get().getName()));
+            return match(alias.get(), createSymbolReference(variable.get()));
         }
         return new MatchResult(variable.isPresent());
     }

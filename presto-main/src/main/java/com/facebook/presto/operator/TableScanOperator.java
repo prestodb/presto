@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
@@ -38,6 +39,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_DATA_BYTES;
+import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_TIME_NANOS;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -272,10 +275,16 @@ public class TableScanOperator
         long endCompletedPositions = source.getCompletedPositions();
         long endReadTimeNanos = source.getReadTimeNanos();
         long inputBytes = endCompletedBytes - completedBytes;
+        long inputBytesReadTime = endReadTimeNanos - readTimeNanos;
         long positionCount = endCompletedPositions - completedPositions;
         operatorContext.recordProcessedInput(inputBytes, positionCount);
-        operatorContext.recordRawInputWithTiming(inputBytes, positionCount, endReadTimeNanos - readTimeNanos);
-        operatorContext.updateStats(source.getRuntimeStats());
+        operatorContext.recordRawInputWithTiming(inputBytes, positionCount, inputBytesReadTime);
+        RuntimeStats runtimeStats = source.getRuntimeStats();
+        if (runtimeStats != null) {
+            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_TIME_NANOS, inputBytesReadTime);
+            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_DATA_BYTES, inputBytes);
+            operatorContext.updateStats(runtimeStats);
+        }
         completedBytes = endCompletedBytes;
         completedPositions = endCompletedPositions;
         readTimeNanos = endReadTimeNanos;

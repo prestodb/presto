@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -39,13 +40,15 @@ public final class MarkDistinctNode
     private final List<VariableReferenceExpression> output;
 
     @JsonCreator
-    public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
+    public MarkDistinctNode(
+            Optional<SourceLocation> sourceLocation,
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("markerVariable") VariableReferenceExpression markerVariable,
             @JsonProperty("distinctVariables") List<VariableReferenceExpression> distinctVariables,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
-        super(id);
+        super(sourceLocation, id);
         this.source = source;
         this.markerVariable = markerVariable;
         this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
@@ -103,7 +106,7 @@ public final class MarkDistinctNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
-        return new MarkDistinctNode(getId(), newChildren.get(0), markerVariable, distinctVariables, hashVariable);
+        return new MarkDistinctNode(getSourceLocation(), getId(), newChildren.get(0), markerVariable, distinctVariables, hashVariable);
     }
 
     private static void checkArgument(boolean condition, String message)

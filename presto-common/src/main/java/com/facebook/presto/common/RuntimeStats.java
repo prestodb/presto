@@ -84,6 +84,14 @@ public class RuntimeStats
         metrics.computeIfAbsent(name, RuntimeMetric::new).addValue(value);
     }
 
+    public void addMetricValueIgnoreZero(String name, long value)
+    {
+        if (value == 0) {
+            return;
+        }
+        addMetricValue(name, value);
+    }
+
     /**
      * Merges {@code metric} into this object with name {@code name}.
      */
@@ -119,7 +127,7 @@ public class RuntimeStats
     {
         long startTime = System.nanoTime();
         V result = supplier.get();
-        addMetricValue(tag, System.nanoTime() - startTime);
+        addMetricValueIgnoreZero(tag, System.nanoTime() - startTime);
         return result;
     }
 }

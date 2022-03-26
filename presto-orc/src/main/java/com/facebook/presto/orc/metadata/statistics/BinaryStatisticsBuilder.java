@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
-import io.airlift.slice.Slice;
+import com.facebook.presto.common.block.Block;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,10 +28,10 @@ public class BinaryStatisticsBuilder
     private long sum;
 
     @Override
-    public void addValue(Slice value, int sourceIndex, int length)
+    public void addValue(Block block, int position)
     {
-        requireNonNull(value, "value is null");
-        sum += length;
+        requireNonNull(block, "block is null");
+        sum += block.getSliceLength(position);
         nonNullValueCount++;
     }
 

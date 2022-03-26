@@ -103,7 +103,7 @@ public class RewriteSpatialPartitioningAggregation
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
                 RowExpression geometry = getOnlyElement(aggregation.getArguments());
-                VariableReferenceExpression envelopeVariable = context.getVariableAllocator().newVariable("envelope", geometryType);
+                VariableReferenceExpression envelopeVariable = context.getVariableAllocator().newVariable(aggregation.getCall().getSourceLocation(), "envelope", geometryType);
                 if (isFunctionNameMatch(geometry, "ST_Envelope")) {
                     envelopeAssignments.put(envelopeVariable, geometry);
                 }
@@ -113,6 +113,7 @@ public class RewriteSpatialPartitioningAggregation
                 aggregations.put(entry.getKey(),
                         new Aggregation(
                                 new CallExpression(
+                                        envelopeVariable.getSourceLocation(),
                                         name.getObjectName(),
                                         metadata.getFunctionAndTypeManager().lookupFunction(NAME.getObjectName(), fromTypes(geometryType, INTEGER)),
                                         entry.getKey().getType(),
@@ -131,6 +132,7 @@ public class RewriteSpatialPartitioningAggregation
 
         return Result.ofPlanNode(
                 new AggregationNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         new ProjectNode(
                                 context.getIdAllocator().getNextId(),

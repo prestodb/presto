@@ -32,6 +32,7 @@ public class MetricsWrapper
             @JsonProperty("columnSizes") Map<Integer, Long> columnSizes,
             @JsonProperty("valueCounts") Map<Integer, Long> valueCounts,
             @JsonProperty("nullValueCounts") Map<Integer, Long> nullValueCounts,
+            @JsonProperty("nanValueCounts") Map<Integer, Long> nanValueCounts,
             @JsonProperty("lowerBounds") Map<Integer, ByteBuffer> lowerBounds,
             @JsonProperty("upperBounds") Map<Integer, ByteBuffer> upperBounds)
     {
@@ -40,6 +41,7 @@ public class MetricsWrapper
                 columnSizes,
                 valueCounts,
                 nullValueCounts,
+                nanValueCounts,
                 lowerBounds,
                 upperBounds));
     }
@@ -76,6 +78,12 @@ public class MetricsWrapper
     public Map<Integer, Long> nullValueCounts()
     {
         return metrics.nullValueCounts();
+    }
+
+    @JsonProperty
+    public Map<Integer, Long> nanValueCounts()
+    {
+        return metrics.nanValueCounts();
     }
 
     @JsonProperty

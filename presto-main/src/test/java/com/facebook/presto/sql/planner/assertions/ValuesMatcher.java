@@ -25,7 +25,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -36,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -105,7 +105,7 @@ public class ValuesMatcher
         }
 
         return match(SymbolAliases.builder()
-                .putAll(Maps.transformValues(outputSymbolAliases, index -> new SymbolReference(valuesNode.getOutputVariables().get(index).getName())))
+                .putAll(Maps.transformValues(outputSymbolAliases, index -> createSymbolReference(valuesNode.getOutputVariables().get(index))))
                 .build());
     }
 

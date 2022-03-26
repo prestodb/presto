@@ -57,7 +57,7 @@ import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcPredicate.TRUE;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.HASHED;
-import static com.facebook.presto.raptor.storage.OrcFileWriter.DEFAULT_OPTION;
+import static com.facebook.presto.orc.OrcWriterOptions.getDefaultOrcWriterOptions;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.DEFAULT_STORAGE_TIMEZONE;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.HUGE_MAX_READ_BLOCK_SIZE;
 import static com.facebook.presto.raptor.util.Closer.closer;
@@ -195,7 +195,7 @@ public final class OrcFileRewriter
                                     compression,
                                     Optional.empty(),
                                     NO_ENCRYPTION,
-                                    DEFAULT_OPTION,
+                                    getDefaultOrcWriterOptions(),
                                     userMetadata,
                                     DEFAULT_STORAGE_TIMEZONE,
                                     validate,

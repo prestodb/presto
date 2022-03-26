@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.spiller.StandaloneSpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -140,6 +141,7 @@ public final class InternalAggregationFunction
                 null,
                 ImmutableList.of(),
                 false,
+                null,
                 null);
     }
 
@@ -154,9 +156,10 @@ public final class InternalAggregationFunction
             JoinCompiler joinCompiler,
             List<LambdaProvider> lambdaProviders,
             boolean spillEnabled,
-            Session session)
+            Session session,
+            StandaloneSpillerFactory standaloneSpillerFactory)
     {
-        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, lambdaProviders, spillEnabled, session);
+        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, lambdaProviders, spillEnabled, session, standaloneSpillerFactory);
     }
 
     @VisibleForTesting

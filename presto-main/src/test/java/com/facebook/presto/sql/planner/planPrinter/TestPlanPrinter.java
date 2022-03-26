@@ -54,7 +54,7 @@ public class TestPlanPrinter
 {
     private static final PlanBuilder PLAN_BUILDER = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), dummyMetadata());
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
-    private static final VariableReferenceExpression COLUMN_VARIABLE = new VariableReferenceExpression("column", VARCHAR);
+    private static final VariableReferenceExpression COLUMN_VARIABLE = new VariableReferenceExpression(Optional.empty(), "column", VARCHAR);
     private static final ColumnHandle COLUMN_HANDLE = new TestingMetadata.TestingColumnHandle("column");
     private static final TableHandle TABLE_HANDLE_WITH_LAYOUT = new TableHandle(
             new ConnectorId("testConnector"),

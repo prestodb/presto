@@ -86,6 +86,7 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTI
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -184,6 +185,7 @@ public class SqlQueryExecution
                     accessControl,
                     Optional.of(queryExplainer),
                     preparedQuery.getParameters(),
+                    parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                     warningCollector);
 
             this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);

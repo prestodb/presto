@@ -157,9 +157,10 @@ public class TestSqlStageExecution
     private static PlanFragment createExchangePlanFragment()
     {
         PlanNode planNode = new RemoteSourceNode(
+                Optional.empty(),
                 new PlanNodeId("exchange"),
                 ImmutableList.of(new PlanFragmentId(0)),
-                ImmutableList.of(new VariableReferenceExpression("column", VARCHAR)),
+                ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "column", VARCHAR)),
                 false,
                 Optional.empty(),
                 REPARTITION);

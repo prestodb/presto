@@ -29,6 +29,7 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.google.common.collect.ArrayListMultimap;
@@ -214,7 +215,7 @@ public class PrestoSparkTaskExecution
 
     private synchronized void scheduleTableScanSource(DriverSplitRunnerFactory factory, List<ScheduledSplit> splits)
     {
-        factory.splitsAdded(splits.size());
+        factory.splitsAdded(splits.size(), SplitWeight.rawValueSum(splits, scheduledSplit -> scheduledSplit.getSplit().getSplitWeight()));
 
         // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
         ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
@@ -339,7 +340,8 @@ public class PrestoSparkTaskExecution
             pendingCreation.incrementAndGet();
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
-            DriverContext driverContext = pipelineContext.addDriverContext(Lifespan.taskWide(), driverFactory.getFragmentResultCacheContext());
+            long splitWeight = partitionedSplit == null ? 0 : partitionedSplit.getSplit().getSplitWeight().getRawValue();
+            DriverContext driverContext = pipelineContext.addDriverContext(splitWeight, Lifespan.taskWide(), driverFactory.getFragmentResultCacheContext());
             return new DriverSplitRunner(this, driverContext, partitionedSplit);
         }
 
@@ -394,9 +396,9 @@ public class PrestoSparkTaskExecution
             return driverFactory.getDriverInstances();
         }
 
-        public void splitsAdded(int count)
+        public void splitsAdded(int count, long weightSum)
         {
-            pipelineContext.splitsAdded(count);
+            pipelineContext.splitsAdded(count, weightSum);
         }
     }
 

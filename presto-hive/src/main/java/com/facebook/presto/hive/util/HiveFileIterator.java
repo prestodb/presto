@@ -19,9 +19,7 @@ import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.hive.NestedDirectoryPolicy;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.Iterators;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.security.AccessControlException;
 
@@ -44,7 +42,6 @@ public class HiveFileIterator
     private final ListDirectoryOperation listDirectoryOperation;
     private final NamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
-    private final PathFilter pathFilter;
 
     private Iterator<HiveFileInfo> remoteIterator = Collections.emptyIterator();
 
@@ -52,14 +49,12 @@ public class HiveFileIterator
             Path path,
             ListDirectoryOperation listDirectoryOperation,
             NamenodeStats namenodeStats,
-            NestedDirectoryPolicy nestedDirectoryPolicy,
-            PathFilter pathFilter)
+            NestedDirectoryPolicy nestedDirectoryPolicy)
     {
         paths.addLast(requireNonNull(path, "path is null"));
         this.listDirectoryOperation = requireNonNull(listDirectoryOperation, "listDirectoryOperation is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
-        this.pathFilter = requireNonNull(pathFilter, "pathFilter is null");
     }
 
     @Override
@@ -93,14 +88,14 @@ public class HiveFileIterator
             if (paths.isEmpty()) {
                 return endOfData();
             }
-            remoteIterator = getLocatedFileStatusRemoteIterator(paths.removeFirst(), pathFilter);
+            remoteIterator = getLocatedFileStatusRemoteIterator(paths.removeFirst());
         }
     }
 
-    private Iterator<HiveFileInfo> getLocatedFileStatusRemoteIterator(Path path, PathFilter pathFilter)
+    private Iterator<HiveFileInfo> getLocatedFileStatusRemoteIterator(Path path)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
-            return Iterators.filter(new FileStatusIterator(path, listDirectoryOperation, namenodeStats), input -> pathFilter.accept(input.getPath()));
+            return new FileStatusIterator(path, listDirectoryOperation, namenodeStats);
         }
     }
 

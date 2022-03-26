@@ -32,6 +32,7 @@ import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
+import com.facebook.presto.hive.parquet.ParquetSelectivePageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.rule.HivePlanOptimizerProvider;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
@@ -50,6 +51,7 @@ import com.facebook.presto.orc.cache.OrcCacheConfig;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.OrcFileTail;
+import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.parquet.ParquetDataSourceId;
 import com.facebook.presto.parquet.cache.CachingParquetMetadataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
@@ -76,6 +78,8 @@ import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
@@ -187,6 +191,7 @@ public class HiveClientModule
         Multibinder<HiveSelectivePageSourceFactory> selectivePageSourceFactoryBinder = newSetBinder(binder, HiveSelectivePageSourceFactory.class);
         selectivePageSourceFactoryBinder.addBinding().to(OrcSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
         selectivePageSourceFactoryBinder.addBinding().to(DwrfSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
+        selectivePageSourceFactoryBinder.addBinding().to(ParquetSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(DataSinkFactory.class).to(OutputStreamDataSinkFactory.class).in(Scopes.SINGLETON);
 
@@ -206,6 +211,7 @@ public class HiveClientModule
         newSetBinder(binder, EncryptionInformationSource.class);
 
         binder.bind(PartitionMutator.class).to(HivePartitionMutator.class).in(Scopes.SINGLETON);
+        binder.bind(ColumnConverterProvider.class).to(HiveColumnConverterProvider.class).in(Scopes.SINGLETON);
     }
 
     @ForHiveClient
@@ -299,9 +305,21 @@ public class HiveClientModule
                     .build();
             CacheStatsMBean footerCacheStatsMBean = new CacheStatsMBean(footerCache);
             CacheStatsMBean streamCacheStatsMBean = new CacheStatsMBean(streamCache);
-            stripeMetadataSource = new CachingStripeMetadataSource(stripeMetadataSource, footerCache, streamCache);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
+
+            Optional<Cache<StripeStreamId, List<RowGroupIndex>>> rowGroupIndexCache = Optional.empty();
+            if (orcCacheConfig.isRowGroupIndexCacheEnabled()) {
+                rowGroupIndexCache = Optional.of(CacheBuilder.newBuilder()
+                        .maximumWeight(orcCacheConfig.getRowGroupIndexCacheSize().toBytes())
+                        .weigher((id, rowGroupIndices) -> toIntExact(((List<RowGroupIndex>) rowGroupIndices).stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
+                        .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
+                        .recordStats()
+                        .build());
+                CacheStatsMBean rowGroupIndexCacheStatsMBean = new CacheStatsMBean(rowGroupIndexCache.get());
+                exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStreamRowGroupIndex"), rowGroupIndexCacheStatsMBean);
+            }
+            stripeMetadataSource = new CachingStripeMetadataSource(stripeMetadataSource, footerCache, streamCache, rowGroupIndexCache);
         }
         StripeMetadataSourceFactory factory = StripeMetadataSourceFactory.of(stripeMetadataSource);
         if (orcCacheConfig.isDwrfStripeCacheEnabled()) {

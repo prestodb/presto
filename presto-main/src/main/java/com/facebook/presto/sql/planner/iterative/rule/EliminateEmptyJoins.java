@@ -46,7 +46,7 @@ public class EliminateEmptyJoins
                 builder.put(variable, variable);
             }
             else {
-                builder.put(variable, constantNull(variable.getType()));
+                builder.put(variable, constantNull(variable.getSourceLocation(), variable.getType()));
             }
         }
         return builder.build();
@@ -82,18 +82,18 @@ public class EliminateEmptyJoins
                 || (leftChildEmpty && joinNode.getType() == JoinNode.Type.LEFT)
                 || (rightChildEmpty && joinNode.getType() == JoinNode.Type.RIGHT)) {
             return Result.ofPlanNode(
-                    new ValuesNode(joinNode.getId(), joinNode.getOutputVariables(), Collections.emptyList()));
+                    new ValuesNode(joinNode.getSourceLocation(), joinNode.getId(), joinNode.getOutputVariables(), Collections.emptyList()));
         }
 
         /*
         This covers the cases where the whole join can not be pruned for outer join cases.
         In this case, we optimize the join using a projection over the non-empty child.
-        The follwoing are 4 scenarios:
+        The following are 4 scenarios:
         1. S1 left outer join S2 and S2 is empty. The join is rewritten as Projection over S1 with null values for fields of S2. For example,
            "select t1.X, dt.Y from t1 left outer (select * from t2 where 1=0) is rewritten as select t1.X, null as Y from t1
-        2. S1 right outer join S2 and S1 is empty. Similiar to #1.
+        2. S1 right outer join S2 and S1 is empty. Similar to #1.
         3. S1 full outer join S2 and S1 is empty. This is can be reduce to S2 left outer join S1 and S1 is empty. Same logic of #1 is used.
-        4. S1 full outer join S2 and S2 is empty. Similiar to #3 and full outer join is reduced to S1 left outer join S2. Same logic is #1.
+        4. S1 full outer join S2 and S2 is empty. Similar to #3 and full outer join is reduced to S1 left outer join S2. Same logic is #1.
          */
         if (leftChildEmpty || rightChildEmpty) {
             PlanNode nonEmptyChild;
@@ -106,7 +106,7 @@ public class EliminateEmptyJoins
             Assignments.Builder newProjections = Assignments.builder()
                     .putAll(buildAssignments(joinNode.getOutputVariables(), nonEmptyChild));
 
-            return Result.ofPlanNode(new ProjectNode(joinNode.getId(), nonEmptyChild, newProjections.build(), LOCAL));
+            return Result.ofPlanNode(new ProjectNode(joinNode.getSourceLocation(), joinNode.getId(), nonEmptyChild, newProjections.build(), LOCAL));
         }
         return Result.empty();
     }

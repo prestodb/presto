@@ -19,7 +19,8 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
@@ -28,7 +29,6 @@ import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
-import static com.facebook.presto.common.block.BlockUtil.countUsedPositions;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
@@ -37,6 +37,7 @@ public class ByteArrayBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlock.class).instanceSize();
+    public static final int SIZE_IN_BYTES_PER_POSITION = Byte.BYTES + Byte.BYTES;
 
     private final int arrayOffset;
     private final int positionCount;
@@ -44,7 +45,6 @@ public class ByteArrayBlock
     private final boolean[] valueIsNull;
     private final byte[] values;
 
-    private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
     public ByteArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, byte[] values)
@@ -73,26 +73,31 @@ public class ByteArrayBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = (Byte.BYTES + Byte.BYTES) * (long) positionCount;
         retainedSizeInBytes = (INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values));
     }
 
     @Override
     public long getSizeInBytes()
     {
-        return sizeInBytes;
+        return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return (Byte.BYTES + Byte.BYTES) * (long) length;
+        return SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public OptionalInt fixedSizeInBytesPerPosition()
     {
-        return (Byte.BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
+        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] usedPositions, int usedPositionCount)
+    {
+        return SIZE_IN_BYTES_PER_POSITION * (long) usedPositionCount;
     }
 
     @Override
@@ -108,13 +113,13 @@ public class ByteArrayBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(values, sizeOf(values));
         if (valueIsNull != null) {
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

@@ -156,6 +156,7 @@ users as owners of ``default`` schema and prevent user ``guest`` from ownership
 of any schema, you can use the following rules:
 
 .. code-block:: json
+
     {
       "catalogs": [
         {
@@ -228,7 +229,7 @@ and Kerberos authentication:
       ]
     }
 
-If you want to allow users to use the extractly same name as their Kerberos principal
+If you want to allow users to use exactly the same name as their Kerberos principal
 name, and allow ``alice`` and ``bob`` to use a group principal named as
 ``group@example.net``, you can use the following rules.
 

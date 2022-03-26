@@ -55,6 +55,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -77,6 +78,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.sql.ExpressionUtils.and;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
@@ -95,7 +97,7 @@ import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
@@ -171,7 +173,7 @@ public class FilterStatsCalculator
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return LiteralEncoder.toRowExpression(value, BOOLEAN);
+        return LiteralEncoder.toRowExpression(predicate.getSourceLocation(), value, BOOLEAN);
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
@@ -180,7 +182,7 @@ public class FilterStatsCalculator
                 metadata.getFunctionAndTypeManager(),
                 session,
                 types,
-                emptyList(),
+                emptyMap(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),
                 WarningCollector.NOOP,
                 false);
@@ -462,7 +464,7 @@ public class FilterStatsCalculator
                     metadata.getFunctionAndTypeManager(),
                     session,
                     types,
-                    ImmutableList.of(),
+                    ImmutableMap.of(),
                     // At this stage, there should be no subqueries in the plan.
                     node -> new VerifyException("Unexpected subquery"),
                     WarningCollector.NOOP,
@@ -482,7 +484,7 @@ public class FilterStatsCalculator
         private VariableReferenceExpression toVariable(Expression expression)
         {
             checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
-            return new VariableReferenceExpression(((SymbolReference) expression).getName(), types.get(expression));
+            return new VariableReferenceExpression(getSourceLocation(expression), ((SymbolReference) expression).getName(), types.get(expression));
         }
     }
 
@@ -563,13 +565,13 @@ public class FilterStatsCalculator
                 if (!(left instanceof VariableReferenceExpression) && right instanceof VariableReferenceExpression) {
                     // normalize so that variable is on the left
                     OperatorType flippedOperator = flip(operatorType);
-                    return process(call(flippedOperator.name(), metadata.getFunctionAndTypeManager().resolveOperator(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
+                    return process(call(node.getSourceLocation(), flippedOperator.name(), metadata.getFunctionAndTypeManager().resolveOperator(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
                 }
 
                 if (left instanceof ConstantExpression) {
                     // normalize so that literal is on the right
                     OperatorType flippedOperator = flip(operatorType);
-                    return process(call(flippedOperator.name(), metadata.getFunctionAndTypeManager().resolveOperator(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
+                    return process(call(node.getSourceLocation(), flippedOperator.name(), metadata.getFunctionAndTypeManager().resolveOperator(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
                 }
 
                 if (left instanceof VariableReferenceExpression && left.equals(right)) {
@@ -581,7 +583,7 @@ public class FilterStatsCalculator
                 if (right instanceof ConstantExpression) {
                     Object rightValue = ((ConstantExpression) right).getValue();
                     if (rightValue == null) {
-                        return visitConstant(constantNull(BOOLEAN), null);
+                        return visitConstant(constantNull(right.getSourceLocation(), BOOLEAN), null);
                     }
                     OptionalDouble literal = toStatsRepresentation(metadata.getFunctionAndTypeManager(), session, right.getType(), rightValue);
                     return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, getComparisonOperator(operatorType));
@@ -599,12 +601,12 @@ public class FilterStatsCalculator
 
             // NOT case
             if (node.getFunctionHandle().equals(functionResolution.notFunction())) {
-                RowExpression arguemnt = node.getArguments().get(0);
-                if (arguemnt instanceof SpecialFormExpression && ((SpecialFormExpression) arguemnt).getForm().equals(IS_NULL)) {
+                RowExpression argument = node.getArguments().get(0);
+                if (argument instanceof SpecialFormExpression && ((SpecialFormExpression) argument).getForm().equals(IS_NULL)) {
                     // IS NOT NULL case
-                    RowExpression innerArugment = ((SpecialFormExpression) arguemnt).getArguments().get(0);
-                    if (innerArugment instanceof VariableReferenceExpression) {
-                        VariableReferenceExpression variable = (VariableReferenceExpression) innerArugment;
+                    RowExpression innerArgument = ((SpecialFormExpression) argument).getArguments().get(0);
+                    if (innerArgument instanceof VariableReferenceExpression) {
+                        VariableReferenceExpression variable = (VariableReferenceExpression) innerArgument;
                         VariableStatsEstimate variableStats = input.getVariableStatistics(variable);
                         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
                         result.setOutputRowCount(input.getOutputRowCount() * (1 - variableStats.getNullsFraction()));
@@ -613,7 +615,7 @@ public class FilterStatsCalculator
                     }
                     return PlanNodeStatsEstimate.unknown();
                 }
-                return subtractSubsetStats(input, process(arguemnt));
+                return subtractSubsetStats(input, process(argument));
             }
 
             // BETWEEN case
@@ -633,12 +635,14 @@ public class FilterStatsCalculator
 
                 VariableStatsEstimate valueStats = input.getVariableStatistics((VariableReferenceExpression) value);
                 RowExpression lowerBound = call(
+                        value.getSourceLocation(),
                         OperatorType.GREATER_THAN_OR_EQUAL.name(),
                         metadata.getFunctionAndTypeManager().resolveOperator(OperatorType.GREATER_THAN_OR_EQUAL, fromTypes(value.getType(), min.getType())),
                         BOOLEAN,
                         value,
                         min);
                 RowExpression upperBound = call(
+                        value.getSourceLocation(),
                         OperatorType.LESS_THAN_OR_EQUAL.name(),
                         metadata.getFunctionAndTypeManager().resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, fromTypes(value.getType(), max.getType())),
                         BOOLEAN,
@@ -737,7 +741,7 @@ public class FilterStatsCalculator
         private PlanNodeStatsEstimate estimateIn(RowExpression value, List<RowExpression> candidates)
         {
             ImmutableList<PlanNodeStatsEstimate> equalityEstimates = candidates.stream()
-                    .map(inValue -> process(call(OperatorType.EQUAL.name(), metadata.getFunctionAndTypeManager().resolveOperator(OperatorType.EQUAL, fromTypes(value.getType(), inValue.getType())), BOOLEAN, value, inValue)))
+                    .map(inValue -> process(call(value.getSourceLocation(), OperatorType.EQUAL.name(), metadata.getFunctionAndTypeManager().resolveOperator(OperatorType.EQUAL, fromTypes(value.getType(), inValue.getType())), BOOLEAN, value, inValue)))
                     .collect(toImmutableList());
 
             if (equalityEstimates.stream().anyMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown)) {
@@ -791,12 +795,12 @@ public class FilterStatsCalculator
 
         private RowExpression isNull(RowExpression expression)
         {
-            return new SpecialFormExpression(IS_NULL, BOOLEAN, expression);
+            return new SpecialFormExpression(expression.getSourceLocation(), IS_NULL, BOOLEAN, expression);
         }
 
         private RowExpression not(RowExpression expression)
         {
-            return call("not", functionResolution.notFunction(), expression.getType(), expression);
+            return call(expression.getSourceLocation(), "not", functionResolution.notFunction(), expression.getType(), expression);
         }
 
         private ComparisonExpression.Operator getComparisonOperator(OperatorType operator)

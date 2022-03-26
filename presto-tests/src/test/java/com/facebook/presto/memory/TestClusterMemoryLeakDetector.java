@@ -108,6 +108,7 @@ public class TestClusterMemoryLeakDetector
                         OptionalDouble.of(20)),
                 null,
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 }

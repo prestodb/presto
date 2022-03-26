@@ -280,7 +280,7 @@ public final class ExpressionUtils
             @Override
             public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return new SymbolReference(node.getValue());
+                return new SymbolReference(node.getLocation(), node.getValue());
             }
 
             @Override

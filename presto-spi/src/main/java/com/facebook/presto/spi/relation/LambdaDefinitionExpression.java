@@ -16,6 +16,7 @@ package com.facebook.presto.spi.relation;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.SourceLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.Slice;
@@ -29,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -46,10 +48,12 @@ public final class LambdaDefinitionExpression
 
     @JsonCreator
     public LambdaDefinitionExpression(
+            @JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation,
             @JsonProperty("argumentTypes") List<Type> argumentTypes,
             @JsonProperty("arguments") List<String> arguments,
             @JsonProperty("body") RowExpression body)
     {
+        super(sourceLocation);
         this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
         this.arguments = unmodifiableList(new ArrayList<>(requireNonNull(arguments, "arguments is null")));
         checkArgument(argumentTypes.size() == arguments.size(), "Number of argument types does not match number of arguments");

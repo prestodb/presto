@@ -31,7 +31,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class UseTask
-        implements DataDefinitionTask<Use>
+        implements SessionTransactionControlTask<Use>
 {
     @Override
     public String getName()

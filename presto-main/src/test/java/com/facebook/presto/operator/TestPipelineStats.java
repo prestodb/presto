@@ -41,8 +41,10 @@ public class TestPipelineStats
             1,
             2,
             1,
+            21L,
             3,
             2,
+            22L,
             19,
             4,
 
@@ -97,8 +99,10 @@ public class TestPipelineStats
         assertEquals(actual.getTotalDrivers(), 1);
         assertEquals(actual.getQueuedDrivers(), 2);
         assertEquals(actual.getQueuedPartitionedDrivers(), 1);
+        assertEquals(actual.getQueuedPartitionedSplitsWeight(), 21L);
         assertEquals(actual.getRunningDrivers(), 3);
         assertEquals(actual.getRunningPartitionedDrivers(), 2);
+        assertEquals(actual.getRunningPartitionedSplitsWeight(), 22L);
         assertEquals(actual.getBlockedDrivers(), 19);
         assertEquals(actual.getCompletedDrivers(), 4);
 

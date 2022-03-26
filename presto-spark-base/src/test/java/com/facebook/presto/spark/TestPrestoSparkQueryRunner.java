@@ -19,25 +19,37 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Ordering;
+import com.google.common.io.Files;
 import io.airlift.units.Duration;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.NATION;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
+import static org.testng.FileAssert.assertFile;
 
 public class TestPrestoSparkQueryRunner
         extends AbstractTestQueryFramework
@@ -882,6 +894,21 @@ public class TestPrestoSparkQueryRunner
     }
 
     @Test
+    public void testStorageBasedBroadcastJoinMaxThreshold()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .setSystemProperty(STORAGE_BASED_BROADCAST_JOIN_ENABLED, "true")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "1MB")
+                .build();
+
+        assertQueryFails(
+                session,
+                "select * from lineitem l join orders o on l.orderkey = o.orderkey",
+                "Query exceeded per-node total memory limit of 1MB \\[Compressed broadcast size: .*kB; Uncompressed broadcast size: .*MB\\]");
+    }
+
+    @Test
     public void testSmileSerialization()
     {
         String query = "SELECT * FROM nation";
@@ -909,6 +936,249 @@ public class TestPrestoSparkQueryRunner
                     "FROM lineitem l, part p " +
                     "WHERE l.partkey = p.partkey");
         }
+    }
+
+    @Test
+    public void testDropTable()
+    {
+        assertUpdate(
+                "CREATE TABLE hive.hive_test.hive_orders1 AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders", 15000);
+        assertQuery("select count(*) from hive.hive_test.hive_orders1", "select 15000");
+        assertQuerySucceeds("DROP TABLE hive.hive_test.hive_orders1");
+        assertQueryFails("select count(*) from hive.hive_test.hive_orders1", ".* Table hive.hive_test.hive_orders1 does not exist");
+    }
+
+    @Test
+    public void testCreateDropSchema()
+    {
+        assertQuerySucceeds("CREATE SCHEMA hive.hive_test_new");
+        assertQuerySucceeds("CREATE TABLE  hive.hive_test_new.test (x bigint)");
+        assertQueryFails("DROP SCHEMA hive.hive_test_new", "Schema not empty: hive_test_new");
+        assertQuerySucceeds("DROP TABLE hive.hive_test_new.test");
+        assertQuerySucceeds("ALTER SCHEMA hive.hive_test_new RENAME TO hive_test_new1");
+        assertQueryFails("DROP SCHEMA hive.hive_test_new", ".* Schema 'hive.hive_test_new' does not exist");
+        assertQuerySucceeds("DROP SCHEMA hive.hive_test_new1");
+    }
+
+    @Test
+    public void testCreateAlterTable()
+    {
+        // create table with default format orc
+        String createTableSql = "CREATE TABLE hive.hive_test.hive_orders_new (\n" +
+                "   \"x\" bigint\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+        assertQuerySucceeds(createTableSql);
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE hive.hive_test.hive_orders_new");
+        assertEquals(createTableSql, actual.getOnlyValue());
+        assertQuerySucceeds("ALTER TABLE hive.hive_test.hive_orders_new RENAME TO hive.hive_test.hive_orders_new1");
+        assertQueryFails("DROP TABLE hive.hive_test.hive_orders_new", ".* Table 'hive.hive_test.hive_orders_new' does not exist");
+        assertQuerySucceeds("DROP TABLE hive.hive_test.hive_orders_new1");
+    }
+
+    @Test
+    public void testCreateDropView()
+    {
+        // create table with default format orc
+        String createViewSql = "CREATE VIEW hive.hive_test.hive_view AS\n" +
+                "SELECT *\n" +
+                "FROM\n" +
+                "  orders";
+        assertQuerySucceeds(createViewSql);
+        MaterializedResult actual = computeActual("SHOW CREATE VIEW hive.hive_test.hive_view");
+        assertEquals(createViewSql, actual.getOnlyValue());
+        assertQuerySucceeds("DROP VIEW hive.hive_test.hive_view");
+    }
+
+    @Test
+    public void testCreateExternalTable()
+            throws Exception
+    {
+        File tempDir = createTempDir();
+        File dataFile = new File(tempDir, "test.txt");
+        Files.write("hello\nworld\n", dataFile, UTF_8);
+
+        String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_create_external (\n" +
+                        "   \"name\" varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   external_location = '%s',\n" +
+                        "   format = 'TEXTFILE'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                new Path(tempDir.toURI().toASCIIString()).toString());
+
+        assertQuerySucceeds(createTableSql);
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+
+        actual = computeActual("SELECT name FROM test_create_external");
+        assertEquals(actual.getOnlyColumnAsSet(), ImmutableSet.of("hello", "world"));
+
+        assertQuerySucceeds("DROP TABLE test_create_external");
+
+        // file should still exist after drop
+        assertFile(dataFile);
+
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testGrants()
+    {
+        assertQuerySucceeds("CREATE SCHEMA hive.hive_test_new");
+        assertQuerySucceeds("CREATE TABLE  hive.hive_test_new.test (x bigint)");
+
+        // Grant user
+        assertQuerySucceeds("GRANT SELECT,INSERT,DELETE,UPDATE ON hive.hive_test_new.test to user");
+        MaterializedResult actual = computeActual("SHOW GRANTS ON TABLE hive.hive_test_new.test");
+        // permissions are in the eighth field
+        List<String> grants = actual.getMaterializedRows().stream().map(row -> row.getField(7).toString()).collect(Collectors.toList());
+        assertEquals(Ordering.natural().sortedCopy(grants), ImmutableList.of("DELETE", "INSERT", "SELECT", "UPDATE"));
+
+        // Revoke select,insert grants
+        assertQuerySucceeds("REVOKE SELECT,INSERT ON hive.hive_test_new.test FROM user");
+        actual = computeActual("SHOW GRANTS ON TABLE hive.hive_test_new.test");
+        grants = actual.getMaterializedRows().stream().map(row -> row.getField(7).toString()).collect(Collectors.toList());
+        assertEquals(Ordering.natural().sortedCopy(grants), ImmutableList.of("DELETE", "UPDATE"));
+
+        assertQuerySucceeds("DROP TABLE hive.hive_test_new.test");
+        assertQuerySucceeds("DROP SCHEMA hive.hive_test_new");
+    }
+
+    @Test
+    public void testRoles()
+    {
+        assertQuerySucceeds("CREATE ROLE admin");
+        assertQuerySucceeds("CREATE ROLE test_role");
+        assertQuerySucceeds("GRANT test_role TO USER user");
+
+        // Show Roles
+        MaterializedResult actual = computeActual("SHOW ROLES");
+        List<String> roles = actual.getMaterializedRows().stream().map(row -> row.getField(0).toString()).collect(Collectors.toList());
+        assertEquals(Ordering.natural().sortedCopy(roles), ImmutableList.of("admin", "test_role"));
+
+        // Show roles assigned to user
+        actual = computeActual("SHOW ROLE GRANTS");
+        roles = actual.getMaterializedRows().stream().map(row -> row.getField(0).toString()).collect(Collectors.toList());
+        assertEquals(Ordering.natural().sortedCopy(roles), ImmutableList.of("public", "test_role"));
+
+        // Revokes roles
+        assertQuerySucceeds("REVOKE test_role FROM USER user");
+        actual = computeActual("SHOW ROLE GRANTS");
+        roles = actual.getMaterializedRows().stream().map(row -> row.getField(0).toString()).collect(Collectors.toList());
+        assertEquals(Ordering.natural().sortedCopy(roles), ImmutableList.of("public"));
+
+        assertQuerySucceeds("DROP ROLE test_role");
+    }
+
+    @Test
+    public void testAddColumns()
+    {
+        assertQuerySucceeds("CREATE TABLE test_add_column (a bigint COMMENT 'test comment AAA')");
+        assertQuerySucceeds("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
+        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA'), ('b', 'bigint', '', 'test comment BBB')");
+        assertQuerySucceeds("DROP TABLE test_add_column");
+    }
+
+    @Test
+    public void testRenameColumn()
+    {
+        String createTable = "" +
+                "CREATE TABLE test_rename_column\n" +
+                "WITH (\n" +
+                "  partitioned_by = ARRAY ['orderstatus']\n" +
+                ")\n" +
+                "AS\n" +
+                "SELECT orderkey, orderstatus FROM orders";
+
+        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        assertQuerySucceeds("ALTER TABLE test_rename_column RENAME COLUMN orderkey TO new_orderkey");
+        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
+        assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN \"$path\" TO test", ".* Cannot rename hidden column");
+        assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN orderstatus TO new_orderstatus", "Renaming partition columns is not supported");
+        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
+        assertQuerySucceeds("DROP TABLE test_rename_column");
+    }
+
+    @Test
+    public void testDropColumn()
+    {
+        assertQueryFails("DROP TABLE hive.hive_test.hive_orders_new", ".* Table 'hive.hive_test.hive_orders_new' does not exist");
+        String createTable = "" +
+                "CREATE TABLE test_drop_column\n" +
+                "WITH (\n" +
+                "  partitioned_by = ARRAY ['orderstatus']\n" +
+                ")\n" +
+                "AS\n" +
+                "SELECT custkey, orderkey, orderstatus FROM orders";
+
+        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        assertQuery("SELECT orderkey, orderstatus FROM test_drop_column", "SELECT orderkey, orderstatus FROM orders");
+
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN \"$path\"", ".* Cannot drop hidden column");
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN orderstatus", "Cannot drop partition columns");
+        assertQuerySucceeds("ALTER TABLE test_drop_column DROP COLUMN orderkey");
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN custkey", "Cannot drop the only non-partition column in a table");
+        assertQuery("SELECT * FROM test_drop_column", "SELECT custkey, orderstatus FROM orders");
+
+        assertQuerySucceeds("DROP TABLE test_drop_column");
+    }
+
+    @Test
+    public void testCreateFunction()
+    {
+        assertQuerySucceeds("CREATE FUNCTION unittest.memory.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' LANGUAGE SQL DETERMINISTIC CALLED ON NULL INPUT RETURN sin(x) / cos(x)");
+        MaterializedResult actual = computeActual("select unittest.memory.tan(5)");
+        assertEquals("-3.380515006246586", actual.getOnlyValue().toString());
+        //PoS currently supports one query per session. So temporary function created is not discoverable by another query.
+        assertQuerySucceeds("CREATE TEMPORARY FUNCTION foo() RETURNS int RETURN 1");
+    }
+
+    @Test
+    public void testCreateType()
+    {
+        assertQuerySucceeds("CREATE TYPE unittest.memory.num AS integer");
+        assertQuerySucceeds("CREATE TYPE unittest.memory.pair AS (fst integer, snd integer)");
+        assertQuerySucceeds("CREATE TYPE unittest.memory.pair3 AS (fst unittest.memory.pair, snd integer)");
+        assertQuery("SELECT p.fst.fst FROM(SELECT CAST(ROW(CAST(ROW(1,2) AS unittest.memory.pair), 3) AS unittest.memory.pair3) AS p)", "SELECT 1");
+        assertQuerySucceeds("CREATE TYPE unittest.memory.pair3Alt AS (fst ROW(fst integer, snd integer), snd integer)");
+        assertQuery("SELECT p.fst.snd FROM(SELECT CAST(ROW(ROW(1,2), 3) AS  unittest.memory.pair3Alt) AS p)", "SELECT 2");
+    }
+
+    @Test
+    public void testCreatePartitionedTable()
+    {
+        String createPartitionedTable = "" +
+                "CREATE TABLE test_partition_table\n" +
+                "WITH (\n" +
+                "  format = 'Parquet', " +
+                "  partitioned_by = ARRAY ['orderstatus']\n" +
+                ")\n" +
+                "AS\n" +
+                "SELECT custkey, orderkey, orderstatus FROM orders";
+
+        assertQuerySucceeds(createPartitionedTable);
+        MaterializedResult actual = computeActual("SELECT count(*) FROM \"test_partition_table$partitions\"");
+        // there are 3 partitions
+        assertEquals(actual.getOnlyValue().toString(), "3");
+
+        // invoke CALL procedure to add empty partitions
+        assertQuerySucceeds(format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", "tpch", "test_partition_table", "x"));
+        assertQuerySucceeds(format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", "tpch", "test_partition_table", "y"));
+        actual = computeActual("SELECT count(*) FROM \"test_partition_table$partitions\"");
+
+        // 2 new partitions added
+        assertEquals(actual.getOnlyValue().toString(), "5");
+        assertQuerySucceeds("DROP TABLE test_partition_table");
     }
 
     private void assertBucketedQuery(String sql)

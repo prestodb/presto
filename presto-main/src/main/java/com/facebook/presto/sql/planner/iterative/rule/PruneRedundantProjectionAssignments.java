@@ -66,8 +66,9 @@ public class PruneRedundantProjectionAssignments
         }
         return Result.ofPlanNode(
                 new ProjectNode(
+                        node.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
-                        new ProjectNode(node.getId(), node.getSource(), childAssignments.build(), node.getLocality()),
+                        new ProjectNode(node.getSourceLocation(), node.getId(), node.getSource(), childAssignments.build(), node.getLocality()),
                         parentAssignments.build(),
                         LOCAL));
     }

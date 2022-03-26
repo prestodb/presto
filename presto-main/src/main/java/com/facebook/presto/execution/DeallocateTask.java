@@ -25,7 +25,7 @@ import java.util.List;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DeallocateTask
-        implements DataDefinitionTask<Deallocate>
+        implements SessionTransactionControlTask<Deallocate>
 {
     @Override
     public String getName()
@@ -34,10 +34,10 @@ public class DeallocateTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine queryStateMachine, List<Expression> parameters)
     {
         String statementName = statement.getName().getValue();
-        stateMachine.removePreparedStatement(statementName);
+        queryStateMachine.removePreparedStatement(statementName);
         return immediateFuture(null);
     }
 }

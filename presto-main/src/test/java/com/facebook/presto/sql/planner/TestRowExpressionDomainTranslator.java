@@ -43,6 +43,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -92,30 +93,30 @@ import static org.testng.Assert.fail;
 
 public class TestRowExpressionDomainTranslator
 {
-    private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression("x1", BIGINT);
-    private static final VariableReferenceExpression C_DOUBLE = new VariableReferenceExpression("x2", DOUBLE);
-    private static final VariableReferenceExpression C_VARCHAR = new VariableReferenceExpression("x3", VARCHAR);
-    private static final VariableReferenceExpression C_BOOLEAN = new VariableReferenceExpression("x4", BOOLEAN);
-    private static final VariableReferenceExpression C_BIGINT_1 = new VariableReferenceExpression("x5", BIGINT);
-    private static final VariableReferenceExpression C_DOUBLE_1 = new VariableReferenceExpression("x6", DOUBLE);
-    private static final VariableReferenceExpression C_VARCHAR_1 = new VariableReferenceExpression("x7", VARCHAR);
-    private static final VariableReferenceExpression C_TIMESTAMP = new VariableReferenceExpression("x8", TIMESTAMP);
-    private static final VariableReferenceExpression C_DATE = new VariableReferenceExpression("x9", DATE);
-    private static final VariableReferenceExpression C_COLOR = new VariableReferenceExpression("x10", COLOR);
-    private static final VariableReferenceExpression C_HYPER_LOG_LOG = new VariableReferenceExpression("x11", HYPER_LOG_LOG);
-    private static final VariableReferenceExpression C_VARBINARY = new VariableReferenceExpression("x12", VARBINARY);
-    private static final VariableReferenceExpression C_DECIMAL_26_5 = new VariableReferenceExpression("x13", createDecimalType(26, 5));
-    private static final VariableReferenceExpression C_DECIMAL_23_4 = new VariableReferenceExpression("x14", createDecimalType(23, 4));
-    private static final VariableReferenceExpression C_INTEGER = new VariableReferenceExpression("x15", INTEGER);
-    private static final VariableReferenceExpression C_CHAR = new VariableReferenceExpression("x16", createCharType(10));
-    private static final VariableReferenceExpression C_DECIMAL_21_3 = new VariableReferenceExpression("x17", createDecimalType(21, 3));
-    private static final VariableReferenceExpression C_DECIMAL_12_2 = new VariableReferenceExpression("x18", createDecimalType(12, 2));
-    private static final VariableReferenceExpression C_DECIMAL_6_1 = new VariableReferenceExpression("x19", createDecimalType(6, 1));
-    private static final VariableReferenceExpression C_DECIMAL_3_0 = new VariableReferenceExpression("x20", createDecimalType(3, 0));
-    private static final VariableReferenceExpression C_DECIMAL_2_0 = new VariableReferenceExpression("x21", createDecimalType(2, 0));
-    private static final VariableReferenceExpression C_SMALLINT = new VariableReferenceExpression("x22", SMALLINT);
-    private static final VariableReferenceExpression C_TINYINT = new VariableReferenceExpression("x23", TINYINT);
-    private static final VariableReferenceExpression C_REAL = new VariableReferenceExpression("x24", REAL);
+    private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression(Optional.empty(), "x1", BIGINT);
+    private static final VariableReferenceExpression C_DOUBLE = new VariableReferenceExpression(Optional.empty(), "x2", DOUBLE);
+    private static final VariableReferenceExpression C_VARCHAR = new VariableReferenceExpression(Optional.empty(), "x3", VARCHAR);
+    private static final VariableReferenceExpression C_BOOLEAN = new VariableReferenceExpression(Optional.empty(), "x4", BOOLEAN);
+    private static final VariableReferenceExpression C_BIGINT_1 = new VariableReferenceExpression(Optional.empty(), "x5", BIGINT);
+    private static final VariableReferenceExpression C_DOUBLE_1 = new VariableReferenceExpression(Optional.empty(), "x6", DOUBLE);
+    private static final VariableReferenceExpression C_VARCHAR_1 = new VariableReferenceExpression(Optional.empty(), "x7", VARCHAR);
+    private static final VariableReferenceExpression C_TIMESTAMP = new VariableReferenceExpression(Optional.empty(), "x8", TIMESTAMP);
+    private static final VariableReferenceExpression C_DATE = new VariableReferenceExpression(Optional.empty(), "x9", DATE);
+    private static final VariableReferenceExpression C_COLOR = new VariableReferenceExpression(Optional.empty(), "x10", COLOR);
+    private static final VariableReferenceExpression C_HYPER_LOG_LOG = new VariableReferenceExpression(Optional.empty(), "x11", HYPER_LOG_LOG);
+    private static final VariableReferenceExpression C_VARBINARY = new VariableReferenceExpression(Optional.empty(), "x12", VARBINARY);
+    private static final VariableReferenceExpression C_DECIMAL_26_5 = new VariableReferenceExpression(Optional.empty(), "x13", createDecimalType(26, 5));
+    private static final VariableReferenceExpression C_DECIMAL_23_4 = new VariableReferenceExpression(Optional.empty(), "x14", createDecimalType(23, 4));
+    private static final VariableReferenceExpression C_INTEGER = new VariableReferenceExpression(Optional.empty(), "x15", INTEGER);
+    private static final VariableReferenceExpression C_CHAR = new VariableReferenceExpression(Optional.empty(), "x16", createCharType(10));
+    private static final VariableReferenceExpression C_DECIMAL_21_3 = new VariableReferenceExpression(Optional.empty(), "x17", createDecimalType(21, 3));
+    private static final VariableReferenceExpression C_DECIMAL_12_2 = new VariableReferenceExpression(Optional.empty(), "x18", createDecimalType(12, 2));
+    private static final VariableReferenceExpression C_DECIMAL_6_1 = new VariableReferenceExpression(Optional.empty(), "x19", createDecimalType(6, 1));
+    private static final VariableReferenceExpression C_DECIMAL_3_0 = new VariableReferenceExpression(Optional.empty(), "x20", createDecimalType(3, 0));
+    private static final VariableReferenceExpression C_DECIMAL_2_0 = new VariableReferenceExpression(Optional.empty(), "x21", createDecimalType(2, 0));
+    private static final VariableReferenceExpression C_SMALLINT = new VariableReferenceExpression(Optional.empty(), "x22", SMALLINT);
+    private static final VariableReferenceExpression C_TINYINT = new VariableReferenceExpression(Optional.empty(), "x23", TINYINT);
+    private static final VariableReferenceExpression C_REAL = new VariableReferenceExpression(Optional.empty(), "x24", REAL);
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
@@ -610,7 +611,7 @@ public class TestRowExpressionDomainTranslator
     }
 
     @Test
-    void testNonImplictCastOnSymbolSide()
+    void testNonImplicitCastOnSymbolSide()
     {
         // we expect TupleDomain.all here().
         // see comment in ExpressionDomainTranslator.Visitor.visitComparisonExpression()
@@ -1232,7 +1233,7 @@ public class TestRowExpressionDomainTranslator
 
     private RowExpression cast(RowExpression expression, Type toType)
     {
-        FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, expression.getType().getTypeSignature(), toType.getTypeSignature());
+        FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, expression.getType(), toType);
         return call(CastType.CAST.name(), cast, toType, expression);
     }
 
@@ -1328,7 +1329,7 @@ public class TestRowExpressionDomainTranslator
         RowExpression random = call("random", metadata.getFunctionAndTypeManager().lookupFunction("random", fromTypes()), DOUBLE);
         return greaterThan(
                 expression,
-                call(CastType.CAST.name(), metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, DOUBLE.getTypeSignature(), expression.getType().getTypeSignature()), expression.getType(), random));
+                call(CastType.CAST.name(), metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, DOUBLE, expression.getType()), expression.getType(), random));
     }
 
     private void assertUnsupportedPredicate(RowExpression expression)

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -31,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -56,6 +58,7 @@ public class GroupIdNode
 
     @JsonCreator
     public GroupIdNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("groupingSets") List<List<VariableReferenceExpression>> groupingSets,
@@ -63,7 +66,7 @@ public class GroupIdNode
             @JsonProperty("aggregationArguments") List<VariableReferenceExpression> aggregationArguments,
             @JsonProperty("groupIdVariable") VariableReferenceExpression groupIdVariable)
     {
-        super(id);
+        super(sourceLocation, id);
         this.source = requireNonNull(source);
         this.groupingSets = listOfListsCopy(requireNonNull(groupingSets, "groupingSets is null"));
         this.groupingColumns = ImmutableMap.copyOf(requireNonNull(groupingColumns));
@@ -152,7 +155,7 @@ public class GroupIdNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new GroupIdNode(getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdVariable);
+        return new GroupIdNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdVariable);
     }
 
     @Override

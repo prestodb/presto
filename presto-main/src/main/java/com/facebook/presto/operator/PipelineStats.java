@@ -44,8 +44,10 @@ public class PipelineStats
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int queuedPartitionedDrivers;
+    private final long queuedPartitionedSplitsWeight;
     private final int runningDrivers;
     private final int runningPartitionedDrivers;
+    private final long runningPartitionedSplitsWeight;
     private final int blockedDrivers;
     private final int completedDrivers;
 
@@ -92,8 +94,10 @@ public class PipelineStats
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
+            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
@@ -141,10 +145,14 @@ public class PipelineStats
         this.queuedDrivers = queuedDrivers;
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers is negative");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
+        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
+        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
+        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
         checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
         this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
@@ -241,6 +249,12 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public long getQueuedPartitionedSplitsWeight()
+    {
+        return queuedPartitionedSplitsWeight;
+    }
+
+    @JsonProperty
     public int getRunningDrivers()
     {
         return runningDrivers;
@@ -250,6 +264,12 @@ public class PipelineStats
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
+    }
+
+    @JsonProperty
+    public long getRunningPartitionedSplitsWeight()
+    {
+        return runningPartitionedSplitsWeight;
     }
 
     @JsonProperty
@@ -396,8 +416,10 @@ public class PipelineStats
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
                 runningDrivers,
                 runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
                 userMemoryReservationInBytes,

@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.Int128ArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.AbstractType;
+import com.facebook.presto.common.type.AbstractPrimitiveType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.StandardTypes;
 import io.airlift.slice.Slice;
@@ -33,7 +33,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public class UuidType
-        extends AbstractType
+        extends AbstractPrimitiveType
         implements FixedWidthType
 {
     public static final UuidType UUID = new UuidType();

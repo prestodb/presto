@@ -14,11 +14,11 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesRange;
 import com.facebook.presto.hive.HiveCoercer.IntegerNumberToVarcharCoercer;
 import com.facebook.presto.hive.HiveCoercer.VarcharToIntegerNumberCoercer;
-import com.facebook.presto.orc.TupleDomainFilter;
-import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;

@@ -22,7 +22,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.common.block.RowBlock.createRowBlockInternal;
@@ -146,23 +146,34 @@ public class RowBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         for (int i = 0; i < numFields; i++) {
             consumer.accept(fieldBlockBuilders[i], fieldBlockBuilders[i].getRetainedSizeInBytes());
         }
         consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
         consumer.accept(rowIsNull, sizeOf(rowIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
+    }
+
+    public BlockBuilder getBlockBuilder(int fieldIndex)
+    {
+        return fieldBlockBuilders[fieldIndex];
     }
 
     @Override
-    public SingleRowBlockWriter beginBlockEntry()
+    public void beginDirectEntry()
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
+    }
+
+    @Override
+    public SingleRowBlockWriter beginBlockEntry()
+    {
+        beginDirectEntry();
         return new SingleRowBlockWriter(fieldBlockBuilders[0].getPositionCount(), fieldBlockBuilders);
     }
 

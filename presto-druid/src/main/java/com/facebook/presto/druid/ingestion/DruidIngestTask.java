@@ -38,7 +38,7 @@ public class DruidIngestTask
     {
         private String dataSource;
         private String timestampColumn;
-        private List<DruidIngestDimension> dimentions;
+        private List<DruidIngestDimension> dimensions;
         private DruidIngestInputSource inputSource;
         private boolean appendToExisting;
 
@@ -56,7 +56,7 @@ public class DruidIngestTask
 
         public Builder withDimensions(List<DruidIngestDimension> dimensions)
         {
-            this.dimentions = dimensions;
+            this.dimensions = dimensions;
             return this;
         }
 
@@ -87,7 +87,7 @@ public class DruidIngestTask
             DruidIngestDataSchema dataSchema = new DruidIngestDataSchema(
                     dataSource,
                     new DruidIngestTimestampSpec(timestampColumn),
-                    new DruidIngestDimensionsSpec(dimentions));
+                    new DruidIngestDimensionsSpec(dimensions));
             DruidIngestIOConfig ioConfig = new DruidIngestIOConfig(
                     TASK_TYPE_INDEX_PARALLEL,
                     inputSource,

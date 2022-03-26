@@ -77,7 +77,7 @@ public class PushLimitThroughUnion
                 builder.add(source);
             }
             else {
-                builder.add(new LimitNode(context.getIdAllocator().getNextId(), source, parent.getCount(), LimitNode.Step.PARTIAL));
+                builder.add(new LimitNode(parent.getSourceLocation(), context.getIdAllocator().getNextId(), source, parent.getCount(), LimitNode.Step.PARTIAL));
             }
         }
 
