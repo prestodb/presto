@@ -40,7 +40,7 @@ bool DefaultFlushPolicy::operator()(
               context.stripeIndex == 0 ? outputStreamSize : 0),
           dictionaryMemUsage);
   if (decision) {
-    LOG(INFO) << fmt::format(
+    VLOG(1) << fmt::format(
         "overMemoryBudget: {}, dictionaryMemUsage: {}, outputStreamSize: {}, generalMemUsage: {}, estimatedStripeSize: {}",
         overMemoryBudget,
         dictionaryMemUsage,

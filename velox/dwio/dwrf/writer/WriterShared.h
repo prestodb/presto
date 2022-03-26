@@ -124,7 +124,7 @@ struct WriterOptionsShared {
 class WriterShared : public WriterBase {
  public:
   WriterShared(
-      WriterOptionsShared& options,
+      const WriterOptionsShared& options,
       std::unique_ptr<dwio::common::DataSink> sink,
       memory::MemoryPool& parentPool)
       : WriterBase{std::move(sink)},

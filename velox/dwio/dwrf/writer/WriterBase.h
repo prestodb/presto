@@ -57,6 +57,11 @@ class WriterBase {
     return *writerSink_;
   }
 
+  const WriterSink& getSink() const {
+    DWIO_ENSURE_NOT_NULL(writerSink_);
+    return *writerSink_;
+  }
+
   void addUserMetadata(const std::string& key, const std::string& value) {
     userMetadata_[key] = value;
   }

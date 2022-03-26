@@ -26,7 +26,7 @@ struct WriterOptions : public WriterOptionsShared {};
 class Writer : public WriterShared {
  public:
   Writer(
-      WriterOptions& options,
+      const WriterOptions& options,
       std::unique_ptr<dwio::common::DataSink> sink,
       memory::MemoryPool& pool)
       : WriterShared{options, std::move(sink), pool} {

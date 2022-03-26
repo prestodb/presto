@@ -15,6 +15,8 @@
  */
 
 #include "velox/dwio/dwrf/writer/WriterShared.h"
+
+#include "velox/common/time/CpuWallTimer.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
 #include "velox/dwio/dwrf/writer/LayoutPlanner.h"
@@ -452,87 +454,90 @@ void WriterShared::flushStripe(bool close) {
 }
 
 void WriterShared::flushInternal(bool close) {
-  flushStripe(close);
-
   auto& context = getContext();
   auto& footer = getFooter();
-  // if this is the last stripe, add footer
-  if (close) {
-    auto& handler = context.getEncryptionHandler();
-    std::vector<std::vector<proto::FileStatistics>> stats;
-    proto::Encryption* encryption = nullptr;
+  auto& sink = getSink();
+  {
+    CpuWallTimer timer{context.flushTiming};
+    flushStripe(close);
 
-    // initialize encryption related metadata only when there is data written
-    if (handler.isEncrypted() && footer.stripes_size() > 0) {
-      auto count = handler.getEncryptionGroupCount();
-      stats.resize(count);
-      encryption = footer.mutable_encryption();
-      encryption->set_keyprovider(
-          encryption::toProto(handler.getKeyProviderType()));
-      for (uint32_t i = 0; i < count; ++i) {
-        encryption->add_encryptiongroups();
-      }
-    }
+    // if this is the last stripe, add footer
+    if (close) {
+      auto& handler = context.getEncryptionHandler();
+      std::vector<std::vector<proto::FileStatistics>> stats;
+      proto::Encryption* encryption = nullptr;
 
-    std::optional<uint32_t> lastRoot;
-    std::unordered_map<proto::ColumnStatistics*, proto::ColumnStatistics*>
-        statsMap;
-    writeFileStatsImpl([&](uint32_t nodeId) -> proto::ColumnStatistics& {
-      auto entry = footer.add_statistics();
-      if (!encryption || !handler.isEncrypted(nodeId)) {
-        return *entry;
+      // initialize encryption related metadata only when there is data written
+      if (handler.isEncrypted() && footer.stripes_size() > 0) {
+        auto count = handler.getEncryptionGroupCount();
+        stats.resize(count);
+        encryption = footer.mutable_encryption();
+        encryption->set_keyprovider(
+            encryption::toProto(handler.getKeyProviderType()));
+        for (uint32_t i = 0; i < count; ++i) {
+          encryption->add_encryptiongroups();
+        }
       }
 
-      auto root = handler.getEncryptionRoot(nodeId);
-      auto groupIndex = handler.getEncryptionGroupIndex(nodeId);
-      auto& group = stats.at(groupIndex);
-      if (!lastRoot || root != lastRoot.value()) {
-        // this is a new root, add to the footer, and use a new slot
-        group.emplace_back();
-        encryption->mutable_encryptiongroups(groupIndex)->add_nodes(root);
-      }
-      lastRoot = root;
-      auto encryptedStats = group.back().add_statistics();
-      statsMap[entry] = encryptedStats;
-      return *encryptedStats;
-    });
+      std::optional<uint32_t> lastRoot;
+      std::unordered_map<proto::ColumnStatistics*, proto::ColumnStatistics*>
+          statsMap;
+      writeFileStatsImpl([&](uint32_t nodeId) -> proto::ColumnStatistics& {
+        auto entry = footer.add_statistics();
+        if (!encryption || !handler.isEncrypted(nodeId)) {
+          return *entry;
+        }
+
+        auto root = handler.getEncryptionRoot(nodeId);
+        auto groupIndex = handler.getEncryptionGroupIndex(nodeId);
+        auto& group = stats.at(groupIndex);
+        if (!lastRoot || root != lastRoot.value()) {
+          // this is a new root, add to the footer, and use a new slot
+          group.emplace_back();
+          encryption->mutable_encryptiongroups(groupIndex)->add_nodes(root);
+        }
+        lastRoot = root;
+        auto encryptedStats = group.back().add_statistics();
+        statsMap[entry] = encryptedStats;
+        return *encryptedStats;
+      });
 
 #define COPY_STAT(from, to, stat) \
   if (from->has_##stat()) {       \
     to->set_##stat(from->stat()); \
   }
 
-    // fill basic stats
-    for (auto& pair : statsMap) {
-      COPY_STAT(pair.second, pair.first, numberofvalues);
-      COPY_STAT(pair.second, pair.first, hasnull);
-      COPY_STAT(pair.second, pair.first, rawsize);
-      COPY_STAT(pair.second, pair.first, size);
-    }
+      // fill basic stats
+      for (auto& pair : statsMap) {
+        COPY_STAT(pair.second, pair.first, numberofvalues);
+        COPY_STAT(pair.second, pair.first, hasnull);
+        COPY_STAT(pair.second, pair.first, rawsize);
+        COPY_STAT(pair.second, pair.first, size);
+      }
 
 #undef COPY_STAT
 
-    // set metadata for each encryption group
-    if (encryption) {
-      for (uint32_t i = 0; i < handler.getEncryptionGroupCount(); ++i) {
-        auto group = encryption->mutable_encryptiongroups(i);
-        // set stats. No need to set key metadata since it just reused the same
-        // key of the first stripe
-        for (auto& s : stats.at(i)) {
-          writeProtoAsString(
-              *group->add_statistics(),
-              s,
-              std::addressof(handler.getEncryptionProviderByIndex(i)));
+      // set metadata for each encryption group
+      if (encryption) {
+        for (uint32_t i = 0; i < handler.getEncryptionGroupCount(); ++i) {
+          auto group = encryption->mutable_encryptiongroups(i);
+          // set stats. No need to set key metadata since it just reused the
+          // same key of the first stripe
+          for (auto& s : stats.at(i)) {
+            writeProtoAsString(
+                *group->add_statistics(),
+                s,
+                std::addressof(handler.getEncryptionProviderByIndex(i)));
+          }
         }
       }
+
+      writeFooter(*schema_->type);
     }
 
-    writeFooter(*schema_->type);
+    // flush to sink
+    sink.flush();
   }
-
-  // flush to sink
-  auto& sink = getSink();
-  sink.flush();
 
   if (close) {
     context.metricLogger->logFileClose(
