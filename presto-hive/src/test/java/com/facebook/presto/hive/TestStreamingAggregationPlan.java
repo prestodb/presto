@@ -27,7 +27,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
-import static com.facebook.presto.hive.HiveSessionProperties.STREAMING_AGGREGATION_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.ORDER_BASED_EXECUTION_ENABLED;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -336,7 +336,7 @@ public class TestStreamingAggregationPlan
     private Session streamingAggregationEnabled()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty(HIVE_CATALOG, STREAMING_AGGREGATION_ENABLED, "true")
+                .setCatalogSessionProperty(HIVE_CATALOG, ORDER_BASED_EXECUTION_ENABLED, "true")
                 .build();
     }
 

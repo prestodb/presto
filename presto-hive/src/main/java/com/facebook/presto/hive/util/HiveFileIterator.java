@@ -33,6 +33,7 @@ import java.util.Iterator;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFileIterator
@@ -156,7 +157,7 @@ public class HiveFileIterator
             if (exception instanceof AccessControlException) {
                 throw new PrestoException(PERMISSION_DENIED, exception.getMessage(), exception);
             }
-            return new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to list directory: " + path, exception);
+            return new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to list directory: %s. %s", path, exception.getMessage()), exception);
         }
     }
 

@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
@@ -49,11 +50,11 @@ public interface HiveMetastore
 
     void alterDatabase(MetastoreContext metastoreContext, String databaseName, Database database);
 
-    void createTable(MetastoreContext metastoreContext, Table table);
+    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table);
 
     void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData);
 
-    void alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table table);
+    MetastoreOperationResult alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table table);
 
     List<String> getAllDatabases(MetastoreContext metastoreContext);
 
@@ -63,11 +64,19 @@ public interface HiveMetastore
 
     Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName);
 
-    void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
+    MetastoreOperationResult addPartitions(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<PartitionWithStatistics> partitions);
 
     void dropPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition);
+    MetastoreOperationResult alterPartition(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            PartitionWithStatistics partition);
 
     Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName);
 
@@ -80,11 +89,22 @@ public interface HiveMetastore
         throw new UnsupportedOperationException();
     }
 
-    Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues);
+    Optional<Partition> getPartition(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<String> partitionValues);
 
-    List<Partition> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames);
+    List<Partition> getPartitionsByNames(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<String> partitionNames);
 
-    Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName);
+    Optional<Table> getTable(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName);
 
     Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type);
 

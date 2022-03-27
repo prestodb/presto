@@ -20,6 +20,7 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
@@ -41,6 +42,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
+import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTANCE;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -213,13 +215,14 @@ public class HiveConnector
     }
 
     @Override
-    public void commit(ConnectorTransactionHandle transaction)
+    public ConnectorCommitHandle commit(ConnectorTransactionHandle transaction)
     {
         TransactionalMetadata metadata = transactionManager.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             metadata.commit();
         }
+        return INSTANCE;
     }
 
     @Override

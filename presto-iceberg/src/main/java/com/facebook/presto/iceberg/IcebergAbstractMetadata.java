@@ -134,6 +134,8 @@ public abstract class IcebergAbstractMetadata
                 return Optional.of(new ManifestsTable(systemTableName, table, snapshotId));
             case FILES:
                 return Optional.of(new FilesTable(systemTableName, table, snapshotId, typeManager));
+            case PROPERTIES:
+                return Optional.of(new PropertiesTable(systemTableName, table));
         }
         return Optional.empty();
     }

@@ -282,7 +282,7 @@ public class IcebergHadoopMetadata
     {
         TableIdentifier tableIdentifier = toIcebergTableIdentifier(((IcebergTableHandle) tableHandle).getSchemaTableName());
         Table icebergTable = resourceFactory.getCatalog(session).loadTable(tableIdentifier);
-        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType())).commit();
+        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType()), column.getComment()).commit();
     }
 
     @Override

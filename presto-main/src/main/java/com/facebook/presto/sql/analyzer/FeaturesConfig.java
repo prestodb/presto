@@ -101,6 +101,7 @@ public class FeaturesConfig
     private boolean legacyArrayAgg;
     private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
+    private boolean useAlternativeFunctionSignatures;
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
@@ -216,6 +217,7 @@ public class FeaturesConfig
     private int hashBasedDistinctLimitThreshold = 10000;
 
     private boolean streamingForPartialAggregationEnabled;
+    private boolean preferMergeJoin;
 
     private int maxStageCountForEagerScheduling = 25;
 
@@ -410,6 +412,19 @@ public class FeaturesConfig
     public boolean isLegacyLogFunction()
     {
         return legacyLogFunction;
+    }
+
+    @Config("use-alternative-function-signatures")
+    @ConfigDescription("Override intermediate aggregation type of some aggregation functions to be compatible with Velox")
+    public FeaturesConfig setUseAlternativeFunctionSignatures(boolean value)
+    {
+        this.useAlternativeFunctionSignatures = value;
+        return this;
+    }
+
+    public boolean isUseAlternativeFunctionSignatures()
+    {
+        return useAlternativeFunctionSignatures;
     }
 
     @Config("deprecated.group-by-uses-equal")
@@ -2011,6 +2026,20 @@ public class FeaturesConfig
     public FeaturesConfig setHyperloglogStandardErrorWarningThreshold(double hyperloglogStandardErrorWarningThreshold)
     {
         this.hyperloglogStandardErrorWarningThreshold = hyperloglogStandardErrorWarningThreshold;
+        return this;
+    }
+
+    public boolean isPreferMergeJoin()
+    {
+        return preferMergeJoin;
+    }
+
+    @Config("optimizer.prefer-merge-join")
+    @ConfigDescription("Prefer merge join for sorted join inputs, e.g., tables pre-sorted, pre-partitioned by join columns." +
+            "To make it work, the connector needs to guarantee and expose the data properties of the underlying table.")
+    public FeaturesConfig setPreferMergeJoin(boolean preferMergeJoin)
+    {
+        this.preferMergeJoin = preferMergeJoin;
         return this;
     }
 }

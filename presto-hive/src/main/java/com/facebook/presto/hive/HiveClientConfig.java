@@ -155,7 +155,7 @@ public class HiveClientConfig
 
     private boolean s3SelectPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
-    private boolean streamingAggregationEnabled;
+    private boolean orderBasedExecutionEnabled;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
@@ -1358,16 +1358,17 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isStreamingAggregationEnabled()
+    public boolean isOrderBasedExecutionEnabled()
     {
-        return streamingAggregationEnabled;
+        return orderBasedExecutionEnabled;
     }
 
-    @Config("hive.streaming-aggregation-enabled")
-    @ConfigDescription("Enable streaming aggregation execution")
-    public HiveClientConfig setStreamingAggregationEnabled(boolean streamingAggregationEnabled)
+    @Config("hive.order-based-execution-enabled")
+    @ConfigDescription("Enable order-based execution. When it's enabled, hive files become non-splittable and the table ordering properties would be exposed to plan optimizer " +
+            "for features like streaming aggregation and merge join")
+    public HiveClientConfig setOrderBasedExecutionEnabled(boolean orderBasedExecutionEnabled)
     {
-        this.streamingAggregationEnabled = streamingAggregationEnabled;
+        this.orderBasedExecutionEnabled = orderBasedExecutionEnabled;
         return this;
     }
 

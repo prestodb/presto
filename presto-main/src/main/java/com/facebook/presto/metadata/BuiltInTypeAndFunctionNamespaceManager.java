@@ -311,6 +311,8 @@ import static com.facebook.presto.operator.aggregation.TDigestAggregationFunctio
 import static com.facebook.presto.operator.aggregation.approxmostfrequent.ApproximateMostFrequent.APPROXIMATE_MOST_FREQUENT;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetAggregationFunction.SET_AGG;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetUnionFunction.SET_UNION;
+import static com.facebook.presto.operator.aggregation.minmaxby.AlternativeMaxByAggregationFunction.ALTERNATIVE_MAX_BY;
+import static com.facebook.presto.operator.aggregation.minmaxby.AlternativeMinByAggregationFunction.ALTERNATIVE_MIN_BY;
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
@@ -891,6 +893,13 @@ public class BuiltInTypeAndFunctionNamespaceManager
         if (featuresConfig.isLegacyLogFunction()) {
             builder.scalar(LegacyLogFunction.class);
         }
+
+        // Replace some aggregations for Velox to override intermediate aggregation type.
+        if (featuresConfig.isUseAlternativeFunctionSignatures()) {
+            builder.override(MAX_BY, ALTERNATIVE_MAX_BY);
+            builder.override(MIN_BY, ALTERNATIVE_MIN_BY);
+        }
+
         return builder.getFunctions();
     }
 
