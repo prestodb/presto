@@ -135,9 +135,10 @@ public class ClickHouseConnector
     }
 
     @Override
-    public void commit(ConnectorTransactionHandle transaction)
+    public ConnectorCommitHandle commit(ConnectorTransactionHandle transaction)
     {
         checkArgument(transactions.remove(transaction) != null, "no such transaction: %s", transaction);
+        return INSTANCE;
     }
 
     @Override
