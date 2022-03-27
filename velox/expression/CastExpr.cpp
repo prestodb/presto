@@ -518,9 +518,7 @@ void CastExpr::apply(
   if ((castOperator = getCastOperator(toType->toString()))) {
     if (!castOperator->isSupportedType(fromType)) {
       VELOX_FAIL(
-          "Casting from {} to {} is not supported.",
-          fromType->toString(),
-          toType->toString());
+          "Cannot cast {} to {}.", fromType->toString(), toType->toString());
     }
 
     applyCustomTypeCast<true>(
@@ -535,9 +533,7 @@ void CastExpr::apply(
   } else if ((castOperator = getCastOperator(fromType->toString()))) {
     if (!castOperator->isSupportedType(toType)) {
       VELOX_FAIL(
-          "Casting from {} to {} is not supported.",
-          fromType->toString(),
-          toType->toString());
+          "Cannot cast {} to {}.", fromType->toString(), toType->toString());
     }
 
     applyCustomTypeCast<false>(
