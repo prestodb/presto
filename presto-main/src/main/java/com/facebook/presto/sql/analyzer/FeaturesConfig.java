@@ -88,7 +88,7 @@ public class FeaturesConfig
     private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
-    private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
+    private DataSize writerMinSize = new DataSize(32, MEGABYTE);
     private boolean optimizedScaleWriterProducerBuffer;
     private boolean optimizeMetadataQueries;
     private boolean optimizeMetadataQueriesIgnoreStats;
@@ -133,7 +133,7 @@ public class FeaturesConfig
     private boolean orderByAggregationSpillEnabled = true;
     private boolean windowSpillEnabled = true;
     private boolean orderBySpillEnabled = true;
-    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -220,6 +220,7 @@ public class FeaturesConfig
     private boolean preferMergeJoin;
 
     private int maxStageCountForEagerScheduling = 25;
+    private boolean roundRobinShuffleBeforePartialDistinctLimit;
 
     private double hyperloglogStandardErrorWarningThreshold = 0.004;
 
@@ -2040,6 +2041,19 @@ public class FeaturesConfig
     public FeaturesConfig setPreferMergeJoin(boolean preferMergeJoin)
     {
         this.preferMergeJoin = preferMergeJoin;
+        return this;
+    }
+
+    public boolean isRoundRobinShuffleBeforePartialDistinctLimit()
+    {
+        return roundRobinShuffleBeforePartialDistinctLimit;
+    }
+
+    @Config("optimizer.round-robin-shuffle-before-partial-distinct-limit")
+    @ConfigDescription("Add a round robin shuffle before partial distinct limit")
+    public FeaturesConfig setRoundRobinShuffleBeforePartialDistinctLimit(boolean roundRobinShuffleBeforePartialDistinctLimit)
+    {
+        this.roundRobinShuffleBeforePartialDistinctLimit = roundRobinShuffleBeforePartialDistinctLimit;
         return this;
     }
 }

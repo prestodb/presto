@@ -230,6 +230,7 @@ public final class SystemSessionProperties
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
     public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
     public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
+    public static final String ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT = "round_robin_shuffle_before_partial_distinct_limit";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1254,6 +1255,11 @@ public final class SystemSessionProperties
                         HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD,
                         "Threshold for obtaining precise results from aggregation functions",
                         featuresConfig.getHyperloglogStandardErrorWarningThreshold(),
+                        false),
+                booleanProperty(
+                        ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT,
+                        "Add a local roundrobin shuffle before partial distinct limit",
+                        featuresConfig.isRoundRobinShuffleBeforePartialDistinctLimit(),
                         false));
     }
 
@@ -2108,5 +2114,10 @@ public final class SystemSessionProperties
     public static double getHyperloglogStandardErrorWarningThreshold(Session session)
     {
         return session.getSystemProperty(HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD, Double.class);
+    }
+
+    public static boolean isRoundRobinShuffleBeforePartialDistinctLimit(Session session)
+    {
+        return session.getSystemProperty(ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT, Boolean.class);
     }
 }
