@@ -35,6 +35,7 @@ public class TestClickHouseConfig
                 .setUserCredentialName(null)
                 .setPasswordCredentialName(null)
                 .setCaseInsensitiveNameMatching(false)
+                .setAllowDropTable(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setMapStringAsVarchar(false));
     }
@@ -51,6 +52,7 @@ public class TestClickHouseConfig
                 .put("clickhouse.case-insensitive-name-matching", "true")
                 .put("clickhouse.case-insensitive-name-matching.cache-ttl", "1s")
                 .put("clickhouse.map-string-as-varchar", "true")
+                .put("clickhouse.allow-drop-table", "true")
                 .build();
 
         ClickHouseConfig expected = new ClickHouseConfig()
@@ -60,6 +62,7 @@ public class TestClickHouseConfig
                 .setUserCredentialName("foo")
                 .setPasswordCredentialName("bar")
                 .setCaseInsensitiveNameMatching(true)
+                .setAllowDropTable(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
                 .setMapStringAsVarchar(true);
 
