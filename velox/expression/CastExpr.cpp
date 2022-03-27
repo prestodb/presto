@@ -445,6 +445,7 @@ VectorPtr CastExpr::applyRow(
 /// @param thisType The custom type
 /// @param otherType The other type involved in this casting
 /// @param context The context
+/// @param nullOnFailure Whether this is a cast or try_cast operation
 /// @param result The output vector
 template <bool castTo>
 void applyCustomTypeCast(
@@ -455,6 +456,7 @@ void applyCustomTypeCast(
     const TypePtr& thisType,
     const TypePtr& otherType,
     exec::EvalCtx* context,
+    bool nullOnFailure,
     VectorPtr* result) {
   VELOX_CHECK_NE(
       thisType,
@@ -467,8 +469,9 @@ void applyCustomTypeCast(
   exec::LocalSelectivityVector baseRows(
       context->execCtx(), inputDecoded->base()->size());
   baseRows->clearAll();
-  nonNullRows.applyToSelected(
-      [&](auto row) { baseRows->setValid(inputDecoded->index(row), true); });
+  context->applyToSelectedNoThrow(nonNullRows, [&](auto row) {
+    baseRows->setValid(inputDecoded->index(row), true);
+  });
   baseRows->updateBounds();
 
   VectorPtr localResult;
@@ -477,7 +480,7 @@ void applyCustomTypeCast(
         *baseRows, thisType, context->pool(), &localResult);
 
     castOperator->castTo(
-        *inputDecoded->base(), context, *baseRows, *localResult);
+        *inputDecoded->base(), context, *baseRows, nullOnFailure, *localResult);
   } else {
     VELOX_NYI(
         "Casting from {} to {} is not implemented yet.",
@@ -529,6 +532,7 @@ void CastExpr::apply(
         toType,
         fromType,
         context,
+        nullOnFailure_,
         result);
   } else if ((castOperator = getCastOperator(fromType->toString()))) {
     if (!castOperator->isSupportedType(toType)) {
@@ -544,6 +548,7 @@ void CastExpr::apply(
         fromType,
         toType,
         context,
+        nullOnFailure_,
         result);
   } else {
     LocalDecodedVector decoded(context, *input, rows);

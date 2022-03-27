@@ -34,11 +34,10 @@ class CastBaseTest : public FunctionBaseTest {
   }
 
   template <typename TTo>
-  void evaluateCast(
+  VectorPtr evaluateCast(
       const TypePtr& fromType,
       const TypePtr& toType,
       const RowVectorPtr& input,
-      const VectorPtr& expected,
       bool tryCast = false) {
     std::shared_ptr<const core::ITypedExpr> inputField =
         std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
@@ -48,13 +47,22 @@ class CastBaseTest : public FunctionBaseTest {
             std::vector<std::shared_ptr<const core::ITypedExpr>>{inputField},
             tryCast);
 
-    auto result = evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
+    return evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
+  }
 
+  template <typename TTo>
+  void evaluateAndVerify(
+      const TypePtr& fromType,
+      const TypePtr& toType,
+      const RowVectorPtr& input,
+      const VectorPtr& expected,
+      bool tryCast = false) {
+    auto result = evaluateCast<TTo>(fromType, toType, input, tryCast);
     assertEqualVectors(expected, result);
   }
 
   template <typename TTo>
-  void evaluateCastDictEncoding(
+  void evaluateAndVerifyDictEncoding(
       const TypePtr& fromType,
       const TypePtr& toType,
       const RowVectorPtr& input,
@@ -88,22 +96,23 @@ class CastBaseTest : public FunctionBaseTest {
       const VectorPtr& input,
       const VectorPtr& expected) {
     // Test with flat encoding.
-    evaluateCast<TTo>(fromType, toType, makeRowVector({input}), expected);
-    evaluateCast<TTo>(fromType, toType, makeRowVector({input}), expected, true);
+    evaluateAndVerify<TTo>(fromType, toType, makeRowVector({input}), expected);
+    evaluateAndVerify<TTo>(
+        fromType, toType, makeRowVector({input}), expected, true);
 
     // Test with constant encoding that repeats the first element five times.
     auto constInput = BaseVector::wrapInConstant(5, 0, input);
     auto constExpected = BaseVector::wrapInConstant(5, 0, expected);
 
-    evaluateCast<TTo>(
+    evaluateAndVerify<TTo>(
         fromType, toType, makeRowVector({constInput}), constExpected);
-    evaluateCast<TTo>(
+    evaluateAndVerify<TTo>(
         fromType, toType, makeRowVector({constInput}), constExpected, true);
 
     // Test with dictionary encoding that reverses the indices.
-    evaluateCastDictEncoding<TTo>(
+    evaluateAndVerifyDictEncoding<TTo>(
         fromType, toType, makeRowVector({input}), expected);
-    evaluateCastDictEncoding<TTo>(
+    evaluateAndVerifyDictEncoding<TTo>(
         fromType, toType, makeRowVector({input}), expected, true);
   }
 

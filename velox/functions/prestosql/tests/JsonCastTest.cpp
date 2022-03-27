@@ -16,6 +16,7 @@
 
 #include <cstdint>
 
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -101,19 +102,33 @@ class JsonCastTest : public functions::test::CastBaseTest {
     }
   }
 
-  // Makes a flat vector wrapped in reversed indices.
+  // Makes a flat vector wrapped in reversed indices. If IsKey is false, also
+  // makes first row to be null.
   template <typename T>
   VectorPtr makeDictionaryVector(
       const std::vector<std::optional<T>>& data,
-      const TypePtr& type = CppToType<T>::create()) {
+      const TypePtr& type = CppToType<T>::create(),
+      bool isKey = false) {
     auto vector = makeNullableFlatVector<T>(data, type);
     auto reversedIndices = makeIndicesInReverse(data.size());
-    return wrapInDictionary(reversedIndices, data.size(), vector);
+
+    auto nulls = AlignedBuffer::allocate<bool>(data.size(), pool());
+    auto rawNulls = nulls->template asMutable<uint64_t>();
+    bits::fillBits(rawNulls, 0, data.size(), true);
+    bits::setBit(rawNulls, 0, false);
+
+    if (!isKey) {
+      return BaseVector::wrapInDictionary(
+          nulls, reversedIndices, data.size(), vector);
+    } else {
+      return BaseVector::wrapInDictionary(
+          nullptr, reversedIndices, data.size(), vector);
+    }
   }
 
   // Makes an array vector whose elements vector is wrapped in a dictionary
-  // that reverses all elements. Each row of the array vector contains arraySize
-  // number of elements except the last row.
+  // that reverses all elements and first element is null. Each row of the array
+  // vector contains arraySize number of elements except the last row.
   template <typename T>
   ArrayVectorPtr makeArrayWithDictionaryElements(
       const std::vector<std::optional<T>>& elements,
@@ -141,8 +156,9 @@ class JsonCastTest : public functions::test::CastBaseTest {
   }
 
   // Makes a map vector whose keys and values vectors are wrapped in a
-  // dictionary that reverses all elements. Each row of the map vector contains
-  // mapSize number of keys and values except the last row.
+  // dictionary that reverses all elements and first value is null. Each row of
+  // the map vector contains mapSize number of keys and values except the last
+  // row.
   template <typename TKey, typename TValue>
   MapVectorPtr makeMapWithDictionaryElements(
       const std::vector<std::optional<TKey>>& keys,
@@ -157,7 +173,7 @@ class JsonCastTest : public functions::test::CastBaseTest {
 
     int size = keys.size();
     int numOfMap = (size + mapSize - 1) / mapSize;
-    auto dictKeys = makeDictionaryVector(keys, type->childAt(0));
+    auto dictKeys = makeDictionaryVector(keys, type->childAt(0), true);
     auto dictValues = makeDictionaryVector(values, type->childAt(1));
 
     BufferPtr offsets =
@@ -178,7 +194,7 @@ class JsonCastTest : public functions::test::CastBaseTest {
   }
 
   // Makes a row vector whose children vectors are wrapped in a dictionary
-  // that reverses all elements.
+  // that reverses all elements and elements at the first row are null.
   template <typename T>
   RowVectorPtr makeRowWithDictionaryElements(
       const TwoDimVector<T>& elements,
@@ -328,7 +344,7 @@ TEST_F(JsonCastTest, fromArray) {
   auto arrayOfDictElements =
       makeArrayWithDictionaryElements<int64_t>({1, -2, 3, -4, 5, -6, 7}, 2);
   auto arrayOfDictElementsExpected =
-      makeNullableFlatVector<Json>({"[7,-6]", "[5,-4]", "[3,-2]", "[1]"});
+      makeNullableFlatVector<Json>({"[null,-6]", "[5,-4]", "[3,-2]", "[1]"});
   testCast<Json>(
       ARRAY(BIGINT()),
       JSON(),
@@ -341,7 +357,7 @@ TEST_F(JsonCastTest, fromArray) {
       2,
       ARRAY(JSON()));
   auto jsonArrayOfDictElementsExpected =
-      makeNullableFlatVector<Json>({"[g,f]", "[e,d]", "[c,b]", "[a]"});
+      makeNullableFlatVector<Json>({"[null,f]", "[e,d]", "[c,b]", "[a]"});
   testCast<Json>(
       ARRAY(JSON()),
       JSON(),
@@ -357,18 +373,33 @@ TEST_F(JsonCastTest, fromArray) {
 
 TEST_F(JsonCastTest, fromMap) {
   // Tests map with string keys.
-  std::vector<std::vector<Pair<StringView, int64_t>>> map{
+  std::vector<std::vector<Pair<StringView, int64_t>>> mapStringKey{
       {{"blue"_sv, 1}, {"red"_sv, 2}},
       {{"purple", std::nullopt}, {"orange"_sv, -2}},
       {}};
-  std::vector<std::optional<Json>> expected{
+  std::vector<std::optional<Json>> expectedStringKey{
       R"({"blue":1,"red":2})", R"({"orange":-2,"purple":null})", "{}"};
-  testCastFromMap(MAP(VARCHAR(), BIGINT()), map, expected);
+  testCastFromMap(MAP(VARCHAR(), BIGINT()), mapStringKey, expectedStringKey);
 
-  // Test map with json keys.
-  std::vector<std::optional<Json>> expectedJsonKey{
-      "{blue:1,red:2}", "{orange:-2,purple:null}", "{}"};
-  testCastFromMap(MAP(JSON(), BIGINT()), map, expectedJsonKey);
+  // Tests map with integer keys.
+  std::vector<std::vector<Pair<int16_t, int64_t>>> mapIntKey{
+      {{3, std::nullopt}, {4, 2}}, {}};
+  std::vector<std::optional<Json>> expectedIntKey{R"({"3":null,"4":2})", "{}"};
+  testCastFromMap(MAP(SMALLINT(), BIGINT()), mapIntKey, expectedIntKey);
+
+  // Tests map with floating-point keys.
+  std::vector<std::vector<Pair<double, int64_t>>> mapDoubleKey{
+      {{4.4, std::nullopt}, {3.3, 2}}, {}};
+  std::vector<std::optional<Json>> expectedDoubleKey{
+      R"({"3.3":2,"4.4":null})", "{}"};
+  testCastFromMap(MAP(DOUBLE(), BIGINT()), mapDoubleKey, expectedDoubleKey);
+
+  // Tests map with boolean keys.
+  std::vector<std::vector<Pair<bool, int64_t>>> mapBoolKey{
+      {{true, std::nullopt}, {false, 2}}, {}};
+  std::vector<std::optional<Json>> expectedBoolKey{
+      R"({"false":2,"true":null})", "{}"};
+  testCastFromMap(MAP(BOOLEAN(), BIGINT()), mapBoolKey, expectedBoolKey);
 
   // Tests map whose elements are wrapped in a dictionary.
   std::vector<std::optional<StringView>> keys{
@@ -378,7 +409,7 @@ TEST_F(JsonCastTest, fromMap) {
   auto mapOfDictElements = makeMapWithDictionaryElements(keys, values, 2);
 
   auto mapOfDictElementsExpected = makeNullableFlatVector<Json>(
-      {R"({"f":-6E-10,"g":-7.7})",
+      {R"({"f":-6E-10,"g":null})",
        R"({"d":-4.4,"e":null})",
        R"({"b":2.2,"c":3.14})",
        R"({"a":1100})"});
@@ -392,7 +423,7 @@ TEST_F(JsonCastTest, fromMap) {
   auto jsonMapOfDictElements =
       makeMapWithDictionaryElements(keys, values, 2, MAP(JSON(), DOUBLE()));
   auto jsonMapOfDictElementsExpected = makeNullableFlatVector<Json>(
-      {"{f:-6E-10,g:-7.7}", "{d:-4.4,e:null}", "{b:2.2,c:3.14}", "{a:1100}"});
+      {"{f:-6E-10,g:null}", "{d:-4.4,e:null}", "{b:2.2,c:3.14}", "{a:1100}"});
   testCast<Json>(
       MAP(JSON(), DOUBLE()),
       JSON(),
@@ -440,7 +471,7 @@ TEST_F(JsonCastTest, fromRow) {
   auto rowOfDictElements = makeRowWithDictionaryElements<int64_t>(
       {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, ROW({BIGINT(), BIGINT(), BIGINT()}));
   auto rowOfDictElementsExpected =
-      makeNullableFlatVector<Json>({"[3,6,9]", "[2,5,8]", "[1,4,7]"});
+      makeNullableFlatVector<Json>({"[null,null,null]", "[2,5,8]", "[1,4,7]"});
   testCast<Json>(
       ROW({BIGINT(), BIGINT(), BIGINT()}),
       JSON(),
@@ -453,8 +484,8 @@ TEST_F(JsonCastTest, fromRow) {
        {"b1"_sv, "b2"_sv, "b3"_sv},
        {"c1"_sv, "c2"_sv, "c3"_sv}},
       ROW({JSON(), JSON(), JSON()}));
-  auto jsonRowOfDictElementsExpected =
-      makeNullableFlatVector<Json>({"[a3,b3,c3]", "[a2,b2,c2]", "[a1,b1,c1]"});
+  auto jsonRowOfDictElementsExpected = makeNullableFlatVector<Json>(
+      {"[null,null,null]", "[a2,b2,c2]", "[a1,b1,c1]"});
   testCast<Json>(
       ROW({JSON(), JSON(), JSON()}),
       JSON(),
@@ -509,12 +540,11 @@ TEST_F(JsonCastTest, fromNested) {
       0);
 
   // Create array of map vector
-  using Pair = std::pair<StringView, std::optional<int64_t>>;
-
-  std::vector<Pair> a{Pair{"blue"_sv, 1}, Pair{"red"_sv, 2}};
-  std::vector<Pair> b{Pair{"green"_sv, std::nullopt}};
-  std::vector<Pair> c{Pair{"yellow"_sv, 4}, Pair{"purple"_sv, 5}};
-  std::vector<std::vector<std::vector<Pair>>> data{{a, b}, {b}, {c, a}};
+  std::vector<Pair<StringView, int64_t>> a{{"blue"_sv, 1}, {"red"_sv, 2}};
+  std::vector<Pair<StringView, int64_t>> b{{"green"_sv, std::nullopt}};
+  std::vector<Pair<StringView, int64_t>> c{{"yellow"_sv, 4}, {"purple"_sv, 5}};
+  std::vector<std::vector<std::vector<Pair<StringView, int64_t>>>> data{
+      {a, b}, {b}, {c, a}};
 
   auto arrayVector = makeArrayOfMapVector<StringView, int64_t>(data);
 
@@ -535,52 +565,61 @@ TEST_F(JsonCastTest, fromNested) {
 }
 
 TEST_F(JsonCastTest, unsupportedTypes) {
-  // Map keys must be varchar.
-  auto invalidTypeMap = makeMapVector<int64_t, int64_t>({{}});
-  auto invalidTypeMapExpected = makeNullableFlatVector<Json>({"{}"});
+  // Map keys cannot be timestamp.
+  auto timestampKeyMap = makeMapVector<Timestamp, int64_t>({{}});
   EXPECT_THROW(
       evaluateCast<Json>(
-          MAP(BIGINT(), BIGINT()),
-          JSON(),
-          makeRowVector({invalidTypeMap}),
-          invalidTypeMapExpected),
+          MAP(TIMESTAMP(), BIGINT()), JSON(), makeRowVector({timestampKeyMap})),
       VeloxException);
 
   // All children of row must be of supported types.
-  auto invalidTypeRow = makeRowVector({invalidTypeMap});
-  auto invalidTypeRowExpected = makeNullableFlatVector<Json>({"[{}]"});
+  auto invalidTypeRow = makeRowVector({timestampKeyMap});
   EXPECT_THROW(
       evaluateCast<Json>(
-          ROW({MAP(BIGINT(), BIGINT())}),
+          ROW({MAP(TIMESTAMP(), BIGINT())}),
           JSON(),
-          makeRowVector({invalidTypeRow}),
-          invalidTypeRowExpected),
+          makeRowVector({invalidTypeRow})),
       VeloxException);
 
-  // Map keys must not be null.
-  auto keyVector = makeNullableFlatVector<StringView>({"red"_sv, std::nullopt});
+  // Map keys cannot be null.
+  auto nullKeyVector =
+      makeNullableFlatVector<StringView>({"red"_sv, std::nullopt});
   auto valueVector = makeNullableFlatVector<int64_t>({1, 2});
 
   auto offsets = AlignedBuffer::allocate<vector_size_t>(1, pool());
   auto sizes = AlignedBuffer::allocate<vector_size_t>(1, pool());
   makeOffsetsAndSizes(2, 2, offsets, sizes);
 
-  auto invalidKeyMap = std::make_shared<MapVector>(
+  auto nullKeyMap = std::make_shared<MapVector>(
       pool(),
       MAP(VARCHAR(), BIGINT()),
       BufferPtr(nullptr),
       1,
       offsets,
       sizes,
-      keyVector,
+      nullKeyVector,
       valueVector,
       0);
   EXPECT_THROW(
       evaluateCast<Json>(
-          MAP(VARCHAR(), BIGINT()),
-          JSON(),
-          makeRowVector({invalidKeyMap}),
-          makeNullableFlatVector<Json>({R"({"red":1,null:2})"})),
+          MAP(VARCHAR(), BIGINT()), JSON(), makeRowVector({nullKeyMap})),
+      VeloxException);
+
+  // Map keys cannot be complex type.
+  auto arrayKeyVector = makeNullableArrayVector<int64_t>({{1}, {2}});
+  auto arrayKeyMap = std::make_shared<MapVector>(
+      pool(),
+      MAP(ARRAY(BIGINT()), BIGINT()),
+      BufferPtr(nullptr),
+      1,
+      offsets,
+      sizes,
+      arrayKeyVector,
+      valueVector,
+      0);
+  EXPECT_THROW(
+      evaluateCast<Json>(
+          MAP(ARRAY(BIGINT()), BIGINT()), JSON(), makeRowVector({arrayKeyMap})),
       VeloxException);
 
   // Map keys of json type must not be null.
@@ -598,10 +637,7 @@ TEST_F(JsonCastTest, unsupportedTypes) {
       0);
   EXPECT_THROW(
       evaluateCast<Json>(
-          MAP(JSON(), BIGINT()),
-          JSON(),
-          makeRowVector({invalidJsonKeyMap}),
-          makeNullableFlatVector<Json>({"{red:1,null:2}"})),
+          MAP(JSON(), BIGINT()), JSON(), makeRowVector({invalidJsonKeyMap})),
       VeloxException);
 
   // Not allowing to cast from json to itself.
@@ -610,8 +646,6 @@ TEST_F(JsonCastTest, unsupportedTypes) {
           JSON(),
           JSON(),
           makeRowVector({makeNullableFlatVector<Json>(
-              {"123"_sv, R"("abc")"_sv, ""_sv, std::nullopt}, JSON())}),
-          makeNullableFlatVector<Json>(
-              {"123"_sv, R"("abc")"_sv, ""_sv, std::nullopt})),
+              {"123"_sv, R"("abc")"_sv, ""_sv, std::nullopt}, JSON())})),
       VeloxException);
 }
