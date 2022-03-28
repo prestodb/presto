@@ -494,6 +494,7 @@ public class TestHiveSplitManager
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionsPerScan(),
                 false,
+                10_000,
                 FUNCTION_AND_TYPE_MANAGER,
                 new HiveLocationService(hdfsEnvironment),
                 FUNCTION_RESOLUTION,

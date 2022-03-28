@@ -49,6 +49,7 @@ public class MetastoreClientConfig
     private MetastoreCacheScope metastoreCacheScope = MetastoreCacheScope.ALL;
     private boolean metastoreImpersonationEnabled;
     private double partitionCacheValidationPercentage;
+    private int partitionCacheColumnCountLimit = 500;
 
     public HostAndPort getMetastoreSocksProxy()
     {
@@ -252,6 +253,19 @@ public class MetastoreClientConfig
     public MetastoreClientConfig setPartitionCacheValidationPercentage(double partitionCacheValidationPercentage)
     {
         this.partitionCacheValidationPercentage = partitionCacheValidationPercentage;
+        return this;
+    }
+
+    public int getPartitionCacheColumnCountLimit()
+    {
+        return partitionCacheColumnCountLimit;
+    }
+
+    @Config("hive.partition-cache-column-count-limit")
+    @ConfigDescription("The max limit on the column count for a partition to be cached")
+    public MetastoreClientConfig setPartitionCacheColumnCountLimit(int partitionCacheColumnCountLimit)
+    {
+        this.partitionCacheColumnCountLimit = partitionCacheColumnCountLimit;
         return this;
     }
 }

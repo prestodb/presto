@@ -45,7 +45,8 @@ public class TestMetastoreClientConfig
                 .setPartitionVersioningEnabled(false)
                 .setMetastoreCacheScope(MetastoreCacheScope.ALL)
                 .setMetastoreImpersonationEnabled(false)
-                .setPartitionCacheValidationPercentage(0));
+                .setPartitionCacheValidationPercentage(0)
+                .setPartitionCacheColumnCountLimit(500));
     }
 
     @Test
@@ -68,6 +69,7 @@ public class TestMetastoreClientConfig
                 .put("hive.metastore-cache-scope", "PARTITION")
                 .put("hive.metastore-impersonation-enabled", "true")
                 .put("hive.partition-cache-validation-percentage", "60.0")
+                .put("hive.partition-cache-column-count-limit", "50")
                 .build();
 
         MetastoreClientConfig expected = new MetastoreClientConfig()
@@ -86,7 +88,8 @@ public class TestMetastoreClientConfig
                 .setPartitionVersioningEnabled(true)
                 .setMetastoreCacheScope(MetastoreCacheScope.PARTITION)
                 .setMetastoreImpersonationEnabled(true)
-                .setPartitionCacheValidationPercentage(60.0);
+                .setPartitionCacheValidationPercentage(60.0)
+                .setPartitionCacheColumnCountLimit(50);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

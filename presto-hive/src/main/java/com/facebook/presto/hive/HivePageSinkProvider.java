@@ -78,6 +78,7 @@ public class HivePageSinkProvider
     private final OrcFileWriterFactory orcFileWriterFactory;
     private final long perTransactionMetastoreCacheMaximumSize;
     private final boolean metastoreImpersonationEnabled;
+    private final int metastorePartitionCacheMaxColumnCount;
     private final ColumnConverterProvider columnConverterProvider;
 
     @Inject
@@ -124,6 +125,7 @@ public class HivePageSinkProvider
         this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
         this.perTransactionMetastoreCacheMaximumSize = metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize();
         this.metastoreImpersonationEnabled = metastoreClientConfig.isMetastoreImpersonationEnabled();
+        this.metastorePartitionCacheMaxColumnCount = metastoreClientConfig.getPartitionCacheColumnCountLimit();
     }
 
     @Override
@@ -174,7 +176,10 @@ public class HivePageSinkProvider
                 session.getQueryId(),
                 // The scope of metastore cache is within a single HivePageSink object
                 // TODO: Extend metastore cache scope to the entire transaction
-                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionMetastoreCacheMaximumSize), new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider)),
+                new HivePageSinkMetadataProvider(
+                        handle.getPageSinkMetadata(),
+                        memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionMetastoreCacheMaximumSize, metastorePartitionCacheMaxColumnCount),
+                        new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider)),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,

@@ -98,10 +98,12 @@ public class CachingHiveMetastore
     private final LoadingCache<KeyAndContext<UserTableKey>, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<KeyAndContext<String>, Set<String>> rolesCache;
     private final LoadingCache<KeyAndContext<PrestoPrincipal>, Set<RoleGrant>> roleGrantsCache;
+    private final MetastoreCacheStats metastoreCacheStats;
 
     private final boolean metastoreImpersonationEnabled;
     private final boolean partitionVersioningEnabled;
     private final double partitionCacheValidationPercentage;
+    private final int partitionCacheColumnCountLimit;
 
     @Inject
     public CachingHiveMetastore(
@@ -120,6 +122,7 @@ public class CachingHiveMetastore
                 metastoreClientConfig.isPartitionVersioningEnabled(),
                 metastoreClientConfig.getMetastoreCacheScope(),
                 metastoreClientConfig.getPartitionCacheValidationPercentage(),
+                metastoreClientConfig.getPartitionCacheColumnCountLimit(),
                 metastoreCacheStats);
     }
 
@@ -133,6 +136,7 @@ public class CachingHiveMetastore
             boolean partitionVersioningEnabled,
             MetastoreCacheScope metastoreCacheScope,
             double partitionCacheValidationPercentage,
+            int partitionCacheColumnCountLimit,
             MetastoreCacheStats metastoreCacheStats)
     {
         this(
@@ -145,10 +149,11 @@ public class CachingHiveMetastore
                 partitionVersioningEnabled,
                 metastoreCacheScope,
                 partitionCacheValidationPercentage,
+                partitionCacheColumnCountLimit,
                 metastoreCacheStats);
     }
 
-    public static CachingHiveMetastore memoizeMetastore(ExtendedHiveMetastore delegate, boolean isMetastoreImpersonationEnabled, long maximumSize)
+    public static CachingHiveMetastore memoizeMetastore(ExtendedHiveMetastore delegate, boolean isMetastoreImpersonationEnabled, long maximumSize, int partitionCacheMaxColumnCount)
     {
         return new CachingHiveMetastore(
                 delegate,
@@ -160,6 +165,7 @@ public class CachingHiveMetastore
                 false,
                 ALL,
                 0.0,
+                partitionCacheMaxColumnCount,
                 NOOP_METASTORE_CACHE_STATS);
     }
 
@@ -173,6 +179,7 @@ public class CachingHiveMetastore
             boolean partitionVersioningEnabled,
             MetastoreCacheScope metastoreCacheScope,
             double partitionCacheValidationPercentage,
+            int partitionCacheColumnCountLimit,
             MetastoreCacheStats metastoreCacheStats)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -180,6 +187,8 @@ public class CachingHiveMetastore
         this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
         this.partitionVersioningEnabled = partitionVersioningEnabled;
         this.partitionCacheValidationPercentage = partitionCacheValidationPercentage;
+        this.partitionCacheColumnCountLimit = partitionCacheColumnCountLimit;
+        this.metastoreCacheStats = metastoreCacheStats;
 
         OptionalLong cacheExpiresAfterWriteMillis;
         OptionalLong cacheRefreshMills;
@@ -626,6 +635,7 @@ public class CachingHiveMetastore
         if (isPartitionCacheValidationEnabled()) {
             validatePartitionCache(key, result);
         }
+        invalidatePartitionsWithHighColumnCount(result, key);
         return result;
     }
 
@@ -690,6 +700,15 @@ public class CachingHiveMetastore
         }
     }
 
+    private void invalidatePartitionsWithHighColumnCount(Optional<Partition> partition, KeyAndContext<HivePartitionName> partitionCacheKey)
+    {
+        // Do NOT cache partitions with # of columns > partitionCacheColumnLimit
+        if (partition.isPresent() && partition.get().getColumns().size() > partitionCacheColumnCountLimit) {
+            partitionCache.invalidate(partitionCacheKey);
+            metastoreCacheStats.incrementPartitionsWithColumnCountGreaterThanThreshold();
+        }
+    }
+
     private boolean isPartitionCacheValidationEnabled()
     {
         return partitionCacheValidationPercentage > 0 &&
@@ -747,7 +766,9 @@ public class CachingHiveMetastore
         }
         ImmutableMap.Builder<String, Optional<Partition>> partitionsByName = ImmutableMap.builder();
         for (Entry<KeyAndContext<HivePartitionName>, Optional<Partition>> entry : all.entrySet()) {
-            partitionsByName.put(entry.getKey().getKey().getPartitionName().get(), entry.getValue());
+            Optional<Partition> value = entry.getValue();
+            invalidatePartitionsWithHighColumnCount(value, entry.getKey());
+            partitionsByName.put(entry.getKey().getKey().getPartitionName().get(), value);
         }
         return partitionsByName.build();
     }
