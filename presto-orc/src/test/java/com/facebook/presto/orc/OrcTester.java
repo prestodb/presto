@@ -1389,18 +1389,22 @@ public class OrcTester
 
             List<Entry<?, ?>> expectedEntries = new ArrayList<>(expectedMap.entrySet());
             for (Entry<?, ?> actualEntry : actualMap.entrySet()) {
+                boolean matchFound = false;
                 for (Iterator<Entry<?, ?>> iterator = expectedEntries.iterator(); iterator.hasNext(); ) {
                     Entry<?, ?> expectedEntry = iterator.next();
                     try {
                         assertColumnValueEquals(keyType, actualEntry.getKey(), expectedEntry.getKey());
                         assertColumnValueEquals(valueType, actualEntry.getValue(), expectedEntry.getValue());
                         iterator.remove();
+                        matchFound = true;
+                        break;
                     }
                     catch (AssertionError ignored) {
                     }
                 }
+                assertTrue(matchFound);
             }
-            assertTrue(expectedEntries.isEmpty(), "Unmatched entries " + expectedEntries);
+            assertTrue(expectedEntries.isEmpty());
         }
         else if (StandardTypes.ROW.equals(baseType)) {
             List<Type> fieldTypes = type.getTypeParameters();
