@@ -933,6 +933,7 @@ public abstract class AbstractTestHiveClient
                 false,
                 MetastoreCacheScope.ALL,
                 0.0,
+                metastoreClientConfig.getPartitionCacheColumnCountLimit(),
                 NOOP_METASTORE_CACHE_STATS);
 
         setup(databaseName, hiveClientConfig, cacheConfig, metastoreClientConfig, metastore);
@@ -963,6 +964,7 @@ public abstract class AbstractTestHiveClient
                 getHiveClientConfig().getMaxPartitionBatchSize(),
                 getHiveClientConfig().getMaxPartitionsPerScan(),
                 false,
+                10_000,
                 FUNCTION_AND_TYPE_MANAGER,
                 locationService,
                 FUNCTION_RESOLUTION,

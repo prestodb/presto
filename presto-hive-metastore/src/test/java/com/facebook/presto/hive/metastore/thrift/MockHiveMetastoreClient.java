@@ -74,7 +74,19 @@ public class MockHiveMetastoreClient
             new RolePrincipalGrant("role2", "role1", ROLE, true, 0, "grantor2", ROLE));
 
     private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
-            new StorageDescriptor(ImmutableList.of(), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
+            new StorageDescriptor(
+                    ImmutableList.of(
+                            new FieldSchema("col_bigint", "bigint", "comment"),
+                            new FieldSchema("col_string", "string", "comment")),
+                    "",
+                    null,
+                    null,
+                    false,
+                    0,
+                    new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()),
+                    null,
+                    null,
+                    ImmutableMap.of());
 
     private final AtomicInteger accessCount = new AtomicInteger();
     private boolean throwException;

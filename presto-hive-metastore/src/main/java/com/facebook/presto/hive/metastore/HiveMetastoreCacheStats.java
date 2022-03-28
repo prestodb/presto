@@ -13,18 +13,27 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.airlift.stats.CounterStat;
 import com.google.common.cache.LoadingCache;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 public class HiveMetastoreCacheStats
         implements MetastoreCacheStats
 {
+    private final CounterStat partitionsWithColumnCountGreaterThanThreshold = new CounterStat();
     private LoadingCache<?, ?> partitionCache;
 
     @Override
     public void setPartitionCache(LoadingCache<?, ?> partitionCache)
     {
         this.partitionCache = partitionCache;
+    }
+
+    @Override
+    public void incrementPartitionsWithColumnCountGreaterThanThreshold()
+    {
+        partitionsWithColumnCountGreaterThanThreshold.update(1);
     }
 
     @Managed
@@ -53,5 +62,13 @@ public class HiveMetastoreCacheStats
     public long getPartitionCacheSize()
     {
         return partitionCache.size();
+    }
+
+    @Managed
+    @Nested
+    @Override
+    public CounterStat getPartitionsWithColumnCountGreaterThanThreshold()
+    {
+        return partitionsWithColumnCountGreaterThanThreshold;
     }
 }
