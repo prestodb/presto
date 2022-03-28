@@ -27,6 +27,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/VectorMaker.h"
 
 using namespace ::testing;
@@ -1048,5 +1049,274 @@ TEST_F(E2EEncryptionTest, ReadWithoutKey) {
     auto rowReader = reader->createRowReader(rowReaderOpts);
     VectorPtr batch;
     ASSERT_THROW(rowReader->next(1, batch), exception::LoggedException);
+  }
+}
+
+namespace {
+
+void testWriter(
+    MemoryPool& pool,
+    const std::shared_ptr<const Type>& type,
+    size_t batchCount,
+    std::function<VectorPtr()> generator,
+    const std::shared_ptr<Config> config = std::make_shared<Config>()) {
+  std::vector<VectorPtr> batches;
+  for (auto i = 0; i < batchCount; ++i) {
+    batches.push_back(generator());
+  }
+  E2EWriterTestUtil::testWriter(pool, type, batches, 1, 1, config);
+};
+
+template <TypeKind K>
+VectorPtr createKeysImpl(
+    MemoryPool& pool,
+    std::mt19937& rng,
+    size_t size,
+    size_t maxVal) {
+  using TCpp = typename TypeTraits<K>::NativeType;
+
+  auto vector = std::make_shared<FlatVector<TCpp>>(
+      &pool,
+      nullptr,
+      size,
+      AlignedBuffer::allocate<TCpp>(size, &pool),
+      std::vector<BufferPtr>{});
+
+  size_t value = 0;
+  for (size_t i = 0; i < vector->size(); ++i, value = ((value + 1) % maxVal)) {
+    if constexpr (std::is_same_v<TCpp, StringView>) {
+      auto strVal = folly::to<std::string>(value);
+      StringView sv{strVal};
+      DWIO_ENSURE(sv.isInline());
+      vector->set(i, sv);
+    } else {
+      vector->set(i, value);
+    }
+  }
+
+  if (folly::Random::oneIn(2, rng)) {
+    return vector;
+  }
+
+  // wrap in dictionary
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, &pool);
+  auto rawIndices = indices->asMutable<vector_size_t>();
+
+  for (size_t i = 0; i < size; ++i) {
+    rawIndices[i] = size - 1 - i;
+  }
+
+  return BaseVector::wrapInDictionary(nullptr, indices, size, vector);
+}
+
+VectorPtr createKeys(
+    const std::shared_ptr<const Type> type,
+    MemoryPool& pool,
+    std::mt19937& rng,
+    size_t size,
+    size_t maxVal) {
+  switch (type->kind()) {
+    case TypeKind::INTEGER:
+      return createKeysImpl<TypeKind::INTEGER>(pool, rng, size, maxVal);
+    case TypeKind::VARCHAR:
+      return createKeysImpl<TypeKind::VARCHAR>(pool, rng, size, maxVal);
+    default:
+      folly::assume_unreachable();
+  }
+}
+
+} // namespace
+
+TEST(E2EWriterTests, fuzzSimple) {
+  std::unique_ptr<memory::ScopedMemoryPool> scopedPool =
+      memory::getDefaultScopedMemoryPool();
+  auto& pool = scopedPool->getPool();
+  auto type = ROW({
+      {"bool_val", BOOLEAN()},
+      {"byte_val", TINYINT()},
+      {"short_val", SMALLINT()},
+      {"int_val", INTEGER()},
+      {"long_val", BIGINT()},
+      {"float_val", REAL()},
+      {"double_val", DOUBLE()},
+      {"string_val", VARCHAR()},
+      {"binary_val", VARBINARY()},
+      {"ts_val", TIMESTAMP()},
+  });
+  auto seed = folly::Random::rand32();
+  LOG(INFO) << "seed: " << seed;
+
+  // Small batches creates more edge cases.
+  size_t batchSize = 10;
+  VectorFuzzer noNulls(
+      {
+          .vectorSize = batchSize,
+          .nullChance = 0,
+          .stringLength = 20,
+          .stringVariableLength = true,
+      },
+      &pool,
+      seed);
+
+  VectorFuzzer hasNulls{
+      {
+          .vectorSize = batchSize,
+          .nullChance = 20,
+          .stringLength = 10,
+          .stringVariableLength = true,
+      },
+      &pool,
+      seed};
+
+  auto iterations = 20;
+  auto batches = 20;
+  for (auto i = 0; i < iterations; ++i) {
+    testWriter(pool, type, batches, [&]() { return noNulls.fuzzRow(type); });
+    testWriter(pool, type, batches, [&]() { return hasNulls.fuzzRow(type); });
+  }
+}
+
+TEST(E2EWriterTests, fuzzComplex) {
+  std::unique_ptr<memory::ScopedMemoryPool> scopedPool =
+      memory::getDefaultScopedMemoryPool();
+  auto& pool = scopedPool->getPool();
+  auto type = ROW({
+      {"array", ARRAY(REAL())},
+      {"map", MAP(INTEGER(), DOUBLE())},
+      {"row",
+       ROW({
+           {"a", REAL()},
+           {"b", INTEGER()},
+       })},
+      {"nested",
+       ARRAY(ROW({
+           {"a", INTEGER()},
+           {"b", MAP(REAL(), REAL())},
+       }))},
+  });
+  auto seed = folly::Random::rand32();
+  LOG(INFO) << "seed: " << seed;
+
+  // Small batches creates more edge cases.
+  size_t batchSize = 10;
+  VectorFuzzer noNulls(
+      {
+          .vectorSize = batchSize,
+          .nullChance = 0,
+          .stringLength = 20,
+          .stringVariableLength = true,
+          .containerLength = 5,
+          .containerVariableLength = true,
+      },
+      &pool,
+      seed);
+
+  VectorFuzzer hasNulls{
+      {
+          .vectorSize = batchSize,
+          .nullChance = 20,
+          .stringLength = 10,
+          .stringVariableLength = true,
+          .containerLength = 5,
+          .containerVariableLength = true,
+      },
+      &pool,
+      seed};
+
+  auto iterations = 20;
+  auto batches = 20;
+  for (auto i = 0; i < iterations; ++i) {
+    testWriter(pool, type, batches, [&]() { return noNulls.fuzzRow(type); });
+    testWriter(pool, type, batches, [&]() { return hasNulls.fuzzRow(type); });
+  }
+}
+
+TEST(E2EWriterTests, fuzzFlatmap) {
+  std::unique_ptr<memory::ScopedMemoryPool> scopedPool =
+      memory::getDefaultScopedMemoryPool();
+  auto& pool = scopedPool->getPool();
+  auto type = ROW({
+      {"flatmap1", MAP(INTEGER(), REAL())},
+      {"flatmap2", MAP(VARCHAR(), ARRAY(REAL()))},
+      {"flatmap3", MAP(INTEGER(), MAP(INTEGER(), REAL()))},
+  });
+  auto config = std::make_shared<Config>();
+  config->set(Config::FLATTEN_MAP, true);
+  config->set(Config::MAP_FLAT_COLS, {0, 1, 2});
+  auto seed = folly::Random::rand32();
+  LOG(INFO) << "seed: " << seed;
+  std::mt19937 rng{seed};
+
+  // Small batches creates more edge cases.
+  size_t batchSize = 10;
+  VectorFuzzer fuzzer(
+      {
+          .vectorSize = batchSize,
+          .nullChance = 0,
+          .stringLength = 20,
+          .stringVariableLength = true,
+          .containerLength = 5,
+          .containerVariableLength = true,
+      },
+      &pool,
+      seed);
+
+  auto genMap = [&](auto type, auto size) {
+    auto offsets = allocateOffsets(size, &pool);
+    auto rawOffsets = offsets->template asMutable<vector_size_t>();
+    auto sizes = allocateSizes(size, &pool);
+    auto rawSizes = sizes->template asMutable<vector_size_t>();
+    vector_size_t childSize = 0;
+    // flatmap doesn't like empty map
+    for (auto i = 0; i < batchSize; ++i) {
+      rawOffsets[i] = childSize;
+      auto length = folly::Random::rand32(1, 5, rng);
+      rawSizes[i] = length;
+      childSize += length;
+    }
+
+    VectorFuzzer valueFuzzer(
+        {
+            .vectorSize = static_cast<size_t>(childSize),
+            .nullChance = 0,
+            .stringLength = 20,
+            .stringVariableLength = true,
+            .containerLength = 5,
+            .containerVariableLength = true,
+        },
+        &pool,
+        seed);
+
+    auto& mapType = type->asMap();
+    VectorPtr vector = std::make_shared<MapVector>(
+        &pool,
+        type,
+        nullptr,
+        size,
+        offsets,
+        sizes,
+        createKeys(mapType.keyType(), pool, rng, childSize, 10),
+        valueFuzzer.fuzz(mapType.valueType()));
+
+    if (folly::Random::oneIn(2, rng)) {
+      vector = fuzzer.fuzzDictionary(vector);
+    }
+    return vector;
+  };
+
+  auto gen = [&]() {
+    std::vector<VectorPtr> children;
+    for (auto i = 0; i < type->size(); ++i) {
+      children.push_back(genMap(type->childAt(i), batchSize));
+    }
+
+    return std::make_shared<RowVector>(
+        &pool, type, nullptr, batchSize, std::move(children));
+  };
+
+  auto iterations = 20;
+  auto batches = 20;
+  for (auto i = 0; i < iterations; ++i) {
+    testWriter(pool, type, batches, gen, config);
   }
 }
