@@ -140,6 +140,7 @@ public class FilesTable
             }
             if (checkNonNull(dataFile.lowerBounds(), pagesBuilder)) {
                 pagesBuilder.appendIntegerVarcharMap(dataFile.lowerBounds().entrySet().stream()
+                        .filter(entry -> idToTypeMap.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
                                 entry -> Transforms.identity(idToTypeMap.get(entry.getKey())).toHumanString(
@@ -147,6 +148,7 @@ public class FilesTable
             }
             if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
                 pagesBuilder.appendIntegerVarcharMap(dataFile.upperBounds().entrySet().stream()
+                        .filter(entry -> idToTypeMap.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
                                 entry -> Transforms.identity(idToTypeMap.get(entry.getKey())).toHumanString(
