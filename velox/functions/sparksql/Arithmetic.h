@@ -96,11 +96,17 @@ inline int64_t safeDoubleToInt64(const double& arg) {
   if (std::isnan(arg)) {
     return 0;
   }
-  if (arg > std::numeric_limits<int64_t>::max()) {
-    return std::numeric_limits<int64_t>::max();
+  static const int64_t kMax = std::numeric_limits<int64_t>::max();
+  static const int64_t kMin = std::numeric_limits<int64_t>::min();
+  // On some compilers if we cast 'kMax' to a double, we can get a number larger
+  // than 'kMax'. This will allow 'arg' values > 'kMax'. The workaround
+  // here is to use uint64_t to represent ('kMax' + 1), which can be represented
+  // exactly as double. We then check if the difference with 'arg' <= 1.
+  if ((static_cast<uint64_t>(kMax) + 1) - arg <= 1) {
+    return kMax;
   }
-  if (arg < std::numeric_limits<int64_t>::min()) {
-    return std::numeric_limits<int64_t>::min();
+  if (arg < kMin) {
+    return kMin;
   }
   return arg;
 }
