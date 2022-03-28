@@ -140,6 +140,7 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
@@ -901,6 +902,12 @@ class StatementAnalyzer
             // Property value expressions must be constant
             createConstantAnalyzer(metadata, session, analysis.getParameters(), warningCollector, analysis.isDescribe())
                     .analyze(node.getValue(), createScope(scope));
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitTruncateTable(TruncateTable node, Optional<Scope> scope)
+        {
             return createAndAssignScope(node, scope);
         }
 

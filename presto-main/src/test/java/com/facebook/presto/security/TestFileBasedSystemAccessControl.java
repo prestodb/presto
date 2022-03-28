@@ -334,6 +334,7 @@ public class TestFileBasedSystemAccessControl
 
                     accessControlManager.checkCanCreateTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanDropTable(transactionId, alice, context, aliceTable);
+                    accessControlManager.checkCanTruncateTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of());
                     accessControlManager.checkCanInsertIntoTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanDeleteFromTable(transactionId, alice, context, aliceTable);
@@ -366,6 +367,10 @@ public class TestFileBasedSystemAccessControl
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanDropTable(transactionId, alice, context, aliceTable);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanTruncateTable(transactionId, alice, context, aliceTable);
         }));
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
