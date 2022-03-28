@@ -116,12 +116,12 @@ class VectorFuzzer {
     rng_.seed(seed);
   }
 
- private:
   // Returns true 1/n of times.
   bool oneIn(size_t n) {
     return folly::Random::oneIn(n, rng_);
   }
 
+ private:
   VectorPtr fuzz(const TypePtr& type, vector_size_t size);
 
   VectorPtr fuzzFlat(const TypePtr& type, vector_size_t size);
