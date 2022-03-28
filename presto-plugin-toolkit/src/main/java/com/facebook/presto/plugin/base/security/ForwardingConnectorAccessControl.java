@@ -143,6 +143,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanTruncateTable(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
     public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
         delegate().checkCanCreateView(transactionHandle, identity, context, viewName);

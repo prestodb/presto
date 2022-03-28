@@ -250,6 +250,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to truncate the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanTruncateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyDeleteTable(table.toString());
+    }
+
+    /**
      * Check if identity is allowed to create the specified view in a catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

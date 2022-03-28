@@ -57,5 +57,6 @@ This chapter describes the SQL syntax used in Presto.
     sql/show-stats
     sql/show-tables
     sql/start-transaction
+    sql/truncate
     sql/use
     sql/values

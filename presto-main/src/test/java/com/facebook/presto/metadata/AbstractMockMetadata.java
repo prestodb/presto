@@ -253,6 +253,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void truncateTable(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();

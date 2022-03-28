@@ -726,6 +726,14 @@ public class MetadataManager
     }
 
     @Override
+    public void truncateTable(Session session, TableHandle tableHandle)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.truncateTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+    }
+
+    @Override
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle table)
     {
         ConnectorId connectorId = table.getConnectorId();
