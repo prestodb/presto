@@ -255,7 +255,7 @@ void ParquetRowReader::updateRuntimeStats(
     dwio::common::RuntimeStatistics& /*stats*/) const {}
 
 void ParquetRowReader::resetFilterCaches() {
-  VELOX_FAIL("ParquetRowReader::resetFilterCaches is NYI");
+  // No filter caches to reset.
 }
 
 std::optional<size_t> ParquetRowReader::estimatedRowSize() const {

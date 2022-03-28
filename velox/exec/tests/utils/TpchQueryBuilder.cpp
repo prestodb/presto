@@ -290,6 +290,7 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
                    .partialAggregation({0}, {"sum(l_quantity) AS partial_sum"})
                    .planNode()})
           .finalAggregation({0}, {"sum(partial_sum) AS quantity"}, {DOUBLE()})
+          .filter("quantity > 300.0")
           .planNode();
 
   auto plan =
@@ -308,7 +309,7 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
                        {"o_orderkey"},
                        {"l_orderkey"},
                        bigOrders,
-                       "quantity > 300.0",
+                       "",
                        {"o_orderkey",
                         "o_custkey",
                         "o_orderdate",
