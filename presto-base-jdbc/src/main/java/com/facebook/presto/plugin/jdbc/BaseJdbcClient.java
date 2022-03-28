@@ -546,6 +546,21 @@ public class BaseJdbcClient
     }
 
     @Override
+    public void truncateTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle)
+    {
+        StringBuilder sql = new StringBuilder()
+                .append("TRUNCATE TABLE ")
+                .append(quoted(jdbcTableHandle.getCatalogName(), jdbcTableHandle.getSchemaName(), jdbcTableHandle.getTableName()));
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            execute(connection, sql.toString());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
         dropTable(identity, new JdbcTableHandle(

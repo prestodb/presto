@@ -71,6 +71,15 @@ public class TestFileBasedAccessControl
     }
 
     @Test
+    public void testTableRulesForCheckCanTruncateTable()
+            throws IOException
+    {
+        ConnectorAccessControl accessControl = createAccessControl("table.json");
+        accessControl.checkCanTruncateTable(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("bobschema", "bobtable"));
+        assertDenied(() -> accessControl.checkCanTruncateTable(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("bobschema", "test")));
+    }
+
+    @Test
     public void testSessionPropertyRules()
             throws IOException
     {
