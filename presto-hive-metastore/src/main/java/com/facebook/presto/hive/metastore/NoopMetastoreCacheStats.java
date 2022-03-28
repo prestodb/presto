@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.airlift.stats.CounterStat;
 import com.google.common.cache.LoadingCache;
 
 public class NoopMetastoreCacheStats
@@ -21,6 +22,11 @@ public class NoopMetastoreCacheStats
     public static final NoopMetastoreCacheStats NOOP_METASTORE_CACHE_STATS = new NoopMetastoreCacheStats();
 
     public void setPartitionCache(LoadingCache<?, ?> partitionCache)
+    {
+    }
+
+    @Override
+    public void incrementPartitionsWithColumnCountGreaterThanThreshold()
     {
     }
 
@@ -42,5 +48,11 @@ public class NoopMetastoreCacheStats
     public long getPartitionCacheSize()
     {
         return 0;
+    }
+
+    @Override
+    public CounterStat getPartitionsWithColumnCountGreaterThanThreshold()
+    {
+        return null;
     }
 }

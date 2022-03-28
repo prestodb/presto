@@ -47,6 +47,7 @@ public class HiveMetadataFactory
     private final int maxPartitionBatchSize;
     private final long perTransactionCacheMaximumSize;
     private final boolean metastoreImpersonationEnabled;
+    private final int metastorePartitionCacheMaxColumnCount;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -111,6 +112,7 @@ public class HiveMetadataFactory
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 metastoreClientConfig.isMetastoreImpersonationEnabled(),
+                metastoreClientConfig.getPartitionCacheColumnCountLimit(),
                 typeManager,
                 locationService,
                 functionResolution,
@@ -145,6 +147,7 @@ public class HiveMetadataFactory
             int maxPartitionBatchSize,
             long perTransactionCacheMaximumSize,
             boolean metastoreImpersonationEnabled,
+            int metastorePartitionCacheMaxColumnCount,
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
@@ -173,6 +176,7 @@ public class HiveMetadataFactory
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
         this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
+        this.metastorePartitionCacheMaxColumnCount = metastorePartitionCacheMaxColumnCount;
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -209,7 +213,7 @@ public class HiveMetadataFactory
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
-                CachingHiveMetastore.memoizeMetastore(this.metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize), // per-transaction cache
+                CachingHiveMetastore.memoizeMetastore(this.metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize, metastorePartitionCacheMaxColumnCount), // per-transaction cache
                 fileRenameExecutor,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback,

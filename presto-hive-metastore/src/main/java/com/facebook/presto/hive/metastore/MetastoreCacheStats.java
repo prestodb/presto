@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.airlift.stats.CounterStat;
 import com.google.common.cache.LoadingCache;
 
 public interface MetastoreCacheStats
 {
     void setPartitionCache(LoadingCache<?, ?> partitionCache);
+
+    void incrementPartitionsWithColumnCountGreaterThanThreshold();
 
     long getPartitionCacheHit();
 
@@ -26,4 +29,6 @@ public interface MetastoreCacheStats
     long getPartitionCacheEviction();
 
     long getPartitionCacheSize();
+
+    CounterStat getPartitionsWithColumnCountGreaterThanThreshold();
 }
