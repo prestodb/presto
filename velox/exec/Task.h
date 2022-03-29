@@ -576,9 +576,6 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Stores separate splits state for each plan node.
   std::unordered_map<core::PlanNodeId, SplitsState> splitsStates_;
 
-  // Holds states for pipelineBarrier(). Guarded by 'mutex_'.
-  std::unordered_map<std::string, BarrierState> barriers_;
-
   std::vector<VeloxPromise<bool>> stateChangePromises_;
 
   TaskStats taskStats_;

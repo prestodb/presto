@@ -799,14 +799,16 @@ bool Task::allPeersFinished(
   if (exception_) {
     VELOX_FAIL("Task is terminating because of error: {}", errorMessage());
   }
-  auto& state = barriers_[planNodeId];
+  const auto splitGroupId = caller->driverCtx()->splitGroupId;
+  auto& barriers = splitGroupStates_[splitGroupId].barriers;
+  auto& state = barriers[planNodeId];
 
   const auto numPeers =
       driverFactories_[caller->driverCtx()->pipelineId]->numDrivers;
   if (++state.numRequested == numPeers) {
     peers = std::move(state.drivers);
     promises = std::move(state.promises);
-    barriers_.erase(planNodeId);
+    barriers.erase(planNodeId);
     return true;
   }
   std::shared_ptr<Driver> callerShared;
@@ -816,7 +818,8 @@ bool Task::allPeersFinished(
       break;
     }
   }
-  VELOX_CHECK(callerShared, "Caller of pipelineBarrier is not a valid Driver");
+  VELOX_CHECK(
+      callerShared, "Caller of Task::allPeersFinished is not a valid Driver");
   state.drivers.push_back(callerShared);
   state.promises.emplace_back(
       fmt::format("Task::allPeersFinished {}", taskId_));
