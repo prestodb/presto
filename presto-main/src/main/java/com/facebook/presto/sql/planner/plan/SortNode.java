@@ -14,9 +14,12 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,7 +27,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -93,5 +98,21 @@ public class SortNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new SortNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), orderingScheme, isPartial);
+    }
+
+    public SortNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        PlanNode sourcesDeepCopy = getSource().deepCopy(planNodeIdAllocator, variableAllocator, variableMappings);
+        return new SortNode(
+                getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                sourcesDeepCopy,
+                new OrderingScheme( getOrderingScheme().getOrderBy().stream().
+                        map(ordering -> new Ordering(variableMappings.get(ordering.getVariable()), ordering.getSortOrder())).
+                        collect(Collectors.toList())),
+                isPartial());
     }
 }

@@ -14,22 +14,25 @@
 package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @Immutable
 public final class ValuesNode
@@ -47,7 +50,7 @@ public final class ValuesNode
     {
         super(sourceLocation, id);
         this.outputVariables = immutableListCopyOf(outputVariables);
-        this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(Collectors.toList()));
+        this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(toList()));
 
         for (List<RowExpression> row : rows) {
             if (!(row.size() == outputVariables.size() || row.size() == 0)) {
@@ -93,5 +96,28 @@ public final class ValuesNode
     private static <T> List<T> immutableListCopyOf(List<T> list)
     {
         return unmodifiableList(new ArrayList<>(requireNonNull(list, "list is null")));
+    }
+
+    public ValuesNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
+        for (VariableReferenceExpression variable : getOutputVariables()) {
+            variableMappings.put(variable, variableAllocator.newVariable(variable.getSourceLocation(), variable.getName(), variable.getType()));
+            outputVariablesBuilder.add(variableMappings.get(variable));
+        }
+
+        ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
+        for (List<RowExpression> columns : getRows()) {
+            ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
+            for (RowExpression item : columns) {
+                values.add(item.deepCopy(variableMappings));
+            }
+            rowsBuilder.add(values.build());
+        }
+
+        return new ValuesNode(getSourceLocation(), planNodeIdAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build());
     }
 }

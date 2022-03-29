@@ -14,11 +14,14 @@
 package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -67,6 +70,41 @@ public abstract class PlanNode
      * Alter the upstream PlanNodes of the current PlanNode.
      */
     public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
+
+    /**
+     * Create a deep copy of the current PlanNode.
+     */
+//    TODO Uncomment this code
+//    public abstract PlanNode deepCopy(
+//            PlanNodeIdAllocator planNodeIdAllocator,
+//            VariableAllocator variableAllocator,
+//            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings);
+    public  PlanNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return null;
+    }
+
+    public static List<VariableReferenceExpression> translateVariableReferences(
+            List<VariableReferenceExpression> originalVariables,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        List<VariableReferenceExpression> newVariables = new ArrayList<>();
+        for(int i = 0; i < originalVariables.size(); ++i)
+        {
+            if (!variableMappings.containsKey(originalVariables.get(i)))
+            {
+                variableMappings.put(
+                        originalVariables.get(i),
+                        variableAllocator.newVariable(originalVariables.get(i).getName(), originalVariables.get(i).getType()));
+            }
+            newVariables.add(variableMappings.get(originalVariables.get(i)));
+        }
+        return newVariables;
+    }
 
     /**
      * A visitor pattern interface to operate on IR.

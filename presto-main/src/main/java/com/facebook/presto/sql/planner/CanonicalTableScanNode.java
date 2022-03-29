@@ -19,8 +19,10 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -118,6 +120,25 @@ public class CanonicalTableScanNode
     public int hashCode()
     {
         return Objects.hash(table, assignments, outputVariables);
+    }
+
+    @Override
+    public CanonicalTableScanNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        CanonicalTableHandle canonicalTableHandle = new CanonicalTableHandle(
+                getTable().getConnectorId(),
+                getTable().getTableHandle(),
+                getTable().getLayoutIdentifier(),
+                getTable().getLayoutHandle());
+        return new CanonicalTableScanNode(
+                getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                canonicalTableHandle,
+                getOutputVariables(),
+                getAssignments());
     }
 
     public static class CanonicalTableHandle

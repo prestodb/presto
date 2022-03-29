@@ -20,9 +20,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -162,5 +164,14 @@ public class PartitioningScheme
                 .add("replicateNullsAndAny", replicateNullsAndAny)
                 .add("bucketToPartition", bucketToPartition)
                 .toString();
+    }
+    public PartitioningScheme deepCopy(
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return new PartitioningScheme(
+                Partitioning.create(
+                        getPartitioning().getHandle(),
+                        getPartitioning().getArguments().stream().map(argument -> argument.deepCopy(variableMappings)).collect(Collectors.toList())),
+                getOutputLayout().stream().map(variableMappings::get).collect(Collectors.toList()));
     }
 }

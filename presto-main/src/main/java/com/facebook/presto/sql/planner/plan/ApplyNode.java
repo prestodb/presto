@@ -14,9 +14,11 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,8 +26,11 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.AbstractMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -146,5 +151,30 @@ public class ApplyNode
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
         return new ApplyNode(getSourceLocation(), getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubqueryError);
+    }
+
+    @Override
+    public ApplyNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        PlanNode inputDeepCopy = getInput().deepCopy(planNodeIdAllocator, variableAllocator, variableMappings);
+        PlanNode subqueryDeepCopy = getSubquery().deepCopy(planNodeIdAllocator, variableAllocator, variableMappings);
+        Assignments subqueryAssignmentsCopy = Assignments.copyOf(
+                getSubqueryAssignments().entrySet().stream().
+                        map(e -> new AbstractMap.SimpleEntry<>(variableMappings.get(e.getKey()), e.getValue().deepCopy(variableMappings))).
+                        collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+        List<VariableReferenceExpression> correlationCopy = getCorrelation().stream().map(variableMappings::get).collect(Collectors.toList());
+
+        ApplyNode clone = new ApplyNode(
+                getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                inputDeepCopy,
+                subqueryDeepCopy,
+                subqueryAssignmentsCopy,
+                correlationCopy,
+                getOriginSubqueryError());
+        return clone;
     }
 }
