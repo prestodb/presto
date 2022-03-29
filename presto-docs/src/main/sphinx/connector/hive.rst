@@ -719,6 +719,14 @@ The following operations are not supported when ``avro_schema_url`` is set:
 Procedures
 ----------
 
+Use the :doc:`/sql/call` statement to perform data manipulation or
+administrative tasks. Procedures must include a qualified catalog name, if your
+Hive catalog is called ``web``::
+
+    CALL web.system.example_procedure()
+
+The following procedures are available:
+
 * ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
 
     Create an empty partition in the specified table.
