@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/exec/TaskStats.h"
 
 namespace facebook::velox::exec {
@@ -57,16 +58,18 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
 std::string PlanNodeStats::toString(bool includeInputStats) const {
   std::stringstream out;
   if (includeInputStats) {
-    out << "Input: " << inputRows << " rows (" << inputBytes << " bytes), ";
+    out << "Input: " << inputRows << " rows (" << succinctBytes(inputBytes)
+        << "), ";
     if (rawInputRows != inputRows) {
-      out << "Raw Input: " << rawInputRows << " rows (" << rawInputBytes
-          << " bytes), ";
+      out << "Raw Input: " << rawInputRows << " rows ("
+          << succinctBytes(rawInputBytes) << "), ";
     }
   }
-  out << "Output: " << outputRows << " rows (" << outputBytes << " bytes)"
-      << ", Cpu time: " << cpuWallTiming.cpuNanos << "ns"
-      << ", Blocked wall time: " << blockedWallNanos << "ns"
-      << ", Peak memory: " << peakMemoryBytes << " bytes";
+  out << "Output: " << outputRows << " rows (" << succinctBytes(outputBytes)
+      << ")"
+      << ", Cpu time: " << succinctNanos(cpuWallTiming.cpuNanos)
+      << ", Blocked wall time: " << succinctNanos(blockedWallNanos)
+      << ", Peak memory: " << succinctBytes(peakMemoryBytes);
   return out.str();
 }
 

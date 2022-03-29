@@ -23,6 +23,7 @@ add_executable(
   RawVectorTest.cpp
   StatsReporterTest.cpp
   SimdUtilTest.cpp
+  SuccinctPrinterTest.cpp
   TraceContextTest.cpp)
 
 add_test(velox_common_test velox_common_test)

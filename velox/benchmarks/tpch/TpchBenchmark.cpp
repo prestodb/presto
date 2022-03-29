@@ -18,6 +18,7 @@
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
 
+#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/Options.h"
@@ -137,8 +138,9 @@ int main(int argc, char** argv) {
     const auto task = benchmark.run(queryPlan);
     const auto stats = task->taskStats();
     std::cout << fmt::format(
-                     "Execution time: {} ms",
-                     (stats.executionEndTimeMs - stats.executionStartTimeMs))
+                     "Execution time: {}",
+                     succinctMillis(
+                         stats.executionEndTimeMs - stats.executionStartTimeMs))
               << std::endl;
     std::cout << fmt::format(
                      "Splits total: {}, finished: {}",
