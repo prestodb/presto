@@ -312,11 +312,16 @@ public class DistributedQueryRunner
 
     private boolean allNodesGloballyVisible()
     {
-        int expectedActiveNodes = externalWorkers.size() + servers.size();
+        int expectedActiveNodesForRm = externalWorkers.size() + servers.size();
+        int expectedActiveNodesForCoordinator = externalWorkers.size() + servers.size();
+
         for (TestingPrestoServer server : servers) {
             AllNodes allNodes = server.refreshNodes();
+            int activeNodeCount = allNodes.getActiveNodes().size();
+
             if (!allNodes.getInactiveNodes().isEmpty() ||
-                    (allNodes.getActiveNodes().size() != expectedActiveNodes)) {
+                    (server.isCoordinator() && activeNodeCount != expectedActiveNodesForCoordinator) ||
+                    (server.isResourceManager() && activeNodeCount != expectedActiveNodesForRm)) {
                 return false;
             }
         }
@@ -518,7 +523,7 @@ public class DistributedQueryRunner
         for (TestingPrestoServer server : servers) {
             server.refreshNodes();
             Set<InternalNode> activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
-            if (activeNodesWithConnector.size() != servers.size()) {
+            if ((server.isCoordinator() || server.isResourceManager()) && activeNodesWithConnector.size() != servers.size()) {
                 return false;
             }
         }
