@@ -65,7 +65,10 @@ class SelectivityVector {
     auto numWords = bits::nwords(size);
     // Set bits from size_ to end of the word.
     if (size > size_ && !bits_.empty()) {
-      bits::fillBits(&bits_.back(), size_ % 64, 64, value);
+      const auto start = size_ % 64;
+      if (start) {
+        bits::fillBits(&bits_.back(), start, 64, value);
+      }
     }
 
     bits_.resize(numWords, value ? -1 : 0);

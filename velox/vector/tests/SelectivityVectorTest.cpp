@@ -65,8 +65,11 @@ void assertIsValid(
     int to,
     const SelectivityVector& vector,
     bool value) {
+  for (int i = 0; i < from; i++) {
+    EXPECT_EQ(!value, vector.isValid(i)) << "at " << i;
+  }
   for (int i = from; i < to; i++) {
-    ASSERT_EQ(value, vector.isValid(i));
+    EXPECT_EQ(value, vector.isValid(i)) << "at " << i;
   }
 }
 
@@ -398,8 +401,7 @@ TEST(SelectivityVectorTest, resize) {
   SelectivityVector larger(53, true);
   assertIsValid(0, 53, larger, true);
   larger.resize(656, true);
-  assertIsValid(53, 64, larger, true);
-  assertIsValid(640, 656, larger, true);
+  assertIsValid(0, 656, larger, true);
 
   // Check for word length reduction
   larger.resize(53);
@@ -420,7 +422,7 @@ TEST(SelectivityVectorTest, select) {
   a.resize(33, true);
   SelectivityVector b(32, false);
   b.select(a);
-  assertIsValid(17, 32, b, true);
+  assertIsValid(16, 32, b, true);
 
   SelectivityVector empty(0);
   empty.select(first);

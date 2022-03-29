@@ -213,8 +213,8 @@ void GroupingSet::addInputForActiveRows(
 }
 
 void GroupingSet::addRemainingInput() {
-  activeRows_.clearAll();
   activeRows_.resize(remainingInput_->size());
+  activeRows_.clearAll();
   activeRows_.setValidRange(firstRemainingRow_, remainingInput_->size(), true);
   activeRows_.updateBounds();
 
