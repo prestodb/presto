@@ -1361,6 +1361,11 @@ public class OrcTester
 
     public static void assertColumnValueEquals(Type type, Object actual, Object expected)
     {
+        if (Objects.equals(actual, expected)) {
+            // Objects will not be equal, when actual and expected are double
+            // or the object contains Map that contain different hash implementation for Keys.
+            return;
+        }
         if (actual == null) {
             assertEquals(actual, expected);
             return;
@@ -1431,7 +1436,7 @@ public class OrcTester
                 assertEquals(actualDouble, expectedDouble, 0.001);
             }
         }
-        else if (!Objects.equals(actual, expected)) {
+        else {
             assertEquals(actual, expected);
         }
     }
