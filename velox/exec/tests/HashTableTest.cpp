@@ -149,27 +149,38 @@ class HashTableTest : public testing::Test {
       const RowVector& input,
       HashLookup& lookup,
       HashTable<false>& table) {
+    const SelectivityVector rows(input.size());
+    insertGroups(input, rows, lookup, table);
+  }
+
+  void insertGroups(
+      const RowVector& input,
+      const SelectivityVector& rows,
+      HashLookup& lookup,
+      HashTable<false>& table) {
+    lookup.reset(rows.end());
+    lookup.rows.clear();
+    rows.applyToSelected([&](auto row) { lookup.rows.push_back(row); });
+
     auto& hashers = table.hashers();
-    SelectivityVector activeRows(input.size());
     auto mode = table.hashMode();
     bool rehash = false;
     for (int32_t i = 0; i < hashers.size(); ++i) {
       auto key = input.childAt(hashers[i]->channel());
       if (mode != BaseHashTable::HashMode::kHash) {
-        if (!hashers[i]->computeValueIds(*key, activeRows, lookup.hashes)) {
+        if (!hashers[i]->computeValueIds(*key, rows, lookup.hashes)) {
           rehash = true;
         }
       } else {
-        hashers[i]->hash(*key, activeRows, i > 0, lookup.hashes);
+        hashers[i]->hash(*key, rows, i > 0, lookup.hashes);
       }
     }
-    std::iota(lookup.rows.begin(), lookup.rows.end(), 0);
 
     if (rehash) {
       if (table.hashMode() != BaseHashTable::HashMode::kHash) {
         table.decideHashMode(input.size());
       }
-      insertGroups(input, lookup, table);
+      insertGroups(input, rows, lookup, table);
       return;
     }
     table.groupProbe(lookup);
@@ -537,4 +548,27 @@ TEST_F(HashTableTest, enableRangeWhereCan) {
 
   lookup->reset(data->size());
   insertGroups(*data, *lookup, *table);
+}
+
+TEST_F(HashTableTest, arrayProbeNormalizedKey) {
+  auto table = createHashTableForAggregation(ROW({"a"}, {BIGINT()}), 1);
+  auto lookup = std::make_unique<HashLookup>(table->hashers());
+
+  for (auto i = 0; i < 200; ++i) {
+    auto data = vectorMaker_->rowVector({
+        vectorMaker_->flatVector<int64_t>(
+            10'000, [&](auto row) { return i * 10'000 + row; }),
+    });
+
+    SelectivityVector rows(5'000);
+    insertGroups(*data, rows, *lookup, *table);
+
+    rows.resize(10'000);
+    rows.clearAll();
+    rows.setValidRange(5'000, 10'000, true);
+    rows.updateBounds();
+    insertGroups(*data, rows, *lookup, *table);
+  }
+
+  ASSERT_TRUE(table->hashMode() == BaseHashTable::HashMode::kNormalizedKey);
 }
