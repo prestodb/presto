@@ -61,6 +61,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -252,8 +253,7 @@ public final class DiscoveryNodeManager
         // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
                 .filter(service -> !failureDetector.getFailed().contains(service))
-                // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check
-                .filter(service -> !nodeStatusService.isPresent() || nodeStatusService.get().isAllowed(service.getLocation()) || isCoordinator(service) || isResourceManager(service))
+                .filter(filterRelevantNodes())
                 .collect(toImmutableSet());
 
         ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSortedSet.orderedBy(comparing(InternalNode::getNodeIdentifier));
@@ -521,5 +521,24 @@ public final class DiscoveryNodeManager
     private static boolean isResourceManager(ServiceDescriptor service)
     {
         return Boolean.parseBoolean(service.getProperties().get("resource_manager"));
+    }
+
+    /**
+     * The predicate filters out the services to allow selecting relevant nodes
+     * for discovery and sending heart beat.
+     * Coordinator      -> All Nodes
+     * Resource Manager -> All Nodes
+     * Worker           -> Resource Managers
+     *
+     * @return Predicate to filter Service Descriptor for Nodes
+     */
+    private Predicate<ServiceDescriptor> filterRelevantNodes()
+    {
+        if (currentNode.isCoordinator() || currentNode.isResourceManager()) {
+            // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check
+            return service -> !nodeStatusService.isPresent() || nodeStatusService.get().isAllowed(service.getLocation()) || isCoordinator(service) || isResourceManager(service);
+        }
+
+        return DiscoveryNodeManager::isResourceManager;
     }
 }
