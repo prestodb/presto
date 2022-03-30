@@ -38,9 +38,8 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableSet;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -61,7 +60,6 @@ public class PinotFilterExpressionConverter
         implements RowExpressionVisitor<PinotExpression, Function<VariableReferenceExpression, Selection>>
 {
     private static final Set<String> LOGICAL_BINARY_OPS_FILTER = ImmutableSet.of("=", "<", "<=", ">", ">=", "<>");
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
 
     private final TypeManager typeManager;
     private final FunctionMetadataManager functionMetadataManager;
@@ -287,7 +285,8 @@ public class PinotFilterExpressionConverter
                     // It converts ISO DateTime to daysSinceEpoch value so Pinot could understand this.
                     if (input.getType() == VarcharType.VARCHAR) {
                         // Remove the leading & trailing quote then parse
-                        Integer daysSinceEpoch = (int) TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(expression.getDefinition().substring(1, expression.getDefinition().length() - 1)));
+                        String date = expression.getDefinition().substring(1, expression.getDefinition().length() - 1);
+                        Integer daysSinceEpoch = (int) LocalDate.parse(date).toEpochDay();
                         return new PinotExpression(daysSinceEpoch.toString(), expression.getOrigin());
                     }
                 }
