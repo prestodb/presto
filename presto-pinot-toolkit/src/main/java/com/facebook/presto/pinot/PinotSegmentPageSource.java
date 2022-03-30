@@ -47,7 +47,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_SQL_GENERATED;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNCLASSIFIED_ERROR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -64,7 +64,7 @@ public class PinotSegmentPageSource
     private static final Map<ErrorCode, PinotErrorCode> PINOT_ERROR_CODE_MAP = ImmutableMap.of(
             ErrorCode.PINOT_UNCLASSIFIED_ERROR, PINOT_UNCLASSIFIED_ERROR,
             ErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE, PINOT_INSUFFICIENT_SERVER_RESPONSE,
-            ErrorCode.PINOT_INVALID_PQL_GENERATED, PINOT_INVALID_PQL_GENERATED);
+            ErrorCode.PINOT_INVALID_SQL_GENERATED, PINOT_INVALID_SQL_GENERATED);
 
     protected final List<PinotColumnHandle> columnHandles;
     protected final List<Type> columnTypes;
@@ -198,7 +198,7 @@ public class PinotSegmentPageSource
             int indexReturnedByPinot = expectedColumnHandles.indexOf(handle);
             if (indexReturnedByPinot < 0) {
                 throw new PinotException(
-                        PINOT_INVALID_PQL_GENERATED,
+                        PINOT_INVALID_SQL_GENERATED,
                         split.getSegmentPinotQuery(),
                         String.format("Expected column handle %s to be present in the handles %s corresponding to the segment PQL", handle, expectedColumnHandles));
             }
@@ -240,8 +240,8 @@ public class PinotSegmentPageSource
 
     private Map<ServerInstance, DataTable> queryPinot(ConnectorSession session, PinotSplit split)
     {
-        String pql = split.getSegmentPinotQuery().orElseThrow(() -> new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), "Expected the segment split to contain the pql"));
-        String host = split.getSegmentHost().orElseThrow(() -> new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), "Expected the segment split to contain the host"));
+        String pql = split.getSegmentPinotQuery().orElseThrow(() -> new PinotException(PINOT_INVALID_SQL_GENERATED, Optional.empty(), "Expected the segment split to contain the pql"));
+        String host = split.getSegmentHost().orElseThrow(() -> new PinotException(PINOT_INVALID_SQL_GENERATED, Optional.empty(), "Expected the segment split to contain the host"));
         try {
             return ImmutableMap.copyOf(
                     pinotQueryClient.queryPinotServerForDataTable(
