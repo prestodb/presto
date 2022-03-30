@@ -16,6 +16,7 @@
 
 #include "velox/exec/Unnest.h"
 #include "velox/exec/OperatorUtils.h"
+#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::exec {
 Unnest::Unnest(
@@ -27,7 +28,8 @@ Unnest::Unnest(
           unnestNode->outputType(),
           operatorId,
           unnestNode->id(),
-          "Unnest") {
+          "Unnest"),
+      withOrdinality_(unnestNode->withOrdinality()) {
   if (unnestNode->unnestVariables().size() > 1) {
     VELOX_UNSUPPORTED(
         "Unnest operator doesn't support multiple unnest columns yet");
@@ -38,8 +40,11 @@ Unnest::Unnest(
     VELOX_UNSUPPORTED("Unnest operator supports only ARRAY and MAP types")
   }
 
-  if (unnestNode->withOrdinality()) {
-    VELOX_UNSUPPORTED("Unnest operator doesn't support ordinality column yet");
+  if (withOrdinality_) {
+    VELOX_CHECK_EQ(
+        outputType_->children().back(),
+        BIGINT(),
+        "Ordinality column should be BIGINT type.")
   }
 
   const auto& inputType = unnestNode->sources()[0]->outputType();
@@ -98,7 +103,7 @@ RowVectorPtr Unnest::getOutput() {
   }
 
   // Create "indices" buffer to repeat rows as many times as there are elements
-  // in the array(or map).
+  // in the array(or map) in unnestDecoded.
   BufferPtr repeatedIndices = allocateIndices(numElements, pool());
   auto* rawIndices = repeatedIndices->asMutable<vector_size_t>();
   vector_size_t index = 0;
@@ -153,6 +158,36 @@ RowVectorPtr Unnest::getOutput() {
     outputs[identityProjections_.size() + 1] = identityMapping
         ? unnestBaseMap->mapValues()
         : wrapChild(numElements, elementIndices, unnestBaseMap->mapValues());
+  }
+
+  if (withOrdinality_) {
+    auto ordinalityVector = std::dynamic_pointer_cast<FlatVector<int64_t>>(
+        BaseVector::create(BIGINT(), numElements, pool()));
+
+    // Set the ordinality at each result row to be the index of the element in
+    // the original array (or map) plus one.
+    index = 0;
+    auto rawOrdinality = ordinalityVector->mutableRawValues();
+    if (!unnestDecoded_.mayHaveNulls() && unnestDecoded_.isIdentityMapping()) {
+      for (auto row = 0; row < size; ++row) {
+        auto unnestSize = rawSizes[row];
+        for (auto i = 0; i < unnestSize; i++) {
+          rawOrdinality[index++] = i + 1;
+        }
+      }
+    } else {
+      for (auto row = 0; row < size; ++row) {
+        if (!unnestDecoded_.isNullAt(row)) {
+          auto unnestSize = rawSizes[unnestIndices[row]];
+          for (auto i = 0; i < unnestSize; i++) {
+            rawOrdinality[index++] = i + 1;
+          }
+        }
+      }
+    }
+
+    // Ordinality column is always at the end.
+    outputs.back() = std::move(ordinalityVector);
   }
 
   input_ = nullptr;

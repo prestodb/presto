@@ -39,6 +39,68 @@ TEST_F(UnnestTest, basicArray) {
   assertQuery(op, "SELECT c0, UNNEST(c1) FROM tmp WHERE c0 % 7 > 0");
 }
 
+TEST_F(UnnestTest, arrayWithOrdinality) {
+  auto array = vectorMaker_.arrayVectorNullable<int32_t>(
+      {{{1, 2, std::nullopt, 4}},
+       std::nullopt,
+       {{5, 6}},
+       {{}},
+       {{{{std::nullopt}}}},
+       {{7, 8, 9}}});
+  auto vector = makeRowVector(
+      {makeNullableFlatVector<double>({1.1, 2.2, 3.3, 4.4, 5.5, std::nullopt}),
+       array});
+
+  auto op = PlanBuilder()
+                .values({vector})
+                .unnest({"c0"}, {"c1"}, "ordinal")
+                .planNode();
+
+  auto expected = makeRowVector(
+      {makeNullableFlatVector<double>(
+           {1.1,
+            1.1,
+            1.1,
+            1.1,
+            3.3,
+            3.3,
+            5.5,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt}),
+       makeNullableFlatVector<int32_t>(
+           {1, 2, std::nullopt, 4, 5, 6, std::nullopt, 7, 8, 9}),
+       makeNullableFlatVector<int64_t>({1, 2, 3, 4, 1, 2, 1, 1, 2, 3})});
+  assertQuery(op, expected);
+
+  // Test with array wrapped in dictionary.
+  auto reversedIndices = makeIndicesInReverse(6);
+  auto vectorInDict = makeRowVector(
+      {makeNullableFlatVector<double>({1.1, 2.2, 3.3, 4.4, 5.5, std::nullopt}),
+       wrapInDictionary(reversedIndices, 6, array)});
+  op = PlanBuilder()
+           .values({vectorInDict})
+           .unnest({"c0"}, {"c1"}, "ordinal")
+           .planNode();
+
+  auto expectedInDict = makeRowVector(
+      {makeNullableFlatVector<double>(
+           {1.1,
+            1.1,
+            1.1,
+            2.2,
+            4.4,
+            4.4,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt}),
+       makeNullableFlatVector<int32_t>(
+           {7, 8, 9, std::nullopt, 5, 6, 1, 2, std::nullopt, 4}),
+       makeNullableFlatVector<int64_t>({1, 2, 3, 1, 1, 2, 1, 2, 3, 4})});
+  assertQuery(op, expectedInDict);
+}
+
 TEST_F(UnnestTest, basicMap) {
   auto vector = makeRowVector(
       {makeFlatVector<int64_t>(100, [](auto row) { return row; }),
@@ -64,6 +126,46 @@ TEST_F(UnnestTest, basicMap) {
   assertQuery(op, "SELECT c0, UNNEST(c1), UNNEST(c2) FROM tmp");
 }
 
+TEST_F(UnnestTest, mapWithOrdinality) {
+  auto map = makeMapVector<int32_t, double>(
+      {{{1, 1.1}, {2, std::nullopt}},
+       {{3, 3.3}, {4, 4.4}, {5, 5.5}},
+       {{6, std::nullopt}}});
+  auto vector =
+      makeRowVector({makeNullableFlatVector<int32_t>({1, 2, 3}), map});
+
+  auto op = PlanBuilder()
+                .values({vector})
+                .unnest({"c0"}, {"c1"}, "ordinal")
+                .planNode();
+
+  auto expected = makeRowVector(
+      {makeNullableFlatVector<int32_t>({1, 1, 2, 2, 2, 3}),
+       makeNullableFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+       makeNullableFlatVector<double>(
+           {1.1, std::nullopt, 3.3, 4.4, 5.5, std::nullopt}),
+       makeNullableFlatVector<int64_t>({1, 2, 1, 2, 3, 1})});
+  assertQuery(op, expected);
+
+  // Test with map wrapped in dictionary.
+  auto reversedIndices = makeIndicesInReverse(3);
+  auto vectorInDict = makeRowVector(
+      {makeNullableFlatVector<int32_t>({1, 2, 3}),
+       wrapInDictionary(reversedIndices, 3, map)});
+  op = PlanBuilder()
+           .values({vectorInDict})
+           .unnest({"c0"}, {"c1"}, "ordinal")
+           .planNode();
+
+  auto expectedInDict = makeRowVector(
+      {makeNullableFlatVector<int32_t>({1, 2, 2, 2, 3, 3}),
+       makeNullableFlatVector<int32_t>({6, 3, 4, 5, 1, 2}),
+       makeNullableFlatVector<double>(
+           {std::nullopt, 3.3, 4.4, 5.5, 1.1, std::nullopt}),
+       makeNullableFlatVector<int64_t>({1, 1, 2, 3, 1, 2})});
+  assertQuery(op, expectedInDict);
+}
+
 TEST_F(UnnestTest, allEmptyOrNullArrays) {
   auto vector = makeRowVector({
       makeFlatVector<int64_t>(100, [](auto row) { return row; }),
@@ -76,6 +178,12 @@ TEST_F(UnnestTest, allEmptyOrNullArrays) {
 
   auto op = PlanBuilder().values({vector}).unnest({"c0"}, {"c1"}).planNode();
   assertQueryReturnsEmptyResult(op);
+
+  op = PlanBuilder()
+           .values({vector})
+           .unnest({"c0"}, {"c1"}, "ordinal")
+           .planNode();
+  assertQueryReturnsEmptyResult(op);
 }
 
 TEST_F(UnnestTest, allEmptyOrNullMaps) {
@@ -87,6 +195,13 @@ TEST_F(UnnestTest, allEmptyOrNullMaps) {
            [](auto /* row */) { return 0; },
            [](auto /* row */) { return 0; },
            nullEvery(5))});
+
   auto op = PlanBuilder().values({vector}).unnest({"c0"}, {"c1"}).planNode();
+  assertQueryReturnsEmptyResult(op);
+
+  op = PlanBuilder()
+           .values({vector})
+           .unnest({"c0"}, {"c1"}, "ordinal")
+           .planNode();
   assertQueryReturnsEmptyResult(op);
 }

@@ -43,5 +43,7 @@ class Unnest : public Operator {
 
   SelectivityVector inputRows_;
   DecodedVector unnestDecoded_;
+
+  const bool withOrdinality_;
 };
 } // namespace facebook::velox::exec
