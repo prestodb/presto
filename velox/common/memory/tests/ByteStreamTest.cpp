@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 #include "velox/common/memory/ByteStream.h"
-#include "velox/common/base/test_utils/GTestUtils.h"
 #include "velox/common/memory/MappedMemory.h"
 #include "velox/common/memory/MmapAllocator.h"
 
 #include <gflags/gflags.h>
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;

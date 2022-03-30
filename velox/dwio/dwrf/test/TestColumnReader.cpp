@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/common/base/test_utils/GTestUtils.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/exception/Exceptions.h"
 #include "velox/dwio/dwrf/common/Adaptor.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"

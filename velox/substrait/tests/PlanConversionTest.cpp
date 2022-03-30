@@ -18,7 +18,7 @@
 #include <fstream>
 #include <sstream>
 
-#include "velox/common/base/test_utils/GTestUtils.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/Options.h"

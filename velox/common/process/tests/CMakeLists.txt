@@ -13,25 +13,13 @@
 # limitations under the License.
 
 add_executable(
-  velox_common_test
-  AsyncSourceTest.cpp
-  ExceptionTest.cpp
-  RangeTest.cpp
-  BitUtilTest.cpp
-  BloomFilterTest.cpp
-  CoalesceIoTest.cpp
-  RawVectorTest.cpp
-  StatsReporterTest.cpp
-  SimdUtilTest.cpp
-  SuccinctPrinterTest.cpp
-  TraceContextTest.cpp)
+  velox_process_test TraceContextTest.cpp)
 
-add_test(velox_common_test velox_common_test)
+add_test(velox_process_test velox_process_test)
 
 target_link_libraries(
-  velox_common_test
-  velox_common_base
-  velox_memory
+  velox_process_test
+  velox_process
   ${gflags_LIBRARIES}
   glog::glog
   ${GTEST_BOTH_LIBRARIES}

@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "folly/Random.h"
-#include "velox/common/base/test_utils/GTestUtils.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/dwrf/common/Config.h"
 
 using namespace facebook::velox::dwrf;

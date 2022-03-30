@@ -28,7 +28,7 @@ add_library(velox_common_base BitUtil.cpp RawVector.cpp SimdUtil.cpp
 target_link_libraries(velox_common_base velox_exception velox_process)
 
 if(${VELOX_BUILD_TESTING})
-  add_subdirectory(test_utils)
+  add_subdirectory(tests)
 endif()
 
 if(${VELOX_ENABLE_BENCHMARKS})

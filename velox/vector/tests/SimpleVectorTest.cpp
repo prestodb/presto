@@ -22,10 +22,9 @@
 
 #include <folly/Demangle.h>
 #include <folly/FileUtil.h>
-#include <folly/String.h>
 #include <folly/dynamic.h>
 
-#include "velox/common/base/test_utils/GTestUtils.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/vector/BuilderTypeUtils.h"
 #include "velox/vector/SimpleVector.h"
 #include "velox/vector/tests/SimpleVectorTestHelper.h"

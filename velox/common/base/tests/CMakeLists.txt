@@ -12,4 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(vector_operation_test_utils INTERFACE)
+add_executable(
+  velox_base_test
+  AsyncSourceTest.cpp
+  BitUtilTest.cpp
+  BloomFilterTest.cpp
+  CoalesceIoTest.cpp
+  ExceptionTest.cpp
+  RangeTest.cpp
+  RawVectorTest.cpp
+  SimdUtilTest.cpp
+  StatsReporterTest.cpp
+  SuccinctPrinterTest.cpp)
+
+add_test(velox_base_test velox_base_test)
+
+target_link_libraries(
+  velox_base_test
+  velox_common_base
+  ${gflags_LIBRARIES}
+  glog::glog
+  ${GTEST_BOTH_LIBRARIES}
+  pthread)
