@@ -67,7 +67,9 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -101,6 +103,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -1416,6 +1419,38 @@ public class TestPrestoDriver
     }
 
     @Test
+    public void testPropertyAllowed()
+            throws Exception
+    {
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosPrincipal", "test")
+                        .build())))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'KerberosPrincipal' is not allowed");
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosRemoteServiceName", "example.com")
+                        .put("KerberosPrincipal", "test")
+                        .put("SSL", "true")
+                        .build())))
+                .isNotNull();
+
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSLVerification", "NONE")
+                        .build())))
+                .isInstanceOf(SQLException.class)
+                // SSLVerification does not exist in Presto, once it is added, the error message
+                // should be changed to "Connection property 'SSLVerification' is not allowed"
+                .hasMessage("Unrecognized connection property 'SSLVerification'");
+    }
+
+    @Test
     public void testSetRole()
             throws Exception
     {
@@ -1786,5 +1821,17 @@ public class TestPrestoDriver
         }
         catch (Exception ignored) {
         }
+    }
+
+    private static Properties toProperties(Map<String, String> map)
+    {
+        Properties properties = new Properties();
+        map.forEach(properties::setProperty);
+        return properties;
+    }
+
+    private String jdbcUrl()
+    {
+        return format("jdbc:presto://%s", server.getAddress());
     }
 }
