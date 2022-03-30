@@ -9,6 +9,7 @@ from different data sources.
     :maxdepth: 1
 
     connector/accumulo
+    connector/atop
     connector/bigquery
     connector/blackhole
     connector/cassandra
