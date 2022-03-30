@@ -221,6 +221,7 @@ class Task : public std::enable_shared_from_this<Task> {
 
   /// Returns the total number of drivers the task needs to run.
   uint32_t numTotalDrivers() const {
+    std::lock_guard<std::mutex> taskLock(mutex_);
     return numTotalDrivers_;
   }
 
