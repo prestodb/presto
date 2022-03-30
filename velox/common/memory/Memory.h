@@ -44,6 +44,23 @@ namespace memory {
 constexpr uint16_t kNoAlignment = alignof(max_align_t);
 constexpr uint16_t kDefaultAlignment = 64;
 
+#define VELOX_MEM_MANAGER_CAP_EXCEEDED(cap)                         \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
+      /* isRetriable */ true,                                       \
+      "Exceeded memory manager cap of {} MB",                       \
+      (cap) / 1024 / 1024);
+
+#define VELOX_MEM_MANUAL_CAP()                                      \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
+      /* isRetriable */ true,                                       \
+      "Memory allocation manually capped");
+
 class ScopedMemoryPool;
 
 class AbstractMemoryPool {
@@ -563,7 +580,7 @@ MemoryPoolImpl<Allocator, ALIGNMENT>::MemoryPoolImpl(
 template <typename Allocator, uint16_t ALIGNMENT>
 void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocate(int64_t size) {
   if (this->isMemoryCapped()) {
-    VELOX_MEM_CAP_EXCEEDED(cap_);
+    VELOX_MEM_MANUAL_CAP();
   }
   auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, size);
   reserve(alignedSize);
@@ -577,7 +594,7 @@ void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocateZeroFilled(
   VELOX_USER_CHECK_EQ(sizeEach, 1);
   auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, numMembers);
   if (this->isMemoryCapped()) {
-    VELOX_MEM_CAP_EXCEEDED(cap_);
+    VELOX_MEM_MANUAL_CAP();
   }
   reserve(alignedSize * sizeEach);
   return allocator_.allocZeroFilled(alignedSize, sizeEach);
@@ -751,13 +768,20 @@ void MemoryPoolImpl<Allocator, ALIGNMENT>::reserve(int64_t size) {
   localMemoryUsage_.incrementCurrentBytes(size);
 
   bool success = memoryManager_.reserve(size);
+  bool manualCap = isMemoryCapped();
   int64_t aggregateBytes = getAggregateBytes();
-  if (UNLIKELY(!success || isMemoryCapped() || aggregateBytes > cap_)) {
+  if (UNLIKELY(!success || manualCap || aggregateBytes > cap_)) {
     // NOTE: If we can make the reserve and release a single transaction we
     // would have more accurate aggregates in intermediate states. However, this
     // is low-pri because we can only have inflated aggregates, and be on the
     // more conservative side.
     release(size);
+    if (!success) {
+      VELOX_MEM_MANAGER_CAP_EXCEEDED(memoryManager_.getMemoryQuota());
+    }
+    if (manualCap) {
+      VELOX_MEM_MANUAL_CAP();
+    }
     VELOX_MEM_CAP_EXCEEDED(cap_);
   }
 }

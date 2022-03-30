@@ -350,6 +350,56 @@ TEST(MemoryPoolTest, CapAllocation) {
   }
 }
 
+TEST(MemoryPoolTest, MemoryCapExceptions) {
+  MemoryManager<MemoryAllocator> manager{127L * MB};
+  auto& root = manager.getRoot();
+
+  auto& pool = root.addChild("static_quota", 63L * MB);
+
+  // Capping locally.
+  {
+    ASSERT_EQ(0, pool.getCurrentBytes());
+    ASSERT_FALSE(pool.isMemoryCapped());
+    try {
+      pool.allocate(64L * MB);
+    } catch (const velox::VeloxRuntimeError& ex) {
+      EXPECT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
+      EXPECT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
+      EXPECT_TRUE(ex.isRetriable());
+      EXPECT_EQ("Exceeded memory cap of 63 MB", ex.message());
+    }
+    ASSERT_FALSE(pool.isMemoryCapped());
+  }
+  // Capping memory manager.
+  {
+    ASSERT_EQ(0, pool.getCurrentBytes());
+    ASSERT_FALSE(pool.isMemoryCapped());
+    try {
+      pool.allocate(128L * MB);
+    } catch (const velox::VeloxRuntimeError& ex) {
+      EXPECT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
+      EXPECT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
+      EXPECT_TRUE(ex.isRetriable());
+      EXPECT_EQ("Exceeded memory manager cap of 127 MB", ex.message());
+    }
+    ASSERT_FALSE(pool.isMemoryCapped());
+  }
+  // Capping manually.
+  {
+    ASSERT_EQ(0, pool.getCurrentBytes());
+    pool.capMemoryAllocation();
+    ASSERT_TRUE(pool.isMemoryCapped());
+    try {
+      pool.allocate(8L * MB);
+    } catch (const velox::VeloxRuntimeError& ex) {
+      EXPECT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
+      EXPECT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
+      EXPECT_TRUE(ex.isRetriable());
+      EXPECT_EQ("Memory allocation manually capped", ex.message());
+    }
+  }
+}
+
 TEST(MemoryPoolTest, GetAlignment) {
   {
     EXPECT_EQ(
