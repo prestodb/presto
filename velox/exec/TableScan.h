@@ -54,7 +54,7 @@ class TableScan : public SourceOperator {
 
   // Adjust batch size according to split information.
   void setBatchSize();
-  const core::PlanNodeId planNodeId_;
+
   const std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
   const std::
       unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
@@ -66,8 +66,6 @@ class TableScan : public SourceOperator {
   std::unique_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   std::shared_ptr<connector::DataSource> dataSource_;
   bool noMoreSplits_ = false;
-  // The bucketed group id we are in the middle of processing.
-  int32_t currentSplitGroupId_{-1};
   // Dynamic filters to add to the data source when it gets created.
   std::unordered_map<ChannelIndex, std::shared_ptr<common::Filter>>
       pendingDynamicFilters_;

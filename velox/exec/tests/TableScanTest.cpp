@@ -121,6 +121,21 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     return getTableScanRuntimeStats(task)["skippedSplits"].sum;
   }
 
+  static std::unordered_set<int32_t> getCompletedSplitGroups(
+      const std::shared_ptr<Task>& task) {
+    return task->taskStats().completedSplitGroups;
+  }
+
+  static void waitForFinishedDrivers(
+      const std::shared_ptr<Task>& task,
+      uint32_t n) {
+    while (task->numFinishedDrivers() < n) {
+      /* sleep override */
+      usleep(100'000); // 0.1 second.
+    }
+    ASSERT_EQ(n, task->numFinishedDrivers());
+  }
+
   void testPartitionedTableImpl(
       const std::string& filePath,
       const TypePtr& partitionType,
@@ -1882,8 +1897,9 @@ TEST_P(TableScanTest, groupedExecutionWithOutputBuffer) {
   // Add one splits before start to ensure we can handle such cases.
   task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
 
-  // Only one split group should be in the processing mode, so 2 drivers.
+  // Only one split group should be in the processing mode, so 3 drivers.
   EXPECT_EQ(3, task->numRunningDrivers());
+  EXPECT_EQ(std::unordered_set<int32_t>{}, getCompletedSplitGroups(task));
 
   // Add the rest of splits
   task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 1));
@@ -1894,33 +1910,31 @@ TEST_P(TableScanTest, groupedExecutionWithOutputBuffer) {
 
   // One split group should be in the processing mode, so 3 drivers.
   EXPECT_EQ(3, task->numRunningDrivers());
+  EXPECT_EQ(std::unordered_set<int32_t>{}, getCompletedSplitGroups(task));
 
   // Finalize one split group (8) and wait until 3 drivers are finished.
   task->noMoreSplitsForGroup("0", 8);
-  while (task->numFinishedDrivers() != 3) {
-    /* sleep override */
-    usleep(100'000); // 0.1 second.
-  }
+  waitForFinishedDrivers(task, 3);
   // As one split group is finished, another one should kick in, so 3 drivers.
   EXPECT_EQ(3, task->numRunningDrivers());
+  EXPECT_EQ(std::unordered_set<int32_t>({8}), getCompletedSplitGroups(task));
 
   // Finalize the second split group (1) and wait until 6 drivers are finished.
   task->noMoreSplitsForGroup("0", 1);
-  while (task->numFinishedDrivers() != 6) {
-    /* sleep override */
-    usleep(100'000); // 0.1 second.
-  }
+  waitForFinishedDrivers(task, 6);
+
   // As one split group is finished, another one should kick in, so 3 drivers.
   EXPECT_EQ(3, task->numRunningDrivers());
+  EXPECT_EQ(std::unordered_set<int32_t>({1, 8}), getCompletedSplitGroups(task));
 
   // Finalize the third split group (5) and wait until 9 drivers are finished.
   task->noMoreSplitsForGroup("0", 5);
-  while (task->numFinishedDrivers() != 9) {
-    /* sleep override */
-    usleep(100'000); // 0.1 second.
-  }
+  waitForFinishedDrivers(task, 9);
+
   // No split groups should be processed at the moment, so 0 drivers.
   EXPECT_EQ(0, task->numRunningDrivers());
+  EXPECT_EQ(
+      std::unordered_set<int32_t>({1, 5, 8}), getCompletedSplitGroups(task));
 
   // Flag that we would have no more split groups.
   task->noMoreSplits("0");
@@ -1934,6 +1948,8 @@ TEST_P(TableScanTest, groupedExecutionWithOutputBuffer) {
 
   // Task must be finished at this stage.
   EXPECT_EQ(TaskState::kFinished, task->state());
+  EXPECT_EQ(
+      std::unordered_set<int32_t>({1, 5, 8}), getCompletedSplitGroups(task));
 }
 
 // Here we test various aspects of grouped/bucketed execution.
@@ -1960,56 +1976,61 @@ TEST_P(TableScanTest, groupedExecution) {
 
   // Create the cursor with the task underneath. It is not started yet.
   auto cursor = std::make_unique<TaskCursor>(params);
-  auto* pTask = cursor->task().get();
+  auto task = cursor->task();
 
   // Add one splits before start to ensure we can handle such cases.
-  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
 
   // Start task now.
   cursor->start();
 
   // Only one split group should be in the processing mode, so 2 drivers.
-  EXPECT_EQ(2, pTask->numRunningDrivers());
+  EXPECT_EQ(2, task->numRunningDrivers());
+  EXPECT_EQ(std::unordered_set<int32_t>{}, getCompletedSplitGroups(task));
 
   // Add the rest of splits
-  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 1));
-  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 5));
-  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
-  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 5));
-  pTask->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 1));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 5));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 5));
+  task->addSplit("0", makeHiveSplitWithGroup(filePath->path, 8));
 
   // Only two split groups should be in the processing mode, so 4 drivers.
-  EXPECT_EQ(4, pTask->numRunningDrivers());
+  EXPECT_EQ(4, task->numRunningDrivers());
+  EXPECT_EQ(std::unordered_set<int32_t>{}, getCompletedSplitGroups(task));
 
   // Finalize one split group (8) and wait until 2 drivers are finished.
-  pTask->noMoreSplitsForGroup("0", 8);
-  while (pTask->numFinishedDrivers() != 2) {
-    /* sleep override */
-    usleep(100'000); // 0.1 second.
-  }
+  task->noMoreSplitsForGroup("0", 8);
+  waitForFinishedDrivers(task, 2);
+
   // As one split group is finished, another one should kick in, so 4 drivers.
-  EXPECT_EQ(4, pTask->numRunningDrivers());
+  EXPECT_EQ(4, task->numRunningDrivers());
+  EXPECT_EQ(std::unordered_set<int32_t>({8}), getCompletedSplitGroups(task));
 
   // Finalize the second split group (5) and wait until 4 drivers are finished.
-  pTask->noMoreSplitsForGroup("0", 5);
-  while (pTask->numFinishedDrivers() != 4) {
-    /* sleep override */
-    usleep(100'000); // 0.1 second.
-  }
+  task->noMoreSplitsForGroup("0", 5);
+  waitForFinishedDrivers(task, 4);
+
   // As the second split group is finished, only one is left, so 2 drivers.
-  EXPECT_EQ(2, pTask->numRunningDrivers());
+  EXPECT_EQ(2, task->numRunningDrivers());
+  EXPECT_EQ(std::unordered_set<int32_t>({5, 8}), getCompletedSplitGroups(task));
 
   // Finalize the third split group (1) and wait until 6 drivers are finished.
-  pTask->noMoreSplitsForGroup("0", 1);
-  while (pTask->numFinishedDrivers() != 6) {
-    /* sleep override */
-    usleep(100'000); // 0.1 second.
-  }
+  task->noMoreSplitsForGroup("0", 1);
+  waitForFinishedDrivers(task, 6);
+
   // No split groups should be processed at the moment, so 0 drivers.
-  EXPECT_EQ(0, pTask->numRunningDrivers());
+  EXPECT_EQ(0, task->numRunningDrivers());
+  EXPECT_EQ(
+      std::unordered_set<int32_t>({1, 5, 8}), getCompletedSplitGroups(task));
+
+  // Make sure split groups with no splits are reported as complete.
+  task->noMoreSplitsForGroup("0", 3);
+  EXPECT_EQ(
+      std::unordered_set<int32_t>({1, 3, 5, 8}), getCompletedSplitGroups(task));
 
   // Flag that we would have no more split groups.
-  pTask->noMoreSplits("0");
+  task->noMoreSplits("0");
 
   // Make sure we've got the right number of rows.
   int32_t numRead = 0;
@@ -2020,8 +2041,9 @@ TEST_P(TableScanTest, groupedExecution) {
   }
 
   // Task must be finished at this stage.
-  EXPECT_EQ(TaskState::kFinished, pTask->state());
-
+  EXPECT_EQ(TaskState::kFinished, task->state());
+  EXPECT_EQ(
+      std::unordered_set<int32_t>({1, 3, 5, 8}), getCompletedSplitGroups(task));
   EXPECT_EQ(numRead, numSplits * 10'000);
 }
 

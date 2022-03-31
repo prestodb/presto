@@ -30,7 +30,6 @@ TableScan::TableScan(
           operatorId,
           tableScanNode->id(),
           "TableScan"),
-      planNodeId_(tableScanNode->id()),
       tableHandle_(tableScanNode->tableHandle()),
       columnHandles_(tableScanNode->assignments()),
       driverCtx_(driverCtx),
@@ -45,7 +44,7 @@ RowVectorPtr TableScan::getOutput() {
     if (needNewSplit_) {
       exec::Split split;
       auto reason = driverCtx_->task->getSplitOrFuture(
-          driverCtx_->splitGroupId, planNodeId_, split, blockingFuture_);
+          driverCtx_->splitGroupId, planNodeId(), split, blockingFuture_);
       if (reason != BlockingReason::kNotBlocked) {
         return nullptr;
       }
@@ -63,13 +62,12 @@ RowVectorPtr TableScan::getOutput() {
       }
 
       const auto& connectorSplit = split.connectorSplit;
-      currentSplitGroupId_ = split.groupId;
       needNewSplit_ = false;
 
       if (!connector_) {
         connector_ = connector::getConnector(connectorSplit->connectorId);
         connectorQueryCtx_ = operatorCtx_->createConnectorQueryCtx(
-            connectorSplit->connectorId, planNodeId_);
+            connectorSplit->connectorId, planNodeId());
         dataSource_ = connector_->createDataSource(
             outputType_,
             tableHandle_,
@@ -106,8 +104,7 @@ RowVectorPtr TableScan::getOutput() {
       continue;
     }
 
-    driverCtx_->task->splitFinished(planNodeId_, currentSplitGroupId_);
-    currentSplitGroupId_ = -1;
+    driverCtx_->task->splitFinished();
     needNewSplit_ = true;
   }
 }

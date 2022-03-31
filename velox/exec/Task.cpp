@@ -388,8 +388,8 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
 
     // Mark the closure of another driver for its split group (even in ungrouped
     // execution mode).
-    auto& splitGroupState =
-        self->splitGroupStates_[driver->driverCtx()->splitGroupId];
+    const auto splitGroupId = driver->driverCtx()->splitGroupId;
+    auto& splitGroupState = self->splitGroupStates_[splitGroupId];
     --splitGroupState.activeDrivers;
 
     // Release the driver, note that after this 'driver' is invalid.
@@ -400,6 +400,7 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
       // Check if a split group is finished.
       if (splitGroupState.activeDrivers == 0) {
         --self->numRunningSplitGroups_;
+        self->taskStats_.completedSplitGroups.emplace(splitGroupId);
         splitGroupState.clear();
         self->ensureSplitGroupsAreBeingProcessedLocked(self);
       }
@@ -559,8 +560,13 @@ void Task::noMoreSplitsForGroup(
     auto& splitsState = splitsStates_[planNodeId];
     auto& splitsStore = splitsState.groupSplitsStores[splitGroupId];
     splitsStore.noMoreSplits = true;
-    checkGroupSplitsCompleteLocked(splitGroupId, splitsStore);
     promises = std::move(splitsStore.splitPromises);
+
+    // There were no splits in this group, hence, no active drivers. Mark the
+    // group complete.
+    if (seenSplitGroups_.count(splitGroupId) == 0) {
+      taskStats_.completedSplitGroups.insert(splitGroupId);
+    }
   }
   for (auto& promise : promises) {
     promise.setValue(false);
@@ -683,28 +689,12 @@ BlockingReason Task::getSplitOrFutureLocked(
   return BlockingReason::kNotBlocked;
 }
 
-void Task::splitFinished(
-    const core::PlanNodeId& planNodeId,
-    int32_t splitGroupId) {
+void Task::splitFinished() {
   std::lock_guard<std::mutex> l(mutex_);
   ++taskStats_.numFinishedSplits;
   --taskStats_.numRunningSplits;
   if (isAllSplitsFinishedLocked()) {
     taskStats_.executionEndTimeMs = getCurrentTimeMs();
-  }
-
-  if (isUngroupedExecution()) {
-    VELOX_DCHECK(
-        splitGroupId == -1, "Got split group for ungrouped execution!");
-  } else {
-    VELOX_CHECK(
-        splitGroupId >= 0, "Missing split group for grouped execution!");
-    auto& splitsState = splitsStates_[planNodeId];
-    auto it = splitsState.groupSplitsStores.find(splitGroupId);
-    VELOX_DCHECK(
-        it != splitsState.groupSplitsStores.end(),
-        "Split group split store is missing!");
-    checkGroupSplitsCompleteLocked(splitGroupId, it->second);
   }
 }
 
@@ -712,13 +702,8 @@ void Task::multipleSplitsFinished(int32_t numSplits) {
   std::lock_guard<std::mutex> l(mutex_);
   taskStats_.numFinishedSplits += numSplits;
   taskStats_.numRunningSplits -= numSplits;
-}
-
-void Task::checkGroupSplitsCompleteLocked(
-    int32_t splitGroupId,
-    const SplitsStore& splitsStore) {
-  if (splitsStore.splits.empty() and splitsStore.noMoreSplits) {
-    taskStats_.completedSplitGroups.emplace(splitGroupId);
+  if (isAllSplitsFinishedLocked()) {
+    taskStats_.executionEndTimeMs = getCurrentTimeMs();
   }
 }
 

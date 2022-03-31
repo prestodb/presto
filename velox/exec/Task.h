@@ -268,7 +268,7 @@ class Task : public std::enable_shared_from_this<Task> {
       exec::Split& split,
       ContinueFuture& future);
 
-  void splitFinished(const core::PlanNodeId& planNodeId, int32_t splitGroupId);
+  void splitFinished();
 
   void multipleSplitsFinished(int32_t numSplits);
 
@@ -478,11 +478,6 @@ class Task : public std::enable_shared_from_this<Task> {
   // Returns true if all splits are finished processing and there are no more
   // splits coming for the task.
   bool isAllSplitsFinishedLocked();
-
-  /// See if we need to register a split group as completed.
-  void checkGroupSplitsCompleteLocked(
-      int32_t splitGroupId,
-      const SplitsStore& splitsStore);
 
   std::unique_ptr<ContinuePromise> addSplitLocked(
       SplitsState& splitsState,
