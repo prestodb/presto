@@ -40,6 +40,9 @@ void generateJsonTyped(
 
   if constexpr (std::is_same_v<T, StringView>) {
     folly::json::escapeString(value, result, folly::json::serialization_opts{});
+  } else if constexpr (std::is_same_v<T, UnknownValue>) {
+    VELOX_FAIL(
+        "Casting UNKNOWN to JSON: Vectors of UNKNOWN type should not contain non-null rows");
   } else {
     if constexpr (isMapKey) {
       result.append("\"");
@@ -131,8 +134,7 @@ void castToJson(
     FlatVector<StringView>& flatResult,
     bool isMapKey = false) {
   VELOX_CHECK(
-      !isMapKey,
-      "Casting from map with complex key type to JSON is not supported");
+      !isMapKey, "Casting map with complex key type to JSON is not supported");
 
   if constexpr (kind == TypeKind::ARRAY) {
     castToJsonFromArray(input, context, rows, flatResult);
@@ -142,7 +144,7 @@ void castToJson(
     castToJsonFromRow(input, context, rows, flatResult);
   } else {
     VELOX_FAIL(
-        "Casting from {} to JSON is not supported.", input.type()->toString());
+        "Casting {} to JSON is not supported.", input.type()->toString());
   }
 }
 
@@ -181,7 +183,7 @@ struct AsJson {
     BaseVector::ensureWritable(*baseRows, JSON(), context->pool(), &json_);
     auto flatJsonStrings = json_->as<FlatVector<StringView>>();
 
-    VELOX_DYNAMIC_TYPE_DISPATCH(
+    VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
         castToJson,
         input->typeKind(),
         *decoded_->base(),
@@ -436,6 +438,7 @@ bool JsonCastOperator::isSupportedType(const TypePtr& other) const {
   }
 
   switch (other->kind()) {
+    case TypeKind::UNKNOWN:
     case TypeKind::DATE:
     case TypeKind::TIMESTAMP:
       return true;
@@ -476,9 +479,9 @@ void JsonCastOperator::castTo(
   // result is guaranteed to be a flat writable vector.
   auto* flatResult = result.as<FlatVector<StringView>>();
 
-  // Casting from VARBINARY is not supported and should have been rejected by
-  // isSupportedType() in the caller.
-  VELOX_DYNAMIC_TYPE_DISPATCH(
+  // Casting from VARBINARY and OPAQUE are not supported and should have been
+  // rejected by isSupportedType() in the caller.
+  VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       castToJson, input.typeKind(), input, context, rows, *flatResult);
 }
 
