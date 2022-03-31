@@ -55,6 +55,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -92,6 +93,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Float.POSITIVE_INFINITY;
 import static java.lang.String.format;
@@ -1058,6 +1060,57 @@ public class TestPrestoDriver
                 assertFalse(rs.next());
             }
         }
+    }
+
+    @Test
+    public void testDriverPropertyInfoEmpty()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:presto:");
+
+        Properties properties = new Properties();
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestPrestoDriver::driverPropertyInfoToString)
+                .contains("{name=user, required=true}")
+                .contains("{name=password, required=false}")
+                .contains("{name=accessToken, required=false}")
+                .contains("{name=SSL, required=false, choices=[true, false]}");
+
+        assertThat(infos).extracting(x -> x.name)
+                .doesNotContain("SSLVerification", "SSLTrustStorePath");
+    }
+
+    @Test
+    public void testDriverPropertyInfoSslEnabled()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:presto:");
+
+        Properties properties = new Properties();
+        properties.setProperty("user", "test");
+        properties.setProperty("SSL", "true");
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestPrestoDriver::driverPropertyInfoToString)
+                .contains("{name=user, value=test, required=true}")
+                .contains("{name=SSL, value=true, required=false, choices=[true, false]}")
+                //.contains("{name=SSLVerification, required=false, choices=[FULL, CA, NONE]}") // Presto does not have SSLVerification
+                .contains("{name=SSLTrustStorePath, required=false}");
+    }
+
+    private static String driverPropertyInfoToString(DriverPropertyInfo info)
+    {
+        return toStringHelper("")
+                .add("name", info.name)
+                .add("value", info.value)
+                .add("description", info.description)
+                .add("required", info.required)
+                .add("choices", info.choices)
+                .omitNullValues()
+                .toString();
     }
 
     @Test
