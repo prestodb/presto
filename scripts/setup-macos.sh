@@ -120,7 +120,7 @@ function install_build_prerequisites {
 }
 
 function install_googletest {
-  github_checkout google/googletest release-1.10.0
+  github_checkout google/googletest release-1.11.0
   cmake_install
 }
 
