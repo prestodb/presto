@@ -198,9 +198,6 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Make sure thrid_party include paths are added before system include paths
-add_subdirectory(third_party)
-
 set(Boost_USE_MULTITHREADED TRUE)
 find_package(
   Boost
@@ -297,5 +294,11 @@ include_directories(.)
 # TODO: Include all other installation files. For now just making sure this
 # generates an installable makefile.
 install(FILES velox/type/Type.h DESTINATION "include/velox")
+
+add_subdirectory(third_party)
+
+# Include third party header files
+include_directories(third_party/googletest/googletest/include)
+include_directories(third_party/googletest/googlemock/include)
 
 add_subdirectory(velox)

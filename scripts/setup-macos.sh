@@ -119,11 +119,6 @@ function install_build_prerequisites {
   pip3 install --user cmake-format regex
 }
 
-function install_googletest {
-  github_checkout google/googletest release-1.11.0
-  cmake_install
-}
-
 function install_fmt {
   github_checkout fmtlib/fmt 7.1.3
   cmake_install -DFMT_TEST=OFF
@@ -155,7 +150,6 @@ function install_velox_deps {
     run_and_time install_build_prerequisites
   fi
   run_and_time install_ranges_v3
-  run_and_time install_googletest
   run_and_time install_fmt
   run_and_time install_double_conversion
   run_and_time install_folly
