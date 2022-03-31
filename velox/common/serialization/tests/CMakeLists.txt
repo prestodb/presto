@@ -16,4 +16,4 @@ add_executable(velox_serialization_test TestRegistry.cpp)
 add_test(velox_serialization_test velox_serialization_test)
 
 target_link_libraries(velox_serialization_test velox_serialization
-                      velox_exception ${GTEST_BOTH_LIBRARIES})
+                      velox_exception gtest gtest_main)

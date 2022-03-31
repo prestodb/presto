@@ -19,7 +19,8 @@ target_link_libraries(
   velox_buffer_test
   velox_memory
   velox_buffer
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   glog::glog
   ${gflags_LIBRARIES}
   pthread)

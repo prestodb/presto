@@ -57,4 +57,5 @@ target_link_libraries(
   velox_hive_connector
   velox_type
   ${gflags_LIBRARIES}
-  ${GTEST_BOTH_LIBRARIES})
+  gtest
+  gtest_main)

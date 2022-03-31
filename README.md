@@ -70,6 +70,15 @@ of available functions [can be found here.](https://facebookincubator.github.io/
 
 We provide scripts to help developers setup and install Velox dependencies.
 
+### Get the Velox Source
+```
+git clone --recursive https://github.com/facebookincubator/velox.git
+cd velox
+# if you are updating an existing checkout
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
 ### Setting up on macOS
 
 See [scripts/setup-macos.sh](scripts/setup-macos.sh)

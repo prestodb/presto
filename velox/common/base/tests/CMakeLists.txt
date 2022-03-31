@@ -32,5 +32,6 @@ target_link_libraries(
   velox_common_base
   ${gflags_LIBRARIES}
   glog::glog
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   pthread)

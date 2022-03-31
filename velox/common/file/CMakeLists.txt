@@ -27,7 +27,8 @@ if(${VELOX_BUILD_TESTING})
     velox_exec_test_util
     ${FMT}
     ${FOLLY_WITH_DEPENDENCIES}
-    ${GTEST_BOTH_LIBRARIES})
+    gtest
+    gtest_main)
 
   add_subdirectory(benchmark)
 endif()

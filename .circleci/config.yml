@@ -73,6 +73,11 @@ jobs:
       xcode: "11.7.0"
     steps:
       - checkout
+      - run:
+          name: "Update submodules"
+          command: |
+            git submodule sync --recursive
+            git submodule update --init --recursive
       - restore_cache:
           name: "Restore Dependency Cache"
           key: velox-circleci-macos-deps-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
@@ -120,6 +125,11 @@ jobs:
     steps:
       - checkout
       - run:
+          name: "Update submodules"
+          command: |
+            git submodule sync --recursive
+            git submodule update --init --recursive
+      - run:
           name: "Calculate merge-base date for CCache"
           command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
       - restore_cache:
@@ -164,6 +174,11 @@ jobs:
     steps:
       - checkout
       - run:
+          name: "Update submodules"
+          command: |
+            git submodule sync --recursive
+            git submodule update --init --recursive
+      - run:
           name: "Calculate merge-base date for CCache"
           command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
       - restore_cache:
@@ -197,6 +212,11 @@ jobs:
     executor: build
     steps:
       - checkout
+      - run:
+          name: "Update submodules"
+          command: |
+            git submodule sync --recursive
+            git submodule update --init --recursive
       - run:
           name: "Calculate merge-base date for CCache"
           command: |
@@ -256,6 +276,11 @@ jobs:
     steps:
       - checkout
       - run:
+          name: "Update submodules"
+          command: |
+            git submodule sync --recursive
+            git submodule update --init --recursive
+      - run:
           name: "Calculate merge-base date for CCache"
           command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
       - restore_cache:
@@ -295,6 +320,11 @@ jobs:
     executor: build
     steps:
       - checkout
+      - run:
+          name: "Update submodules"
+          command: |
+            git submodule sync --recursive
+            git submodule update --init --recursive
       - run:
           name: "Calculate merge-base date for CCache"
           command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date

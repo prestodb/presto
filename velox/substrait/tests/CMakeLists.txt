@@ -46,7 +46,8 @@ target_link_libraries(
   ${Boost_REGEX_LIBRARIES}
   ${Boost_THREAD_LIBRARIES}
   ${Boost_SYSTEM_LIBRARIES}
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${FOLLY_WITH_DEPENDENCIES}
   ${DOUBLE_CONVERSION}
   ${gflags_LIBRARIES}

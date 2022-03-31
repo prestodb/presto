@@ -33,7 +33,8 @@ add_executable(
 target_link_libraries(
   velox_codegen_expression_test
   velox_codegen_code_generator
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${GFLAGS_LIBRARIES}
   glog::glog
   ${FMT}
@@ -51,7 +52,8 @@ add_executable(velox_codegen_ast_analysis_test ASTAnalysisTest.cpp)
 target_link_libraries(
   velox_codegen_ast_analysis_test
   velox_codegen_code_generator
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${GFLAGS_LIBRARIES}
   glog::glog
   ${FMT}

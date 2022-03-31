@@ -25,5 +25,6 @@ target_link_libraries(
   velox_functions_prestosql
   velox_functions_lib
   velox_functions_test_lib
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${gflags_LIBRARIES})

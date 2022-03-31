@@ -23,5 +23,6 @@ target_link_libraries(
   velox_dwio_common_exception
   ${FOLLY_WITH_DEPENDENCIES}
   ${FOLLY_BENCHMARK}
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${GFLAGS_LIBRARIES})

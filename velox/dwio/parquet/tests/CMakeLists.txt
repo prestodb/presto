@@ -33,7 +33,7 @@ set(VELOX_LINK_LIBS
     ${FOLLY_WITH_DEPENDENCIES}
     ${FMT})
 
-set(TEST_LINK_LIBS ${gflags_LIBRARIES} ${GTEST_BOTH_LIBRARIES} ${GMock} ${GLOG}
+set(TEST_LINK_LIBS ${gflags_LIBRARIES} gtest gtest_main gmock ${GLOG}
                    ${FILESYSTEM})
 
 add_executable(velox_dwio_parquet_reader_test ParquetReaderTest.cpp)

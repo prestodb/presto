@@ -26,7 +26,8 @@ target_link_libraries(
   ${FOLLY_BENCHMARK}
   ${FOLLY_WITH_DEPENDENCIES}
   ${Boost_FILESYSTEM_LIBRARIES}
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${GFLAGS_LIBRARIES}
   ${FMT}
   velox_core
@@ -89,7 +90,8 @@ target_link_libraries(
   ${FOLLY_BENCHMARK}
   ${FOLLY_WITH_DEPENDENCIES}
   ${Boost_FILESYSTEM_LIBRARIES}
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${GFLAGS_LIBRARIES}
   glog::glog
   ${FMT}

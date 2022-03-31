@@ -30,6 +30,7 @@ target_link_libraries(
   velox_vector_test_lib
   ${FOLLY}
   ${DOUBLE_CONVERSION}
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${GFLAGS_LIBRARIES}
   glog::glog)

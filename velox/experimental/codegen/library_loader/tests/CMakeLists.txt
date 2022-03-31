@@ -33,7 +33,8 @@ add_dependencies(
   velox_codegen_native_loader_resources_typeinfo_library)
 target_link_libraries(
   velox_codegen_native_loader_test
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${FOLLY_WITH_DEPENDENCIES}
   ${DOUBLE_CONVERSION}
   ${GFLAGS_LIBRARIES}

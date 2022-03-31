@@ -16,7 +16,7 @@ add_executable(velox_experimental_codegen_utils_timer_test TimerTests.cpp
                                                            ClockTests.cpp)
 
 target_link_libraries(velox_experimental_codegen_utils_timer_test
-                      velox_codegen_utils_timer ${GTEST_BOTH_LIBRARIES})
+                      velox_codegen_utils_timer gtest gtest_main)
 
 add_test(velox_experimental_codegen_utils_timer_test
          velox_experimental_codegen_utils_timer_test)

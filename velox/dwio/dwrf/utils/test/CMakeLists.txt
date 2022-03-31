@@ -24,5 +24,6 @@ target_link_libraries(
   velox_dwio_common_exception
   velox_dwio_type_fbhive
   ${gflags_LIBRARIES}
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   glog::glog)

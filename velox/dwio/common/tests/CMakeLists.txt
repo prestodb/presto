@@ -29,8 +29,9 @@ target_link_libraries(
   velox_type
   Boost::regex
   ${gflags_LIBRARIES}
-  ${GTEST_BOTH_LIBRARIES}
-  ${GMock}
+  gtest
+  gtest_main
+  gmock
   glog::glog
   ${FMT})
 

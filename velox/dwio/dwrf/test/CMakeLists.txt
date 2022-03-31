@@ -31,8 +31,14 @@ set(VELOX_LINK_LIBS
     velox_type
     velox_caching)
 
-set(TEST_LINK_LIBS velox_dwrf_test_utils ${gflags_LIBRARIES}
-                   ${GTEST_BOTH_LIBRARIES} ${GMock} glog::glog ${FILESYSTEM})
+set(TEST_LINK_LIBS
+    velox_dwrf_test_utils
+    ${gflags_LIBRARIES}
+    gtest
+    gtest_main
+    gmock
+    glog::glog
+    ${FILESYSTEM})
 
 add_executable(velox_dwio_dwrf_buffered_output_stream_test
                TestBufferedOutputStream.cpp)

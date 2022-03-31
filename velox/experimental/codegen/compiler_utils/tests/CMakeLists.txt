@@ -30,7 +30,8 @@ target_link_libraries(
   velox_codegen_proto
   velox_exception
   ${Boost_FILESYSTEM_LIBRARIES}
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${FOLLY_WITH_DEPENDENCIES}
   ${DOUBLE_CONVERSION}
   ${GFLAGS_LIBRARIES}

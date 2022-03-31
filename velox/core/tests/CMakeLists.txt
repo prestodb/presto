@@ -17,4 +17,4 @@ add_executable(velox_core_test TestMap.cpp TestMetafunctions.cpp TestString.cpp
 
 add_test(velox_core_test velox_core_test)
 
-target_link_libraries(velox_core_test velox_core ${GTEST_BOTH_LIBRARIES})
+target_link_libraries(velox_core_test velox_core gtest gtest_main)

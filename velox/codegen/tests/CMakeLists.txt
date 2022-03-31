@@ -13,6 +13,6 @@
 # limitations under the License.
 
 add_executable(velox_codegen_test CodegenTest.cpp)
-target_link_libraries(velox_codegen_test ${GTEST_BOTH_LIBRARIES} velox_codegen)
+target_link_libraries(velox_codegen_test gtest gtest_main velox_codegen)
 
 add_test(velox_codegen_test velox_codegen_test)

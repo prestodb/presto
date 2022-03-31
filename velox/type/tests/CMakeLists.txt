@@ -30,7 +30,8 @@ target_link_libraries(
   velox_external_date
   ${FOLLY}
   ${DOUBLE_CONVERSION}
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${gflags_LIBRARIES}
   glog::glog)
 
@@ -43,6 +44,7 @@ target_link_libraries(
   ${FOLLY}
   ${FOLLY_BENCHMARK}
   ${DOUBLE_CONVERSION}
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${gflags_LIBRARIES}
   glog::glog)

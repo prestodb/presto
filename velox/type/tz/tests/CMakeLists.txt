@@ -16,5 +16,4 @@ add_executable(velox_type_tz_test TimeZoneMapTest.cpp)
 
 add_test(velox_type_tz_test velox_type_tz_test)
 
-target_link_libraries(velox_type_tz_test velox_type_tz ${GTEST_BOTH_LIBRARIES}
-                      pthread)
+target_link_libraries(velox_type_tz_test velox_type_tz gtest gtest_main pthread)

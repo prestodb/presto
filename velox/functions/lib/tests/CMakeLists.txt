@@ -29,5 +29,6 @@ target_link_libraries(
   velox_functions_test_lib
   velox_exec_test_util
   velox_expression
-  ${GTEST_BOTH_LIBRARIES}
+  gtest
+  gtest_main
   ${gflags_LIBRARIES})

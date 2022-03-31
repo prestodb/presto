@@ -16,7 +16,8 @@ set(BENCHMARK_DEPENDENCIES
     velox_functions_test_lib
     velox_exec
     velox_exec_test_util
-    ${GTEST_BOTH_LIBRARIES}
+    gtest
+    gtest_main
     ${gflags_LIBRARIES}
     ${FOLLY_WITH_DEPENDENCIES}
     ${FOLLY_BENCHMARK})
