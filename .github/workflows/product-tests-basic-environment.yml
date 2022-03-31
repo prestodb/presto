@@ -6,8 +6,8 @@ on:
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
-  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.http.retryHandler.count=5"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.http.retryHandler.count=5"
   MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
   RETRY: .github/bin/retry
 

@@ -2188,6 +2188,14 @@
     </dependencyManagement>
 
     <build>
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-http</artifactId>
+                <version>3.5.1</version>
+            </extension>
+        </extensions>
+
         <pluginManagement>
             <plugins>
                 <plugin>
