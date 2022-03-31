@@ -124,7 +124,7 @@ class RowContainerTest : public testing::Test {
     for (size_t row = 0; row < size; ++row) {
       EXPECT_TRUE(expected->equalValueAt(result.get(), row, row))
           << "at " << row << ": expected " << expected->toString(row)
-          << ", got " << result->toString();
+          << ", got " << result->toString(row);
     }
   }
 

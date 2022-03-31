@@ -306,6 +306,32 @@ class ConstantVector final : public SimpleVector<T> {
     // nothing to do
   }
 
+  int32_t compare(
+      const BaseVector* other,
+      vector_size_t index,
+      vector_size_t otherIndex,
+      CompareFlags flags) const override {
+    if constexpr (!std::is_same_v<T, ComplexType>) {
+      if (other->isConstantEncoding()) {
+        auto otherConstant = other->asUnchecked<ConstantVector<T>>();
+        if (isNull_) {
+          if (otherConstant->isNull_) {
+            return 0;
+          }
+          return flags.nullsFirst ? -1 : 1;
+        }
+        if (otherConstant->isNull_) {
+          return flags.nullsFirst ? 1 : -1;
+        }
+        auto result =
+            SimpleVector<T>::comparePrimitiveAsc(value_, otherConstant->value_);
+        return flags.ascending ? result : result * -1;
+      }
+    }
+
+    return SimpleVector<T>::compare(other, index, otherIndex, flags);
+  }
+
   std::string toString() const override {
     std::stringstream out;
     out << "[" << encoding() << " " << this->type()->toString() << ": "

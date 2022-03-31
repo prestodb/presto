@@ -367,6 +367,7 @@ class SimpleVector : public BaseVector {
     max_ = getMetaDataValue<T>(metaData, META_MAX);
   }
 
+ protected:
   int comparePrimitiveAsc(const T& left, const T& right) const {
     if constexpr (std::is_floating_point<T>::value) {
       bool isLeftNan = std::isnan(left);
@@ -381,7 +382,6 @@ class SimpleVector : public BaseVector {
     return left < right ? -1 : left == right ? 0 : 1;
   }
 
- protected:
   std::optional<bool> isSorted_ = std::nullopt;
 
   // Allows checking that access is with the same width of T as
