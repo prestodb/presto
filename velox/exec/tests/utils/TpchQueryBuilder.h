@@ -36,16 +36,16 @@ struct TpchPlan {
   dwio::common::FileFormat dataFileFormat;
 };
 
-/// Contains type information, data files, and column aliases for a table.
+/// Contains type information, data files, and file column names for a table.
 /// This information is inferred from the input data files.
 /// The type names are mapped to the standard names.
 /// Example: If the file has a 'returnflag' column, the corresponding type name
-/// will be 'l_returnflag'. columnAliases store the mapping between standard
+/// will be 'l_returnflag'. fileColumnNames store the mapping between standard
 /// names and the corresponding name in the file.
 struct TpchTableMetadata {
   RowTypePtr type;
   std::vector<std::string> dataFiles;
-  std::unordered_map<std::string, std::string> columnAliases;
+  std::unordered_map<std::string, std::string> fileColumnNames;
 };
 
 /// Builds TPC-H queries using TPC-H data files located in the specified
@@ -101,9 +101,9 @@ class TpchQueryBuilder {
     return columnSelector->buildSelectedReordered();
   }
 
-  const std::unordered_map<std::string, std::string>& getColumnAliases(
+  const std::unordered_map<std::string, std::string>& getFileColumnNames(
       const std::string& tableName) const {
-    return tableMetadata_.at(tableName).columnAliases;
+    return tableMetadata_.at(tableName).fileColumnNames;
   }
 
   std::unordered_map<std::string, TpchTableMetadata> tableMetadata_;
