@@ -321,7 +321,7 @@ public class TestOrcOutputBuffer
         List<Integer> expectedSizes = expectedChunkSizes.stream().map(size -> (int) size.toBytes()).collect(toList());
 
         DecompressionResult result = decompress(output.slice());
-        assertEquals(result.bytes, expectedBytes);
+        assertEquals(wrappedBuffer(result.bytes), wrappedBuffer(expectedBytes));
         assertEquals(result.sizes, expectedSizes);
     }
 
