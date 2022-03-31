@@ -61,7 +61,7 @@ void FlatVector<bool>::copyValuesAndNulls(
   }
   uint64_t* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
   if (source->encoding() == VectorEncoding::Simple::FLAT) {
-    auto flat = source->as<FlatVector<bool>>();
+    auto flat = source->asUnchecked<FlatVector<bool>>();
     auto* sourceValues = source->typeKind() != TypeKind::UNKNOWN
         ? flat->rawValues<uint64_t>()
         : nullptr;
@@ -99,7 +99,7 @@ void FlatVector<bool>::copyValuesAndNulls(
       }
     }
   } else if (source->isConstantEncoding()) {
-    auto constant = source->as<ConstantVector<bool>>();
+    auto constant = source->asUnchecked<ConstantVector<bool>>();
     if (constant->isNullAt(0)) {
       addNulls(nullptr, rows);
       return;
@@ -116,7 +116,7 @@ void FlatVector<bool>::copyValuesAndNulls(
       bits::orBits(rawNulls, rows.asRange().bits(), rows.begin(), rows.end());
     }
   } else {
-    auto sourceVector = source->as<SimpleVector<bool>>();
+    auto sourceVector = source->asUnchecked<SimpleVector<bool>>();
     rows.applyToSelected([&](auto row) {
       int32_t sourceRow = toSourceRow ? toSourceRow[row] : row;
       if (!source->isNullAt(sourceRow)) {
@@ -152,7 +152,7 @@ void FlatVector<bool>::copyValuesAndNulls(
   if (source->encoding() == VectorEncoding::Simple::FLAT) {
     if (source->typeKind() != TypeKind::UNKNOWN) {
       auto* sourceValues =
-          source->as<FlatVector<bool>>()->rawValues<uint64_t>();
+          source->asUnchecked<FlatVector<bool>>()->rawValues<uint64_t>();
       bits::copyBits(sourceValues, sourceIndex, rawValues, targetIndex, count);
     }
     if (rawNulls) {
@@ -164,7 +164,7 @@ void FlatVector<bool>::copyValuesAndNulls(
       }
     }
   } else if (source->isConstantEncoding()) {
-    auto constant = source->as<ConstantVector<bool>>();
+    auto constant = source->asUnchecked<ConstantVector<bool>>();
     if (constant->isNullAt(0)) {
       bits::fillBits(rawNulls, targetIndex, targetIndex + count, bits::kNull);
       return;
@@ -253,7 +253,7 @@ void FlatVector<T>::acquireSharedStringBuffers(const BaseVector* source) {
   }
   switch (leaf->encoding()) {
     case VectorEncoding::Simple::FLAT: {
-      auto* flat = leaf->as<FlatVector<StringView>>();
+      auto* flat = leaf->asUnchecked<FlatVector<StringView>>();
       for (auto& buffer : flat->stringBuffers_) {
         if (std::find(stringBuffers_.begin(), stringBuffers_.end(), buffer) ==
             stringBuffers_.end())
@@ -329,8 +329,7 @@ void FlatVector<StringView>::copy(
     vector_size_t targetIndex,
     vector_size_t sourceIndex,
     vector_size_t count) {
-  auto leaf = source->wrappedVector()->as<SimpleVector<StringView>>();
-  VELOX_CHECK(leaf, "Assigning non-string to string");
+  auto leaf = source->wrappedVector()->asUnchecked<SimpleVector<StringView>>();
   if (pool_ == leaf->pool()) {
     // We copy referencing the storage of 'source'.
     copyValuesAndNulls(source, targetIndex, sourceIndex, count);
