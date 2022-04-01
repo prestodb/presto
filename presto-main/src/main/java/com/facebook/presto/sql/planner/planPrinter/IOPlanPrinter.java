@@ -35,6 +35,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -479,6 +480,22 @@ public class IOPlanPrinter
                             tableMetadata.getTable().getTableName()),
                     parseConstraints(node.getTable(), constraints)));
             return null;
+        }
+
+        @Override
+        public Void visitIndexSource(IndexSourceNode node, IOPlanBuilder context)
+        {
+            TableHandle tableHandle = node.getTableHandle();
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            TupleDomain<ColumnHandle> constraints = metadata.toExplainIOConstraints(session, tableHandle, node.getCurrentConstraint());
+
+            context.addInputTableColumnInfo(new IOPlan.TableColumnInfo(
+                    new CatalogSchemaTableName(
+                            tableMetadata.getConnectorId().getCatalogName(),
+                            tableMetadata.getTable().getSchemaName(),
+                            tableMetadata.getTable().getTableName()),
+                    parseConstraints(tableHandle, constraints)));
+            return processChildren(node, context);
         }
 
         @Override
