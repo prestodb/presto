@@ -63,7 +63,6 @@ wget_and_untar https://github.com/google/glog/archive/v0.4.0.tar.gz glog &
 wget_and_untar http://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz lzo &
 wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.72.0/source/boost_1_72_0.tar.gz boost &
 wget_and_untar https://github.com/google/snappy/archive/1.1.8.tar.gz snappy &
-wget_and_untar https://github.com/google/googletest/archive/release-1.10.0.tar.gz googletest &
 wget_and_untar https://github.com/facebook/folly/archive/v2021.05.10.00.tar.gz folly &
 #  wget_and_untar https://github.com/ericniebler/range-v3/archive/0.11.0.tar.gz ranges-v3 &
 
@@ -86,7 +85,6 @@ wait  # For cmake and source downloads to complete.
 cmake_install gflags -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_gflags_LIB=ON -DLIB_SUFFIX=64 -DCMAKE_INSTALL_PREFIX:PATH=/usr
 cmake_install glog -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr
 cmake_install snappy -DSNAPPY_BUILD_TESTS=OFF
-cmake_install googletest -DBUILD_SHARED_LIBS=ON
 # Folly fails to build in release-mode due
 # AtomicUtil-inl.h:202: Error: operand type mismatch for `bts'
 cmake_install folly -DCMAKE_BUILD_TYPE=Debug
