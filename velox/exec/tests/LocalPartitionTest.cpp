@@ -19,8 +19,6 @@
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
 
-static const std::string kWriter = "LocalPartitionTest.Writer";
-
 class LocalPartitionTest : public HiveConnectorTestBase {
  protected:
   void SetUp() override {
@@ -42,7 +40,7 @@ class LocalPartitionTest : public HiveConnectorTestBase {
       const std::vector<RowVectorPtr>& vectors) {
     auto filePaths = makeFilePaths(vectors.size());
     for (auto i = 0; i < vectors.size(); i++) {
-      writeToFile(filePaths[i]->path, kWriter, vectors[i]);
+      writeToFile(filePaths[i]->path, vectors[i]);
     }
     return filePaths;
   }

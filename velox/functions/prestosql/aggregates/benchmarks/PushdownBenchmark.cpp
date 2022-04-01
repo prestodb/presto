@@ -31,7 +31,6 @@ using facebook::velox::exec::Task;
 
 static constexpr int32_t kNumVectors = 10;
 static constexpr int32_t kRowsPerVector = 100'000;
-static const std::string kTableBenchmarkTest = "TableBenchMarkTest.Write";
 
 namespace facebook::velox::aggregate::test {
 
@@ -45,7 +44,7 @@ class PushdownBenchmark : public HiveConnectorTestBase {
     vectors_ = HiveConnectorTestBase::makeVectors(
         rowType_, kNumVectors, kRowsPerVector);
     filePath_ = TempFilePath::create();
-    writeToFile(filePath_->path, kTableBenchmarkTest, vectors_);
+    writeToFile(filePath_->path, vectors_);
   }
 
   ~PushdownBenchmark() override {

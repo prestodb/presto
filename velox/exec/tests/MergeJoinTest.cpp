@@ -24,7 +24,6 @@ using namespace facebook::velox::exec::test;
 class MergeJoinTest : public HiveConnectorTestBase {
  protected:
   using OperatorTestBase::assertQuery;
-  static constexpr const char* kWriter = "MergeJoinTest.Writer";
 
   static CursorParameters makeCursorParameters(
       const std::shared_ptr<const core::PlanNode>& planNode,
@@ -468,11 +467,11 @@ TEST_F(MergeJoinTest, lazyVectors) {
        makeFlatVector<int64_t>(10'000, [](auto row) { return row % 31; })});
 
   auto leftFile = TempFilePath::create();
-  writeToFile(leftFile->path, kWriter, leftVectors);
+  writeToFile(leftFile->path, leftVectors);
   createDuckDbTable("t", {leftVectors});
 
   auto rightFile = TempFilePath::create();
-  writeToFile(rightFile->path, kWriter, rightVectors);
+  writeToFile(rightFile->path, rightVectors);
   createDuckDbTable("u", {rightVectors});
 
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();

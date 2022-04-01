@@ -30,22 +30,19 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::connector::hive;
 
-static const std::string kTableWriterTest = "TableWriterTest.Writer";
-
 class TableWriteTest : public HiveConnectorTestBase {
  protected:
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
-    rowType_ =
-        ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
-            {BIGINT(), INTEGER(), SMALLINT(), REAL(), DOUBLE(), VARCHAR()});
   }
 
-  VectorPtr createConstant(variant value, vector_size_t size) {
+  VectorPtr createConstant(variant value, vector_size_t size) const {
     return BaseVector::createConstant(value, size, pool_.get());
   }
 
-  std::shared_ptr<const RowType> rowType_;
+  RowTypePtr rowType_{
+      ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
+          {BIGINT(), INTEGER(), SMALLINT(), REAL(), DOUBLE(), VARCHAR()})};
 };
 
 // Runs a pipeline with read + filter + project (with substr) + write
@@ -53,7 +50,7 @@ TEST_F(TableWriteTest, scanFilterProjectWrite) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(rowType_, filePaths.size(), 1000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, kTableWriterTest, vectors[i]);
+    writeToFile(filePaths[i]->path, vectors[i]);
   }
 
   auto outputFile = TempFilePath::create();
@@ -99,7 +96,7 @@ TEST_F(TableWriteTest, renameAndReorderColumns) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(rowType, filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, kTableWriterTest, vectors[i]);
+    writeToFile(filePaths[i]->path, vectors[i]);
   }
 
   auto outputFile = TempFilePath::create();
@@ -135,7 +132,7 @@ TEST_F(TableWriteTest, directReadWrite) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(rowType_, filePaths.size(), 1000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, kTableWriterTest, vectors[i]);
+    writeToFile(filePaths[i]->path, vectors[i]);
   }
 
   auto outputFile = TempFilePath::create();

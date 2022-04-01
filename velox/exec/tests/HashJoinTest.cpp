@@ -28,8 +28,6 @@ using namespace facebook::velox::exec::test;
 
 using facebook::velox::test::BatchMaker;
 
-static const std::string kWriter = "HashJoinTest.Writer";
-
 class HashJoinTest : public HiveConnectorTestBase {
  protected:
   void SetUp() override {
@@ -341,11 +339,11 @@ TEST_F(HashJoinTest, lazyVectors) {
        makeFlatVector<int64_t>(10'000, [](auto row) { return row % 31; })});
 
   auto leftFile = TempFilePath::create();
-  writeToFile(leftFile->path, kWriter, leftVectors);
+  writeToFile(leftFile->path, leftVectors);
   createDuckDbTable("t", {leftVectors});
 
   auto rightFile = TempFilePath::create();
-  writeToFile(rightFile->path, kWriter, rightVectors);
+  writeToFile(rightFile->path, rightVectors);
   createDuckDbTable("u", {rightVectors});
 
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
@@ -618,7 +616,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
         makeFlatVector<int64_t>(1'024, [](auto row) { return row; }),
     });
     leftVectors.push_back(rowVector);
-    writeToFile(leftFiles[i]->path, kWriter, rowVector);
+    writeToFile(leftFiles[i]->path, rowVector);
   }
 
   // 100 key values in [35, 233] range.

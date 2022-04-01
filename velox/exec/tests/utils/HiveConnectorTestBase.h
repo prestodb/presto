@@ -35,14 +35,10 @@ class HiveConnectorTestBase : public OperatorTestBase {
   void SetUp() override;
   void TearDown() override;
 
-  void writeToFile(
-      const std::string& filePath,
-      const std::string& name,
-      RowVectorPtr vector);
+  void writeToFile(const std::string& filePath, RowVectorPtr vector);
 
   void writeToFile(
       const std::string& filePath,
-      const std::string& name,
       const std::vector<RowVectorPtr>& vectors,
       std::shared_ptr<dwrf::Config> config =
           std::make_shared<facebook::velox::dwrf::Config>());

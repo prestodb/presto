@@ -40,25 +40,12 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::common::test;
 using namespace facebook::velox::exec::test;
 
-static const std::string kNodeSelectionStrategy = "node_selection_strategy";
-static const std::string kSoftAffinity = "SOFT_AFFINITY";
-static const std::string kTableScanTest = "TableScanTest.Writer";
-
 class TableScanTest : public virtual HiveConnectorTestBase,
                       public testing::WithParamInterface<bool> {
  protected:
   void SetUp() override {
     useAsyncCache_ = GetParam();
     HiveConnectorTestBase::SetUp();
-    rowType_ =
-        ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6"},
-            {BIGINT(),
-             INTEGER(),
-             SMALLINT(),
-             REAL(),
-             DOUBLE(),
-             VARCHAR(),
-             TINYINT()});
   }
 
   static void SetUpTestCase() {
@@ -201,15 +188,21 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     testPartitionedTableImpl(filePath, partitionType, std::nullopt);
   }
 
-  std::shared_ptr<const RowType> rowType_{
-      ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
-          {BIGINT(), INTEGER(), SMALLINT(), REAL(), DOUBLE(), VARCHAR()})};
+  RowTypePtr rowType_{
+      ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6"},
+          {BIGINT(),
+           INTEGER(),
+           SMALLINT(),
+           REAL(),
+           DOUBLE(),
+           VARCHAR(),
+           TINYINT()})};
 };
 
 TEST_P(TableScanTest, allColumns) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
 
   auto plan = tableScanNode();
@@ -227,7 +220,7 @@ TEST_P(TableScanTest, allColumns) {
 TEST_P(TableScanTest, columnAliases) {
   auto vectors = makeVectors(1, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
 
   ColumnHandleMap assignments = {{"a", regularColumn("c0", BIGINT())}};
@@ -261,7 +254,7 @@ TEST_P(TableScanTest, columnAliases) {
 TEST_P(TableScanTest, partitionKeyAlias) {
   auto vectors = makeVectors(1, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
 
   ColumnHandleMap assignments = {
@@ -282,7 +275,7 @@ TEST_P(TableScanTest, partitionKeyAlias) {
 TEST_P(TableScanTest, columnPruning) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
 
   auto op = tableScanNode(ROW({"c0"}, {BIGINT()}));
@@ -319,8 +312,8 @@ TEST_P(TableScanTest, missingColumns) {
   });
 
   auto filePaths = makeFilePaths(2);
-  writeToFile(filePaths[0]->path, kTableScanTest, {oldData});
-  writeToFile(filePaths[1]->path, kTableScanTest, {newData});
+  writeToFile(filePaths[0]->path, {oldData});
+  writeToFile(filePaths[1]->path, {newData});
 
   auto oldDataWithNull = makeRowVector({
       makeFlatVector<int64_t>(size, [](auto row) { return row; }),
@@ -369,7 +362,7 @@ TEST_P(TableScanTest, constDictLazy) {
            [](auto row) { return row * 0.1; })});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, {rowVector});
+  writeToFile(filePath->path, {rowVector});
 
   createDuckDbTable({rowVector});
 
@@ -410,7 +403,7 @@ TEST_P(TableScanTest, constDictLazy) {
 TEST_P(TableScanTest, count) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
 
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
@@ -435,7 +428,7 @@ TEST_P(TableScanTest, count) {
 TEST_P(TableScanTest, sequentialSplitNoDoubleRead) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
 
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
@@ -465,7 +458,7 @@ TEST_P(TableScanTest, sequentialSplitNoDoubleRead) {
 TEST_P(TableScanTest, outOfOrderSplits) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
 
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
@@ -495,7 +488,7 @@ TEST_P(TableScanTest, outOfOrderSplits) {
 TEST_P(TableScanTest, splitDoubleRead) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
 
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
@@ -523,7 +516,7 @@ TEST_P(TableScanTest, multipleSplits) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(10, 1'000);
   for (int32_t i = 0; i < vectors.size(); i++) {
-    writeToFile(filePaths[i]->path, kTableScanTest, vectors[i]);
+    writeToFile(filePaths[i]->path, vectors[i]);
   }
   createDuckDbTable(vectors);
 
@@ -534,7 +527,7 @@ TEST_P(TableScanTest, waitForSplit) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(10, 1'000);
   for (int32_t i = 0; i < vectors.size(); i++) {
-    writeToFile(filePaths[i]->path, kTableScanTest, vectors[i]);
+    writeToFile(filePaths[i]->path, vectors[i]);
   }
   createDuckDbTable(vectors);
 
@@ -556,7 +549,7 @@ TEST_P(TableScanTest, waitForSplit) {
 TEST_P(TableScanTest, splitOffsetAndLength) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
 
   assertQuery(
@@ -613,7 +606,7 @@ TEST_P(TableScanTest, partitionedTableVarcharKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
 
   testPartitionedTable(filePath->path, VARCHAR(), "2020-11-01");
@@ -623,7 +616,7 @@ TEST_P(TableScanTest, partitionedTableBigIntKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
   testPartitionedTable(filePath->path, BIGINT(), "123456789123456789");
 }
@@ -632,7 +625,7 @@ TEST_P(TableScanTest, partitionedTableIntegerKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
   testPartitionedTable(filePath->path, INTEGER(), "123456789");
 }
@@ -641,7 +634,7 @@ TEST_P(TableScanTest, partitionedTableSmallIntKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
   testPartitionedTable(filePath->path, SMALLINT(), "1");
 }
@@ -650,7 +643,7 @@ TEST_P(TableScanTest, partitionedTableTinyIntKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
   testPartitionedTable(filePath->path, TINYINT(), "1");
 }
@@ -659,7 +652,7 @@ TEST_P(TableScanTest, partitionedTableBooleanKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
   testPartitionedTable(filePath->path, BOOLEAN(), "0");
 }
@@ -668,7 +661,7 @@ TEST_P(TableScanTest, partitionedTableRealKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
   testPartitionedTable(filePath->path, REAL(), "3.5");
 }
@@ -677,7 +670,7 @@ TEST_P(TableScanTest, partitionedTableDoubleKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
   testPartitionedTable(filePath->path, DOUBLE(), "3.5");
 }
@@ -700,7 +693,7 @@ TEST_P(TableScanTest, statsBasedSkippingBool) {
        makeFlatVector<bool>(
            size, [](auto row) { return (row / 10'000) % 2 == 0; })});
 
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
   auto subfieldFilters = singleSubfieldFilter("c1", boolEqual(true));
@@ -731,7 +724,7 @@ TEST_P(TableScanTest, statsBasedSkippingDouble) {
   auto rowVector = makeRowVector({makeFlatVector<double>(
       size, [](auto row) { return (double)(row + 0.0001); })});
 
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
   // c0 <= -1.05 -> whole file should be skipped based on stats
@@ -784,7 +777,7 @@ TEST_P(TableScanTest, statsBasedSkippingFloat) {
   auto rowVector = makeRowVector({makeFlatVector<float>(
       size, [](auto row) { return (float)(row + 0.0001); })});
 
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
   // c0 <= -1.05 -> whole file should be skipped based on stats
@@ -858,7 +851,7 @@ TEST_P(TableScanTest, statsBasedSkipping) {
              }
            })});
 
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
   // c0 <= -1 -> whole file should be skipped based on stats
@@ -976,7 +969,7 @@ TEST_P(TableScanTest, statsBasedSkippingConstants) {
          return fruitViews[row / 10'000];
        })});
 
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
   // skip whole file
@@ -1033,7 +1026,7 @@ TEST_P(TableScanTest, statsBasedSkippingNulls) {
       [](auto row) { return row >= 11'111; });
   auto rowVector = makeRowVector({noNulls, someNulls});
 
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
   // c0 IS NULL - whole file should be skipped based on stats
@@ -1091,7 +1084,7 @@ TEST_P(TableScanTest, statsBasedSkippingWithoutDecompression) {
   auto rowVector = makeRowVector({makeFlatVector(strings)});
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
   // skip 1st row group
@@ -1150,7 +1143,7 @@ TEST_P(TableScanTest, filterBasedSkippingWithoutDecompression) {
   auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
   auto tableHandle =
@@ -1203,7 +1196,7 @@ TEST_P(TableScanTest, statsBasedSkippingNumerics) {
            size, [](auto row) { return row % 11 == 0; }, nullEvery(23))});
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
   // skip whole file
@@ -1274,7 +1267,7 @@ TEST_P(TableScanTest, statsBasedSkippingComplexTypes) {
            nullEvery(11))});
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
   // TODO Figure out how to create DuckDB tables with columns of complex types
   // For now, using 1st element of the array and map element for key zero.
   createDuckDbTable({makeRowVector(
@@ -1354,7 +1347,7 @@ TEST_P(TableScanTest, statsBasedAndRegularSkippingComplexTypes) {
   });
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, kTableScanTest, rowVector);
+  writeToFile(filePaths[0]->path, rowVector);
 
   createDuckDbTable({makeRowVector({
       makeFlatVector<int64_t>(size, [](auto row) { return row; }),
@@ -1389,7 +1382,7 @@ TEST_P(TableScanTest, filterPushdown) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(10, 1'000, rowType);
   for (int32_t i = 0; i < vectors.size(); i++) {
-    writeToFile(filePaths[i]->path, kTableScanTest, vectors[i]);
+    writeToFile(filePaths[i]->path, vectors[i]);
   }
   createDuckDbTable(vectors);
 
@@ -1454,7 +1447,7 @@ TEST_P(TableScanTest, path) {
   auto rowType = ROW({"a"}, {BIGINT()});
   auto filePath = makeFilePaths(1)[0];
   auto vector = makeVectors(1, 1'000, rowType)[0];
-  writeToFile(filePath->path, kTableScanTest, vector);
+  writeToFile(filePath->path, vector);
   createDuckDbTable({vector});
 
   static const char* kPath = "$path";
@@ -1508,7 +1501,7 @@ TEST_P(TableScanTest, bucket) {
         {makeFlatVector<int32_t>(size, [&](auto /*row*/) { return bucket; }),
          makeFlatVector<int64_t>(
              size, [&](auto row) { return bucket + row; })});
-    writeToFile(filePaths[i]->path, kTableScanTest, rowVector);
+    writeToFile(filePaths[i]->path, rowVector);
     rowVectors.emplace_back(rowVector);
 
     splits.emplace_back(std::make_shared<HiveConnectorSplit>(
@@ -1572,7 +1565,7 @@ TEST_P(TableScanTest, remainingFilter) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(10, 1'000, rowType);
   for (int32_t i = 0; i < vectors.size(); i++) {
-    writeToFile(filePaths[i]->path, kTableScanTest, vectors[i]);
+    writeToFile(filePaths[i]->path, vectors[i]);
   }
   createDuckDbTable(vectors);
 
@@ -1638,7 +1631,7 @@ TEST_P(TableScanTest, remainingFilter) {
 TEST_P(TableScanTest, aggregationPushdown) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
   auto tableHandle = makeTableHandle(SubfieldFilters());
 
@@ -1760,7 +1753,7 @@ TEST_P(TableScanTest, aggregationPushdown) {
 TEST_P(TableScanTest, bitwiseAggregationPushdown) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
   auto tableHandle = makeTableHandle(SubfieldFilters(), nullptr);
 
@@ -1809,7 +1802,7 @@ TEST_P(TableScanTest, structLazy) {
            [](auto row) { return row * 0.1; })})});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, {rowVector});
+  writeToFile(filePath->path, {rowVector});
 
   // Exclude struct columns as DuckDB doesn't support complex types yet.
   createDuckDbTable(
@@ -1858,7 +1851,7 @@ TEST_P(TableScanTest, structInArrayOrMap) {
            innerRow)});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, {rowVector});
+  writeToFile(filePath->path, {rowVector});
 
   // Exclude struct columns as DuckDB doesn't support complex types yet.
   createDuckDbTable(
@@ -1880,7 +1873,7 @@ TEST_P(TableScanTest, groupedExecutionWithOutputBuffer) {
   const size_t numSplits{6};
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
 
   auto planFragment = PlanBuilder()
                           .tableScan(rowType_)
@@ -1958,7 +1951,7 @@ TEST_P(TableScanTest, groupedExecution) {
   const size_t numSplits{6};
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, vectors);
+  writeToFile(filePath->path, vectors);
 
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
@@ -2052,7 +2045,7 @@ TEST_P(TableScanTest, addSplitsToFailedTask) {
       {makeFlatVector<int32_t>(12'000, [](auto row) { return row % 5; })});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, kTableScanTest, {data});
+  writeToFile(filePath->path, {data});
 
   core::PlanNodeId scanNodeId;
   exec::test::CursorParameters params;
