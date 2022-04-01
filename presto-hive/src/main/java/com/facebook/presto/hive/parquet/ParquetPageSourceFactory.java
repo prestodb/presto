@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.parquet.Field;
@@ -125,6 +126,20 @@ import static org.apache.parquet.io.ColumnIOConverter.findNestedColumnIO;
 public class ParquetPageSourceFactory
         implements HiveBatchPageSourceFactory
 {
+    /**
+     * If this object is passed as one of the columns for {@code createPageSource},
+     * it will be populated as an additional column containing the index of each
+     * row read.
+     */
+    public static final HiveColumnHandle PARQUET_ROW_INDEX_COLUMN = new HiveColumnHandle(
+            "$parquet$row_index",
+            HiveType.HIVE_LONG,
+            HiveType.HIVE_LONG.getTypeSignature(),
+            -1,
+            HiveColumnHandle.ColumnType.SYNTHESIZED, // no real column index
+            Optional.empty(),
+            Optional.empty());
+
     private static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
@@ -255,10 +270,14 @@ public class ParquetPageSourceFactory
             final ParquetDataSource finalDataSource = dataSource;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
+
+            long nextStart = 0;
+            ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
                 Optional<ColumnIndexStore> columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
                 if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
                     blocks.add(block);
+                    blockStarts.add(nextStart);
                     blockIndexStores.add(columnIndexStore.orElse(null));
                     hiveFileContext.incrementCounter("parquet.blocksRead", 1);
                     hiveFileContext.incrementCounter("parquet.rowsRead", block.getRowCount());
@@ -269,11 +288,13 @@ public class ParquetPageSourceFactory
                     hiveFileContext.incrementCounter("parquet.rowsSkipped", block.getRowCount());
                     hiveFileContext.incrementCounter("parquet.totalBytesSkipped", block.getTotalByteSize());
                 }
+                nextStart += block.getRowCount();
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),
+                    Optional.of(blockStarts.build()),
                     dataSource,
                     systemMemoryContext,
                     maxReadBlockSize,
@@ -286,8 +307,9 @@ public class ParquetPageSourceFactory
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Boolean> rowIndexColumns = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
-                checkArgument(column.getColumnType() == REGULAR || column.getColumnType() == SYNTHESIZED, "column type must be regular or synthesized column");
+                checkArgument(column == PARQUET_ROW_INDEX_COLUMN || column.getColumnType() == REGULAR || column.getColumnType() == SYNTHESIZED, "column type must be REGULAR: %s", column);
 
                 String name = column.getName();
                 Type type = typeManager.getType(column.getTypeSignature());
@@ -295,15 +317,22 @@ public class ParquetPageSourceFactory
                 namesBuilder.add(name);
                 typesBuilder.add(type);
 
+                rowIndexColumns.add(column == PARQUET_ROW_INDEX_COLUMN);
+
                 if (column.getColumnType() == SYNTHESIZED) {
-                    Subfield pushedDownSubfield = getPushedDownSubfield(column);
-                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
-                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
-                    if (columnIO.isPresent()) {
-                        fieldsBuilder.add(constructField(type, columnIO.get()));
+                    if (column == PARQUET_ROW_INDEX_COLUMN) {
+                        fieldsBuilder.add(Optional.empty());
                     }
                     else {
-                        fieldsBuilder.add(Optional.empty());
+                        Subfield pushedDownSubfield = getPushedDownSubfield(column);
+                        List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
+                        Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
+                        if (columnIO.isPresent()) {
+                            fieldsBuilder.add(constructField(type, columnIO.get()));
+                        }
+                        else {
+                            fieldsBuilder.add(Optional.empty());
+                        }
                     }
                 }
                 else if (getParquetType(type, fileSchema, useParquetColumnNames, column, tableName, path).isPresent()) {
@@ -314,7 +343,7 @@ public class ParquetPageSourceFactory
                     fieldsBuilder.add(Optional.empty());
                 }
             }
-            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), namesBuilder.build(), hiveFileContext.getStats());
+            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), rowIndexColumns.build(), namesBuilder.build(), hiveFileContext.getStats());
         }
         catch (Exception e) {
             try {
