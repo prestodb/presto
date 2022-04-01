@@ -14,14 +14,24 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
+import java.util.Optional;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Collections.emptySet;
+import static org.testng.Assert.assertEquals;
 
 public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
@@ -47,5 +57,30 @@ public class TestDistributedQueriesIndexed
         queryRunner.installPlugin(new IndexedTpchPlugin(INDEX_SPEC));
         queryRunner.createCatalog("tpch_indexed", "tpch_indexed");
         return queryRunner;
+    }
+
+    @Test
+    public void testExplainIOIndexJoin()
+    {
+        String query =
+                "SELECT *\n" +
+                        "FROM (\n" +
+                        "  SELECT *\n" +
+                        "  FROM lineitem\n" +
+                        "  WHERE partkey % 8 = 0) l\n" +
+                        "JOIN orders o\n" +
+                        "  ON l.orderkey = o.orderkey";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
+        IOPlanPrinter.IOPlan.TableColumnInfo lineitem = new IOPlanPrinter.IOPlan.TableColumnInfo(
+                new CatalogSchemaTableName("tpch_indexed", "sf0.01", "lineitem"),
+                emptySet());
+
+        IOPlanPrinter.IOPlan.TableColumnInfo orders = new IOPlanPrinter.IOPlan.TableColumnInfo(
+                new CatalogSchemaTableName("tpch_indexed", "sf0.01", "orders"),
+                emptySet());
+
+        assertEquals(
+                jsonCodec(IOPlanPrinter.IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IOPlanPrinter.IOPlan(ImmutableSet.of(lineitem, orders), Optional.empty()));
     }
 }
