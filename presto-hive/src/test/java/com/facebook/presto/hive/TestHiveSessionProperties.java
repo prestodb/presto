@@ -20,6 +20,7 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.HiveSessionProperties.isAppendRowNumberEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isCacheEnabled;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
@@ -62,6 +63,18 @@ public class TestHiveSessionProperties
                         new ParquetFileWriterConfig(),
                         new CacheConfig()).getSessionProperties());
         assertEquals(getNodeSelectionStrategy(connectorSession), HARD_AFFINITY);
+    }
+
+    @Test
+    public void testAppendRowNumberConfig()
+    {
+        ConnectorSession connectorSession = new TestingConnectorSession(
+                new HiveSessionProperties(
+                        new HiveClientConfig().setAppendRowNumberEnabled(true),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
+        assertTrue(isAppendRowNumberEnabled(connectorSession));
     }
 
     @Test

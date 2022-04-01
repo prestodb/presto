@@ -139,6 +139,7 @@ public final class HiveSessionProperties
     public static final String MAX_INITIAL_SPLITS = "max_initial_splits";
     public static final String FILE_SPLITTABLE = "file_splittable";
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
+    private static final String APPEND_ROW_NUMBER_ENABLED = "append_row_number_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -670,6 +671,11 @@ public final class HiveSessionProperties
                         HUDI_METADATA_ENABLED,
                         "For Hudi tables prefer to fetch the list of file names, sizes and other metadata from the internal metadata table rather than storage",
                         hiveClientConfig.isHudiMetadataEnabled(),
+                        false),
+                booleanProperty(
+                        APPEND_ROW_NUMBER_ENABLED,
+                        "If set to true, row number (long) column is appended",
+                        hiveClientConfig.isAppendRowNumberEnabled(),
                         false));
     }
 
@@ -1169,5 +1175,10 @@ public final class HiveSessionProperties
     public static boolean isHudiMetadataEnabled(ConnectorSession session)
     {
         return session.getProperty(HUDI_METADATA_ENABLED, Boolean.class);
+    }
+
+    public static boolean isAppendRowNumberEnabled(ConnectorSession session)
+    {
+        return session.getProperty(APPEND_ROW_NUMBER_ENABLED, Boolean.class);
     }
 }

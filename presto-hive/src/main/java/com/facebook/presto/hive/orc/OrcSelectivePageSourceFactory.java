@@ -115,6 +115,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockS
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReorderingEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isAppendRowNumberEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
@@ -295,7 +296,12 @@ public class OrcSelectivePageSourceFactory
         DataSize streamBufferSize = getOrcStreamBufferSize(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
         DataSize maxReadBlockSize = getOrcMaxReadBlockSize(session);
-        OrcReaderOptions orcReaderOptions = new OrcReaderOptions(maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, isOrcZstdJniDecompressionEnabled(session));
+        boolean appendRowNumberEnabled = isAppendRowNumberEnabled(session);
+        OrcReaderOptions orcReaderOptions = new OrcReaderOptions(maxMergeDistance,
+                tinyStripeThreshold,
+                maxReadBlockSize,
+                isOrcZstdJniDecompressionEnabled(session),
+                appendRowNumberEnabled);
         boolean lazyReadSmallRanges = getOrcLazyReadSmallRanges(session);
 
         OrcDataSource orcDataSource;

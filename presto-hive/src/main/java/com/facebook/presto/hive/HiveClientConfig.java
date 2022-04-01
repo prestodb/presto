@@ -217,6 +217,7 @@ public class HiveClientConfig
 
     private boolean columnIndexFilterEnabled;
     private boolean fileSplittable = true;
+    private boolean isAppendRowNumberEnabled;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1824,6 +1825,19 @@ public class HiveClientConfig
     public boolean isFileSplittable()
     {
         return fileSplittable;
+    }
+
+    @Config("hive.append-row-number-enabled")
+    @ConfigDescription("enable appending row number config")
+    public HiveClientConfig setAppendRowNumberEnabled(boolean isAppendRowNumberEnabled)
+    {
+        this.isAppendRowNumberEnabled = isAppendRowNumberEnabled;
+        return this;
+    }
+
+    public boolean isAppendRowNumberEnabled()
+    {
+        return isAppendRowNumberEnabled;
     }
 
     @Config("hive.file-splittable")
