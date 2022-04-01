@@ -176,6 +176,7 @@
         <module>presto-node-ttl-fetchers</module>
         <module>presto-cluster-ttl-providers</module>
         <module>presto-google-sheets</module>
+        <module>presto-clickhouse</module>
         <module>presto-hive-function-namespace</module>
         <module>presto-delta</module>
         <module>presto-grpc-api</module>
