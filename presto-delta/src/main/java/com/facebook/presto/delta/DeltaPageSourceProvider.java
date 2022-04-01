@@ -260,6 +260,7 @@ public class DeltaPageSourceProvider
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),
+                    Optional.empty(),
                     dataSource,
                     systemMemoryContext,
                     maxReadBlockSize,
