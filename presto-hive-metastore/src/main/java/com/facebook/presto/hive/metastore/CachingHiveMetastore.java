@@ -54,6 +54,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURI
 import static com.facebook.presto.hive.metastore.CachingHiveMetastore.MetastoreCacheScope.ALL;
 import static com.facebook.presto.hive.metastore.HivePartitionName.hivePartitionName;
 import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
+import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
 import static com.facebook.presto.hive.metastore.PartitionFilter.partitionFilter;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -78,8 +79,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class CachingHiveMetastore
         implements ExtendedHiveMetastore
 {
-    private static final String NO_IMPERSONATION_USER = "no-impersonation-caching-user";
-
     public enum MetastoreCacheScope
     {
         ALL, PARTITION
@@ -108,6 +107,7 @@ public class CachingHiveMetastore
     public CachingHiveMetastore(
             @ForCachingHiveMetastore ExtendedHiveMetastore delegate,
             @ForCachingHiveMetastore ExecutorService executor,
+            MetastoreCacheStats metastoreCacheStats,
             MetastoreClientConfig metastoreClientConfig)
     {
         this(
@@ -119,7 +119,8 @@ public class CachingHiveMetastore
                 metastoreClientConfig.getMetastoreCacheMaximumSize(),
                 metastoreClientConfig.isPartitionVersioningEnabled(),
                 metastoreClientConfig.getMetastoreCacheScope(),
-                metastoreClientConfig.getPartitionCacheValidationPercentage());
+                metastoreClientConfig.getPartitionCacheValidationPercentage(),
+                metastoreCacheStats);
     }
 
     public CachingHiveMetastore(
@@ -131,7 +132,8 @@ public class CachingHiveMetastore
             long maximumSize,
             boolean partitionVersioningEnabled,
             MetastoreCacheScope metastoreCacheScope,
-            double partitionCacheValidationPercentage)
+            double partitionCacheValidationPercentage,
+            MetastoreCacheStats metastoreCacheStats)
     {
         this(
                 delegate,
@@ -142,7 +144,8 @@ public class CachingHiveMetastore
                 maximumSize,
                 partitionVersioningEnabled,
                 metastoreCacheScope,
-                partitionCacheValidationPercentage);
+                partitionCacheValidationPercentage,
+                metastoreCacheStats);
     }
 
     public static CachingHiveMetastore memoizeMetastore(ExtendedHiveMetastore delegate, boolean isMetastoreImpersonationEnabled, long maximumSize)
@@ -156,7 +159,8 @@ public class CachingHiveMetastore
                 maximumSize,
                 false,
                 ALL,
-                0.0);
+                0.0,
+                NOOP_METASTORE_CACHE_STATS);
     }
 
     private CachingHiveMetastore(
@@ -168,7 +172,8 @@ public class CachingHiveMetastore
             long maximumSize,
             boolean partitionVersioningEnabled,
             MetastoreCacheScope metastoreCacheScope,
-            double partitionCacheValidationPercentage)
+            double partitionCacheValidationPercentage,
+            MetastoreCacheStats metastoreCacheStats)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(executor, "executor is null");
@@ -269,6 +274,7 @@ public class CachingHiveMetastore
                         return loadPartitionsByNames(partitionNames);
                     }
                 }, executor));
+        metastoreCacheStats.setPartitionCache(partitionCache);
 
         tablePrivilegesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
                 .build(asyncReloading(CacheLoader.from(this::loadTablePrivileges), executor));
@@ -1034,7 +1040,6 @@ public class CachingHiveMetastore
         if (refreshMillis.isPresent() && (!expiresAfterWriteMillis.isPresent() || expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
             cacheBuilder = cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
         }
-        cacheBuilder = cacheBuilder.maximumSize(maximumSize);
-        return cacheBuilder;
+        return cacheBuilder.maximumSize(maximumSize).recordStats();
     }
 }

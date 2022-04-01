@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
 import static com.facebook.presto.hive.metastore.Partition.Builder;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.BAD_DATABASE;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.PARTITION_VERSION;
@@ -84,7 +85,8 @@ public class TestCachingHiveMetastore
                 1000,
                 false,
                 MetastoreCacheScope.ALL,
-                0.0);
+                0.0,
+                NOOP_METASTORE_CACHE_STATS);
         stats = thriftHiveMetastore.getStats();
     }
 
@@ -223,7 +225,8 @@ public class TestCachingHiveMetastore
                 1000,
                 true,
                 MetastoreCacheScope.PARTITION,
-                0.0);
+                0.0,
+                NOOP_METASTORE_CACHE_STATS);
 
         assertEquals(mockClient.getAccessCount(), 0);
         assertEquals(partitionCachingEnabledmetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), EXPECTED_PARTITIONS);
@@ -270,7 +273,8 @@ public class TestCachingHiveMetastore
                 1000,
                 true,
                 MetastoreCacheScope.PARTITION,
-                0.0);
+                0.0,
+                NOOP_METASTORE_CACHE_STATS);
 
         int clientAccessCount = 0;
         for (int i = 0; i < 100; i++) {
@@ -305,7 +309,8 @@ public class TestCachingHiveMetastore
                 1000,
                 true,
                 MetastoreCacheScope.PARTITION,
-                100.0);
+                100.0,
+                NOOP_METASTORE_CACHE_STATS);
 
         // Warmup the cache
         partitionCacheVerificationEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2));
