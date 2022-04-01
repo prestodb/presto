@@ -105,3 +105,87 @@ The path(s) for Hadoop configuration resources. Example:
 This property is required if the ``iceberg.catalog.type`` is ``hadoop``.
 Otherwise, it will be ignored.
 
+Schema Evolution
+------------------------
+
+Iceberg and Presto Iceberg connector supports in-place table evolution, aka
+schema evolution, such as adding, dropping, and renaming columns. With schema
+evolution, users can evolve a table schema with SQL after enabling the Presto
+Iceberg connector.
+
+Example Queries
+^^^^^^^^^^^^^^^
+
+Let's create an Iceberg table named `ctas_nation`, created from the TPCH `nation`
+table. The table has four columns: `nationkey`, `name`, `regionkey`, and `comment`.
+
+.. code-block:: sql
+
+    USE iceberg.tpch;
+    CREATE TABLE IF NOT EXISTS ctas_nation AS (SELECT * FROM nation);
+    DESCRIBE ctas_nation;
+
+.. code-block:: text
+
+      Column   |  Type   | Extra | Comment
+    -----------+---------+-------+---------
+     nationkey | bigint  |       |
+     name      | varchar |       |
+     regionkey | bigint  |       |
+     comment   | varchar |       |
+    (4 rows)
+
+We can simply add a new column to the Iceberg table by using the `ALTER TABLE`
+statement. The following query adds a new column named `zipcode` to the table.
+
+.. code-block:: sql
+
+    ALTER TABLE ctas_nation ADD COLUMN zipcode VARCHAR;
+    DESCRIBE ctas_nation;
+
+.. code-block:: text
+
+      Column   |  Type   | Extra | Comment
+    -----------+---------+-------+---------
+     nationkey | bigint  |       |
+     name      | varchar |       |
+     regionkey | bigint  |       |
+     comment   | varchar |       |
+     zipcode   | varchar |       |
+    (5 rows)
+
+We can also rename the new column to `location`:
+
+.. code-block:: sql
+
+    ALTER TABLE ctas_nation RENAME COLUMN zipcode TO location;
+    DESCRIBE ctas_nation;
+
+.. code-block:: text
+
+      Column   |  Type   | Extra | Comment
+    -----------+---------+-------+---------
+     nationkey | bigint  |       |
+     name      | varchar |       |
+     regionkey | bigint  |       |
+     comment   | varchar |       |
+     location  | varchar |       |
+    (5 rows)
+
+Finally, we can delete the new column. The table columns will be restored to the
+original state.
+
+.. code-block:: sql
+
+    ALTER TABLE ctas_nation DROP COLUMN location;
+    DESCRIBE ctas_nation;
+
+.. code-block:: text
+
+      Column   |  Type   | Extra | Comment
+    -----------+---------+-------+---------
+     nationkey | bigint  |       |
+     name      | varchar |       |
+     regionkey | bigint  |       |
+     comment   | varchar |       |
+    (4 rows)
