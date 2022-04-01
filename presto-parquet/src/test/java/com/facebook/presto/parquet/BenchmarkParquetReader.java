@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -278,7 +279,7 @@ public class BenchmarkParquetReader
 
             this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).get();
 
-            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification, null, null, false);
+            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification, null, null, false);
         }
 
         protected boolean getNullability()
