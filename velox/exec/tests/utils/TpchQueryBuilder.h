@@ -18,14 +18,6 @@
 #include "velox/dwio/common/Options.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
-#if __has_include("filesystem")
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
-
 namespace facebook::velox::exec::test {
 
 /// Contains the query plan and input data files keyed on source plan node ID.

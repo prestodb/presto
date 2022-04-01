@@ -15,6 +15,7 @@
  */
 
 #include <folly/init/Init.h>
+#include "velox/common/base/tests/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"

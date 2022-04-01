@@ -14,14 +14,7 @@
  * limitations under the License.
  */
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
-
-#if __has_include("filesystem")
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
+#include "velox/common/base/tests/Fs.h"
 
 namespace facebook::velox::test {
 

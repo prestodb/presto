@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #include "velox/exec/tests/utils/TpchQueryBuilder.h"
+#include "velox/common/base/tests/Fs.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/type/tests/FilterBuilder.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
-
 namespace facebook::velox::exec::test {
 
 static int64_t toDate(std::string_view stringDate) {
