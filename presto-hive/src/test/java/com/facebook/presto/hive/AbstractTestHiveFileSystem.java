@@ -107,6 +107,7 @@ import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveSelectivePage
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
+import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
@@ -500,7 +501,7 @@ public abstract class AbstractTestHiveFileSystem
 
         public TestingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, MetastoreClientConfig metastoreClientConfig, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, executor, metastoreClientConfig);
+            super(delegate, executor, NOOP_METASTORE_CACHE_STATS, metastoreClientConfig);
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }
