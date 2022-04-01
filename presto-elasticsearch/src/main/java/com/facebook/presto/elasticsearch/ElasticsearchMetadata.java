@@ -43,6 +43,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 
 import javax.inject.Inject;
@@ -348,13 +349,17 @@ public class ElasticsearchMetadata
         }
 
         ImmutableList.Builder<SchemaTableName> result = ImmutableList.builder();
+        Set<String> indexes = ImmutableSet.copyOf(client.getIndexes());
 
-        client.getIndexes().stream()
+        indexes.stream()
                 .map(index -> new SchemaTableName(this.schemaName, index))
                 .forEach(result::add);
 
-        client.getAliases().stream()
-                .map(index -> new SchemaTableName(this.schemaName, index))
+        client.getAliases().entrySet().stream()
+                .filter(entry -> indexes.contains(entry.getKey()))
+                .flatMap(entry -> entry.getValue().stream()
+                        .map(alias -> new SchemaTableName(this.schemaName, alias)))
+                .distinct()
                 .forEach(result::add);
 
         return result.build();
