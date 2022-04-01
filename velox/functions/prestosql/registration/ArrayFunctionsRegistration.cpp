@@ -27,10 +27,18 @@ inline void registerArrayMinMaxFunctions() {
 
 template <typename T>
 inline void registerArrayJoinFunctions() {
-  registerFunction<udf_array_join<T>, Varchar, Array<T>, Varchar>(
-      {"array_join"});
-  registerFunction<udf_array_join<T>, Varchar, Array<T>, Varchar, Varchar>(
-      {"array_join"});
+  registerFunction<
+      ParameterBinder<ArrayJoinFunction, T>,
+      Varchar,
+      Array<T>,
+      Varchar>({"array_join"});
+
+  registerFunction<
+      ParameterBinder<ArrayJoinFunction, T>,
+      Varchar,
+      Array<T>,
+      Varchar,
+      Varchar>({"array_join"});
 }
 
 void registerArrayFunctions() {
@@ -68,5 +76,7 @@ void registerArrayFunctions() {
   registerArrayJoinFunctions<double>();
   registerArrayJoinFunctions<bool>();
   registerArrayJoinFunctions<Varchar>();
+  registerArrayJoinFunctions<Timestamp>();
+  registerArrayJoinFunctions<Date>();
 }
 }; // namespace facebook::velox::functions

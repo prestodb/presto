@@ -22,6 +22,18 @@
 
 namespace facebook::velox {
 
+// This is a temp wrapper that defines udf<X> for a complete UDF.
+// We can remove this once macro-based udfs are completely deprecated.
+
+template <typename T>
+struct TempWrapper {
+  template <typename B>
+  using udf = T;
+};
+
+template <template <class...> typename T, typename... TArgs>
+using ParameterBinder = TempWrapper<T<exec::VectorExec, TArgs...>>;
+
 template <typename Func, typename TReturn, typename... TArgs>
 void registerFunction(
     const std::vector<std::string>& aliases = {},

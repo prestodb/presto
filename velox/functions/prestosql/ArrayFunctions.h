@@ -94,66 +94,66 @@ struct ArrayMinFunction : public ArrayMinMaxFunction<TExecCtx, false> {};
 template <typename TExecCtx>
 struct ArrayMaxFunction : public ArrayMinMaxFunction<TExecCtx, true> {};
 
-template <typename T>
-VELOX_UDF_BEGIN(array_join)
+template <typename TExecCtx, typename T>
+struct ArrayJoinFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExecCtx);
 
-template <typename C>
-void writeValue(out_type<velox::Varchar>& result, const C& value) {
-  bool nullOutput = false;
-  result +=
-      util::Converter<CppToType<velox::Varchar>::typeKind, void, false>::cast(
-          value, nullOutput);
-}
-
-template <typename C>
-void writeOutput(
-    out_type<velox::Varchar>& result,
-    const arg_type<velox::Varchar>& delim,
-    const C& value,
-    bool& firstNonNull) {
-  if (!firstNonNull) {
-    writeValue(result, delim);
-  }
-  writeValue(result, value);
-  firstNonNull = false;
-}
-
-void createOutputString(
-    out_type<velox::Varchar>& result,
-    const arg_type<velox::Array<T>>& inputArray,
-    const arg_type<velox::Varchar>& delim,
-    std::optional<std::string> nullReplacement = std::nullopt) {
-  bool firstNonNull = true;
-  if (inputArray.size() == 0) {
-    return;
+  template <typename C>
+  void writeValue(out_type<velox::Varchar>& result, const C& value) {
+    bool nullOutput = false;
+    result +=
+        util::Converter<CppToType<velox::Varchar>::typeKind, void, false>::cast(
+            value, nullOutput);
   }
 
-  for (const auto& entry : inputArray) {
-    if (entry.has_value()) {
-      writeOutput(result, delim, entry.value(), firstNonNull);
-    } else if (nullReplacement.has_value()) {
-      writeOutput(result, delim, nullReplacement.value(), firstNonNull);
+  template <typename C>
+  void writeOutput(
+      out_type<velox::Varchar>& result,
+      const arg_type<velox::Varchar>& delim,
+      const C& value,
+      bool& firstNonNull) {
+    if (!firstNonNull) {
+      writeValue(result, delim);
+    }
+    writeValue(result, value);
+    firstNonNull = false;
+  }
+
+  void createOutputString(
+      out_type<velox::Varchar>& result,
+      const arg_type<velox::Array<T>>& inputArray,
+      const arg_type<velox::Varchar>& delim,
+      std::optional<std::string> nullReplacement = std::nullopt) {
+    bool firstNonNull = true;
+    if (inputArray.size() == 0) {
+      return;
+    }
+
+    for (const auto& entry : inputArray) {
+      if (entry.has_value()) {
+        writeOutput(result, delim, entry.value(), firstNonNull);
+      } else if (nullReplacement.has_value()) {
+        writeOutput(result, delim, nullReplacement.value(), firstNonNull);
+      }
     }
   }
-}
 
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<velox::Varchar>& result,
-    const arg_type<velox::Array<T>>& inputArray,
-    const arg_type<velox::Varchar>& delim) {
-  createOutputString(result, inputArray, delim);
-  return true;
-}
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<velox::Varchar>& result,
+      const arg_type<velox::Array<T>>& inputArray,
+      const arg_type<velox::Varchar>& delim) {
+    createOutputString(result, inputArray, delim);
+    return true;
+  }
 
-FOLLY_ALWAYS_INLINE bool call(
-    out_type<velox::Varchar>& result,
-    const arg_type<velox::Array<T>>& inputArray,
-    const arg_type<velox::Varchar>& delim,
-    const arg_type<velox::Varchar>& nullReplacement) {
-  createOutputString(result, inputArray, delim, nullReplacement.getString());
-  return true;
-}
-
-VELOX_UDF_END();
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<velox::Varchar>& result,
+      const arg_type<velox::Array<T>>& inputArray,
+      const arg_type<velox::Varchar>& delim,
+      const arg_type<velox::Varchar>& nullReplacement) {
+    createOutputString(result, inputArray, delim, nullReplacement.getString());
+    return true;
+  }
+};
 
 } // namespace facebook::velox::functions
