@@ -130,7 +130,6 @@ public class HiveClientConfig
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
 
-    private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
     private boolean hdfsImpersonationEnabled;
     private boolean hdfsWireEncryptionEnabled;
@@ -1059,26 +1058,6 @@ public class HiveClientConfig
     public HiveClientConfig setFileStatusCacheExpireAfterWrite(Duration fileStatusCacheExpireAfterWrite)
     {
         this.fileStatusCacheExpireAfterWrite = fileStatusCacheExpireAfterWrite;
-        return this;
-    }
-
-    public enum HiveMetastoreAuthenticationType
-    {
-        NONE,
-        KERBEROS
-    }
-
-    @NotNull
-    public HiveMetastoreAuthenticationType getHiveMetastoreAuthenticationType()
-    {
-        return hiveMetastoreAuthenticationType;
-    }
-
-    @Config("hive.metastore.authentication.type")
-    @ConfigDescription("Hive Metastore authentication type")
-    public HiveClientConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
-    {
-        this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
         return this;
     }
 
