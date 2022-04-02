@@ -23,9 +23,12 @@
 #include "velox/row/UnsafeRowParser.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/TypeAliases.h"
+#include "velox/vector/tests/VectorTestBase.h"
 
 namespace facebook::velox::row {
 namespace {
+
+using namespace facebook::velox::test;
 
 class UnsafeRowBatchDeserializerTest : public ::testing::Test {
  public:
@@ -661,18 +664,6 @@ class UnsafeRowComplexBatchDeserializerTests
         });
     return makeRowVector(
         {intVector, stringVector, intArrayVector, stringArrayVector});
-  }
-
-  static void assertEqualVectors(
-      const VectorPtr& expected,
-      const VectorPtr& actual) {
-    ASSERT_EQ(expected->size(), actual->size());
-    ASSERT_EQ(expected->typeKind(), actual->typeKind());
-    for (auto i = 0; i < expected->size(); i++) {
-      EXPECT_TRUE(expected->equalValueAt(actual.get(), i, i))
-          << "at " << i << ": expected " << expected->toString(i)
-          << ", but got " << actual->toString(i);
-    }
   }
 
   std::unique_ptr<memory::ScopedMemoryPool> pool_ =

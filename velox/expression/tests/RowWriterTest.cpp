@@ -32,6 +32,9 @@
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::exec {
+
+using namespace facebook::velox::test;
+
 namespace {
 
 template <typename T>

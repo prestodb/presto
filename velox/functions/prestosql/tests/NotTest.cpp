@@ -16,6 +16,7 @@
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 
 class NotTest : public functions::test::FunctionBaseTest {};
 

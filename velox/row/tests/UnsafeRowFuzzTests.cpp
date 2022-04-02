@@ -25,9 +25,12 @@
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
+#include "velox/vector/tests/VectorTestBase.h"
 
 namespace facebook::velox::row {
 namespace {
+
+using namespace facebook::velox::test;
 
 class UnsafeRowFuzzTests : public ::testing::Test {
  public:
@@ -37,17 +40,6 @@ class UnsafeRowFuzzTests : public ::testing::Test {
 
   void clearBuffer() {
     std::memset(buffer_, 0, 1024);
-  }
-
-  void assertEqualVectors(
-      const VectorPtr& expected,
-      const VectorPtr& actual,
-      const std::string& additionalContext = "") {
-    for (auto i = 0; i < expected->size(); i++) {
-      ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
-          << "at " << i << ": " << expected->toString(i) << " vs. "
-          << actual->toString(i) << additionalContext;
-    }
   }
 
   std::unique_ptr<memory::ScopedMemoryPool> pool_ =

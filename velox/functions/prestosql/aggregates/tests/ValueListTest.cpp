@@ -19,6 +19,7 @@
 #include "velox/vector/tests/VectorMaker.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 
 class ValueListTest : public functions::test::FunctionBaseTest {
  protected:

@@ -26,7 +26,7 @@
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/VectorEncoding.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/VectorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -555,20 +555,6 @@ class ExprTest : public testing::Test {
     exprs_ = std::make_unique<exec::ExprSet>(std::move(source), execCtx_.get());
     return exprs_->expr(0).get();
   }
-
-  // TODO Enable ASSERT_EQ for vectors
-  static void assertEqualVectors(
-      const VectorPtr& expected,
-      const VectorPtr& actual) {
-    ASSERT_EQ(expected->size(), actual->size());
-    ASSERT_EQ(expected->typeKind(), actual->typeKind());
-    for (auto i = 0; i < expected->size(); i++) {
-      ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
-          << "at " << i << ": expected " << expected->toString(i)
-          << ", but got " << actual->toString(i);
-    }
-  }
-
   std::shared_ptr<core::ConstantTypedExpr> makeConstantExpr(
       const VectorPtr& base,
       vector_size_t index) {

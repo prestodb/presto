@@ -21,7 +21,6 @@
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/type/Type.h"
-#include "velox/vector/tests/VectorMaker.h"
 #include "velox/vector/tests/VectorTestBase.h"
 
 namespace facebook::velox::functions::test {
@@ -177,20 +176,6 @@ class FunctionBaseTest : public testing::Test,
         evaluate<SimpleVector<EvalType<ReturnType>>>(expr, rowVectorPtr);
     return result->isNullAt(0) ? std::optional<ReturnType>{}
                                : ReturnType(result->valueAt(0));
-  }
-
-  // TODO: Enable ASSERT_EQ for vectors
-  static void assertEqualVectors(
-      const VectorPtr& expected,
-      const VectorPtr& actual,
-      const std::string& additionalContext = "") {
-    ASSERT_EQ(expected->size(), actual->size());
-
-    for (auto i = 0; i < expected->size(); i++) {
-      ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
-          << "at " << i << ": " << expected->toString(i) << " vs. "
-          << actual->toString(i) << additionalContext;
-    }
   }
 
   // Asserts that `func` throws `VeloxUserError`. Optionally, checks if

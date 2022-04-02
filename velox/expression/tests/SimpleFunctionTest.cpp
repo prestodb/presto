@@ -32,6 +32,7 @@
 namespace {
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 
 class SimpleFunctionTest : public functions::test::FunctionBaseTest {
  protected:

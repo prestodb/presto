@@ -16,6 +16,7 @@
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 using namespace facebook::velox::functions::test;
 
 class InPredicateTest : public FunctionBaseTest {

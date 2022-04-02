@@ -119,10 +119,5 @@ class OperatorTestBase : public testing::Test,
   // Used as default MappedMemory if 'useAsyncCache_' is true. Created on first
   // use.
   static std::unique_ptr<cache::AsyncDataCache> asyncDataCache_;
-
-  void assertEqualVectors(
-      const VectorPtr& expected,
-      const VectorPtr& actual,
-      const std::string& additionalContext = "");
 };
 } // namespace facebook::velox::exec::test

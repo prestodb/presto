@@ -24,6 +24,8 @@
 
 namespace facebook::velox::functions::test {
 
+using namespace facebook::velox::test;
+
 class CastBaseTest : public FunctionBaseTest {
  protected:
   CastBaseTest() {
@@ -123,7 +125,7 @@ class CastBaseTest : public FunctionBaseTest {
       std::vector<std::optional<TFrom>> input,
       std::vector<std::optional<TTo>> expected) {
     auto inputVector = makeNullableFlatVector<TFrom>(input);
-    auto expectedVector = makeNullableFlatVector<TTo>(expected);
+    auto expectedVector = makeNullableFlatVector<TTo>(expected, toType);
 
     testCast<TTo>(fromType, toType, inputVector, expectedVector);
   }

@@ -24,6 +24,7 @@ add_executable(
   DecodedVectorTest.cpp
   SelectivityVectorTest.cpp
   EnsureWritableVectorTest.cpp
+  LazyVectorTest.cpp
   MayHaveNullsRecursiveTest.cpp)
 
 add_test(velox_vector_test velox_vector_test)

@@ -22,6 +22,9 @@
 #include "velox/vector/ConstantVector.h"
 
 namespace facebook::velox {
+
+using namespace facebook::velox::test;
+
 class TryExprTest : public functions::test::FunctionBaseTest {};
 
 TEST_F(TryExprTest, tryExpr) {

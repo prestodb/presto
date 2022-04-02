@@ -25,6 +25,8 @@
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::functions::sparksql::test {
+
+using namespace facebook::velox::test;
 namespace {
 
 using facebook::velox::functions::test::FunctionBaseTest;

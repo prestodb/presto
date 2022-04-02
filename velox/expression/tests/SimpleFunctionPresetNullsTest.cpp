@@ -34,6 +34,9 @@
 // null.
 
 namespace facebook::velox {
+
+using namespace facebook::velox::test;
+
 namespace {
 
 class SimpleFunctionPresetNullsTest : public functions::test::FunctionBaseTest {

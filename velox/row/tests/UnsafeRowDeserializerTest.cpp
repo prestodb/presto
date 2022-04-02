@@ -22,11 +22,13 @@
 #include "velox/row/UnsafeRowDynamicSerializer.h"
 #include "velox/row/UnsafeRowParser.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
+#include "velox/vector/tests/VectorTestBase.h"
 
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/TypeAliases.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 using namespace facebook::velox::row;
 
 namespace facebook::velox::row {
@@ -923,18 +925,6 @@ class UnsafeRowComplexDeserializerTests : public exec::test::OperatorTestBase {
         {intVector, stringVector, intArrayVector, stringArrayVector});
   }
 
-  static void assertEqualVectors(
-      const VectorPtr& expected,
-      const VectorPtr& actual) {
-    ASSERT_EQ(expected->size(), actual->size());
-    ASSERT_EQ(expected->typeKind(), actual->typeKind());
-    for (auto i = 0; i < expected->size(); i++) {
-      ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
-          << "at " << i << ": expected " << expected->toString(i)
-          << ", but got " << actual->toString(i);
-    }
-  }
-
   std::unique_ptr<memory::ScopedMemoryPool> pool_ =
       memory::getDefaultScopedMemoryPool();
   std::array<char[1024], kMaxBuffers> buffers_{};
@@ -958,7 +948,7 @@ TYPED_TEST(
   }
   VectorPtr outputVector = TypeParam::Deserialize(
       serializedVec, inputVector->type(), this->pool_.get());
-  this->assertEqualVectors(inputVector, outputVector);
+  assertEqualVectors(inputVector, outputVector);
 }
 
 TYPED_TEST(UnsafeRowComplexDeserializerTests, UnsafeRowDeserializationTests) {
@@ -971,7 +961,7 @@ TYPED_TEST(UnsafeRowComplexDeserializerTests, UnsafeRowDeserializationTests) {
       {std::string_view(this->buffers_[0], rowSize.value())},
       inputVector->type(),
       this->pool_.get());
-  this->assertEqualVectors(inputVector, outputVector);
+  assertEqualVectors(inputVector, outputVector);
 }
 
 TYPED_TEST(
@@ -990,7 +980,7 @@ TYPED_TEST(
        std::string_view(this->buffers_[1], nextRowSize.value())},
       inputVector->type(),
       this->pool_.get());
-  this->assertEqualVectors(inputVector, outputVector);
+  assertEqualVectors(inputVector, outputVector);
 }
 
 VectorFuzzer::Options fuzzerOptions() {
@@ -1024,7 +1014,7 @@ TYPED_TEST(UnsafeRowComplexDeserializerTests, Fuzzer) {
       data += *size;
     }
     auto output = TypeParam::Deserialize(rowData, type, this->pool_.get());
-    this->assertEqualVectors(input, output);
+    assertEqualVectors(input, output);
   }
 }
 

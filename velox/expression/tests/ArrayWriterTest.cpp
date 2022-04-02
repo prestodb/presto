@@ -25,6 +25,8 @@
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
+
+using namespace facebook::velox::test;
 namespace {
 // Function that creates array with values 0...n-1.
 // Uses all possible functions in the array proxy interface.

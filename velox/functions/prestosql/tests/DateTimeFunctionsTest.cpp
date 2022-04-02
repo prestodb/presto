@@ -22,6 +22,7 @@
 #include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 
 class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
  protected:

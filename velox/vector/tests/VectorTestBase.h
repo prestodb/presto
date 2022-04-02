@@ -18,10 +18,18 @@
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/tests/VectorMaker.h"
 
+#include <gtest/gtest.h>
+
 namespace facebook::velox::test {
 
 /// Returns indices buffer with sequential values going from size - 1 to 0.
 BufferPtr makeIndicesInReverse(vector_size_t size, memory::MemoryPool* pool);
+
+// TODO: enable ASSERT_EQ for vectors.
+void assertEqualVectors(
+    const VectorPtr& expected,
+    const VectorPtr& actual,
+    const std::string& additionalContext = "");
 
 class VectorTestBase {
  protected:

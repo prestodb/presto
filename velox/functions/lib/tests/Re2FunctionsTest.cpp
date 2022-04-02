@@ -29,6 +29,9 @@
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::functions {
+
+using namespace facebook::velox::test;
+
 namespace {
 
 std::shared_ptr<exec::VectorFunction> makeRegexExtract(
