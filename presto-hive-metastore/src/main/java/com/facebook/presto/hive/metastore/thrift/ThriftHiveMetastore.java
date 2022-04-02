@@ -22,6 +22,7 @@ import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.MetastoreClientConfig.HiveMetastoreAuthenticationType;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.RetryDriver;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
@@ -78,6 +79,8 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -149,6 +152,7 @@ public class ThriftHiveMetastore
     private final HiveCluster clientProvider;
     private final Function<Exception, Exception> exceptionMapper;
     private final boolean impersonationEnabled;
+    private final boolean isMetastoreAuthenticationEnabled;
 
     @Inject
     public ThriftHiveMetastore(HiveCluster hiveCluster, MetastoreClientConfig config)
@@ -157,19 +161,22 @@ public class ThriftHiveMetastore
                 hiveCluster,
                 new ThriftHiveMetastoreStats(),
                 identity(),
-                requireNonNull(config, "config is null").isMetastoreImpersonationEnabled());
+                requireNonNull(config, "config is null").isMetastoreImpersonationEnabled(),
+                requireNonNull(config, "config is null").getHiveMetastoreAuthenticationType() != HiveMetastoreAuthenticationType.NONE);
     }
 
     public ThriftHiveMetastore(
             HiveCluster hiveCluster,
             ThriftHiveMetastoreStats stats,
             Function<Exception, Exception> exceptionMapper,
-            boolean impersonationEnabled)
+            boolean impersonationEnabled,
+            boolean isMetastoreAuthenticationEnabled)
     {
         this.clientProvider = requireNonNull(hiveCluster, "hiveCluster is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.exceptionMapper = requireNonNull(exceptionMapper, "exceptionMapper is null");
         this.impersonationEnabled = impersonationEnabled;
+        this.isMetastoreAuthenticationEnabled = isMetastoreAuthenticationEnabled;
     }
 
     private static boolean isPrestoView(Table table)
@@ -1033,13 +1040,18 @@ public class ThriftHiveMetastore
                 return callable.call(client);
             }
         }
-        String token;
-        try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
-            token = client.getDelegationToken(metastoreContext.getUsername(), metastoreContext.getUsername());
+        if (isMetastoreAuthenticationEnabled) {
+            String token;
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
+                token = client.getDelegationToken(metastoreContext.getUsername(), metastoreContext.getUsername());
+            }
+            try (HiveMetastoreClient realClient = clientProvider.createMetastoreClient(Optional.of(token))) {
+                return callable.call(realClient);
+            }
         }
-        try (HiveMetastoreClient realClient = clientProvider.createMetastoreClient(Optional.of(token))) {
-            return callable.call(realClient);
-        }
+        HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty());
+        setMetastoreUserOrClose(client, metastoreContext.getUsername());
+        return callable.call(client);
     }
 
     @FunctionalInterface
@@ -1466,5 +1478,22 @@ public class ThriftHiveMetastore
         }
         throwIfUnchecked(throwable);
         throw new RuntimeException(throwable);
+    }
+
+    private static void setMetastoreUserOrClose(HiveMetastoreClient client, String username)
+            throws TException
+    {
+        try {
+            client.setUGI(username);
+        }
+        catch (Throwable t) {
+            // close client and suppress any error from close
+            try (Closeable ignored = client) {
+                throw t;
+            }
+            catch (IOException e) {
+                // impossible; will be suppressed
+            }
+        }
     }
 }
