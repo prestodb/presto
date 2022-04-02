@@ -117,7 +117,7 @@ class TaskCursor {
     return current_;
   }
 
-  std::shared_ptr<Task> task() {
+  const std::shared_ptr<Task>& task() {
     return task_;
   }
 

@@ -89,10 +89,19 @@ BlockingReason LocalExchangeSource::enqueue(
   auto inputBytes = input->retainedSize();
 
   std::vector<VeloxPromise<bool>> consumerPromises;
-  queue_.withWLock([&](auto& queue) {
+  bool isClosed = queue_.withWLock([&](auto& queue) {
+    if (closed_) {
+      return true;
+    }
     queue.push(std::move(input));
     consumerPromises = std::move(consumerPromises_);
+    return false;
   });
+
+  if (isClosed) {
+    return BlockingReason::kNotBlocked;
+  }
+
   notify(consumerPromises);
 
   if (memoryManager_->increaseMemoryUsage(future, inputBytes)) {
@@ -127,7 +136,7 @@ BlockingReason LocalExchangeSource::next(
   auto blockingReason = queue_.withWLock([&](auto& queue) {
     *data = nullptr;
     if (queue.empty()) {
-      if (noMoreProducers_ && pendingProducers_ == 0) {
+      if (isFinishedLocked(queue)) {
         return BlockingReason::kNotBlocked;
       }
 
@@ -152,9 +161,22 @@ BlockingReason LocalExchangeSource::next(
   return blockingReason;
 }
 
+bool LocalExchangeSource::isFinishedLocked(
+    const std::queue<RowVectorPtr>& queue) const {
+  if (closed_) {
+    return true;
+  }
+
+  if (noMoreProducers_ && pendingProducers_ == 0 && queue.empty()) {
+    return true;
+  }
+
+  return false;
+}
+
 BlockingReason LocalExchangeSource::isFinished(ContinueFuture* future) {
   return queue_.withWLock([&](auto& queue) {
-    if (noMoreProducers_ && pendingProducers_ == 0 && queue.empty()) {
+    if (isFinishedLocked(queue)) {
       return BlockingReason::kNotBlocked;
     }
 
@@ -166,13 +188,29 @@ BlockingReason LocalExchangeSource::isFinished(ContinueFuture* future) {
 }
 
 bool LocalExchangeSource::isFinished() {
-  return queue_.withWLock([&](auto& queue) {
-    if (noMoreProducers_ && pendingProducers_ == 0 && queue.empty()) {
-      return true;
+  return queue_.withWLock([&](auto& queue) { return isFinishedLocked(queue); });
+}
+
+void LocalExchangeSource::close() {
+  std::vector<VeloxPromise<bool>> producerPromises;
+  std::vector<VeloxPromise<bool>> consumerPromises;
+  queue_.withWLock([&](auto& queue) {
+    uint64_t freedBytes = 0;
+    while (!queue.empty()) {
+      freedBytes += queue.front()->retainedSize();
+      queue.pop();
     }
 
-    return false;
+    if (freedBytes) {
+      memoryManager_->decreaseMemoryUsage(freedBytes);
+    }
+
+    producerPromises = std::move(producerPromises_);
+    consumerPromises = std::move(consumerPromises_);
+    closed_ = true;
   });
+  notify(producerPromises);
+  notify(consumerPromises);
 }
 
 LocalExchangeSourceOperator::LocalExchangeSourceOperator(

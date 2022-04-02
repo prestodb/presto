@@ -404,6 +404,10 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
         splitGroupState.clear();
         self->ensureSplitGroupsAreBeingProcessedLocked(self);
       }
+    } else {
+      if (splitGroupState.activeDrivers == 0) {
+        splitGroupState.clear();
+      }
     }
     return;
   }
@@ -948,7 +952,7 @@ void Task::terminate(TaskState terminalState) {
       for (auto& pair : splitGroupState.second.bridges) {
         oldBridges.emplace_back(std::move(pair.second));
       }
-      splitGroupState.second.bridges.clear();
+      splitGroupState.second.clear();
     }
 
     // Collect all outstanding split promises from all splits state structures.

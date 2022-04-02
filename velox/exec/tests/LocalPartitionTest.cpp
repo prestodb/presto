@@ -58,6 +58,28 @@ class LocalPartitionTest : public HiveConnectorTestBase {
     ASSERT_TRUE(stats.inputBytes > 0);
     ASSERT_EQ(stats.inputBytes, stats.outputBytes);
   }
+
+  void assertTaskReferenceCount(
+      const std::shared_ptr<exec::Task>& task,
+      int expected) {
+    // Make sure there is only one reference to Task left, i.e. no Driver is
+    // blocked forever. Wait for a bit if that's not immediately the case.
+    if (task.use_count() > expected) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    ASSERT_EQ(expected, task.use_count());
+  }
+
+  void waitForTaskState(
+      const std::shared_ptr<exec::Task>& task,
+      exec::TaskState expected) {
+    if (task->state() != expected) {
+      auto& executor = folly::QueuedImmediateExecutor::instance();
+      auto future = task->stateChangeFuture(1'000'000).via(&executor);
+      future.wait();
+      EXPECT_TRUE(task->state() == expected);
+    }
+  }
 };
 
 TEST_F(LocalPartitionTest, gather) {
@@ -522,4 +544,108 @@ TEST_F(LocalPartitionTest, multipleExchanges) {
       "   SELECT c0, c1, count(1) as cnt FROM tmp GROUP BY 1, 2"
       ") t GROUP BY 1",
       duckDbQueryRunner_);
+}
+
+TEST_F(LocalPartitionTest, earlyCompletion) {
+  std::vector<RowVectorPtr> data = {
+      makeRowVector({makeFlatSequence(3, 100)}),
+      makeRowVector({makeFlatSequence(7, 100)}),
+      makeRowVector({makeFlatSequence(11, 100)}),
+      makeRowVector({makeFlatSequence(13, 100)}),
+  };
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .localPartition(
+              {}, {PlanBuilder(planNodeIdGenerator).values(data).planNode()})
+          .limit(0, 2, true)
+          .planNode();
+
+  auto task = assertQuery(plan, "VALUES (3), (4)");
+
+  verifyExchangeSourceOperatorStats(task, 100);
+
+  // Make sure there is only one reference to Task left, i.e. no Driver is
+  // blocked forever.
+  assertTaskReferenceCount(task, 1);
+}
+
+TEST_F(LocalPartitionTest, earlyCancelation) {
+  std::vector<RowVectorPtr> data = {
+      makeRowVector({makeFlatSequence(3, 100)}),
+      makeRowVector({makeFlatSequence(7, 100)}),
+      makeRowVector({makeFlatSequence(11, 100)}),
+      makeRowVector({makeFlatSequence(13, 100)}),
+  };
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .localPartition(
+              {}, {PlanBuilder(planNodeIdGenerator).values(data).planNode()})
+          .limit(0, 2'000, true)
+          .planNode();
+
+  CursorParameters params;
+  params.planNode = plan;
+
+  auto cursor = std::make_unique<TaskCursor>(params);
+  const auto& task = cursor->task();
+
+  // Fetch first batch of data.
+  ASSERT_TRUE(cursor->moveNext());
+  ASSERT_EQ(100, cursor->current()->size());
+
+  // Cancel the task.
+  task->terminate(exec::kCanceled);
+
+  // Fetch the remaining results.
+  while (cursor->moveNext()) {
+    ;
+  }
+
+  // Wait for task to transition to failed state.
+  waitForTaskState(task, exec::kCanceled);
+
+  // Make sure there is only one reference to Task left, i.e. no Driver is
+  // blocked forever.
+  assertTaskReferenceCount(task, 1);
+}
+
+TEST_F(LocalPartitionTest, producerError) {
+  std::vector<RowVectorPtr> data = {
+      makeRowVector({makeFlatSequence(3, 100)}),
+      makeRowVector({makeFlatSequence(7, 100)}),
+      makeRowVector({makeFlatSequence(-11, 100)}),
+      makeRowVector({makeFlatSequence(-13, 100)}),
+  };
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .localPartition(
+                      {},
+                      {PlanBuilder(planNodeIdGenerator)
+                           .values(data)
+                           .project({"7 / c0"})
+                           .planNode()})
+                  .limit(0, 2'000, true)
+                  .planNode();
+
+  CursorParameters params;
+  params.planNode = plan;
+
+  auto cursor = std::make_unique<TaskCursor>(params);
+  const auto& task = cursor->task();
+
+  // Expect division by zero error.
+  ASSERT_THROW(
+      while (cursor->moveNext()) { ; }, VeloxException);
+
+  // Wait for task to transition to failed state.
+  waitForTaskState(task, exec::kFailed);
+
+  // Make sure there is only one reference to Task left, i.e. no Driver is
+  // blocked forever.
+  assertTaskReferenceCount(task, 1);
 }
