@@ -22,7 +22,7 @@ import sys
 
 _FIND_BINARIES_CMD = "find %s -maxdepth 1 -type f -executable"
 _FIND_JSON_CMD = "find %s -maxdepth 1 -name '*.json' -type f"
-_BENCHMARK_CMD = "%s --bm_max_secs 15 --bm_max_trials 1000000"
+_BENCHMARK_CMD = "%s --bm_max_secs 10 --bm_max_trials 1000000"
 _BENCHMARK_WITH_DUMP_CMD = _BENCHMARK_CMD + " --bm_json_verbose %s"
 
 _OUTPUT_NUM_COLS = 100
@@ -48,15 +48,21 @@ def bold(text) -> str:
 def execute(cmd, print_stdout=False):
     """
     Executes an external process using Popen.
-    Either print the process output or return in a list (based on print_stdout).
+    Either print the process output or return it in a list (based on print_stdout).
     """
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True) as process:
-        if print_stdout:
-            for line in iter(process.stdout.readline, b""):
-                sys.stdout.buffer.write(line)
-        else:
-            result = process.stdout.readlines()
-            return [line.strip().decode("ascii") for line in result]
+    result = None
+
+    if print_stdout:
+        process = subprocess.Popen(cmd, stdout=sys.stdout, shell=True)
+    else:
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+        result = [line.strip().decode("ascii") for line in process.stdout.readlines()]
+
+    if process.wait() != 0:
+        raise subprocess.SubprocessError(
+            "'{}' returned a non-zero code ({}).".format(cmd, process.returncode)
+        )
+    return result
 
 
 def run(args):
@@ -80,14 +86,13 @@ def run(args):
                 "Executing and dumping results for '%s' to '%s':"
                 % (file_name, json_file_name)
             )
-            execute(
-                _BENCHMARK_WITH_DUMP_CMD % (file_path, json_file_name),
-                print_stdout=True,
-            )
+            cmd = _BENCHMARK_WITH_DUMP_CMD % (file_path, json_file_name)
         else:
             print("Executing '%s':" % file_name)
-            execute(_BENCHMARK_CMD % file_path, print_stdout=True)
+            cmd = _BENCHMARK_CMD % file_path
 
+        print("$ %s" % cmd)
+        execute(cmd, print_stdout=True)
         print()
 
     return 0
@@ -97,6 +102,17 @@ def get_benchmark_handle(file_path, name):
     if name[0] == "%":
         name = name[1:]
     return "{}/{}".format(os.path.basename(file_path), name)
+
+
+def fmt_runtime(time_ns):
+    if time_ns < 1000:
+        return "{:.2f}ns".format(time_ns)
+
+    time_usec = time_ns / 1000
+    if time_usec < 1000:
+        return "{:.2f}us".format(time_usec)
+    else:
+        return "{:.2f}ms".format(time_usec / 1000)
 
 
 def compare_file(args, target_data, baseline_data):
@@ -137,8 +153,8 @@ def compare_file(args, target_data, baseline_data):
             status = color_green("✓ Pass")
             passes.append(benchmark_handle)
 
-        suffix = "({:.2f}ns vs {:.2f}ns) {:+.2f}%".format(
-            baseline_result, target_result, delta * 100
+        suffix = "({} vs {}) {:+.2f}%".format(
+            fmt_runtime(baseline_result), fmt_runtime(target_result), delta * 100
         )
 
         # Prefix length is 12 bytes (considering utf8 and invisible chars).
