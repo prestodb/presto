@@ -874,7 +874,7 @@ public class ClickHouseClient
     protected void copyTableSchema(ClickHouseIdentity identity, String catalogName, String schemaName, SchemaTableName tableName, SchemaTableName newTableName)
     {
         // ClickHouse does not support `create table tbl as select * from tbl2 where 0=1`
-        // ClickHouse supports the following two methods to copy schema
+        // ClickHouse support the following two methods to copy schema
         // 1. create table tbl as tbl2
         // 2. create table tbl1 ENGINE=<engine> as select * from tbl2
         String oldCreateTableName = tableName.getTableName();
