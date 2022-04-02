@@ -32,6 +32,7 @@ target_link_libraries(
   ${DOUBLE_CONVERSION}
   gtest
   gtest_main
+  gmock
   ${gflags_LIBRARIES}
   glog::glog)
 

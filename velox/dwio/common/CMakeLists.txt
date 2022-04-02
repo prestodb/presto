@@ -36,6 +36,7 @@ target_link_libraries(
   velox_exception
   velox_dwio_common_encryption
   velox_dwio_common_compression
+  velox_memory
   Boost::regex
   ${FOLLY_WITH_DEPENDENCIES}
   glog::glog)

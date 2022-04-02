@@ -31,4 +31,5 @@ target_link_libraries(
   velox_expression
   gtest
   gtest_main
+  gmock
   ${gflags_LIBRARIES})

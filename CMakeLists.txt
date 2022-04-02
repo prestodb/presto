@@ -296,9 +296,4 @@ include_directories(.)
 install(FILES velox/type/Type.h DESTINATION "include/velox")
 
 add_subdirectory(third_party)
-
-# Include third party header files
-include_directories(third_party/googletest/googletest/include)
-include_directories(third_party/googletest/googlemock/include)
-
 add_subdirectory(velox)

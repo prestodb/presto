@@ -27,5 +27,5 @@ add_library(
   MemoryUsageTracker.cpp
   StreamArena.cpp)
 
-target_link_libraries(velox_memory velox_flag_definitions velox_exception
+target_link_libraries(velox_memory velox_flag_definitions velox_exception gtest
                       ${FOLLY_WITH_DEPENDENCIES})

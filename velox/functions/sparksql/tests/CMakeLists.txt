@@ -36,4 +36,5 @@ target_link_libraries(
   ${FMT}
   gtest
   gtest_main
+  gmock
   ${gflags_LIBRARIES})

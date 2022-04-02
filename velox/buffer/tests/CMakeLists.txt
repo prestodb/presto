@@ -21,6 +21,7 @@ target_link_libraries(
   velox_buffer
   gtest
   gtest_main
+  gmock
   glog::glog
   ${gflags_LIBRARIES}
   pthread)
