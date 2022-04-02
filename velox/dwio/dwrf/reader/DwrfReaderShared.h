@@ -117,6 +117,10 @@ class DwrfRowReaderShared : public StrideIndexProvider,
 
   uint64_t skipRows(uint64_t numberOfRowsToSkip);
 
+  uint32_t getCurrentStripe() const {
+    return currentStripe;
+  }
+
   uint64_t getStrideIndex() const override {
     return strideIndex_;
   }
@@ -171,6 +175,9 @@ class DwrfReaderShared : public dwio::common::Reader {
 
   std::vector<uint64_t> getRowsPerStripe() const {
     return readerBase_->getRowsPerStripe();
+  }
+  uint32_t strideSize() const {
+    return readerBase_->getFooter().rowindexstride();
   }
 
   std::unique_ptr<StripeInformation> getStripe(uint32_t) const;

@@ -251,6 +251,8 @@ class ScanSpec {
   // Returns the child which produces values for 'channel'. Throws if not found.
   ScanSpec& getChildByChannel(ChannelIndex channel);
 
+  std::string toString() const;
+
  private:
   void reorder();
 

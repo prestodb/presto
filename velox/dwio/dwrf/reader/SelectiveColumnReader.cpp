@@ -80,6 +80,7 @@ std::vector<uint32_t> SelectiveColumnReader::filterRowGroups(
     auto columnStats =
         buildColumnStatisticsFromProto(entry.statistics(), context);
     if (!testFilter(filter, columnStats.get(), rowGroupSize, type_)) {
+      VLOG(1) << "Drop stride " << i << " on " << scanSpec_->toString();
       stridesToSkip.push_back(i); // Skipping stride based on column stats.
     }
   }

@@ -256,7 +256,9 @@ bool testFilter(
     // IS NULL filter cannot pass.
     return false;
   }
-
+  if (mayHaveNull && filter->testNull()) {
+    return true;
+  }
   switch (type->kind()) {
     case TypeKind::BIGINT:
     case TypeKind::INTEGER:
@@ -296,6 +298,24 @@ ScanSpec& ScanSpec::getChildByChannel(ChannelIndex channel) {
     }
   }
   VELOX_FAIL("No ScanSpec produces channel {}", channel);
+}
+
+std::string ScanSpec::toString() const {
+  std::stringstream out;
+  if (!fieldName_.empty()) {
+    out << fieldName_;
+    if (filter_) {
+      out << " filter " << filter_->toString();
+    }
+  }
+  if (!children_.empty()) {
+    out << "(";
+    for (auto& child : children_) {
+      out << child->toString() << ", ";
+    }
+    out << ")";
+  }
+  return out.str();
 }
 
 } // namespace facebook::velox::common
