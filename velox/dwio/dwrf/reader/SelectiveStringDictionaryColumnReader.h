@@ -30,14 +30,6 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
       common::ScanSpec* scanSpec,
       FlatMapContext flatMapContext);
 
-  void resetFilterCaches() override {
-    // 'filterCache_' could be empty before first read.
-    if (!filterCache_.empty()) {
-      simd::memset(
-          filterCache_.data(), FilterResult::kUnknown, dictionaryCount_);
-    }
-  }
-
   void seekToRowGroup(uint32_t index) override {
     ensureRowGroupIndex();
 
@@ -91,19 +83,13 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
       RowSet rows,
       ExtractValues extractValues);
 
-  BufferPtr loadDictionary(
-      uint64_t count,
+  // Fills 'values' from 'data' and 'lengthDecoder'. The count of
+  // values is in 'values.numValues'.
+  void loadDictionary(
       SeekableInputStream& data,
       IntDecoder</*isSigned*/ false>& lengthDecoder,
-      BufferPtr& offsets);
-
+      DictionaryValues& values);
   void ensureInitialized();
-
-  BufferPtr dictionaryBlob_;
-  BufferPtr dictionaryOffset_;
-  BufferPtr inDict_;
-  BufferPtr strideDict_;
-  BufferPtr strideDictOffset_;
   std::unique_ptr<IntDecoder</*isSigned*/ false>> dictIndex_;
   std::unique_ptr<ByteRleDecoder> inDictionaryReader_;
   std::unique_ptr<SeekableInputStream> strideDictStream_;
@@ -111,8 +97,6 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
 
   FlatVectorPtr<StringView> dictionaryValues_;
 
-  uint64_t dictionaryCount_;
-  uint64_t strideDictCount_{0};
   int64_t lastStrideIndex_;
   size_t positionOffset_;
   size_t strideDictSizeOffset_;
@@ -122,7 +106,6 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
   // lazy load the dictionary
   std::unique_ptr<IntDecoder</*isSigned*/ false>> lengthDecoder_;
   std::unique_ptr<SeekableInputStream> blobStream_;
-  raw_vector<uint8_t> filterCache_;
   bool initialized_{false};
 };
 
@@ -150,17 +133,7 @@ void SelectiveStringDictionaryColumnReader::readHelper(
   readWithVisitor(
       rows,
       StringDictionaryColumnVisitor<TFilter, ExtractValues, isDense>(
-          *reinterpret_cast<TFilter*>(filter),
-          this,
-          rows,
-          values,
-          (strideDict_ && inDict_) ? inDict_->as<uint64_t>() : nullptr,
-          filterCache_.empty() ? nullptr : filterCache_.data(),
-          dictionaryBlob_->as<char>(),
-          dictionaryOffset_->as<uint64_t>(),
-          dictionaryCount_,
-          strideDict_ ? strideDict_->as<char>() : nullptr,
-          strideDictOffset_ ? strideDictOffset_->as<uint64_t>() : nullptr));
+          *reinterpret_cast<TFilter*>(filter), this, rows, values));
 }
 
 template <bool isDense, typename ExtractValues>

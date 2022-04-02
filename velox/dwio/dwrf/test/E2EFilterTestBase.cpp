@@ -237,9 +237,13 @@ void E2EFilterTestBase::readWithFilter(
   auto rowIndex = 0;
   auto batch = BaseVector::create(rowType_, 1, pool_.get());
   resetReadBatchSizes();
+  int32_t clearCnt = 0;
   while (true) {
     {
       MicrosecondTimer timer(&time);
+      if (++clearCnt % 17 == 0) {
+        rowReader->resetFilterCaches();
+      }
       bool hasData = rowReader->next(nextReadBatchSize(), batch);
       if (!hasData) {
         break;

@@ -32,7 +32,7 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
           dataType->type) {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   auto encoding = stripe.getEncoding(encodingKey);
-  dictionarySize_ = encoding.dictionarysize();
+  scanState_.dictionary.numValues = encoding.dictionarysize();
   rleVersion_ = convertRleVersion(encoding.kind());
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
@@ -82,11 +82,12 @@ void SelectiveIntegerDictionaryColumnReader::read(
         ? bits::countNonNulls(nullsInReadRange_->as<uint64_t>(), 0, end)
         : end;
     detail::ensureCapacity<uint64_t>(
-        inDictionary_, bits::nwords(numFlags), &memoryPool_);
+        scanState_.inDictionary, bits::nwords(numFlags), &memoryPool_);
     inDictionaryReader_->next(
-        inDictionary_->asMutable<char>(),
+        scanState_.inDictionary->asMutable<char>(),
         numFlags,
         isBulk ? nullptr : rawNulls);
+    scanState_.updateRawState();
   }
 
   // lazy load dictionary only when it's needed
@@ -123,14 +124,19 @@ void SelectiveIntegerDictionaryColumnReader::ensureInitialized() {
   }
 
   Timer timer;
-  dictionary_ = dictInit_();
+  scanState_.dictionary.values = dictInit_();
   // Make sure there is a cache even for an empty dictionary because
   // of asan failure when preparing a gather with all lanes masked
   // out.
-  filterCache_.resize(std::max<int32_t>(1, dictionarySize_));
-  simd::memset(filterCache_.data(), FilterResult::kUnknown, dictionarySize_);
+  scanState_.filterCache.resize(
+      std::max<int32_t>(1, scanState_.dictionary.numValues));
+  simd::memset(
+      scanState_.filterCache.data(),
+      FilterResult::kUnknown,
+      scanState_.filterCache.size());
   initialized_ = true;
   initTimeClocks_ = timer.elapsedClocks();
+  scanState_.updateRawState();
 }
 
 } // namespace facebook::velox::dwrf

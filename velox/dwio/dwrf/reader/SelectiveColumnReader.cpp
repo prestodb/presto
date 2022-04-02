@@ -43,6 +43,17 @@ NoHook& noHook() {
   return hook;
 }
 
+void ScanState::updateRawState() {
+  rawState.dictionary.values =
+      dictionary.values ? dictionary.values->as<void>() : nullptr;
+  rawState.dictionary.numValues = dictionary.numValues;
+  rawState.dictionary2.values =
+      dictionary2.values ? dictionary2.values->as<void*>() : nullptr;
+  rawState.dictionary2.numValues = dictionary2.numValues;
+  rawState.inDictionary = inDictionary ? inDictionary->as<uint64_t>() : nullptr;
+  rawState.filterCache = filterCache.data();
+}
+
 SelectiveColumnReader::SelectiveColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> requestedType,
     StripeStreams& stripe,
@@ -309,6 +320,15 @@ void SelectiveColumnReader::addStringValue(folly::StringPiece value) {
   auto copy = copyStringValue(value);
   reinterpret_cast<StringView*>(rawValues_)[numValues_++] =
       StringView(copy, value.size());
+}
+
+void SelectiveColumnReader::resetFilterCaches() {
+  if (!scanState_.filterCache.empty()) {
+    simd::memset(
+        scanState_.filterCache.data(),
+        FilterResult::kUnknown,
+        scanState_.filterCache.size());
+  }
 }
 
 std::vector<uint64_t> toPositions(const proto::RowIndexEntry& entry) {

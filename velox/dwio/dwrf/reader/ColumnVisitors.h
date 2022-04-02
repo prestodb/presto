@@ -580,26 +580,21 @@ class DictionaryColumnVisitor
       TFilter& filter,
       SelectiveColumnReader* reader,
       RowSet rows,
-      ExtractValues values,
-      const T* dict,
-      const uint64_t* inDict,
-      uint8_t* filterCache)
+      ExtractValues values)
       : ColumnVisitor<T, TFilter, ExtractValues, isDense>(
             filter,
             reader,
             rows,
             values),
-        dict_(dict),
-        inDict_(inDict),
-        filterCache_(filterCache),
+        state_(reader->scanState().rawState),
         width_(
             reader->type()->kind() == TypeKind::BIGINT        ? 8
                 : reader->type()->kind() == TypeKind::INTEGER ? 4
                                                               : 2) {}
 
   FOLLY_ALWAYS_INLINE bool isInDict() {
-    if (inDict_) {
-      return bits::isBitSet(inDict_, super::currentRow());
+    if (inDict()) {
+      return bits::isBitSet(inDict(), super::currentRow());
     }
     return true;
   }
@@ -620,28 +615,28 @@ class DictionaryColumnVisitor
     }
     vector_size_t previous =
         isDense && TFilter::deterministic ? 0 : super::currentRow();
-    T valueInDictionary = dict_[value];
+    T valueInDictionary = dict()[value];
     if (std::is_same<TFilter, common::AlwaysTrue>::value) {
       super::filterPassed(valueInDictionary);
     } else {
       // check the dictionary cache
       if (TFilter::deterministic &&
-          filterCache_[value] == FilterResult::kSuccess) {
+          filterCache()[value] == FilterResult::kSuccess) {
         super::filterPassed(valueInDictionary);
       } else if (
           TFilter::deterministic &&
-          filterCache_[value] == FilterResult::kFailure) {
+          filterCache()[value] == FilterResult::kFailure) {
         super::filterFailed();
       } else {
         if (super::filter_.testInt64(valueInDictionary)) {
           super::filterPassed(valueInDictionary);
           if (TFilter::deterministic) {
-            filterCache_[value] = FilterResult::kSuccess;
+            filterCache()[value] = FilterResult::kSuccess;
           }
         } else {
           super::filterFailed();
           if (TFilter::deterministic) {
-            filterCache_[value] = FilterResult::kFailure;
+            filterCache()[value] = FilterResult::kFailure;
           }
         }
       }
@@ -696,7 +691,7 @@ class DictionaryColumnVisitor
         super::rowIndex_ += numInput;
         return;
       }
-      if (inDict_) {
+      if (inDict()) {
         translateScatter<true, scatter>(
             input, numInput, scatterRows, numValues, values);
       } else {
@@ -726,13 +721,13 @@ class DictionaryColumnVisitor
       int8_t width = UNLIKELY(i == last) ? numInput - last : 8;
       auto indices = load8Indices(input + i);
       __m256si dictMask;
-      if (inDict_) {
+      if (inDict()) {
         if (simd::isDense(super::rows_ + super::rowIndex_ + i, width)) {
           dictMask = load8MaskDense(
-              inDict_, super::rows_[super::rowIndex_ + i], width);
+              inDict(), super::rows_[super::rowIndex_ + i], width);
         } else {
           dictMask = load8MaskSparse(
-              inDict_, super::rows_ + super::rowIndex_ + i, width);
+              inDict(), super::rows_ + super::rowIndex_ + i, width);
         }
       } else {
         dictMask = V32::leadingMask(width);
@@ -741,7 +736,7 @@ class DictionaryColumnVisitor
       // Load 8 filter cache values. Defaults the extra to values to 0 if
       // loading less than 8.
       V32::TV cache = V32::maskGather32<1>(
-          V32::setAll(0), dictMask, filterCache_ - 3, indices);
+          V32::setAll(0), dictMask, filterCache() - 3, indices);
       auto unknowns = V32::compareBitMask((cache & (kUnknown << 24)) << 1);
       auto passed = V32::compareBitMask(cache);
       if (UNLIKELY(unknowns)) {
@@ -751,16 +746,16 @@ class DictionaryColumnVisitor
         while (bits) {
           int index = bits::getAndClearLastSetBit(bits);
           auto value = input[i + index];
-          if (applyFilter(super::filter_, dict_[value])) {
-            filterCache_[value] = FilterResult::kSuccess;
+          if (applyFilter(super::filter_, dict()[value])) {
+            filterCache()[value] = FilterResult::kSuccess;
             passed |= 1 << index;
           } else {
-            filterCache_[value] = FilterResult::kFailure;
+            filterCache()[value] = FilterResult::kFailure;
           }
         }
       }
       // Were there values not in dictionary?
-      if (inDict_) {
+      if (inDict()) {
         auto mask = V32::compareBitMask(dictMask);
         if (mask != V32::kAllTrue) {
           uint16_t bits = (V32::kAllTrue ^ mask) & bits::lowMask(kWidth);
@@ -787,7 +782,7 @@ class DictionaryColumnVisitor
                 (scatter ? scatterRows : super::rows_) + super::rowIndex_ + i));
         if (!kFilterOnly) {
           storeTranslate(
-              input, i, indices, dictMask, dict_, values + numValues);
+              input, i, indices, dictMask, dict(), values + numValues);
         }
         numValues += kWidth;
       } else {
@@ -808,7 +803,7 @@ class DictionaryColumnVisitor
               setBits,
               dictMask,
               numBits,
-              dict_,
+              dict(),
               values + numValues);
         }
         numValues += numBits;
@@ -875,13 +870,13 @@ class DictionaryColumnVisitor
       using U = typename std::make_unsigned<T>::type;
       T value = input[i];
       if (hasInDict) {
-        if (bits::isBitSet(inDict_, super::rows_[super::rowIndex_ + i])) {
-          value = dict_[static_cast<U>(value)];
+        if (bits::isBitSet(inDict(), super::rows_[super::rowIndex_ + i])) {
+          value = dict()[static_cast<U>(value)];
         } else if (!scatter) {
           continue;
         }
       } else {
-        value = dict_[static_cast<U>(value)];
+        value = dict()[static_cast<U>(value)];
       }
       if (scatter) {
         values[scatterRows[super::rowIndex_ + i]] = value;
@@ -923,34 +918,47 @@ class DictionaryColumnVisitor
   }
 
   void translateByDict(const T* values, int numValues, T* out) {
-    if (!inDict_) {
+    if (!inDict()) {
       for (auto i = 0; i < numValues; ++i) {
-        out[i] = dict_[values[i]];
+        out[i] = dict()[values[i]];
       }
     } else if (super::dense) {
       bits::forEachSetBit(
-          inDict_,
+          inDict(),
           super::rowIndex_,
           super::rowIndex_ + numValues,
           [&](int row) {
             auto valueIndex = row - super::rowIndex_;
-            out[valueIndex] = dict_[values[valueIndex]];
+            out[valueIndex] = dict()[values[valueIndex]];
             return true;
           });
     } else {
       for (auto i = 0; i < numValues; ++i) {
-        if (bits::isBitSet(inDict_, super::rows_[super::rowIndex_ + i])) {
-          out[i] = dict_[values[i]];
+        if (bits::isBitSet(inDict(), super::rows_[super::rowIndex_ + i])) {
+          out[i] = dict()[values[i]];
         }
       }
     }
   }
 
  protected:
-  const T* const dict_;
-  const uint64_t* const inDict_;
-  uint8_t* filterCache_;
-  vector_size_t nullCount_ = 0;
+  const uint64_t* inDict() const {
+    return state_.inDictionary;
+  }
+
+  const T* dict() const {
+    return reinterpret_cast<const T*>(state_.dictionary.values);
+  }
+
+  int32_t dictionarySize() const {
+    return state_.dictionary.numValues;
+  }
+
+  uint8_t* filterCache() const {
+    return state_.filterCache;
+  }
+
+  RawScanState state_;
   const uint8_t width_;
 };
 
@@ -972,33 +980,18 @@ class StringDictionaryColumnVisitor
       TFilter& filter,
       SelectiveStringDictionaryColumnReader* reader,
       RowSet rows,
-      ExtractValues values,
-      const uint64_t* inDict,
-      uint8_t* filterCache,
-      const char* dictBlob,
-      const uint64_t* dictOffset,
-      vector_size_t baseDictSize,
-      const char* strideDictBlob,
-      const uint64_t* strideDictOffset)
+      ExtractValues values)
       : DictionaryColumnVisitor<int32_t, TFilter, ExtractValues, isDense>(
             filter,
             reader,
             rows,
-            values,
-            nullptr,
-            inDict,
-            filterCache),
-        dictBlob_(dictBlob),
-        dictOffset_(dictOffset),
-        baseDictSize_(baseDictSize),
-        strideDictBlob_(strideDictBlob),
-        strideDictOffset_(strideDictOffset) {}
+            values) {}
 
   FOLLY_ALWAYS_INLINE vector_size_t process(int32_t value, bool& atEnd) {
     bool inStrideDict = !DictSuper::isInDict();
     auto index = value;
     if (inStrideDict) {
-      index += baseDictSize_;
+      index += DictSuper::dictionarySize();
     }
     vector_size_t previous =
         isDense && TFilter::deterministic ? 0 : super::currentRow();
@@ -1007,23 +1000,23 @@ class StringDictionaryColumnVisitor
     } else {
       // check the dictionary cache
       if (TFilter::deterministic &&
-          DictSuper::filterCache_[index] == FilterResult::kSuccess) {
+          DictSuper::filterCache()[index] == FilterResult::kSuccess) {
         super::filterPassed(index);
       } else if (
           TFilter::deterministic &&
-          DictSuper::filterCache_[index] == FilterResult::kFailure) {
+          DictSuper::filterCache()[index] == FilterResult::kFailure) {
         super::filterFailed();
       } else {
         if (common::applyFilter(
                 super::filter_, valueInDictionary(value, inStrideDict))) {
           super::filterPassed(index);
           if (TFilter::deterministic) {
-            DictSuper::filterCache_[index] = FilterResult::kSuccess;
+            DictSuper::filterCache()[index] = FilterResult::kSuccess;
           }
         } else {
           super::filterFailed();
           if (TFilter::deterministic) {
-            DictSuper::filterCache_[index] = FilterResult::kFailure;
+            DictSuper::filterCache()[index] = FilterResult::kFailure;
           }
         }
       }
@@ -1084,10 +1077,10 @@ class StringDictionaryColumnVisitor
         cache = V32::maskGather32<1>(
             V32::setAll(0),
             V32::leadingMask(numInput - i),
-            DictSuper::filterCache_ - 3,
+            DictSuper::filterCache() - 3,
             indices);
       } else {
-        cache = V32::gather32<1>(DictSuper::filterCache_ - 3, indices);
+        cache = V32::gather32<1>(DictSuper::filterCache() - 3, indices);
       }
       auto unknowns = V32::compareBitMask((cache & (kUnknown << 24)) << 1);
       auto passed = V32::compareBitMask(cache);
@@ -1097,18 +1090,19 @@ class StringDictionaryColumnVisitor
           int index = bits::getAndClearLastSetBit(bits);
           int32_t value = input[i + index];
           bool result;
-          if (value >= baseDictSize_) {
+          if (value >= DictSuper::dictionarySize()) {
             result = applyFilter(
-                super::filter_, valueInDictionary(value - baseDictSize_, true));
+                super::filter_,
+                valueInDictionary(value - DictSuper::dictionarySize(), true));
           } else {
             result =
                 applyFilter(super::filter_, valueInDictionary(value, false));
           }
           if (result) {
-            DictSuper::filterCache_[value] = FilterResult::kSuccess;
+            DictSuper::filterCache()[value] = FilterResult::kSuccess;
             passed |= 1 << index;
           } else {
-            DictSuper::filterCache_[value] = FilterResult::kFailure;
+            DictSuper::filterCache()[value] = FilterResult::kFailure;
           }
         }
       }
@@ -1175,12 +1169,12 @@ class StringDictionaryColumnVisitor
 
  private:
   void setByInDict(int32_t* values, int numValues) {
-    if (DictSuper::inDict_) {
+    if (DictSuper::inDict()) {
       auto current = super::rowIndex_;
       int32_t i = 0;
       for (; i < numValues; ++i) {
-        if (!bits::isBitSet(DictSuper::inDict_, super::rows_[i + current])) {
-          values[i] += baseDictSize_;
+        if (!bits::isBitSet(DictSuper::inDict(), super::rows_[i + current])) {
+          values[i] += DictSuper::dictionarySize();
         }
       }
     }
@@ -1188,20 +1182,12 @@ class StringDictionaryColumnVisitor
 
   folly::StringPiece valueInDictionary(int64_t index, bool inStrideDict) {
     if (inStrideDict) {
-      auto start = strideDictOffset_[index];
-      return folly::StringPiece(
-          strideDictBlob_ + start, strideDictOffset_[index + 1] - start);
+      return folly::StringPiece(reinterpret_cast<const StringView*>(
+          DictSuper::state_.dictionary2.values)[index]);
     }
-    auto start = dictOffset_[index];
-    return folly::StringPiece(
-        dictBlob_ + start, dictOffset_[index + 1] - start);
+    return folly::StringPiece(reinterpret_cast<const StringView*>(
+        DictSuper::state_.dictionary.values)[index]);
   }
-
-  const char* dictBlob_;
-  const uint64_t* dictOffset_;
-  const vector_size_t baseDictSize_;
-  const char* const strideDictBlob_;
-  const uint64_t* const strideDictOffset_;
 };
 
 class ExtractStringDictionaryToGenericHook {
@@ -1212,20 +1198,9 @@ class ExtractStringDictionaryToGenericHook {
   ExtractStringDictionaryToGenericHook(
       ValueHook* hook,
       RowSet rows,
-      const uint64_t* inDict,
-      const char* dictionaryBlob,
-      const uint64_t* dictionaryOffset,
-      int32_t dictionaryCount,
-      const char* strideDictBlob,
-      const uint64_t* strideDictOffset)
-      : hook_(hook),
-        rows_(rows),
-        inDict_(inDict),
-        dictBlob_(dictionaryBlob),
-        dictOffset_(dictionaryOffset),
-        baseDictSize_(dictionaryCount),
-        strideDictBlob_(strideDictBlob),
-        strideDictOffset_(strideDictOffset) {}
+      RawScanState state)
+
+      : hook_(hook), rows_(rows), state_(state) {}
 
   bool acceptsNulls() {
     return hook_->acceptsNulls();
@@ -1239,17 +1214,14 @@ class ExtractStringDictionaryToGenericHook {
     // We take the string from the stripe or stride dictionary
     // according to the index. Stride dictionary indices are offset up
     // by the stripe dict size.
-    if (value < baseDictSize_) {
-      folly::StringPiece view(
-          dictBlob_ + dictOffset_[value],
-          dictOffset_[value + 1] - dictOffset_[value]);
+    if (value < dictionarySize()) {
+      auto view = folly::StringPiece(
+          reinterpret_cast<const StringView*>(state_.dictionary.values)[value]);
       hook_->addValue(rowIndex, &view);
     } else {
-      VELOX_DCHECK(inDict_);
-      auto index = value - baseDictSize_;
-      folly::StringPiece view(
-          strideDictBlob_ + strideDictOffset_[index],
-          strideDictOffset_[index + 1] - strideDictOffset_[index]);
+      VELOX_DCHECK(state_.inDictionary);
+      auto view = folly::StringPiece(
+          reinterpret_cast<const StringView*>(state_.dictionary.values)[value]);
       hook_->addValue(rowIndex, &view);
     }
   }
@@ -1259,14 +1231,13 @@ class ExtractStringDictionaryToGenericHook {
   }
 
  private:
+  int32_t dictionarySize() const {
+    return state_.dictionary.numValues;
+  }
+
   ValueHook* const hook_;
   RowSet const rows_;
-  const uint64_t* const inDict_;
-  const char* const dictBlob_;
-  const uint64_t* const dictOffset_;
-  const vector_size_t baseDictSize_;
-  const char* const strideDictBlob_;
-  const uint64_t* const strideDictOffset_;
+  RawScanState state_;
 };
 
 template <typename T, typename TFilter, typename ExtractValues, bool isDense>

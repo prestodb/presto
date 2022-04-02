@@ -31,13 +31,6 @@ class SelectiveIntegerDictionaryColumnReader : public SelectiveColumnReader {
       common::ScanSpec* scanSpec,
       uint32_t numBytes);
 
-  void resetFilterCaches() override {
-    if (!filterCache_.empty()) {
-      simd::memset(
-          filterCache_.data(), FilterResult::kUnknown, dictionarySize_);
-    }
-  }
-
   void seekToRowGroup(uint32_t index) override {
     ensureRowGroupIndex();
 
@@ -85,14 +78,10 @@ class SelectiveIntegerDictionaryColumnReader : public SelectiveColumnReader {
 
   void ensureInitialized();
 
-  BufferPtr dictionary_;
-  BufferPtr inDictionary_;
   std::unique_ptr<ByteRleDecoder> inDictionaryReader_;
   std::unique_ptr<IntDecoder</* isSigned = */ false>> dataReader_;
-  uint64_t dictionarySize_;
   std::unique_ptr<IntDecoder</* isSigned = */ true>> dictReader_;
   std::function<BufferPtr()> dictInit_;
-  raw_vector<uint8_t> filterCache_;
   RleVersion rleVersion_;
   bool initialized_{false};
 };
@@ -122,38 +111,20 @@ void SelectiveIntegerDictionaryColumnReader::readHelper(
       readWithVisitor(
           rows,
           DictionaryColumnVisitor<int16_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter),
-              this,
-              rows,
-              extractValues,
-              dictionary_->as<int16_t>(),
-              inDictionary_ ? inDictionary_->as<uint64_t>() : nullptr,
-              filterCache_.data()));
+              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
       break;
     case 4:
       readWithVisitor(
           rows,
           DictionaryColumnVisitor<int32_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter),
-              this,
-              rows,
-              extractValues,
-              dictionary_->as<int32_t>(),
-              inDictionary_ ? inDictionary_->as<uint64_t>() : nullptr,
-              filterCache_.data()));
+              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
       break;
 
     case 8:
       readWithVisitor(
           rows,
           DictionaryColumnVisitor<int64_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter),
-              this,
-              rows,
-              extractValues,
-              dictionary_->as<int64_t>(),
-              inDictionary_ ? inDictionary_->as<uint64_t>() : nullptr,
-              filterCache_.data()));
+              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
       break;
 
     default:

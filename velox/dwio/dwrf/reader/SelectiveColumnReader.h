@@ -25,6 +25,79 @@
 
 namespace facebook::velox::dwrf {
 
+// Generalized representation of a set of distinct values for dictionary
+// encodings.
+struct DictionaryValues {
+  // Array of values for dictionary. StringViews for string values.
+  BufferPtr values;
+
+  // For a string dictionary, holds the characters that are pointed to by
+  // StringViews in 'values'.
+  BufferPtr strings;
+
+  // Number of valid elements in 'values'.
+  int32_t numValues{0};
+};
+struct RawDictionaryState {
+  const void* values{nullptr};
+  int32_t numValues{0};
+};
+
+// Dictionary and other scan state. Trivially copiable, to be passed by value
+// when constructing a visitor.
+struct RawScanState {
+  RawDictionaryState dictionary;
+
+  // See comment in  ScanState below.
+  RawDictionaryState dictionary2;
+  const uint64_t* __restrict inDictionary{nullptr};
+  uint8_t* __restrict filterCache;
+};
+
+// Maintains state for encoding between calls to readWithVisitor of
+// individual readers. DWRF sets up encoding information at the
+// start of a stripe and dictionaries at the start of stripes and
+// optionally row groups. Other encodings can set dictionaries and
+// encoding types at any time during processing a stripe.
+//
+//  This is the union of the state elements that the supported
+//  encodings require for keeping state. This may be augmented when
+//  adding formats. This is however inlined in the reader superclass
+//  ad not for example nodeled as a class hierarchy with virtual
+//  functions because this needs to be trivially and branchlessly
+//  accessible.
+struct ScanState {
+  // Copies the owned values of 'this' into 'rawState'.
+  void updateRawState();
+
+  // Dictionary values when there s a dictionary in scope for decoding.
+  DictionaryValues dictionary;
+
+  // If the format, like ORC/DWRF has a base dictionary completed by
+  // local delta dictionaries over the furst one, this represents the
+  // local values, e.g. row group dictionary in ORC. TBD: If there is
+  // a pattern of dictionaries completed by more dictionaries in other
+  // formats, this will be modeled as an vector of n DictionaryValues.
+  DictionaryValues dictionary2;
+
+  // Bits selecting between dictionary and dictionary2 or dictionary and
+  // literal. OR/DWRFC only.
+  BufferPtr inDictionary;
+
+  // Copy of Visitor::rows_ adjusted to start at the current encoding
+  // run (e.g. Parquet Page). 0 means the first value of the current
+  // encoding entry.
+  raw_vector<vector_size_t> rowsCopy;
+
+  // Cached results of filter application subscripted by dictionary
+  // index. The visitor needs to reset this if the dictionary changes
+  // in mid scan.
+  raw_vector<uint8_t> filterCache;
+
+  // The above as raw pointers.
+  RawScanState rawState;
+};
+
 class SelectiveColumnReader : public ColumnReader {
  public:
   static constexpr uint64_t kStringBufferSize = 16 * 1024;
@@ -58,9 +131,7 @@ class SelectiveColumnReader : public ColumnReader {
 
   // Called when filters in ScanSpec change, e.g. a new filter is pushed down
   // from a downstream operator.
-  virtual void resetFilterCaches() {
-    // Most readers don't have filter caches.
-  }
+  virtual void resetFilterCaches();
 
   // Seeks to offset and reads the rows in 'rows' and applies
   // filters and value processing as given by 'scanSpec supplied at
@@ -236,6 +307,12 @@ class SelectiveColumnReader : public ColumnReader {
     return true;
   }
 
+  // Used by decoders to set encoding-related data to be kept between calls to
+  // read().
+  ScanState& scanState() {
+    return scanState_;
+  }
+
  protected:
   static constexpr int8_t kNoValueSize = -1;
   static constexpr uint32_t kRowGroupNotSet = ~0;
@@ -378,6 +455,9 @@ class SelectiveColumnReader : public ColumnReader {
 
   // Number of clocks spent initializing.
   uint64_t initTimeClocks_{0};
+
+  // Encoding-related state to keep between reads, e.g. dictionaries.
+  ScanState scanState_;
 };
 
 template <>
