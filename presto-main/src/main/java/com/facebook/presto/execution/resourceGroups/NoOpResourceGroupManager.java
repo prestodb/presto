@@ -65,4 +65,10 @@ public final class NoOpResourceGroupManager
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public List<ResourceGroupRuntimeInfo> getResourceGroupRuntimeInfos()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

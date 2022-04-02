@@ -20,6 +20,8 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 
+import java.util.concurrent.TimeUnit;
+
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -32,8 +34,9 @@ public class ResourceManagerConfig
     private Duration memoryPoolInfoRefreshDuration = new Duration(1, SECONDS);
     private Duration queryHeartbeatInterval = new Duration(1, SECONDS);
     private Duration nodeHeartbeatInterval = new Duration(1, SECONDS);
-    private int heartbeatThreads = 3;
-    private int heartbeatConcurrency = 3;
+    private Duration resourceGroupRuntimeHeartbeatInterval = new Duration(1, TimeUnit.SECONDS);
+    private int heartbeatThreads = 4;
+    private int heartbeatConcurrency = 4;
     private int resourceManagerExecutorThreads = 1000;
     private Duration proxyAsyncTimeout = new Duration(60, SECONDS);
     private Duration memoryPoolFetchInterval = new Duration(1, SECONDS);
@@ -127,6 +130,19 @@ public class ResourceManagerConfig
 
     @Config("resource-manager.node-heartbeat-interval")
     public ResourceManagerConfig setNodeHeartbeatInterval(Duration nodeHeartbeatInterval)
+    {
+        this.nodeHeartbeatInterval = nodeHeartbeatInterval;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getResourceGroupRuntimeHeartbeatInterval()
+    {
+        return nodeHeartbeatInterval;
+    }
+
+    @Config("resource-manager.resource-group-runtimeinfo-heartbeat-interval")
+    public ResourceManagerConfig setResourceGroupRuntimeHeartbeatInterval(Duration nodeHeartbeatInterval)
     {
         this.nodeHeartbeatInterval = nodeHeartbeatInterval;
         return this;

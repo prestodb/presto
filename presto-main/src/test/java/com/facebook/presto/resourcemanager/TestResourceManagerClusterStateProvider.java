@@ -16,6 +16,7 @@ package com.facebook.presto.resourcemanager;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupSpecInfo;
 import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
@@ -35,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -414,6 +416,51 @@ public class TestResourceManagerClusterStateProvider
         // All nodes expired, memory pools emptied
         assertMemoryPoolMap(provider, 2, GENERAL_POOL, 0, 0, 0, 0, 0, Optional.empty());
         assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0, Optional.empty());
+    }
+
+    @DataProvider(name = "resourceRuntimeHeartbeat")
+    public static Object[][] resourceRuntimeHeartbeatTestData()
+    {
+        return new Object[][] {
+                {ImmutableMap.of(
+                        "node1", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user1"))
+                                .addRunningQueries(2)
+                                .addQueuedQueries(3)
+                                .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                                .build()),
+                        "node2", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user2"))
+                                .addRunningQueries(5)
+                                .addQueuedQueries(100)
+                                .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                                .build())
+                ), 18},
+                {ImmutableMap.of(
+                        "node1", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user1"))
+                                .addRunningQueries(2)
+                                .addQueuedQueries(3)
+                                .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                                .build()),
+                        "node2", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user1"))
+                                .addRunningQueries(5)
+                                .addQueuedQueries(100)
+                                .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                                .build())
+                ), 13}
+        };
+    }
+
+    @Test(timeOut = 15_000, dataProvider = "resourceRuntimeHeartbeat")
+    public void testAdjustedQueueSize(Map<String, List<ResourceGroupRuntimeInfo>> nodeHeartBeats, int expectedAdjustedQueueSize)
+            throws Exception
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeHeartBeats.keySet().stream().forEach(nodeIdentifier ->
+                nodeManager.addNode(new ConnectorId("x"), new InternalNode(nodeIdentifier, URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true)));
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        nodeHeartBeats.entrySet().stream().forEach(entry ->
+                provider.registerResourceGroupRuntimeHeartbeat(entry.getKey(), entry.getValue()));
+        Thread.sleep(SECONDS.toMillis(5));
+        assertEquals(provider.getAdjustedQueueSize(), expectedAdjustedQueueSize);
     }
 
     @Test(timeOut = 15_000)

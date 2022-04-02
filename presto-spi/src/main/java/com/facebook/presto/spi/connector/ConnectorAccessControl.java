@@ -226,6 +226,16 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to truncate the specified table in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanTruncateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        denyDeleteTable(tableName.toString());
+    }
+
+    /**
      * Check if identity is allowed to create the specified view in this catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

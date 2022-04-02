@@ -161,6 +161,7 @@ public class TestPinotExpressionConverters
                 "((((fare + trip) BETWEEN 20 AND 30) AND (regionId > 20)) OR (city = 'Campbell'))", sessionHolder);
 
         testFilter("secondssinceepoch > 1559978258", "(secondsSinceEpoch > 1559978258)", sessionHolder);
+        testFilter("DATE '2019-11-15'", "18215", sessionHolder);
     }
 
     private void testAggregationProject(String sqlExpression, String expectedPinotExpression, SessionHolder sessionHolder)

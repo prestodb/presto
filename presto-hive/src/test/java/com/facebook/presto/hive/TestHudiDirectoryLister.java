@@ -89,7 +89,7 @@ public class TestHudiDirectoryLister
         assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
         Path path = new Path(mockTable.getStorage().getLocation());
         ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
-        Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, new NamenodeStats(), new HiveDirectoryContext(IGNORED, false));
+        Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(IGNORED, false));
         assertTrue(fileInfoIterator.hasNext());
         HiveFileInfo fileInfo = fileInfoIterator.next();
         assertEquals(fileInfo.getPath().getName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");

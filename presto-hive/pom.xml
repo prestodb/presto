@@ -471,6 +471,8 @@
                                 <exclude>**/TestHivePushdownIntegrationSmokeTest.java</exclude>
                                 <exclude>**/TestHivePushdownDistributedQueries.java</exclude>
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
+                                <exclude>**/TestHive2InsertOverwrite.java</exclude>
+                                <exclude>**/TestHive3InsertOverwrite.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -601,6 +603,23 @@
                         <configuration>
                             <includes>
                                 <include>**/TestParquetDistributedQueries.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-insert-overwrite</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHive2InsertOverwrite.java</include>
+                                <include>**/TestHive3InsertOverwrite.java</include>
                             </includes>
                         </configuration>
                     </plugin>

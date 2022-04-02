@@ -32,6 +32,7 @@ import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.util.PeriodicTaskExecutor;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.weakref.jmx.JmxException;
@@ -230,6 +231,29 @@ public final class InternalResourceGroupManager<C>
             if (isResourceManagerEnabled) {
                 resourceGroupRuntimeExecutor.start();
             }
+        }
+    }
+
+    @Override
+    public List<ResourceGroupRuntimeInfo> getResourceGroupRuntimeInfos()
+    {
+        ImmutableList.Builder<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = ImmutableList.builder();
+        rootGroups.forEach(resourceGroup -> buildResourceGroupRuntimeInfo(resourceGroupRuntimeInfos, resourceGroup));
+        return resourceGroupRuntimeInfos.build();
+    }
+
+    private void buildResourceGroupRuntimeInfo(ImmutableList.Builder<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos, InternalResourceGroup resourceGroup)
+    {
+        if (!resourceGroup.subGroups().isEmpty()) {
+            resourceGroup.subGroups().stream().forEach(subGroup -> buildResourceGroupRuntimeInfo(resourceGroupRuntimeInfos, subGroup));
+            return;
+        }
+        if (resourceGroup.getQueuedQueries() > 0 || resourceGroup.getRunningQueries() > 0) {
+            ResourceGroupRuntimeInfo.Builder resourceGroupRuntimeInfo = ResourceGroupRuntimeInfo.builder(resourceGroup.getId());
+            resourceGroupRuntimeInfo.addRunningQueries(resourceGroup.getRunningQueries());
+            resourceGroupRuntimeInfo.addQueuedQueries(resourceGroup.getQueuedQueries());
+            resourceGroupRuntimeInfo.setResourceGroupSpecInfo(new ResourceGroupSpecInfo(resourceGroup.getSoftConcurrencyLimit()));
+            resourceGroupRuntimeInfos.add(resourceGroupRuntimeInfo.build());
         }
     }
 

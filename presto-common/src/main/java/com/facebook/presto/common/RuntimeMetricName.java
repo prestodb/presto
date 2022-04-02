@@ -33,6 +33,7 @@ public class RuntimeMetricName
     public static final String FRAGMENT_RESULT_CACHE_MISS = "fragmentResultCacheMissCount";
     public static final String GET_VIEW_TIME_NANOS = "getViewTimeNanos";
     public static final String GET_MATERIALIZED_VIEW_TIME_NANOS = "getMaterializedViewTimeNanos";
+    public static final String GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS = "getMaterializedViewStatusTimeNanos";
     public static final String GET_TABLE_HANDLE_TIME_NANOS = "getTableHandleTimeNanos";
     public static final String GET_TABLE_METADATA_TIME_NANOS = "getTableMetadataTimeNanos";
     public static final String GET_SPLITS_TIME_NANOS = "getSplitsTimeNanos";

@@ -174,6 +174,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanTruncateTable(identity, context, table);
+    }
+
+    @Override
     public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanCreateView(identity, context, view);

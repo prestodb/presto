@@ -45,7 +45,8 @@ public class TestPrestoSparkConfig
                 .setSmileSerializationEnabled(true)
                 .setSplitAssignmentBatchSize(1_000_000)
                 .setMemoryRevokingThreshold(0)
-                .setMemoryRevokingTarget(0));
+                .setMemoryRevokingTarget(0)
+                .setRetryOnOutOfMemoryBroadcastJoinEnabled(false));
     }
 
     @Test
@@ -66,6 +67,7 @@ public class TestPrestoSparkConfig
                 .put("spark.split-assignment-batch-size", "420")
                 .put("spark.memory-revoking-threshold", "0.5")
                 .put("spark.memory-revoking-target", "0.5")
+                .put("spark.retry-on-out-of-memory-broadcast-join-enabled", "true")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -81,7 +83,8 @@ public class TestPrestoSparkConfig
                 .setSmileSerializationEnabled(false)
                 .setSplitAssignmentBatchSize(420)
                 .setMemoryRevokingThreshold(0.5)
-                .setMemoryRevokingTarget(0.5);
+                .setMemoryRevokingTarget(0.5)
+                .setRetryOnOutOfMemoryBroadcastJoinEnabled(true);
         assertFullMapping(properties, expected);
     }
 }

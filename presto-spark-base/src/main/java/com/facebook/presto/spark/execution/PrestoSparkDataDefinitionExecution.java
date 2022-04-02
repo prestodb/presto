@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSparkFailure;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -93,7 +94,7 @@ public class PrestoSparkDataDefinitionExecution<T extends Statement>
             Optional<ExecutionFailureInfo> failureInfo = Optional.of(toFailure(executionException));
             queryStateTimer.endQuery();
 
-            throw failureInfo.get().toFailure();
+            throw toPrestoSparkFailure(session, failureInfo.get());
         }
         return Collections.emptyList();
     }

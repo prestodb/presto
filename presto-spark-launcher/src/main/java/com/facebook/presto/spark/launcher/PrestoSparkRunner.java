@@ -19,6 +19,7 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkServiceFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
@@ -88,34 +89,73 @@ public class PrestoSparkRunner
             Optional<String> queryDataOutputLocation)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
-
-        PrestoSparkSession session = new PrestoSparkSession(
+        PrestoSparkRunnerContext prestoSparkRunnerContext = new PrestoSparkRunnerContext(
                 user,
                 principal,
                 extraCredentials,
-                Optional.ofNullable(catalog),
-                Optional.ofNullable(schema),
+                catalog,
+                schema,
                 source,
                 userAgent,
                 clientInfo,
                 clientTags,
-                Optional.empty(),
-                Optional.empty(),
                 sessionProperties,
                 catalogSessionProperties,
-                traceToken);
-
-        IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
-                distribution.getSparkContext(),
-                session,
                 sqlText,
                 sqlLocation,
                 sqlFileHexHash,
                 sqlFileSizeInBytes,
+                traceToken,
                 sparkQueueName,
-                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
                 queryStatusInfoOutputLocation,
-                queryDataOutputLocation);
+                queryDataOutputLocation,
+                Optional.empty());
+        try {
+            execute(queryExecutionFactory, prestoSparkRunnerContext);
+        }
+        catch (PrestoSparkFailure failure) {
+            if (failure.getRetryExecutionStrategy().isPresent()) {
+                PrestoSparkRunnerContext retryRunnerContext = new PrestoSparkRunnerContext.Builder(prestoSparkRunnerContext)
+                        .setRetryExecutionStrategy(failure.getRetryExecutionStrategy())
+                        .build();
+                execute(queryExecutionFactory, retryRunnerContext);
+                return;
+            }
+
+            throw failure;
+        }
+    }
+
+    private void execute(IPrestoSparkQueryExecutionFactory queryExecutionFactory, PrestoSparkRunnerContext prestoSparkRunnerContext)
+    {
+        PrestoSparkSession session = new PrestoSparkSession(
+                prestoSparkRunnerContext.getUser(),
+                prestoSparkRunnerContext.getPrincipal(),
+                prestoSparkRunnerContext.getExtraCredentials(),
+                Optional.ofNullable(prestoSparkRunnerContext.getCatalog()),
+                Optional.ofNullable(prestoSparkRunnerContext.getSchema()),
+                prestoSparkRunnerContext.getSource(),
+                prestoSparkRunnerContext.getUserAgent(),
+                prestoSparkRunnerContext.getClientInfo(),
+                prestoSparkRunnerContext.getClientTags(),
+                Optional.empty(),
+                Optional.empty(),
+                prestoSparkRunnerContext.getSessionProperties(),
+                prestoSparkRunnerContext.getCatalogSessionProperties(),
+                prestoSparkRunnerContext.getTraceToken(),
+                prestoSparkRunnerContext.getRetryExecutionStrategy());
+
+        IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
+                distribution.getSparkContext(),
+                session,
+                prestoSparkRunnerContext.getSqlText(),
+                prestoSparkRunnerContext.getSqlLocation(),
+                prestoSparkRunnerContext.getSqlFileHexHash(),
+                prestoSparkRunnerContext.getSqlFileSizeInBytes(),
+                prestoSparkRunnerContext.getSparkQueueName(),
+                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
+                prestoSparkRunnerContext.getQueryStatusInfoOutputLocation(),
+                prestoSparkRunnerContext.getQueryDataOutputLocation());
 
         List<List<Object>> results = queryExecution.execute();
 

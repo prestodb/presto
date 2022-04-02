@@ -55,6 +55,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameS
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -185,6 +186,14 @@ public class FileBasedAccessControl
     {
         if (!checkTablePermission(identity, tableName, DELETE)) {
             denyDeleteTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanTruncateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, DELETE)) {
+            denyTruncateTable(tableName.toString());
         }
     }
 

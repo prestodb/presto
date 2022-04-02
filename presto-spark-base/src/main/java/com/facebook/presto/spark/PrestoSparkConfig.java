@@ -41,6 +41,7 @@ public class PrestoSparkConfig
     private int splitAssignmentBatchSize = 1_000_000;
     private double memoryRevokingThreshold;
     private double memoryRevokingTarget;
+    private boolean retryOnOutOfMemoryBroadcastJoinEnabled;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -223,6 +224,19 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setMemoryRevokingTarget(double memoryRevokingTarget)
     {
         this.memoryRevokingTarget = memoryRevokingTarget;
+        return this;
+    }
+
+    public boolean isRetryOnOutOfMemoryBroadcastJoinEnabled()
+    {
+        return retryOnOutOfMemoryBroadcastJoinEnabled;
+    }
+
+    @Config("spark.retry-on-out-of-memory-broadcast-join-enabled")
+    @ConfigDescription("Disable broadcast join on broadcast OOM and re-submit the query again within the same spark session")
+    public PrestoSparkConfig setRetryOnOutOfMemoryBroadcastJoinEnabled(boolean retryOnOutOfMemoryBroadcastJoinEnabled)
+    {
+        this.retryOnOutOfMemoryBroadcastJoinEnabled = retryOnOutOfMemoryBroadcastJoinEnabled;
         return this;
     }
 }

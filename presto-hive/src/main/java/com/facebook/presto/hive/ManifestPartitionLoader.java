@@ -188,7 +188,7 @@ public class ManifestPartitionLoader
         ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
         HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, false);
 
-        Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, namenodeStats, hiveDirectoryContext);
+        Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, partition.getPartition(), namenodeStats, hiveDirectoryContext);
         int fileCount = 0;
         while (fileInfoIterator.hasNext()) {
             HiveFileInfo fileInfo = fileInfoIterator.next();

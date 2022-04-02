@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_REVOCABLE_MEMORY_LIMIT;
 import static com.facebook.presto.util.HeapDumper.dumpHeap;
@@ -51,7 +52,7 @@ public class ExceededMemoryLimitException
 
     public static ExceededMemoryLimitException exceededLocalBroadcastMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
     {
-        return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT,
+        return new ExceededMemoryLimitException(EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT,
                 format("Query exceeded per-node broadcast memory limit of %s [%s]", maxMemory, additionalFailureInfo));
     }
 

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.TypeUtils.containsDistinctType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -37,6 +38,7 @@ public class RowType
 {
     private final List<Field> fields;
     private final List<Type> fieldTypes;
+    private final Optional<TypeSignature> typeSignature;
 
     private RowType(List<Field> fields)
     {
@@ -45,6 +47,7 @@ public class RowType
         this.fieldTypes = fields.stream()
                 .map(Field::getType)
                 .collect(toList());
+        this.typeSignature = containsDistinctType(this.fieldTypes) ? Optional.empty() : Optional.of(makeSignature(fields));
     }
 
     public static RowType from(List<Field> fields)
@@ -97,7 +100,7 @@ public class RowType
     @Override
     public TypeSignature getTypeSignature()
     {
-        return makeSignature(fields);
+        return typeSignature.orElseGet(() -> makeSignature(fields));
     }
 
     @Override

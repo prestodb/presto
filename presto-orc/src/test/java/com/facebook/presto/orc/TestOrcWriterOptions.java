@@ -17,6 +17,7 @@ import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import com.facebook.presto.orc.writer.StreamLayoutFactory;
 import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
@@ -58,6 +59,14 @@ public class TestOrcWriterOptions
     }
 
     @Test
+    public void tesDefaultValues()
+    {
+        OrcWriterOptions options = OrcWriterOptions.builder().build();
+
+        assertEquals(ImmutableSet.of(), options.getFlattenedColumns());
+    }
+
+    @Test
     public void testProperties()
     {
         DataSize stripeMinSize = new DataSize(13, MEGABYTE);
@@ -95,7 +104,8 @@ public class TestOrcWriterOptions
                 .withIntegerDictionaryEncodingEnabled(integerDictionaryEncodingEnabled)
                 .withStringDictionarySortingEnabled(stringDictionarySortingEnabled)
                 .withStringDictionaryEncodingEnabled(stringDictionaryEncodingEnabled)
-                .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount);
+                .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount)
+                .withFlattenedColumns(ImmutableSet.of(4, 3));
 
         OrcWriterOptions options = builder.build();
 
@@ -116,6 +126,7 @@ public class TestOrcWriterOptions
         assertEquals(stringDictionaryEncodingEnabled, options.isStringDictionaryEncodingEnabled());
         assertEquals(Optional.empty(), options.getDwrfStripeCacheOptions());
         assertEquals(preserveDirectEncodingStripeCount, options.getPreserveDirectEncodingStripeCount());
+        assertEquals(ImmutableSet.of(4, 3), options.getFlattenedColumns());
     }
 
     @Test
@@ -160,6 +171,7 @@ public class TestOrcWriterOptions
                 .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
                 .withDwrfStripeCacheMode(dwrfStripeCacheMode)
                 .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount)
+                .withFlattenedColumns(ImmutableSet.of(4))
                 .build();
 
         String expectedString = "OrcWriterOptions{flushPolicy=DefaultOrcWriterFlushPolicy{stripeMaxRowCount=1100000, " +
@@ -169,7 +181,7 @@ public class TestOrcWriterOptions
                 "compressionLevel=OptionalInt[5], streamLayoutFactory=ColumnSizeLayoutFactory{}, integerDictionaryEncodingEnabled=false, " +
                 "stringDictionarySortingEnabled=true, stringDictionaryEncodingEnabled=true, " +
                 "dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}], " +
-                "ignoreDictionaryRowGroupSizes=false, preserveDirectEncodingStripeCount=0}";
+                "ignoreDictionaryRowGroupSizes=false, preserveDirectEncodingStripeCount=0, flattenedColumns=[4]}";
         assertEquals(expectedString, writerOptions.toString());
     }
 }

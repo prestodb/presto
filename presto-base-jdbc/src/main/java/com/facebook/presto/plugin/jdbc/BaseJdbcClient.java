@@ -234,6 +234,7 @@ public class BaseJdbcClient
                 while (resultSet.next()) {
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             resultSet.getInt("DATA_TYPE"),
+                            resultSet.getString("TYPE_NAME"),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
                     Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
@@ -536,6 +537,21 @@ public class BaseJdbcClient
         StringBuilder sql = new StringBuilder()
                 .append("DROP TABLE ")
                 .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            execute(connection, sql.toString());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void truncateTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle)
+    {
+        StringBuilder sql = new StringBuilder()
+                .append("TRUNCATE TABLE ")
+                .append(quoted(jdbcTableHandle.getCatalogName(), jdbcTableHandle.getSchemaName(), jdbcTableHandle.getTableName()));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql.toString());
