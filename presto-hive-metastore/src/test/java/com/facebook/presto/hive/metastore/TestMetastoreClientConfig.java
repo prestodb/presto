@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.MetastoreClientConfig.HiveMetastoreAuthenticationType;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore.MetastoreCacheScope;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -46,7 +47,8 @@ public class TestMetastoreClientConfig
                 .setMetastoreCacheScope(MetastoreCacheScope.ALL)
                 .setMetastoreImpersonationEnabled(false)
                 .setPartitionCacheValidationPercentage(0)
-                .setPartitionCacheColumnCountLimit(500));
+                .setPartitionCacheColumnCountLimit(500)
+                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE));
     }
 
     @Test
@@ -70,6 +72,7 @@ public class TestMetastoreClientConfig
                 .put("hive.metastore-impersonation-enabled", "true")
                 .put("hive.partition-cache-validation-percentage", "60.0")
                 .put("hive.partition-cache-column-count-limit", "50")
+                .put("hive.metastore.authentication.type", "KERBEROS")
                 .build();
 
         MetastoreClientConfig expected = new MetastoreClientConfig()
@@ -89,7 +92,8 @@ public class TestMetastoreClientConfig
                 .setMetastoreCacheScope(MetastoreCacheScope.PARTITION)
                 .setMetastoreImpersonationEnabled(true)
                 .setPartitionCacheValidationPercentage(60.0)
-                .setPartitionCacheColumnCountLimit(50);
+                .setPartitionCacheColumnCountLimit(50)
+                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
