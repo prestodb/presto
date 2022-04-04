@@ -146,7 +146,7 @@ class FlatVector final : public SimpleVector<T> {
    * Note this method is implemented on each vector type, but is intentionally
    * not virtual for performance reasons
    *
-   * @param byteOffset - the byte offset to laod from
+   * @param byteOffset - the byte offset to load from
    */
   __m256i loadSIMDValueBufferAt(size_t index) const;
 
