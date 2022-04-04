@@ -206,7 +206,7 @@ class ArrayWriter {
       }
     } else {
       length_ = 0;
-      for (auto& item : data) {
+      for (const auto& item : data) {
         auto& writer = add_item();
         writer.copy_from(item);
       }
@@ -326,28 +326,21 @@ class MapWriter {
   // Any map type iteratable in tuple like manner.
   template <typename MapType>
   void copy_from(const MapType& data) {
-    if constexpr (std_interface) {
-      resize(data.size());
-      vector_size_t i = 0;
-      for (auto& item : data) {
-        this->operator[](i++) = item;
+    resize(0);
+    for (const auto& [key, value] : data) {
+      auto [keyWriter, valueWriter] = add_item();
+      // copy key
+      if constexpr (provide_std_interface<K>) {
+        keyWriter = key;
+      } else {
+        keyWriter.copy_from(key);
       }
-    } else {
-      for (auto& [key, value] : data) {
-        auto [keyWriter, valueWriter] = add_item();
-        // copy key
-        if constexpr (provide_std_interface<K>) {
-          keyWriter = key;
-        } else {
-          keyWriter.copy_from(key);
-        }
 
-        // copy value
-        if constexpr (provide_std_interface<V>) {
-          valueWriter = value;
-        } else {
-          valueWriter.copy_from(value);
-        }
+      // copy value
+      if constexpr (provide_std_interface<V>) {
+        valueWriter = value;
+      } else {
+        valueWriter.copy_from(value);
       }
     }
   }

@@ -33,7 +33,7 @@ namespace {
 template <typename T>
 struct Func {
   template <typename TOut>
-  bool call(TOut& out, const int64_t& n) {
+  void call(TOut& out, const int64_t& n) {
     for (int i = 0; i < n; i++) {
       switch (i % 5) {
         case 0:
@@ -55,7 +55,6 @@ struct Func {
           break;
       }
     }
-    return true;
   }
 };
 
@@ -412,7 +411,7 @@ TEST_F(ArrayWriterTest, nestedArray) {
 template <typename T>
 struct MakeMatrixFunc {
   template <typename TOut>
-  bool call(TOut& out, const int64_t& n) {
+  void call(TOut& out, const int64_t& n) {
     int count = 0;
     for (auto i = 0; i < n; i++) {
       auto& matrixRow = out.add_item();
@@ -427,7 +426,6 @@ struct MakeMatrixFunc {
       }
     }
     VELOX_DCHECK(count == n * n);
-    return true;
   }
 };
 
@@ -559,9 +557,8 @@ auto makeCopyFromTestData() {
 template <typename T>
 struct CopyFromFunc {
   template <typename TOut>
-  bool call(TOut& out) {
+  void call(TOut& out) {
     out.copy_from(makeCopyFromTestData());
-    return true;
   }
 };
 
@@ -595,6 +592,72 @@ TEST_F(ArrayWriterTest, copyFromE2EMapArray) {
       auto dataMapValue = it2->second;
       ASSERT_EQ(*mapViewValue, dataMapValue);
     }
+  }
+}
+
+template <typename T>
+struct CopyFromInputFunc {
+  template <typename TOut, typename TIn>
+  void callNullFree(TOut& out, const TIn& input) {
+    out.copy_from(input);
+  }
+};
+
+TEST_F(ArrayWriterTest, copyFromNullFreeNestedViewType) {
+  registerFunction<
+      CopyFromInputFunc,
+      ArrayWriterT<MapWriterT<int64_t, int64_t>>,
+      Array<Map<int64_t, int64_t>>>({"copy_from_input1"});
+
+  auto mapVector1 = makeMapVector<int64_t, int64_t>({{{1, 2}, {3, 4}}});
+  auto mapVector2 = makeMapVector<int64_t, int64_t>({{}});
+  auto mapVector3 = makeMapVector<int64_t, int64_t>({{{5, 6}}});
+
+  auto result = evaluate(
+      "copy_from_input1(array_constructor(c0, c1, c2))",
+      makeRowVector({mapVector1, mapVector2, mapVector3}));
+
+  // Test results.
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+  decoded.decode(*result, rows);
+  exec::VectorReader<Array<Map<int64_t, int64_t>>> reader(&decoded);
+
+  auto arrayView = reader.readNullFree(0);
+  ASSERT_EQ(arrayView.size(), 3);
+
+  auto map1 = arrayView[0];
+  ASSERT_EQ(map1.size(), 2);
+  ASSERT_EQ(map1[1], 2);
+  ASSERT_EQ(map1[3], 4);
+
+  auto map2 = arrayView[1];
+  ASSERT_EQ(map2.size(), 0);
+
+  auto map3 = arrayView[2];
+  ASSERT_EQ(map3.size(), 1);
+  ASSERT_EQ(map3[5], 6);
+}
+
+TEST_F(ArrayWriterTest, copyFromNullFreeArrayView) {
+  registerFunction<CopyFromInputFunc, ArrayWriterT<int64_t>, Array<int64_t>>(
+      {"copy_from_input2"});
+
+  auto result = evaluate(
+      "copy_from_input2(array_constructor(1, 2, 3, 4, 5))",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  // Test results.
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+  decoded.decode(*result, rows);
+  exec::VectorReader<Array<int64_t>> reader(&decoded);
+
+  auto arrayView = reader.readNullFree(0);
+  ASSERT_EQ(arrayView.size(), 5);
+
+  for (auto i = 0; i < 5; i++) {
+    ASSERT_EQ(arrayView[i], i + 1);
   }
 }
 } // namespace
