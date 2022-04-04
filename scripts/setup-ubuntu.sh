@@ -113,7 +113,7 @@ function cmake_install {
 }
 
 function install_fmt {
-  github_checkout fmtlib/fmt 7.1.3
+  github_checkout fmtlib/fmt 8.0.0
   cmake_install -DFMT_TEST=OFF
 }
 
