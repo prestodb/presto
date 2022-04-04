@@ -30,8 +30,7 @@ presto-docs-venv/
 #==============================================================================#
 # presto-native-execution
 #==============================================================================#
-presto-native-execution/_build
-presto-native-execution/build
+_build/
 *.swp
 *~
 a.out
