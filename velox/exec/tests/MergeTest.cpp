@@ -36,13 +36,20 @@ class MergeTest : public OperatorTestBase {
                       .localMerge(
                           {orderByClause},
                           {PlanBuilder(planNodeIdGenerator)
-                               .values(inputVectors)
+                               .values(inputVectors, true)
                                .orderBy({orderByClause}, true)
                                .planNode()})
                       .planNode();
 
+      CursorParameters params;
+      params.planNode = plan;
+      params.maxDrivers = 2;
+      params.numResultDrivers = 1;
       assertQueryOrdered(
-          plan, "SELECT * FROM tmp ORDER BY " + orderByClause, {keyIndex});
+          params,
+          "SELECT * FROM (SELECT * FROM tmp UNION ALL SELECT * FROM tmp) ORDER BY " +
+              orderByClause,
+          {keyIndex});
 
       // Use multiple sources for local merge.
       std::vector<std::shared_ptr<const core::PlanNode>> sources;
@@ -81,21 +88,27 @@ class MergeTest : public OperatorTestBase {
         const std::vector<std::string> orderByClauses = {
             fmt::format("{} {}", key1, sortOrderSqls[i]),
             fmt::format("{} {}", key2, sortOrderSqls[j])};
-        const auto sql = fmt::format(
-            "SELECT * FROM tmp ORDER BY {}, {}",
-            orderByClauses[0],
-            orderByClauses[1]);
+        const auto orderBySql = fmt::format(
+            "ORDER BY {}, {}", orderByClauses[0], orderByClauses[1]);
         auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
         auto plan = PlanBuilder(planNodeIdGenerator)
                         .localMerge(
                             orderByClauses,
                             {PlanBuilder(planNodeIdGenerator)
-                                 .values(inputVectors)
+                                 .values(inputVectors, true)
                                  .orderBy(orderByClauses, true)
                                  .planNode()})
                         .planNode();
 
-        assertQueryOrdered(plan, sql, sortingKeys);
+        CursorParameters params;
+        params.planNode = plan;
+        params.maxDrivers = 2;
+        params.numResultDrivers = 1;
+        assertQueryOrdered(
+            params,
+            "SELECT * FROM (SELECT * FROM tmp UNION ALL SELECT * FROM tmp) " +
+                orderBySql,
+            sortingKeys);
 
         // Use multiple sources for local merge.
         std::vector<std::shared_ptr<const core::PlanNode>> sources;
@@ -109,7 +122,8 @@ class MergeTest : public OperatorTestBase {
                    .localMerge(orderByClauses, std::move(sources))
                    .planNode();
 
-        assertQueryOrdered(plan, sql, sortingKeys);
+        assertQueryOrdered(
+            plan, "SELECT * FROM tmp " + orderBySql, sortingKeys);
       }
     }
   }

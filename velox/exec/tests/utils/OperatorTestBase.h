@@ -54,6 +54,14 @@ class OperatorTestBase : public testing::Test,
   }
 
   std::shared_ptr<Task> assertQueryOrdered(
+      const CursorParameters& params,
+      const std::string& duckDbSql,
+      const std::vector<uint32_t>& sortingKeys) {
+    return test::assertQuery(
+        params, [&](auto*) {}, duckDbSql, duckDbQueryRunner_, sortingKeys);
+  }
+
+  std::shared_ptr<Task> assertQueryOrdered(
       const std::shared_ptr<const core::PlanNode>& plan,
       const std::vector<std::shared_ptr<connector::ConnectorSplit>>& splits,
       const std::string& duckDbSql,
