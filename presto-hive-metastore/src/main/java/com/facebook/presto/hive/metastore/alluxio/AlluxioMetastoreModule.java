@@ -65,7 +65,7 @@ public class AlluxioMetastoreModule
             String[] parts = address.split(":", 2);
             conf.set(PropertyKey.MASTER_HOSTNAME, parts[0]);
             if (parts.length > 1) {
-                conf.set(PropertyKey.MASTER_RPC_PORT, parts[1]);
+                conf.set(PropertyKey.MASTER_RPC_PORT, Integer.parseInt(parts[1]));
             }
         }
         MasterClientContext context = MasterClientContext.newBuilder(ClientContext.create(conf)).build();
