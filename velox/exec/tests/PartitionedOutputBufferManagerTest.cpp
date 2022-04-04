@@ -355,7 +355,7 @@ TEST_F(PartitionedOutputBufferManagerTest, outOfOrderAcks) {
 
   noMoreData(taskId);
   fetchEndMarker(taskId, 1, 10);
-  task->terminate(TaskState::kCanceled);
+  task->requestCancel();
   bufferManager_->removeTask(taskId);
 }
 

@@ -244,12 +244,8 @@ void Driver::enqueueInternal() {
 StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
     std::shared_ptr<BlockingState>* blockingState) {
+  auto queuedTime = (getCurrentTimeMicro() - queueTimeStartMicros_) * 1'000;
   // Update the next operator's queueTime.
-  if (curOpIndex_ < operators_.size()) {
-    operators_[curOpIndex_]->stats().addRuntimeStat(
-        "queuedWallNanos",
-        (getCurrentTimeMicro() - queueTimeStartMicros_) * 1'000);
-  }
   // Get 'task_' into a local because this could be unhooked from it on another
   // thread.
   auto task = task_;
@@ -270,6 +266,13 @@ StopReason Driver::runInternal(
           false)));
     }
     return stop;
+  }
+
+  // Update the queued time after entering the Task to ensure the stats have not
+  // been deleted.
+  if (curOpIndex_ < operators_.size()) {
+    operators_[curOpIndex_]->stats().addRuntimeStat(
+        "queuedWallNanos", queuedTime);
   }
 
   CancelGuard guard(task_.get(), &state_, [&](StopReason reason) {

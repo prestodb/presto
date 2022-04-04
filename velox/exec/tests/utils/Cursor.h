@@ -100,7 +100,7 @@ class TaskCursor {
   ~TaskCursor() {
     queue_->close();
     if (task_ && !atEnd_) {
-      task_->requestTerminate();
+      task_->requestCancel();
     }
   }
 

@@ -77,7 +77,7 @@ class LocalPartitionTest : public HiveConnectorTestBase {
       auto& executor = folly::QueuedImmediateExecutor::instance();
       auto future = task->stateChangeFuture(1'000'000).via(&executor);
       future.wait();
-      EXPECT_TRUE(task->state() == expected);
+      EXPECT_EQ(expected, task->state());
     }
   }
 };
@@ -589,6 +589,8 @@ TEST_F(LocalPartitionTest, earlyCancelation) {
 
   CursorParameters params;
   params.planNode = plan;
+  // Make sure results are queued one batch a a time.
+  params.bufferedBytes = 100;
 
   auto cursor = std::make_unique<TaskCursor>(params);
   const auto& task = cursor->task();
@@ -598,14 +600,19 @@ TEST_F(LocalPartitionTest, earlyCancelation) {
   ASSERT_EQ(100, cursor->current()->size());
 
   // Cancel the task.
-  task->terminate(exec::kCanceled);
+  task->requestCancel();
 
-  // Fetch the remaining results.
-  while (cursor->moveNext()) {
-    ;
+  // Fetch the remaining results. This will throw since only one vector can be
+  // buffered in the cursor.
+  try {
+    while (cursor->moveNext()) {
+      ;
+      FAIL() << "Expected a throw due to cancellation";
+    }
+  } catch (const std::exception& e) {
   }
 
-  // Wait for task to transition to failed state.
+  // Wait for task to transition to final state.
   waitForTaskState(task, exec::kCanceled);
 
   // Make sure there is only one reference to Task left, i.e. no Driver is
