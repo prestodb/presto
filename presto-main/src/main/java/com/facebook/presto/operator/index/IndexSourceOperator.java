@@ -30,6 +30,7 @@ import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.base.Suppliers;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -131,8 +132,14 @@ public class IndexSourceOperator
         source = new PageSourceOperator(result, operatorContext);
 
         Object splitInfo = split.getInfo();
+        Map<String, String> infoMap = split.getInfoMap();
+
+        //Make the implicit assumption that if infoMap is populated we can use that instead of the raw object.
         if (splitInfo != null) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(splitInfo)));
+        }
+        else if (!infoMap.isEmpty()) {
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(infoMap)));
         }
 
         return Optional::empty;

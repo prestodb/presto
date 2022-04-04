@@ -34,6 +34,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -154,8 +155,14 @@ public class TableScanOperator
         this.split = split;
 
         Object splitInfo = split.getInfo();
+        Map<String, String> infoMap = split.getInfoMap();
+
+        //Make the implicit assumption that if infoMap is populated we can use that instead of the raw object.
         if (splitInfo != null) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(splitInfo)));
+        }
+        else if (!infoMap.isEmpty()) {
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(infoMap)));
         }
 
         blocked.set(null);
