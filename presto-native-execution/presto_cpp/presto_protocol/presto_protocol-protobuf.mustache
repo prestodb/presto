@@ -1,0 +1,32 @@
+
+syntax = "proto3";
+
+package presto_protocol;
+
+{{#.}}
+{{#abstract}}
+message {{class_name}} {
+    oneof {{field_name}} {
+        {{#subclasses}}
+        {{&type}} {{&name}} = {{_N}};
+        {{/subclasses}}
+    }
+}
+{{/abstract}}
+{{#struct}}
+message {{class_name}} {
+    {{#fields}}
+    {{&field_text}} {{&field_name}} = {{_N}}{{#repeated}} [packed = true]{{/repeated}};
+    {{/fields}}
+}
+{{/struct}}
+{{#enum}}
+enum {{class_name}} {
+    {{#elements}}
+    {{&element}} = {{_N}};
+    {{/elements}}
+}
+{{/enum}}
+
+{{/.}}
+    
