@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <optional>
 #include "gtest/gtest.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
@@ -170,6 +171,37 @@ TEST_F(NullFreeRowViewTest, encoded) {
 
 TEST_F(NullFreeRowViewTest, get) {
   getTest();
+}
+
+TEST_F(NullFreeRowViewTest, materialize) {
+  auto result = evaluate(
+      "row_constructor(1,'hi',array_constructor(1,2,3))",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  DecodedVector decoded;
+  exec::VectorReader<Row<int64_t, Varchar, Array<int64_t>>> reader(
+      decode(decoded, *result.get()));
+
+  std::tuple<int64_t, std::string, std::vector<int64_t>> expected{
+      1, "hi", {1, 2, 3}};
+  ASSERT_EQ(reader.readNullFree(0).materialize(), expected);
+}
+
+TEST_F(NullableRowViewTest, materialize) {
+  auto result = evaluate(
+      "row_constructor(1, 'hi', array_constructor(1, 2, null))",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  DecodedVector decoded;
+  exec::VectorReader<Row<int64_t, Varchar, Array<int64_t>>> reader(
+      decode(decoded, *result.get()));
+
+  std::tuple<
+      std::optional<int64_t>,
+      std::optional<std::string>,
+      std::optional<std::vector<std::optional<int64_t>>>>
+      expected{1, "hi", {{1, 2, std::nullopt}}};
+  ASSERT_EQ(reader[0].materialize(), expected);
 }
 
 } // namespace

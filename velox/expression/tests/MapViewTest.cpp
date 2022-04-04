@@ -15,6 +15,7 @@
  */
 
 #include <optional>
+#include "folly/container/F14Map.h"
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "velox/common/base/Exceptions.h"
@@ -548,6 +549,47 @@ TEST_F(NullFreeMapViewTest, testSubscript) {
 
   ASSERT_THROW(read(reader, 1)[5], VeloxException);
   ASSERT_EQ(read(reader, 1)[3], 3);
+}
+
+TEST_F(NullFreeMapViewTest, materialize) {
+  auto result = evaluate(
+      "map(array_constructor(1, 2), array_constructor(1, 3))",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  DecodedVector decoded;
+  exec::VectorReader<Map<int64_t, int64_t>> reader(
+      decode(decoded, *result.get()));
+
+  folly::F14FastMap<int64_t, int64_t> expected{{1, 1}, {2, 3}};
+  ASSERT_EQ(reader.readNullFree(0).materialize(), expected);
+}
+
+TEST_F(NullableMapViewTest, materialize) {
+  auto result = evaluate(
+      "map(array_constructor(1, 2),array_constructor(1, NULL))",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  DecodedVector decoded;
+  exec::VectorReader<Map<int64_t, int64_t>> reader(
+      decode(decoded, *result.get()));
+
+  folly::F14FastMap<int64_t, std::optional<int64_t>> expected{
+      {1, 1}, {2, std::nullopt}};
+  ASSERT_EQ(reader[0].materialize(), expected);
+}
+
+TEST_F(NullableMapViewTest, materializeNested) {
+  auto result = evaluate(
+      "map(array_constructor(1, 2), array_constructor(array_constructor(1, null), null))",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  DecodedVector decoded;
+  exec::VectorReader<Map<int64_t, Array<int64_t>>> reader(
+      decode(decoded, *result.get()));
+
+  folly::F14FastMap<int64_t, std::optional<std::vector<std::optional<int64_t>>>>
+      expected{{1, {{1, std::nullopt}}}, {2, std::nullopt}};
+  ASSERT_EQ(reader[0].materialize(), expected);
 }
 
 } // namespace

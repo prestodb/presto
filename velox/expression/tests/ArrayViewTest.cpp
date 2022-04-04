@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <optional>
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
@@ -323,6 +324,75 @@ TEST_F(NullFreeArrayViewTest, intArray) {
 
 TEST_F(NullFreeArrayViewTest, encoded) {
   encodedTest();
+}
+
+TEST_F(NullFreeArrayViewTest, materialize) {
+  auto result = evaluate(
+      "array_constructor(1, 2, 3, 4, 5)",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  DecodedVector decoded;
+  exec::VectorReader<Array<int64_t>> reader(decode(decoded, *result.get()));
+
+  ASSERT_EQ(
+      reader.readNullFree(0).materialize(),
+      std::vector<int64_t>({1, 2, 3, 4, 5}));
+}
+
+TEST_F(NullableArrayViewTest, materialize) {
+  auto result = evaluate(
+      "array_constructor(1, 2, NULL, 4, NULL)",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  DecodedVector decoded;
+  exec::VectorReader<Array<int64_t>> reader(decode(decoded, *result.get()));
+
+  ASSERT_EQ(
+      reader[0].materialize(),
+      std::vector<std::optional<int64_t>>(
+          {1, 2, std::nullopt, 4, std::nullopt}));
+}
+
+TEST_F(NullableArrayViewTest, materializeNested) {
+  auto result = evaluate(
+      "array_constructor(array_constructor(1), array_constructor(1, NULL), NULL)",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  DecodedVector decoded;
+  exec::VectorReader<Array<Array<int64_t>>> reader(
+      decode(decoded, *result.get()));
+  ASSERT_EQ(
+      reader[0].materialize(),
+      std::vector<std::optional<std::vector<std::optional<int64_t>>>>(
+          {{{{1}}, {{1, std::nullopt}}, std::nullopt}}));
+}
+
+// Function that takes an array of arrays as input.
+template <typename T>
+struct MakeOpaqueFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(std::shared_ptr<int64_t>& out) {
+    out = std::make_shared<int64_t>(1);
+  }
+};
+
+TEST_F(NullableArrayViewTest, materializeArrayWithOpaque) {
+  registerFunction<MakeOpaqueFunc, std::shared_ptr<int64_t>>({"make_opaque"});
+
+  auto result = evaluate(
+      "array_constructor(make_opaque(), null)",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  DecodedVector decoded;
+  exec::VectorReader<Array<std::shared_ptr<int64_t>>> reader(
+      decode(decoded, *result.get()));
+
+  std::vector<std::optional<std::shared_ptr<int64_t>>> array =
+      reader[0].materialize();
+  ASSERT_EQ(array.size(), 2);
+  ASSERT_EQ(*array[0].value(), 1);
+  ASSERT_FALSE(array[1].has_value());
 }
 
 } // namespace

@@ -18,6 +18,7 @@
 #include <iterator>
 #include <optional>
 
+#include "folly/container/F14Map.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/type/Type.h"
@@ -378,6 +379,66 @@ operator!=(const VectorOptionalValueAccessor<U>& lhs, const T& rhs) {
   return !(lhs == rhs);
 }
 
+template <typename T>
+struct MaterializeType {
+  using null_free_t = T;
+  using nullable_t = T;
+  static constexpr bool requiresMaterialization = false;
+};
+
+template <typename V>
+struct MaterializeType<Array<V>> {
+  using null_free_t = std::vector<typename MaterializeType<V>::null_free_t>;
+  using nullable_t =
+      std::vector<std::optional<typename MaterializeType<V>::nullable_t>>;
+  static constexpr bool requiresMaterialization = true;
+};
+
+template <typename K, typename V>
+struct MaterializeType<Map<K, V>> {
+  using key_t = typename MaterializeType<K>::null_free_t;
+
+  using nullable_t = folly::
+      F14FastMap<key_t, std::optional<typename MaterializeType<V>::nullable_t>>;
+
+  using null_free_t =
+      folly::F14FastMap<key_t, typename MaterializeType<V>::null_free_t>;
+  static constexpr bool requiresMaterialization = true;
+};
+
+template <typename... T>
+struct MaterializeType<Row<T...>> {
+  using nullable_t =
+      std::tuple<std::optional<typename MaterializeType<T>::nullable_t>...>;
+
+  using null_free_t = std::tuple<typename MaterializeType<T>::null_free_t...>;
+  static constexpr bool requiresMaterialization = true;
+};
+
+template <>
+struct MaterializeType<Varchar> {
+  using nullable_t = std::string;
+  using null_free_t = std::string;
+  static constexpr bool requiresMaterialization = false;
+};
+
+template <>
+struct MaterializeType<Varbinary> {
+  using nullable_t = std::string;
+  using null_free_t = std::string;
+  static constexpr bool requiresMaterialization = false;
+};
+
+// Helper function that calls materialize on element if it's not primitive.
+template <typename VeloxType, typename T>
+auto materializeElement(const T& element) {
+  if constexpr (MaterializeType<VeloxType>::requiresMaterialization) {
+    return element.materialize();
+  } else {
+    return element;
+  }
+}
+
 // Represents an array of elements with an interface similar to std::vector.
 // When returnsOptionalValues is true, the interface is like
 // std::vector<std::optional<V>>.
@@ -478,6 +539,28 @@ class ArrayView {
     }
   }
 
+  using materialize_t = typename std::conditional<
+      returnsOptionalValues,
+      typename MaterializeType<Array<V>>::nullable_t,
+      typename MaterializeType<Array<V>>::null_free_t>::type;
+
+  materialize_t materialize() const {
+    materialize_t result;
+
+    for (const auto& element : *this) {
+      if constexpr (returnsOptionalValues) {
+        if (element.has_value()) {
+          result.push_back({materializeElement<V>(element.value())});
+        } else {
+          result.push_back(std::nullopt);
+        }
+      } else {
+        result.push_back(materializeElement<V>(element));
+      }
+    }
+    return result;
+  }
+
   Element operator[](vector_size_t index) const {
     if constexpr (returnsOptionalValues) {
       return Element{reader_, index + offset_};
@@ -571,8 +654,8 @@ class MapView {
     }
 
    private:
-    // Helper functions to allow us to use "if constexpr" when initializing the
-    // values.
+    // Helper functions to allow us to use "if constexpr" when initializing
+    // the values.
     KeyAccessor getFirst(const key_reader_t* keyReader, int64_t index) {
       if constexpr (returnsOptionalValues) {
         return (*keyReader)[index];
@@ -647,6 +730,29 @@ class MapView {
     return at(key);
   }
 
+  using materialize_t = typename std::conditional<
+      returnsOptionalValues,
+      typename MaterializeType<Map<K, V>>::nullable_t,
+      typename MaterializeType<Map<K, V>>::null_free_t>::type;
+
+  materialize_t materialize() const {
+    materialize_t result;
+    for (const auto& [key, value] : *this) {
+      if constexpr (returnsOptionalValues) {
+        if (value.has_value()) {
+          result.emplace(
+              materializeElement<K>(key), materializeElement<V>(value.value()));
+        } else {
+          result.emplace(materializeElement<K>(key), std::nullopt);
+        }
+      } else {
+        result.emplace(
+            materializeElement<K>(key), materializeElement<V>(value));
+      }
+    }
+    return result;
+  }
+
  private:
   const key_reader_t* keyReader_;
   const value_reader_t* valueReader_;
@@ -678,7 +784,43 @@ class RowView {
     }
   }
 
+  using materialize_t = typename std::conditional<
+      returnsOptionalValues,
+      typename MaterializeType<Row<T...>>::nullable_t,
+      typename MaterializeType<Row<T...>>::null_free_t>::type;
+
+  materialize_t materialize() const {
+    materialize_t result;
+    materializeImpl(result, std::index_sequence_for<T...>());
+
+    return result;
+  }
+
  private:
+  void initialize() {
+    initializeImpl(std::index_sequence_for<T...>());
+  }
+
+  using children_types = std::tuple<T...>;
+  template <std::size_t... Is>
+  void materializeImpl(materialize_t& result, std::index_sequence<Is...>)
+      const {
+    (
+        [&]() {
+          using child_t = typename std::tuple_element_t<Is, children_types>;
+          const auto& element = at<Is>();
+          if constexpr (returnsOptionalValues) {
+            if (element.has_value()) {
+              std::get<Is>(result) = {materializeElement<child_t>(*element)};
+            } else {
+              std::get<Is>(result) = std::nullopt;
+            }
+          } else {
+            std::get<Is>(result) = materializeElement<child_t>(element);
+          }
+        }(),
+        ...);
+  }
   const reader_t* childReaders_;
   vector_size_t offset_;
 };
