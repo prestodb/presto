@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>presto-root</artifactId>
+        <groupId>com.facebook.presto</groupId>
+        <version>0.273-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>presto-native-tests</artifactId>
+    <name>presto-native-tests</name>
+    <description>Presto - Tests for Native (C++) Worker</description>
+
+    <properties>
+        <air.main.basedir>${project.basedir}</air.main.basedir>
+        <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tests</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tpcds</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive</artifactId>
+            <type>test-jar</type>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Disable git-commit-id-plugin plugin to allow for running tests without
+            a git checkout -->
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <systemPropertyVariables>
+                        <PRESTO_SERVER>/root/project/build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
+                        <DATA_DIR>/tmp/velox</DATA_DIR>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

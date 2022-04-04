@@ -1,0 +1,8 @@
+presto_thrift.json -diff -merge
+presto_thrift.json linguist-generated=true
+presto_protocol-to-thrift-json.json -diff -merge
+presto_protocol-to-thrift-json.json linguist-generated=true
+ProtocolToThrift.cpp -diff -merge
+ProtocolToThrift.cpp linguist-generated=true
+ProtocolToThrift.h -diff -merge
+ProtocolToThrift.h linguist-generated=true
