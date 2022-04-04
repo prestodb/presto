@@ -316,6 +316,25 @@ public class HiveSplit
     }
 
     @Override
+    public Map<String, String> getInfoMap()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("path", path)
+                .put("start", Long.toString(start))
+                .put("length", Long.toString(length))
+                .put("fileSize", Long.toString(fileSize))
+                .put("fileModifiedTime", Long.toString(fileModifiedTime))
+                .put("hosts", addresses.toString())
+                .put("database", database)
+                .put("table", table)
+                .put("nodeSelectionStrategy", nodeSelectionStrategy.toString())
+                .put("partitionName", partitionName)
+                .put("s3SelectPushdownEnabled", Boolean.toString(s3SelectPushdownEnabled))
+                .put("cacheQuotaRequirement", cacheQuotaRequirement.toString())
+                .build();
+    }
+
+    @Override
     public Object getSplitIdentifier()
     {
         return ImmutableMap.builder()
