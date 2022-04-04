@@ -200,9 +200,9 @@ void copyRow(
     const RowVectorPtr& target,
     vector_size_t targetIndex,
     const std::vector<IdentityProjection>& projections) {
-  for (auto& projection : projections) {
-    auto sourceChild = source->childAt(projection.inputChannel);
-    auto targetChild = target->childAt(projection.outputChannel);
+  for (const auto& projection : projections) {
+    const auto& sourceChild = source->childAt(projection.inputChannel);
+    const auto& targetChild = target->childAt(projection.outputChannel);
     targetChild->copy(sourceChild.get(), targetIndex, sourceIndex, 1);
   }
 }
@@ -211,8 +211,8 @@ void copyRow(
 void MergeJoin::addOutputRowForLeftJoin() {
   copyRow(input_, index_, output_, outputSize_, leftProjections_);
 
-  for (auto& projection : rightProjections_) {
-    auto target = output_->childAt(projection.outputChannel);
+  for (const auto& projection : rightProjections_) {
+    const auto& target = output_->childAt(projection.outputChannel);
     target->setNull(outputSize_, true);
   }
 
