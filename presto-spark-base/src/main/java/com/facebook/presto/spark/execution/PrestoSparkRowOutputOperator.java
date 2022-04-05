@@ -185,7 +185,6 @@ public class PrestoSparkRowOutputOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PrestoSparkRowOutputOperator.class.getSimpleName());
             return new PrestoSparkRowOutputOperator(
                     operatorContext,
-                    operatorContext.newLocalSystemMemoryContext(PrestoSparkRowOutputOperator.class.getSimpleName()),
                     outputBuffer,
                     pagePreprocessor,
                     partitionFunction,
@@ -237,7 +236,6 @@ public class PrestoSparkRowOutputOperator
 
     public PrestoSparkRowOutputOperator(
             OperatorContext operatorContext,
-            LocalMemoryContext systemMemoryContext,
             PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer,
             Function<Page, Page> pagePreprocessor,
             PartitionFunction partitionFunction,
@@ -248,7 +246,7 @@ public class PrestoSparkRowOutputOperator
             int targetAverageRowSizeInBytes)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.systemMemoryContext = operatorContext.localSystemMemoryContext();
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");

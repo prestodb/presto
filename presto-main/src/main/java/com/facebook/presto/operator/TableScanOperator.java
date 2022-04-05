@@ -127,7 +127,7 @@ public class TableScanOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(TableScanOperator.class.getSimpleName());
+        this.systemMemoryContext = operatorContext.localSystemMemoryContext();
     }
 
     @Override
