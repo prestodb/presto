@@ -301,10 +301,10 @@ public class OperatorContext
         return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), memoryFuture, this::updateTaskRevocableMemoryReservation, false);
     }
 
-    // caller should close this context as it's a new context
-    public AggregatedMemoryContext newAggregateSystemMemoryContext()
+    // caller shouldn't close this context as it's managed by the OperatorContext
+    public AggregatedMemoryContext aggregateSystemMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
     }
 
     // listen to all memory allocations and update the peak memory reservations accordingly
