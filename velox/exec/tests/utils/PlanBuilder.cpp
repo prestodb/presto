@@ -281,13 +281,29 @@ PlanBuilder::createIntermediateOrFinalAggregation(
       planNode_);
 }
 
-PlanBuilder& PlanBuilder::intermediateAggregation() {
-  // Current plan node must be a partial aggregation.
-  auto* aggNode = dynamic_cast<core::AggregationNode*>(planNode_.get());
+namespace {
+/// Checks that specified plan node is a partial or intermediate aggregation or
+/// local exchange over the same. Returns a pointer to core::AggregationNode.
+const core::AggregationNode* findPartialAggregation(
+    const core::PlanNode* planNode) {
+  const core::AggregationNode* aggNode;
+  if (auto exchange = dynamic_cast<const core::LocalPartitionNode*>(planNode)) {
+    aggNode = dynamic_cast<const core::AggregationNode*>(
+        exchange->sources()[0].get());
+  } else {
+    aggNode = dynamic_cast<const core::AggregationNode*>(planNode);
+  }
   VELOX_CHECK_NOT_NULL(
-      aggNode, "Current plan node must be a partial aggregation.");
-
+      aggNode,
+      "Current plan node must be a partial or intermediate aggregation or local exchange over the same. Got: {}",
+      planNode->toString());
   VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
+  return aggNode;
+}
+} // namespace
+
+PlanBuilder& PlanBuilder::intermediateAggregation() {
+  const auto* aggNode = findPartialAggregation(planNode_.get());
   VELOX_CHECK(exec::isRawInput(aggNode->step()));
 
   auto step = core::AggregationNode::Step::kIntermediate;
@@ -297,13 +313,8 @@ PlanBuilder& PlanBuilder::intermediateAggregation() {
 }
 
 PlanBuilder& PlanBuilder::finalAggregation() {
-  // Current plan node must be a partial or intermediate aggregation.
-  const auto* aggNode = dynamic_cast<core::AggregationNode*>(planNode_.get());
-  VELOX_CHECK_NOT_NULL(
-      aggNode,
-      "Current plan node must be a partial or intermediate aggregation.");
+  const auto* aggNode = findPartialAggregation(planNode_.get());
 
-  VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
   if (!exec::isRawInput(aggNode->step())) {
     // Check the source node.
     aggNode =

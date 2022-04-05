@@ -121,15 +121,14 @@ class ChecksumAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushDown*/) override {
-    const auto& arg = args[0];
-    auto vector = arg->asUnchecked<FlatVector<int64_t>>();
-    auto rawValues = vector->rawValues();
+    decodedIntermediate_.decode(*args[0], rows);
 
     rows.applyToSelected([&](vector_size_t row) {
       auto group = groups[row];
-      if (!vector->isNullAt(row)) {
+      if (!decodedIntermediate_.isNullAt(row)) {
         clearNull(group);
-        safeAdd(*value<int64_t>(group), rawValues[row]);
+        safeAdd(
+            *value<int64_t>(group), decodedIntermediate_.valueAt<int64_t>(row));
       }
     });
   }
@@ -209,6 +208,7 @@ class ChecksumAggregate : public exec::Aggregate {
 
   std::unique_ptr<PrestoHasher> prestoHasher_;
   BufferPtr hashes_;
+  DecodedVector decodedIntermediate_;
 };
 
 bool registerChecksumAggregate(const std::string& name) {

@@ -97,6 +97,26 @@ TEST_F(CountAggregation, count) {
                    .planNode();
     assertQuery(agg, "SELECT c0 % 10, count(c7) FROM tmp GROUP BY 1");
   }
+
+  // Add local exchange before intermediate aggregation.
+  {
+    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+
+    CursorParameters params;
+    params.planNode = PlanBuilder(planNodeIdGenerator)
+                          .localPartition(
+                              {0},
+                              {PlanBuilder(planNodeIdGenerator)
+                                   .values(vectors)
+                                   .project({"c0 % 10", "c1"})
+                                   .partialAggregation({0}, {"count(1)"})
+                                   .planNode()})
+                          .intermediateAggregation()
+                          .planNode();
+    params.maxDrivers = 2;
+
+    assertQuery(params, "SELECT c0 % 10, count(1) FROM tmp GROUP BY 1");
+  }
 }
 
 } // namespace

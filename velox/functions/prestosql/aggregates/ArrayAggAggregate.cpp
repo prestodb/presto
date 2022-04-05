@@ -96,15 +96,17 @@ class ArrayAggAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::ARRAY);
-    auto arrayVector = args[0]->as<ArrayVector>();
+    decodedIntermediate_.decode(*args[0], rows);
+
+    auto arrayVector = decodedIntermediate_.base()->as<ArrayVector>();
     auto& elements = arrayVector->elements();
     rows.applyToSelected([&](vector_size_t row) {
       auto group = groups[row];
+      auto decodedRow = decodedIntermediate_.index(row);
       value<ArrayAccumulator>(group)->elements.appendRange(
           elements,
-          arrayVector->offsetAt(row),
-          arrayVector->sizeAt(row),
+          arrayVector->offsetAt(decodedRow),
+          arrayVector->sizeAt(decodedRow),
           allocator_);
     });
   }
@@ -158,6 +160,7 @@ class ArrayAggAggregate : public exec::Aggregate {
 
   // Reusable instance of DecodedVector for decoding input vectors.
   DecodedVector decodedElements_;
+  DecodedVector decodedIntermediate_;
 };
 
 bool registerArrayAggregate(const std::string& name) {

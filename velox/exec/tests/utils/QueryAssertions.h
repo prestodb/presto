@@ -151,6 +151,10 @@ std::shared_ptr<Task> assertQuery(
     const std::shared_ptr<const core::PlanNode>& plan,
     const std::vector<RowVectorPtr>& expectedResults);
 
+std::shared_ptr<Task> assertQuery(
+    const CursorParameters& params,
+    const std::vector<RowVectorPtr>& expectedResults);
+
 velox::variant readSingleValue(
     const std::shared_ptr<const core::PlanNode>& plan);
 

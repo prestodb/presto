@@ -80,6 +80,23 @@ TEST_F(MapAggTest, groupBy) {
            nullEvery(7))})};
 
   exec::test::assertQuery(op, expectedResult);
+
+  // Add local exchange before intermediate aggregation.
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+
+  CursorParameters params;
+  params.planNode = PlanBuilder(planNodeIdGenerator)
+                        .localPartition(
+                            {0},
+                            {PlanBuilder(planNodeIdGenerator)
+                                 .values(vectors)
+                                 .partialAggregation({0}, {"map_agg(c1, c2)"})
+                                 .planNode()})
+                        .intermediateAggregation()
+                        .planNode();
+  params.maxDrivers = 2;
+
+  exec::test::assertQuery(params, expectedResult);
 }
 
 TEST_F(MapAggTest, global) {

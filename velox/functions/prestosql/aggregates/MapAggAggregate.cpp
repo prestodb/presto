@@ -119,15 +119,18 @@ class MapAggAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::MAP);
-    auto mapVector = args[0]->as<MapVector>();
+    decodedIntermediate_.decode(*args[0], rows);
+
+    auto mapVector = decodedIntermediate_.base()->as<MapVector>();
     auto& mapKeys = mapVector->mapKeys();
     auto& mapValues = mapVector->mapValues();
     rows.applyToSelected([&](vector_size_t row) {
       auto group = groups[row];
       auto accumulator = value<MapAccumulator>(group);
-      auto offset = mapVector->offsetAt(row);
-      auto size = mapVector->sizeAt(row);
+
+      auto decodedRow = decodedIntermediate_.index(row);
+      auto offset = mapVector->offsetAt(decodedRow);
+      auto size = mapVector->sizeAt(decodedRow);
       accumulator->keys.appendRange(mapKeys, offset, size, allocator_);
       accumulator->values.appendRange(mapValues, offset, size, allocator_);
     });
@@ -259,6 +262,7 @@ class MapAggAggregate : public exec::Aggregate {
 
   DecodedVector decodedKeys_;
   DecodedVector decodedValues_;
+  DecodedVector decodedIntermediate_;
 };
 
 bool registerMapAggAggregate(const std::string& name) {

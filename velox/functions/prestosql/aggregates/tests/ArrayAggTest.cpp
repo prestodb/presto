@@ -57,6 +57,7 @@ TEST_F(ArrayAggTest, groupBy) {
                         .partialAggregation({0}, {"array_agg(A)"})
                         .finalAggregation()
                         .planNode();
+
   auto pair = readCursor(params, [](Task*) {});
   auto reference = batches[0]->as<RowVector>()->childAt(1);
   for (auto rowVector : pair.second) {
@@ -78,6 +79,21 @@ TEST_F(ArrayAggTest, groupBy) {
       }
     }
   }
+
+  // Add local exchange before intermediate aggregation. Expect the same result.
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  params.planNode = PlanBuilder(planNodeIdGenerator)
+                        .localPartition(
+                            {0},
+                            {PlanBuilder(planNodeIdGenerator)
+                                 .values(batches)
+                                 .partialAggregation({0}, {"array_agg(A)"})
+                                 .planNode()})
+                        .intermediateAggregation()
+                        .planNode();
+  params.maxDrivers = 2;
+
+  exec::test::assertQuery(params, pair.second);
 }
 
 TEST_F(ArrayAggTest, global) {

@@ -81,13 +81,10 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::FLAT);
-
-    auto vector = args[0]->asUnchecked<FlatVector<int64_t>>();
-    auto rawValues = vector->rawValues();
-
-    rows.applyToSelected(
-        [&](vector_size_t i) { addToGroup(groups[i], rawValues[i]); });
+    decodedIntermediate_.decode(*args[0], rows);
+    rows.applyToSelected([&](vector_size_t i) {
+      addToGroup(groups[i], decodedIntermediate_.valueAt<int64_t>(i));
+    });
   }
 
   void addSingleGroupRawInput(
@@ -145,6 +142,8 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
   inline void addToGroup(char* group, int64_t count) {
     *value<int64_t>(group) += count;
   }
+
+  DecodedVector decodedIntermediate_;
 };
 
 bool registerCountAggregate(const std::string& name) {

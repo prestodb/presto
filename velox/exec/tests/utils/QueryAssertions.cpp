@@ -300,6 +300,8 @@ velox::variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
     auto innerRow = offset + i;
     if (elements->isNullAt(innerRow)) {
       array.emplace_back(elements->typeKind());
+    } else if (elements->typeKind() == TypeKind::ARRAY) {
+      array.push_back(arrayVariantAt(elements, innerRow));
     } else {
       array.emplace_back(VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
           variantAt, elements->typeKind(), elements, innerRow));
@@ -770,6 +772,12 @@ std::shared_ptr<Task> assertQuery(
     const std::vector<RowVectorPtr>& expectedResults) {
   CursorParameters params;
   params.planNode = plan;
+  return assertQuery(params, expectedResults);
+}
+
+std::shared_ptr<Task> assertQuery(
+    const CursorParameters& params,
+    const std::vector<RowVectorPtr>& expectedResults) {
   auto result = readCursor(params, [](Task*) {});
 
   assertEqualResults(expectedResults, result.second);

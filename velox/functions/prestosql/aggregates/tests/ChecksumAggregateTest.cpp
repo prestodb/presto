@@ -14,13 +14,20 @@
  * limitations under the License.
  */
 #include <boost/algorithm/string/join.hpp>
+#include "velox/common/encode/Base64.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
-using facebook::velox::exec::test::PlanBuilder;
+using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::aggregate::test {
+namespace {
+int64_t decodeChecksum(const std::string& checksum) {
+  auto decoded = encoding::Base64::decode(checksum);
+  return *reinterpret_cast<const int64_t*>(decoded.data());
+}
+} // namespace
 
 class ChecksumAggregateTest : public AggregationTestBase {
  protected:
@@ -85,12 +92,11 @@ class ChecksumAggregateTest : public AggregationTestBase {
     auto dataVector = makeNullableFlatVector<T>(data);
     auto rowVectors = std::vector{makeRowVector({groupVector, dataVector})};
 
-    auto expectedResults = std::vector<std::string>();
+    std::vector<std::string> expectedResults;
     expectedResults.reserve(expectedChecksums.size());
-    for (auto& str : expectedChecksums) {
-      expectedResults.push_back(fmt::format("(\'{}\')", str));
+    for (const auto& checksum : expectedChecksums) {
+      expectedResults.push_back(fmt::format("(\'{}\')", checksum));
     }
-    auto joinedResults = boost::algorithm::join(expectedResults, ",");
 
     auto agg = PlanBuilder()
                    .values(rowVectors)
@@ -98,12 +104,35 @@ class ChecksumAggregateTest : public AggregationTestBase {
                    .finalAggregation()
                    .project({"to_base64(a0) AS c0"})
                    .planNode();
-    assertQuery(
-        agg,
-        fmt::format(
-            "SELECT cast(x as VARCHAR) "
-            "FROM (values {}) t(x);",
-            joinedResults));
+    assertQuery(agg, "VALUES " + boost::algorithm::join(expectedResults, ","));
+
+    // Add local exchange before intermediate aggregation.
+    {
+      std::vector<std::string> expectedInts;
+      expectedInts.reserve(expectedChecksums.size());
+      for (const auto& checksum : expectedChecksums) {
+        expectedInts.push_back(
+            fmt::format("({}::bigint)", decodeChecksum(checksum)));
+      }
+
+      auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+
+      CursorParameters params;
+      params.planNode = PlanBuilder(planNodeIdGenerator)
+                            .localPartition(
+                                {0},
+                                {PlanBuilder(planNodeIdGenerator)
+                                     .values(rowVectors)
+                                     .partialAggregation({0}, {"checksum(c1)"})
+                                     .planNode()})
+                            .intermediateAggregation()
+                            .project({"a0"})
+                            .planNode();
+      params.maxDrivers = 2;
+
+      assertQuery(
+          params, "VALUES " + boost::algorithm::join(expectedInts, ","));
+    }
   }
 
   template <typename T>
