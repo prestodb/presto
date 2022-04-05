@@ -112,9 +112,9 @@ public final class MemoryTrackingContext
         return revocableAggregateMemoryContext;
     }
 
-    public AggregatedMemoryContext newAggregateSystemMemoryContext()
+    public AggregatedMemoryContext aggregateSystemMemoryContext()
     {
-        return systemAggregateMemoryContext.newAggregatedMemoryContext();
+        return systemAggregateMemoryContext;
     }
 
     public long getUserMemory()

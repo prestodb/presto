@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.util.MergeSortedPages.PageWithPosition;
 
-import java.io.Closeable;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
@@ -35,7 +34,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * stream of Pages can have interleaved positions with same hash value.
  */
 public class MergeHashSort
-        implements Closeable
 {
     private final AggregatedMemoryContext memoryContext;
 
@@ -59,12 +57,6 @@ public class MergeHashSort
                 true,
                 memoryContext,
                 driverYieldSignal);
-    }
-
-    @Override
-    public void close()
-    {
-        memoryContext.close();
     }
 
     private static BiPredicate<PageBuilder, PageWithPosition> keepSameHashValuesWithinSinglePage(InterpretedHashGenerator hashGenerator)
