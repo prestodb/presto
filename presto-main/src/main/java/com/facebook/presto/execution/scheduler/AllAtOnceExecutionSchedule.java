@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -133,6 +134,14 @@ public class AllAtOnceExecutionSchedule
 
         @Override
         public Void visitJoin(JoinNode node, Void context)
+        {
+            node.getRight().accept(this, context);
+            node.getLeft().accept(this, context);
+            return null;
+        }
+
+        @Override
+        public Void visitMergeJoin(MergeJoinNode node, Void context)
         {
             node.getRight().accept(this, context);
             node.getLeft().accept(this, context);
