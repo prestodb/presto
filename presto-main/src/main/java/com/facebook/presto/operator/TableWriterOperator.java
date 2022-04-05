@@ -253,7 +253,7 @@ public class TableWriterOperator
             PageSinkCommitStrategy pageSinkCommitStrategy)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext(TableWriterOperator.class.getSimpleName());
+        this.pageSinkMemoryContext = operatorContext.localSystemMemoryContext();
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
         this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
@@ -449,7 +449,7 @@ public class TableWriterOperator
             }
         }
         closer.register(statisticAggregationOperator);
-        closer.register(() -> pageSinkMemoryContext.close());
+        closer.register(() -> pageSinkMemoryContext.setBytes(0));
         closer.close();
     }
 

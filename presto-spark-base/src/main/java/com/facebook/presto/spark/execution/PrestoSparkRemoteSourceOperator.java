@@ -40,11 +40,11 @@ public class PrestoSparkRemoteSourceOperator
 
     private boolean finished;
 
-    public PrestoSparkRemoteSourceOperator(PlanNodeId sourceId, OperatorContext operatorContext, LocalMemoryContext systemMemoryContext, PrestoSparkPageInput pageInput, boolean isFirstOperator)
+    public PrestoSparkRemoteSourceOperator(PlanNodeId sourceId, OperatorContext operatorContext, PrestoSparkPageInput pageInput, boolean isFirstOperator)
     {
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.systemMemoryContext = operatorContext.localSystemMemoryContext();
         this.pageInput = requireNonNull(pageInput, "pageInput is null");
         this.isFirstOperator = isFirstOperator;
     }
@@ -119,7 +119,7 @@ public class PrestoSparkRemoteSourceOperator
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        systemMemoryContext.setBytes(0);
     }
 
     private void updateMemoryContext()
@@ -169,7 +169,6 @@ public class PrestoSparkRemoteSourceOperator
             SourceOperator operator = new PrestoSparkRemoteSourceOperator(
                     planNodeId,
                     operatorContext,
-                    operatorContext.newLocalSystemMemoryContext(PrestoSparkRemoteSourceOperator.class.getSimpleName()),
                     pageInput,
                     isFirstOperator);
             isFirstOperator = false;

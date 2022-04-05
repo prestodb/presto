@@ -261,6 +261,10 @@ public class OperatorContext
         return revocableMemoryFuture.get();
     }
 
+    // Create a new LocalMemoryContext if either of the following are true
+    // 1. you need more than one memory context for the operator (calls to setBytes that should be aggregated rather than override each other)
+    // 2. you want to use a different allocation tag
+    // Otherwise call localSystemMemoryContext() to use the LocalMemoryContext already associated with the operator
     // caller should close this context as it's a new context
     public LocalMemoryContext newLocalSystemMemoryContext(String allocationTag)
     {

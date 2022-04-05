@@ -278,7 +278,7 @@ public class PartitionedOutputOperator
     @Override
     public void close()
     {
-        partitionFunction.closeMemoryContext();
+        partitionFunction.zeroMemoryContext();
     }
 
     private static class PagePartitioner
@@ -328,7 +328,7 @@ public class PartitionedOutputOperator
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null").toArray(new Type[0]);
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-            this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
+            this.systemMemoryContext = operatorContext.localSystemMemoryContext();
             this.systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
             //  Ensure partition channels align with constant arguments provided
@@ -349,9 +349,9 @@ public class PartitionedOutputOperator
             }
         }
 
-        public void closeMemoryContext()
+        public void zeroMemoryContext()
         {
-            systemMemoryContext.close();
+            systemMemoryContext.setBytes(0);
         }
 
         public ListenableFuture<?> isFull()
