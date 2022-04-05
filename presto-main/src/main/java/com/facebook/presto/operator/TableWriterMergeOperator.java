@@ -22,7 +22,6 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
-import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -129,7 +128,7 @@ public class TableWriterMergeOperator
     {
         this.context = requireNonNull(context, "context is null");
         this.statisticsAggregationOperator = requireNonNull(statisticsAggregationOperator, "statisticAggregationOperator is null");
-        this.systemMemoryContext = context.newLocalSystemMemoryContext(InMemoryHashAggregationBuilder.class.getSimpleName());
+        this.systemMemoryContext = context.newLocalSystemMemoryContext(TableWriterMergeOperator.class.getSimpleName());
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
