@@ -355,8 +355,16 @@ void MergeExchangeNode::addDetails(std::stringstream& stream) const {
   addSortingKeys(stream, sortingKeys_, sortingOrders_);
 }
 
-void LocalPartitionNode::addDetails(std::stringstream& /* stream */) const {
+void LocalPartitionNode::addDetails(std::stringstream& stream) const {
   // Nothing to add.
+  switch (type_) {
+    case Type::kGather:
+      stream << "GATHER";
+      break;
+    case Type::kRepartition:
+      stream << "REPARTITION";
+      break;
+  }
 }
 
 void EnforceSingleRowNode::addDetails(std::stringstream& /* stream */) const {

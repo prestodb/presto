@@ -659,12 +659,21 @@ using PartitionFunctionFactory =
 /// different from input.
 class LocalPartitionNode : public PlanNode {
  public:
+  enum class Type {
+    // N-to-1 exchange.
+    kGather,
+    // N-to-M shuffle.
+    kRepartition,
+  };
+
   LocalPartitionNode(
       const PlanNodeId& id,
+      Type type,
       PartitionFunctionFactory partitionFunctionFactory,
       RowTypePtr outputType,
       std::vector<std::shared_ptr<const PlanNode>> sources)
       : PlanNode(id),
+        type_{type},
         sources_{std::move(sources)},
         partitionFunctionFactory_{std::move(partitionFunctionFactory)},
         outputType_{std::move(outputType)} {
@@ -680,11 +689,16 @@ class LocalPartitionNode : public PlanNode {
       std::vector<std::shared_ptr<const PlanNode>> sources) {
     return std::make_shared<LocalPartitionNode>(
         id,
+        Type::kGather,
         [](auto /*numPartitions*/) -> std::unique_ptr<PartitionFunction> {
           VELOX_UNREACHABLE();
         },
         std::move(outputType),
         std::move(sources));
+  }
+
+  Type type() const {
+    return type_;
   }
 
   const RowTypePtr& outputType() const override {
@@ -710,6 +724,7 @@ class LocalPartitionNode : public PlanNode {
  private:
   void addDetails(std::stringstream& stream) const override;
 
+  const Type type_;
   const std::vector<std::shared_ptr<const PlanNode>> sources_;
   const PartitionFunctionFactory partitionFunctionFactory_;
   const RowTypePtr outputType_;

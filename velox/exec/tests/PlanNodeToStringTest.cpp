@@ -353,7 +353,14 @@ TEST_F(PlanNodeToStringTest, localPartition) {
           .planNode();
 
   ASSERT_EQ("-> LocalPartition\n", plan->toString());
-  ASSERT_EQ("-> LocalPartition[]\n", plan->toString(true, false));
+  ASSERT_EQ("-> LocalPartition[REPARTITION]\n", plan->toString(true, false));
+
+  plan = PlanBuilder()
+             .localPartition({}, {PlanBuilder().values({data_}).planNode()})
+             .planNode();
+
+  ASSERT_EQ("-> LocalPartition\n", plan->toString());
+  ASSERT_EQ("-> LocalPartition[GATHER]\n", plan->toString(true, false));
 }
 
 TEST_F(PlanNodeToStringTest, partitionedOutput) {

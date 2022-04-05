@@ -605,7 +605,12 @@ PlanBuilder& PlanBuilder::localPartition(
   auto partitionFunctionFactory =
       createPartitionFunctionFactory(inputType, keyIndices, keys);
   planNode_ = std::make_shared<core::LocalPartitionNode>(
-      nextPlanNodeId(), partitionFunctionFactory, outputType, sources);
+      nextPlanNodeId(),
+      keyIndices.empty() ? core::LocalPartitionNode::Type::kGather
+                         : core::LocalPartitionNode::Type::kRepartition,
+      partitionFunctionFactory,
+      outputType,
+      sources);
   return *this;
 }
 
