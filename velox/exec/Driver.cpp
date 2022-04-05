@@ -46,6 +46,8 @@ velox::memory::MemoryPool* FOLLY_NONNULL DriverCtx::addOperatorPool() {
   return task->addOperatorPool(pool);
 }
 
+std::atomic_uint64_t BlockingState::numBlockedDrivers_{0};
+
 BlockingState::BlockingState(
     std::shared_ptr<Driver> driver,
     ContinueFuture&& future,
@@ -61,6 +63,7 @@ BlockingState::BlockingState(
               .count()) {
   // Set before leaving the thread.
   driver_->state().hasBlockingFuture = true;
+  numBlockedDrivers_++;
 }
 
 // static

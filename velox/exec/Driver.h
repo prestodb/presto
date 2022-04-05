@@ -139,6 +139,10 @@ class BlockingState {
       Operator* FOLLY_NONNULL op,
       BlockingReason reason);
 
+  ~BlockingState() {
+    numBlockedDrivers_--;
+  }
+
   static void setResume(std::shared_ptr<BlockingState> state);
 
   Operator* FOLLY_NONNULL op() {
@@ -149,12 +153,20 @@ class BlockingState {
     return reason_;
   }
 
+  /// Returns total number of drivers process wide that are currently in blocked
+  /// state.
+  static uint64_t numBlockedDrivers() {
+    return numBlockedDrivers_;
+  }
+
  private:
   std::shared_ptr<Driver> driver_;
   ContinueFuture future_;
   Operator* FOLLY_NONNULL operator_;
   BlockingReason reason_;
   uint64_t sinceMicros_;
+
+  static std::atomic_uint64_t numBlockedDrivers_;
 };
 
 struct DriverCtx {
