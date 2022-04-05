@@ -104,7 +104,7 @@ public class PinotConfig
     private int fetchRetryCount = 2;
     private boolean useDateTrunc;
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
-    private boolean pushdownTopNBrokerQueries;
+    private boolean pushdownTopNBrokerQueries = true;
     private String grpcHost;
     private int grpcPort = DEFAULT_PROXY_GRPC_PORT;
     private boolean useProxy;
