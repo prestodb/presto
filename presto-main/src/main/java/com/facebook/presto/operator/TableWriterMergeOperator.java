@@ -128,7 +128,7 @@ public class TableWriterMergeOperator
     {
         this.context = requireNonNull(context, "context is null");
         this.statisticsAggregationOperator = requireNonNull(statisticsAggregationOperator, "statisticAggregationOperator is null");
-        this.systemMemoryContext = context.newLocalSystemMemoryContext(TableWriterMergeOperator.class.getSimpleName());
+        this.systemMemoryContext = context.localSystemMemoryContext();
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
