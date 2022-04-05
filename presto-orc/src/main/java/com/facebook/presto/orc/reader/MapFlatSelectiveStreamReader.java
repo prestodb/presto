@@ -70,6 +70,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -411,7 +412,7 @@ public class MapFlatSelectiveStreamReader
         presentStream = presentStreamSource.openStream();
 
         for (int i = 0; i < keyCount; i++) {
-            BooleanInputStream inMapStream = requireNonNull(inMapStreamSources.get(i).openStream(), "missing inMapStream at position " + i);
+            BooleanInputStream inMapStream = checkNotNull(inMapStreamSources.get(i).openStream(), "missing inMapStream at position %s", i);
             inMapStreams.add(inMapStream);
         }
 
@@ -795,6 +796,9 @@ public class MapFlatSelectiveStreamReader
     public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
+        presentStream = null;
+        inMapStreams.clear();
+
         presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
 
         for (int i = 0; i < keyCount; i++) {
@@ -809,9 +813,6 @@ public class MapFlatSelectiveStreamReader
         nestedPositions = ensureCapacity(nestedPositions, keyCount);
         nestedPositionCounts = ensureCapacity(nestedPositionCounts, keyCount);
         inMap = ensureCapacity(inMap, keyCount);
-
-        presentStream = null;
-        inMapStreams.clear();
 
         rowGroupOpen = false;
 
