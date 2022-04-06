@@ -43,3 +43,7 @@ target_link_libraries(velox_benchmark_basic_decoded_vector
 add_executable(velox_benchmark_basic_selectivity_vector SelectivityVector.cpp)
 target_link_libraries(velox_benchmark_basic_selectivity_vector
                       ${velox_benchmark_deps})
+
+add_executable(velox_benchmark_basic_vector_compare VectorCompare.cpp)
+target_link_libraries(velox_benchmark_basic_vector_compare
+                      ${velox_benchmark_deps} velox_vector_test_lib)
