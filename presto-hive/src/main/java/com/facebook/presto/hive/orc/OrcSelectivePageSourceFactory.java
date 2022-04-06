@@ -214,7 +214,8 @@ public class OrcSelectivePageSourceFactory
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -254,7 +255,8 @@ public class OrcSelectivePageSourceFactory
                 hiveFileContext,
                 tupleDomainFilterCache,
                 encryptionInformation,
-                NO_ENCRYPTION));
+                NO_ENCRYPTION,
+                appendRowNumberEnabled));
     }
 
     public static ConnectorPageSource createOrcPageSource(
@@ -286,7 +288,8 @@ public class OrcSelectivePageSourceFactory
             HiveFileContext hiveFileContext,
             TupleDomainFilterCache tupleDomainFilterCache,
             Optional<EncryptionInformation> encryptionInformation,
-            DwrfEncryptionProvider dwrfEncryptionProvider)
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            boolean appendRowNumberEnabled)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
@@ -295,7 +298,11 @@ public class OrcSelectivePageSourceFactory
         DataSize streamBufferSize = getOrcStreamBufferSize(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
         DataSize maxReadBlockSize = getOrcMaxReadBlockSize(session);
-        OrcReaderOptions orcReaderOptions = new OrcReaderOptions(maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, isOrcZstdJniDecompressionEnabled(session));
+        OrcReaderOptions orcReaderOptions = new OrcReaderOptions(maxMergeDistance,
+                tinyStripeThreshold,
+                maxReadBlockSize,
+                isOrcZstdJniDecompressionEnabled(session),
+                appendRowNumberEnabled);
         boolean lazyReadSmallRanges = getOrcLazyReadSmallRanges(session);
 
         OrcDataSource orcDataSource;

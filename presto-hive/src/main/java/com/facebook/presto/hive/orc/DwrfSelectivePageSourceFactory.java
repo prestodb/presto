@@ -109,7 +109,8 @@ public class DwrfSelectivePageSourceFactory
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -148,6 +149,7 @@ public class DwrfSelectivePageSourceFactory
                 hiveFileContext,
                 tupleDomainFilterCache,
                 encryptionInformation,
-                dwrfEncryptionProvider));
+                dwrfEncryptionProvider,
+                appendRowNumberEnabled));
     }
 }

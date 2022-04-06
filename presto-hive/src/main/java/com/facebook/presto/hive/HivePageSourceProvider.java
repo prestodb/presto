@@ -333,7 +333,8 @@ public class HivePageSourceProvider
                             Optional.of(split.getFileSize()),
                             split.getFileModifiedTime(),
                             HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
-                    encryptionInformation);
+                    encryptionInformation,
+                    layout.isAppendRowNumberEnabled());
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
