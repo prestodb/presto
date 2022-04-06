@@ -58,7 +58,7 @@ public final class HiveTableLayoutHandle
     private final String layoutString;
     private final Optional<Set<HiveColumnHandle>> requestedColumns;
     private final boolean partialAggregationsPushedDown;
-
+    private final boolean appendRowNumberEnabled;
     // coordinator-only properties
     @Nullable
     private final List<HivePartition> partitions;
@@ -79,7 +79,8 @@ public final class HiveTableLayoutHandle
             @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
             @JsonProperty("layoutString") String layoutString,
             @JsonProperty("requestedColumns") Optional<Set<HiveColumnHandle>> requestedColumns,
-            @JsonProperty("partialAggregationsPushedDown") boolean partialAggregationsPushedDown)
+            @JsonProperty("partialAggregationsPushedDown") boolean partialAggregationsPushedDown,
+            @JsonProperty("appendRowNumber") boolean appendRowNumberEnabled)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
@@ -97,6 +98,7 @@ public final class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
+        this.appendRowNumberEnabled = appendRowNumberEnabled;
     }
 
     public HiveTableLayoutHandle(
@@ -115,7 +117,8 @@ public final class HiveTableLayoutHandle
             boolean pushdownFilterEnabled,
             String layoutString,
             Optional<Set<HiveColumnHandle>> requestedColumns,
-            boolean partialAggregationsPushedDown)
+            boolean partialAggregationsPushedDown,
+            boolean appendRowNumberEnabled)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
@@ -133,6 +136,7 @@ public final class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
+        this.appendRowNumberEnabled = appendRowNumberEnabled;
     }
 
     @JsonProperty
@@ -240,6 +244,12 @@ public final class HiveTableLayoutHandle
     public boolean isPartialAggregationsPushedDown()
     {
         return partialAggregationsPushedDown;
+    }
+
+    @JsonProperty
+    public boolean isAppendRowNumberEnabled()
+    {
+        return appendRowNumberEnabled;
     }
 
     @Override

@@ -46,5 +46,6 @@ public interface HiveSelectivePageSourceFactory
             RowExpression remainingPredicate,               // refers to columns by name; already optimized
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation);
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled);
 }
