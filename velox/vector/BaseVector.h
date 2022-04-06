@@ -132,12 +132,14 @@ class BaseVector {
   template <typename T>
   T* asUnchecked() {
     static_assert(std::is_base_of<BaseVector, T>::value);
+    DCHECK(dynamic_cast<const T*>(this) != nullptr);
     return static_cast<T*>(this);
   }
 
   template <typename T>
   const T* asUnchecked() const {
     static_assert(std::is_base_of<BaseVector, T>::value);
+    DCHECK(dynamic_cast<const T*>(this) != nullptr);
     return static_cast<const T*>(this);
   }
 
