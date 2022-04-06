@@ -388,10 +388,10 @@ TEST_F(NullableArrayViewTest, materializeArrayWithOpaque) {
   exec::VectorReader<Array<std::shared_ptr<int64_t>>> reader(
       decode(decoded, *result.get()));
 
-  std::vector<std::optional<std::shared_ptr<int64_t>>> array =
-      reader[0].materialize();
+  std::vector<std::optional<int64_t>> array = reader[0].materialize();
   ASSERT_EQ(array.size(), 2);
-  ASSERT_EQ(*array[0].value(), 1);
+  ASSERT_EQ(array[0].value(), 1);
+
   ASSERT_FALSE(array[1].has_value());
 }
 
