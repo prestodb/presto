@@ -116,8 +116,7 @@ class PartitionedOutput : public Operator {
             planNode->inputType(),
             planNode->outputType())),
         future_(false),
-        bufferManager_(PartitionedOutputBufferManager::getInstance(
-            operatorCtx_->task()->queryCtx()->host())),
+        bufferManager_(PartitionedOutputBufferManager::getInstance()),
         mappedMemory_{operatorCtx_->mappedMemory()} {
     if (numDestinations_ == 1 || planNode->isBroadcast()) {
       VELOX_CHECK(keyChannels_.empty());

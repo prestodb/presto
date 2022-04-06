@@ -1928,8 +1928,7 @@ TEST_P(TableScanTest, groupedExecutionWithOutputBuffer) {
   // 'Delete results' from output buffer triggers 'set all output consumed',
   // which should finish the task.
   auto outputBufferManager =
-      PartitionedOutputBufferManager::getInstance(task->queryCtx()->host())
-          .lock();
+      PartitionedOutputBufferManager::getInstance().lock();
   outputBufferManager->deleteResults(task->taskId(), 0);
 
   // Task must be finished at this stage.

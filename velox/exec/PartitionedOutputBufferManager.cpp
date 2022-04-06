@@ -443,20 +443,9 @@ std::string PartitionedOutputBuffer::toString() {
 
 // static
 std::weak_ptr<PartitionedOutputBufferManager>
-PartitionedOutputBufferManager::getInstance(const std::string& host) {
-  static std::mutex mutex;
-  static std::unordered_map<
-      std::string,
-      std::shared_ptr<PartitionedOutputBufferManager>>
-      instances;
-  std::lock_guard<std::mutex> l(mutex);
-  auto it = instances.find(host);
-  if (it != instances.end()) {
-    return it->second;
-  }
-  auto instance = std::make_shared<PartitionedOutputBufferManager>();
-  instances[host] = instance;
-  return instance;
+PartitionedOutputBufferManager::getInstance() {
+  static auto kInstance = std::make_shared<PartitionedOutputBufferManager>();
+  return kInstance;
 }
 
 std::shared_ptr<PartitionedOutputBuffer>
@@ -467,6 +456,10 @@ PartitionedOutputBufferManager::getBuffer(const std::string& taskId) {
         it != buffers.end(), "Output buffers for task not found: {}", taskId);
     return it->second;
   });
+}
+
+uint64_t PartitionedOutputBufferManager::numBuffers() const {
+  return buffers_.lock()->size();
 }
 
 BlockingReason PartitionedOutputBufferManager::enqueue(

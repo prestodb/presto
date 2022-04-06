@@ -249,12 +249,9 @@ class PartitionedOutputBufferManager {
 
   void removeTask(const std::string& taskId);
 
-  // Returns the instance corresponding to the logical host
-  // 'host'. Multiple logical servers can be collocated in one process
-  // for testing, for example with Presto, these are differentiated by
-  // the Host header in the messages coming to each.
-  static std::weak_ptr<PartitionedOutputBufferManager> getInstance(
-      const std::string& host = "local");
+  static std::weak_ptr<PartitionedOutputBufferManager> getInstance();
+
+  uint64_t numBuffers() const;
 
   // Returns a new stream listener if a listener factory has been set.
   std::unique_ptr<OutputStreamListener> newListener() const {
