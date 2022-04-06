@@ -60,10 +60,14 @@ vector_size_t processFilterResults(
     FilterEvalCtx& filterEvalCtx,
     memory::MemoryPool* pool);
 
-// Wraps the specified vector into a dictionary using specified mapping. Returns
-// vector as-is if mapping is null.
-VectorPtr
-wrapChild(vector_size_t size, BufferPtr mapping, const VectorPtr& child);
+// Wraps the specified vector into a dictionary using the specified mapping.
+// Returns vector as-is if mapping is null. An optional nulls buffer can be
+// provided to introduce additional nulls.
+VectorPtr wrapChild(
+    vector_size_t size,
+    BufferPtr mapping,
+    const VectorPtr& child,
+    BufferPtr nulls = nullptr);
 
 // Wraps all children of the specified row vector into a dictionary using
 // specified mapping. Returns vector as-is if mapping is null.
