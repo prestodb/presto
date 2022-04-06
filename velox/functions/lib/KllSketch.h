@@ -54,6 +54,9 @@ struct KllSketch {
       const Allocator& = Allocator(),
       uint32_t seed = folly::Random::rand32());
 
+  /// Cannot be called after insert().
+  void setK(uint16_t k);
+
   /// Add one new value to the sketch.
   void insert(T value);
 
@@ -64,9 +67,15 @@ struct KllSketch {
   template <typename Iter>
   void merge(const folly::Range<Iter>& sketches);
 
+  /// Merge with another sketch.
+  void merge(const KllSketch<T, Allocator, Compare>& other);
+
+  /// Must be called before estimateQuantile() or estimateQuantiles().
+  void finish();
+
   /// Estimate the value of the given quantile.
   /// @param quantile Quantile in [0, 1] to be estimated
-  T estimateQuantile(double quantile);
+  T estimateQuantile(double quantile) const;
 
   /// Estimate the values of the given quantiles.  This is more
   /// efficient than calling estimateQuantile(double) repeatedly.
@@ -74,20 +83,54 @@ struct KllSketch {
   /// @param quantiles Range of quantiles in [0, 1] to be estimated
   template <typename Iter>
   std::vector<T, Allocator> estimateQuantiles(
-      const folly::Range<Iter>& quantiles);
+      const folly::Range<Iter>& quantiles) const;
 
   /// The total number of values being added to the sketch.
   size_t totalCount() const {
     return n_;
   }
 
+  /// Calculate the size needed for serialization.
+  size_t serializedByteSize() const;
+
+  /// Serialize the sketch into bytes.
+  /// @param out Pre-allocated memory at least serializedByteSize() in size
+  void serialize(char* out) const;
+
+  /// Deserialize a sketch from bytes.
+  static KllSketch<T, Allocator, Compare> deserialize(
+      const char* data,
+      const Allocator& = Allocator(),
+      uint32_t seed = folly::Random::rand32());
+
+  /// Equivalent to calling insert(value) `count` times on a new
+  /// sketch, but more efficient.
+  static KllSketch<T, Allocator, Compare> fromRepeatedValue(
+      T value,
+      size_t count,
+      uint16_t k = kll::kDefaultK,
+      const Allocator& = Allocator(),
+      uint32_t seed = folly::Random::rand32());
+
+  /// Merge this sketch with values from multiple other deserialized sketches.
+  /// @tparam Iter Iterator type dereferenceable to `const char*`, which
+  ///  represents a deserialized sketch
+  /// @param sketches Range of sketches to be merged to this one
+  template <typename Iter>
+  void mergeDeserialized(const folly::Range<Iter>& sketches);
+
+  /// Merge with another deserialized sketch.  This is more efficient
+  /// than deserialize then merge.
+  void mergeDeserialized(const char* data);
+
  private:
+  KllSketch(const Allocator&, uint32_t seed);
   uint32_t insertPosition();
   int findLevelToCompact() const;
   void addEmptyTopLevelToCompletelyFullSketch();
 
   template <typename Iter>
-  void estimateQuantiles(const folly::Range<Iter>& fractions, T* out);
+  void estimateQuantiles(const folly::Range<Iter>& fractions, T* out) const;
 
   uint8_t numLevels() const {
     return levels_.size() - 1;
@@ -101,13 +144,41 @@ struct KllSketch {
     return level < numLevels() ? levels_[level + 1] - levels_[level] : 0;
   }
 
+  struct View {
+    uint16_t k;
+    size_t n;
+    T minValue;
+    T maxValue;
+    folly::Range<const T*> items;
+    folly::Range<const uint32_t*> levels;
+
+    uint8_t numLevels() const {
+      return levels.size() - 1;
+    }
+
+    uint32_t safeLevelSize(uint8_t level) const {
+      return level < numLevels() ? levels[level + 1] - levels[level] : 0;
+    }
+
+    void deserialize(const char*);
+  };
+
+  View toView() const;
+  static KllSketch<T, Allocator, Compare>
+  fromView(const View&, const Allocator&, uint32_t seed);
+  void mergeViews(const folly::Range<const View*>& views);
+
   using AllocU32 = typename std::allocator_traits<
       Allocator>::template rebind_alloc<uint32_t>;
 
   uint16_t k_;
   Allocator allocator_;
-  std::independent_bits_engine<folly::Random::DefaultGenerator, 1, uint32_t>
-      randomBit_;
+
+  // Cannot use sfmt19937 here because the object cannot be guaranteed
+  // to be placed on 16 bytes aligned memory (e.g. in
+  // HashStringAllocator).
+  std::independent_bits_engine<std::mt19937, 1, uint32_t> randomBit_;
+
   size_t n_;
   T minValue_;
   T maxValue_;

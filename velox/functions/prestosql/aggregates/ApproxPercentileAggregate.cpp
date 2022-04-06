@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <folly/stats/TDigest.h>
+#include "velox/common/base/RandomUtil.h"
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/functions/lib/KllSketch.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/IOUtils.h"
 #include "velox/vector/DecodedVector.h"
@@ -24,189 +25,102 @@
 
 namespace facebook::velox::aggregate {
 namespace {
-int32_t serializedSize(const folly::TDigest& digest) {
-  return sizeof(size_t) + // maxSize
-      4 * sizeof(double) + // sum, count, min, max
-      sizeof(size_t) + // number of centroids
-      2 * sizeof(double) * digest.getCentroids().size();
-}
-
-template <typename TByteStream>
-void serialize(const folly::TDigest& digest, TByteStream& output) {
-  output.appendOne(digest.maxSize());
-  output.appendOne(digest.sum());
-  output.appendOne(digest.count());
-  output.appendOne(digest.min());
-  output.appendOne(digest.max());
-
-  const auto& centroids = digest.getCentroids();
-  output.appendOne(centroids.size());
-  for (const auto& centroid : centroids) {
-    output.appendOne(centroid.mean());
-    output.appendOne(centroid.weight());
-  }
-}
-
-template <typename TByteStream>
-folly::TDigest deserialize(TByteStream& input) {
-  auto maxSize = input.template read<size_t>();
-  auto sum = input.template read<double>();
-  auto count = input.template read<double>();
-  auto min = input.template read<double>();
-  auto max = input.template read<double>();
-
-  auto centroidCount = input.template read<size_t>();
-  std::vector<folly::TDigest::Centroid> centroids;
-  centroids.reserve(centroidCount);
-  for (auto i = 0; i < centroidCount; i++) {
-    auto mean = input.template read<double>();
-    auto weight = input.template read<double>();
-    centroids.emplace_back(folly::TDigest::Centroid(mean, weight));
-  }
-
-  return folly::TDigest(std::move(centroids), sum, count, max, min, maxSize);
-}
 
 template <typename T>
-folly::TDigest singleValueDigest(T v, int64_t count) {
-  return folly::TDigest(
-      {folly::TDigest::Centroid(v, count)}, v * count, count, v, v);
-}
+using KllSketch = functions::kll::KllSketch<T, StlAllocator<T>>;
 
-struct TDigestAccumulator {
-  explicit TDigestAccumulator(HashStringAllocator* allocator)
-      : values_{StlAllocator<double>(allocator)},
-        largeCountValues_{StlAllocator<double>(allocator)},
-        largeCounts_{StlAllocator<int64_t>(allocator)} {}
+// Accumulator to buffer large count values in addition to the KLL
+// sketch itself.
+template <typename T>
+struct KllSketchAccumulator {
+  explicit KllSketchAccumulator(HashStringAllocator* allocator)
+      : allocator_(allocator),
+        sketch_(
+            functions::kll::kDefaultK,
+            StlAllocator<T>(allocator),
+            random::getSeed()),
+        largeCountValues_(StlAllocator<std::pair<T, int64_t>>(allocator)) {}
 
-  void write(const folly::TDigest& digest, HashStringAllocator* allocator) {
-    if (!begin_) {
-      begin_ = allocator->allocate(serializedSize(digest));
-    }
-
-    ByteStream stream(allocator);
-    allocator->extendWrite({begin_, begin_->begin()}, stream);
-    serialize(digest, stream);
-    allocator->finishWrite(stream, 0);
+  void setAccuracy(double value) {
+    k_ = functions::kll::kFromEpsilon(value);
+    sketch_.setK(k_);
   }
 
-  folly::TDigest read() const {
-    VELOX_CHECK(begin_);
-
-    ByteStream inStream;
-    HashStringAllocator::prepareRead(begin_, inStream);
-    return deserialize(inStream);
+  void append(T value) {
+    sketch_.insert(value);
   }
 
-  bool hasValue() const {
-    return begin_ != nullptr;
-  }
-
-  void destroy(HashStringAllocator* allocator) {
-    if (begin_) {
-      allocator->free(begin_);
-    }
-  }
-
-  template <typename T>
-  void append(T v, HashStringAllocator* allocator) {
-    values_.emplace_back((double)v);
-
-    if (values_.size() >= kMaxBufferSize) {
-      flush(allocator);
-    }
-  }
-
-  template <typename T>
-  void append(T v, int64_t count, HashStringAllocator* allocator) {
-    static const int64_t kMaxCountToBuffer = 99;
-
-    if (values_.size() + count <= kMaxBufferSize &&
-        count <= kMaxCountToBuffer) {
-      values_.reserve(values_.size() + count);
-      for (auto i = 0; i < count; i++) {
-        values_.emplace_back((double)v);
-      }
-
-      if (values_.size() >= kMaxBufferSize) {
-        flush(allocator);
+  void append(T value, int64_t count) {
+    constexpr size_t kMaxBufferSize = 4096;
+    constexpr int64_t kMinCountToBuffer = 512;
+    if (count < kMinCountToBuffer) {
+      for (int i = 0; i < count; ++i) {
+        sketch_.insert(value);
       }
     } else {
-      largeCountValues_.emplace_back(v);
-      largeCounts_.emplace_back(count);
+      largeCountValues_.emplace_back(value, count);
       if (largeCountValues_.size() >= kMaxBufferSize) {
-        flush(allocator);
+        flush();
       }
     }
   }
 
-  void append(folly::TDigest digest, HashStringAllocator* allocator) {
-    if (hasValue()) {
-      auto currentDigest = read();
-      std::vector<folly::TDigest> digests = {
-          std::move(currentDigest), std::move(digest)};
-      auto combinedDigest =
-          folly::TDigest::merge(folly::Range(digests.data(), digests.size()));
-      write(combinedDigest, allocator);
-    } else {
-      write(digest, allocator);
-    }
+  void append(const char* deserializedSketch) {
+    sketch_.mergeDeserialized(deserializedSketch);
   }
 
-  void flush(HashStringAllocator* allocator) {
-    if (!values_.empty()) {
-      folly::TDigest digest{hasValue() ? read() : folly::TDigest()};
-      digest = digest.merge(values_);
-      values_.clear();
-      write(digest, allocator);
-    }
+  void append(const std::vector<const char*>& sketches) {
+    sketch_.mergeDeserialized(folly::Range(sketches.begin(), sketches.end()));
+  }
 
+  void finalize() {
     if (!largeCountValues_.empty()) {
-      std::vector<folly::TDigest> digests;
-      digests.reserve(largeCountValues_.size() + 1);
-      for (auto i = 0; i < largeCountValues_.size(); i++) {
-        digests.emplace_back(
-            singleValueDigest(largeCountValues_[i], largeCounts_[i]));
-      }
-
-      if (hasValue()) {
-        digests.emplace_back(read());
-      }
-
-      auto combinedDigest =
-          folly::TDigest::merge(folly::Range(digests.data(), digests.size()));
-      largeCountValues_.clear();
-      largeCounts_.clear();
-
-      write(combinedDigest, allocator);
+      flush();
     }
+    sketch_.finish();
+  }
+
+  const KllSketch<T>& getSketch() {
+    return sketch_;
   }
 
  private:
-  // Maximum number of values to accumulate before updating TDigest.
-  static const size_t kMaxBufferSize = 4096;
+  uint16_t k_;
+  HashStringAllocator* allocator_;
+  KllSketch<T> sketch_;
+  std::vector<std::pair<T, int64_t>, StlAllocator<std::pair<T, int64_t>>>
+      largeCountValues_;
 
-  HashStringAllocator::Header* begin_{nullptr};
-
-  std::vector<double, StlAllocator<double>> values_;
-
-  std::vector<double, StlAllocator<double>> largeCountValues_;
-  std::vector<int64_t, StlAllocator<int64_t>> largeCounts_;
+  void flush() {
+    std::vector<KllSketch<T>> sketches;
+    sketches.reserve(largeCountValues_.size());
+    for (auto [x, n] : largeCountValues_) {
+      sketches.push_back(KllSketch<T>::fromRepeatedValue(
+          x, n, k_, StlAllocator<T>(allocator_), random::getSeed()));
+    }
+    sketch_.merge(folly::Range(sketches.begin(), sketches.end()));
+    largeCountValues_.clear();
+  }
 };
 
 // The following variations are possible:
 //  x, percentile
 //  x, weight, percentile
-//  x, percentile, accuracy (not supported yet)
-//  x, weight, percentile, accuracy (not supported yet)
+//  x, percentile, accuracy
+//  x, weight, percentile, accuracy
 template <typename T>
 class ApproxPercentileAggregate : public exec::Aggregate {
  public:
-  ApproxPercentileAggregate(bool hasWeight, const TypePtr& resultType)
-      : exec::Aggregate(resultType), hasWeight_{hasWeight} {}
+  ApproxPercentileAggregate(
+      bool hasWeight,
+      bool hasAccuracy,
+      const TypePtr& resultType)
+      : exec::Aggregate(resultType),
+        hasWeight_{hasWeight},
+        hasAccuracy_(hasAccuracy) {}
 
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(TDigestAccumulator);
+    return sizeof(KllSketchAccumulator<T>);
   }
 
   void initializeNewGroups(
@@ -215,21 +129,19 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     exec::Aggregate::setAllNulls(groups, indices);
     for (auto i : indices) {
       auto group = groups[i];
-      new (group + offset_) TDigestAccumulator(allocator_);
+      new (group + offset_) KllSketchAccumulator<T>(allocator_);
     }
   }
 
   void destroy(folly::Range<char**> groups) override {
     for (auto group : groups) {
-      auto accumulator = value<TDigestAccumulator>(group);
-      accumulator->destroy(allocator_);
+      value<KllSketchAccumulator<T>>(group)->~KllSketchAccumulator<T>();
     }
   }
 
   void finalize(char** groups, int32_t numGroups) override {
     for (auto i = 0; i < numGroups; ++i) {
-      auto accumulator = value<TDigestAccumulator>(groups[i]);
-      accumulator->flush(allocator_);
+      value<KllSketchAccumulator<T>>(groups[i])->finalize();
     }
   }
 
@@ -242,10 +154,10 @@ class ApproxPercentileAggregate : public exec::Aggregate {
         groups,
         numGroups,
         flatResult,
-        [&](const folly::TDigest& digest,
+        [&](const KllSketch<T>& digest,
             FlatVector<T>* result,
             vector_size_t index) {
-          result->set(index, (T)digest.estimateQuantile(percentile_));
+          result->set(index, digest.estimateQuantile(percentile_));
         });
   }
 
@@ -258,18 +170,9 @@ class ApproxPercentileAggregate : public exec::Aggregate {
         groups,
         numGroups,
         flatResult,
-        [&](const folly::TDigest& digest,
+        [&](const KllSketch<T>& digest,
             FlatVector<StringView>* result,
-            vector_size_t index) {
-          auto size = sizeof(double) /*percentile*/ + serializedSize(digest);
-          Buffer* buffer = flatResult->getBufferWithSpace(size);
-          StringView serialized(buffer->as<char>() + buffer->size(), size);
-          OutputByteStream stream(buffer->asMutable<char>() + buffer->size());
-          stream.appendOne(percentile_);
-          serialize(digest, stream);
-          buffer->setSize(buffer->size() + size);
-          result->setNoCopy(index, serialized);
-        });
+            vector_size_t index) { serializeDigest(digest, result, index); });
   }
 
   void addRawInput(
@@ -279,6 +182,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       bool /*mayPushdown*/) override {
     decodeArguments(rows, args);
     checkSetPercentile();
+    checkSetAccuracy();
 
     if (hasWeight_) {
       rows.applyToSelected([&](auto row) {
@@ -286,14 +190,14 @@ class ApproxPercentileAggregate : public exec::Aggregate {
           return;
         }
 
-        auto accumulator = value<TDigestAccumulator>(groups[row]);
+        auto accumulator = initRawAccumulator(groups[row]);
         auto value = decodedValue_.valueAt<T>(row);
         auto weight = decodedWeight_.valueAt<int64_t>(row);
         VELOX_USER_CHECK_GE(
             weight,
             1,
             "The value of the weight parameter must be greater than or equal to 1.");
-        accumulator->append(value, weight, allocator_);
+        accumulator->append(value, weight);
       });
     } else {
       if (decodedValue_.mayHaveNulls()) {
@@ -302,13 +206,13 @@ class ApproxPercentileAggregate : public exec::Aggregate {
             return;
           }
 
-          auto accumulator = value<TDigestAccumulator>(groups[row]);
-          accumulator->append(decodedValue_.valueAt<T>(row), allocator_);
+          auto accumulator = initRawAccumulator(groups[row]);
+          accumulator->append(decodedValue_.valueAt<T>(row));
         });
       } else {
         rows.applyToSelected([&](auto row) {
-          auto accumulator = value<TDigestAccumulator>(groups[row]);
-          accumulator->append(decodedValue_.valueAt<T>(row), allocator_);
+          auto accumulator = initRawAccumulator(groups[row]);
+          accumulator->append(decodedValue_.valueAt<T>(row));
         });
       }
     }
@@ -325,15 +229,8 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       if (decodedDigest_.isNullAt(row)) {
         return;
       }
-
-      auto serialized = decodedDigest_.valueAt<StringView>(row);
-      InputByteStream stream(serialized.data());
-      auto percentile = stream.read<double>();
-      checkSetPercentile(percentile);
-      auto digest = deserialize(stream);
-
-      auto accumulator = value<TDigestAccumulator>(groups[row]);
-      accumulator->append(std::move(digest), allocator_);
+      auto accumulator = value<KllSketchAccumulator<T>>(groups[row]);
+      accumulator->append(getDeserializedDigest(row));
     });
   }
 
@@ -344,8 +241,9 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       bool /*mayPushdown*/) override {
     decodeArguments(rows, args);
     checkSetPercentile();
+    checkSetAccuracy();
 
-    auto accumulator = value<TDigestAccumulator>(group);
+    auto accumulator = initRawAccumulator(group);
 
     if (hasWeight_) {
       rows.applyToSelected([&](auto row) {
@@ -359,7 +257,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
             weight,
             1,
             "The value of the weight parameter must be greater than or equal to 1.");
-        accumulator->append(value, weight, allocator_);
+        accumulator->append(value, weight);
       });
     } else {
       if (decodedValue_.mayHaveNulls()) {
@@ -368,11 +266,11 @@ class ApproxPercentileAggregate : public exec::Aggregate {
             return;
           }
 
-          accumulator->append(decodedValue_.valueAt<T>(row), allocator_);
+          accumulator->append(decodedValue_.valueAt<T>(row));
         });
       } else {
         rows.applyToSelected([&](auto row) {
-          accumulator->append(decodedValue_.valueAt<T>(row), allocator_);
+          accumulator->append(decodedValue_.valueAt<T>(row));
         });
       }
     }
@@ -384,31 +282,20 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     decodedDigest_.decode(*args[0], rows, true);
-    auto accumulator = value<TDigestAccumulator>(group);
+    auto accumulator = value<KllSketchAccumulator<T>>(group);
 
-    std::vector<folly::TDigest> digests;
-    digests.reserve(rows.end() + 1);
-    if (accumulator->hasValue()) {
-      digests.emplace_back(accumulator->read());
-    }
+    std::vector<const char*> digests;
+    digests.reserve(rows.end());
 
     rows.applyToSelected([&](auto row) {
       if (decodedDigest_.isNullAt(row)) {
         return;
       }
-
-      auto serialized = decodedDigest_.valueAt<StringView>(row);
-      InputByteStream stream(serialized.data());
-      auto percentile = stream.read<double>();
-      checkSetPercentile(percentile);
-
-      digests.emplace_back(deserialize(stream));
+      digests.push_back(getDeserializedDigest(row));
     });
 
     if (!digests.empty()) {
-      auto digest =
-          folly::TDigest::merge(folly::Range(digests.data(), digests.size()));
-      accumulator->write(digest, allocator_);
+      accumulator->append(digests);
     }
   }
 
@@ -430,15 +317,14 @@ class ApproxPercentileAggregate : public exec::Aggregate {
 
     for (auto i = 0; i < numGroups; ++i) {
       char* group = groups[i];
-      auto accumulator = value<TDigestAccumulator>(group);
-      if (!accumulator->hasValue()) {
+      auto accumulator = value<KllSketchAccumulator<T>>(group);
+      if (accumulator->getSketch().totalCount() == 0) {
         result->setNull(i, true);
       } else {
         if (rawNulls) {
           bits::clearBit(rawNulls, i);
         }
-        auto digest = accumulator->read();
-        extractFunction(digest, result, i);
+        extractFunction(accumulator->getSketch(), result, i);
       }
     }
   }
@@ -452,8 +338,9 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       decodedWeight_.decode(*args[argIndex++], rows, true);
     }
     decodedPercentile_.decode(*args[argIndex++], rows, true);
-
-    // TODO Add support for accuracy parameter
+    if (hasAccuracy_) {
+      decodedAccuracy_.decode(*args[argIndex++], rows, true);
+    }
     VELOX_CHECK_EQ(argIndex, args.size());
   }
 
@@ -480,11 +367,64 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     }
   }
 
+  void checkSetAccuracy() {
+    if (!hasAccuracy_) {
+      return;
+    }
+    VELOX_CHECK(
+        decodedAccuracy_.isConstantMapping(),
+        "Accuracy argument must be constant for all input rows");
+    auto accuracy = decodedAccuracy_.valueAt<double>(0);
+    VELOX_USER_CHECK(
+        0 < accuracy && accuracy <= 1, "Accuracy must be between 0 and 1");
+    if (accuracy_ < 0) {
+      accuracy_ = accuracy;
+    } else {
+      VELOX_USER_CHECK_EQ(
+          accuracy,
+          accuracy_,
+          "Accuracy argument must be constant for all input rows");
+    }
+  }
+
+  KllSketchAccumulator<T>* initRawAccumulator(char* group) {
+    auto accumulator = value<KllSketchAccumulator<T>>(group);
+    if (hasAccuracy_) {
+      accumulator->setAccuracy(accuracy_);
+    }
+    return accumulator;
+  }
+
+  void serializeDigest(
+      const KllSketch<T>& digest,
+      FlatVector<StringView>* result,
+      vector_size_t index) {
+    auto size = sizeof percentile_ + digest.serializedByteSize();
+    Buffer* buffer = result->getBufferWithSpace(size);
+    char* data = buffer->asMutable<char>() + buffer->size();
+    OutputByteStream stream(data);
+    stream.appendOne(percentile_);
+    digest.serialize(data + stream.offset());
+    buffer->setSize(buffer->size() + size);
+    result->setNoCopy(index, StringView(data, size));
+  }
+
+  const char* getDeserializedDigest(vector_size_t row) {
+    auto data = decodedDigest_.valueAt<StringView>(row);
+    InputByteStream stream(data.data());
+    auto percentile = stream.read<double>();
+    checkSetPercentile(percentile);
+    return data.data() + stream.offset();
+  }
+
   const bool hasWeight_;
+  const bool hasAccuracy_;
   double percentile_{-1.0};
+  double accuracy_{-1.0};
   DecodedVector decodedValue_;
   DecodedVector decodedWeight_;
   DecodedVector decodedPercentile_;
+  DecodedVector decodedAccuracy_;
   DecodedVector decodedDigest_;
 };
 
@@ -506,6 +446,23 @@ bool registerApproxPercentile(const std::string& name) {
                              .argumentType("bigint")
                              .argumentType("double")
                              .build());
+
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType(inputType)
+                             .intermediateType("varbinary")
+                             .argumentType(inputType)
+                             .argumentType("double")
+                             .argumentType("double")
+                             .build());
+
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType(inputType)
+                             .intermediateType("varbinary")
+                             .argumentType(inputType)
+                             .argumentType("bigint")
+                             .argumentType("double")
+                             .argumentType("double")
+                             .build());
   }
   exec::registerAggregateFunction(
       name,
@@ -515,14 +472,16 @@ bool registerApproxPercentile(const std::string& name) {
           const std::vector<TypePtr>& argTypes,
           const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         auto isRawInput = exec::isRawInput(step);
-        auto hasWeight = argTypes.size() == 3;
+        auto hasWeight =
+            argTypes.size() >= 2 && argTypes[1]->kind() == TypeKind::BIGINT;
+        bool hasAccuracy = argTypes.size() == (hasWeight ? 4 : 3);
 
         if (isRawInput) {
-          VELOX_USER_CHECK_GE(
-              argTypes.size(), 2, "{} takes 2 or 3 arguments", name);
-          VELOX_USER_CHECK_LE(
-              argTypes.size(), 3, "{} takes 2 or 3 arguments", name);
-
+          VELOX_USER_CHECK_EQ(
+              argTypes.size(),
+              2 + hasWeight + hasAccuracy,
+              "Wrong number of arguments passed to {}",
+              name);
           if (hasWeight) {
             VELOX_USER_CHECK_EQ(
                 argTypes[1]->kind(),
@@ -530,9 +489,15 @@ bool registerApproxPercentile(const std::string& name) {
                 "The type of the weight argument of {} must be BIGINT",
                 name);
           }
-
+          if (hasAccuracy) {
+            VELOX_USER_CHECK_EQ(
+                argTypes.back()->kind(),
+                TypeKind::DOUBLE,
+                "The type of the accuracy argument of {} must be DOUBLE",
+                name);
+          }
           VELOX_USER_CHECK_EQ(
-              argTypes.back()->kind(),
+              argTypes[argTypes.size() - 1 - hasAccuracy]->kind(),
               TypeKind::DOUBLE,
               "The type of the percentile argument of {} must be DOUBLE",
               name);
@@ -551,7 +516,7 @@ bool registerApproxPercentile(const std::string& name) {
 
         if (!isRawInput && exec::isPartialOutput(step)) {
           return std::make_unique<ApproxPercentileAggregate<double>>(
-              false, VARBINARY());
+              false, false, VARBINARY());
         }
 
         TypePtr type = isRawInput ? argTypes[0] : resultType;
@@ -559,22 +524,22 @@ bool registerApproxPercentile(const std::string& name) {
         switch (type->kind()) {
           case TypeKind::TINYINT:
             return std::make_unique<ApproxPercentileAggregate<int8_t>>(
-                hasWeight, resultType);
+                hasWeight, hasAccuracy, resultType);
           case TypeKind::SMALLINT:
             return std::make_unique<ApproxPercentileAggregate<int16_t>>(
-                hasWeight, resultType);
+                hasWeight, hasAccuracy, resultType);
           case TypeKind::INTEGER:
             return std::make_unique<ApproxPercentileAggregate<int32_t>>(
-                hasWeight, resultType);
+                hasWeight, hasAccuracy, resultType);
           case TypeKind::BIGINT:
             return std::make_unique<ApproxPercentileAggregate<int64_t>>(
-                hasWeight, resultType);
+                hasWeight, hasAccuracy, resultType);
           case TypeKind::REAL:
             return std::make_unique<ApproxPercentileAggregate<float>>(
-                hasWeight, resultType);
+                hasWeight, hasAccuracy, resultType);
           case TypeKind::DOUBLE:
             return std::make_unique<ApproxPercentileAggregate<double>>(
-                hasWeight, resultType);
+                hasWeight, hasAccuracy, resultType);
           default:
             VELOX_USER_FAIL(
                 "Unsupported input type for {} aggregation {}",

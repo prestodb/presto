@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/RandomUtil.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 
@@ -23,36 +24,48 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
+std::string
+functionCall(bool keyed, bool weighted, double percentile, double accuracy) {
+  std::ostringstream buf;
+  int columnIndex = keyed;
+  buf << "approx_percentile(c" << columnIndex++;
+  if (weighted) {
+    buf << ", c" << columnIndex++;
+  }
+  buf << ", " << percentile;
+  if (accuracy > 0) {
+    buf << ", " << accuracy;
+  }
+  buf << ')';
+  return buf.str();
+}
+
+std::string label(
+    const char* prefix,
+    bool weighted,
+    bool singleAgg,
+    double percentile,
+    double accuracy) {
+  std::ostringstream buf;
+  buf << prefix;
+  if (weighted) {
+    buf << "_weighted";
+  }
+  if (singleAgg) {
+    buf << "_single_agg";
+  }
+  buf << '_' << percentile << "_pct";
+  if (accuracy > 0) {
+    buf << "_" << accuracy << "_accuracy";
+  }
+  return buf.str();
+}
+
 class ApproxPercentileTest : public AggregationTestBase {
  protected:
-  template <typename T>
-  void
-  testGlobalAgg(const VectorPtr& values, double percentile, T expectedResult) {
-    auto op =
-        PlanBuilder()
-            .values({makeRowVector({values})})
-            .singleAggregation(
-                {}, {fmt::format("approx_percentile(c0, {})", percentile)})
-            .planNode();
-
-    assertQuery(
-        op,
-        fmt::format(
-            "/* global_single_agg_{}_pct */ SELECT {}",
-            percentile,
-            expectedResult));
-
-    op = PlanBuilder()
-             .values({makeRowVector({values})})
-             .partialAggregation(
-                 {}, {fmt::format("approx_percentile(c0, {})", percentile)})
-             .finalAggregation()
-             .planNode();
-
-    assertQuery(
-        op,
-        fmt::format(
-            "/* global_{}_pct */ SELECT {}", percentile, expectedResult));
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    random::setSeed(0);
   }
 
   template <typename T>
@@ -60,60 +73,30 @@ class ApproxPercentileTest : public AggregationTestBase {
       const VectorPtr& values,
       const VectorPtr& weights,
       double percentile,
+      double accuracy,
       T expectedResult) {
+    auto call = functionCall(false, weights.get(), percentile, accuracy);
+    auto rows =
+        weights ? makeRowVector({values, weights}) : makeRowVector({values});
     auto op =
-        PlanBuilder()
-            .values({makeRowVector({values, weights})})
-            .singleAggregation(
-                {}, {fmt::format("approx_percentile(c0, c1, {})", percentile)})
-            .planNode();
-
+        PlanBuilder().values({rows}).singleAggregation({}, {call}).planNode();
     assertQuery(
         op,
         fmt::format(
-            "/* global_weighted_single_agg_{}_pct*/ SELECT {}",
-            percentile,
+            "/* {} */ SELECT {}",
+            label("global", weights.get(), false, percentile, accuracy),
             expectedResult));
-
     op = PlanBuilder()
-             .values({makeRowVector({values, weights})})
-             .partialAggregation(
-                 {}, {fmt::format("approx_percentile(c0, c1, {})", percentile)})
+             .values({rows})
+             .partialAggregation({}, {call})
              .finalAggregation()
              .planNode();
-
     assertQuery(
         op,
         fmt::format(
-            "SELECT /* global_weighted_{}_pct*/ {}",
-            percentile,
+            "/* {} */ SELECT {}",
+            label("global", weights.get(), true, percentile, accuracy),
             expectedResult));
-  }
-
-  void testGroupByAgg(
-      const VectorPtr& keys,
-      const VectorPtr& values,
-      double percentile,
-      const RowVectorPtr& expectedResult) {
-    auto rowVector = makeRowVector({keys, values});
-
-    auto op =
-        PlanBuilder()
-            .values({rowVector})
-            .singleAggregation(
-                {0}, {fmt::format("approx_percentile(c1, {})", percentile)})
-            .planNode();
-
-    assertQuery(op, expectedResult);
-
-    op = PlanBuilder()
-             .values({rowVector})
-             .partialAggregation(
-                 {0}, {fmt::format("approx_percentile(c1, {})", percentile)})
-             .finalAggregation()
-             .planNode();
-
-    assertQuery(op, expectedResult);
   }
 
   void testGroupByAgg(
@@ -121,26 +104,19 @@ class ApproxPercentileTest : public AggregationTestBase {
       const VectorPtr& values,
       const VectorPtr& weights,
       double percentile,
+      double accuracy,
       const RowVectorPtr& expectedResult) {
-    auto rowVector = makeRowVector({keys, values, weights});
-
+    auto call = functionCall(true, weights.get(), percentile, accuracy);
+    auto rows = weights ? makeRowVector({keys, values, weights})
+                        : makeRowVector({keys, values});
     auto op =
-        PlanBuilder()
-            .values({rowVector})
-            .singleAggregation(
-                {0}, {fmt::format("approx_percentile(c1, c2, {})", percentile)})
-            .planNode();
-
+        PlanBuilder().values({rows}).singleAggregation({0}, {call}).planNode();
     assertQuery(op, expectedResult);
-
-    op =
-        PlanBuilder()
-            .values({rowVector})
-            .partialAggregation(
-                {0}, {fmt::format("approx_percentile(c1, c2, {})", percentile)})
-            .finalAggregation()
-            .planNode();
-
+    op = PlanBuilder()
+             .values({rows})
+             .partialAggregation({0}, {call})
+             .finalAggregation()
+             .planNode();
     assertQuery(op, expectedResult);
   }
 };
@@ -152,17 +128,22 @@ TEST_F(ApproxPercentileTest, globalAgg) {
   auto weights =
       makeFlatVector<int64_t>(size, [](auto row) { return row % 23 + 1; });
 
-  testGlobalAgg(values, 0.5, 10);
-  testGlobalAgg(values, weights, 0.5, 15);
+  testGlobalAgg(values, nullptr, 0.5, -1, 11);
+  testGlobalAgg(values, weights, 0.5, -1, 16);
+  testGlobalAgg(values, nullptr, 0.5, 0.005, 11);
+  testGlobalAgg(values, weights, 0.5, 0.005, 16);
 
   auto valuesWithNulls = makeFlatVector<int32_t>(
       size, [](auto row) { return row % 23; }, nullEvery(7));
   auto weightsWithNulls = makeFlatVector<int64_t>(
       size, [](auto row) { return row % 23 + 1; }, nullEvery(11));
 
-  testGlobalAgg(valuesWithNulls, 0.5, 10);
-  testGlobalAgg(valuesWithNulls, weights, 0.5, 15);
-  testGlobalAgg(valuesWithNulls, weightsWithNulls, 0.5, 15);
+  testGlobalAgg(valuesWithNulls, nullptr, 0.5, -1, 11);
+  testGlobalAgg(valuesWithNulls, weights, 0.5, -1, 16);
+  testGlobalAgg(valuesWithNulls, weightsWithNulls, 0.5, -1, 16);
+  testGlobalAgg(valuesWithNulls, nullptr, 0.5, 0.005, 11);
+  testGlobalAgg(valuesWithNulls, weights, 0.5, 0.005, 16);
+  testGlobalAgg(valuesWithNulls, weightsWithNulls, 0.5, 0.005, 16);
 }
 
 TEST_F(ApproxPercentileTest, groupByAgg) {
@@ -175,13 +156,15 @@ TEST_F(ApproxPercentileTest, groupByAgg) {
 
   auto expectedResult = makeRowVector(
       {makeFlatVector(std::vector<int32_t>{0, 1, 2, 3, 4, 5, 6}),
-       makeFlatVector(std::vector<int32_t>{10, 11, 12, 13, 14, 15, 16})});
-  testGroupByAgg(keys, values, 0.5, expectedResult);
+       makeFlatVector(std::vector<int32_t>{11, 12, 13, 14, 15, 16, 17})});
+  testGroupByAgg(keys, values, nullptr, 0.5, -1, expectedResult);
+  testGroupByAgg(keys, values, nullptr, 0.5, 0.005, expectedResult);
 
   expectedResult = makeRowVector(
       {makeFlatVector(std::vector<int32_t>{0, 1, 2, 3, 4, 5, 6}),
-       makeFlatVector(std::vector<int32_t>{15, 16, 17, 18, 19, 20, 21})});
-  testGroupByAgg(keys, values, weights, 0.5, expectedResult);
+       makeFlatVector(std::vector<int32_t>{16, 17, 18, 19, 20, 21, 22})});
+  testGroupByAgg(keys, values, weights, 0.5, -1, expectedResult);
+  testGroupByAgg(keys, values, weights, 0.5, 0.005, expectedResult);
 
   auto valuesWithNulls = makeFlatVector<int32_t>(
       size, [](auto row) { return (row / 7) % 23 + row % 7; }, nullEvery(11));
@@ -190,13 +173,17 @@ TEST_F(ApproxPercentileTest, groupByAgg) {
 
   expectedResult = makeRowVector(
       {makeFlatVector(std::vector<int32_t>{0, 1, 2, 3, 4, 5, 6}),
-       makeFlatVector(std::vector<int32_t>{10, 11, 12, 13, 14, 15, 16})});
-  testGroupByAgg(keys, valuesWithNulls, 0.5, expectedResult);
+       makeFlatVector(std::vector<int32_t>{11, 12, 13, 14, 15, 16, 17})});
+  testGroupByAgg(keys, valuesWithNulls, nullptr, 0.5, -1, expectedResult);
+  testGroupByAgg(keys, valuesWithNulls, nullptr, 0.5, 0.005, expectedResult);
 
   expectedResult = makeRowVector(
       {makeFlatVector(std::vector<int32_t>{0, 1, 2, 3, 4, 5, 6}),
-       makeFlatVector(std::vector<int32_t>{15, 16, 17, 18, 19, 20, 22})});
-  testGroupByAgg(keys, valuesWithNulls, weightsWithNulls, 0.5, expectedResult);
+       makeFlatVector(std::vector<int32_t>{15, 17, 18, 18, 19, 21, 22})});
+  testGroupByAgg(
+      keys, valuesWithNulls, weightsWithNulls, 0.5, -1, expectedResult);
+  testGroupByAgg(
+      keys, valuesWithNulls, weightsWithNulls, 0.5, 0.005, expectedResult);
 }
 
 // Test large values of "weight" parameter used in global aggregation.
@@ -208,12 +195,12 @@ TEST_F(ApproxPercentileTest, largeWeightsGlobal) {
   // All weights are very large and are about the same.
   auto weights = makeFlatVector<int64_t>(
       size, [](auto row) { return 1'000'000 + row % 23 + 1; });
-  testGlobalAgg(values, weights, 0.5, 10);
+  testGlobalAgg(values, weights, 0.5, -1, 11);
 
   // Weights are large, but different.
   weights = makeFlatVector<int64_t>(
       size, [](auto row) { return 1'000 * (row % 23 + 1); });
-  testGlobalAgg(values, weights, 0.5, 15);
+  testGlobalAgg(values, weights, 0.5, -1, 16);
 }
 
 // Test large values of "weight" parameter used in group-by.
@@ -229,16 +216,16 @@ TEST_F(ApproxPercentileTest, largeWeightsGroupBy) {
 
   auto expectedResult = makeRowVector(
       {makeFlatVector(std::vector<int32_t>{0, 1, 2, 3, 4, 5, 6}),
-       makeFlatVector(std::vector<int32_t>{10, 11, 12, 13, 14, 15, 16})});
-  testGroupByAgg(keys, values, weights, 0.5, expectedResult);
+       makeFlatVector(std::vector<int32_t>{11, 12, 13, 14, 15, 16, 17})});
+  testGroupByAgg(keys, values, weights, 0.5, -1, expectedResult);
 
   // Weights are large, but different.
   weights = makeFlatVector<int64_t>(
       size, [](auto row) { return 1'000 * ((row / 7) % 23 + 1); });
   expectedResult = makeRowVector(
       {makeFlatVector(std::vector<int32_t>{0, 1, 2, 3, 4, 5, 6}),
-       makeFlatVector(std::vector<int32_t>{15, 16, 17, 18, 19, 20, 21})});
-  testGroupByAgg(keys, values, weights, 0.5, expectedResult);
+       makeFlatVector(std::vector<int32_t>{16, 17, 18, 19, 20, 21, 22})});
+  testGroupByAgg(keys, values, weights, 0.5, -1, expectedResult);
 }
 
 } // namespace

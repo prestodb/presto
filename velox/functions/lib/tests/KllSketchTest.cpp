@@ -39,6 +39,7 @@ TEST(KllSketchTest, oneItem) {
   EXPECT_EQ(kll.totalCount(), 0);
   kll.insert(1.0);
   EXPECT_EQ(kll.totalCount(), 1);
+  kll.finish();
   EXPECT_EQ(kll.estimateQuantile(0.0), 1.0);
   EXPECT_EQ(kll.estimateQuantile(0.5), 1.0);
   EXPECT_EQ(kll.estimateQuantile(1.0), 1.0);
@@ -51,6 +52,7 @@ TEST(KllSketchTest, exactMode) {
     kll.insert(i);
     EXPECT_EQ(kll.totalCount(), i + 1);
   }
+  kll.finish();
   EXPECT_EQ(kll.estimateQuantile(0.0), 0);
   EXPECT_EQ(kll.estimateQuantile(0.5), N / 2);
   EXPECT_EQ(kll.estimateQuantile(1.0), N - 1);
@@ -69,6 +71,7 @@ TEST(KllSketchTest, estimationMode) {
     kll.insert(i);
     EXPECT_EQ(kll.totalCount(), i + 1);
   }
+  kll.finish();
   EXPECT_EQ(kll.estimateQuantile(0.0), 0);
   EXPECT_EQ(kll.estimateQuantile(1.0), N - 1);
   auto q = linspace(M);
@@ -91,6 +94,7 @@ TEST(KllSketchTest, randomInput) {
     kll.insert(values[i]);
   }
   EXPECT_EQ(kll.totalCount(), N);
+  kll.finish();
   std::sort(std::begin(values), std::end(values));
   auto q = linspace(M);
   auto v = kll.estimateQuantiles(folly::Range(q.begin(), q.end()));
@@ -111,8 +115,9 @@ TEST(KllSketchTest, merge) {
     kll1.insert(i);
     kll2.insert(2 * N - i - 1);
   }
-  kll1.merge(folly::Range(&kll2, 1));
+  kll1.merge(kll2);
   EXPECT_EQ(kll1.totalCount(), 2 * N);
+  kll1.finish();
   auto q = linspace(M);
   auto v = kll1.estimateQuantiles(folly::Range(q.begin(), q.end()));
   ASSERT_TRUE(std::is_sorted(std::begin(v), std::end(v)));
@@ -143,8 +148,9 @@ TEST(KllSketchTest, mergeRandom) {
     kll2.insert(v);
   }
   std::sort(values.begin(), values.end());
-  kll1.merge(folly::Range(&kll2, 1));
+  kll1.merge(kll2);
   EXPECT_EQ(kll1.totalCount(), n1 + n2);
+  kll1.finish();
   auto q = linspace(M);
   auto v = kll1.estimateQuantiles(folly::Range(q.begin(), q.end()));
   ASSERT_TRUE(std::is_sorted(std::begin(v), std::end(v)));
@@ -170,6 +176,7 @@ TEST(KllSketchTest, mergeMultiple) {
   KllSketch<double> kll(kDefaultK, {}, 0);
   kll.merge(folly::Range(sketches.begin(), sketches.end()));
   EXPECT_EQ(kll.totalCount(), N * kSketchCount);
+  kll.finish();
   auto q = linspace(M);
   auto v = kll.estimateQuantiles(folly::Range(q.begin(), q.end()));
   ASSERT_TRUE(std::is_sorted(std::begin(v), std::end(v)));
@@ -181,16 +188,86 @@ TEST(KllSketchTest, mergeMultiple) {
 TEST(KllSketchTest, mergeEmpty) {
   KllSketch<double> kll, kll2;
   kll.insert(1.0);
-  kll.merge(folly::Range(&kll2, 1));
+  kll.merge(kll2);
   EXPECT_EQ(kll.totalCount(), 1);
+  kll.finish();
   EXPECT_EQ(kll.estimateQuantile(0.5), 1.0);
-  kll2.merge(folly::Range(&kll, 1));
+  kll2.merge(kll);
   EXPECT_EQ(kll2.totalCount(), 1);
+  kll2.finish();
   EXPECT_EQ(kll2.estimateQuantile(0.5), 1.0);
 }
 
 TEST(KllSketchTest, kFromEpsilon) {
   EXPECT_EQ(kFromEpsilon(kEpsilon), kDefaultK);
+}
+
+TEST(KllSketchTest, serialize) {
+  constexpr int N = 1e5;
+  constexpr int M = 1001;
+  KllSketch<double> kll;
+  for (int i = 0; i < N; ++i) {
+    kll.insert(i);
+  }
+  kll.finish();
+  std::vector<char> data(kll.serializedByteSize());
+  kll.serialize(data.data());
+  auto kll2 = KllSketch<double>::deserialize(data.data());
+  auto q = linspace(M);
+  auto v = kll.estimateQuantiles(folly::Range(q.begin(), q.end()));
+  auto v2 = kll2.estimateQuantiles(folly::Range(q.begin(), q.end()));
+  EXPECT_EQ(v, v2);
+}
+
+TEST(KllSketchTest, fromRepeatedValue) {
+  constexpr int N = 1000;
+  constexpr int kTotal = (1 + N) * N / 2;
+  constexpr int M = 1001;
+  std::vector<KllSketch<int>> sketches;
+  for (int n = 0; n <= N; ++n) {
+    auto kll = KllSketch<int>::fromRepeatedValue(n, n);
+    EXPECT_EQ(kll.totalCount(), n);
+    if (n > 0) {
+      const double q[] = {0, 0.25, 0.5, 0.75, 1};
+      auto v = kll.estimateQuantiles(folly::Range(std::begin(q), std::end(q)));
+      for (int x : v) {
+        EXPECT_EQ(x, n);
+      }
+    }
+    sketches.push_back(std::move(kll));
+  }
+  KllSketch<int> kll(kDefaultK, {}, 0);
+  kll.merge(folly::Range(sketches.begin(), sketches.end()));
+  EXPECT_EQ(kll.totalCount(), kTotal);
+  kll.finish();
+  auto q = linspace(M);
+  auto v = kll.estimateQuantiles(folly::Range(q.begin(), q.end()));
+  for (int i = 0; i < M; ++i) {
+    double realQ = 0.5 * v[i] * (v[i] - 1) / kTotal;
+    EXPECT_NEAR(q[i], realQ, kEpsilon);
+  }
+}
+
+TEST(KllSketchTest, mergeDeserialized) {
+  constexpr int N = 1e4;
+  constexpr int M = 1001;
+  KllSketch<double> kll1(kDefaultK, {}, 0);
+  KllSketch<double> kll2(kDefaultK, {}, 0);
+  for (int i = 0; i < N; ++i) {
+    kll1.insert(i);
+    kll2.insert(2 * N - i - 1);
+  }
+  std::vector<char> data(kll2.serializedByteSize());
+  kll2.serialize(data.data());
+  kll1.mergeDeserialized(data.data());
+  EXPECT_EQ(kll1.totalCount(), 2 * N);
+  kll1.finish();
+  auto q = linspace(M);
+  auto v = kll1.estimateQuantiles(folly::Range(q.begin(), q.end()));
+  ASSERT_TRUE(std::is_sorted(std::begin(v), std::end(v)));
+  for (int i = 0; i < M; ++i) {
+    EXPECT_NEAR(q[i], v[i] / (2 * N), kEpsilon);
+  }
 }
 
 } // namespace

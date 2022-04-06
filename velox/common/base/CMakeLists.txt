@@ -22,8 +22,8 @@ target_link_libraries(
   ${FMT}
   ${GFLAGS_LIBRARIES})
 
-add_library(velox_common_base BitUtil.cpp RawVector.cpp SimdUtil.cpp
-                              SuccinctPrinter.cpp)
+add_library(velox_common_base BitUtil.cpp RandomUtil.cpp RawVector.cpp
+                              SimdUtil.cpp SuccinctPrinter.cpp)
 
 target_link_libraries(velox_common_base velox_exception velox_process)
 

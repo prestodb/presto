@@ -25,6 +25,8 @@ namespace facebook::velox::functions::kll {
 
 namespace detail {
 
+constexpr uint8_t kMaxLevel = 60;
+
 uint32_t computeTotalCapacity(uint16_t k, uint8_t numLevels);
 
 uint16_t levelCapacity(uint16_t k, uint8_t numLevels, uint8_t height);
@@ -216,6 +218,35 @@ CompressResult generalCompress(
 
 uint64_t sumSampleWeights(uint8_t numLevels, const uint32_t* levels);
 
+template <typename T>
+void write(T value, char* out, size_t& offset) {
+  *reinterpret_cast<T*>(out + offset) = value;
+  offset += sizeof(T);
+}
+
+template <typename T, typename A>
+void writeVector(const std::vector<T, A>& data, char* out, size_t& offset) {
+  write(data.size(), out, offset);
+  auto bytes = sizeof(T) * data.size();
+  memcpy(out + offset, data.data(), bytes);
+  offset += bytes;
+}
+
+template <typename T>
+void read(const char* data, size_t& offset, T& out) {
+  out = *reinterpret_cast<const T*>(data + offset);
+  offset += sizeof(T);
+}
+
+template <typename T>
+void readRange(const char* data, size_t& offset, folly::Range<const T*>& out) {
+  size_t size;
+  read(data, offset, size);
+  auto bytes = sizeof(T) * size;
+  out.reset(reinterpret_cast<const T*>(data + offset), size);
+  offset += bytes;
+}
+
 } // namespace detail
 
 template <typename T, typename A, typename C>
@@ -225,8 +256,27 @@ KllSketch<T, A, C>::KllSketch(uint16_t k, const A& allocator, uint32_t seed)
       randomBit_(seed),
       n_(0),
       items_(k, allocator),
-      levels_(2, k, allocator),
+      levels_(2, k, AllocU32(allocator)),
       isLevelZeroSorted_(false) {}
+
+template <typename T, typename A, typename C>
+KllSketch<T, A, C>::KllSketch(const A& allocator, uint32_t seed)
+    : allocator_(allocator),
+      randomBit_(seed),
+      items_(allocator),
+      levels_(AllocU32(allocator)) {}
+
+template <typename T, typename A, typename C>
+void KllSketch<T, A, C>::setK(uint16_t k) {
+  if (k_ == k) {
+    return;
+  }
+  VELOX_CHECK_EQ(n_, 0);
+  k_ = k;
+  items_.resize(k);
+  levels_.resize(2);
+  levels_[0] = levels_[1] = k;
+}
 
 template <typename T, typename A, typename C>
 void KllSketch<T, A, C>::insert(T value) {
@@ -348,7 +398,15 @@ void KllSketch<T, A, C>::addEmptyTopLevelToCompletelyFullSketch() {
 }
 
 template <typename T, typename A, typename C>
-T KllSketch<T, A, C>::estimateQuantile(double fraction) {
+void KllSketch<T, A, C>::finish() {
+  if (!isLevelZeroSorted_) {
+    std::sort(&items_[levels_[0]], &items_[levels_[1]], C());
+    isLevelZeroSorted_ = true;
+  }
+}
+
+template <typename T, typename A, typename C>
+T KllSketch<T, A, C>::estimateQuantile(double fraction) const {
   T ans;
   estimateQuantiles(folly::Range(&fraction, 1), &ans);
   return ans;
@@ -357,7 +415,7 @@ T KllSketch<T, A, C>::estimateQuantile(double fraction) {
 template <typename T, typename A, typename C>
 template <typename Iter>
 std::vector<T, A> KllSketch<T, A, C>::estimateQuantiles(
-    const folly::Range<Iter>& fractions) {
+    const folly::Range<Iter>& fractions) const {
   std::vector<T, A> ans(fractions.size(), T{}, allocator_);
   estimateQuantiles(fractions, ans.data());
   return ans;
@@ -367,16 +425,14 @@ template <typename T, typename A, typename C>
 template <typename Iter>
 void KllSketch<T, A, C>::estimateQuantiles(
     const folly::Range<Iter>& fractions,
-    T* out) {
+    T* out) const {
   VELOX_USER_CHECK_GT(n_, 0, "estimateQuantiles called on empty sketch");
-  if (!isLevelZeroSorted_) {
-    std::sort(&items_[levels_[0]], &items_[levels_[1]], C());
-    isLevelZeroSorted_ = true;
-  }
+  VELOX_USER_CHECK(
+      isLevelZeroSorted_, "finish() must be called before estimate quantiles");
   using Entry = typename std::pair<T, uint64_t>;
   using AllocEntry =
       typename std::allocator_traits<A>::template rebind_alloc<Entry>;
-  std::vector<Entry, AllocEntry> entries(allocator_);
+  std::vector<Entry, AllocEntry> entries((AllocEntry(allocator_)));
   entries.reserve(levels_.back());
   for (int level = 0; level < numLevels(); ++level) {
     auto oldLen = entries.size();
@@ -425,29 +481,31 @@ void KllSketch<T, A, C>::estimateQuantiles(
 }
 
 template <typename T, typename A, typename C>
-template <typename Iter>
-void KllSketch<T, A, C>::merge(const folly::Range<Iter>& others) {
+void KllSketch<T, A, C>::mergeViews(const folly::Range<const View*>& others) {
   auto newN = n_;
   for (auto& other : others) {
-    if (other.n_ == 0) {
+    if (other.n == 0) {
       continue;
     }
     if (newN == 0) {
-      minValue_ = other.minValue_;
-      maxValue_ = other.maxValue_;
+      minValue_ = other.minValue;
+      maxValue_ = other.maxValue;
     } else {
-      minValue_ = std::min(minValue_, other.minValue_, C());
-      maxValue_ = std::max(maxValue_, other.maxValue_, C());
+      minValue_ = std::min(minValue_, other.minValue, C());
+      maxValue_ = std::max(maxValue_, other.maxValue, C());
     }
-    newN += other.n_;
+    newN += other.n;
   }
   if (newN == n_) {
     return;
   }
   // Merge bottom level.
   for (auto& other : others) {
-    for (uint32_t j = other.levels_[0]; j < other.levels_[1]; ++j) {
-      items_[insertPosition()] = other.items_[j];
+    if (other.n == 0) {
+      continue;
+    }
+    for (uint32_t j = other.levels[0]; j < other.levels[1]; ++j) {
+      items_[insertPosition()] = other.items[j];
     }
   }
   // Merge higher levels.
@@ -455,16 +513,18 @@ void KllSketch<T, A, C>::merge(const folly::Range<Iter>& others) {
   auto provisionalNumLevels = numLevels();
   for (auto& other : others) {
     if (other.numLevels() >= 2) {
-      tmpNumItems += other.levels_.back() - other.levels_[1];
+      tmpNumItems += other.levels.back() - other.levels[1];
       provisionalNumLevels = std::max(provisionalNumLevels, other.numLevels());
     }
   }
   if (tmpNumItems > getNumRetained()) {
-    std::vector<T, A> workbuf(tmpNumItems);
+    std::vector<T, A> workbuf(tmpNumItems, allocator_);
     const uint8_t ub = 1 + detail::floorLog2(newN, 1);
     const size_t workLevelsSize = ub + 2;
-    std::vector<uint32_t, AllocU32> worklevels(workLevelsSize, 0, allocator_);
-    std::vector<uint32_t, AllocU32> outlevels(workLevelsSize, 0, allocator_);
+    std::vector<uint32_t, AllocU32> worklevels(
+        workLevelsSize, 0, AllocU32(allocator_));
+    std::vector<uint32_t, AllocU32> outlevels(
+        workLevelsSize, 0, AllocU32(allocator_));
     // Populate work arrays.
     worklevels[0] = 0;
     std::move(&items_[levels_[0]], &items_[levels_[1]], &workbuf[0]);
@@ -478,15 +538,15 @@ void KllSketch<T, A, C>::merge(const folly::Range<Iter>& others) {
         return C()(*y.first, *x.first);
       };
       std::priority_queue<Entry, std::vector<Entry, AllocEntry>, decltype(gt)>
-          pq(gt, allocator_);
+          pq(gt, AllocEntry(allocator_));
       if (auto sz = safeLevelSize(lvl); sz > 0) {
         pq.emplace(&items_[levels_[lvl]], &items_[levels_[lvl] + sz]);
       }
       for (auto& other : others) {
         if (auto sz = other.safeLevelSize(lvl); sz > 0) {
           pq.emplace(
-              &other.items_[other.levels_[lvl]],
-              &other.items_[other.levels_[lvl] + sz]);
+              &other.items[other.levels[lvl]],
+              &other.items[other.levels[lvl]] + sz);
         }
       }
       int outIndex = worklevels[lvl];
@@ -524,6 +584,142 @@ void KllSketch<T, A, C>::merge(const folly::Range<Iter>& others) {
   }
   n_ = newN;
   VELOX_DCHECK_EQ(detail::sumSampleWeights(numLevels(), levels_.data()), n_);
+}
+
+template <typename T, typename A, typename C>
+void KllSketch<T, A, C>::merge(const KllSketch<T, A, C>& other) {
+  View view = other.toView();
+  mergeViews(folly::Range(&view, 1));
+}
+
+template <typename T, typename A, typename C>
+template <typename Iter>
+void KllSketch<T, A, C>::merge(const folly::Range<Iter>& others) {
+  std::vector<View> views;
+  views.reserve(others.size());
+  for (auto& other : others) {
+    views.push_back(other.toView());
+  }
+  mergeViews(views);
+}
+
+template <typename T, typename A, typename C>
+void KllSketch<T, A, C>::mergeDeserialized(const char* data) {
+  View view;
+  view.deserialize(data);
+  return mergeViews(folly::Range(&view, 1));
+}
+
+template <typename T, typename A, typename C>
+template <typename Iter>
+void KllSketch<T, A, C>::mergeDeserialized(const folly::Range<Iter>& others) {
+  std::vector<View> views;
+  views.reserve(others.size());
+  for (auto& other : others) {
+    views.emplace_back();
+    views.back().deserialize(other);
+  }
+  mergeViews(views);
+}
+
+template <typename T, typename A, typename C>
+typename KllSketch<T, A, C>::View KllSketch<T, A, C>::toView() const {
+  return {
+      .k = k_,
+      .n = n_,
+      .minValue = minValue_,
+      .maxValue = maxValue_,
+      .items = {items_},
+      .levels = {levels_},
+  };
+}
+
+template <typename T, typename A, typename C>
+KllSketch<T, A, C> KllSketch<T, A, C>::fromView(
+    const typename KllSketch<T, A, C>::View& view,
+    const A& allocator,
+    uint32_t seed) {
+  KllSketch<T, A, C> ans(allocator, seed);
+  ans.k_ = view.k;
+  ans.n_ = view.n;
+  ans.minValue_ = view.minValue;
+  ans.maxValue_ = view.maxValue;
+  ans.items_.assign(view.items.begin(), view.items.end());
+  ans.levels_.assign(view.levels.begin(), view.levels.end());
+  ans.isLevelZeroSorted_ = std::is_sorted(
+      &ans.items_[ans.levels_[0]], &ans.items_[ans.levels_[1]], C());
+  return ans;
+}
+
+template <typename T, typename A, typename C>
+size_t KllSketch<T, A, C>::serializedByteSize() const {
+  size_t ans = sizeof k_ + sizeof n_ + sizeof minValue_ + sizeof maxValue_;
+  ans += sizeof(size_t) + sizeof(T) * items_.size();
+  ans += sizeof(size_t) + sizeof(uint32_t) * levels_.size();
+  return ans;
+}
+
+template <typename T, typename A, typename C>
+void KllSketch<T, A, C>::serialize(char* out) const {
+  size_t i = 0;
+  detail::write(k_, out, i);
+  detail::write(n_, out, i);
+  detail::write(minValue_, out, i);
+  detail::write(maxValue_, out, i);
+  detail::writeVector(items_, out, i);
+  detail::writeVector(levels_, out, i);
+  VELOX_DCHECK_EQ(i, serializedByteSize());
+}
+
+template <typename T, typename A, typename C>
+void KllSketch<T, A, C>::View::deserialize(const char* data) {
+  size_t i = 0;
+  detail::read(data, i, k);
+  detail::read(data, i, n);
+  detail::read(data, i, minValue);
+  detail::read(data, i, maxValue);
+  detail::readRange(data, i, items);
+  detail::readRange(data, i, levels);
+}
+
+template <typename T, typename A, typename C>
+KllSketch<T, A, C> KllSketch<T, A, C>::deserialize(
+    const char* data,
+    const A& allocator,
+    uint32_t seed) {
+  View view;
+  view.deserialize(data);
+  return fromView(view, allocator, seed);
+}
+
+// Each level corresponding to one bit in the binary representation of
+// count, i.e. the size of level i is 1 if bit i is set, else 0.
+template <typename T, typename A, typename C>
+KllSketch<T, A, C> KllSketch<T, A, C>::fromRepeatedValue(
+    T value,
+    size_t count,
+    uint16_t k,
+    const A& allocator,
+    uint32_t seed) {
+  int numLevels = 0;
+  for (auto x = count; x > 0; x >>= 1) {
+    ++numLevels;
+  }
+  VELOX_CHECK_LE(numLevels, detail::kMaxLevel);
+  KllSketch<T, A, C> ans(allocator, seed);
+  ans.k_ = k;
+  ans.n_ = count;
+  ans.minValue_ = ans.maxValue_ = value;
+  ans.isLevelZeroSorted_ = true;
+  ans.levels_.resize(numLevels + 1);
+  for (int i = 1; i <= numLevels; ++i) {
+    ans.levels_[i] = ans.levels_[i - 1] + (count & 1);
+    count >>= 1;
+  }
+  ans.items_.resize(ans.levels_.back(), value);
+  VELOX_DCHECK_EQ(
+      detail::sumSampleWeights(ans.numLevels(), ans.levels_.data()), ans.n_);
+  return ans;
 }
 
 } // namespace facebook::velox::functions::kll

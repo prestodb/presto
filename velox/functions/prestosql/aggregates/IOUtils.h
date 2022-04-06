@@ -31,6 +31,10 @@ struct OutputByteStream {
     offset_ += size;
   }
 
+  int32_t offset() const {
+    return offset_;
+  }
+
  private:
   char* data_;
   int32_t offset_;

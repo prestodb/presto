@@ -27,7 +27,6 @@ namespace detail {
 namespace {
 
 constexpr uint8_t kMinBufferWidth = 8;
-constexpr uint8_t kMaxLevel = 60;
 
 double powerOfTwoThirds(int n) {
   static const auto kMemo = [] {
