@@ -168,15 +168,7 @@ uint32_t maxDrivers(const DriverFactory& driverFactory) {
     return count;
   }
   for (auto& node : driverFactory.planNodes) {
-    if (auto aggregation =
-            std::dynamic_pointer_cast<const core::AggregationNode>(node)) {
-      if (aggregation->step() == core::AggregationNode::Step::kFinal ||
-          aggregation->step() == core::AggregationNode::Step::kSingle) {
-        // final aggregations must run single-threaded
-        return 1;
-      }
-    } else if (
-        auto topN = std::dynamic_pointer_cast<const core::TopNNode>(node)) {
+    if (auto topN = std::dynamic_pointer_cast<const core::TopNNode>(node)) {
       if (!topN->isPartial()) {
         // final topN must run single-threaded
         return 1;

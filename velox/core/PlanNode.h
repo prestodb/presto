@@ -683,7 +683,7 @@ class LocalPartitionNode : public PlanNode {
         "Local repartitioning node requires at least one source");
   }
 
-  static std::shared_ptr<LocalPartitionNode> single(
+  static std::shared_ptr<LocalPartitionNode> gather(
       const PlanNodeId& id,
       RowTypePtr outputType,
       std::vector<std::shared_ptr<const PlanNode>> sources) {
