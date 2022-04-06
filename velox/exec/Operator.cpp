@@ -326,6 +326,8 @@ void OperatorStats::add(const OperatorStats& other) {
   for (const auto& stat : other.runtimeStats) {
     runtimeStats[stat.first].merge(stat.second);
   }
+
+  numDrivers += other.numDrivers;
 }
 
 void OperatorStats::clear() {

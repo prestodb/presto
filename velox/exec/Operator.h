@@ -130,6 +130,8 @@ struct OperatorStats {
 
   std::unordered_map<std::string, RuntimeMetric> runtimeStats;
 
+  int numDrivers = 0;
+
   OperatorStats(
       int32_t _operatorId,
       int32_t _pipelineId,

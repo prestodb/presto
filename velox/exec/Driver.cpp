@@ -460,6 +460,7 @@ void Driver::addStatsToTask() {
   for (auto& op : operators_) {
     auto& stats = op->stats();
     stats.memoryStats.update(op->pool()->getMemoryUsageTracker());
+    stats.numDrivers = 1;
     task_->addOperatorStats(stats);
   }
 }

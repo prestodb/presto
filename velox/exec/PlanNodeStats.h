@@ -84,10 +84,20 @@ struct PlanNodeStats {
   /// Breakdown of stats by operator type.
   std::unordered_map<std::string, std::unique_ptr<PlanNodeStats>> operatorStats;
 
+  /// Number of drivers that executed the pipeline.
+  int numDrivers{0};
+
+  /// Number of total splits.
+  int numSplits{0};
+
   /// Add stats for a single operator instance.
   void add(const OperatorStats& stats);
 
   std::string toString(bool includeInputStats = false) const;
+
+  bool isMultiOperatorNode() const {
+    return operatorStats.size() > 1;
+  }
 
  private:
   void addTotals(const OperatorStats& stats);
