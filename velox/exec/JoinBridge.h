@@ -28,7 +28,7 @@ class JoinBridge {
   void cancel();
 
  protected:
-  void notifyConsumersLocked();
+  static void notify(std::vector<VeloxPromise<bool>> promises);
 
   std::mutex mutex_;
   std::vector<VeloxPromise<bool>> promises_;

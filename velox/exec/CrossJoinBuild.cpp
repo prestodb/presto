@@ -19,10 +19,14 @@
 namespace facebook::velox::exec {
 
 void CrossJoinBridge::setData(std::vector<VectorPtr> data) {
-  std::lock_guard<std::mutex> l(mutex_);
-  VELOX_CHECK(!data_.has_value(), "setData may be called only once");
-  data_ = std::move(data);
-  notifyConsumersLocked();
+  std::vector<VeloxPromise<bool>> promises;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    VELOX_CHECK(!data_.has_value(), "setData may be called only once");
+    data_ = std::move(data);
+    promises = std::move(promises_);
+  }
+  notify(std::move(promises));
 }
 
 std::optional<std::vector<VectorPtr>> CrossJoinBridge::dataOrFuture(

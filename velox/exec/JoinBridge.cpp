@@ -17,17 +17,21 @@
 
 namespace facebook::velox::exec {
 
-void JoinBridge::cancel() {
-  std::lock_guard<std::mutex> l(mutex_);
-  cancelled_ = true;
-  notifyConsumersLocked();
-}
-
-void JoinBridge::notifyConsumersLocked() {
-  for (auto& promise : promises_) {
+// static
+void JoinBridge::notify(std::vector<VeloxPromise<bool>> promises) {
+  for (auto& promise : promises) {
     promise.setValue(true);
   }
-  promises_.clear();
+}
+
+void JoinBridge::cancel() {
+  std::vector<VeloxPromise<bool>> promises;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    cancelled_ = true;
+    promises = std::move(promises_);
+  }
+  notify(std::move(promises));
 }
 
 } // namespace facebook::velox::exec

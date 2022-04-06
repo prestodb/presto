@@ -23,21 +23,29 @@ namespace facebook::velox::exec {
 void HashJoinBridge::setHashTable(std::unique_ptr<BaseHashTable> table) {
   VELOX_CHECK(table, "setHashTable called with null table");
 
-  std::lock_guard<std::mutex> l(mutex_);
-  VELOX_CHECK(!table_, "setHashTable may be called only once");
-  // Ownership becomes shared.
-  table_.reset(table.release());
-  notifyConsumersLocked();
+  std::vector<VeloxPromise<bool>> promises;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    VELOX_CHECK(!table_, "setHashTable may be called only once");
+    // Ownership becomes shared.
+    table_.reset(table.release());
+    promises = std::move(promises_);
+  }
+  notify(std::move(promises));
 }
 
 void HashJoinBridge::setAntiJoinHasNullKeys() {
-  std::lock_guard<std::mutex> l(mutex_);
-  VELOX_CHECK(
-      !table_,
-      "Only one of setAntiJoinHasNullKeys or setHashTable may be called");
+  std::vector<VeloxPromise<bool>> promises;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    VELOX_CHECK(
+        !table_,
+        "Only one of setAntiJoinHasNullKeys or setHashTable may be called");
 
-  antiJoinHasNullKeys_ = true;
-  notifyConsumersLocked();
+    antiJoinHasNullKeys_ = true;
+    promises = std::move(promises_);
+  }
+  notify(std::move(promises));
 }
 
 std::optional<HashJoinBridge::HashBuildResult> HashJoinBridge::tableOrFuture(
