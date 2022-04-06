@@ -379,63 +379,6 @@ operator!=(const VectorOptionalValueAccessor<U>& lhs, const T& rhs) {
   return !(lhs == rhs);
 }
 
-template <typename T>
-struct MaterializeType {
-  using null_free_t = T;
-  using nullable_t = T;
-  static constexpr bool requiresMaterialization = false;
-};
-
-template <typename V>
-struct MaterializeType<Array<V>> {
-  using null_free_t = std::vector<typename MaterializeType<V>::null_free_t>;
-  using nullable_t =
-      std::vector<std::optional<typename MaterializeType<V>::nullable_t>>;
-  static constexpr bool requiresMaterialization = true;
-};
-
-template <typename K, typename V>
-struct MaterializeType<Map<K, V>> {
-  using key_t = typename MaterializeType<K>::null_free_t;
-
-  using nullable_t = folly::
-      F14FastMap<key_t, std::optional<typename MaterializeType<V>::nullable_t>>;
-
-  using null_free_t =
-      folly::F14FastMap<key_t, typename MaterializeType<V>::null_free_t>;
-  static constexpr bool requiresMaterialization = true;
-};
-
-template <typename... T>
-struct MaterializeType<Row<T...>> {
-  using nullable_t =
-      std::tuple<std::optional<typename MaterializeType<T>::nullable_t>...>;
-
-  using null_free_t = std::tuple<typename MaterializeType<T>::null_free_t...>;
-  static constexpr bool requiresMaterialization = true;
-};
-
-template <typename T>
-struct MaterializeType<std::shared_ptr<T>> {
-  using nullable_t = T;
-  using null_free_t = T;
-  static constexpr bool requiresMaterialization = false;
-};
-
-template <>
-struct MaterializeType<Varchar> {
-  using nullable_t = std::string;
-  using null_free_t = std::string;
-  static constexpr bool requiresMaterialization = false;
-};
-
-template <>
-struct MaterializeType<Varbinary> {
-  using nullable_t = std::string;
-  using null_free_t = std::string;
-  static constexpr bool requiresMaterialization = false;
-};
-
 // Helper function that calls materialize on element if it's not primitive.
 template <typename VeloxType, typename T>
 auto materializeElement(const T& element) {
