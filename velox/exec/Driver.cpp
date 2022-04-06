@@ -145,31 +145,21 @@ class CancelGuard {
 };
 } // namespace
 
-Driver::~Driver() {
-  if (task_) {
-    LOG(ERROR) << "Driver destructed while still in Task: "
-               << task_->toString();
-    DLOG(FATAL) << "Driver destructed while referencing task";
-  }
-}
-
 // static
 void Driver::enqueue(std::shared_ptr<Driver> driver) {
   // This is expected to be called inside the Driver's Tasks's mutex.
   driver->enqueueInternal();
-  auto& task = driver->task_;
-  if (!task) {
+  if (driver->closed_) {
     return;
   }
-  task->queryCtx()->executor()->add([driver]() { Driver::run(driver); });
+  driver->task()->queryCtx()->executor()->add(
+      [driver]() { Driver::run(driver); });
 }
 
 Driver::Driver(
     std::unique_ptr<DriverCtx> ctx,
     std::vector<std::unique_ptr<Operator>>&& operators)
-    : ctx_(std::move(ctx)),
-      task_(ctx_->task),
-      operators_(std::move(operators)) {
+    : ctx_(std::move(ctx)), operators_(std::move(operators)) {
   curOpIndex_ = operators_.size() - 1;
   // Operators need access to their Driver for adaptation.
   ctx_->driver = this;
@@ -249,10 +239,7 @@ StopReason Driver::runInternal(
     std::shared_ptr<BlockingState>* blockingState) {
   auto queuedTime = (getCurrentTimeMicro() - queueTimeStartMicros_) * 1'000;
   // Update the next operator's queueTime.
-  // Get 'task_' into a local because this could be unhooked from it on another
-  // thread.
-  auto task = task_;
-  auto stop = !task ? StopReason::kTerminate : task->enter(state_);
+  auto stop = closed_ ? StopReason::kTerminate : task()->enter(state_);
   if (stop != StopReason::kNone) {
     if (stop == StopReason::kTerminate) {
       // ctx_ still has a reference to the Task. 'this' is not on
@@ -278,10 +265,10 @@ StopReason Driver::runInternal(
         "queuedWallNanos", queuedTime);
   }
 
-  CancelGuard guard(task_.get(), &state_, [&](StopReason reason) {
+  CancelGuard guard(task().get(), &state_, [&](StopReason reason) {
     // This is run on error or cancel exit.
     if (reason == StopReason::kTerminate) {
-      task->setError(std::make_exception_ptr(VeloxRuntimeError(
+      task()->setError(std::make_exception_ptr(VeloxRuntimeError(
           __FILE__,
           __LINE__,
           __FUNCTION__,
@@ -305,7 +292,7 @@ StopReason Driver::runInternal(
 
     for (;;) {
       for (int32_t i = numOperators - 1; i >= 0; --i) {
-        stop = task_->shouldStop();
+        stop = task()->shouldStop();
         if (stop != StopReason::kNone) {
           guard.notThrown();
           return stop;
@@ -360,7 +347,7 @@ StopReason Driver::runInternal(
               i += 2;
               continue;
             } else {
-              stop = task_->shouldStop();
+              stop = task()->shouldStop();
               if (stop != StopReason::kNone) {
                 guard.notThrown();
                 return stop;
@@ -405,12 +392,12 @@ StopReason Driver::runInternal(
       }
     }
   } catch (velox::VeloxException& e) {
-    task_->setError(std::current_exception());
-    // The CancelPoolGuard will close 'self' and remove from task_.
+    task()->setError(std::current_exception());
+    // The CancelPoolGuard will close 'self' and remove from Task.
     return StopReason::kAlreadyTerminated;
   } catch (std::exception& e) {
-    task_->setError(std::current_exception());
-    // The CancelGuard will close 'self' and remove from task_.
+    task()->setError(std::current_exception());
+    // The CancelGuard will close 'self' and remove from Task.
     return StopReason::kAlreadyTerminated;
   }
 }
@@ -461,12 +448,12 @@ void Driver::addStatsToTask() {
     auto& stats = op->stats();
     stats.memoryStats.update(op->pool()->getMemoryUsageTracker());
     stats.numDrivers = 1;
-    task_->addOperatorStats(stats);
+    task()->addOperatorStats(stats);
   }
 }
 
 void Driver::close() {
-  if (!task_) {
+  if (closed_) {
     // Already closed.
     return;
   }
@@ -477,9 +464,8 @@ void Driver::close() {
   for (auto& op : operators_) {
     op->close();
   }
-  auto task = std::move(task_);
-
-  Task::removeDriver(task, this);
+  closed_ = true;
+  Task::removeDriver(ctx_->task, this);
 }
 
 void Driver::closeByTask() {
@@ -488,11 +474,7 @@ void Driver::closeByTask() {
   for (auto& op : operators_) {
     op->close();
   }
-  task_ = nullptr;
-}
-
-void Driver::disconnectFromTask() {
-  task_ = nullptr;
+  closed_ = true;
 }
 
 bool Driver::mayPushdownAggregation(Operator* aggregation) const {
@@ -570,7 +552,7 @@ Driver::findOperator(std::string_view planNodeId) const {
 }
 
 void Driver::setError(std::exception_ptr exception) {
-  ctx_->task->setError(exception);
+  task()->setError(exception);
 }
 
 std::string Driver::toString() {
@@ -601,7 +583,7 @@ SuspendedSection::~SuspendedSection() {
 }
 
 std::string Driver::label() const {
-  return fmt::format("<Driver {}:{}>", ctx_->task->taskId(), ctx_->driverId);
+  return fmt::format("<Driver {}:{}>", task()->taskId(), ctx_->driverId);
 }
 
 std::string blockingReasonToString(BlockingReason reason) {
