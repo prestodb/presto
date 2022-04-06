@@ -1127,13 +1127,13 @@ void Task::createLocalExchangeSourcesLocked(
   // TODO(spershin): Should we have one memory manager for all local exchanges
   //  in all split groups?
   LocalExchange exchange;
-  exchange.memoryManager = std::make_unique<LocalExchangeMemoryManager>(
+  exchange.memoryManager = std::make_shared<LocalExchangeMemoryManager>(
       queryCtx_->config().maxLocalExchangeBufferSize());
 
   exchange.sources.reserve(numPartitions);
   for (auto i = 0; i < numPartitions; ++i) {
     exchange.sources.emplace_back(
-        std::make_shared<LocalExchangeSource>(exchange.memoryManager.get(), i));
+        std::make_shared<LocalExchangeSource>(exchange.memoryManager, i));
   }
 
   splitGroupState.localExchanges.insert({planNodeId, std::move(exchange)});

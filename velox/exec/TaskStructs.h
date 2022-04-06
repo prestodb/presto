@@ -66,7 +66,7 @@ struct SplitsState {
 
 /// Stores local exchange sources with the memory manager.
 struct LocalExchange {
-  std::unique_ptr<LocalExchangeMemoryManager> memoryManager;
+  std::shared_ptr<LocalExchangeMemoryManager> memoryManager;
   std::vector<std::shared_ptr<LocalExchangeSource>> sources;
 };
 

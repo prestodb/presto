@@ -48,8 +48,10 @@ class LocalExchangeMemoryManager {
 /// Consumers call 'next' repeatedly to fetch the data.
 class LocalExchangeSource {
  public:
-  LocalExchangeSource(LocalExchangeMemoryManager* memoryManager, int partition)
-      : memoryManager_{memoryManager}, partition_{partition} {}
+  LocalExchangeSource(
+      std::shared_ptr<LocalExchangeMemoryManager> memoryManager,
+      int partition)
+      : memoryManager_{std::move(memoryManager)}, partition_{partition} {}
 
   std::string toString() const {
     return fmt::format("LocalExchangeSource({})", partition_);
@@ -94,7 +96,7 @@ class LocalExchangeSource {
  private:
   bool isFinishedLocked(const std::queue<RowVectorPtr>& queue) const;
 
-  LocalExchangeMemoryManager* memoryManager_;
+  std::shared_ptr<LocalExchangeMemoryManager> memoryManager_;
   const int partition_;
   folly::Synchronized<std::queue<RowVectorPtr>> queue_;
   // Satisfied when data becomes available or all producers report that they
