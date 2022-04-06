@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkState;
 
 public class ParquetSelectivePageSourceFactory
         implements HiveSelectivePageSourceFactory
@@ -71,12 +72,13 @@ public class ParquetSelectivePageSourceFactory
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
-
+        checkState(!appendRowNumberEnabled, "append row number is not supported for Parquet Reader");
         throw new PrestoException(NOT_SUPPORTED, "Parquet reader doesn't support filter pushdown yet");
     }
 }

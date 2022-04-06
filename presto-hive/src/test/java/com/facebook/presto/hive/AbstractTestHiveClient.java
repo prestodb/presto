@@ -793,6 +793,7 @@ public abstract class AbstractTestHiveClient
                 false,
                 "layout",
                 Optional.empty(),
+                false,
                 false);
 
         int partitionColumnIndex = MAX_PARTITION_KEY_COLUMN_INDEX;
@@ -862,6 +863,7 @@ public abstract class AbstractTestHiveClient
                         false,
                         "layout",
                         Optional.empty(),
+                        false,
                         false),
                 Optional.empty(),
                 withColumnDomains(ImmutableMap.of(
@@ -907,6 +909,7 @@ public abstract class AbstractTestHiveClient
                 false,
                 "layout",
                 Optional.empty(),
+                false,
                 false));
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(timeZoneId)));
     }
@@ -2098,6 +2101,7 @@ public abstract class AbstractTestHiveClient
                     false,
                     "layout",
                     Optional.empty(),
+                    false,
                     false);
 
             List<ConnectorSplit> splits = getAllSplits(session, transaction, modifiedReadBucketCountLayoutHandle);
