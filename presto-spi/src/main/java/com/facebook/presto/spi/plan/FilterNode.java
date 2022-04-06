@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -22,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -113,5 +115,15 @@ public final class FilterNode
     public int hashCode()
     {
         return Objects.hash(source, predicate);
+    }
+
+    public FilterNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        PlanNode sourcesDeepCopy = getSource().deepCopy(planNodeIdAllocator, variableAllocator, variableMappings);
+        RowExpression predicateCopy = predicate.deepCopy(variableMappings);
+        return new FilterNode(getSourceLocation(), planNodeIdAllocator.getNextId(), sourcesDeepCopy, predicateCopy);
     }
 }

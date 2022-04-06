@@ -19,8 +19,10 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
@@ -118,6 +121,26 @@ public class CanonicalTableScanNode
     public int hashCode()
     {
         return Objects.hash(table, assignments, outputVariables);
+    }
+
+    @Override
+    public CanonicalTableScanNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        getOutputVariables().stream().forEach(v -> variableMappings.put(v, variableAllocator.newVariable(v.getSourceLocation(), v.getName(), v.getType())));
+        CanonicalTableHandle canonicalTableHandle = new CanonicalTableHandle(
+                getTable().getConnectorId(),
+                getTable().getTableHandle(),
+                getTable().getLayoutIdentifier(),
+                getTable().getLayoutHandle());
+        return new CanonicalTableScanNode(
+                getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                canonicalTableHandle,
+                getOutputVariables().stream().map(variableMappings::get).collect(Collectors.toList()),
+                getAssignments().entrySet().stream().collect(Collectors.toMap(e -> variableMappings.get(e.getKey()), e -> e.getValue())));
     }
 
     public static class CanonicalTableHandle

@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
+import java.util.Map;
 import java.util.Optional;
 
 @JsonTypeInfo(
@@ -55,6 +56,8 @@ public abstract class RowExpression
     }
 
     public abstract Type getType();
+
+    public abstract RowExpression deepCopy(Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings);
 
     @Override
     public abstract boolean equals(Object other);

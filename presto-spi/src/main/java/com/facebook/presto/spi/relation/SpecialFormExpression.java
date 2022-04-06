@@ -20,13 +20,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
 @Immutable
@@ -113,6 +116,16 @@ public class SpecialFormExpression
         SpecialFormExpression other = (SpecialFormExpression) obj;
         return this.form == other.form &&
                 Objects.equals(this.arguments, other.arguments);
+    }
+
+    @Override
+    public SpecialFormExpression deepCopy(Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return new SpecialFormExpression(
+                getSourceLocation(),
+                getForm(),
+                getType(),
+                getArguments().stream().map(argument -> argument.deepCopy(variableMappings)).collect(toCollection(ArrayList::new)));
     }
 
     @Override

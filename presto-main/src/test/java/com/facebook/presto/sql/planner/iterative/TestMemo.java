@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -23,7 +24,9 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
@@ -309,6 +312,19 @@ public class TestMemo
         public PlanNode replaceChildren(List<PlanNode> newChildren)
         {
             return new GenericNode(getId(), newChildren);
+        }
+
+        @Override
+        public GenericNode deepCopy(
+                PlanNodeIdAllocator planNodeIdAllocator,
+                VariableAllocator variableAllocator,
+                Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+        {
+            List<PlanNode> sourcesDeepCopy = getSources().stream()
+                    .map(planNode -> planNode.deepCopy(planNodeIdAllocator, variableAllocator, variableMappings))
+                    .collect(Collectors.toList());
+
+            return new GenericNode(planNodeIdAllocator.getNextId(), sourcesDeepCopy);
         }
     }
 }

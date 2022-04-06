@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,6 +27,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -87,5 +90,20 @@ public class DeleteNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new DeleteNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), rowId, outputVariables);
+    }
+
+    public DeleteNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        PlanNode sourceDeepCopy = getSource().deepCopy(planNodeIdAllocator, variableAllocator, variableMappings);
+
+        return new DeleteNode(
+                getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                sourceDeepCopy,
+                getRowId().deepCopy(variableMappings),
+                sourceDeepCopy.getOutputVariables());
     }
 }

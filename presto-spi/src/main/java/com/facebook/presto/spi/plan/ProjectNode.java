@@ -14,15 +14,19 @@
 package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.AbstractMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static java.util.Collections.singletonList;
@@ -105,6 +109,19 @@ public final class ProjectNode
             throw new IllegalArgumentException("newChildren list has multiple items");
         }
         return new ProjectNode(getSourceLocation(), getId(), newChildren.get(0), assignments, locality);
+    }
+
+    public ProjectNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        PlanNode sourcesDeepCopy = getSource().deepCopy(planNodeIdAllocator, variableAllocator, variableMappings);
+        Assignments assignmentsCopy = Assignments.copyOf(
+                getAssignments().entrySet().stream()
+                        .map(e -> new AbstractMap.SimpleEntry<>(variableMappings.get(e.getKey()), e.getValue().deepCopy(variableMappings)))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+        return new ProjectNode(getSourceLocation(), planNodeIdAllocator.getNextId(), sourcesDeepCopy, assignmentsCopy, getLocality());
     }
 
     @Override

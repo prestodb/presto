@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -87,5 +88,11 @@ public final class InputReferenceExpression
         }
         InputReferenceExpression other = (InputReferenceExpression) obj;
         return Objects.equals(this.field, other.field) && Objects.equals(this.type, other.type);
+    }
+
+    @Override
+    public InputReferenceExpression deepCopy(Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return new InputReferenceExpression(getSourceLocation(), getField(), getType());
     }
 }
