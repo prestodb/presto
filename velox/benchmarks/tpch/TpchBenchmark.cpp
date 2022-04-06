@@ -51,13 +51,22 @@ static bool validateDataFormat(const char* flagname, const std::string& value) {
       << std::endl;
   return false;
 }
+
+void ensureTaskCompletion(exec::Task* task) {
+  // ASSERT_TRUE requires a function with return type void.
+  ASSERT_TRUE(waitForTaskCompletion(task));
+}
 } // namespace
 
 DEFINE_string(data_path, "", "Root path of TPC-H data");
 DEFINE_int32(
     run_query_verbose,
     -1,
-    "Run a given query and print execution statistics ");
+    "Run a given query and print execution statistics");
+DEFINE_bool(
+    include_custom_stats,
+    false,
+    "Include custom statistics along with execution statistics");
 DEFINE_int32(num_drivers, 4, "Number of drivers");
 DEFINE_string(data_format, "parquet", "Data format");
 DEFINE_int32(num_splits_per_file, 10, "Number of splits per file");
@@ -136,6 +145,7 @@ int main(int argc, char** argv) {
   } else {
     const auto queryPlan = queryBuilder->getQueryPlan(FLAGS_run_query_verbose);
     const auto task = benchmark.run(queryPlan);
+    ensureTaskCompletion(task.get());
     const auto stats = task->taskStats();
     std::cout << fmt::format(
                      "Execution time: {}",
@@ -147,6 +157,8 @@ int main(int argc, char** argv) {
                      stats.numTotalSplits,
                      stats.numFinishedSplits)
               << std::endl;
-    std::cout << printPlanWithStats(*queryPlan.plan, stats, true) << std::endl;
+    std::cout << printPlanWithStats(
+                     *queryPlan.plan, stats, FLAGS_include_custom_stats)
+              << std::endl;
   }
 }
