@@ -42,10 +42,10 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.type.UuidType.UUID;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.type.UuidType.javaUuidToPrestoUuid;
+import static com.facebook.presto.type.UuidType.prestoUuidToJavaUuid;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.util.UUID.randomUUID;
 
 public final class UuidOperators
@@ -58,7 +58,7 @@ public final class UuidOperators
     public static Slice uuid()
     {
         java.util.UUID uuid = randomUUID();
-        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+        return javaUuidToPrestoUuid(uuid);
     }
 
     @ScalarOperator(EQUAL)
@@ -134,7 +134,7 @@ public final class UuidOperators
         try {
             java.util.UUID uuid = java.util.UUID.fromString(slice.toStringUtf8());
             if (slice.length() == 36) {
-                return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+                return javaUuidToPrestoUuid(uuid);
             }
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid UUID string length: " + slice.length());
         }
@@ -147,7 +147,7 @@ public final class UuidOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castFromUuidToVarchar(@SqlType(StandardTypes.UUID) Slice slice)
     {
-        return utf8Slice(new java.util.UUID(slice.getLong(0), slice.getLong(SIZE_OF_LONG)).toString());
+        return utf8Slice(prestoUuidToJavaUuid(slice).toString());
     }
 
     @ScalarOperator(CAST)
