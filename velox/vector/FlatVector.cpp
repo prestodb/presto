@@ -289,8 +289,23 @@ void FlatVector<StringView>::copy(
     return;
   }
 
+  // Source can be of Unknown type, in that case it should have null values.
+  if (source->typeKind() == TypeKind::UNKNOWN) {
+    if (source->isConstantEncoding()) {
+      DCHECK(source->isNullAt(0));
+      rows.applyToSelected([&](vector_size_t row) { setNull(row, true); });
+    } else {
+      rows.applyToSelected([&](vector_size_t row) {
+        auto sourceRow = toSourceRow ? toSourceRow[row] : row;
+        DCHECK(source->isNullAt(sourceRow));
+        setNull(row, true);
+      });
+    }
+    return;
+  }
+
   auto leaf = source->wrappedVector()->asUnchecked<SimpleVector<StringView>>();
-  VELOX_CHECK(leaf, "Assigning non-string to string");
+
   if (pool_ == leaf->pool()) {
     // We copy referencing the storage of 'source'.
     copyValuesAndNulls(source, rows, toSourceRow);
