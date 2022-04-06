@@ -662,6 +662,11 @@ public class PrestoStatement
         return connection;
     }
 
+    protected final Optional<PrestoConnection> optionalConnection()
+    {
+        return Optional.ofNullable(connection.get());
+    }
+
     private void closeResultSet()
             throws SQLException
     {

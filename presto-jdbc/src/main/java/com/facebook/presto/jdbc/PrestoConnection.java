@@ -786,6 +786,11 @@ public class PrestoConnection
         }
     }
 
+    void removePreparedStatement(String name)
+    {
+        preparedStatements.remove(name);
+    }
+
     WarningsManager getWarningsManager()
     {
         return warningsManager;
