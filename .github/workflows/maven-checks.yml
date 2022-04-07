@@ -34,7 +34,7 @@ jobs:
             ${{ runner.os }}-maven-2-
       - name: Populate maven cache
         if: steps.cache-maven.outputs.cache-hit != 'true'
-        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies -P ci
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
