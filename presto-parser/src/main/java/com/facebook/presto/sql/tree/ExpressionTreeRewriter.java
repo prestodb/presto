@@ -16,7 +16,9 @@ package com.facebook.presto.sql.tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
+import java.util.Deque;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
@@ -250,11 +252,57 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            Expression left = rewrite(node.getLeft(), context.get());
-            Expression right = rewrite(node.getRight(), context.get());
+            // It's common to have a large number of chained AND or OR. So we do it iteratively here to avoid stack overflow
+            LogicalBinaryExpression.Operator operator = node.getOperator();
+            Deque<LogicalBinaryExpression> nodesToVisit = new LinkedList<>();
+            ImmutableList.Builder<Expression> childrenBuilder = ImmutableList.builder();
+            LogicalBinaryExpression currentNode = node;
 
-            if (left != node.getLeft() || right != node.getRight()) {
-                return new LogicalBinaryExpression(node.getOperator(), left, right);
+            // First collect all the left children that are the same operator for a left-leaning tree
+            nodesToVisit.push(node);
+            while (currentNode.getLeft() instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) currentNode.getLeft()).getOperator() == operator) {
+                nodesToVisit.push((LogicalBinaryExpression) currentNode.getLeft());
+                currentNode = nodesToVisit.peek();
+            }
+
+            // Now rewrite the last child
+            currentNode = nodesToVisit.pop();
+            Expression rewrittenLeft = rewrite(currentNode.getLeft(), context.get());
+            while (!nodesToVisit.isEmpty()) {
+                Expression newRight = rewrite(currentNode.getRight(), context.get());
+                if (newRight != currentNode.getRight() || rewrittenLeft != currentNode.getLeft()) {
+                    rewrittenLeft = new LogicalBinaryExpression(operator, rewrittenLeft, newRight);
+                }
+                else {
+                    rewrittenLeft = currentNode;
+                }
+                currentNode = nodesToVisit.pop();
+            }
+
+            // Now collect all the right children that are the same operator for a right-leaning tree
+            nodesToVisit.push(node);
+            currentNode = node;
+            while (currentNode.getRight() instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) currentNode.getRight()).getOperator() == operator) {
+                nodesToVisit.push((LogicalBinaryExpression) currentNode.getRight());
+                currentNode = nodesToVisit.peek();
+            }
+
+            // Now rewrite the last child
+            currentNode = nodesToVisit.pop();
+            Expression rewrittenRight = rewrite(currentNode.getRight(), context.get());
+            while (!nodesToVisit.isEmpty()) {
+                Expression newLeft = rewrite(currentNode.getLeft(), context.get());
+                if (rewrittenRight != currentNode.getRight() || newLeft != currentNode.getLeft()) {
+                    rewrittenRight = new LogicalBinaryExpression(operator, newLeft, rewrittenRight);
+                }
+                else {
+                    rewrittenRight = currentNode;
+                }
+                currentNode = nodesToVisit.pop();
+            }
+
+            if (node.getLeft() != rewrittenLeft || node.getRight() != rewrittenRight) {
+                return new LogicalBinaryExpression(operator, rewrittenLeft, rewrittenRight);
             }
 
             return node;

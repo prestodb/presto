@@ -929,6 +929,12 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testExtraLargeQuerySuccess()
+    {
+        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(1000, "1 = 1")), "SELECT true");
+    }
+
+    @Test
     public void testShowSchemasFromOther()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
