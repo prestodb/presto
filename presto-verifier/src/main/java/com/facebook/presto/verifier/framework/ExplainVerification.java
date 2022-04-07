@@ -25,6 +25,7 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -53,9 +54,10 @@ public class ExplainVerification
             SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            ListeningExecutorService executor)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.of(QUERY_PLAN_RESULT_SET_CONVERTER), verifierConfig);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.of(QUERY_PLAN_RESULT_SET_CONVERTER), verifierConfig, executor);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 

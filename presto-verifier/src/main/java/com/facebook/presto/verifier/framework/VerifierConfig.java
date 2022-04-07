@@ -52,6 +52,7 @@ public class VerifierConfig
     private boolean teardownOnMainClusters = true;
     private boolean skipControl;
     private boolean skipChecksum;
+    private boolean concurrentControlAndTest;
 
     private boolean explain;
 
@@ -329,6 +330,19 @@ public class VerifierConfig
     public VerifierConfig setExplain(boolean explain)
     {
         this.explain = explain;
+        return this;
+    }
+
+    public boolean isConcurrentControlAndTest()
+    {
+        return concurrentControlAndTest;
+    }
+
+    @ConfigDescription("Run control and test query concurrently")
+    @Config("concurrent-control-and-test")
+    public VerifierConfig setConcurrentControlAndTest(boolean concurrentControlAndTest)
+    {
+        this.concurrentControlAndTest = concurrentControlAndTest;
         return this;
     }
 }
