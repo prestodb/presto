@@ -301,18 +301,17 @@ TEST_F(PlanNodeToStringTest, limit) {
 TEST_F(PlanNodeToStringTest, topN) {
   auto plan = PlanBuilder()
                   .values({data_})
-                  .topN({0}, {core::kAscNullsFirst}, 10, true)
+                  .topN({"c0 NULLS FIRST"}, 10, true)
                   .planNode();
 
   ASSERT_EQ("-> TopN\n", plan->toString());
   ASSERT_EQ(
       "-> TopN[PARTIAL 10 c0 ASC NULLS FIRST]\n", plan->toString(true, false));
 
-  plan =
-      PlanBuilder()
-          .values({data_})
-          .topN({1, 0}, {core::kAscNullsFirst, core::kDescNullsLast}, 10, false)
-          .planNode();
+  plan = PlanBuilder()
+             .values({data_})
+             .topN({"c1 NULLS FIRST", "c0 DESC"}, 10, false)
+             .planNode();
 
   ASSERT_EQ("-> TopN\n", plan->toString());
   ASSERT_EQ(

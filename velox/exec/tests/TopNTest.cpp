@@ -21,15 +21,7 @@ using namespace facebook::velox::exec::test;
 
 class TopNTest : public OperatorTestBase {
  protected:
-  std::vector<core::SortOrder> getSortOrders() {
-    return {
-        core::kAscNullsLast,
-        core::kAscNullsFirst,
-        core::kDescNullsFirst,
-        core::kDescNullsLast};
-  }
-
-  std::vector<std::string> getSortOrderSqls() {
+  static std::vector<std::string> getSortOrderSqls() {
     return {"NULLS LAST", "NULLS FIRST", "DESC NULLS FIRST", "DESC NULLS LAST"};
   }
 
@@ -39,22 +31,17 @@ class TopNTest : public OperatorTestBase {
       int32_t limit) {
     auto keyIndex = input[0]->type()->asRow().getChildIdx(key);
 
-    auto sortOrders = getSortOrders();
     auto sortOrderSqls = getSortOrderSqls();
 
-    for (auto i = 0; i < sortOrders.size(); i++) {
-      auto plan = PlanBuilder()
-                      .values(input)
-                      .topN({keyIndex}, {sortOrders[i]}, limit, false)
-                      .planNode();
+    for (const auto& sortOrderSql : sortOrderSqls) {
+      auto sql = fmt::format("{} {}", key, sortOrderSql);
+
+      auto plan =
+          PlanBuilder().values(input).topN({sql}, limit, false).planNode();
 
       assertQueryOrdered(
           plan,
-          fmt::format(
-              "SELECT * FROM tmp ORDER BY {} {} LIMIT {}",
-              key,
-              sortOrderSqls[i],
-              limit),
+          fmt::format("SELECT * FROM tmp ORDER BY {} LIMIT {}", sql, limit),
           {keyIndex});
     }
   }
@@ -65,23 +52,21 @@ class TopNTest : public OperatorTestBase {
       const std::string& filter) {
     auto keyIndex = input[0]->type()->asRow().getChildIdx(key);
 
-    auto sortOrders = getSortOrders();
     auto sortOrderSqls = getSortOrderSqls();
 
-    for (auto i = 0; i < sortOrders.size(); i++) {
+    for (const auto& sortOrderSql : sortOrderSqls) {
+      auto sql = fmt::format("{} {}", key, sortOrderSql);
+
       auto plan = PlanBuilder()
                       .values(input)
                       .filter(filter)
-                      .topN({keyIndex}, {sortOrders[i]}, 10, false)
+                      .topN({sql}, 10, false)
                       .planNode();
 
       assertQueryOrdered(
           plan,
           fmt::format(
-              "SELECT * FROM tmp WHERE {} ORDER BY {} {} LIMIT 10",
-              filter,
-              key,
-              sortOrderSqls[i]),
+              "SELECT * FROM tmp WHERE {} ORDER BY {} LIMIT 10", filter, sql),
           {keyIndex});
     }
   }
@@ -94,25 +79,24 @@ class TopNTest : public OperatorTestBase {
     auto rowType = input[0]->type()->asRow();
     auto keyIndices = {rowType.getChildIdx(key1), rowType.getChildIdx(key2)};
 
-    auto sortOrders = getSortOrders();
     auto sortOrderSqls = getSortOrderSqls();
 
-    for (int i = 0; i < sortOrders.size(); i++) {
-      for (int j = 0; j < sortOrders.size(); j++) {
-        auto plan =
-            PlanBuilder()
-                .values(input)
-                .topN(keyIndices, {sortOrders[i], sortOrders[j]}, limit, false)
-                .planNode();
+    for (const auto& sortOrderSql1 : sortOrderSqls) {
+      for (const auto& sortOrderSql2 : sortOrderSqls) {
+        auto sql1 = fmt::format("{} {}", key1, sortOrderSql1);
+        auto sql2 = fmt::format("{} {}", key2, sortOrderSql2);
+
+        auto plan = PlanBuilder()
+                        .values(input)
+                        .topN({sql1, sql2}, limit, false)
+                        .planNode();
 
         assertQueryOrdered(
             plan,
             fmt::format(
-                "SELECT * FROM tmp ORDER BY {} {}, {} {} LIMIT {}",
-                key1,
-                sortOrderSqls[i],
-                key2,
-                sortOrderSqls[j],
+                "SELECT * FROM tmp ORDER BY {}, {} LIMIT {}",
+                sql1,
+                sql2,
                 limit),
             keyIndices);
       }

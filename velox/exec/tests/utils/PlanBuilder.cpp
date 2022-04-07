@@ -81,16 +81,41 @@ PlanBuilder& PlanBuilder::exchange(const RowTypePtr& outputType) {
   return *this;
 }
 
-PlanBuilder& PlanBuilder::mergeExchange(
-    const RowTypePtr& outputType,
-    const std::vector<ChannelIndex>& keyIndices,
-    const std::vector<core::SortOrder>& sortOrder) {
+namespace {
+std::pair<
+    std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>,
+    std::vector<core::SortOrder>>
+parseOrderByClauses(
+    const std::vector<std::string>& keys,
+    const RowTypePtr& inputType,
+    memory::MemoryPool* pool) {
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
   std::vector<core::SortOrder> sortingOrders;
-  for (int i = 0; i < keyIndices.size(); i++) {
-    sortingKeys.push_back(field(outputType, keyIndices[i]));
-    sortingOrders.push_back(sortOrder[i]);
+  for (const auto& key : keys) {
+    auto [untypedExpr, sortOrder] = duckdb::parseOrderByExpr(key);
+    auto typedExpr =
+        core::Expressions::inferTypes(untypedExpr, inputType, pool);
+
+    auto sortingKey =
+        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);
+    VELOX_CHECK_NOT_NULL(
+        sortingKey,
+        "ORDER BY clause must use a column name, not an expression: {}",
+        key);
+    sortingKeys.emplace_back(sortingKey);
+    sortingOrders.emplace_back(sortOrder);
   }
+
+  return {sortingKeys, sortingOrders};
+}
+} // namespace
+
+PlanBuilder& PlanBuilder::mergeExchange(
+    const RowTypePtr& outputType,
+    const std::vector<std::string>& keys) {
+  auto [sortingKeys, sortingOrders] =
+      parseOrderByClauses(keys, outputType, pool_);
+
   planNode_ = std::make_shared<core::MergeExchangeNode>(
       nextPlanNodeId(), outputType, sortingKeys, sortingOrders);
 
@@ -431,35 +456,6 @@ PlanBuilder& PlanBuilder::streamingAggregation(
   return *this;
 }
 
-namespace {
-std::pair<
-    std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>,
-    std::vector<core::SortOrder>>
-parseOrderByClauses(
-    const std::vector<std::string>& keys,
-    const RowTypePtr& inputType,
-    memory::MemoryPool* pool) {
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
-  std::vector<core::SortOrder> sortingOrders;
-  for (const auto& key : keys) {
-    auto [untypedExpr, sortOrder] = duckdb::parseOrderByExpr(key);
-    auto typedExpr =
-        core::Expressions::inferTypes(untypedExpr, inputType, pool);
-
-    auto sortingKey =
-        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);
-    VELOX_CHECK_NOT_NULL(
-        sortingKey,
-        "ORDER BY clause must use a column name, not an expression: {}",
-        key);
-    sortingKeys.emplace_back(sortingKey);
-    sortingOrders.emplace_back(sortOrder);
-  }
-
-  return {sortingKeys, sortingOrders};
-}
-} // namespace
-
 PlanBuilder& PlanBuilder::localMerge(
     const std::vector<std::string>& keys,
     std::vector<std::shared_ptr<const core::PlanNode>> sources) {
@@ -490,16 +486,11 @@ PlanBuilder& PlanBuilder::orderBy(
 }
 
 PlanBuilder& PlanBuilder::topN(
-    const std::vector<ChannelIndex>& keyIndices,
-    const std::vector<core::SortOrder>& sortOrder,
+    const std::vector<std::string>& keys,
     int32_t count,
     bool isPartial) {
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
-  std::vector<core::SortOrder> sortingOrders;
-  for (int i = 0; i < keyIndices.size(); i++) {
-    sortingKeys.push_back(field(keyIndices[i]));
-    sortingOrders.push_back(sortOrder[i]);
-  }
+  auto [sortingKeys, sortingOrders] =
+      parseOrderByClauses(keys, planNode_->outputType(), pool_);
   planNode_ = std::make_shared<core::TopNNode>(
       nextPlanNodeId(),
       sortingKeys,

@@ -320,7 +320,7 @@ TEST_F(MultiFragmentTest, mergeExchange) {
 
   auto finalSortTaskId = makeTaskId("orderby", tasks.size());
   auto finalSortPlan = PlanBuilder()
-                           .mergeExchange(outputType, {0}, {kAscNullsLast})
+                           .mergeExchange(outputType, {"c0"})
                            .partitionedOutput({}, 1)
                            .planNode();
 

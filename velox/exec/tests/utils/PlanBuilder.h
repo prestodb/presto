@@ -69,10 +69,17 @@ class PlanBuilder {
 
   PlanBuilder& exchange(const RowTypePtr& outputType);
 
+  /// Adds a MergeExchangeNode using specified ORDER BY clauses.
+  ///
+  /// For example,
+  ///
+  ///     .mergeExchange(outputRowType, {"a", "b DESC", "c ASC NULLS FIRST"})
+  ///
+  /// By default, uses ASC NULLS LAST sort order, e.g. column "a" above will use
+  /// ASC NULLS LAST and column "b" will use DESC NULLS LAST.
   PlanBuilder& mergeExchange(
       const RowTypePtr& outputType,
-      const std::vector<ChannelIndex>& keyIndices,
-      const std::vector<core::SortOrder>& sortOrder);
+      const std::vector<std::string>& keys);
 
   /// Adds a ProjectNode using specified SQL expressions.
   ///
@@ -271,11 +278,16 @@ class PlanBuilder {
   /// ASC NULLS LAST and column "b" will use DESC NULLS LAST.
   PlanBuilder& orderBy(const std::vector<std::string>& keys, bool isPartial);
 
-  PlanBuilder& topN(
-      const std::vector<ChannelIndex>& keyIndices,
-      const std::vector<core::SortOrder>& sortOrder,
-      int32_t count,
-      bool isPartial);
+  /// Adds a TopNNode using specified N and ORDER BY clauses.
+  ///
+  /// For example,
+  ///
+  ///     .topN({"a", "b DESC", "c ASC NULLS FIRST"}, 10, true)
+  ///
+  /// By default, uses ASC NULLS LAST sort order, e.g. column "a" above will use
+  /// ASC NULLS LAST and column "b" will use DESC NULLS LAST.
+  PlanBuilder&
+  topN(const std::vector<std::string>& keys, int32_t count, bool isPartial);
 
   PlanBuilder& limit(int32_t offset, int32_t count, bool isPartial);
 
