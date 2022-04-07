@@ -123,7 +123,7 @@ class LocalExchangeSourceOperator : public SourceOperator {
       const std::string& planNodeId,
       int partition);
 
-  std::string toString() override {
+  std::string toString() const override {
     return fmt::format("LocalExchangeSourceOperator({})", partition_);
   }
 
@@ -158,7 +158,7 @@ class LocalPartition : public Operator {
       DriverCtx* ctx,
       const std::shared_ptr<const core::LocalPartitionNode>& planNode);
 
-  std::string toString() override {
+  std::string toString() const override {
     return fmt::format("LocalPartition({})", numPartitions_);
   }
 

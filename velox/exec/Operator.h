@@ -336,7 +336,7 @@ class Operator {
 
   void recordBlockingTime(uint64_t start);
 
-  virtual std::string toString();
+  virtual std::string toString() const;
 
   velox::memory::MemoryPool* pool() {
     return operatorCtx_->pool();

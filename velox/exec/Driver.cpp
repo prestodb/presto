@@ -493,7 +493,7 @@ bool Driver::mayPushdownAggregation(Operator* aggregation) const {
 }
 
 std::unordered_set<ChannelIndex> Driver::canPushdownFilters(
-    Operator* FOLLY_NONNULL filterSource,
+    const Operator* FOLLY_NONNULL filterSource,
     const std::vector<ChannelIndex>& channels) const {
   int filterSourceIndex = -1;
   for (auto i = 0; i < operators_.size(); ++i) {

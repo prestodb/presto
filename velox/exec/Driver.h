@@ -230,7 +230,7 @@ class Driver {
   // Returns a subset of channels for which there are operators upstream from
   // filterSource that accept dynamically generated filters.
   std::unordered_set<ChannelIndex> canPushdownFilters(
-      Operator* FOLLY_NONNULL filterSource,
+      const Operator* FOLLY_NONNULL filterSource,
       const std::vector<ChannelIndex>& channels) const;
 
   // Returns the Operator with 'planNodeId.' or nullptr if not
