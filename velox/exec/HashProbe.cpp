@@ -175,18 +175,16 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
         (isInnerJoin(joinType_) || isSemiJoin(joinType_)) &&
         table_->hashMode() != BaseHashTable::HashMode::kHash) {
       // Find out whether there are any upstream operators that can accept
-      // dynamic filters on all or a subset of the join keys. Setup dynamic
-      // filter builders to track join selectivity for these keys and generate
-      // dynamic filters to push down.
+      // dynamic filters on all or a subset of the join keys. Create dynamic
+      // filters to push down.
       const auto& buildHashers = table_->hashers();
       auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
           this, keyChannels_);
-      dynamicFilterBuilders_.resize(keyChannels_.size());
       for (auto i = 0; i < keyChannels_.size(); i++) {
-        auto it = channels.find(keyChannels_[i]);
-        if (it != channels.end()) {
-          dynamicFilterBuilders_[i].emplace(DynamicFilterBuilder(
-              *(buildHashers[i].get()), keyChannels_[i], dynamicFilters_));
+        if (channels.find(keyChannels_[i]) != channels.end()) {
+          if (auto filter = buildHashers[i]->getFilter(false)) {
+            dynamicFilters_.emplace(keyChannels_[i], std::move(filter));
+          }
         }
       }
     }
@@ -230,16 +228,6 @@ void HashProbe::addInput(RowVectorPtr input) {
   deselectRowsWithNulls(
       *input_, keyChannels_, nonNullRows_, *operatorCtx_->execCtx());
 
-  auto getDynamicFilterBuilder = [&](auto i) -> DynamicFilterBuilder* {
-    if (!dynamicFilterBuilders_.empty()) {
-      auto& builder = dynamicFilterBuilders_[i];
-      if (builder.has_value() && builder->isActive()) {
-        return &(builder.value());
-      }
-    }
-    return nullptr;
-  };
-
   activeRows_ = nonNullRows_;
   lookup_->hashes.resize(input_->size());
   auto mode = table_->hashMode();
@@ -247,17 +235,8 @@ void HashProbe::addInput(RowVectorPtr input) {
   for (auto i = 0; i < keyChannels_.size(); ++i) {
     auto key = input_->loadedChildAt(keyChannels_[i]);
     if (mode != BaseHashTable::HashMode::kHash) {
-      auto* dynamicFilterBuilder = getDynamicFilterBuilder(i);
-      if (dynamicFilterBuilder) {
-        dynamicFilterBuilder->addInput(activeRows_.countSelected());
-      }
-
       buildHashers[i]->lookupValueIds(
           *key, activeRows_, scratchMemory_, lookup_->hashes);
-
-      if (dynamicFilterBuilder) {
-        dynamicFilterBuilder->addOutput(activeRows_.countSelected());
-      }
     } else {
       hashers_[i]->hash(*key, activeRows_, i > 0, lookup_->hashes);
     }

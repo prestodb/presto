@@ -149,11 +149,10 @@ filtering or dynamic filter pushdown.
 
 
 Velox implements this optimization by leveraging VectorHashers that contain full
-knowledge about the join key values on the build side. HashProbe operator
-tracks the selectivity of each join key independently. For each key that drops
-at least a third of the rows, an in-list filter is constructed using the set of
-distinct values stored in the corresponding VectorHasher. These filters are
-then pushed down into the TableScan operator and make their way into the
+knowledge about the join key values on the build side. For each join key
+with not too many distinct values, an in-list filter is constructed using the set
+of distinct values stored in the corresponding VectorHasher. These filters
+are then pushed down into the TableScan operator and make their way into the
 HiveConnector which uses them to (1) prune files and row groups based on
 statistics and (2) filter out rows when reading the data.
 

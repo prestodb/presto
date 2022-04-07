@@ -605,26 +605,31 @@ TEST_F(HashJoinTest, antiJoin) {
 }
 
 TEST_F(HashJoinTest, dynamicFilters) {
+  const int32_t numSplits = 20;
+  const int32_t numRowsProbe = 1024;
+  const int32_t numRowsBuild = 100;
+
   std::vector<RowVectorPtr> leftVectors;
-  leftVectors.reserve(20);
+  leftVectors.reserve(numSplits);
 
-  auto leftFiles = makeFilePaths(20);
+  auto leftFiles = makeFilePaths(numSplits);
 
-  for (int i = 0; i < 20; i++) {
+  for (int i = 0; i < numSplits; i++) {
     auto rowVector = makeRowVector({
-        makeFlatVector<int32_t>(1'024, [&](auto row) { return row - i * 10; }),
-        makeFlatVector<int64_t>(1'024, [](auto row) { return row; }),
+        makeFlatVector<int32_t>(
+            numRowsProbe, [&](auto row) { return row - i * 10; }),
+        makeFlatVector<int64_t>(numRowsProbe, [](auto row) { return row; }),
     });
     leftVectors.push_back(rowVector);
     writeToFile(leftFiles[i]->path, rowVector);
   }
 
   // 100 key values in [35, 233] range.
-  auto rightKey =
-      makeFlatVector<int32_t>(100, [](auto row) { return 35 + row * 2; });
+  auto rightKey = makeFlatVector<int32_t>(
+      numRowsBuild, [](auto row) { return 35 + row * 2; });
   auto rightVectors = {makeRowVector({
       rightKey,
-      makeFlatVector<int64_t>(100, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(numRowsBuild, [](auto row) { return row; }),
   })};
 
   createDuckDbTable("t", {leftVectors});
@@ -667,7 +672,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
     EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
-    EXPECT_LT(getInputPositions(task, 1), 1024 * 20);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
 
     // Semi join.
     op = PlanBuilder(planNodeIdGenerator)
@@ -690,7 +695,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
     EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
-    EXPECT_LT(getInputPositions(task, 1), 1024 * 20);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
   }
 
   // Basic push-down with column names projected out of the table scan having
@@ -720,7 +725,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
     EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
-    EXPECT_LT(getInputPositions(task, 1), 1024 * 20);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
   }
 
   // Push-down that requires merging filters.
@@ -745,6 +750,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
     EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
   }
 
   // Push-down that turns join into a no-op.
@@ -765,7 +771,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
     EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
-    EXPECT_LT(getInputPositions(task, 1), 1024 * 20);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
   }
 
   // Push-down that requires merging filters and turns join into a no-op.
@@ -790,9 +796,10 @@ TEST_F(HashJoinTest, dynamicFilters) {
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
     EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
   }
 
-  // Disable filter push-down by using highly selective filter in the scan.
+  // Push-down with highly selective filter in the scan.
   {
     // Inner join.
     auto filters =
@@ -813,9 +820,10 @@ TEST_F(HashJoinTest, dynamicFilters) {
         op,
         {{leftScanId, leftFiles}},
         "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0 AND t.c0 < 200");
-    EXPECT_EQ(0, getFiltersProduced(task, 1).sum);
-    EXPECT_EQ(0, getFiltersAccepted(task, 0).sum);
-    EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
+    EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
 
     // Semi join.
     op = PlanBuilder(planNodeIdGenerator)
@@ -831,9 +839,10 @@ TEST_F(HashJoinTest, dynamicFilters) {
         op,
         {{leftScanId, leftFiles}},
         "SELECT t.c1 + 1 FROM t WHERE t.c0 IN (SELECT c0 FROM u) AND t.c0 < 200");
-    EXPECT_EQ(0, getFiltersProduced(task, 1).sum);
-    EXPECT_EQ(0, getFiltersAccepted(task, 0).sum);
-    EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
+    EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
   }
 
   // Disable filter push-down by using values in place of scan.
@@ -847,7 +856,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
     auto task = assertQuery(op, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
     EXPECT_EQ(0, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(0, getFiltersAccepted(task, 0).sum);
-    EXPECT_EQ(getInputPositions(task, 1), 1024 * 20);
+    EXPECT_EQ(numRowsProbe * numSplits, getInputPositions(task, 1));
   }
 
   // Disable filter push-down by using an expression as the join key on the
@@ -868,7 +877,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
         "SELECT t.c1 + 1 FROM t, u WHERE (t.c0 + 1) = u.c0");
     EXPECT_EQ(0, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(0, getFiltersAccepted(task, 0).sum);
-    EXPECT_EQ(getInputPositions(task, 1), 1024 * 20);
+    EXPECT_EQ(numRowsProbe * numSplits, getInputPositions(task, 1));
   }
 }
 

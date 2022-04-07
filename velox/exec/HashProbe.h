@@ -31,7 +31,15 @@ class HashProbe : public Operator {
       const std::shared_ptr<const core::HashJoinNode>& hashJoinNode);
 
   bool needsInput() const override {
-    return !finished_ && !noMoreInput_ && !input_;
+    if (finished_ || noMoreInput_ || input_) {
+      return false;
+    }
+    if (table_) {
+      return true;
+    }
+    auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
+        this, keyChannels_);
+    return channels.empty();
   }
 
   void addInput(RowVectorPtr input) override;
@@ -81,54 +89,6 @@ class HashProbe : public Operator {
 
   // Channel of probe keys in 'input_'.
   std::vector<ChannelIndex> keyChannels_;
-
-  // Tracks selectivity of a given VectorHasher from the build side and creates
-  // a filter to push down upstream if the hasher is somewhat selective.
-  class DynamicFilterBuilder {
-   public:
-    DynamicFilterBuilder(
-        const VectorHasher& buildHasher,
-        ChannelIndex channel,
-        std::unordered_map<ChannelIndex, std::shared_ptr<common::Filter>>&
-            dynamicFilters)
-        : buildHasher_{buildHasher},
-          channel_{channel},
-          dynamicFilters_{dynamicFilters} {}
-
-    bool isActive() const {
-      return isActive_;
-    }
-
-    void addInput(uint64_t numIn) {
-      numIn_ += numIn;
-    }
-
-    void addOutput(uint64_t numOut) {
-      numOut_ += numOut;
-
-      // Add filter if VectorHasher is somewhat selective, e.g. dropped at least
-      // 1/3 of the rows. Make sure we have seen at least 10K rows.
-      if (isActive_ && numIn_ >= 10'000 && numOut_ < 0.66 * numIn_) {
-        if (auto filter = buildHasher_.getFilter(false)) {
-          dynamicFilters_.emplace(channel_, std::move(filter));
-        }
-        isActive_ = false;
-      }
-    }
-
-   private:
-    const VectorHasher& buildHasher_;
-    const ChannelIndex channel_;
-    std::unordered_map<ChannelIndex, std::shared_ptr<common::Filter>>&
-        dynamicFilters_;
-    uint64_t numIn_{0};
-    uint64_t numOut_{0};
-    bool isActive_{true};
-  };
-
-  // List of DynamicFilterBuilders aligned with keyChannels_. Contains a valid
-  // entry if the driver can push down a filter on the corresponding join key.
-  std::vector<std::optional<DynamicFilterBuilder>> dynamicFilterBuilders_;
 
   // True if the join can become a no-op starting with the next batch of input.
   bool canReplaceWithDynamicFilter_{false};

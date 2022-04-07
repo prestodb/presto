@@ -368,8 +368,6 @@ void HiveDataSource::addDynamicFilter(
     fieldSpec.setFilter(filter->clone());
   }
   scanSpec_->resetCachedValues();
-
-  rowReader_->resetFilterCaches();
 }
 
 void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
