@@ -105,22 +105,27 @@ public abstract class AbstractVerificationTest
 
     protected Optional<VerifierQueryEvent> runExplain(String controlQuery, String testQuery)
     {
-        return verify(getSourceQuery(controlQuery, testQuery), true, Optional.empty());
+        return verify(getSourceQuery(controlQuery, testQuery), true, Optional.empty(), Optional.empty());
     }
 
     protected Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery)
     {
-        return verify(getSourceQuery(controlQuery, testQuery), false, Optional.empty());
+        return verify(getSourceQuery(controlQuery, testQuery), false, Optional.empty(), Optional.empty());
+    }
+
+    protected Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery, VerificationSettings settings)
+    {
+        return verify(getSourceQuery(controlQuery, testQuery), false, Optional.empty(), Optional.of(settings));
     }
 
     protected Optional<VerifierQueryEvent> verify(SourceQuery sourceQuery, boolean explain)
     {
-        return verify(sourceQuery, explain, Optional.empty());
+        return verify(sourceQuery, explain, Optional.empty(), Optional.empty());
     }
 
     protected Optional<VerifierQueryEvent> verify(SourceQuery sourceQuery, boolean explain, PrestoAction mockPrestoAction)
     {
-        return verify(sourceQuery, explain, Optional.of(mockPrestoAction));
+        return verify(sourceQuery, explain, Optional.of(mockPrestoAction), Optional.empty());
     }
 
     protected PrestoAction getPrestoAction(Optional<QueryConfiguration> queryConfiguration)
@@ -145,9 +150,16 @@ public abstract class AbstractVerificationTest
                 verifierConfig);
     }
 
-    private Optional<VerifierQueryEvent> verify(SourceQuery sourceQuery, boolean explain, Optional<PrestoAction> mockPrestoAction)
+    private Optional<VerifierQueryEvent> verify(
+            SourceQuery sourceQuery,
+            boolean explain,
+            Optional<PrestoAction> mockPrestoAction,
+            Optional<VerificationSettings> verificationSettings)
     {
         VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID).setExplain(explain);
+        verificationSettings.ifPresent(settings -> {
+            settings.concurrentControlAndTest.ifPresent(verifierConfig::setConcurrentControlAndTest);
+        });
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> getPrestoAction(Optional.of(sourceQuery.getControlConfiguration())));
         QueryRewriterFactory queryRewriterFactory = new VerificationQueryRewriterFactory(
@@ -167,5 +179,10 @@ public abstract class AbstractVerificationTest
                 typeManager,
                 determinismAnalyzerConfig);
         return verificationFactory.get(sourceQuery, Optional.empty()).run().getEvent();
+    }
+
+    public static class VerificationSettings
+    {
+        Optional<Boolean> concurrentControlAndTest;
     }
 }
