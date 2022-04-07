@@ -74,7 +74,10 @@ public class TestQueryManagerConfig
                 .setPerQueryRetryLimit(0)
                 .setPerQueryRetryMaxExecutionTime(new Duration(5, MINUTES))
                 .setGlobalQueryRetryFailureLimit(150)
-                .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES)));
+                .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES))
+                .setRateLimiterBucketMaxSize(100)
+                .setRateLimiterCacheLimit(1000)
+                .setRateLimiterCacheWindowMinutes(5));
     }
 
     @Test
@@ -120,6 +123,9 @@ public class TestQueryManagerConfig
                 .put("per-query-retry-max-execution-time", "1h")
                 .put("global-query-retry-failure-limit", "200")
                 .put("global-query-retry-failure-window", "1h")
+                .put("query-manager.rate-limiter-bucket-max-size", "200")
+                .put("query-manager.rate-limiter-cache-limit", "10000")
+                .put("query-manager.rate-limiter-cache-window-minutes", "60")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -161,8 +167,10 @@ public class TestQueryManagerConfig
                 .setPerQueryRetryLimit(10)
                 .setPerQueryRetryMaxExecutionTime(new Duration(1, HOURS))
                 .setGlobalQueryRetryFailureLimit(200)
-                .setGlobalQueryRetryFailureWindow(new Duration(1, HOURS));
-
+                .setGlobalQueryRetryFailureWindow(new Duration(1, HOURS))
+                .setRateLimiterBucketMaxSize(200)
+                .setRateLimiterCacheLimit(10000)
+                .setRateLimiterCacheWindowMinutes(60);
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }

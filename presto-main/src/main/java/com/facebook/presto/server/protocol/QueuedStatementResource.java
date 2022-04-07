@@ -14,6 +14,7 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
@@ -37,6 +38,8 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -123,6 +126,9 @@ public class QueuedStatementResource
     private final TracerProvider tracerProvider;
     private final SessionPropertyManager sessionPropertyManager;     // We may need some system default session property values at early query stage even before session is created.
 
+    private final QueryBlockingRateLimiter queryRateLimiter;
+    private final TimeStat queuedRateLimiterBlockTime = new TimeStat();
+
     @Inject
     public QueuedStatementResource(
             DispatchManager dispatchManager,
@@ -131,7 +137,8 @@ public class QueuedStatementResource
             SqlParserOptions sqlParserOptions,
             ServerConfig serverConfig,
             TracerProvider tracerProvider,
-            SessionPropertyManager sessionPropertyManager)
+            SessionPropertyManager sessionPropertyManager,
+            QueryBlockingRateLimiter queryRateLimiter)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryResultsProvider = queryResultsProvider;
@@ -142,6 +149,8 @@ public class QueuedStatementResource
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
         this.tracerProvider = requireNonNull(tracerProvider, "tracerProvider is null");
         this.sessionPropertyManager = sessionPropertyManager;
+
+        this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -157,6 +166,13 @@ public class QueuedStatementResource
                 200,
                 200,
                 MILLISECONDS);
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getRateLimiterBlockTime()
+    {
+        return queryRateLimiter.getRateLimiterBlockTime();
     }
 
     @PreDestroy
@@ -242,14 +258,20 @@ public class QueuedStatementResource
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug);
-
+        ListenableFuture<Double> acquirePermitAsync = queryRateLimiter.acquire(queryId);
+        ListenableFuture<?> waitForDispatchedAsync = transformAsync(
+                acquirePermitAsync,
+                acquirePermitTimeSeconds -> {
+                    queryRateLimiter.addRateLimiterBlockTime(new Duration(acquirePermitTimeSeconds, SECONDS));
+                    return query.waitForDispatched();
+                },
+                responseExecutor);
         // wait for query to be dispatched, up to the wait timeout
         ListenableFuture<?> futureStateChange = addTimeout(
-                query.waitForDispatched(),
+                waitForDispatchedAsync,
                 () -> null,
                 WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait),
                 timeoutExecutor);
-
         // when state changes, fetch the next result
         ListenableFuture<Response> queryResultsFuture = transformAsync(
                 futureStateChange,
@@ -437,7 +459,6 @@ public class QueuedStatementResource
                     return querySubmissionFuture;
                 }
             }
-
             // otherwise, wait for the query to finish
             return dispatchManager.waitForDispatched(queryId);
         }
