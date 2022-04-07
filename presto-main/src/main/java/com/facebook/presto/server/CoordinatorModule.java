@@ -73,6 +73,7 @@ import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
+import com.facebook.presto.server.protocol.QueryBlockingRateLimiter;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
 import com.facebook.presto.server.protocol.RetryCircuitBreaker;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
@@ -187,6 +188,9 @@ public class CoordinatorModule
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
         binder.bind(RetryCircuitBreaker.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RetryCircuitBreaker.class).withGeneratedName();
+
+        binder.bind(QueryBlockingRateLimiter.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(QueryBlockingRateLimiter.class).withGeneratedName();
 
         binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
 
