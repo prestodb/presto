@@ -27,10 +27,13 @@ import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
@@ -59,6 +62,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -72,6 +76,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
     private final SqlExceptionClassifier exceptionClassifier;
     private final VerificationContext verificationContext;
     private final Optional<ResultSetConverter<V>> mainQueryResultSetConverter;
+    private final ListeningExecutorService executor;
 
     private final String testId;
     private final boolean smartTeardown;
@@ -81,6 +86,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
     private final boolean teardownOnMainClusters;
     private final boolean skipControl;
     private final boolean skipChecksum;
+    private final boolean concurrentControlAndTest;
 
     public AbstractVerification(
             QueryActions queryActions,
@@ -88,13 +94,15 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
             Optional<ResultSetConverter<V>> mainQueryResultSetConverter,
-            VerifierConfig verifierConfig)
+            VerifierConfig verifierConfig,
+            ListeningExecutorService executor)
     {
         this.queryActions = requireNonNull(queryActions, "queryActions is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
         this.mainQueryResultSetConverter = requireNonNull(mainQueryResultSetConverter, "mainQueryResultSetConverter is null");
+        this.executor = requireNonNull(executor, "executor is null");
 
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
         this.smartTeardown = verifierConfig.isSmartTeardown();
@@ -103,6 +111,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         this.teardownOnMainClusters = verifierConfig.isTeardownOnMainClusters();
         this.skipControl = verifierConfig.isSkipControl();
         this.skipChecksum = verifierConfig.isSkipChecksum();
+        this.concurrentControlAndTest = verifierConfig.isConcurrentControlAndTest();
     }
 
     protected abstract B getQueryRewrite(ClusterType clusterType);
@@ -174,7 +183,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             }
             test = Optional.of(getQueryRewrite(TEST));
 
-            // Run control queries
+            // First run setup queries
             if (!skipControl) {
                 QueryBundle controlQueryBundle = control.get();
                 QueryAction controlSetupAction = setupOnMainClusters ? queryActions.getControlAction() : queryActions.getHelperAction();
@@ -182,21 +191,33 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                         () -> controlSetupAction.execute(query, CONTROL_SETUP),
                         controlQueryContext::addSetupQuery,
                         controlQueryContext::setException));
-                controlQueryResult = runMainQuery(controlQueryBundle.getQuery(), CONTROL, controlQueryContext);
-                controlQueryContext.setState(QueryState.SUCCEEDED);
             }
-            else {
-                controlQueryContext.setState(NOT_RUN);
-            }
-
-            // Run test queries
             QueryBundle testQueryBundle = test.get();
             QueryAction testSetupAction = setupOnMainClusters ? queryActions.getTestAction() : queryActions.getHelperAction();
             testQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
                     () -> testSetupAction.execute(query, TEST_SETUP),
                     testQueryContext::addSetupQuery,
                     testQueryContext::setException));
-            testQueryResult = runMainQuery(testQueryBundle.getQuery(), TEST, testQueryContext);
+
+            ListenableFuture<Optional<QueryResult<V>>> controlQueryFuture = immediateFuture(Optional.empty());
+            // Start control query
+            if (!skipControl) {
+                QueryBundle controlQueryBundle = control.get();
+                controlQueryFuture = executor.submit(() -> runMainQuery(controlQueryBundle.getQuery(), CONTROL, controlQueryContext));
+            }
+            else {
+                controlQueryContext.setState(NOT_RUN);
+            }
+
+            if (!concurrentControlAndTest) {
+                getFutureValue(controlQueryFuture);
+            }
+
+            // Run test queries
+            ListenableFuture<Optional<QueryResult<V>>> testQueryFuture = executor.submit(() -> runMainQuery(testQueryBundle.getQuery(), TEST, testQueryContext));
+            controlQueryResult = getFutureValue(controlQueryFuture);
+            controlQueryContext.setState(QueryState.SUCCEEDED);
+            testQueryResult = getFutureValue(testQueryFuture);
             testQueryContext.setState(QueryState.SUCCEEDED);
 
             // Verify results

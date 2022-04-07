@@ -19,6 +19,7 @@ import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -51,9 +52,18 @@ import static org.testng.Assert.assertTrue;
 public class TestDataVerification
         extends AbstractVerificationTest
 {
+    private static VerificationSettings concurrentControlAndTestSettings;
+
     public TestDataVerification()
             throws Exception
     {
+    }
+
+    @BeforeClass
+    public static void beforeClass()
+    {
+        concurrentControlAndTestSettings = new VerificationSettings();
+        concurrentControlAndTestSettings.concurrentControlAndTest = Optional.of(true);
     }
 
     @Test
@@ -65,6 +75,19 @@ public class TestDataVerification
 
         getQueryRunner().execute("CREATE TABLE success_test (x double)");
         event = runVerification("INSERT INTO success_test SELECT 1.0", "INSERT INTO success_test SELECT 1.00001");
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
+    public void testSuccessConcurrentTestAndControl()
+    {
+        Optional<VerifierQueryEvent> event = runVerification("SELECT 1.0", "SELECT 1.00001", concurrentControlAndTestSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+
+        getQueryRunner().execute("CREATE TABLE success_concurrent_test_and_control (x double)");
+        event = runVerification("INSERT INTO success_concurrent_test_and_control SELECT 1.0", "INSERT INTO success_concurrent_test_and_control SELECT 1.00001", concurrentControlAndTestSettings);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
@@ -89,6 +112,24 @@ public class TestDataVerification
         Optional<VerifierQueryEvent> event = runVerification(
                 "SELECT 1 x",
                 "SELECT 1 x UNION ALL SELECT 1 x");
+        assertTrue(event.isPresent());
+        assertEvent(
+                event.get(),
+                FAILED,
+                Optional.of(DETERMINISTIC),
+                Optional.of("ROW_COUNT_MISMATCH"),
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n\n" +
+                        "ROW COUNT MISMATCH\n" +
+                        "Control 1 rows, Test 2 rows\n"));
+    }
+
+    @Test
+    public void testRowCountMismatchConcurrentControlAndTest()
+    {
+        Optional<VerifierQueryEvent> event = runVerification(
+                "SELECT 1 x",
+                "SELECT 1 x UNION ALL SELECT 1 x",
+                concurrentControlAndTestSettings);
         assertTrue(event.isPresent());
         assertEvent(
                 event.get(),
