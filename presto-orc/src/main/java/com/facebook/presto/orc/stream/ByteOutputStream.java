@@ -18,6 +18,7 @@ import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
 import com.facebook.presto.orc.metadata.Stream;
+import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import org.openjdk.jol.info.ClassLayout;
@@ -151,7 +152,12 @@ public class ByteOutputStream
     @Override
     public StreamDataOutput getStreamDataOutput(int column)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), false));
+        return getStreamDataOutput(column, DATA);
+    }
+
+    public StreamDataOutput getStreamDataOutput(int column, StreamKind streamKind)
+    {
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override
