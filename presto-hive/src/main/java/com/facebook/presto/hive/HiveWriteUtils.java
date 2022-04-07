@@ -93,6 +93,7 @@ import org.apache.hive.common.util.ReflectionUtil;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -394,7 +395,22 @@ public final class HiveWriteUtils
     public static boolean isViewFileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            return getRawFileSystem(hdfsEnvironment.getFileSystem(context, path)) instanceof ViewFileSystem;
+            FileSystem rawFileSystem = getRawFileSystem(hdfsEnvironment.getFileSystem(context, path));
+            if (rawFileSystem instanceof ViewFileSystem) {
+                // FS itself is viewfs
+                return true;
+            }
+            if (rawFileSystem instanceof CachingFileSystem) {
+                // FS is a caching fs, and it's undering fs is viewfs
+                CachingFileSystem cachingFileSystem = (CachingFileSystem) rawFileSystem;
+                boolean childHasViewFS = Arrays.stream(
+                        cachingFileSystem.getDataTier().getChildFileSystems())
+                        .anyMatch(fs -> fs instanceof ViewFileSystem);
+                if (childHasViewFS) {
+                    return true;
+                }
+            }
+            return false;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
