@@ -14,6 +14,8 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.QueryId;
@@ -21,6 +23,8 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -44,6 +48,7 @@ import static com.facebook.presto.server.security.RoleType.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -61,16 +66,26 @@ public class ExecutingStatementResource
     private final BoundedExecutor responseExecutor;
     private final LocalQueryProvider queryProvider;
     private final boolean compressionEnabled;
+    private final QueryBlockingRateLimiter queryRateLimiter;
 
     @Inject
     public ExecutingStatementResource(
             @ForStatementResource BoundedExecutor responseExecutor,
             LocalQueryProvider queryProvider,
-            ServerConfig serverConfig)
+            ServerConfig serverConfig,
+            QueryBlockingRateLimiter queryRateLimiter)
     {
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.queryProvider = requireNonNull(queryProvider, "queryProvider is null");
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
+        this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getRateLimiterBlockTime()
+    {
+        return queryRateLimiter.getRateLimiterBlockTime();
     }
 
     @GET
@@ -98,8 +113,18 @@ public class ExecutingStatementResource
         }
 
         Query query = queryProvider.getQuery(queryId, slug);
+        ListenableFuture<Double> acquirePermitAsync = queryRateLimiter.acquire(queryId);
+        String effectiveFinalProto = proto;
+        DataSize effectiveFinalTargetResultSize = targetResultSize;
+        ListenableFuture<QueryResults> waitForResultsAsync = transformAsync(
+                acquirePermitAsync,
+                acquirePermitTimeSeconds -> {
+                    queryRateLimiter.addRateLimiterBlockTime(new Duration(acquirePermitTimeSeconds, SECONDS));
+                    return query.waitForResults(token, uriInfo, effectiveFinalProto, wait, effectiveFinalTargetResultSize);
+                },
+                responseExecutor);
         ListenableFuture<Response> queryResultsFuture = transform(
-                query.waitForResults(token, uriInfo, proto, wait, targetResultSize),
+                waitForResultsAsync,
                 results -> toResponse(query, results, compressionEnabled),
                 directExecutor());
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
