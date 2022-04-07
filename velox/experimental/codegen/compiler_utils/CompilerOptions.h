@@ -29,6 +29,7 @@ namespace facebook::velox::codegen::compiler_utils {
 struct CompilerOptions {
   CompilerOptions() = default;
   CompilerOptions(const CompilerOptions& options) = default;
+  CompilerOptions& operator=(const CompilerOptions& other) = default;
 
   std::string optimizationLevel;
   std::vector<std::string> extraCompileOptions;

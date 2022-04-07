@@ -33,8 +33,7 @@ class TreeIterator {
   typedef std::forward_iterator_tag iterator_category;
   typedef int64_t difference_type;
 
-  TreeIterator(const Tree<const T>& tree, size_t idx)
-      : tree_(tree), idx_{idx} {}
+  TreeIterator(const Tree<T>& tree, size_t idx) : tree_(tree), idx_{idx} {}
 
   self_type operator++() {
     // prefix
@@ -66,7 +65,7 @@ class TreeIterator {
   }
 
  private:
-  const Tree<const T>& tree_;
+  const Tree<T>& tree_;
   size_t idx_;
 };
 
@@ -75,7 +74,7 @@ class Tree {
  public:
   using const_reference = const T&;
   using reference_type = const_reference;
-  using const_iterator = TreeIterator<const T>;
+  using const_iterator = TreeIterator<T>;
   using iterator = const_iterator;
 
   using difference_type = uint64_t;

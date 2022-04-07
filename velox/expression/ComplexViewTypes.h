@@ -116,8 +116,8 @@ template <typename BaseIterator>
 class SkipNullsIterator {
   using Iterator = SkipNullsIterator<BaseIterator>;
   using iterator_category = std::input_iterator_tag;
-  using value_type = typename std::result_of<decltype (&BaseIterator::value)(
-      BaseIterator)>::type;
+  using value_type = typename std::
+      invoke_result<decltype(&BaseIterator::value), BaseIterator>::type;
   using difference_type = int;
   using pointer = PointerWrapper<value_type>;
   using reference = value_type;
