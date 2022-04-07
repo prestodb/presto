@@ -66,3 +66,142 @@ Erling, Paula Lahera, Pedro Eugenio Rocha Pedreira, Pradeep Garigipati, Richard
 Barnes, Rui Mo, Sagar Mittal, Sergey Pershin, Simon Marlow, Siva Muthusamy,
 Sridhar Anumandla, Victor Zverovich, Wei He, Wenlei Xie, Yoav Helfman, Yuan
 Chao Chou, Zhenyuan Zhao, tanjialiang
+
+
+********************
+Feature Of The Month
+********************
+
+
+Using vector readers/writers to simplify dealing with Velox vectors.
+--------------------------------------------------------------------
+
+
+Although vector readers and writers were created originally as part of the simple function's interface, they are highly
+convenient tools that can be used in isolation in aggregate and vector functions implementations, and in general
+anywhere we want to read or write vectors. Using those constructs reduces code size and simplifies it, without adding
+performance overhead.
+
+In this note, I will explain how such constructs can be used to read or write vectors in a simple convenient way.
+
+Using vector readers and vector writers has several benefits:
+
+* Hides the complexity of decoding and significantly reduces code size, especially for nested complex types.
+* Provides the user with STL-like objects that represent elements of maps, arrays, and tuples, making it easier to focus on the logic. E.g. convert an ArrayVector to a sequence of ArrayViews that have std::vector interface.
+* Reduce duplicate code and bugs, especially for engineers without a lot of experience in Velox.
+* VectorReaders and VectorWriters are efficient, lazy, and should always be preferred.
+
+Vector reader
+^^^^^^^^^^^^^
+Consider a vector  of type Array<Map<int, int>>. The code below reads the vector and iterates over its content.
+For every row, the code reads an array of maps stored at that row.
+
+.. code-block:: c++
+
+    // Decode the vector for rows of interest.
+    DecodedVector decoded;
+    decoded.decode(vector, rows);
+
+    // Define a vector reader for an Array<Map<int, int>>.
+    exec::VectorReader<Array<Map<int64_t, int64_t>>> reader(decoded);
+
+    rows.applyToSelected([&](vector_size_t row) {
+        // Check if the row is null.
+        if(!reader.isSet(row)) {
+            return;
+        }
+
+        // Read the row as ArrayView. ArrayView has std::vector<std::optional<V>> interface.
+        auto arrayView = reader[row];
+
+        // Elements of the array have std::map<int, std::optional<int>> interface.
+        for(const auto&[key, val]:  arrayView.value()) {
+          ...
+        }
+    });
+
+The general workflow is to:
+
+#. Decode the vector for the rows of interest.
+#. Define vectorReader<T> where T is the type of the vector being read, T is expressed in the simple function type system.
+#. To read a row, call reader[row] and it will return a STL-like object that represents the elements at the row.
+#. The code above can be extended to any type supported in the simple function interface. The type returned by reader[row] will be the same input type in the call function in the simple function interface for that type. (e.g: bool, int, StringView, ArrayView ..etc).
+
+Vector writer
+^^^^^^^^^^^^^
+Now consider a function that generates Array<int64_t> as an output. The result vector can be written as the following.
+
+.. code-block:: c++
+
+    VectorPtr result;
+    // Here type is ArrayType(BIGINT()).
+    BaseVector::ensureWritable(rows, type, pool_, &result);
+
+    // Define a vector writer. ArrayWriterT is a temp holder. Eventually, Array will be used
+    // once old writers are deprecated.
+    exec::VectorWriter<ArrayWriterT<int64_t>> vectorWriter;
+
+    // Initialize the writer to write to result vector.
+    vectorWriter.init(*result->as<ArrayVector>());
+
+    rows.applyToSelected([&](vector_size_t row) {
+        // Specify the row to write.
+        vectorWriter.setOffset(row);
+
+        // Get writer to the selected offset.
+        auto& arrayWriter = vectorWriter.current();
+        arrayWriter.push_back(1);
+        arrayWriter.push_back(100);
+        ..etc
+
+        // Indicate writing for the row is done.
+        vectorWriter.commit();
+    });
+    // Indicate writing result vector is done.
+    vectorWriter.finish();
+
+The general workflow is to:
+
+#. Make sure the vector is writable for the rows of interest (ensureWritable).
+#. Define vectorWriter<T> where T is the type expressed in the simple function type system.
+#. Call init() to initialize the vectorWriter with the vector to write.
+#. To write to a specific row call setOffset(row) followed by current() to get the writer at that row.
+#. After finishing writing the row call commit(), or commit(false) to write a null.
+#. After finishing writing all rows call finish().
+
+Note the following:
+
+* The type returned by current() is the writer type which is the same type that represents the output in the simple function interface. E.g: bool&, int32_t&, StringWriter, ArrayWriter, ..etc.
+* More details about writers of complex types will be added to the documentation.
+* The VectorWriter allows out-of-order writing to rows. E.g, writing row 0 after row 10. However, it does not allow writing to multiple rows in parallel.
+
+Reading optional-free container
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+If the user knew that a vector does not have null data, there is an option to read an optional-free container using
+readNullFree(). For the example above, it will return a container similar to std::vector<std::map<int, int>> instead of
+std::vector<std::optional<std::map<int, std::optional<int>>>.
+
+The type returned by readNullFree is the same input type passed to the callNullFree function in the simple function
+interface. The code below shows an example:
+
+.. code-block:: c++
+
+    // Decode the vector for rows of interest.
+    DecodedVector decoded;
+    decoded.decode(vector, rows);
+
+    // Define a vector reader for an Array<Map<int, int>>.
+    exec::VectorReader<Array<Map<int64_t, int64_t>>> reader(decoded);
+
+    // Make sure there is no null data.
+    assert(!decoded.mayHaveNullsRecursive());
+
+    rows.applyToSelected([&](vector_size_t row) {
+      // Read the row as NullFreeArrayView with interface similar to std::vector<V>.
+      auto arrayView = reader.readNullFree(row);
+
+      // Elements of the array have std::map<int, int> interface.
+      for(const auto&[key, val]:  arrayView){
+          ...
+      }
+    });
