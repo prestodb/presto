@@ -17,7 +17,6 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.TestingHiveOrcAggregatedMemoryContext;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
@@ -184,7 +183,7 @@ public class TestBooleanStream
         StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
         streamDataOutput.writeData(sliceOutput);
         Stream stream = streamDataOutput.getStream();
-        assertEquals(stream.getStreamKind(), StreamKind.DATA);
+        assertEquals(stream.getStreamKind(), getExpectedStreamKind());
         assertEquals(stream.getColumn(), 33);
         assertEquals(stream.getLength(), sliceOutput.size());
 
