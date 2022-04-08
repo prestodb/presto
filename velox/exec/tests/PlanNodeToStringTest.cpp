@@ -348,7 +348,7 @@ TEST_F(PlanNodeToStringTest, unnest) {
 TEST_F(PlanNodeToStringTest, localPartition) {
   auto plan =
       PlanBuilder()
-          .localPartition({0}, {PlanBuilder().values({data_}).planNode()})
+          .localPartition({"c0"}, {PlanBuilder().values({data_}).planNode()})
           .planNode();
 
   ASSERT_EQ("-> LocalPartition\n", plan->toString());
@@ -364,7 +364,7 @@ TEST_F(PlanNodeToStringTest, localPartition) {
 
 TEST_F(PlanNodeToStringTest, partitionedOutput) {
   auto plan =
-      PlanBuilder().values({data_}).partitionedOutput({0}, 4).planNode();
+      PlanBuilder().values({data_}).partitionedOutput({"c0"}, 4).planNode();
 
   ASSERT_EQ("-> PartitionedOutput\n", plan->toString());
   ASSERT_EQ("-> PartitionedOutput[HASH(c0) 4]\n", plan->toString(true, false));
@@ -381,7 +381,7 @@ TEST_F(PlanNodeToStringTest, partitionedOutput) {
 
   plan = PlanBuilder()
              .values({data_})
-             .partitionedOutput({1, 2}, 5, true)
+             .partitionedOutput({"c1", "c2"}, 5, true)
              .planNode();
 
   ASSERT_EQ("-> PartitionedOutput\n", plan->toString());

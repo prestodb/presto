@@ -522,34 +522,20 @@ PlanBuilder& PlanBuilder::assignUniqueId(
 }
 
 namespace {
-RowTypePtr toRowType(
-    RowTypePtr inputType,
-    const std::vector<ChannelIndex>& outputLayout) {
-  if (outputLayout.empty()) {
-    return inputType;
-  }
-
-  std::vector<std::string> names;
-  std::vector<TypePtr> types;
-
-  for (auto index : outputLayout) {
-    names.push_back(inputType->nameOf(index));
-    types.push_back(inputType->childAt(index));
-  }
-  return ROW(std::move(names), std::move(types));
-}
-
 core::PartitionFunctionFactory createPartitionFunctionFactory(
     const RowTypePtr& inputType,
-    const std::vector<ChannelIndex>& keyIndices,
-    const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
-        keys) {
+    const std::vector<std::string>& keys) {
   if (keys.empty()) {
     return
         [](auto /*numPartitions*/) -> std::unique_ptr<core::PartitionFunction> {
           VELOX_UNREACHABLE();
         };
   } else {
+    std::vector<ChannelIndex> keyIndices;
+    keyIndices.reserve(keys.size());
+    for (const auto& key : keys) {
+      keyIndices.push_back(inputType->getChildIdx(key));
+    }
     return [inputType, keyIndices](
                auto numPartitions) -> std::unique_ptr<core::PartitionFunction> {
       return std::make_unique<exec::HashPartitionFunction>(
@@ -558,65 +544,6 @@ core::PartitionFunctionFactory createPartitionFunctionFactory(
   }
 }
 
-} // namespace
-
-PlanBuilder& PlanBuilder::partitionedOutput(
-    const std::vector<ChannelIndex>& keyIndices,
-    int numPartitions,
-    const std::vector<ChannelIndex>& outputLayout) {
-  return partitionedOutput(keyIndices, numPartitions, false, outputLayout);
-}
-
-PlanBuilder& PlanBuilder::partitionedOutput(
-    const std::vector<ChannelIndex>& keyIndices,
-    int numPartitions,
-    bool replicateNullsAndAny,
-    const std::vector<ChannelIndex>& outputLayout) {
-  auto outputType = toRowType(planNode_->outputType(), outputLayout);
-  auto keys = fields(keyIndices);
-  auto partitionFunctionFactory =
-      createPartitionFunctionFactory(planNode_->outputType(), keyIndices, keys);
-  planNode_ = std::make_shared<core::PartitionedOutputNode>(
-      nextPlanNodeId(),
-      keys,
-      numPartitions,
-      false,
-      replicateNullsAndAny,
-      std::move(partitionFunctionFactory),
-      outputType,
-      planNode_);
-  return *this;
-}
-
-PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
-    const std::vector<ChannelIndex>& outputLayout) {
-  auto outputType = toRowType(planNode_->outputType(), outputLayout);
-  planNode_ = core::PartitionedOutputNode::broadcast(
-      nextPlanNodeId(), 1, outputType, planNode_);
-  return *this;
-}
-
-PlanBuilder& PlanBuilder::localPartition(
-    const std::vector<ChannelIndex>& keyIndices,
-    const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
-    const std::vector<ChannelIndex>& outputLayout) {
-  VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
-  auto inputType = sources[0]->outputType();
-  auto outputType = toRowType(inputType, outputLayout);
-  auto keys = fields(inputType, keyIndices);
-  auto partitionFunctionFactory =
-      createPartitionFunctionFactory(inputType, keyIndices, keys);
-  planNode_ = std::make_shared<core::LocalPartitionNode>(
-      nextPlanNodeId(),
-      keyIndices.empty() ? core::LocalPartitionNode::Type::kGather
-                         : core::LocalPartitionNode::Type::kRepartition,
-      partitionFunctionFactory,
-      outputType,
-      sources);
-  return *this;
-}
-
-namespace {
 RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b) {
   std::vector<std::string> names = a->names();
   std::vector<TypePtr> types = a->children();
@@ -638,6 +565,65 @@ RowTypePtr extract(
   return ROW(std::move(names), std::move(types));
 }
 } // namespace
+
+PlanBuilder& PlanBuilder::partitionedOutput(
+    const std::vector<std::string>& keys,
+    int numPartitions,
+    const std::vector<std::string>& outputLayout) {
+  return partitionedOutput(keys, numPartitions, false, outputLayout);
+}
+
+PlanBuilder& PlanBuilder::partitionedOutput(
+    const std::vector<std::string>& keys,
+    int numPartitions,
+    bool replicateNullsAndAny,
+    const std::vector<std::string>& outputLayout) {
+  auto outputType = outputLayout.empty()
+      ? planNode_->outputType()
+      : extract(planNode_->outputType(), outputLayout);
+  auto partitionFunctionFactory =
+      createPartitionFunctionFactory(planNode_->outputType(), keys);
+  planNode_ = std::make_shared<core::PartitionedOutputNode>(
+      nextPlanNodeId(),
+      fields(keys),
+      numPartitions,
+      false,
+      replicateNullsAndAny,
+      std::move(partitionFunctionFactory),
+      outputType,
+      planNode_);
+  return *this;
+}
+
+PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
+    const std::vector<std::string>& outputLayout) {
+  auto outputType = outputLayout.empty()
+      ? planNode_->outputType()
+      : extract(planNode_->outputType(), outputLayout);
+  planNode_ = core::PartitionedOutputNode::broadcast(
+      nextPlanNodeId(), 1, outputType, planNode_);
+  return *this;
+}
+
+PlanBuilder& PlanBuilder::localPartition(
+    const std::vector<std::string>& keys,
+    const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
+    const std::vector<std::string>& outputLayout) {
+  VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
+  auto inputType = sources[0]->outputType();
+  auto outputType = outputLayout.empty() ? sources[0]->outputType()
+                                         : extract(inputType, outputLayout);
+  auto partitionFunctionFactory =
+      createPartitionFunctionFactory(inputType, keys);
+  planNode_ = std::make_shared<core::LocalPartitionNode>(
+      nextPlanNodeId(),
+      keys.empty() ? core::LocalPartitionNode::Type::kGather
+                   : core::LocalPartitionNode::Type::kRepartition,
+      partitionFunctionFactory,
+      outputType,
+      sources);
+  return *this;
+}
 
 PlanBuilder& PlanBuilder::hashJoin(
     const std::vector<std::string>& leftKeys,

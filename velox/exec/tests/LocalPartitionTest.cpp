@@ -173,7 +173,7 @@ TEST_F(LocalPartitionTest, partition) {
 
   auto op = PlanBuilder(planNodeIdGenerator)
                 .localPartition(
-                    {0},
+                    {"c0"},
                     {
                         scanAggNode(),
                         scanAggNode(),
@@ -273,7 +273,7 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
 
   auto op = PlanBuilder(planNodeIdGenerator)
                 .localPartition(
-                    {0},
+                    {"c0"},
                     {
                         scanNode(),
                         scanNode(),
@@ -353,7 +353,7 @@ TEST_F(LocalPartitionTest, outputLayoutGather) {
                         valuesNode(2),
                     },
                     // Change column order: (c0, c1) -> (c1, c0).
-                    {1, 0})
+                    {"c1", "c0"})
                 .singleAggregation({}, {"count(1)", "min(c0)", "max(c1)"})
                 .planNode();
 
@@ -370,7 +370,7 @@ TEST_F(LocalPartitionTest, outputLayoutGather) {
                    valuesNode(2),
                },
                // Drop column: (c0, c1) -> (c1).
-               {1})
+               {"c1"})
            .singleAggregation({}, {"count(1)", "min(c1)", "max(c1)"})
            .planNode();
 
@@ -422,14 +422,14 @@ TEST_F(LocalPartitionTest, outputLayoutPartition) {
   params.planNode =
       PlanBuilder(planNodeIdGenerator)
           .localPartition(
-              {0},
+              {"c0"},
               {
                   valuesNode(0),
                   valuesNode(1),
                   valuesNode(2),
               },
               // Change column order: (c0, c1) -> (c1, c0).
-              {1, 0})
+              {"c1", "c0"})
           .partialAggregation({}, {"count(1)", "min(c0)", "max(c1)"})
           .planNode();
 
@@ -441,14 +441,14 @@ TEST_F(LocalPartitionTest, outputLayoutPartition) {
   params.planNode =
       PlanBuilder(planNodeIdGenerator)
           .localPartition(
-              {0},
+              {"c0"},
               {
                   valuesNode(0),
                   valuesNode(1),
                   valuesNode(2),
               },
               // Drop column: (c0, c1) -> (c1).
-              {1})
+              {"c1"})
           .partialAggregation({}, {"count(1)", "min(c1)", "max(c1)"})
           .planNode();
 
@@ -459,7 +459,7 @@ TEST_F(LocalPartitionTest, outputLayoutPartition) {
   planNodeIdGenerator->reset();
   params.planNode = PlanBuilder(planNodeIdGenerator)
                         .localPartition(
-                            {0},
+                            {"c0"},
                             {
                                 valuesNode(0),
                                 valuesNode(1),
@@ -509,10 +509,10 @@ TEST_F(LocalPartitionTest, multipleExchanges) {
   // exchange re-partitions the results on just the first key.
   auto op = PlanBuilder(planNodeIdGenerator)
                 .localPartition(
-                    {0},
+                    {"c0"},
                     {PlanBuilder(planNodeIdGenerator)
                          .localPartition(
-                             {0, 1},
+                             {"c0", "c1"},
                              {
                                  tableScanNode(),
                                  tableScanNode(),

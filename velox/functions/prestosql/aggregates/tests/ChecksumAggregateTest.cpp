@@ -120,7 +120,7 @@ class ChecksumAggregateTest : public AggregationTestBase {
       CursorParameters params;
       params.planNode = PlanBuilder(planNodeIdGenerator)
                             .localPartition(
-                                {0},
+                                {"c0"},
                                 {PlanBuilder(planNodeIdGenerator)
                                      .values(rowVectors)
                                      .partialAggregation({0}, {"checksum(c1)"})

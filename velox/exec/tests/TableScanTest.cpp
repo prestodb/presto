@@ -1870,10 +1870,11 @@ TEST_P(TableScanTest, groupedExecutionWithOutputBuffer) {
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, vectors);
 
-  auto planFragment = PlanBuilder()
-                          .tableScan(rowType_)
-                          .partitionedOutput({}, 1, {0, 1, 2, 3, 4, 5})
-                          .planFragment();
+  auto planFragment =
+      PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1", "c2", "c3", "c4", "c5"})
+          .planFragment();
   planFragment.numSplitGroups = 10;
   planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
   auto queryCtx = core::QueryCtx::createForTest();

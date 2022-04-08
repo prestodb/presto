@@ -87,7 +87,7 @@ TEST_F(MapAggTest, groupBy) {
   CursorParameters params;
   params.planNode = PlanBuilder(planNodeIdGenerator)
                         .localPartition(
-                            {0},
+                            {"c0"},
                             {PlanBuilder(planNodeIdGenerator)
                                  .values(vectors)
                                  .partialAggregation({0}, {"map_agg(c1, c2)"})

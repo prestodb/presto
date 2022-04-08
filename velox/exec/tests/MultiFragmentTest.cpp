@@ -181,7 +181,7 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
                          .tableScan(rowType_)
                          .project({"c0 % 10 AS c0", "c1"})
                          .partialAggregation({0}, {"sum(c1)"})
-                         .partitionedOutput({0}, 3)
+                         .partitionedOutput({"c0"}, 3)
                          .planNode();
 
     auto leafTask = makeTask(leafTaskId, partialAggPlan, 0);
@@ -222,7 +222,7 @@ TEST_F(MultiFragmentTest, aggregationMultiKey) {
                          .tableScan(rowType_)
                          .project({"c0 % 10 AS c0", "c1 % 2 AS c1", "c2"})
                          .partialAggregation({0, 1}, {"sum(c2)"})
-                         .partitionedOutput({0, 1}, 3)
+                         .partitionedOutput({"c0", "c1"}, 3)
                          .planNode();
 
     auto leafTask = makeTask(leafTaskId, partialAggPlan, 0);
@@ -266,7 +266,7 @@ TEST_F(MultiFragmentTest, distributedTableScan) {
       PlanBuilder builder;
       leafPlan = builder.tableScan(rowType_)
                      .project({"c0 % 10", "c1 % 2", "c2"})
-                     .partitionedOutput({}, 1, {2, 1, 0})
+                     .partitionedOutput({}, 1, {"c2", "p1", "p0"})
                      .planNode();
 
       auto leafTask = makeTask(leafTaskId, leafPlan, 0);
@@ -343,7 +343,7 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
     auto leafTaskId = makeTaskId("leaf", 0);
     auto leafPlan = PlanBuilder()
                         .values(vectors_)
-                        .partitionedOutput({}, 1, {0, 1})
+                        .partitionedOutput({}, 1, {"c0", "c1"})
                         .planNode();
     auto leafTask = makeTask(leafTaskId, leafPlan, 0);
     Task::start(leafTask, 4);
@@ -357,7 +357,7 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
     auto leafTaskId = makeTaskId("leaf", 0);
     auto leafPlan = PlanBuilder()
                         .values(vectors_)
-                        .partitionedOutput({}, 1, {3, 0, 2})
+                        .partitionedOutput({}, 1, {"c3", "c0", "c2"})
                         .planNode();
     auto leafTask = makeTask(leafTaskId, leafPlan, 0);
     Task::start(leafTask, 4);
@@ -369,10 +369,12 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
   // Test producing duplicate columns
   {
     auto leafTaskId = makeTaskId("leaf", 0);
-    auto leafPlan = PlanBuilder()
-                        .values(vectors_)
-                        .partitionedOutput({}, 1, {0, 1, 2, 3, 4, 3, 2, 1, 0})
-                        .planNode();
+    auto leafPlan =
+        PlanBuilder()
+            .values(vectors_)
+            .partitionedOutput(
+                {}, 1, {"c0", "c1", "c2", "c3", "c4", "c3", "c2", "c1", "c0"})
+            .planNode();
     auto leafTask = makeTask(leafTaskId, leafPlan, 0);
     Task::start(leafTask, 4);
     auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
@@ -387,14 +389,14 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
     auto leafTaskId = makeTaskId("leaf", 0);
     auto leafPlan = PlanBuilder()
                         .values(vectors_)
-                        .partitionedOutput({5}, kFanout, {2, 0, 3})
+                        .partitionedOutput({"c5"}, kFanout, {"c2", "c0", "c3"})
                         .planNode();
     auto leafTask = makeTask(leafTaskId, leafPlan, 0);
     Task::start(leafTask, 4);
 
     auto intermediatePlan = PlanBuilder()
                                 .exchange(leafPlan->outputType())
-                                .partitionedOutput({}, 1, {2, 1, 0})
+                                .partitionedOutput({}, 1, {"c3", "c0", "c2"})
                                 .planNode();
     std::vector<std::string> intermediateTaskIds;
     for (auto i = 0; i < kFanout; ++i) {
@@ -465,8 +467,10 @@ TEST_F(MultiFragmentTest, replicateNullsAndAny) {
 
   // Make leaf task: Values -> Repartitioning (3-way)
   auto leafTaskId = makeTaskId("leaf", 0);
-  auto leafPlan =
-      PlanBuilder().values({data}).partitionedOutput({0}, 3, true).planNode();
+  auto leafPlan = PlanBuilder()
+                      .values({data})
+                      .partitionedOutput({"c0"}, 3, true)
+                      .planNode();
   auto leafTask = makeTask(leafTaskId, leafPlan, 0);
   addTask(leafTask, {});
 

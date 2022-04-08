@@ -105,7 +105,7 @@ TEST_F(CountAggregation, count) {
     CursorParameters params;
     params.planNode = PlanBuilder(planNodeIdGenerator)
                           .localPartition(
-                              {0},
+                              {"p0"},
                               {PlanBuilder(planNodeIdGenerator)
                                    .values(vectors)
                                    .project({"c0 % 10", "c1"})

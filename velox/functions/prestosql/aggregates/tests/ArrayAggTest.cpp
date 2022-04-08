@@ -84,7 +84,7 @@ TEST_F(ArrayAggTest, groupBy) {
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
   params.planNode = PlanBuilder(planNodeIdGenerator)
                         .localPartition(
-                            {0},
+                            {"C0"},
                             {PlanBuilder(planNodeIdGenerator)
                                  .values(batches)
                                  .partialAggregation({0}, {"array_agg(A)"})

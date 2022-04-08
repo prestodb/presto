@@ -288,7 +288,7 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
   auto bigOrders =
       PlanBuilder(planNodeIdGenerator)
           .localPartition(
-              {0}, // l_orderkey
+              {"l_orderkey"},
               {PlanBuilder(planNodeIdGenerator)
                    .tableScan(
                        lineitemSelectedRowType,

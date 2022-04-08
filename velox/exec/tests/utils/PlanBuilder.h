@@ -303,23 +303,23 @@ class PlanBuilder {
       const std::string& name);
 
   PlanBuilder& partitionedOutput(
-      const std::vector<ChannelIndex>& keyIndices,
+      const std::vector<std::string>& keys,
       int numPartitions,
-      const std::vector<ChannelIndex>& outputLayout = {});
+      const std::vector<std::string>& outputLayout = {});
 
   PlanBuilder& partitionedOutputBroadcast(
-      const std::vector<ChannelIndex>& outputLayout = {});
+      const std::vector<std::string>& outputLayout = {});
 
   PlanBuilder& partitionedOutput(
-      const std::vector<ChannelIndex>& keyIndices,
+      const std::vector<std::string>& keys,
       int numPartitions,
       bool replicateNullsAndAny,
-      const std::vector<ChannelIndex>& outputLayout = {});
+      const std::vector<std::string>& outputLayout = {});
 
   PlanBuilder& localPartition(
-      const std::vector<ChannelIndex>& keyIndices,
+      const std::vector<std::string>& keys,
       const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
-      const std::vector<ChannelIndex>& outputLayout = {});
+      const std::vector<std::string>& outputLayout = {});
 
   // 'leftKeys' and 'rightKeys' are column names of the output of the
   // previous PlanNode and 'build', respectively. 'output' is a subset of
