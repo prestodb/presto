@@ -66,8 +66,8 @@ class Writer : public WriterShared {
     writer_->writeFileStats(statsFactory);
   }
 
-  void abandonLowValueDictionaries() {
-    writer_->tryAbandonDictionaries(false);
+  bool abandonLowValueDictionaries() {
+    return writer_->tryAbandonDictionaries(false);
   }
 
   void abandonDictionariesImpl() override {

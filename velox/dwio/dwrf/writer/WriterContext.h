@@ -69,7 +69,7 @@ class WriterContext : public CompressionBufferPool {
       handler_ = std::make_unique<encryption::EncryptionHandler>();
     }
     validateConfigs();
-    LOG(INFO) << fmt::format("Compression config: {}", compression);
+    VLOG(1) << fmt::format("Compression config: {}", compression);
     compressionBuffer_ = std::make_unique<dwio::common::DataBuffer<char>>(
         generalPool_, compressionBlockSize + PAGE_HEADER_SIZE);
   }

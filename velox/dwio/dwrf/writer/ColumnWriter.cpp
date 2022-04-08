@@ -330,31 +330,37 @@ class IntegerColumnWriter : public ColumnWriter {
 
   // This incurs additional memory usage. A good long term adjustment but not
   // viable mitigation to memory pressure.
-  void tryAbandonDictionaries(bool force) override {
-    // TODO: hopefully not required in the future, but need to solve the problem
-    // of replacing/deleting streams.
+  bool tryAbandonDictionaries(bool force) override {
+    // We can not switch encodings beyond the first stripe.
+    // We won't need to do any additional checks if we are already
+    // using direct encodings.
     if (!useDictionaryEncoding_ || !firstStripe_) {
-      return;
+      return false;
     }
 
     useDictionaryEncoding_ = shouldKeepDictionary() && !force;
-    if (!useDictionaryEncoding_) {
-      initStreamWriters(useDictionaryEncoding_);
-      // Record direct encoding stream starting position.
-      recordDirectEncodingStreamPositions(0);
-      convertToDirectEncoding();
-      // Suppress the stream used to initialize dictionary encoder.
-      // TODO: passing factory method into the dict encoder also works
-      // around this problem but has messier code organization.
-      context_.suppressStream(StreamIdentifier{
-          id_,
-          context_.shareFlatMapDictionaries ? 0 : sequence_,
-          0,
-          StreamKind::StreamKind_DICTIONARY_DATA});
-      dictEncoder_.clear();
-      rows_.clear();
-      strideOffsets_.clear();
+    // If we are still using dictionary encodings, we are not
+    // performing an encoding switch.
+    if (useDictionaryEncoding_) {
+      return false;
     }
+
+    initStreamWriters(useDictionaryEncoding_);
+    // Record direct encoding stream starting position.
+    recordDirectEncodingStreamPositions(0);
+    convertToDirectEncoding();
+    // Suppress the stream used to initialize dictionary encoder.
+    // TODO: passing factory method into the dict encoder also works
+    // around this problem but has messier code organization.
+    context_.suppressStream(StreamIdentifier{
+        id_,
+        context_.shareFlatMapDictionaries ? 0 : sequence_,
+        0,
+        StreamKind::StreamKind_DICTIONARY_DATA});
+    dictEncoder_.clear();
+    rows_.clear();
+    strideOffsets_.clear();
+    return true;
   }
 
  private:
@@ -922,23 +928,26 @@ class StringColumnWriter : public ColumnWriter {
     }
   }
 
-  void tryAbandonDictionaries(bool force) override {
+  bool tryAbandonDictionaries(bool force) override {
     // TODO: hopefully not required in the future, but need to solve the problem
     // of replacing/deleting streams.
     if (!useDictionaryEncoding_ || !firstStripe_) {
-      return;
+      return false;
     }
 
     useDictionaryEncoding_ = shouldKeepDictionary() && !force;
-    if (!useDictionaryEncoding_) {
-      initStreamWriters(useDictionaryEncoding_);
-      // Record direct encoding stream starting position.
-      recordDirectEncodingStreamPositions(0);
-      convertToDirectEncoding();
-      dictEncoder_.clear();
-      rows_.clear();
-      strideOffsets_.clear();
+    if (useDictionaryEncoding_) {
+      return false;
     }
+
+    initStreamWriters(useDictionaryEncoding_);
+    // Record direct encoding stream starting position.
+    recordDirectEncodingStreamPositions(0);
+    convertToDirectEncoding();
+    dictEncoder_.clear();
+    rows_.clear();
+    strideOffsets_.clear();
+    return true;
   }
 
  protected:

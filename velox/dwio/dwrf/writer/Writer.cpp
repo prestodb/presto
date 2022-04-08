@@ -38,9 +38,14 @@ void Writer::write(const VectorPtr& slice) {
 
     length = std::min(length, slice->size() - offset);
     VELOX_CHECK_GT(length, 0);
-    if (shouldFlush(context, length)) {
-      abandonLowValueDictionaries();
-      if (shouldFlush(context, length)) {
+    bool flushDecision = shouldFlush(context, length);
+    if (flushDecision) {
+      // Try abandoning inefficiency dictionary encodings early
+      // and see if we can delay the flush.
+      if (abandonLowValueDictionaries()) {
+        flushDecision = shouldFlush(context, length);
+      }
+      if (flushDecision) {
         flush();
       }
     }
