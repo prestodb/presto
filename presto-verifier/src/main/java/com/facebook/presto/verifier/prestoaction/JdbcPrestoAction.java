@@ -135,7 +135,8 @@ public class JdbcPrestoAction
                 testId,
                 testName,
                 verificationContext.getSourceQueryName(),
-                verificationContext.getSuite()).serialize();
+                verificationContext.getSuite(),
+                queryStage.name()).serialize();
 
         try (PrestoConnection connection = getConnection(queryStage, clientInfo)) {
             try (java.sql.Statement jdbcStatement = connection.createStatement()) {
