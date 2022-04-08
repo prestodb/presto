@@ -106,4 +106,5 @@ TEST(LocalFile, viaRegistry) {
   ASSERT_EQ(readFile->size(), 5);
   char buffer1[5];
   ASSERT_EQ(readFile->pread(0, 5, &buffer1), "snarf");
+  lfs->remove(filename);
 }

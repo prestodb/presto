@@ -20,6 +20,8 @@
 #include "velox/common/file/File.h"
 #include "velox/core/Context.h"
 
+#include <cstdio>
+
 namespace facebook::velox::filesystems {
 
 namespace {
@@ -86,6 +88,15 @@ class LocalFileSystem : public FileSystem {
           path.substr(kFileScheme.length()));
     }
     return std::make_unique<LocalWriteFile>(path);
+  }
+
+  void remove(std::string_view path) override {
+    auto file =
+        path.find(kFileScheme) == 0 ? path.substr(kFileScheme.length()) : path;
+    int32_t rc = ::remove(std::string(file).c_str());
+    if (rc < 0) {
+      VELOX_USER_FAIL("Failed to delete file {} with errno {}", file, errno);
+    }
   }
 
   static std::function<bool(std::string_view)> schemeMatcher() {

@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include "velox/common/base/Exceptions.h"
+
 #include <functional>
 #include <memory>
 #include <string_view>
@@ -40,6 +42,9 @@ class FileSystem {
   // Returns a WriteFile handle for a given file path
   virtual std::unique_ptr<WriteFile> openFileForWrite(
       std::string_view path) = 0;
+
+  // Deletes the file at 'path'. Throws on error.
+  virtual void remove(std::string_view path) = 0;
 
  protected:
   std::shared_ptr<const Config> config_;
