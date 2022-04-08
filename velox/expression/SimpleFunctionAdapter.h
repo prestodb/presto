@@ -99,10 +99,10 @@ class SimpleFunctionAdapter : public VectorFunction {
               const std::vector<VectorPtr>& packed,
               const Values*... values) const {
     if (packed.at(POSITION) != nullptr) {
-      auto oneUnpacked =
-          packed.at(POSITION)
-              ->template asUnchecked<ConstantVector<exec_arg_at<POSITION>>>();
-      auto oneValue = oneUnpacked->valueAt(0);
+      SelectivityVector rows(1);
+      DecodedVector decodedVector(*packed.at(POSITION), rows);
+      auto oneReader = VectorReader<arg_at<POSITION>>(&decodedVector);
+      auto oneValue = oneReader[0];
 
       unpack<POSITION + 1>(config, packed, values..., &oneValue);
     } else {

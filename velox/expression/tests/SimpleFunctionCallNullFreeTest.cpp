@@ -17,13 +17,10 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "velox/expression/Expr.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/type/Type.h"
-#include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
-#include "velox/vector/DecodedVector.h"
 #include "velox/vector/SelectivityVector.h"
 
 namespace facebook::velox {
@@ -228,4 +225,5 @@ TEST_F(SimpleFunctionCallNullFreeTest, deeplyNestedInputType) {
        true});
   assertEqualVectors(expected, result);
 }
+
 } // namespace facebook::velox
