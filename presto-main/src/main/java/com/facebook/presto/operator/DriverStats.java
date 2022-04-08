@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.Lifespan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,6 +37,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Immutable
+@ThriftStruct
 public class DriverStats
 {
     private final Lifespan lifespan;
@@ -109,6 +113,7 @@ public class DriverStats
     }
 
     @JsonCreator
+    @ThriftConstructor
     public DriverStats(
             @JsonProperty("lifespan") Lifespan lifespan,
 
@@ -183,12 +188,14 @@ public class DriverStats
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Lifespan getLifespan()
     {
         return lifespan;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public DateTime getCreateTime()
     {
         return createTime;
@@ -196,6 +203,7 @@ public class DriverStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(3)
     public DateTime getStartTime()
     {
         return startTime;
@@ -203,126 +211,147 @@ public class DriverStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(4)
     public DateTime getEndTime()
     {
         return endTime;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public Duration getQueuedTime()
     {
         return queuedTime;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public Duration getElapsedTime()
     {
         return elapsedTime;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public DataSize getSystemMemoryReservation()
     {
         return systemMemoryReservation;
     }
 
     @JsonProperty
+    @ThriftField(10)
     public Duration getTotalScheduledTime()
     {
         return totalScheduledTime;
     }
 
     @JsonProperty
+    @ThriftField(11)
     public Duration getTotalCpuTime()
     {
         return totalCpuTime;
     }
 
     @JsonProperty
+    @ThriftField(12)
     public Duration getTotalBlockedTime()
     {
         return totalBlockedTime;
     }
 
     @JsonProperty
+    @ThriftField(13)
     public boolean isFullyBlocked()
     {
         return fullyBlocked;
     }
 
     @JsonProperty
+    @ThriftField(14)
     public Set<BlockedReason> getBlockedReasons()
     {
         return blockedReasons;
     }
 
     @JsonProperty
+    @ThriftField(15)
     public DataSize getTotalAllocation()
     {
         return totalAllocation;
     }
 
     @JsonProperty
+    @ThriftField(16)
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
     }
 
     @JsonProperty
+    @ThriftField(17)
     public Duration getRawInputReadTime()
     {
         return rawInputReadTime;
     }
 
     @JsonProperty
+    @ThriftField(18)
     public long getRawInputPositions()
     {
         return rawInputPositions;
     }
 
     @JsonProperty
+    @ThriftField(19)
     public DataSize getProcessedInputDataSize()
     {
         return processedInputDataSize;
     }
 
     @JsonProperty
+    @ThriftField(20)
     public long getProcessedInputPositions()
     {
         return processedInputPositions;
     }
 
     @JsonProperty
+    @ThriftField(21)
     public DataSize getOutputDataSize()
     {
         return outputDataSize;
     }
 
     @JsonProperty
+    @ThriftField(22)
     public long getOutputPositions()
     {
         return outputPositions;
     }
 
     @JsonProperty
+    @ThriftField(23)
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
     }
 
     @JsonProperty
+    @ThriftField(24)
     public List<OperatorStats> getOperatorStats()
     {
         return operatorStats;
