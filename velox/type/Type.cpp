@@ -354,7 +354,7 @@ size_t Type::hashKind() const {
 }
 
 bool Type::kindEquals(const std::shared_ptr<const Type>& other) const {
-  // recursive kind hasing (ignores names)
+  // recursive kind match (ignores names)
   if (this->kind() != other->kind()) {
     return false;
   }

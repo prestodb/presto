@@ -253,6 +253,7 @@ class BaseVector {
    * @return true if this vector has the same value at the given index as the
    * other vector at the other vector's index (including if both are null),
    * false otherwise
+   * @throws if the type_ of other doesn't match the type_ of this
    */
   virtual bool equalValueAt(
       const BaseVector* other,

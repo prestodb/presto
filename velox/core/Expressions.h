@@ -137,6 +137,8 @@ class ConstantTypedExpr : public ITypedExpr {
 
     if (this->hasValueVector()) {
       return casted->hasValueVector() &&
+          this->valueVector_->type()->kindEquals(
+              casted->valueVector_->type()) &&
           this->valueVector_->equalValueAt(casted->valueVector_.get(), 0, 0);
     }
 
