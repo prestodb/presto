@@ -17,6 +17,7 @@ target_link_libraries(velox_vector_test_lib velox_vector)
 
 add_executable(
   velox_vector_test
+  VectorCompareTest.cpp
   VectorMakerTest.cpp
   VectorTest.cpp
   VectorEstimateFlatSizeTest.cpp

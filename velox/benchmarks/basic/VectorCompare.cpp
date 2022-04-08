@@ -17,6 +17,7 @@
 #include <folly/Benchmark.h>
 #include <gflags/gflags.h>
 
+#include "velox/common/base/CompareFlags.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -54,7 +55,7 @@ class VectorCompareBenchmark : public functions::test::FunctionBenchmarkBase {
     size_t sum = 0;
 
     for (auto i = 0; i < vectorSize_; i++) {
-      sum += vector->compare(vector.get(), i, i, flags);
+      sum += *vector->compare(vector.get(), i, i, kFlags);
     }
     folly::doNotOptimizeAway(sum);
     return vectorSize_;
@@ -66,7 +67,7 @@ class VectorCompareBenchmark : public functions::test::FunctionBenchmarkBase {
     size_t sum = 0;
     auto flatVector = flatVector_->as<FlatVector<int64_t>>();
     for (auto i = 0; i < vectorSize_; i++) {
-      sum += flatVector->compare(flatVector, i, vectorSize_ - i - 1, flags);
+      sum += *flatVector->compare(flatVector, i, vectorSize_ - i - 1, kFlags);
     }
     folly::doNotOptimizeAway(sum);
     return vectorSize_;
@@ -78,7 +79,7 @@ class VectorCompareBenchmark : public functions::test::FunctionBenchmarkBase {
   VectorPtr rowVector_;
 
  private:
-  static constexpr CompareFlags flags{true, true, false};
+  static constexpr CompareFlags kFlags{true, true, false, false};
 
   const size_t vectorSize_;
   SelectivityVector rows_;

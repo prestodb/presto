@@ -168,12 +168,17 @@ RowVectorPtr Merge::getOutput() {
 bool SourceStream::operator<(const MergeStream& other) const {
   const auto& otherCursor = static_cast<const SourceStream&>(other);
   for (auto i = 0; i < sortingKeys_.size(); ++i) {
-    const auto& key = sortingKeys_[i];
-    if (auto result = keyColumns_[i]->compare(
-            otherCursor.keyColumns_[i],
-            currentSourceRow_,
-            otherCursor.currentSourceRow_,
-            key.second)) {
+    const auto& [_, compareFlags] = sortingKeys_[i];
+    VELOX_DCHECK(
+        !compareFlags.stopAtNull,
+        "stopAtNull not supported for merge compare flags");
+    if (auto result = keyColumns_[i]
+                          ->compare(
+                              otherCursor.keyColumns_[i],
+                              currentSourceRow_,
+                              otherCursor.currentSourceRow_,
+                              compareFlags)
+                          .value()) {
       return result < 0;
     }
   }

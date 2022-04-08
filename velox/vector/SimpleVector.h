@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cmath>
+#include <optional>
 #include <type_traits>
 
 #include <folly/FixedString.h>
@@ -146,7 +147,7 @@ class SimpleVector : public BaseVector {
   // value is technically undefined (currently implemented as default of T)
   virtual const T valueAt(vector_size_t idx) const = 0;
 
-  int32_t compare(
+  std::optional<int32_t> compare(
       const BaseVector* other,
       vector_size_t index,
       vector_size_t otherIndex,
@@ -155,20 +156,17 @@ class SimpleVector : public BaseVector {
     DCHECK(dynamic_cast<const SimpleVector<T>*>(other) != nullptr)
         << "Attempting to compare vectors not of the same type";
     bool otherNull = other->isNullAt(otherIndex);
-    if (isNullAt(index)) {
-      if (otherNull) {
-        return 0;
-      }
-      return flags.nullsFirst ? -1 : 1;
+    bool thisNull = isNullAt(index);
+
+    if (otherNull || thisNull) {
+      return BaseVector::compareNulls(thisNull, otherNull, flags);
     }
-    if (otherNull) {
-      return flags.nullsFirst ? 1 : -1;
-    }
+
     auto simpleVector = reinterpret_cast<const SimpleVector<T>*>(other);
     auto thisValue = valueAt(index);
     auto otherValue = simpleVector->valueAt(otherIndex);
     auto result = comparePrimitiveAsc(thisValue, otherValue);
-    return flags.ascending ? result : result * -1;
+    return {flags.ascending ? result : result * -1};
   }
 
   /**
@@ -410,7 +408,7 @@ inline void SimpleVector<std::shared_ptr<void>>::setMinMax(
     const folly::F14FastMap<std::string, std::string>& /*metaData*/) {}
 
 template <>
-inline int32_t SimpleVector<ComplexType>::compare(
+inline std::optional<int32_t> SimpleVector<ComplexType>::compare(
     const BaseVector* other,
     vector_size_t index,
     vector_size_t otherIndex,

@@ -306,7 +306,7 @@ class ConstantVector final : public SimpleVector<T> {
     // nothing to do
   }
 
-  int32_t compare(
+  std::optional<int32_t> compare(
       const BaseVector* other,
       vector_size_t index,
       vector_size_t otherIndex,
@@ -314,15 +314,11 @@ class ConstantVector final : public SimpleVector<T> {
     if constexpr (!std::is_same_v<T, ComplexType>) {
       if (other->isConstantEncoding()) {
         auto otherConstant = other->asUnchecked<ConstantVector<T>>();
-        if (isNull_) {
-          if (otherConstant->isNull_) {
-            return 0;
-          }
-          return flags.nullsFirst ? -1 : 1;
+        if (isNull_ || otherConstant->isNull_) {
+          return BaseVector::compareNulls(
+              isNull_, otherConstant->isNull_, flags);
         }
-        if (otherConstant->isNull_) {
-          return flags.nullsFirst ? 1 : -1;
-        }
+
         auto result =
             SimpleVector<T>::comparePrimitiveAsc(value_, otherConstant->value_);
         return flags.ascending ? result : result * -1;

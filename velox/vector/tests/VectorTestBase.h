@@ -417,6 +417,44 @@ class VectorTestBase {
         type);
   }
 
+  // Create nullabe map vector from nested std::vector representation.
+  template <typename TKey, typename TValue>
+  MapVectorPtr makeNullableMapVector(
+      const std::vector<
+          std::optional<std::vector<std::pair<TKey, std::optional<TValue>>>>>&
+          maps) {
+    std::vector<vector_size_t> lengths;
+    std::vector<TKey> keys;
+    std::vector<TValue> values;
+    std::vector<bool> nullValues;
+    std::vector<bool> nullRow;
+
+    auto undefined = TValue();
+
+    for (const auto& map : maps) {
+      if (!map.has_value()) {
+        nullRow.push_back(true);
+        lengths.push_back(0);
+        continue;
+      }
+      nullRow.push_back(false);
+      lengths.push_back(map->size());
+      for (const auto& [key, value] : map.value()) {
+        keys.push_back(key);
+        values.push_back(value.value_or(undefined));
+        nullValues.push_back(!value.has_value());
+      }
+    }
+
+    return makeMapVector<TKey, TValue>(
+        maps.size(),
+        [&](vector_size_t row) { return lengths[row]; },
+        [&](vector_size_t idx) { return keys[idx]; },
+        [&](vector_size_t idx) { return values[idx]; },
+        [&](vector_size_t row) { return nullRow[row]; },
+        [&](vector_size_t idx) { return nullValues[idx]; });
+  }
+
   template <typename T>
   VectorPtr makeConstant(T value, vector_size_t size) {
     return BaseVector::createConstant(value, size, pool());

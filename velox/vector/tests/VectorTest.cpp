@@ -19,11 +19,13 @@
 #include <stdio.h>
 #include "velox/common/memory/ByteStream.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/BiasVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/LazyVector.h"
+#include "velox/vector/TypeAliases.h"
 #include "velox/vector/VectorTypeUtils.h"
 #include "velox/vector/tests/VectorMaker.h"
 

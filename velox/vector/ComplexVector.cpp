@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-#include "velox/vector/ComplexVector.h"
+#include <optional>
 #include <sstream>
+
+#include "velox/common/base/Exceptions.h"
+#include "velox/vector/BaseVector.h"
+#include "velox/vector/ComplexVector.h"
 #include "velox/vector/SimpleVector.h"
 
 namespace facebook {
@@ -66,7 +70,7 @@ std::shared_ptr<RowVector> RowVector::createEmpty(
   return std::static_pointer_cast<RowVector>(BaseVector::create(type, 0, pool));
 }
 
-int32_t RowVector::compare(
+std::optional<int32_t> RowVector::compare(
     const BaseVector* other,
     vector_size_t index,
     vector_size_t otherIndex,
@@ -82,14 +86,9 @@ int32_t RowVector::compare(
 
   bool isNull = isNullAt(index);
   bool otherNull = other->isNullAt(otherIndex);
-  if (isNull) {
-    if (otherNull) {
-      return 0;
-    }
-    return flags.nullsFirst ? -1 : 1;
-  }
-  if (otherNull) {
-    return flags.nullsFirst ? 1 : -1;
+
+  if (isNull || otherNull) {
+    return BaseVector::compareNulls(isNull, otherNull, flags);
   }
 
   if (flags.equalsOnly && children_.size() != otherRow->children_.size()) {
@@ -115,7 +114,11 @@ int32_t RowVector::compare(
     }
     auto wrappedOtherIndex = other->wrappedIndex(otherIndex);
     auto result = child->compare(otherChild, index, wrappedOtherIndex, flags);
-    if (result) {
+    if (flags.stopAtNull && !result.has_value()) {
+      return std::nullopt;
+    }
+
+    if (result.value()) {
       return result;
     }
   }
@@ -286,7 +289,7 @@ void RowVector::prepareForReuse() {
 }
 
 namespace {
-int compareArrays(
+std::optional<int32_t> compareArrays(
     const BaseVector& left,
     const BaseVector& right,
     IndexRange leftRange,
@@ -300,7 +303,11 @@ int compareArrays(
   for (auto i = 0; i < compareSize; ++i) {
     auto result =
         left.compare(&right, leftRange.begin + i, rightRange.begin + i, flags);
-    if (result) {
+    if (flags.stopAtNull && !result.has_value()) {
+      // Null is encountered.
+      return std::nullopt;
+    }
+    if (result.value() != 0) {
       return result;
     }
   }
@@ -308,7 +315,7 @@ int compareArrays(
   return flags.ascending ? result : result * -1;
 }
 
-int compareArrays(
+std::optional<int32_t> compareArrays(
     const BaseVector& left,
     const BaseVector& right,
     folly::Range<const vector_size_t*> leftRange,
@@ -321,7 +328,11 @@ int compareArrays(
   auto compareSize = std::min(leftRange.size(), rightRange.size());
   for (auto i = 0; i < compareSize; ++i) {
     auto result = left.compare(&right, leftRange[i], rightRange[i], flags);
-    if (result) {
+    if (flags.stopAtNull && !result.has_value()) {
+      // Null is encountered.
+      return std::nullopt;
+    }
+    if (result.value() != 0) {
       return result;
     }
   }
@@ -330,21 +341,15 @@ int compareArrays(
 }
 } // namespace
 
-int32_t ArrayVector::compare(
+std::optional<int32_t> ArrayVector::compare(
     const BaseVector* other,
     vector_size_t index,
     vector_size_t otherIndex,
     CompareFlags flags) const {
   bool isNull = isNullAt(index);
   bool otherNull = other->isNullAt(otherIndex);
-  if (isNull) {
-    if (otherNull) {
-      return 0;
-    }
-    return flags.nullsFirst ? -1 : 1;
-  }
-  if (otherNull) {
-    return flags.nullsFirst ? 1 : -1;
+  if (isNull || otherNull) {
+    return BaseVector::compareNulls(isNull, otherNull, flags);
   }
   auto otherValue = other->wrappedVector();
   auto wrappedOtherIndex = other->wrappedIndex(otherIndex);
@@ -559,22 +564,17 @@ void ArrayVector::prepareForReuse() {
   BaseVector::prepareForReuse(elements_, 0);
 }
 
-int32_t MapVector::compare(
+std::optional<int32_t> MapVector::compare(
     const BaseVector* other,
     vector_size_t index,
     vector_size_t otherIndex,
     CompareFlags flags) const {
   bool isNull = isNullAt(index);
   bool otherNull = other->isNullAt(otherIndex);
-  if (isNull) {
-    if (otherNull) {
-      return 0;
-    }
-    return flags.nullsFirst ? -1 : 1;
+  if (isNull || otherNull) {
+    return BaseVector::compareNulls(isNull, otherNull, flags);
   }
-  if (otherNull) {
-    return flags.nullsFirst ? 1 : -1;
-  }
+
   auto otherValue = other->wrappedVector();
   auto wrappedOtherIndex = other->wrappedIndex(otherIndex);
   VELOX_CHECK_EQ(
@@ -604,7 +604,14 @@ int32_t MapVector::compare(
 
   auto result =
       compareArrays(*keys_, *otherMap->keys_, leftIndices, rightIndices, flags);
-  if (result) {
+  VELOX_DCHECK(result.has_value(), "keys can not have null");
+
+  if (flags.stopAtNull && !result.has_value()) {
+    return std::nullopt;
+  }
+
+  // Keys are not the same.
+  if (result.value()) {
     return result;
   }
   return compareArrays(
