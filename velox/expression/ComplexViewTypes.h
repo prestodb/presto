@@ -19,6 +19,7 @@
 #include <optional>
 
 #include "folly/container/F14Map.h"
+#include "velox/common/base/CompareFlags.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/type/Type.h"
@@ -922,20 +923,25 @@ inline auto get(const RowView<returnsOptionalValues, Types...>& row) {
 
 class GenericView {
  public:
-  GenericView(const BaseVector* baseVector, vector_size_t index)
-      : baseVector_(baseVector), index_(index) {}
+  GenericView(const BaseVector* vector, vector_size_t index)
+      : vector_(vector), index_(index) {}
 
   uint64_t hash() const {
-    return baseVector_->hashValueAt(index_);
+    return vector_->hashValueAt(index_);
   }
 
   bool operator==(const GenericView& other) const {
-    return baseVector_->equalValueAt(other.baseVector_, index_, other.index_);
+    return vector_->equalValueAt(other.vector_, index_, other.index_);
+  }
+
+  std::optional<int64_t> compare(
+      const GenericView& other,
+      const CompareFlags flags) const {
+    return vector_->compare(other.vector_, index_, other.index_, flags);
   }
 
  private:
-  // Represent the decoded vector of the represented element.
-  const BaseVector* baseVector_;
+  const BaseVector* vector_;
   vector_size_t index_;
 };
 

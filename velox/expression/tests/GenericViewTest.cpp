@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <optional>
 
+#include "velox/common/base/CompareFlags.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/Udf.h"
@@ -116,6 +118,24 @@ TEST_F(GenericViewTest, testInt) {
   auto vector2 = vectorMaker_.flatVectorNullable<int64_t>(data2);
   testEqual(vector1, vector2, data1, data2);
   testHash(vector1);
+}
+
+TEST_F(GenericViewTest, testCompare) {
+  std::vector<std::optional<int64_t>> data = {1, 2, std::nullopt, 1};
+
+  auto vector = vectorMaker_.flatVectorNullable<int64_t>(data);
+  DecodedVector decoded;
+  exec::VectorReader<Generic<>> reader(decode(decoded, *vector));
+  CompareFlags flags;
+  ASSERT_EQ(reader[0].compare(reader[0], flags).value(), 0);
+  ASSERT_EQ(reader[0].compare(reader[3], flags).value(), 0);
+
+  ASSERT_NE(reader[0].compare(reader[1], flags).value(), 0);
+  ASSERT_NE(reader[0].compare(reader[2], flags).value(), 0);
+
+  flags.stopAtNull = true;
+  ASSERT_FALSE(reader[0].compare(reader[2], flags).has_value());
+  ASSERT_TRUE(reader[0].compare(reader[1], flags).has_value());
 }
 
 // Test reader<Generic> where generic elements are arrays<ints>
