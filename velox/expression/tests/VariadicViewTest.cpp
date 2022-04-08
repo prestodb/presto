@@ -100,6 +100,142 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
         arg++;
       }
       ASSERT_EQ(arg, bigIntVectors.size());
+
+      // Test loop iteration in reverse with post decrement
+      arg = bigIntVectors.size() - 1;
+      for (it = variadicView.end() - 1; it >= variadicView.begin(); it--) {
+        testItem(row, arg, *it);
+        arg--;
+      }
+      // This is unintuitive but because we decrement after accessing each
+      // element, since j starts as one less than the number of readers, it
+      // should finish at -1.
+      ASSERT_EQ(arg, -1);
+
+      // Test iterate with pre decrement
+      it = variadicView.end() - 1;
+      arg = bigIntVectors.size() - 1;
+      while (it >= variadicView.begin()) {
+        testItem(row, arg, *it);
+        arg--;
+        --it;
+      }
+      // This is unintuitive but because we decrement after accessing each
+      // element, since j starts as one less than the number of readers, it
+      // should finish at -1.
+      ASSERT_EQ(arg, -1);
+    }
+  }
+
+  void iteratorDifferenceTest() {
+    std::vector<VectorPtr> vectors;
+    for (const auto& vector : bigIntVectors) {
+      vectors.emplace_back(makeNullableFlatVector(vector));
+    }
+    SelectivityVector rows(vectors[0]->size());
+    EvalCtx ctx(&execCtx_, nullptr, nullptr);
+    DecodedArgs args(rows, vectors, &ctx);
+
+    VectorReader<Variadic<int64_t>> reader(args, 0);
+
+    for (auto row = 0; row < vectors[0]->size(); row++) {
+      auto variadicView = read(reader, row);
+      auto it = variadicView.begin();
+
+      for (int j = 0; j < variadicView.size(); j++) {
+        auto it2 = variadicView.begin();
+        for (int k = 0; k <= j; k++) {
+          ASSERT_EQ(it - it2, j - k);
+          ASSERT_EQ(it2 - it, k - j);
+          it2++;
+        }
+        it++;
+      }
+    }
+  }
+
+  void iteratorAdditionTest() {
+    std::vector<VectorPtr> vectors;
+    for (const auto& vector : bigIntVectors) {
+      vectors.emplace_back(makeNullableFlatVector(vector));
+    }
+    SelectivityVector rows(vectors[0]->size());
+    EvalCtx ctx(&execCtx_, nullptr, nullptr);
+    DecodedArgs args(rows, vectors, &ctx);
+
+    VectorReader<Variadic<int64_t>> reader(args, 0);
+
+    for (auto row = 0; row < vectors[0]->size(); row++) {
+      auto variadicView = read(reader, row);
+      auto it = variadicView.begin();
+
+      for (int j = 0; j < variadicView.size(); j++) {
+        auto it2 = variadicView.begin();
+        for (int k = 0; k < variadicView.size(); k++) {
+          ASSERT_EQ(it, it2 + (j - k));
+          ASSERT_EQ(it, (j - k) + it2);
+          auto it3 = it2;
+          it3 += j - k;
+          ASSERT_EQ(it, it3);
+          it2++;
+        }
+        it++;
+      }
+    }
+  }
+
+  void iteratorSubtractionTest() {
+    std::vector<VectorPtr> vectors;
+    for (const auto& vector : bigIntVectors) {
+      vectors.emplace_back(makeNullableFlatVector(vector));
+    }
+    SelectivityVector rows(vectors[0]->size());
+    EvalCtx ctx(&execCtx_, nullptr, nullptr);
+    DecodedArgs args(rows, vectors, &ctx);
+
+    VectorReader<Variadic<int64_t>> reader(args, 0);
+
+    for (auto row = 0; row < vectors[0]->size(); row++) {
+      auto variadicView = read(reader, row);
+      auto it = variadicView.begin();
+
+      for (int j = 0; j < variadicView.size(); j++) {
+        auto it2 = variadicView.begin();
+        for (int k = 0; k < variadicView.size(); k++) {
+          ASSERT_EQ(it, it2 - (k - j));
+          auto it3 = it2;
+          it3 -= k - j;
+          ASSERT_EQ(it, it3);
+          it2++;
+        }
+        it++;
+      }
+    }
+  }
+
+  void iteratorSubscriptTest() {
+    std::vector<VectorPtr> vectors;
+    for (const auto& vector : bigIntVectors) {
+      vectors.emplace_back(makeNullableFlatVector(vector));
+    }
+    SelectivityVector rows(vectors[0]->size());
+    EvalCtx ctx(&execCtx_, nullptr, nullptr);
+    DecodedArgs args(rows, vectors, &ctx);
+
+    VectorReader<Variadic<int64_t>> reader(args, 0);
+
+    for (auto row = 0; row < vectors[0]->size(); row++) {
+      auto variadicView = read(reader, row);
+      auto it = variadicView.begin();
+
+      for (int j = 0; j < variadicView.size(); j++) {
+        auto it2 = variadicView.begin();
+        for (int k = 0; k < variadicView.size(); k++) {
+          ASSERT_EQ(*it, it2[j - k]);
+          it2++;
+        }
+        it++;
+      }
     }
   }
 };
@@ -170,6 +306,22 @@ TEST_F(NullableVariadicViewTest, notNullContainer) {
   }
 }
 
+TEST_F(NullableVariadicViewTest, iteratorDifference) {
+  iteratorDifferenceTest();
+}
+
+TEST_F(NullableVariadicViewTest, iteratorAddition) {
+  iteratorAdditionTest();
+}
+
+TEST_F(NullableVariadicViewTest, iteratorSubtraction) {
+  iteratorSubtractionTest();
+}
+
+TEST_F(NullableVariadicViewTest, iteratorSubscript) {
+  iteratorSubscriptTest();
+}
+
 TEST_F(NullFreeVariadicViewTest, variadicInt) {
   testVariadicView();
 }
@@ -182,6 +334,22 @@ TEST_F(NullFreeVariadicViewTest, variadicIntMoreArgs) {
            std::vector<std::optional<int64_t>>{-4, std::nullopt, -6}),
        makeNullableFlatVector(std::vector<std::optional<int64_t>>{
            std::nullopt, std::nullopt, std::nullopt})});
+}
+
+TEST_F(NullFreeVariadicViewTest, iteratorDifference) {
+  iteratorDifferenceTest();
+}
+
+TEST_F(NullFreeVariadicViewTest, iteratorAddition) {
+  iteratorAdditionTest();
+}
+
+TEST_F(NullFreeVariadicViewTest, iteratorSubtraction) {
+  iteratorSubtractionTest();
+}
+
+TEST_F(NullFreeVariadicViewTest, iteratorSubscript) {
+  iteratorSubscriptTest();
 }
 
 const auto null = "null"_sv;

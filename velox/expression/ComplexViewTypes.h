@@ -49,20 +49,52 @@ class PointerWrapper {
   T t_;
 };
 
-// Base class for ArrayView::Iterator and MapView::Iterator. The missing parts
-// to be implemented by deriving classes are: operator*() and operator->().
-template <typename T, typename TIndex>
+// Base class for ArrayView::Iterator, MapView::Iterator, and
+// VariadicView::Iterator.
+// TElementAccessor is a class that supplies the following:
+// index_t: the type to use for indexes into the container. It should be signed
+// to allow, for example, loops to iterate backwards and end at a point before
+// the beginning of the container.
+// element_t: the type returned when the iterator is dereferenced.
+// element_t operator()(index_t index): returns the element at the provided
+// index in the container being iterated over.
+template <typename TElementAccessor>
 class IndexBasedIterator {
  public:
-  using Iterator = IndexBasedIterator<T, TIndex>;
-  using iterator_category = std::input_iterator_tag;
-  using value_type = T;
-  using difference_type = int;
-  using pointer = PointerWrapper<value_type>;
-  using reference = T;
+  using Iterator = IndexBasedIterator<TElementAccessor>;
+  using index_t = typename TElementAccessor::index_t;
+  using element_t = typename TElementAccessor::element_t;
+  using iterator_category = std::random_access_iterator_tag;
+  using value_type = element_t;
+  using difference_type = index_t;
+  using pointer = PointerWrapper<element_t>;
+  using reference = element_t;
 
-  explicit IndexBasedIterator<value_type, TIndex>(int64_t index)
-      : index_(index) {}
+  explicit IndexBasedIterator(
+      index_t index,
+      index_t containerStartIndex,
+      index_t containerEndIndex,
+      const TElementAccessor& elementAccessor)
+      : index_(index),
+        containerStartIndex_(containerStartIndex),
+        containerEndIndex_(containerEndIndex),
+        elementAccessor_(elementAccessor) {}
+
+  PointerWrapper<element_t> operator->() const {
+    validateBounds(index_);
+
+    return PointerWrapper(elementAccessor_(index_));
+  }
+
+  element_t operator*() const {
+    validateBounds(index_);
+
+    return elementAccessor_(index_);
+  }
+
+  element_t operator[](difference_type n) const {
+    return elementAccessor_(index_ + n);
+  }
 
   bool operator!=(const Iterator& rhs) const {
     return index_ != rhs.index_;
@@ -101,8 +133,85 @@ class IndexBasedIterator {
     return *this;
   }
 
+  // Implement post decrement.
+  Iterator operator--(int) {
+    Iterator old = *this;
+    --*this;
+    return old;
+  }
+
+  // Implement pre decrement.
+  Iterator& operator--() {
+    index_--;
+    return *this;
+  }
+
+  Iterator& operator+=(const difference_type& rhs) {
+    index_ += rhs;
+    return *this;
+  }
+
+  Iterator& operator-=(const difference_type& rhs) {
+    index_ -= rhs;
+    return *this;
+  }
+
+  // Iterators +/- ints.
+  Iterator operator+(difference_type rhs) const {
+    return Iterator(
+        this->index_ + rhs,
+        containerStartIndex_,
+        containerEndIndex_,
+        elementAccessor_);
+  }
+
+  Iterator operator-(difference_type rhs) const {
+    return Iterator(
+        this->index_ - rhs,
+        containerStartIndex_,
+        containerEndIndex_,
+        elementAccessor_);
+  }
+
+  // Subtract iterators.
+  difference_type operator-(const Iterator& rhs) const {
+    return this->index_ - rhs.index_;
+  }
+
+  friend Iterator operator+(
+      typename Iterator::difference_type lhs,
+      const Iterator& rhs) {
+    return rhs + lhs;
+  }
+
  protected:
-  TIndex index_;
+  index_t index_;
+
+  // Every instance of Iterator for the same container should have the same
+  // values for these two fields.
+  // The first index in the container. When begin() is called on a container
+  // the returned iterator should have index_ == containerStartIndex_.
+  index_t containerStartIndex_;
+
+  // Last index in the container + 1. When end() is called on a
+  // container the returned iterator should have index_ == containerEndIndex_.
+  index_t containerEndIndex_;
+  TElementAccessor elementAccessor_;
+
+  inline void validateBounds(index_t index) const {
+    VELOX_DCHECK_LT(
+        index,
+        containerEndIndex_,
+        "Iterator has index {} beyond the length of the container {}.",
+        index,
+        containerEndIndex_);
+    VELOX_DCHECK_GE(
+        index,
+        containerStartIndex_,
+        "Iterator has index {} before the start of the container {}.",
+        index,
+        containerStartIndex_);
+  }
 };
 
 // Implements an iterator for values that skips nulls and provides direct access
@@ -115,6 +224,10 @@ class IndexBasedIterator {
 template <typename BaseIterator>
 class SkipNullsIterator {
   using Iterator = SkipNullsIterator<BaseIterator>;
+
+  // SkipNullsIterator cannot meet the requirements of
+  // random_access_iterator_tag as moving between elements is a linear time
+  // operation.
   using iterator_category = std::input_iterator_tag;
   using value_type = typename std::
       invoke_result<decltype(&BaseIterator::value), BaseIterator>::type;
@@ -412,69 +525,88 @@ class ArrayView {
       VectorOptionalValueAccessor<reader_t>,
       element_t>::type;
 
-  class Iterator : public IndexBasedIterator<Element, vector_size_t> {
+  class ElementAccessor {
    public:
-    Iterator(const reader_t* reader, vector_size_t index)
-        : IndexBasedIterator<Element, vector_size_t>(index), reader_(reader) {}
+    using element_t = Element;
+    using index_t = vector_size_t;
 
-    PointerWrapper<Element> operator->() const {
+    explicit ElementAccessor(const reader_t* reader) : reader_(reader) {}
+
+    Element operator()(vector_size_t index) const {
       if constexpr (returnsOptionalValues) {
-        return PointerWrapper(Element{reader_, this->index_});
+        return Element{reader_, index};
       } else {
-        return PointerWrapper(reader_->readNullFree(this->index_));
+        return reader_->readNullFree(index);
       }
     }
 
-    Element operator*() const {
-      if constexpr (returnsOptionalValues) {
-        return Element{reader_, this->index_};
-      } else {
-        return reader_->readNullFree(this->index_);
-      }
-    }
-
-   protected:
+   private:
     const reader_t* reader_;
   };
 
+  using Iterator = IndexBasedIterator<ElementAccessor>;
+
   Iterator begin() const {
-    return Iterator{reader_, offset_};
+    return Iterator{
+        offset_, offset_, offset_ + size_, ElementAccessor(reader_)};
   }
 
   Iterator end() const {
-    return Iterator{reader_, offset_ + size_};
+    return Iterator{
+        offset_ + size_, offset_, offset_ + size_, ElementAccessor(reader_)};
   }
 
   struct SkipNullsContainer {
     class SkipNullsBaseIterator : public Iterator {
      public:
-      SkipNullsBaseIterator(const reader_t* reader, vector_size_t index)
-          : Iterator(reader, index) {}
+      SkipNullsBaseIterator(
+          const reader_t* reader,
+          vector_size_t index,
+          vector_size_t startIndex,
+          vector_size_t endIndex)
+          : Iterator(index, startIndex, endIndex, ElementAccessor(reader)),
+            reader_(reader) {}
 
       bool hasValue() const {
-        return this->reader_->isSet(this->index_);
+        return reader_->isSet(this->index_);
       }
 
       element_t value() const {
-        return (*this->reader_)[this->index_];
+        return (*reader_)[this->index_];
       }
+
+     private:
+      const reader_t* reader_;
     };
 
     explicit SkipNullsContainer(const ArrayView* array_) : array_(array_) {}
 
     SkipNullsIterator<SkipNullsBaseIterator> begin() {
       return SkipNullsIterator<SkipNullsBaseIterator>::initialize(
-          SkipNullsBaseIterator{array_->reader_, array_->offset_},
           SkipNullsBaseIterator{
-              array_->reader_, array_->offset_ + array_->size_});
+              array_->reader_,
+              array_->offset_,
+              array_->offset_,
+              array_->offset_ + array_->size_},
+          SkipNullsBaseIterator{
+              array_->reader_,
+              array_->offset_ + array_->size_,
+              array_->offset_,
+              array_->offset_ + array_->size_});
     }
 
     SkipNullsIterator<SkipNullsBaseIterator> end() {
       return SkipNullsIterator<SkipNullsBaseIterator>{
           SkipNullsBaseIterator{
-              array_->reader_, array_->offset_ + array_->size_},
+              array_->reader_,
+              array_->offset_ + array_->size_,
+              array_->offset_,
+              array_->offset_ + array_->size_},
           SkipNullsBaseIterator{
-              array_->reader_, array_->offset_ + array_->size_}};
+              array_->reader_,
+              array_->offset_ + array_->size_,
+              array_->offset_,
+              array_->offset_ + array_->size_}};
     }
 
    private:
@@ -625,22 +757,18 @@ class MapView {
     }
   };
 
-  class Iterator : public IndexBasedIterator<Element, vector_size_t> {
+  class ElementAccessor {
    public:
-    Iterator(
+    using element_t = Element;
+    using index_t = vector_size_t;
+
+    ElementAccessor(
         const key_reader_t* keyReader,
-        const value_reader_t* valueReader,
-        vector_size_t index)
-        : IndexBasedIterator<Element, vector_size_t>(index),
-          keyReader_(keyReader),
-          valueReader_(valueReader) {}
+        const value_reader_t* valueReader)
+        : keyReader_(keyReader), valueReader_(valueReader) {}
 
-    PointerWrapper<Element> operator->() const {
-      return PointerWrapper(Element{keyReader_, valueReader_, this->index_});
-    }
-
-    Element operator*() const {
-      return Element{keyReader_, valueReader_, this->index_};
+    Element operator()(vector_size_t index) const {
+      return Element{keyReader_, valueReader_, index};
     }
 
    private:
@@ -648,12 +776,22 @@ class MapView {
     const value_reader_t* valueReader_;
   };
 
+  using Iterator = IndexBasedIterator<ElementAccessor>;
+
   Iterator begin() const {
-    return Iterator{keyReader_, valueReader_, offset_};
+    return Iterator{
+        offset_,
+        offset_,
+        offset_ + size_,
+        ElementAccessor(keyReader_, valueReader_)};
   }
 
   Iterator end() const {
-    return Iterator{keyReader_, valueReader_, size_ + offset_};
+    return Iterator{
+        offset_ + size_,
+        offset_,
+        offset_ + size_,
+        ElementAccessor(keyReader_, valueReader_)};
   }
 
   // Index-based access for the map elements.

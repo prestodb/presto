@@ -17,6 +17,7 @@
 #include <optional>
 #include "glog/logging.h"
 #include "gtest/gtest.h"
+#include "velox/common/base/VeloxException.h"
 #include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
@@ -106,6 +107,30 @@ class ArrayViewTest : public functions::test::FunctionBaseTest {
         j++;
       }
       ASSERT_EQ(j, arrayDataBigInt[i].size());
+
+      // Test loop iteration in reverse with post decrement
+      j = arrayDataBigInt[i].size() - 1;
+      for (it = arrayView.end() - 1; it >= arrayView.begin(); it--) {
+        testItem(i, j, *it);
+        j--;
+      }
+      // This is unintuitive but because we decrement after accessing each
+      // element, since j starts as one less than the size of the array, it
+      // should finish at -1.
+      ASSERT_EQ(j, -1);
+
+      // Test iterate with pre decrement
+      it = arrayView.end() - 1;
+      j = arrayDataBigInt[i].size() - 1;
+      while (it >= arrayView.begin()) {
+        testItem(i, j, *it);
+        j--;
+        --it;
+      }
+      // This is unintuitive but because we decrement after accessing each
+      // element, since j starts as one less than the size of the array, it
+      // should finish at -1.
+      ASSERT_EQ(j, -1);
     }
   }
 
@@ -132,6 +157,106 @@ class ArrayViewTest : public functions::test::FunctionBaseTest {
 
     ASSERT_EQ(read(reader, 0).size(), 2);
     ASSERT_EQ(read(reader, 1).size(), 1);
+  }
+
+  void iteratorDifferenceTest() {
+    std::vector<std::vector<std::optional<int32_t>>> intArray{
+        {1}, {2, 3}, {4, 5, 6}, {7, 8, 9, 10}, {11, 12, 13, 14, 15}};
+    auto arrayVector = makeNullableArrayVector(intArray);
+    DecodedVector decoded;
+    exec::VectorReader<Array<int32_t>> reader(
+        decode(decoded, *arrayVector.get()));
+
+    for (auto i = 0; i < arrayVector->size(); i++) {
+      auto arrayView = read(reader, i);
+      auto it = arrayView.begin();
+
+      for (int j = 0; j < arrayView.size(); j++) {
+        auto it2 = arrayView.begin();
+        for (int k = 0; k <= j; k++) {
+          ASSERT_EQ(it - it2, j - k);
+          ASSERT_EQ(it2 - it, k - j);
+          it2++;
+        }
+        it++;
+      }
+    }
+  }
+
+  void iteratorAdditionTest() {
+    std::vector<std::vector<std::optional<int32_t>>> intArray{
+        {1}, {2, 3}, {4, 5, 6}, {7, 8, 9, 10}, {11, 12, 13, 14, 15}};
+    auto arrayVector = makeNullableArrayVector(intArray);
+    DecodedVector decoded;
+    exec::VectorReader<Array<int32_t>> reader(
+        decode(decoded, *arrayVector.get()));
+
+    for (auto i = 0; i < arrayVector->size(); i++) {
+      auto arrayView = read(reader, i);
+      auto it = arrayView.begin();
+
+      for (int j = 0; j < arrayView.size(); j++) {
+        auto it2 = arrayView.begin();
+        for (int k = 0; k < arrayView.size(); k++) {
+          ASSERT_EQ(it, it2 + (j - k));
+          ASSERT_EQ(it, (j - k) + it2);
+          auto it3 = it2;
+          it3 += j - k;
+          ASSERT_EQ(it, it3);
+          it2++;
+        }
+        it++;
+      }
+    }
+  }
+
+  void iteratorSubtractionTest() {
+    std::vector<std::vector<std::optional<int32_t>>> intArray{
+        {1}, {2, 3}, {4, 5, 6}, {7, 8, 9, 10}, {11, 12, 13, 14, 15}};
+    auto arrayVector = makeNullableArrayVector(intArray);
+    DecodedVector decoded;
+    exec::VectorReader<Array<int32_t>> reader(
+        decode(decoded, *arrayVector.get()));
+
+    for (auto i = 0; i < arrayVector->size(); i++) {
+      auto arrayView = read(reader, i);
+      auto it = arrayView.begin();
+
+      for (int j = 0; j < arrayView.size(); j++) {
+        auto it2 = arrayView.begin();
+        for (int k = 0; k < arrayView.size(); k++) {
+          ASSERT_EQ(it, it2 - (k - j));
+          auto it3 = it2;
+          it3 -= k - j;
+          ASSERT_EQ(it, it3);
+          it2++;
+        }
+        it++;
+      }
+    }
+  }
+
+  void iteratorSubscriptTest() {
+    std::vector<std::vector<std::optional<int32_t>>> intArray{
+        {1}, {2, 3}, {4, 5, 6}, {7, 8, 9, 10}, {11, 12, 13, 14, 15}};
+    auto arrayVector = makeNullableArrayVector(intArray);
+    DecodedVector decoded;
+    exec::VectorReader<Array<int32_t>> reader(
+        decode(decoded, *arrayVector.get()));
+
+    for (auto i = 0; i < arrayVector->size(); i++) {
+      auto arrayView = read(reader, i);
+      auto it = arrayView.begin();
+
+      for (int j = 0; j < arrayView.size(); j++) {
+        auto it2 = arrayView.begin();
+        for (int k = 0; k < arrayView.size(); k++) {
+          ASSERT_EQ(*it, it2[j - k]);
+          it2++;
+        }
+        it++;
+      }
+    }
   }
 };
 
@@ -314,6 +439,22 @@ TEST_F(NullableArrayViewTest, nestedArray) {
   assertEqualVectors(expected, result);
 }
 
+TEST_F(NullableArrayViewTest, iteratorDifference) {
+  iteratorDifferenceTest();
+}
+
+TEST_F(NullableArrayViewTest, iteratorAddition) {
+  iteratorAdditionTest();
+}
+
+TEST_F(NullableArrayViewTest, iteratorSubtraction) {
+  iteratorSubtractionTest();
+}
+
+TEST_F(NullableArrayViewTest, iteratorSubscript) {
+  iteratorSubscriptTest();
+}
+
 TEST_F(NullFreeArrayViewTest, intArray) {
   auto testItem = [&](int i, int j, auto item) {
     ASSERT_TRUE(item == arrayDataBigInt[i][j]);
@@ -395,4 +536,19 @@ TEST_F(NullableArrayViewTest, materializeArrayWithOpaque) {
   ASSERT_FALSE(array[1].has_value());
 }
 
+TEST_F(NullFreeArrayViewTest, iteratorDifference) {
+  iteratorDifferenceTest();
+}
+
+TEST_F(NullFreeArrayViewTest, iteratorAddition) {
+  iteratorAdditionTest();
+}
+
+TEST_F(NullFreeArrayViewTest, iteratorSubtraction) {
+  iteratorSubtractionTest();
+}
+
+TEST_F(NullFreeArrayViewTest, iteratorSubscript) {
+  iteratorSubscriptTest();
+}
 } // namespace

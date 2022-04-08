@@ -42,44 +42,43 @@ class VariadicView {
       VectorOptionalValueAccessor<reader_t>,
       element_t>::type;
 
-  class Iterator : public IndexBasedIterator<Element, int> {
+  class ElementAccessor {
    public:
-    Iterator(
+    using element_t = Element;
+    using index_t = int;
+
+    ElementAccessor(
         const std::vector<std::unique_ptr<reader_t>>* readers,
-        size_t readerIndex,
         vector_size_t offset)
-        : IndexBasedIterator<Element, int>(readerIndex),
-          readers_(readers),
-          offset_(offset) {}
+        : readers_(readers), offset_(offset) {}
 
-    PointerWrapper<Element> operator->() const {
+    Element operator()(vector_size_t index) const {
       if constexpr (returnsOptionalValues) {
-        return PointerWrapper(
-            Element{(*readers_)[this->index_].get(), offset_});
+        return Element{(*readers_)[index].get(), offset_};
       } else {
-        return PointerWrapper((*readers_)[this->index_]->readNullFree(offset_));
+        return (*readers_)[index]->readNullFree(offset_);
       }
     }
 
-    Element operator*() const {
-      if constexpr (returnsOptionalValues) {
-        return Element{(*readers_)[this->index_].get(), offset_};
-      } else {
-        return (*readers_)[this->index_]->readNullFree(offset_);
-      }
-    }
-
-   protected:
+   private:
     const std::vector<std::unique_ptr<reader_t>>* readers_;
-    const vector_size_t offset_;
+    // This is only not const to support the assignment operator.
+    vector_size_t offset_;
   };
 
+  using Iterator = IndexBasedIterator<ElementAccessor>;
+
   Iterator begin() const {
-    return Iterator{readers_, 0, offset_};
+    return Iterator{
+        0, 0, (int)readers_->size(), ElementAccessor(readers_, offset_)};
   }
 
   Iterator end() const {
-    return Iterator{readers_, readers_->size(), offset_};
+    return Iterator{
+        (int)readers_->size(),
+        0,
+        (int)readers_->size(),
+        ElementAccessor(readers_, offset_)};
   }
 
   struct SkipNullsContainer {
@@ -89,17 +88,27 @@ class VariadicView {
           const std::vector<std::unique_ptr<reader_t>>* readers,
           size_t readerIndex,
           vector_size_t offset)
-          : Iterator(readers, readerIndex, offset) {}
+          : Iterator(
+                readerIndex,
+                0,
+                readers->size(),
+                ElementAccessor(readers, offset)),
+            readers_(readers),
+            offset_(offset) {}
 
       bool hasValue() const {
-        const auto& currReader = this->readers_->operator[](this->index_);
-        return currReader->isSet(this->offset_);
+        const auto& currReader = readers_->operator[](this->index_);
+        return currReader->isSet(offset_);
       }
 
       element_t value() const {
-        const auto& currReader = this->readers_->operator[](this->index_);
-        return (*currReader)[this->offset_];
+        const auto& currReader = readers_->operator[](this->index_);
+        return (*currReader)[offset_];
       }
+
+     private:
+      const std::vector<std::unique_ptr<reader_t>>* readers_;
+      vector_size_t offset_;
     };
 
     explicit SkipNullsContainer(const VariadicView* view) : view_(view) {}
