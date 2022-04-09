@@ -102,7 +102,9 @@ void registerFunctions(const std::string& prefix) {
       prefix + "hash", hashSignatures(), makeHash);
   exec::registerStatefulVectorFunction(
       prefix + "murmur3hash", hashSignatures(), makeHash);
-  exec::registerStatefulVectorFunction(prefix + "in", inSignatures(), makeIn);
+
+  // Register 'in' functions.
+  registerIn(prefix);
 
   // Compare nullsafe functions
   exec::registerStatefulVectorFunction(

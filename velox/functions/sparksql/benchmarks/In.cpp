@@ -66,15 +66,15 @@ int in_int(int iters, int inListSize, const std::string& functionName) {
 }
 
 BENCHMARK_NAMED_PARAM_MULTI(in_int, presto_rhs1, 1, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs1, 1, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs1, 1, "sparkin");
 BENCHMARK_NAMED_PARAM_MULTI(in_int, presto_rhs3, 3, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs3, 3, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs3, 3, "sparkin");
 BENCHMARK_NAMED_PARAM_MULTI(in_int, presto_rhs10, 10, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs10, 10, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs10, 10, "sparkin");
 BENCHMARK_NAMED_PARAM_MULTI(in_int, presto_rhs100, 100, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs100, 100, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs100, 100, "sparkin");
 BENCHMARK_NAMED_PARAM_MULTI(in_int, presto_rhs1000, 1000, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs1000, 1000, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_int, spark_rhs1000, 1000, "sparkin");
 
 int in_str(int iters, int inListSize, const std::string& functionName) {
   folly::BenchmarkSuspender kSuspender;
@@ -105,20 +105,20 @@ int in_str(int iters, int inListSize, const std::string& functionName) {
 }
 
 BENCHMARK_NAMED_PARAM_MULTI(in_str, presto_rhs1, 1, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs1, 1, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs1, 1, "sparkin");
 BENCHMARK_NAMED_PARAM_MULTI(in_str, presto_rhs3, 3, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs3, 3, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs3, 3, "sparkin");
 BENCHMARK_NAMED_PARAM_MULTI(in_str, presto_rhs10, 10, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs10, 10, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs10, 10, "sparkin");
 BENCHMARK_NAMED_PARAM_MULTI(in_str, presto_rhs100, 100, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs100, 100, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs100, 100, "sparkin");
 BENCHMARK_NAMED_PARAM_MULTI(in_str, presto_rhs1000, 1000, "presto");
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs1000, 1000, "spark");
+BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(in_str, spark_rhs1000, 1000, "sparkin");
 
 } // namespace
 
 void registerInFunctions() {
-  exec::registerStatefulVectorFunction("spark", inSignatures(), makeIn);
+  registerIn("spark");
 }
 
 } // namespace facebook::velox::functions::sparksql

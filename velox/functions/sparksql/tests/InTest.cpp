@@ -70,34 +70,58 @@ class InTest : public SparkFunctionBaseTest {
   auto in(std::optional<T> lhs, std::vector<std::optional<T>> rhs) {
     // We don't use evaluateOnce() because we can't get NaN through the DuckDB
     // parser.
-    std::vector<std::shared_ptr<const velox::core::ITypedExpr>> args;
-    const auto argType = CppToType<T>::create();
-    args.push_back(std::make_shared<core::FieldAccessTypedExpr>(argType, "c0"));
 
-    auto rhsArrayVector =
-        vectorMaker_.arrayVectorNullable<T>({std::optional(rhs)});
-    args.push_back(std::make_shared<core::ConstantTypedExpr>(
-        BaseVector::wrapInConstant(1, 0, rhsArrayVector)));
-    exec::ExprSet expr(
-        {std::make_shared<core::CallTypedExpr>(BOOLEAN(), args, "in")},
-        &execCtx_);
-    auto eval = [&](RowVectorPtr data) -> std::optional<bool> {
+    auto getExpr = [&](bool asDictionary) {
+      std::vector<std::shared_ptr<const velox::core::ITypedExpr>> args;
+      const auto argType = CppToType<T>::create();
+      args.push_back(
+          std::make_shared<core::FieldAccessTypedExpr>(argType, "c0"));
+      VectorPtr rhsArrayVector =
+          vectorMaker_.arrayVectorNullable<T>({std::optional(rhs)});
+      if (asDictionary) {
+        auto indices = makeIndices(rhs.size(), [](auto row) { return row; });
+        rhsArrayVector = wrapInDictionary(indices, rhs.size(), rhsArrayVector);
+      }
+
+      args.push_back(std::make_shared<core::ConstantTypedExpr>(
+          BaseVector::wrapInConstant(1, 0, rhsArrayVector)));
+      return exec::ExprSet(
+          {std::make_shared<core::CallTypedExpr>(BOOLEAN(), args, "in")},
+          &execCtx_);
+    };
+
+    auto eval = [&](RowVectorPtr data,
+                    bool asDictonary = false) -> std::optional<bool> {
+      auto expr = getExpr(asDictonary);
       exec::EvalCtx evalCtx(&execCtx_, &expr, data.get());
       std::vector<VectorPtr> results(1);
       expr.eval(SelectivityVector(1), &evalCtx, &results);
+      // auto last = args.back();
       if (!results[0]->isNullAt(0))
         return results[0]->as<SimpleVector<bool>>()->valueAt(0);
       return std::nullopt;
     };
-    auto flatResult =
-        eval(makeRowVector({makeNullableFlatVector(std::vector{lhs})}));
-    auto constResult = eval(makeRowVector({makeConstant(lhs, 1)}));
-    CHECK(flatResult == constResult)
-        << "flatResult="
-        << (flatResult ? folly::to<std::string>(*flatResult) : "null")
-        << " constResult="
-        << (constResult ? folly::to<std::string>(*constResult) : "null");
-    return flatResult;
+
+    auto testForDictionary = [&](bool asDictionary = false) {
+      auto lhsVector =
+          makeRowVector({makeNullableFlatVector(std::vector{lhs})});
+      auto flatResult = eval(lhsVector, asDictionary);
+      auto lhsConstantVector = makeRowVector({makeConstant(lhs, 1)});
+      auto constResult = eval(lhsConstantVector, asDictionary);
+      CHECK(flatResult == constResult)
+          << "flatResult="
+          << (flatResult ? folly::to<std::string>(*flatResult) : "null")
+          << " constResult="
+          << (constResult ? folly::to<std::string>(*constResult) : "null");
+      return flatResult;
+    };
+
+    // Check when dictionary encoded
+    auto noDictionary = testForDictionary(false);
+    auto withDictionary = testForDictionary(true);
+    CHECK(noDictionary == withDictionary)
+        << "Dictionary encodings do not match";
+    return noDictionary;
   }
 };
 

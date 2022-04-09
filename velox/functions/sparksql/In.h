@@ -31,10 +31,6 @@ namespace facebook::velox::functions::sparksql {
 //   - Structs, Arrays
 //   - Maps
 
-std::vector<std::shared_ptr<exec::FunctionSignature>> inSignatures();
-
-std::shared_ptr<exec::VectorFunction> makeIn(
-    const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+void registerIn(const std::string& prefix);
 
 } // namespace facebook::velox::functions::sparksql

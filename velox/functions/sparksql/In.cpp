@@ -17,6 +17,8 @@
 #include "folly/hash/Hash.h"
 
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/Macros.h"
+#include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/sparksql/Arena.h"
 #include "velox/functions/sparksql/Comparisons.h"
 #include "velox/type/Filter.h"
@@ -60,156 +62,74 @@ class Set<StringView> {
   folly::F14FastSet<std::string_view> set_;
 };
 
-template <typename T, bool rhsHasNull>
-class In final : public exec::VectorFunction {
- public:
-  explicit In(Set<T> elements) : elements_(std::move(elements)) {}
+template <typename TInput>
+struct InFunctionOuter {
+  template <typename TExecCtx>
+  struct InFunctionInner {
+    VELOX_DEFINE_FUNCTION_TYPES(TExecCtx);
 
- private:
-  bool isDefaultNullBehavior() const final {
-    return false;
-  }
-
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* resultRef) const final {
-    // Prepare result.
-    BaseVector::ensureWritable(rows, BOOLEAN(), context->pool(), resultRef);
-    FlatVector<bool>& result = *(*resultRef)->as<FlatVector<bool>>();
-    uint64_t* resultValues = result.mutableRawValues<uint64_t>();
-    uint64_t* resultNulls = result.mutableRawNulls();
-    // Handle NULLs.
-    const SelectivityVector* selected = &rows;
-    exec::LocalSelectivityVector localSelected(context);
-    if (args[0]->mayHaveNulls()) {
-      const uint64_t* const lhsNulls = args[0]->flatRawNulls(rows);
-      *localSelected.get(rows.end()) = rows; // Allocate and copy input rows.
-      localSelected->deselectNonNulls(lhsNulls, rows.begin(), rows.end());
-      localSelected->applyToSelected( // Set result null if input is null.
-          [&](vector_size_t i) { bits::setNull(resultNulls, i); });
-      *localSelected = rows; // NULLs now handled and can be deselected.
-      localSelected->deselectNulls(lhsNulls, rows.begin(), rows.end());
-      selected = localSelected.get();
-    }
-    if (args[0]->isConstant(rows)) {
-      auto* lhs = args[0]->as<SimpleVector<T>>();
-      if (lhs->isNullAt(rows.begin())) {
+    FOLLY_ALWAYS_INLINE void initialize(
+        const core::QueryConfig& /*config*/,
+        const arg_type<TInput>* /*searchTerm*/,
+        const arg_type<velox::Array<TInput>>* searchElements) {
+      if (searchElements == nullptr) {
         return;
       }
-      const bool present = elements_.contains(lhs->valueAt(rows.begin()));
-      selected->applyToSelected([&](vector_size_t i) {
-        bits::setBit(resultValues, i, present);
-        if (rhsHasNull && !present) {
-          bits::setNull(resultNulls, i);
-        }
-      });
-      return;
-    }
-    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::FLAT);
-    FlatVector<T>* lhs = args[0]->as<FlatVector<T>>();
-    if (elements_.size() != 1 || rhsHasNull) {
-      selected->applyToSelected([&](vector_size_t i) {
-        const bool present = elements_.contains(lhs->valueAt(i));
-        bits::setBit(resultValues, i, present);
-        if (rhsHasNull && !present) {
-          bits::setNull(resultNulls, i);
-        }
-      });
-    } else {
-      using V = typename Set<T>::value_type;
-      V value(*elements_.begin());
-      Equal<V> cmp;
-      selected->applyToSelected([&](vector_size_t i) {
-        bits::setBit(resultValues, i, cmp(value, V(lhs->valueAt(i))));
-      });
-    }
-  }
 
-  const Set<T> elements_;
+      elements_.reserve(searchElements->size());
+
+      for (const auto& entry : *searchElements) {
+        if (!entry.has_value()) {
+          hasNull_ = true;
+          continue;
+        }
+        elements_.emplace(entry.value());
+      }
+    }
+
+    FOLLY_ALWAYS_INLINE bool callNullable(
+        bool& result,
+        const arg_type<TInput>* searchTerm,
+        const arg_type<velox::Array<TInput>>* /*array*/) {
+      if (searchTerm == nullptr) {
+        return false;
+      }
+
+      result = elements_.contains(*searchTerm);
+      if (hasNull_ && !result) {
+        return false;
+      }
+      return true;
+    }
+
+   private:
+    Set<TInput> elements_;
+    bool hasNull_{false};
+  };
+
+  template <typename T>
+  using Inner = typename InFunctionOuter<TInput>::template InFunctionInner<T>;
 };
 
 template <typename T>
-std::unique_ptr<exec::VectorFunction> createIn(
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  auto* constantInput = dynamic_cast<const ConstantVector<ComplexType>*>(
-      inputArgs[1].constantValue.get());
-  auto arrayVector = dynamic_cast<const ArrayVector*>(
-      constantInput->valueVector()->wrappedVector());
-  auto elementsVector = arrayVector->elements()->as<SimpleVector<T>>();
-  auto offset = arrayVector->offsetAt(constantInput->index());
-  auto size = arrayVector->sizeAt(constantInput->index());
-  VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
-
-  Set<T> elements;
-  elements.reserve(size);
-  bool hasNull = false;
-  for (auto i = offset; i < offset + size; i++) {
-    if (elementsVector->isNullAt(i)) {
-      hasNull = true;
-    } else {
-      elements.emplace(elementsVector->valueAt(i));
-    }
-  }
-
-  if (hasNull) {
-    return std::make_unique<In<T, true>>(std::move(elements));
-  } else {
-    return std::make_unique<In<T, false>>(std::move(elements));
-  }
+void registerInFn(const std::string& prefix) {
+  registerFunction<InFunctionOuter<T>::template Inner, bool, T, Array<T>>(
+      {prefix + "in"});
 }
 
 } // namespace
 
-std::vector<std::shared_ptr<exec::FunctionSignature>> inSignatures() {
-  return {exec::FunctionSignatureBuilder()
-              .typeVariable("T")
-              .returnType("boolean")
-              .argumentType("T")
-              .argumentType("array(T)")
-              .variableArity()
-              .build()};
-}
-
-std::shared_ptr<exec::VectorFunction> makeIn(
-    const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  VELOX_USER_CHECK_EQ(inputArgs.size(), 2);
-  VELOX_USER_CHECK_EQ(inputArgs[1].type->kind(), TypeKind::ARRAY);
-
-  // Type-invariant checks.
-  VELOX_USER_CHECK(
-      *inputArgs[0].type == *inputArgs[1].type->childAt(0),
-      "Second argument to {} must be an ARRAY with element type matching the type of the first argument: {} vs. {}",
-      name,
-      inputArgs[0].type->toString(),
-      inputArgs[1].type->toString());
-  VELOX_USER_CHECK_NOT_NULL(
-      inputArgs[1].constantValue,
-      "Second argument to {} must be constant.",
-      name)
-
-  switch (inputArgs[0].type->kind()) {
-#define CASE(kind)     \
-  case TypeKind::kind: \
-    return createIn<TypeTraits<TypeKind::kind>::NativeType>(inputArgs);
-    CASE(BOOLEAN);
-    CASE(TINYINT);
-    CASE(SMALLINT);
-    CASE(INTEGER);
-    CASE(BIGINT);
-    CASE(VARCHAR);
-    CASE(VARBINARY);
-    CASE(REAL);
-    CASE(DOUBLE);
-    CASE(TIMESTAMP);
-    CASE(DATE);
-#undef CASE
-    default:
-      VELOX_NYI("{} does not support {}", name, inputArgs[0].type->toString());
-  }
+void registerIn(const std::string& prefix) {
+  registerInFn<int8_t>(prefix);
+  registerInFn<int16_t>(prefix);
+  registerInFn<int32_t>(prefix);
+  registerInFn<int64_t>(prefix);
+  registerInFn<float>(prefix);
+  registerInFn<double>(prefix);
+  registerInFn<bool>(prefix);
+  registerInFn<StringView>(prefix);
+  registerInFn<Timestamp>(prefix);
+  registerInFn<Date>(prefix);
 }
 
 } // namespace facebook::velox::functions::sparksql
