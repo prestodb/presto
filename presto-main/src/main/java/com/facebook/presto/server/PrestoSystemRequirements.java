@@ -74,7 +74,7 @@ public final class PrestoSystemRequirements
                 failRequirement("Presto requires amd64 or ppc64le or aarch64 on Linux (found %s)", osArch);
             }
             if ("ppc64le".equals(osArch) || "aarch64".equals(osArch)) {
-                warnRequirement("Support for the POWER architecture is experimental");
+                warnRequirement("Support for the POWER and ARM architecture is experimental (found %s)", osArch);
             }
         }
         else if ("Mac OS X".equals(osName)) {
