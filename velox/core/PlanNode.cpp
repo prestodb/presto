@@ -147,6 +147,18 @@ void ValuesNode::addDetails(std::stringstream& stream) const {
   stream << totalCount << " rows in " << values_.size() << " vectors";
 }
 
+void ProjectNode::addDetails(std::stringstream& stream) const {
+  stream << "expressions: ";
+  for (auto i = 0; i < projections_.size(); i++) {
+    auto& projection = projections_[i];
+    if (i > 0) {
+      stream << ", ";
+    }
+    stream << "(" << names_[i] << ":" << projection->type()->toString() << ", "
+           << projection->toString() << ")";
+  }
+}
+
 const std::vector<std::shared_ptr<const PlanNode>>& TableScanNode::sources()
     const {
   return kEmptySources;

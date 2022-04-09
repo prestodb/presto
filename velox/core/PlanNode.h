@@ -280,14 +280,7 @@ class ProjectNode : public PlanNode {
   }
 
  private:
-  void addDetails(std::stringstream& stream) const override {
-    stream << "expressions: ";
-    for (auto i = 0; i < projections_.size(); i++) {
-      auto& projection = projections_[i];
-      stream << "(" << names_[i] << ":" << projection->type()->toString()
-             << ", " << projection->toString() << "), ";
-    }
-  }
+  void addDetails(std::stringstream& stream) const override;
 
   static RowTypePtr makeOutputType(
       const std::vector<std::string>& names,
