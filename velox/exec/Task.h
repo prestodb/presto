@@ -283,20 +283,20 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
-  void createLocalExchangeSourcesLocked(
+  void createLocalExchangeQueuesLocked(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId,
       int numPartitions);
 
   void noMoreLocalExchangeProducers(uint32_t splitGroupId);
 
-  std::shared_ptr<LocalExchangeSource> getLocalExchangeSource(
+  std::shared_ptr<LocalExchangeQueue> getLocalExchangeQueue(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId,
       int partition);
 
-  const std::vector<std::shared_ptr<LocalExchangeSource>>&
-  getLocalExchangeSources(
+  const std::vector<std::shared_ptr<LocalExchangeQueue>>&
+  getLocalExchangeQueues(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 

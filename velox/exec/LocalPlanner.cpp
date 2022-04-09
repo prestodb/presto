@@ -378,7 +378,7 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
         auto localPartitionNode =
             std::dynamic_pointer_cast<const core::LocalPartitionNode>(
                 planNode)) {
-      operators.push_back(std::make_unique<LocalExchangeSourceOperator>(
+      operators.push_back(std::make_unique<LocalExchange>(
           id,
           ctx.get(),
           localPartitionNode->outputType(),

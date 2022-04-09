@@ -21,7 +21,7 @@
 namespace facebook::velox::exec {
 
 /// Keeps track of the total size in bytes of the data buffered in all
-/// LocalExchangeSources.
+/// LocalExchangeQueues.
 class LocalExchangeMemoryManager {
  public:
   explicit LocalExchangeMemoryManager(int64_t maxBufferSize)
@@ -46,15 +46,15 @@ class LocalExchangeMemoryManager {
 /// must be called after all producers have been registered. A producer calls
 /// 'enqueue' multiple time to put the data and calls 'noMoreData' when done.
 /// Consumers call 'next' repeatedly to fetch the data.
-class LocalExchangeSource {
+class LocalExchangeQueue {
  public:
-  LocalExchangeSource(
+  LocalExchangeQueue(
       std::shared_ptr<LocalExchangeMemoryManager> memoryManager,
       int partition)
       : memoryManager_{std::move(memoryManager)}, partition_{partition} {}
 
   std::string toString() const {
-    return fmt::format("LocalExchangeSource({})", partition_);
+    return fmt::format("LocalExchangeQueue({})", partition_);
   }
 
   void addProducer();
@@ -113,10 +113,10 @@ class LocalExchangeSource {
 };
 
 /// Fetches data for a single partition produced by local exchange from
-/// LocalExchangeSource.
-class LocalExchangeSourceOperator : public SourceOperator {
+/// LocalExchangeQueue.
+class LocalExchange : public SourceOperator {
  public:
-  LocalExchangeSourceOperator(
+  LocalExchange(
       int32_t operatorId,
       DriverCtx* ctx,
       RowTypePtr outputType,
@@ -124,7 +124,7 @@ class LocalExchangeSourceOperator : public SourceOperator {
       int partition);
 
   std::string toString() const override {
-    return fmt::format("LocalExchangeSourceOperator({})", partition_);
+    return fmt::format("LocalExchange({})", partition_);
   }
 
   BlockingReason isBlocked(ContinueFuture* future) override;
@@ -133,24 +133,24 @@ class LocalExchangeSourceOperator : public SourceOperator {
 
   bool isFinished() override;
 
-  /// Close exchange source. If called before all data has been processed,
+  /// Close exchange queue. If called before all data has been processed,
   /// notifies the producer that no more data is needed.
   void close() override {
     Operator::close();
-    if (source_) {
-      source_->close();
+    if (queue_) {
+      queue_->close();
     }
   }
 
  private:
   const int partition_;
-  const std::shared_ptr<LocalExchangeSource> source_{nullptr};
+  const std::shared_ptr<LocalExchangeQueue> queue_{nullptr};
   ContinueFuture future_{false};
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
 };
 
 /// Hash partitions the data using specified keys. The number of partitions is
-/// determined by the number of LocalExchangeSources(s) found in the task.
+/// determined by the number of LocalExchangeQueues(s) found in the task.
 class LocalPartition : public Operator {
  public:
   LocalPartition(
@@ -182,8 +182,8 @@ class LocalPartition : public Operator {
 
   void close() override {
     Operator::close();
-    for (auto& source : localExchangeSources_) {
-      source->close();
+    for (auto& queue : queues_) {
+      queue->close();
     }
   }
 
@@ -191,7 +191,7 @@ class LocalPartition : public Operator {
   BlockingReason
   enqueue(int32_t source, RowVectorPtr data, ContinueFuture* future);
 
-  const std::vector<std::shared_ptr<LocalExchangeSource>> localExchangeSources_;
+  const std::vector<std::shared_ptr<LocalExchangeQueue>> queues_;
   const size_t numPartitions_;
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
   // Empty if column order in the output is exactly the same as in input.

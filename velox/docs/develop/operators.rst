@@ -48,7 +48,7 @@ ExchangeNode                Exchange                                         Y
 MergeExchangeNode           MergeExchange                                    Y
 ValuesNode                  Values                                           Y
 LocalMergeNode              LocalMerge
-LocalPartitionNode          LocalPartition and LocalExchangeSourceOperator
+LocalPartitionNode          LocalPartition and LocalExchange
 EnforceSingleRowNode        EnforceSingleRow
 AssignUniqueIdNode          AssignUniqueId
 ==========================  ==============================================   ===========================
@@ -414,6 +414,8 @@ combines data from multiple streams into a single stream.
 
    * - Property
      - Description
+   * - Type
+     - Type of the exchange: gather or repartition.
    * - partitionFunctionFactory
      - Factory to make partition functions to use when calculating partitions for input rows.
    * - outputType

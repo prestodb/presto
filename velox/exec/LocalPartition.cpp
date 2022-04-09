@@ -56,14 +56,14 @@ void LocalExchangeMemoryManager::decreaseMemoryUsage(int64_t removed) {
   notify(promises);
 }
 
-void LocalExchangeSource::addProducer() {
+void LocalExchangeQueue::addProducer() {
   queue_.withWLock([&](auto& /*queue*/) {
     VELOX_CHECK(!noMoreProducers_, "addProducer called after noMoreProducers");
     ++pendingProducers_;
   });
 }
 
-void LocalExchangeSource::noMoreProducers() {
+void LocalExchangeQueue::noMoreProducers() {
   std::vector<VeloxPromise<bool>> consumerPromises;
   std::vector<VeloxPromise<bool>> producerPromises;
   queue_.withWLock([&](auto& queue) {
@@ -83,7 +83,7 @@ void LocalExchangeSource::noMoreProducers() {
   notify(producerPromises);
 }
 
-BlockingReason LocalExchangeSource::enqueue(
+BlockingReason LocalExchangeQueue::enqueue(
     RowVectorPtr input,
     ContinueFuture* future) {
   auto inputBytes = input->retainedSize();
@@ -111,7 +111,7 @@ BlockingReason LocalExchangeSource::enqueue(
   return BlockingReason::kNotBlocked;
 }
 
-void LocalExchangeSource::noMoreData() {
+void LocalExchangeQueue::noMoreData() {
   std::vector<VeloxPromise<bool>> consumerPromises;
   std::vector<VeloxPromise<bool>> producerPromises;
   queue_.withWLock([&](auto queue) {
@@ -128,7 +128,7 @@ void LocalExchangeSource::noMoreData() {
   notify(producerPromises);
 }
 
-BlockingReason LocalExchangeSource::next(
+BlockingReason LocalExchangeQueue::next(
     ContinueFuture* future,
     memory::MemoryPool* pool,
     RowVectorPtr* data) {
@@ -140,7 +140,7 @@ BlockingReason LocalExchangeSource::next(
         return BlockingReason::kNotBlocked;
       }
 
-      consumerPromises_.emplace_back("LocalExchangeSource::next");
+      consumerPromises_.emplace_back("LocalExchangeQueue::next");
       *future = consumerPromises_.back().getSemiFuture();
 
       return BlockingReason::kWaitForExchange;
@@ -161,7 +161,7 @@ BlockingReason LocalExchangeSource::next(
   return blockingReason;
 }
 
-bool LocalExchangeSource::isFinishedLocked(
+bool LocalExchangeQueue::isFinishedLocked(
     const std::queue<RowVectorPtr>& queue) const {
   if (closed_) {
     return true;
@@ -174,24 +174,24 @@ bool LocalExchangeSource::isFinishedLocked(
   return false;
 }
 
-BlockingReason LocalExchangeSource::isFinished(ContinueFuture* future) {
+BlockingReason LocalExchangeQueue::isFinished(ContinueFuture* future) {
   return queue_.withWLock([&](auto& queue) {
     if (isFinishedLocked(queue)) {
       return BlockingReason::kNotBlocked;
     }
 
-    producerPromises_.emplace_back("LocalExchangeSource::isFinished");
+    producerPromises_.emplace_back("LocalExchangeQueue::isFinished");
     *future = producerPromises_.back().getSemiFuture();
 
     return BlockingReason::kWaitForConsumer;
   });
 }
 
-bool LocalExchangeSource::isFinished() {
+bool LocalExchangeQueue::isFinished() {
   return queue_.withWLock([&](auto& queue) { return isFinishedLocked(queue); });
 }
 
-void LocalExchangeSource::close() {
+void LocalExchangeQueue::close() {
   std::vector<VeloxPromise<bool>> producerPromises;
   std::vector<VeloxPromise<bool>> consumerPromises;
   queue_.withWLock([&](auto& queue) {
@@ -213,7 +213,7 @@ void LocalExchangeSource::close() {
   notify(consumerPromises);
 }
 
-LocalExchangeSourceOperator::LocalExchangeSourceOperator(
+LocalExchange::LocalExchange(
     int32_t operatorId,
     DriverCtx* ctx,
     RowTypePtr outputType,
@@ -224,14 +224,14 @@ LocalExchangeSourceOperator::LocalExchangeSourceOperator(
           std::move(outputType),
           operatorId,
           planNodeId,
-          "LocalExchangeSource"),
+          "LocalExchange"),
       partition_{partition},
-      source_{operatorCtx_->task()->getLocalExchangeSource(
+      queue_{operatorCtx_->task()->getLocalExchangeQueue(
           ctx->splitGroupId,
           planNodeId,
           partition)} {}
 
-BlockingReason LocalExchangeSourceOperator::isBlocked(ContinueFuture* future) {
+BlockingReason LocalExchange::isBlocked(ContinueFuture* future) {
   if (blockingReason_ != BlockingReason::kNotBlocked) {
     *future = std::move(future_);
     auto reason = blockingReason_;
@@ -242,9 +242,9 @@ BlockingReason LocalExchangeSourceOperator::isBlocked(ContinueFuture* future) {
   return BlockingReason::kNotBlocked;
 }
 
-RowVectorPtr LocalExchangeSourceOperator::getOutput() {
+RowVectorPtr LocalExchange::getOutput() {
   RowVectorPtr data;
-  blockingReason_ = source_->next(&future_, pool(), &data);
+  blockingReason_ = queue_->next(&future_, pool(), &data);
   if (blockingReason_ != BlockingReason::kNotBlocked) {
     return nullptr;
   }
@@ -255,8 +255,8 @@ RowVectorPtr LocalExchangeSourceOperator::getOutput() {
   return data;
 }
 
-bool LocalExchangeSourceOperator::isFinished() {
-  return source_->isFinished();
+bool LocalExchange::isFinished() {
+  return queue_->isFinished();
 }
 
 LocalPartition::LocalPartition(
@@ -269,10 +269,9 @@ LocalPartition::LocalPartition(
           operatorId,
           planNode->id(),
           "LocalPartition"),
-      localExchangeSources_{ctx->task->getLocalExchangeSources(
-          ctx->splitGroupId,
-          planNode->id())},
-      numPartitions_{localExchangeSources_.size()},
+      queues_{
+          ctx->task->getLocalExchangeQueues(ctx->splitGroupId, planNode->id())},
+      numPartitions_{queues_.size()},
       partitionFunction_(
           numPartitions_ == 1
               ? nullptr
@@ -283,8 +282,8 @@ LocalPartition::LocalPartition(
       blockingReasons_{numPartitions_} {
   VELOX_CHECK(numPartitions_ == 1 || partitionFunction_ != nullptr);
 
-  for (auto& source : localExchangeSources_) {
-    source->addProducer();
+  for (auto& queue : queues_) {
+    queue->addProducer();
   }
 
   futures_.reserve(numPartitions_);
@@ -348,7 +347,7 @@ BlockingReason LocalPartition::enqueue(
         data->pool(), outputType_, nullptr, data->size(), outputColumns);
   }
 
-  return localExchangeSources_[source]->enqueue(projectedData, future);
+  return queues_[source]->enqueue(projectedData, future);
 }
 
 void LocalPartition::addInput(RowVectorPtr input) {
@@ -410,8 +409,8 @@ BlockingReason LocalPartition::isBlocked(ContinueFuture* future) {
   }
 
   if (noMoreInput_) {
-    for (const auto& source : localExchangeSources_) {
-      auto reason = source->isFinished(future);
+    for (const auto& queue : queues_) {
+      auto reason = queue->isFinished(future);
       if (reason != BlockingReason::kNotBlocked) {
         return reason;
       }
@@ -423,8 +422,8 @@ BlockingReason LocalPartition::isBlocked(ContinueFuture* future) {
 
 void LocalPartition::noMoreInput() {
   Operator::noMoreInput();
-  for (const auto& source : localExchangeSources_) {
-    source->noMoreData();
+  for (const auto& queue : queues_) {
+    queue->noMoreData();
   }
 }
 
@@ -433,8 +432,8 @@ bool LocalPartition::isFinished() {
     return false;
   }
 
-  for (const auto& source : localExchangeSources_) {
-    if (!source->isFinished()) {
+  for (const auto& queue : queues_) {
+    if (!queue->isFinished()) {
       return false;
     }
   }

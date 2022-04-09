@@ -344,7 +344,7 @@ struct DriverFactory {
 
   /// Returns LocalPartition plan node ID if the pipeline gets data from a local
   /// exchange.
-  std::optional<core::PlanNodeId> needsLocalExchangeSource() const {
+  std::optional<core::PlanNodeId> needsLocalExchange() const {
     VELOX_CHECK(!planNodes.empty());
     if (auto exchangeNode =
             std::dynamic_pointer_cast<const core::LocalPartitionNode>(

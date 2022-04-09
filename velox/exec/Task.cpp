@@ -311,9 +311,9 @@ void Task::createSplitGroupStateLocked(
   for (auto pipeline = 0; pipeline < numPipelines; ++pipeline) {
     auto& factory = self->driverFactories_[pipeline];
 
-    auto exchangeId = factory->needsLocalExchangeSource();
+    auto exchangeId = factory->needsLocalExchange();
     if (exchangeId.has_value()) {
-      self->createLocalExchangeSourcesLocked(
+      self->createLocalExchangeQueuesLocked(
           splitGroupId, exchangeId.value(), factory->numDrivers);
     }
 
@@ -1103,7 +1103,7 @@ std::shared_ptr<MergeJoinSource> Task::getMergeJoinSource(
   return it->second;
 }
 
-void Task::createLocalExchangeSourcesLocked(
+void Task::createLocalExchangeQueuesLocked(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId,
     int numPartitions) {
@@ -1116,14 +1116,14 @@ void Task::createLocalExchangeSourcesLocked(
 
   // TODO(spershin): Should we have one memory manager for all local exchanges
   //  in all split groups?
-  LocalExchange exchange;
+  LocalExchangeState exchange;
   exchange.memoryManager = std::make_shared<LocalExchangeMemoryManager>(
       queryCtx_->config().maxLocalExchangeBufferSize());
 
-  exchange.sources.reserve(numPartitions);
+  exchange.queues.reserve(numPartitions);
   for (auto i = 0; i < numPartitions; ++i) {
-    exchange.sources.emplace_back(
-        std::make_shared<LocalExchangeSource>(exchange.memoryManager, i));
+    exchange.queues.emplace_back(
+        std::make_shared<LocalExchangeQueue>(exchange.memoryManager, i));
   }
 
   splitGroupState.localExchanges.insert({planNodeId, std::move(exchange)});
@@ -1133,27 +1133,27 @@ void Task::noMoreLocalExchangeProducers(uint32_t splitGroupId) {
   auto& splitGroupState = splitGroupStates_[splitGroupId];
 
   for (auto& exchange : splitGroupState.localExchanges) {
-    for (auto& source : exchange.second.sources) {
-      source->noMoreProducers();
+    for (auto& queue : exchange.second.queues) {
+      queue->noMoreProducers();
     }
   }
 }
 
-std::shared_ptr<LocalExchangeSource> Task::getLocalExchangeSource(
+std::shared_ptr<LocalExchangeQueue> Task::getLocalExchangeQueue(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId,
     int partition) {
-  const auto& sources = getLocalExchangeSources(splitGroupId, planNodeId);
+  const auto& queues = getLocalExchangeQueues(splitGroupId, planNodeId);
   VELOX_CHECK_LT(
       partition,
-      sources.size(),
+      queues.size(),
       "Incorrect partition for local exchange {}",
       planNodeId);
-  return sources[partition];
+  return queues[partition];
 }
 
-const std::vector<std::shared_ptr<LocalExchangeSource>>&
-Task::getLocalExchangeSources(
+const std::vector<std::shared_ptr<LocalExchangeQueue>>&
+Task::getLocalExchangeQueues(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
   auto& splitGroupState = splitGroupStates_[splitGroupId];
@@ -1163,7 +1163,7 @@ Task::getLocalExchangeSources(
       it != splitGroupState.localExchanges.end(),
       "Incorrect local exchange ID: {}",
       planNodeId);
-  return it->second.sources;
+  return it->second.queues;
 }
 
 void Task::setError(const std::exception_ptr& exception) {

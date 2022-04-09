@@ -64,10 +64,10 @@ struct SplitsState {
   SplitsState& operator=(SplitsState const&) = delete;
 };
 
-/// Stores local exchange sources with the memory manager.
-struct LocalExchange {
+/// Stores local exchange queues with the memory manager.
+struct LocalExchangeState {
   std::shared_ptr<LocalExchangeMemoryManager> memoryManager;
-  std::vector<std::shared_ptr<LocalExchangeSource>> sources;
+  std::vector<std::shared_ptr<LocalExchangeQueue>> queues;
 };
 
 /// Stores inter-operator state (exchange, bridges) for split groups.
@@ -88,7 +88,7 @@ struct SplitGroupState {
       mergeJoinSources;
 
   /// Map of local exchanges keyed on LocalPartition plan node ID.
-  std::unordered_map<core::PlanNodeId, LocalExchange> localExchanges;
+  std::unordered_map<core::PlanNodeId, LocalExchangeState> localExchanges;
 
   /// Drivers created and still running for this split group.
   /// The split group is finished when this numbers reaches zero.
