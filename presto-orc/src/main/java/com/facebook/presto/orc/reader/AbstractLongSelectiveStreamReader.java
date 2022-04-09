@@ -20,7 +20,6 @@ import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.ShortArrayBlock;
 import com.facebook.presto.common.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -39,8 +38,6 @@ import static java.util.Objects.requireNonNull;
 abstract class AbstractLongSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractLongSelectiveStreamReader.class).instanceSize();
-
     protected final boolean outputRequired;
     @Nullable
     protected final Type outputType;
@@ -92,8 +89,8 @@ abstract class AbstractLongSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE +
-                sizeOf(values) +
+        // INSTANCE_SIZE needs to be calculated for the child class to avoid double accounting
+        return sizeOf(values) +
                 sizeOf(nulls) +
                 sizeOf(outputPositions) +
                 sizeOf(intValues) +

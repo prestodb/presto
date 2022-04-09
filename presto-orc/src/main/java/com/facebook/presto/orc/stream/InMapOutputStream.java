@@ -41,6 +41,6 @@ public class InMapOutputStream
     @Override
     public long getRetainedBytes()
     {
-        return INSTANCE_SIZE + super.getRetainedBytes();
+        return INSTANCE_SIZE;
     }
 }
