@@ -65,4 +65,11 @@ public class AlluxioCachingConfigurationProvider
             configuration.set("alluxio.user.client.cache.shadow.window", String.valueOf(alluxioCacheConfig.getShadowCacheWindow().toMillis()));
         }
     }
+
+    @Override
+    public boolean isUriIndependentConfigurationProvider()
+    {
+        // All the config set above are independent of the URI
+        return true;
+    }
 }
