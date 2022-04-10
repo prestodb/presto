@@ -103,7 +103,20 @@ public final class QueryAssertions
             boolean ensureOrdering,
             boolean compareUpdate)
     {
-        assertQuery(actualQueryRunner, session, actual, expectedQueryRunner, expected, ensureOrdering, compareUpdate, Optional.empty());
+        assertQuery(actualQueryRunner, session, actual, expectedQueryRunner, session, expected, ensureOrdering, compareUpdate, Optional.empty());
+    }
+
+    public static void assertQuery(
+            QueryRunner actualQueryRunner,
+            Session actualSession,
+            @Language("SQL") String actual,
+            ExpectedQueryRunner expectedQueryRunner,
+            Session expectedSession,
+            @Language("SQL") String expected,
+            boolean ensureOrdering,
+            boolean compareUpdate)
+    {
+        assertQuery(actualQueryRunner, actualSession, actual, expectedQueryRunner, expectedSession, expected, ensureOrdering, compareUpdate, Optional.empty());
     }
 
     public static void assertQuery(
@@ -116,14 +129,29 @@ public final class QueryAssertions
             boolean compareUpdate,
             Consumer<Plan> planAssertion)
     {
-        assertQuery(actualQueryRunner, session, actual, expectedQueryRunner, expected, ensureOrdering, compareUpdate, Optional.of(planAssertion));
+        assertQuery(actualQueryRunner, session, actual, expectedQueryRunner, session, expected, ensureOrdering, compareUpdate, Optional.of(planAssertion));
+    }
+
+    public static void assertQuery(
+            QueryRunner actualQueryRunner,
+            Session actualSession,
+            @Language("SQL") String actual,
+            ExpectedQueryRunner expectedQueryRunner,
+            Session expectedSession,
+            @Language("SQL") String expected,
+            boolean ensureOrdering,
+            boolean compareUpdate,
+            Consumer<Plan> planAssertion)
+    {
+        assertQuery(actualQueryRunner, actualSession, actual, expectedQueryRunner, expectedSession, expected, ensureOrdering, compareUpdate, Optional.of(planAssertion));
     }
 
     private static void assertQuery(
             QueryRunner actualQueryRunner,
-            Session session,
+            Session actualSession,
             @Language("SQL") String actual,
             ExpectedQueryRunner expectedQueryRunner,
+            Session expectedSession,
             @Language("SQL") String expected,
             boolean ensureOrdering,
             boolean compareUpdate,
@@ -134,7 +162,7 @@ public final class QueryAssertions
         Plan queryPlan = null;
         if (planAssertion.isPresent()) {
             try {
-                MaterializedResultWithPlan resultWithPlan = actualQueryRunner.executeWithPlan(session, actual, WarningCollector.NOOP);
+                MaterializedResultWithPlan resultWithPlan = actualQueryRunner.executeWithPlan(actualSession, actual, WarningCollector.NOOP);
                 queryPlan = resultWithPlan.getQueryPlan();
                 actualResults = resultWithPlan.getMaterializedResult().toTestTypes();
             }
@@ -144,7 +172,7 @@ public final class QueryAssertions
         }
         else {
             try {
-                actualResults = actualQueryRunner.execute(session, actual).toTestTypes();
+                actualResults = actualQueryRunner.execute(actualSession, actual).toTestTypes();
             }
             catch (RuntimeException ex) {
                 fail("Execution of 'actual' query failed: " + actual, ex);
@@ -158,7 +186,7 @@ public final class QueryAssertions
         long expectedStart = System.nanoTime();
         MaterializedResult expectedResults = null;
         try {
-            expectedResults = expectedQueryRunner.execute(session, expected, actualResults.getTypes());
+            expectedResults = expectedQueryRunner.execute(expectedSession, expected, actualResults.getTypes());
         }
         catch (RuntimeException ex) {
             fail("Execution of 'expected' query failed: " + expected, ex);
