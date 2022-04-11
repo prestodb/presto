@@ -229,7 +229,10 @@ sortedness. This operator must run single-threaded. It uses
 Task::getLocalMergeSources() API to get access to LocalMergeSource instances
 the producing pipeline is writing to. For each LocalMergeNode, Task creates
 multiple LocalMergeSource instances to match the parallelism of the producing
-pipeline. Merge Join Sources
+pipeline.
+
+Merge Join Sources
+------------------
 
 MergeJoin operator needs a way to receive right-side data. It relies on the Task
 to create a MergeJoinSource and install a CallbackSink operator at the end of
