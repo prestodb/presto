@@ -74,6 +74,57 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
 
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _mysql-table-statistics:
+
+Table statistics
+^^^^^^^^^^^^^^^^
+
+The MySQL connector can use :doc:`table and column statistics
+</optimizer/statistics>` for :doc:`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by MySQL and retrieved by the connector.
+
+The table-level statistics are based on MySQL's ``INFORMATION_SCHEMA.TABLES``
+table. The column-level statistics are based on MySQL's index statistics
+``INFORMATION_SCHEMA.STATISTICS`` table. The connector can return column-level
+statistics only when the column is the first column in some index.
+
+MySQL database can automatically update its table and index statistics. In some
+cases, you may want to force statistics update, for example after creating new
+index, or after changing data in the table. You can do that by executing the
+following statement in MySQL Database.
+
+.. code-block:: text
+
+    ANALYZE TABLE table_name;
+
+.. note::
+
+    MySQL and Presto may use statistics information in different ways. For this
+    reason, the accuracy of table and column statistics returned by the MySQL
+    connector might be lower than than that of others connectors.
+
+**Improving statistics accuracy**
+
+You can improve statistics accuracy with histogram statistics (available since
+MySQL 8.0). To create histogram statistics execute the following statement in
+MySQL Database.
+
+.. code-block:: text
+
+    ANALYZE TABLE table_name UPDATE HISTOGRAM ON column_name1, column_name2, ...;
+
+Refer to MySQL documentation for information about options, limitations
+and additional considerations.
+
 MySQL Connector Limitations
 ---------------------------
 
