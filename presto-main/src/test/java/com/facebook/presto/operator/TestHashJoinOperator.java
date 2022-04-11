@@ -113,6 +113,7 @@ public class TestHashJoinOperator
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
     private static final SingleStreamSpillerFactory SINGLE_STREAM_SPILLER_FACTORY = new DummySpillerFactory();
     private static final PartitioningSpillerFactory PARTITIONING_SPILLER_FACTORY = new GenericPartitioningSpillerFactory(SINGLE_STREAM_SPILLER_FACTORY);
+    private static final String PAGE_BUFFER = "PageBuffer";
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -444,7 +445,7 @@ public class TestHashJoinOperator
             ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(17, new PlanNodeId("values"), probePages.build());
 
             PageBuffer pageBuffer = new PageBuffer(10);
-            PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(18, new PlanNodeId("pageBuffer"), pageBuffer);
+            PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(18, new PlanNodeId(PAGE_BUFFER), pageBuffer, PAGE_BUFFER);
 
             Driver joinDriver = Driver.createDriver(
                     joinDriverContext,
@@ -561,7 +562,7 @@ public class TestHashJoinOperator
         ValuesOperatorFactory valuesOperatorFactory2 = new ValuesOperatorFactory(18, new PlanNodeId("values2"), probe2Pages.build());
         ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(18, new PlanNodeId("values3"), ImmutableList.of());
         PageBuffer pageBuffer = new PageBuffer(10);
-        PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(19, new PlanNodeId("pageBuffer"), pageBuffer);
+        PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(19, new PlanNodeId(PAGE_BUFFER), pageBuffer, PAGE_BUFFER);
 
         Driver joinDriver1 = Driver.createDriver(
                 joinDriverContext1,
