@@ -79,6 +79,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.fusesource.jansi</groupId>
+            <artifactId>jansi</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>jline</groupId>
             <artifactId>jline</artifactId>
         </dependency>
@@ -136,6 +141,19 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredDependencies>
+                        <dependency>
+                            <groupId>org.fusesource.jansi</groupId>
+                            <artifactId>jansi</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
+                </configuration>
             </plugin>
 
             <plugin>

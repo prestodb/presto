@@ -1145,6 +1145,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.fusesource.jansi</groupId>
+                <artifactId>jansi</artifactId>
+                <version>1.8</version>
+            </dependency>
+
+            <dependency>
                 <groupId>jline</groupId>
                 <artifactId>jline</artifactId>
                 <version>2.14.6</version>
