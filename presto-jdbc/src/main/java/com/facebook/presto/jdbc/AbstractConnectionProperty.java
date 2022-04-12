@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -192,10 +194,33 @@ abstract class AbstractConnectionProperty<T>
         }
     }
 
+    protected static final class ListValidateConvertor
+            implements Converter<String>
+    {
+        public static final Converter<String> LIST_VALIDATE_CONVERTOR = new ListValidateConvertor();
+
+        private ListValidateConvertor() {}
+
+        @Override
+        public String convert(String value)
+        {
+            return Splitter.on(',').trimResults().splitToList(value).stream().map(this::validatePattern).collect(Collectors.joining(","));
+        }
+
+        private String validatePattern(String value)
+        {
+            Pattern alphaNumericFilter = Pattern.compile("^[a-zA-Z0-9]+$");
+            boolean isAlphaNumeric = alphaNumericFilter.matcher(value).matches();
+            checkArgument(isAlphaNumeric, "Input client tag should contain only alphanumeric characters: %s", value);
+            return value;
+        }
+    }
+
     protected static final class ClassListConverter
             implements Converter<List<QueryInterceptor>>
     {
         public static final ClassListConverter CLASS_LIST_CONVERTER = new ClassListConverter();
+
         private ClassListConverter() {}
 
         @Override
@@ -221,6 +246,7 @@ abstract class AbstractConnectionProperty<T>
             implements Converter<List<Protocol>>
     {
         public static final HttpProtocolConverter HTTP_PROTOCOL_CONVERTER = new HttpProtocolConverter();
+
         private HttpProtocolConverter() {}
 
         @Override

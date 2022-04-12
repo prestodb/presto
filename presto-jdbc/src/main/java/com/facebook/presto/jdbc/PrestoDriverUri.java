@@ -48,6 +48,7 @@ import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.client.OkHttpUtil.tokenAuth;
 import static com.facebook.presto.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static com.facebook.presto.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
+import static com.facebook.presto.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static com.facebook.presto.jdbc.ConnectionProperties.CUSTOM_HEADERS;
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
@@ -177,6 +178,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return CUSTOM_HEADERS.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public Optional<String> getClientTags()
+            throws SQLException
+    {
+        return CLIENT_TAGS.getValue(properties);
     }
 
     public Map<String, String> getSessionProperties()
