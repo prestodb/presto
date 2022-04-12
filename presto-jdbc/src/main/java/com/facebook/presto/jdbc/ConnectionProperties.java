@@ -28,6 +28,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.ClassListConverter.CLASS_LIST_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.HttpProtocolConverter.HTTP_PROTOCOL_CONVERTER;
+import static com.facebook.presto.jdbc.AbstractConnectionProperty.ListValidateConvertor.LIST_VALIDATE_CONVERTOR;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.StringMapConverter.STRING_MAP_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.checkedPredicate;
 import static java.util.Collections.unmodifiableMap;
@@ -57,6 +58,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> TIMEZONE_ID = new TimeZoneId();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<Map<String, String>> CUSTOM_HEADERS = new CustomHeaders();
+    public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<List<Protocol>> HTTP_PROTOCOLS = new HttpProtocols();
     public static final ConnectionProperty<List<QueryInterceptor>> QUERY_INTERCEPTORS = new QueryInterceptors();
@@ -83,6 +85,7 @@ final class ConnectionProperties
             .add(TIMEZONE_ID)
             .add(EXTRA_CREDENTIALS)
             .add(CUSTOM_HEADERS)
+            .add(CLIENT_TAGS)
             .add(SESSION_PROPERTIES)
             .add(HTTP_PROTOCOLS)
             .add(QUERY_INTERCEPTORS)
@@ -166,6 +169,15 @@ final class ConnectionProperties
         public ApplicationNamePrefix()
         {
             super("applicationNamePrefix", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class ClientTags
+            extends AbstractConnectionProperty<String>
+    {
+        public ClientTags()
+        {
+            super("clientTags", NOT_REQUIRED, ALLOWED, LIST_VALIDATE_CONVERTOR);
         }
     }
 
