@@ -348,7 +348,7 @@ void Task::createDriversLocked(
                 ? self->driverFactories_[i]->numTotalDrivers
                 : 0;
           }));
-      ++splitGroupState.activeDrivers;
+      ++splitGroupState.numRunningDrivers;
     }
   }
   noMoreLocalExchangeProducers(splitGroupId);
@@ -369,38 +369,64 @@ void Task::createDriversLocked(
 
 // static
 void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
-  std::lock_guard<std::mutex> taskLock(self->mutex_);
-  for (auto& driverPtr : self->drivers_) {
-    if (driverPtr.get() != driver) {
-      continue;
-    }
+  bool foundDriver = false;
+  bool allOutputDriversFinished = false;
+  {
+    std::lock_guard<std::mutex> taskLock(self->mutex_);
+    for (auto& driverPtr : self->drivers_) {
+      if (driverPtr.get() != driver) {
+        continue;
+      }
 
-    // Mark the closure of another driver for its split group (even in ungrouped
-    // execution mode).
-    const auto splitGroupId = driver->driverCtx()->splitGroupId;
-    auto& splitGroupState = self->splitGroupStates_[splitGroupId];
-    --splitGroupState.activeDrivers;
+      // Mark the closure of another driver for its split group (even in
+      // ungrouped execution mode).
+      const auto splitGroupId = driver->driverCtx()->splitGroupId;
+      auto& splitGroupState = self->splitGroupStates_[splitGroupId];
+      --splitGroupState.numRunningDrivers;
 
-    // Release the driver, note that after this 'driver' is invalid.
-    driverPtr = nullptr;
-    self->driverClosedLocked();
+      auto pipelineId = driver->driverCtx()->pipelineId;
 
-    if (self->isGroupedExecution()) {
+      // Check if all drivers in the output pipeline finished. If so, call
+      // Task::terminate(kFinished) to mark the task finished and finish
+      // remaining pipelines quickly.
+      if (self->isOutputPipeline(pipelineId)) {
+        ++splitGroupState.numFinishedOutputDrivers;
+        if (self->numDrivers(pipelineId) ==
+            splitGroupState.numFinishedOutputDrivers) {
+          allOutputDriversFinished = true;
+        }
+      }
+
+      // Release the driver, note that after this 'driver' is invalid.
+      driverPtr = nullptr;
+      self->driverClosedLocked();
+
       // Check if a split group is finished.
-      if (splitGroupState.activeDrivers == 0) {
-        --self->numRunningSplitGroups_;
-        self->taskStats_.completedSplitGroups.emplace(splitGroupId);
-        splitGroupState.clear();
-        self->ensureSplitGroupsAreBeingProcessedLocked(self);
+      if (splitGroupState.numRunningDrivers == 0) {
+        if (self->isGroupedExecution()) {
+          --self->numRunningSplitGroups_;
+          self->taskStats_.completedSplitGroups.emplace(splitGroupId);
+          splitGroupState.clear();
+          self->ensureSplitGroupsAreBeingProcessedLocked(self);
+        } else {
+          splitGroupState.clear();
+        }
       }
-    } else {
-      if (splitGroupState.activeDrivers == 0) {
-        splitGroupState.clear();
-      }
+      foundDriver = true;
+      break;
     }
-    return;
   }
-  LOG(WARNING) << "Trying to remove a Driver twice from its Task";
+
+  if (!foundDriver) {
+    LOG(WARNING) << "Trying to remove a Driver twice from its Task";
+  }
+
+  // TODO Add support for terminating processing early in grouped execution.
+  if (self->isUngroupedExecution() && allOutputDriversFinished) {
+    if (!self->hasPartitionedOutput_ || self->partitionedOutputConsumed_) {
+      self->terminate(TaskState::kFinished);
+    }
+  }
 }
 
 void Task::ensureSplitGroupsAreBeingProcessedLocked(
@@ -737,10 +763,37 @@ void Task::updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers) {
       taskId_, numBuffers, noMoreBuffers);
 }
 
+int Task::getOutputPipelineId() const {
+  for (auto i = 0; i < driverFactories_.size(); ++i) {
+    if (driverFactories_[i]->outputDriver) {
+      return i;
+    }
+  }
+
+  VELOX_FAIL("Output pipeline not found");
+}
+
 void Task::setAllOutputConsumed() {
-  std::lock_guard<std::mutex> l(mutex_);
-  partitionedOutputConsumed_ = true;
-  checkIfFinishedLocked();
+  bool terminateEarly = false;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    partitionedOutputConsumed_ = true;
+    checkIfFinishedLocked();
+
+    // TODO Add support for terminating processing early in grouped execution.
+    if (isUngroupedExecution() && !driverFactories_.empty()) {
+      auto outputPipelineId = getOutputPipelineId();
+
+      if (splitGroupStates_[0].numFinishedOutputDrivers ==
+          numDrivers(outputPipelineId)) {
+        terminateEarly = true;
+      }
+    }
+  }
+
+  if (terminateEarly) {
+    terminate(TaskState::kFinished);
+  }
 }
 
 void Task::driverClosedLocked() {
@@ -781,8 +834,7 @@ bool Task::allPeersFinished(
   auto& barriers = splitGroupStates_[splitGroupId].barriers;
   auto& state = barriers[planNodeId];
 
-  const auto numPeers =
-      driverFactories_[caller->driverCtx()->pipelineId]->numDrivers;
+  const auto numPeers = numDrivers(caller->driverCtx()->pipelineId);
   if (++state.numRequested == numPeers) {
     peers = std::move(state.drivers);
     promises = std::move(state.promises);
@@ -937,14 +989,15 @@ ContinueFuture Task::terminate(TaskState terminalState) {
       bufferManager->removeTask(taskId_);
     }
   }
+
   // Release reference to exchange client, so that it will close exchange
   // sources and prevent resending requests for data.
-  std::vector<ContinuePromise> promises;
+  exchangeClients_.clear();
+
+  std::vector<ContinuePromise> splitPromises;
   std::vector<std::shared_ptr<JoinBridge>> oldBridges;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    exchangeClients_.clear();
-
     // Collect all the join bridges to clear them.
     for (auto& splitGroupState : splitGroupStates_) {
       for (auto& pair : splitGroupState.second.bridges) {
@@ -956,14 +1009,15 @@ ContinueFuture Task::terminate(TaskState terminalState) {
     // Collect all outstanding split promises from all splits state structures.
     for (auto& pair : splitsStates_) {
       for (auto& it : pair.second.groupSplitsStores) {
-        movePromisesOut(it.second.splitPromises, promises);
+        movePromisesOut(it.second.splitPromises, splitPromises);
       }
     }
   }
 
-  for (auto& promise : promises) {
+  for (auto& promise : splitPromises) {
     promise.setValue(true);
   }
+
   for (auto& bridge : oldBridges) {
     bridge->cancel();
   }

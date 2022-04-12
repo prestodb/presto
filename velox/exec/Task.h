@@ -515,6 +515,16 @@ class Task : public std::enable_shared_from_this<Task> {
   // the promise/future pair.
   ContinueFuture makeFinishFutureLocked(const char* FOLLY_NONNULL comment);
 
+  bool isOutputPipeline(int pipelineId) const {
+    return driverFactories_[pipelineId]->outputDriver;
+  }
+
+  uint32_t numDrivers(int pipelineId) const {
+    return driverFactories_[pipelineId]->numDrivers;
+  }
+
+  int getOutputPipelineId() const;
+
   const std::string taskId_;
   core::PlanFragment planFragment_;
   const int destination_;

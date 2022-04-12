@@ -92,7 +92,14 @@ struct SplitGroupState {
 
   /// Drivers created and still running for this split group.
   /// The split group is finished when this numbers reaches zero.
-  uint32_t activeDrivers{0};
+  uint32_t numRunningDrivers{0};
+
+  /// The number of completed drivers in the output pipeline. When all drivers
+  /// in the output pipeline finish, the remaining running pipelines should stop
+  /// processing and transition to finished state as well. This happens when
+  /// there is a downstream operator that finishes before receiving all input,
+  /// e.g. Limit.
+  uint32_t numFinishedOutputDrivers{0};
 
   /// Clears the state.
   void clear() {
