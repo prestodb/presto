@@ -116,6 +116,7 @@ public class PrestoConnection
         this.sessionProperties = new ConcurrentHashMap<>(uri.getSessionProperties());
         this.connectionProperties = uri.getProperties();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        uri.getClientTags().ifPresent(tags -> clientInfo.put("ClientTags", tags));
 
         timeZoneId.set(uri.getTimeZoneId());
         locale.set(Locale.getDefault());
