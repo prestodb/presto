@@ -199,3 +199,19 @@ TEST(SignatureBinderTest, unresolvable) {
     assertCannotResolve(signature, {INTEGER(), BIGINT()});
   }
 }
+
+TEST(SignatureBinderTest, tryResolveTypeNullOutput) {
+  auto assertNullResult = [&](const std::string& argument) {
+    ASSERT_EQ(
+        exec::SignatureBinder::tryResolveType(
+            exec::parseTypeSignature(argument), {}),
+        nullptr);
+  };
+
+  assertNullResult("T");
+  assertNullResult("any");
+  assertNullResult("array(T)");
+  assertNullResult("array(any)");
+  assertNullResult("map(int, T)");
+  assertNullResult("row(int, T)");
+}

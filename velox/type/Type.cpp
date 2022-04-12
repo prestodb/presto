@@ -44,8 +44,10 @@ bool isColumnNameRequiringEscaping(const std::string& name) {
 
 namespace facebook::velox {
 
-TypeKind mapNameToTypeKind(const std::string& name) {
-  static std::unordered_map<std::string, TypeKind> typeStringMap{
+// Static variable intialization is not thread safe for non
+// constant-initialization, but scoped static initialization is thread safe.
+const std::unordered_map<std::string, TypeKind>& getTypeStringMap() {
+  static const std::unordered_map<std::string, TypeKind> kTypeStringMap{
       {"BOOLEAN", TypeKind::BOOLEAN},
       {"TINYINT", TypeKind::TINYINT},
       {"SMALLINT", TypeKind::SMALLINT},
@@ -64,10 +66,23 @@ TypeKind mapNameToTypeKind(const std::string& name) {
       {"UNKNOWN", TypeKind::UNKNOWN},
       {"OPAQUE", TypeKind::OPAQUE},
       {"INVALID", TypeKind::INVALID}};
+  return kTypeStringMap;
+}
 
-  auto found = typeStringMap.find(name);
+std::optional<TypeKind> tryMapNameToTypeKind(const std::string& name) {
+  auto found = getTypeStringMap().find(name);
 
-  if (found == typeStringMap.end()) {
+  if (found == getTypeStringMap().end()) {
+    return std::nullopt;
+  }
+
+  return found->second;
+}
+
+TypeKind mapNameToTypeKind(const std::string& name) {
+  auto found = getTypeStringMap().find(name);
+
+  if (found == getTypeStringMap().end()) {
     VELOX_USER_FAIL("Specified element is not found : {}", name);
   }
 

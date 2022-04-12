@@ -131,20 +131,23 @@ TypePtr SignatureBinder::tryResolveType(
       return type;
     }
 
-    auto typeKind = mapNameToTypeKind(typeName);
+    auto typeKind = tryMapNameToTypeKind(typeName);
+    if (!typeKind.has_value()) {
+      return nullptr;
+    }
 
     // createType(kind) function doesn't support ROW, UNKNOWN and OPAQUE type
     // kinds.
-    if (typeKind == TypeKind::ROW) {
+    if (*typeKind == TypeKind::ROW) {
       return ROW(std::move(children));
     }
-    if (typeKind == TypeKind::UNKNOWN) {
+    if (*typeKind == TypeKind::UNKNOWN) {
       return UNKNOWN();
     }
-    if (typeKind == TypeKind::OPAQUE) {
+    if (*typeKind == TypeKind::OPAQUE) {
       return OpaqueType::create<void>();
     }
-    return createType(typeKind, std::move(children));
+    return createType(*typeKind, std::move(children));
   }
 
   return it->second;

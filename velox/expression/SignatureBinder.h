@@ -45,6 +45,7 @@ class SignatureBinder {
 
   TypePtr tryResolveType(const exec::TypeSignature& typeSignature) const;
 
+  // Returns concrete return type or null if couldn't fully resolve.
   static TypePtr tryResolveType(
       const exec::TypeSignature& typeSignature,
       const std::unordered_map<std::string, TypePtr>& bindings);
