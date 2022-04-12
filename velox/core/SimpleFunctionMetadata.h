@@ -330,13 +330,6 @@ struct CreateType<Variadic<Underlying>> {
   }
 };
 
-template <typename T>
-struct CreateType<Generic<T>> {
-  static std::shared_ptr<const Type> create() {
-    return std::make_shared<UnknownType>();
-  }
-};
-
 template <typename Fun, typename TReturn, typename... Args>
 class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
  public:

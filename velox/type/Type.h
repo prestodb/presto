@@ -1484,6 +1484,9 @@ struct CppToType<Timestamp> : public CppToTypeBase<TypeKind::TIMESTAMP> {};
 template <>
 struct CppToType<Date> : public CppToTypeBase<TypeKind::DATE> {};
 
+template <typename T>
+struct CppToType<Generic<T>> : public CppToTypeBase<TypeKind::UNKNOWN> {};
+
 // TODO: maybe do something smarter than just matching any shared_ptr, e.g. we
 // can declare "registered" types explicitly
 template <typename T>
