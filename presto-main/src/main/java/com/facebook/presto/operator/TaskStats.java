@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.RuntimeStats;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,6 +31,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TaskStats
 {
     private final DateTime createTime;
@@ -133,6 +137,7 @@ public class TaskStats
     }
 
     @JsonCreator
+    @ThriftConstructor
     public TaskStats(
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("firstStartTime") DateTime firstStartTime,
@@ -258,6 +263,7 @@ public class TaskStats
     }
 
     @JsonProperty
+    @ThriftField(1)
     public DateTime getCreateTime()
     {
         return createTime;
@@ -265,6 +271,7 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(2)
     public DateTime getFirstStartTime()
     {
         return firstStartTime;
@@ -272,6 +279,7 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(3)
     public DateTime getLastStartTime()
     {
         return lastStartTime;
@@ -279,6 +287,7 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(4)
     public DateTime getLastEndTime()
     {
         return lastEndTime;
@@ -286,222 +295,259 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(5)
     public DateTime getEndTime()
     {
         return endTime;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public long getElapsedTimeInNanos()
     {
         return elapsedTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public long getQueuedTimeInNanos()
     {
         return queuedTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public int getTotalDrivers()
     {
         return totalDrivers;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public int getQueuedDrivers()
     {
         return queuedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(10)
     public int getRunningDrivers()
     {
         return runningDrivers;
     }
 
     @JsonProperty
+    @ThriftField(11)
     public int getBlockedDrivers()
     {
         return blockedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(12)
     public int getCompletedDrivers()
     {
         return completedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(13)
     public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
     }
 
     @JsonProperty
+    @ThriftField(14)
     public double getCumulativeTotalMemory()
     {
         return cumulativeTotalMemory;
     }
 
     @JsonProperty
+    @ThriftField(15)
     public long getUserMemoryReservationInBytes()
     {
         return userMemoryReservationInBytes;
     }
 
     @JsonProperty
+    @ThriftField(16)
     public long getRevocableMemoryReservationInBytes()
     {
         return revocableMemoryReservationInBytes;
     }
 
     @JsonProperty
+    @ThriftField(17)
     public long getSystemMemoryReservationInBytes()
     {
         return systemMemoryReservationInBytes;
     }
 
     @JsonProperty
+    @ThriftField(18)
     public long getPeakUserMemoryInBytes()
     {
         return peakUserMemoryInBytes;
     }
 
     @JsonProperty
+    @ThriftField(19)
     public long getPeakTotalMemoryInBytes()
     {
         return peakTotalMemoryInBytes;
     }
 
     @JsonProperty
+    @ThriftField(20)
     public long getPeakNodeTotalMemoryInBytes()
     {
         return peakNodeTotalMemoryInBytes;
     }
 
     @JsonProperty
+    @ThriftField(21)
     public long getTotalScheduledTimeInNanos()
     {
         return totalScheduledTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(22)
     public long getTotalCpuTimeInNanos()
     {
         return totalCpuTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(23)
     public long getTotalBlockedTimeInNanos()
     {
         return totalBlockedTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(24)
     public boolean isFullyBlocked()
     {
         return fullyBlocked;
     }
 
     @JsonProperty
+    @ThriftField(25)
     public Set<BlockedReason> getBlockedReasons()
     {
         return blockedReasons;
     }
 
     @JsonProperty
+    @ThriftField(26)
     public long getTotalAllocationInBytes()
     {
         return totalAllocationInBytes;
     }
 
     @JsonProperty
+    @ThriftField(27)
     public long getRawInputDataSizeInBytes()
     {
         return rawInputDataSizeInBytes;
     }
 
     @JsonProperty
+    @ThriftField(28)
     public long getRawInputPositions()
     {
         return rawInputPositions;
     }
 
     @JsonProperty
+    @ThriftField(29)
     public long getProcessedInputDataSizeInBytes()
     {
         return processedInputDataSizeInBytes;
     }
 
     @JsonProperty
+    @ThriftField(30)
     public long getProcessedInputPositions()
     {
         return processedInputPositions;
     }
 
     @JsonProperty
+    @ThriftField(31)
     public long getOutputDataSizeInBytes()
     {
         return outputDataSizeInBytes;
     }
 
     @JsonProperty
+    @ThriftField(32)
     public long getOutputPositions()
     {
         return outputPositions;
     }
 
     @JsonProperty
+    @ThriftField(33)
     public long getPhysicalWrittenDataSizeInBytes()
     {
         return physicalWrittenDataSizeInBytes;
     }
 
     @JsonProperty
+    @ThriftField(34)
     public List<PipelineStats> getPipelines()
     {
         return pipelines;
     }
 
     @JsonProperty
+    @ThriftField(35)
     public int getQueuedPartitionedDrivers()
     {
         return queuedPartitionedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(36)
     public long getQueuedPartitionedSplitsWeight()
     {
         return queuedPartitionedSplitsWeight;
     }
 
     @JsonProperty
+    @ThriftField(37)
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(38)
     public long getRunningPartitionedSplitsWeight()
     {
         return runningPartitionedSplitsWeight;
     }
 
     @JsonProperty
+    @ThriftField(39)
     public int getFullGcCount()
     {
         return fullGcCount;
     }
 
     @JsonProperty
+    @ThriftField(40)
     public long getFullGcTimeInMillis()
     {
         return fullGcTimeInMillis;
     }
 
     @JsonProperty
+    @ThriftField(41)
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;

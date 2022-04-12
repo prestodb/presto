@@ -91,6 +91,7 @@ public class ParquetReader
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
 
     private final List<BlockMetaData> blocks;
+    private final Optional<List<Long>> firstRowsOfBlocks;
     private final List<PrimitiveColumnIO> columns;
     private final ParquetDataSource dataSource;
     private final AggregatedMemoryContext systemMemoryContext;
@@ -102,6 +103,11 @@ public class ParquetReader
     private BlockMetaData currentBlockMetadata;
     private long currentPosition;
     private long currentGroupRowCount;
+
+    /**
+     * Index in the Parquet file of the first row of the current group
+     */
+    private Optional<Long> firstRowIndexInGroup = Optional.empty();
     private RowRanges currentGroupRowRanges;
     private long nextRowInGroup;
     private int batchSize;
@@ -125,6 +131,7 @@ public class ParquetReader
     public ParquetReader(MessageColumnIO
             messageColumnIO,
             List<BlockMetaData> blocks,
+            Optional<List<Long>> firstRowsOfBlocks,
             ParquetDataSource dataSource,
             AggregatedMemoryContext systemMemoryContext,
             DataSize maxReadBlockSize,
@@ -135,6 +142,7 @@ public class ParquetReader
             boolean columnIndexFilterEnabled)
     {
         this.blocks = blocks;
+        this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
@@ -147,6 +155,11 @@ public class ParquetReader
         maxBytesPerCell = new long[columns.size()];
         this.blockIndexStores = blockIndexStores;
         this.blockRowRanges = listWithNulls(this.blocks.size());
+
+        firstRowsOfBlocks.ifPresent(firstRows -> {
+            checkArgument(blocks.size() == firstRows.size(), "elements of firstRowsOfBlocks must correspond to blocks");
+        });
+
         for (PrimitiveColumnIO column : columns) {
             ColumnDescriptor columnDescriptor = column.getColumnDescriptor();
             this.paths.put(ColumnPath.get(columnDescriptor.getPath()), columnDescriptor);
@@ -172,6 +185,15 @@ public class ParquetReader
     public long getPosition()
     {
         return currentPosition;
+    }
+
+    /**
+     * Get the global row index of the first row in the last batch.
+     */
+    public long lastBatchStartRow()
+    {
+        long baseIndex = firstRowIndexInGroup.orElseThrow(() -> new IllegalStateException("row index unavailable"));
+        return baseIndex + nextRowInGroup - batchSize;
     }
 
     public int nextBatch()
@@ -207,6 +229,7 @@ public class ParquetReader
             return false;
         }
         currentBlockMetadata = blocks.get(currentBlock);
+        firstRowIndexInGroup = firstRowsOfBlocks.map(firstRows -> firstRows.get(currentBlock));
 
         if (filter != null && columnIndexFilterEnabled) {
             ColumnIndexStore columnIndexStore = blockIndexStores.get(currentBlock);

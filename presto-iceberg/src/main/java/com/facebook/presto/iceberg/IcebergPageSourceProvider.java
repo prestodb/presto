@@ -340,6 +340,7 @@ public class IcebergPageSourceProvider
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks,
+                    Optional.empty(),
                     dataSource,
                     systemMemoryContext,
                     maxReadBlockSize,
