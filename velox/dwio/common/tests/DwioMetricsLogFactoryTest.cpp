@@ -53,9 +53,7 @@ class TestingDwioMetricsLog : public MetricsLog {
 
   void logStripeFlush(const StripeFlushMetrics& /* unused */) const override {}
 
-  void logFileClose(
-      const FileCloseMetrics& /* unused */,
-      std::function<uint64_t()> /* unused */) const override {}
+  void logFileClose(const FileCloseMetrics& /* unused */) const override {}
 
  private:
   bool ioLogging_;

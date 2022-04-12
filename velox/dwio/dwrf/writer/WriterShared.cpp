@@ -541,17 +541,25 @@ void WriterShared::flushInternal(bool close) {
 
   if (close) {
     context.metricLogger->logFileClose(
-        writerVersionToString(context.getConfig(Config::WRITER_VERSION)),
-        footer.contentlength(),
-        sink.size(),
-        sink.getCacheSize(),
-        sink.getCacheOffsets().size() - 1,
-        static_cast<int32_t>(sink.getCacheMode()),
-        context.stripeIndex,
-        context.stripeRowCount,
-        context.stripeRawSize,
-        context.getStreamCount(),
-        context.getTotalMemoryUsage());
+        dwio::common::MetricsLog::FileCloseMetrics{
+            .writerVersion = writerVersionToString(
+                context.getConfig(Config::WRITER_VERSION)),
+            .footerLength = footer.contentlength(),
+            .fileSize = sink.size(),
+            .cacheSize = sink.getCacheSize(),
+            .numCacheBlocks = sink.getCacheOffsets().size() - 1,
+            .cacheMode = static_cast<int32_t>(sink.getCacheMode()),
+            .numOfStripes = context.stripeIndex,
+            .rowCount = context.stripeRowCount,
+            .rawDataSize = context.stripeRawSize,
+            .numOfStreams = context.getStreamCount(),
+            .totalMemory = context.getTotalMemoryUsage(),
+            .dictionaryMemory =
+                context.getMemoryUsage(MemoryUsageCategory::DICTIONARY)
+                    .getCurrentBytes(),
+            .generalMemory =
+                context.getMemoryUsage(MemoryUsageCategory::GENERAL)
+                    .getCurrentBytes()});
   }
 }
 

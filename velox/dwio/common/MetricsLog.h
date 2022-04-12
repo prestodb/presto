@@ -110,7 +110,7 @@ class MetricsLog {
     bool close;
   };
 
-  virtual void logStripeFlush(const StripeFlushMetrics& metrics) const {};
+  virtual void logStripeFlush(const StripeFlushMetrics& /* metrics */) const {}
 
   struct FileCloseMetrics {
     std::string writerVersion;
@@ -123,26 +123,13 @@ class MetricsLog {
     uint64_t rowCount;
     uint64_t rawDataSize;
     uint64_t numOfStreams;
+    // NOTE: these are memory footprints after the final flush.
+    int64_t totalMemory;
+    int64_t dictionaryMemory;
+    int64_t generalMemory;
   };
 
-  virtual void logFileClose(
-      const FileCloseMetrics& metrics,
-      // TODO: as we implement memory tracking, this should be per
-      // writer memory usage.
-      std::function<uint64_t()> memoryEstimate) const {};
-
-  virtual void logFileClose(
-      const std::string& writerVersion,
-      size_t footerLength,
-      size_t fileSize,
-      size_t cacheSize,
-      size_t numCacheBlocks,
-      int32_t cacheMode,
-      size_t numOfStripes,
-      size_t rowCount,
-      size_t rawDataSize,
-      size_t numOfStreams,
-      size_t totalMemory) const {}
+  virtual void logFileClose(const FileCloseMetrics& /* metrics */) const {}
 
   static std::shared_ptr<const MetricsLog> voidLog() {
     static std::shared_ptr<const MetricsLog> log{new MetricsLog("")};
