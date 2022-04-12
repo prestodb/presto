@@ -34,7 +34,9 @@ static void writeIOWallTimeStat(size_t ioTimeStartMicros) {
   if (BaseRuntimeStatWriter* pWriter = sRunTimeStatWriters.get()) {
     pWriter->addRuntimeStat(
         "dataSourceLazyWallNanos",
-        (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000);
+        RuntimeCounter(
+            (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
+            RuntimeCounter::Unit::kNanos));
   }
 }
 
@@ -48,7 +50,7 @@ void VectorLoader::load(RowSet rows, ValueHook* hook, VectorPtr* result) {
     // materialization into vector. This counter can be used to understand
     // whether aggregation pushdown is happening or not.
     if (auto* pWriter = sRunTimeStatWriters.get()) {
-      pWriter->addRuntimeStat("loadedToValueHook", rows.size());
+      pWriter->addRuntimeStat("loadedToValueHook", RuntimeCounter(rows.size()));
     }
   }
 }

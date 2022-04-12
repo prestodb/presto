@@ -49,8 +49,12 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
 
   peakMemoryBytes += stats.memoryStats.peakTotalMemoryReservation;
 
-  for (const auto& entry : stats.runtimeStats) {
-    customStats[entry.first].merge(entry.second);
+  for (const auto& [name, runtimeStats] : stats.runtimeStats) {
+    if (UNLIKELY(customStats.count(name) == 0)) {
+      customStats.insert(std::make_pair(name, runtimeStats));
+    } else {
+      customStats.at(name).merge(runtimeStats);
+    }
   }
 
   // Populating number of drivers for plan nodes with multiple operators is not
@@ -125,11 +129,16 @@ void printCustomStats(
   }
   width += 3;
 
-  for (const auto& entry : stats) {
+  // Copy to a map to get a deterministic output.
+  std::map<std::string_view, RuntimeMetric> orderedStats;
+  for (const auto& [name, metric] : stats) {
+    orderedStats[name] = metric;
+  }
+
+  for (const auto& [name, metric] : orderedStats) {
     stream << std::endl;
-    stream << indentation << std::left << std::setw(width) << entry.first
-           << " sum: " << entry.second.sum << ", count: " << entry.second.count
-           << ", min: " << entry.second.min << ", max: " << entry.second.max;
+    stream << indentation << std::left << std::setw(width) << name;
+    metric.printMetric(stream);
   }
 }
 } // namespace

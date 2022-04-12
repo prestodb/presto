@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/SimpleVector.h"
 
@@ -104,7 +105,9 @@ class BaseRuntimeStatWriter {
  public:
   virtual ~BaseRuntimeStatWriter() = default;
 
-  virtual void addRuntimeStat(const std::string& name, int64_t value){};
+  virtual void addRuntimeStat(
+      const std::string& /* name */,
+      const RuntimeCounter& /* value */) {}
 };
 
 // Setting a concrete runtime stats writer on the thread will ensure that lazy

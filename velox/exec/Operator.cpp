@@ -323,8 +323,12 @@ void OperatorStats::add(const OperatorStats& other) {
 
   memoryStats.add(other.memoryStats);
 
-  for (const auto& stat : other.runtimeStats) {
-    runtimeStats[stat.first].merge(stat.second);
+  for (const auto& [name, stats] : other.runtimeStats) {
+    if (UNLIKELY(runtimeStats.count(name) == 0)) {
+      runtimeStats.insert(std::make_pair(name, stats));
+    } else {
+      runtimeStats.at(name).merge(stats);
+    }
   }
 
   numDrivers += other.numDrivers;

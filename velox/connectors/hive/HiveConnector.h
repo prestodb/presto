@@ -159,7 +159,7 @@ class HiveDataSource : public DataSource {
     return ioStats_->rawBytesRead();
   }
 
-  std::unordered_map<std::string, int64_t> runtimeStats() override;
+  std::unordered_map<std::string, RuntimeCounter> runtimeStats() override;
 
   int64_t estimatedRowSize() override;
 

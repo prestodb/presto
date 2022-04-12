@@ -54,8 +54,14 @@ RowVectorPtr TableScan::getOutput() {
 
         if (dataSource_) {
           auto connectorStats = dataSource_->runtimeStats();
-          for (const auto& entry : connectorStats) {
-            stats_.runtimeStats[entry.first].addValue(entry.second);
+          for (const auto& [name, counter] : connectorStats) {
+            if (UNLIKELY(stats_.runtimeStats.count(name) == 0)) {
+              stats_.runtimeStats.insert(
+                  std::make_pair(name, RuntimeMetric(counter.unit)));
+            } else {
+              VELOX_CHECK_EQ(stats_.runtimeStats.at(name).unit, counter.unit);
+            }
+            stats_.runtimeStats.at(name).addValue(counter.value);
           }
         }
         return nullptr;
@@ -92,7 +98,9 @@ RowVectorPtr TableScan::getOutput() {
     auto data = dataSource_->next(readBatchSize_);
     stats().addRuntimeStat(
         "dataSourceWallNanos",
-        (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000);
+        RuntimeCounter(
+            (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
+            RuntimeCounter::Unit::kNanos));
     stats_.rawInputPositions = dataSource_->getCompletedRows();
     stats_.rawInputBytes = dataSource_->getCompletedBytes();
     if (data) {

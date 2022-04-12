@@ -404,7 +404,8 @@ RowVectorPtr HashProbe::getOutput() {
   const auto inputSize = input_->size();
 
   if (replacedWithDynamicFilter_) {
-    stats_.addRuntimeStat("replacedWithDynamicFilterRows", inputSize);
+    stats_.addRuntimeStat(
+        "replacedWithDynamicFilterRows", RuntimeCounter(inputSize));
     auto output = Operator::fillOutput(inputSize, nullptr);
     input_ = nullptr;
     return output;

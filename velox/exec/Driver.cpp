@@ -187,7 +187,8 @@ void Driver::pushdownFilters(int operatorIndex) {
     return;
   }
 
-  op->stats().addRuntimeStat("dynamicFiltersProduced", filters.size());
+  op->stats().addRuntimeStat(
+      "dynamicFiltersProduced", RuntimeCounter(filters.size()));
 
   // Walk operator list upstream and find a place to install the filters.
   for (const auto& entry : filters) {
@@ -202,7 +203,8 @@ void Driver::pushdownFilters(int operatorIndex) {
             "Cannot push down dynamic filters produced by {}",
             op->toString());
         prevOp->addDynamicFilter(channel, entry.second);
-        prevOp->stats().addRuntimeStat("dynamicFiltersAccepted", 1);
+        prevOp->stats().addRuntimeStat(
+            "dynamicFiltersAccepted", RuntimeCounter(1));
         break;
       }
 
@@ -215,7 +217,8 @@ void Driver::pushdownFilters(int operatorIndex) {
             "Cannot push down dynamic filters produced by {}",
             op->toString());
         prevOp->addDynamicFilter(channel, entry.second);
-        prevOp->stats().addRuntimeStat("dynamicFiltersAccepted", 1);
+        prevOp->stats().addRuntimeStat(
+            "dynamicFiltersAccepted", RuntimeCounter(1));
         break;
       }
 
@@ -262,7 +265,8 @@ StopReason Driver::runInternal(
   // been deleted.
   if (curOpIndex_ < operators_.size()) {
     operators_[curOpIndex_]->stats().addRuntimeStat(
-        "queuedWallNanos", queuedTime);
+        "queuedWallNanos",
+        RuntimeCounter(queuedTime, RuntimeCounter::Unit::kNanos));
   }
 
   CancelGuard guard(task().get(), &state_, [&](StopReason reason) {

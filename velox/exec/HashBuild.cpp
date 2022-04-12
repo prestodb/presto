@@ -251,10 +251,12 @@ void HashBuild::addRuntimeStats() {
   for (auto i = 0; i < hashers.size(); i++) {
     hashers[i]->cardinality(asRange, asDistinct);
     if (asRange != VectorHasher::kRangeTooLarge) {
-      stats_.addRuntimeStat(fmt::format("rangeKey{}", i), asRange);
+      stats_.addRuntimeStat(
+          fmt::format("rangeKey{}", i), RuntimeCounter(asRange));
     }
     if (asDistinct != VectorHasher::kRangeTooLarge) {
-      stats_.addRuntimeStat(fmt::format("distinctKey{}", i), asDistinct);
+      stats_.addRuntimeStat(
+          fmt::format("distinctKey{}", i), RuntimeCounter(asDistinct));
     }
   }
 }
