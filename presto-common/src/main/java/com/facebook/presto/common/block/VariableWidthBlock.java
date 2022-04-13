@@ -35,6 +35,7 @@ import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.common.block.BlockUtil.compactSlice;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.lang.String.format;
 
 public class VariableWidthBlock
@@ -164,7 +165,16 @@ public class VariableWidthBlock
     @Override
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
-        consumer.accept(slice, slice.getRetainedSize());
+        // For VariableWidthBlocks created from deserialized pages, it refers to byte array of whole page.
+        // When a page size is calculated, this byte array gets counted x number of times resulting in incorrect page size
+        // This problem is solved by accounting slice memory & underlying byte array separately while ensuring same object is counted once
+        if (slice.getBase() != null && slice.hasByteArray()) {
+            consumer.accept(slice, EMPTY_SLICE.getRetainedSize());
+            consumer.accept(slice.getBase(), sizeOf((byte[]) slice.getBase()));
+        }
+        else {
+            consumer.accept(slice, slice.getRetainedSize());
+        }
         consumer.accept(offsets, sizeOf(offsets));
         if (valueIsNull != null) {
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
