@@ -194,8 +194,8 @@ public class TestFeaturesConfig
                 .setMaxStageCountForEagerScheduling(25)
                 .setHyperloglogStandardErrorWarningThreshold(0.004)
                 .setPreferMergeJoin(false)
-                .setRoundRobinShuffleBeforePartialDistinctLimit(false)
-                .setQueryAnalyzerTimeout(new Duration(3, MINUTES)));
+                .setQueryAnalyzerTimeout(new Duration(3, MINUTES))
+                .setQuickDistinctLimitEnabled(false));
     }
 
     @Test
@@ -340,8 +340,8 @@ public class TestFeaturesConfig
                 .put("execution-policy.max-stage-count-for-eager-scheduling", "123")
                 .put("hyperloglog-standard-error-warning-threshold", "0.02")
                 .put("optimizer.prefer-merge-join", "true")
-                .put("optimizer.round-robin-shuffle-before-partial-distinct-limit", "true")
                 .put("planner.query-analyzer-timeout", "10s")
+                .put("optimizer.quick-distinct-limit-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -484,8 +484,8 @@ public class TestFeaturesConfig
                 .setMaxStageCountForEagerScheduling(123)
                 .setHyperloglogStandardErrorWarningThreshold(0.02)
                 .setPreferMergeJoin(true)
-                .setRoundRobinShuffleBeforePartialDistinctLimit(true)
-                .setQueryAnalyzerTimeout(new Duration(10, SECONDS));
+                .setQueryAnalyzerTimeout(new Duration(10, SECONDS))
+                .setQuickDistinctLimitEnabled(true);
         assertFullMapping(properties, expected);
     }
 

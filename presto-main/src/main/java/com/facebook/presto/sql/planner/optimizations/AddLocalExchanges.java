@@ -70,7 +70,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnforceFixedDistributionForOutputOperator;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
-import static com.facebook.presto.SystemSessionProperties.isRoundRobinShuffleBeforePartialDistinctLimit;
+import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -265,7 +265,7 @@ public class AddLocalExchanges
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
             if (node.isPartial()) {
-                if (isRoundRobinShuffleBeforePartialDistinctLimit(session)) {
+                if (isQuickDistinctLimitEnabled(session)) {
                     PlanWithProperties source = node.getSource().accept(this, defaultParallelism(session));
                     PlanWithProperties exchange = deriveProperties(
                             roundRobinExchange(idAllocator.getNextId(), LOCAL, source.getNode()),

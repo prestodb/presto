@@ -221,7 +221,7 @@ public class FeaturesConfig
     private boolean preferMergeJoin;
 
     private int maxStageCountForEagerScheduling = 25;
-    private boolean roundRobinShuffleBeforePartialDistinctLimit;
+    private boolean quickDistinctLimitEnabled;
 
     private double hyperloglogStandardErrorWarningThreshold = 0.004;
 
@@ -2058,16 +2058,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isRoundRobinShuffleBeforePartialDistinctLimit()
+    public boolean isQuickDistinctLimitEnabled()
     {
-        return roundRobinShuffleBeforePartialDistinctLimit;
+        return quickDistinctLimitEnabled;
     }
 
-    @Config("optimizer.round-robin-shuffle-before-partial-distinct-limit")
-    @ConfigDescription("Add a round robin shuffle before partial distinct limit")
-    public FeaturesConfig setRoundRobinShuffleBeforePartialDistinctLimit(boolean roundRobinShuffleBeforePartialDistinctLimit)
+    @Config("optimizer.quick-distinct-limit-enabled")
+    @ConfigDescription("Enable quick distinct limit queries that give results as soon as a new distinct value is found")
+    public FeaturesConfig setQuickDistinctLimitEnabled(boolean quickDistinctLimitEnabled)
     {
-        this.roundRobinShuffleBeforePartialDistinctLimit = roundRobinShuffleBeforePartialDistinctLimit;
+        this.quickDistinctLimitEnabled = quickDistinctLimitEnabled;
         return this;
     }
 }
