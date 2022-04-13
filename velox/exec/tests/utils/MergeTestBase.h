@@ -84,6 +84,13 @@ class TestingStream final : public MergeStream {
         static_cast<const TestingStream&>(other).current_.value();
   }
 
+  int32_t compare(const MergeStream& other) const final {
+    auto otherValue = static_cast<const TestingStream&>(other).current_.value();
+    return current_.value() < otherValue ? -1
+        : current_.value() == otherValue ? 0
+                                         : 1;
+  }
+
  private:
   // True if 'current_' is initialized.
   mutable bool currentValid_{false};

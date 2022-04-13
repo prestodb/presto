@@ -43,7 +43,16 @@ class MergeStream {
 
   // Returns true if the first element of 'this' is less than the first element
   // of 'other'. hasData() must be true of 'this' and 'other'.
-  virtual bool operator<(const MergeStream& other) const = 0;
+  virtual bool operator<(const MergeStream& other) const {
+    return compare(other) < 0;
+  }
+
+  // Returns < 0 if 'this' is < 'other, '0' if equal and > 0 otherwise. This is
+  // not required for TreeOfLosers::next() but is required for
+  // TreeOfLosers::nextWithEquals().
+  virtual int32_t compare(const MergeStream& /*other*/) const {
+    VELOX_UNSUPPORTED();
+  }
 };
 
 // Implements a tree of losers algorithm for merging ordered
@@ -55,6 +64,8 @@ class MergeStream {
 template <typename Stream, typename TIndex = uint16_t>
 class TreeOfLosers {
  public:
+  using IndexAndFlag = std::pair<TIndex, bool>;
+
   explicit TreeOfLosers(std::vector<std::unique_ptr<Stream>> streams)
       : streams_(std::move(streams)) {
     static_assert(std::is_base_of<MergeStream, Stream>::value);
@@ -88,6 +99,7 @@ class TreeOfLosers {
       firstStream_ = (size - secondLastSize) + overflow;
     }
     values_.resize(firstStream_, kEmpty);
+    equals_.resize(firstStream_, false);
   }
 
   // Returns the stream with the lowest first element. The caller is
@@ -104,8 +116,36 @@ class TreeOfLosers {
     return lastIndex_ == kEmpty ? nullptr : streams_[lastIndex_].get();
   }
 
+  // Returns the stream with the lowest first element and a flag that
+  // is true if there is another equal value to come from some other
+  // stream. The streams should have ordered unique values when using
+  // this function. This is useful for merging aggregate states that
+  // are unique by their key in each stream.  The caller is
+  // expected to pop off the first element of the stream before
+  // calling this again. Returns {nullptr, false} when all streams are at end.
+  std::pair<Stream*, bool> nextWithEquals() {
+    IndexAndFlag result;
+    if (UNLIKELY(lastIndex_ == kEmpty)) {
+      result = firstWithEquals(0);
+    } else {
+      result = propagateWithEquals(
+          parent(firstStream_ + lastIndex_),
+          streams_[lastIndex_]->hasData() ? lastIndex_ : kEmpty);
+    }
+    lastIndex_ = result.first;
+
+    return lastIndex_ == kEmpty
+        ? std::make_pair(nullptr, false)
+        : std::make_pair(streams_[lastIndex_].get(), result.second);
+    ;
+  }
+
  private:
   static constexpr TIndex kEmpty = std::numeric_limits<TIndex>::max();
+
+  IndexAndFlag indexAndFlag(TIndex index, bool flag) {
+    return std::pair<TIndex, bool>{index, flag};
+  }
 
   TIndex first(TIndex node) {
     if (node >= firstStream_) {
@@ -156,6 +196,79 @@ class TreeOfLosers {
     }
   }
 
+  IndexAndFlag firstWithEquals(TIndex node) {
+    if (node >= firstStream_) {
+      return indexAndFlag(
+          streams_[node - firstStream_]->hasData() ? node - firstStream_
+                                                   : kEmpty,
+          false);
+    }
+    auto left = firstWithEquals(leftChild(node));
+    auto right = firstWithEquals(rightChild(node));
+    if (left.first == kEmpty) {
+      return right;
+    } else if (right.first == kEmpty) {
+      return left;
+    } else {
+      auto comparison = streams_[left.first]->compare(*streams_[right.first]);
+      if (comparison == 0) {
+        values_[node] = right.first;
+        equals_[node] = right.second;
+        return indexAndFlag(left.first, true);
+      } else if (comparison < 0) {
+        values_[node] = right.first;
+        equals_[node] = right.second;
+        return left;
+      } else {
+        values_[node] = left.first;
+        equals_[node] = right.second;
+        return right;
+      }
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE IndexAndFlag
+  propagateWithEquals(TIndex node, TIndex valueIndex) {
+    auto value = indexAndFlag(valueIndex, false);
+    while (UNLIKELY(values_[node] == kEmpty)) {
+      if (UNLIKELY(node == 0)) {
+        return value;
+      }
+      node = parent(node);
+    }
+    for (;;) {
+      if (UNLIKELY(values_[node] == kEmpty)) {
+        // The value goes past the node and the node stays empty.
+      } else if (UNLIKELY(value.first == kEmpty)) {
+        value = indexAndFlag(values_[node], equals_[node]);
+        values_[node] = kEmpty;
+        equals_[node] = false;
+      } else {
+        auto comparison =
+            streams_[values_[node]]->compare(*streams_[value.first]);
+        if (comparison == 0) {
+          // the value goes up with equals set.
+          value.second = true;
+        } else if (comparison < 0) {
+          // The node had the lower value, the value stays here and the previous
+          // value goes up.
+          auto newValue = indexAndFlag(values_[node], equals_[node]);
+          values_[node] = value.first;
+          equals_[node] = value.second;
+          value = newValue;
+        } else {
+          // The value is less than the value in the node, No action, the value
+          // goes up.
+          ;
+        }
+      }
+      if (UNLIKELY(node == 0)) {
+        return value;
+      }
+      node = parent(node);
+    }
+  }
+
   static TIndex parent(TIndex node) {
     return (node - 1) / 2;
   }
@@ -168,6 +281,10 @@ class TreeOfLosers {
     return node * 2 + 2;
   }
   std::vector<TIndex> values_;
+  // 'true' if the corresponding element of 'values_' has met an equal
+  // element on its way to its present position. Used only in nextWithEquals().
+  // A byte vector is in this case faster than one of bool.
+  std::vector<uint8_t> equals_;
   std::vector<std::unique_ptr<Stream>> streams_;
   TIndex lastIndex_ = kEmpty;
   int32_t firstStream_;
