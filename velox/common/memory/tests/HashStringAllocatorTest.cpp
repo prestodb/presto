@@ -161,14 +161,18 @@ TEST_F(HashStringAllocatorTest, stlAllocator) {
   {
     std::vector<double, StlAllocator<double>> data(
         StlAllocator<double>(instance_.get()));
+    uint32_t counter{0};
+    {
+      RowSizeTracker trackSize(counter, *instance_);
 
-    // The contiguous size goes to 80K, rounded to 128K by
-    // std::vector. This covers making an extra-large slab in the
-    // allocator.
-    for (auto i = 0; i < 10'000; i++) {
-      data.push_back(i);
+      // The contiguous size goes to 80K, rounded to 128K by
+      // std::vector. This covers making an extra-large slab in the
+      // allocator.
+      for (auto i = 0; i < 10'000; i++) {
+        data.push_back(i);
+      }
     }
-
+    EXPECT_LE(128 * 1024, counter);
     for (auto i = 0; i < 10'000; i++) {
       ASSERT_EQ(i, data[i]);
     }

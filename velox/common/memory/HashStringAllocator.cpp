@@ -156,6 +156,7 @@ void HashStringAllocator::newSlab(int32_t size) {
 
   // Write end  marker.
   *reinterpret_cast<uint32_t*>(run + available) = Header::kArenaEnd;
+  cumulativeBytes_ += available;
 
   // Add the new memory to the free list: Placement construct a header
   // that covers the space from start to the end marker and add this
@@ -272,6 +273,7 @@ HashStringAllocator::allocateFromFreeList(
   if (next) {
     next->clearPreviousFree();
   }
+  cumulativeBytes_ += found->size();
   if (isFinalSize) {
     freeRestOfBlock(found, preferredSize);
   }
@@ -288,6 +290,7 @@ void HashStringAllocator::free(Header* _header) {
     }
     VELOX_CHECK(!header->isFree());
     freeBytes_ += header->size() + sizeof(Header);
+    cumulativeBytes_ -= header->size();
     Header* next = header->next();
     if (next) {
       VELOX_CHECK(!next->isPreviousFree());

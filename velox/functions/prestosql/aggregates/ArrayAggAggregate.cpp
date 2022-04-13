@@ -34,6 +34,10 @@ class ArrayAggAggregate : public exec::Aggregate {
     return sizeof(ArrayAccumulator);
   }
 
+  bool isFixedSize() const override {
+    return false;
+  }
+
   void initializeNewGroups(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
@@ -86,6 +90,7 @@ class ArrayAggAggregate : public exec::Aggregate {
     decodedElements_.decode(*args[0], rows);
     rows.applyToSelected([&](vector_size_t row) {
       auto group = groups[row];
+      auto tracker = trackRowSize(group);
       value<ArrayAccumulator>(group)->elements.appendValue(
           decodedElements_, row, allocator_);
     });
@@ -103,6 +108,7 @@ class ArrayAggAggregate : public exec::Aggregate {
     rows.applyToSelected([&](vector_size_t row) {
       auto group = groups[row];
       auto decodedRow = decodedIntermediate_.index(row);
+      auto tracker = trackRowSize(group);
       value<ArrayAccumulator>(group)->elements.appendRange(
           elements,
           arrayVector->offsetAt(decodedRow),
@@ -119,6 +125,7 @@ class ArrayAggAggregate : public exec::Aggregate {
     auto& values = value<ArrayAccumulator>(group)->elements;
 
     decodedElements_.decode(*args[0], rows);
+    auto tracker = trackRowSize(group);
     rows.applyToSelected([&](vector_size_t row) {
       values.appendValue(decodedElements_, row, allocator_);
     });
@@ -134,6 +141,7 @@ class ArrayAggAggregate : public exec::Aggregate {
     VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::ARRAY);
     auto arrayVector = args[0]->as<ArrayVector>();
     auto elements = arrayVector->elements();
+    auto tracker = trackRowSize(group);
     rows.applyToSelected([&](vector_size_t row) {
       values.appendRange(
           elements,

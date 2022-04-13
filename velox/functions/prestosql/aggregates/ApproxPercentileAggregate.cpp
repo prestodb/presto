@@ -123,6 +123,10 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     return sizeof(KllSketchAccumulator<T>);
   }
 
+  bool isFixedSize() const override {
+    return false;
+  }
+
   void initializeNewGroups(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
@@ -190,6 +194,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
           return;
         }
 
+        auto tracker = trackRowSize(groups[row]);
         auto accumulator = initRawAccumulator(groups[row]);
         auto value = decodedValue_.valueAt<T>(row);
         auto weight = decodedWeight_.valueAt<int64_t>(row);
@@ -229,6 +234,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       if (decodedDigest_.isNullAt(row)) {
         return;
       }
+      auto tracker = trackRowSize(groups[row]);
       auto accumulator = value<KllSketchAccumulator<T>>(groups[row]);
       accumulator->append(getDeserializedDigest(row));
     });
@@ -243,6 +249,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     checkSetPercentile();
     checkSetAccuracy();
 
+    auto tracker = trackRowSize(group);
     auto accumulator = initRawAccumulator(group);
 
     if (hasWeight_) {
@@ -284,6 +291,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     decodedDigest_.decode(*args[0], rows, true);
     auto accumulator = value<KllSketchAccumulator<T>>(group);
 
+    auto tracker = trackRowSize(group);
     std::vector<const char*> digests;
     digests.reserve(rows.end());
 

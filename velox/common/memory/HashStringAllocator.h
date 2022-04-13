@@ -251,6 +251,10 @@ class HashStringAllocator : public StreamArena {
     return pool_.mappedMemory();
   }
 
+  uint64_t cumulativeBytes() const {
+    return cumulativeBytes_;
+  }
+
   // Checks the free space accounting and consistency of
   // Headers. Throws when detects corruption.
   void checkConsistency() const;
@@ -307,12 +311,53 @@ class HashStringAllocator : public StreamArena {
   // Sum of the size of blocks in 'free_', excluding headers.
   uint64_t freeBytes_ = 0;
 
+  // Counter of allocated bytes. The difference of two point in time values
+  // tells how much memory has been consumed by activity between these points in
+  // time. Incremented by allocation and decremented by free. Used for tracking
+  // the row by row space usage in a RowContainer.
+  uint64_t cumulativeBytes_{0};
+
   // Pointer to Header for the range being written. nullptr if a write is not in
   // progress.
   Header* FOLLY_NULLABLE currentHeader_ = nullptr;
 
   // Pool for getting new slabs.
   AllocationPool pool_;
+};
+
+// Utility for keeping track of allocation between two points in
+// time. A counter on a row supplied at construction is incremented
+// by the change in allocation between construction and
+// destruction. This is a scoped guard to use around setting
+// variable length data in a RowContainer or similar.
+template <typename T, typename TCounter = uint32_t>
+class RowSizeTracker {
+ public:
+  //  Will update the counter at pointer cast to TCounter*
+  //  with the change in allocation during the lifetime of 'this'
+  RowSizeTracker(T& counter, HashStringAllocator& allocator)
+      : allocator_(allocator),
+        size_(allocator_.cumulativeBytes()),
+        counter_(counter) {}
+
+  ~RowSizeTracker() {
+    auto delta = allocator_.cumulativeBytes() - size_;
+    if (delta) {
+      saturatingIncrement(&counter_, delta);
+    }
+  }
+
+ private:
+  // Increments T at *pointer without wrapping around at overflow.
+  void saturatingIncrement(T* FOLLY_NONNULL pointer, int64_t delta) {
+    auto value = *reinterpret_cast<TCounter*>(pointer) + delta;
+    *reinterpret_cast<TCounter*>(pointer) =
+        std::min<uint64_t>(value, std::numeric_limits<TCounter>::max());
+  }
+
+  HashStringAllocator& allocator_;
+  const uint64_t size_;
+  T& counter_;
 };
 
 // An Allocator based by HashStringAllocator to use with STL containers.

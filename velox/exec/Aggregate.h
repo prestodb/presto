@@ -15,12 +15,9 @@
  */
 #pragma once
 
+#include "velox/common/memory/HashStringAllocator.h"
 #include "velox/core/PlanNode.h"
 #include "velox/vector/BaseVector.h"
-
-namespace facebook::velox {
-class HashStringAllocator;
-}
 
 namespace facebook::velox::exec {
 
@@ -57,7 +54,13 @@ class Aggregate {
   }
 
   // Returns true if the accumulator never takes more than
-  // accumulatorFixedWidthSize() bytes.
+  // accumulatorFixedWidthSize() bytes. If this is false, the
+  // accumulator needs to track its changing variable length footprint
+  // using RowSizeTracker (Aggregate::trackRowSize), see ArrayAggAggregate for
+  // sample usage. A group row with at least one variable length key or
+  // aggregate will have a 32-bit slot at offset RowContainer::rowSize_ for
+  // keeping track of per-row size. The size is relevant for keeping caps on
+  // result set and spilling batch sizes with skewed data.
   virtual bool isFixedSize() const {
     return true;
   }
@@ -204,6 +207,13 @@ class Aggregate {
       const TypePtr& resultType);
 
  protected:
+  // Shorthand for maintaining accumulator variable length size in
+  // accumulator update methods. Use like: { auto tracker =
+  // trackRowSize(group); update(group); }
+  RowSizeTracker<char, uint32_t> trackRowSize(char* group) {
+    return RowSizeTracker<char, uint32_t>(group[rowSizeOffset_], *allocator_);
+  }
+
   bool isNull(char* group) const {
     return numNulls_ && (group[nullByte_] & nullMask_);
   }

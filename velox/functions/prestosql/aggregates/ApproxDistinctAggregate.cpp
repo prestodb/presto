@@ -122,6 +122,10 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     return sizeof(HllAccumulator);
   }
 
+  bool isFixedSize() const override {
+    return false;
+  }
+
   void initializeNewGroups(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
@@ -201,6 +205,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
         }
 
         auto group = groups[row];
+        auto tracker = trackRowSize(group);
         auto accumulator = value<HllAccumulator>(group);
         if (clearNull(group)) {
           accumulator->setIndexBitLength(indexBitLength_);
@@ -225,6 +230,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
       }
 
       auto group = groups[row];
+      auto tracker = trackRowSize(group);
       clearNull(group);
 
       auto serialized = decodedHll_.valueAt<StringView>(row);
@@ -239,6 +245,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
+    auto tracker = trackRowSize(group);
     if (hllAsRawInput_) {
       addSingleGroupIntermediateResults(group, rows, args, false /*unused*/);
     } else {
@@ -267,6 +274,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
       bool /*mayPushdown*/) override {
     decodedHll_.decode(*args[0], row, true);
 
+    auto tracker = trackRowSize(group);
     row.applyToSelected([&](auto row) {
       if (decodedHll_.isNullAt(row)) {
         return;

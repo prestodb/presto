@@ -138,6 +138,11 @@ class RowContainer {
              : 0);
   }
 
+  // The row size excluding any out-of-line stored variable length values.
+  int32_t fixedRowSize() const {
+    return fixedRowSize_;
+  }
+
   // Adds 'rows' to the free rows list and frees any associated
   // variable length data.
   void eraseRows(folly::Range<char**> rows);
@@ -413,6 +418,7 @@ class RowContainer {
     }
     *reinterpret_cast<T*>(row + offset) = decoded.valueAt<T>(index);
     if constexpr (std::is_same<T, StringView>::value) {
+      RowSizeTracker tracker(row[rowSizeOffset_], stringAllocator_);
       stringAllocator_.copyMultipart(row, offset);
     }
   }
@@ -426,6 +432,7 @@ class RowContainer {
     using T = typename TypeTraits<Kind>::NativeType;
     *reinterpret_cast<T*>(group + offset) = decoded.valueAt<T>(index);
     if constexpr (std::is_same<T, StringView>::value) {
+      RowSizeTracker tracker(group[rowSizeOffset_], stringAllocator_);
       stringAllocator_.copyMultipart(group, offset);
     }
   }

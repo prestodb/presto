@@ -36,6 +36,10 @@ class MapAggAggregate : public exec::Aggregate {
     return sizeof(MapAccumulator);
   }
 
+  bool isFixedSize() const override {
+    return false;
+  }
+
   void initializeNewGroups(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
@@ -108,6 +112,7 @@ class MapAggAggregate : public exec::Aggregate {
       if (!decodedKeys_.isNullAt(row)) {
         auto group = groups[row];
         auto accumulator = value<MapAccumulator>(group);
+        auto tracker = trackRowSize(group);
         accumulator->keys.appendValue(decodedKeys_, row, allocator_);
         accumulator->values.appendValue(decodedValues_, row, allocator_);
       }
@@ -131,6 +136,7 @@ class MapAggAggregate : public exec::Aggregate {
       auto decodedRow = decodedIntermediate_.index(row);
       auto offset = mapVector->offsetAt(decodedRow);
       auto size = mapVector->sizeAt(decodedRow);
+      auto tracker = trackRowSize(group);
       accumulator->keys.appendRange(mapKeys, offset, size, allocator_);
       accumulator->values.appendRange(mapValues, offset, size, allocator_);
     });
@@ -147,6 +153,7 @@ class MapAggAggregate : public exec::Aggregate {
 
     decodedKeys_.decode(*args[0], rows);
     decodedValues_.decode(*args[1], rows);
+    auto tracker = trackRowSize(group);
     rows.applyToSelected([&](vector_size_t row) {
       // Skip null keys
       if (!decodedKeys_.isNullAt(row)) {
@@ -169,6 +176,7 @@ class MapAggAggregate : public exec::Aggregate {
     auto mapVector = args[0]->as<MapVector>();
     auto& mapKeys = mapVector->mapKeys();
     auto& mapValues = mapVector->mapValues();
+    auto tracker = trackRowSize(group);
     rows.applyToSelected([&](vector_size_t row) {
       auto offset = mapVector->offsetAt(row);
       auto size = mapVector->sizeAt(row);
