@@ -44,7 +44,6 @@ class MergeTest : public OperatorTestBase {
       CursorParameters params;
       params.planNode = plan;
       params.maxDrivers = 2;
-      params.numResultDrivers = 1;
       assertQueryOrdered(
           params,
           "SELECT * FROM (SELECT * FROM tmp UNION ALL SELECT * FROM tmp) ORDER BY " +
@@ -103,7 +102,6 @@ class MergeTest : public OperatorTestBase {
         CursorParameters params;
         params.planNode = plan;
         params.maxDrivers = 2;
-        params.numResultDrivers = 1;
         assertQueryOrdered(
             params,
             "SELECT * FROM (SELECT * FROM tmp UNION ALL SELECT * FROM tmp) " +

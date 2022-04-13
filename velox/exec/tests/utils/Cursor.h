@@ -19,28 +19,31 @@
 
 namespace facebook::velox::exec::test {
 
-// Parameters for initializing a TaskCursor or RowCursor
+// Parameters for initializing a TaskCursor or RowCursor.
 struct CursorParameters {
   // Root node of the plan tree
   std::shared_ptr<const core::PlanNode> planNode;
+
   int32_t destination = 0;
+
   // Maximum number of drivers per pipeline.
   int32_t maxDrivers = 1;
+
   // Maximum number of split groups processed concurrently.
-  int32_t concurrentSplitGroups = 1;
-  // Number of drivers for the pipeline that produces task results. Cannot
-  // exceed numThreads, but can be less.
-  std::optional<int32_t> numResultDrivers;
+  int32_t numConcurrentSplitGroups = 1;
+
   // Optional, created if not present.
   std::shared_ptr<core::QueryCtx> queryCtx;
+
   uint64_t bufferedBytes = 512 * 1024;
 
   // Ungrouped (by default) or grouped (bucketed) execution.
   core::ExecutionStrategy executionStrategy{
       core::ExecutionStrategy::kUngrouped};
-  // Total number of split groups, our task might get splits for all of them or
-  // only for a a fraction.
-  int numSplitGroups{0};
+
+  // Number of splits groups the task will be processing. Must be 1 for
+  // ungrouped execution.
+  int numSplitGroups{1};
 };
 
 class TaskQueue {
@@ -50,11 +53,14 @@ class TaskQueue {
     uint64_t bytes;
   };
 
-  TaskQueue(int32_t numProducers, uint64_t maxBytes)
+  explicit TaskQueue(uint64_t maxBytes)
       : pool_(memory::getDefaultScopedMemoryPool()),
-        numProducers_(numProducers),
         maxBytes_(maxBytes),
         consumerFuture_(false) {}
+
+  void setNumProducers(int32_t n) {
+    numProducers_ = n;
+  }
 
   // Adds a batch of rows to the queue and returns kNotBlocked if the
   // producer may continue. Returns kWaitForConsumer if the queue is
@@ -79,7 +85,7 @@ class TaskQueue {
   // Owns the vectors in 'queue_', hence must be declared first.
   std::unique_ptr<velox::memory::MemoryPool> pool_;
   std::deque<TaskQueueEntry> queue_;
-  int32_t numProducers_;
+  std::optional<int32_t> numProducers_;
   int32_t producersFinished_ = 0;
   uint64_t totalBytes_ = 0;
   // Blocks the producer if 'totalBytes' exceeds 'maxBytes' after
@@ -123,7 +129,8 @@ class TaskCursor {
 
  private:
   const int32_t maxDrivers_;
-  const int32_t concurrentSplitGroups_;
+  const int32_t numConcurrentSplitGroups_;
+  const int32_t numSplitGroups_;
   bool started_ = false;
   std::shared_ptr<TaskQueue> queue_;
   std::shared_ptr<exec::Task> task_;

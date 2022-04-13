@@ -68,7 +68,8 @@ RowVectorPtr TaskQueue::dequeue() {
         if (totalBytes_ < maxBytes_ / 2) {
           mayContinue = std::move(producerUnblockPromises_);
         }
-      } else if (producersFinished_ == numProducers_) {
+      } else if (
+          numProducers_.has_value() && producersFinished_ == numProducers_) {
         return nullptr;
       }
       if (!vector) {
@@ -106,17 +107,16 @@ std::atomic<int32_t> TaskCursor::serial_;
 
 TaskCursor::TaskCursor(const CursorParameters& params)
     : maxDrivers_{params.maxDrivers},
-      concurrentSplitGroups_{params.concurrentSplitGroups} {
+      numConcurrentSplitGroups_{params.numConcurrentSplitGroups},
+      numSplitGroups_{params.numSplitGroups} {
   std::shared_ptr<core::QueryCtx> queryCtx;
   if (params.queryCtx) {
     queryCtx = params.queryCtx;
   } else {
     queryCtx = core::QueryCtx::createForTest();
   }
-  auto numProducers = params.numResultDrivers.has_value()
-      ? params.numResultDrivers.value()
-      : params.maxDrivers;
-  queue_ = std::make_shared<TaskQueue>(numProducers, params.bufferedBytes);
+
+  queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);
   // Captured as a shared_ptr by the consumer callback of task_.
   auto queue = queue_;
   core::PlanFragment planFragment{
@@ -145,7 +145,8 @@ TaskCursor::TaskCursor(const CursorParameters& params)
 void TaskCursor::start() {
   if (!started_) {
     started_ = true;
-    exec::Task::start(task_, maxDrivers_, concurrentSplitGroups_);
+    exec::Task::start(task_, maxDrivers_, numConcurrentSplitGroups_);
+    queue_->setNumProducers(numSplitGroups_ * task_->numOutputDrivers());
   }
 }
 

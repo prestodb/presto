@@ -673,7 +673,6 @@ TEST_F(DriverTest, pauserNode) {
         true);
     params[i].maxDrivers =
         kThreadsPerTask * 2; // a number larger than kThreadsPerTask
-    params[i].numResultDrivers = kThreadsPerTask;
   }
   std::vector<std::thread> threads;
   threads.reserve(kNumTasks);
@@ -811,7 +810,6 @@ TEST_F(DriverTest, driverCreationThrow) {
     CursorParameters params;
     params.planNode = std::move(plan);
     params.maxDrivers = 5;
-    params.numResultDrivers = 1;
     getResults(params);
     FAIL() << "Expected exception.";
   } catch (const VeloxException& ex) {

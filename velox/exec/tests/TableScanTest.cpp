@@ -1875,8 +1875,8 @@ TEST_P(TableScanTest, groupedExecutionWithOutputBuffer) {
           .tableScan(rowType_)
           .partitionedOutput({}, 1, {"c0", "c1", "c2", "c3", "c4", "c5"})
           .planFragment();
-  planFragment.numSplitGroups = 10;
   planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
+  planFragment.numSplitGroups = 10;
   auto queryCtx = core::QueryCtx::createForTest();
   auto task = std::make_shared<exec::Task>(
       "0", std::move(planFragment), 0, std::move(queryCtx));
@@ -1951,16 +1951,14 @@ TEST_P(TableScanTest, groupedExecution) {
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
   params.maxDrivers = 2;
-  params.concurrentSplitGroups = 2;
   // We will have 10 split groups 'in total', but our task will only handle
   // three of them: 1, 5 and 8.
   // Split 0 is from split group 1.
   // Splits 1 and 2 are from split group 5.
   // Splits 3, 4 and 5 are from split group 8.
   params.executionStrategy = core::ExecutionStrategy::kGrouped;
-  params.numSplitGroups = 10;
-  // We'll only run 3 split groups, 2 drivers each.
-  params.numResultDrivers = 3 * 2;
+  params.numSplitGroups = 3;
+  params.numConcurrentSplitGroups = 2;
 
   // Create the cursor with the task underneath. It is not started yet.
   auto cursor = std::make_unique<TaskCursor>(params);

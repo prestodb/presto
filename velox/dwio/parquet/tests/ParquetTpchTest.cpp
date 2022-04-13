@@ -104,7 +104,6 @@ class ParquetTpchTest : public testing::Test {
     };
     CursorParameters params;
     params.maxDrivers = kNumDrivers;
-    params.numResultDrivers = 1;
     params.planNode = tpchPlan.plan;
     return exec::test::assertQuery(params, addSplits, duckQuery, *duckDb_);
   }

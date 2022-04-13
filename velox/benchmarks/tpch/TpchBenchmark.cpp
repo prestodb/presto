@@ -91,7 +91,6 @@ class TpchBenchmark {
   std::shared_ptr<Task> run(const TpchPlan& tpchPlan) {
     CursorParameters params;
     params.maxDrivers = FLAGS_num_drivers;
-    params.numResultDrivers = 1;
     params.planNode = tpchPlan.plan;
     const int numSplitsPerFile = FLAGS_num_splits_per_file;
 

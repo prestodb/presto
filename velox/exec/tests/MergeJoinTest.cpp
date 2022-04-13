@@ -438,7 +438,6 @@ TEST_F(MergeJoinTest, numDrivers) {
   CursorParameters params;
   params.planNode = plan;
   params.maxDrivers = 5;
-  params.numResultDrivers = 1;
   auto task = assertQuery(params, "SELECT 2, 2");
   // We have two pipelines in the task and each must have 1 driver.
   EXPECT_EQ(2, task->numTotalDrivers());

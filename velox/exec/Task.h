@@ -210,6 +210,12 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Returns time (ms) since the task execution ended or zero, if not finished.
   uint64_t timeSinceEndMs() const;
 
+  /// Returns the total number of drivers in the output pipeline, e.g. the
+  /// pipeline that produces the results.
+  uint32_t numOutputDrivers() const {
+    return numDrivers(getOutputPipelineId());
+  }
+
   /// Returns the number of running drivers.
   uint32_t numRunningDrivers() const {
     std::lock_guard<std::mutex> taskLock(mutex_);

@@ -135,7 +135,6 @@ TEST_F(CrossJoinTest, basic) {
   planNodeIdGenerator->reset();
   CursorParameters params;
   params.maxDrivers = 4;
-  params.numResultDrivers = 1;
   params.planNode = PlanBuilder(planNodeIdGenerator)
                         .values({leftVectors})
                         .crossJoin(
