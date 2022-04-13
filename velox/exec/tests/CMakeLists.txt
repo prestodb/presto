@@ -34,6 +34,7 @@ add_executable(
   RoundRobinPartitionFunctionTest.cpp
   StreamingAggregationTest.cpp
   TableWriteTest.cpp
+  TaskListenerTest.cpp
   TopNTest.cpp
   LimitTest.cpp
   OrderByTest.cpp

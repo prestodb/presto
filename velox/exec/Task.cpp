@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/Task.h"
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
+
 #include "velox/codegen/Codegen.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/CrossJoinBuild.h"
@@ -22,11 +25,47 @@
 #include "velox/exec/LocalPlanner.h"
 #include "velox/exec/Merge.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/Task.h"
 #if CODEGEN_ENABLED == 1
 #include "velox/experimental/codegen/CodegenLogger.h"
 #endif
 
 namespace facebook::velox::exec {
+
+namespace {
+folly::Synchronized<std::vector<std::shared_ptr<TaskListener>>>& listeners() {
+  static folly::Synchronized<std::vector<std::shared_ptr<TaskListener>>>
+      kListeners;
+  return kListeners;
+}
+} // namespace
+
+bool registerTaskListener(std::shared_ptr<TaskListener> listener) {
+  return listeners().withWLock([&](auto& listeners) {
+    for (const auto& existingListener : listeners) {
+      if (existingListener == listener) {
+        // Listener already registered. Do not register again.
+        return false;
+      }
+    }
+    listeners.push_back(std::move(listener));
+    return true;
+  });
+}
+
+bool unregisterTaskListener(const std::shared_ptr<TaskListener>& listener) {
+  return listeners().withWLock([&](auto& listeners) {
+    for (auto it = listeners.begin(); it != listeners.end(); ++it) {
+      if ((*it) == listener) {
+        listeners.erase(it);
+        return true;
+      }
+    }
+
+    // Listener not found.
+    return false;
+  });
+}
 
 namespace {
 void collectSourcePlanNodeIds(
@@ -79,6 +118,12 @@ Task::Task(
                     : ConsumerSupplier{}),
           std::move(onError)} {}
 
+namespace {
+std::string makeUuid() {
+  return boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+}
+} // namespace
+
 Task::Task(
     const std::string& taskId,
     core::PlanFragment planFragment,
@@ -86,7 +131,8 @@ Task::Task(
     std::shared_ptr<core::QueryCtx> queryCtx,
     ConsumerSupplier consumerSupplier,
     std::function<void(std::exception_ptr)> onError)
-    : taskId_(taskId),
+    : uuid_{makeUuid()},
+      taskId_(taskId),
       planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
@@ -1069,10 +1115,18 @@ uint64_t Task::timeSinceEndMs() const {
 }
 
 void Task::stateChangedLocked() {
+  // TODO Move this logic outside of the lock. Satisfying promises triggers
+  // external callbacks which may try to acquire the lock and deadlock.
   for (auto& promise : stateChangePromises_) {
     promise.setValue(true);
   }
   stateChangePromises_.clear();
+
+  listeners().withRLock([&](auto& listeners) {
+    for (auto& listener : listeners) {
+      listener->onTaskCompletion(uuid_, state_, exception_, taskStats_);
+    }
+  });
 }
 
 ContinueFuture Task::stateChangeFuture(uint64_t maxWaitMicros) {

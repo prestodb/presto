@@ -71,6 +71,11 @@ class Task : public std::enable_shared_from_this<Task> {
 
   std::string toString() const;
 
+  /// Returns universally unique identifier of the task.
+  const std::string& uuid() const {
+    return uuid_;
+  }
+
   /// Returns task ID specified in the constructor.
   const std::string& taskId() const {
     return taskId_;
@@ -525,6 +530,12 @@ class Task : public std::enable_shared_from_this<Task> {
 
   int getOutputPipelineId() const;
 
+  /// Universally unique identifier of the task. Used to identify the task when
+  /// calling TaskListener.
+  const std::string uuid_;
+
+  /// Application specific task ID specified at construction time. May not be
+  /// unique or universally unique.
   const std::string taskId_;
   core::PlanFragment planFragment_;
   const int destination_;
@@ -636,5 +647,28 @@ class Task : public std::enable_shared_from_this<Task> {
   // running for 'this'.
   std::vector<VeloxPromise<bool>> threadFinishPromises_;
 };
+
+/// Listener invoked on task completion.
+class TaskListener {
+ public:
+  virtual ~TaskListener() = default;
+
+  /// Called on task completion. Provides the information about success or
+  /// failure as well as runtime statistics about task execution.
+  virtual void onTaskCompletion(
+      const std::string& taskUuid,
+      TaskState state,
+      std::exception_ptr error,
+      TaskStats stats) = 0;
+};
+
+/// Register a listener to be invoked on task completion. Returns true if
+/// listener was successfully registered, false if listener is already
+/// registered.
+bool registerTaskListener(std::shared_ptr<TaskListener> listener);
+
+/// Unregister a listener registered earlier. Returns true if listener was
+/// unregistered successfuly, false if listener was not found.
+bool unregisterTaskListener(const std::shared_ptr<TaskListener>& listener);
 
 } // namespace facebook::velox::exec
