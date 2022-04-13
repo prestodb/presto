@@ -63,7 +63,7 @@ import static com.facebook.presto.hive.HiveMetadata.shouldCreateFilesForMissingB
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileSplittable;
-import static com.facebook.presto.hive.HiveSessionProperties.isStreamingAggregationEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrderBasedExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
 import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
@@ -267,7 +267,7 @@ public class StoragePartitionLoader
         // therefore we must not split files when either is enabled.
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
         boolean splittable = isFileSplittable(session) &&
-                !isStreamingAggregationEnabled(session) &&
+                !isOrderBasedExecutionEnabled(session) &&
                 !s3SelectPushdownEnabled &&
                 !partialAggregationsPushedDown &&
                 getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;

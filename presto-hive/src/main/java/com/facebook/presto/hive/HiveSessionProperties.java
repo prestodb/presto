@@ -899,7 +899,7 @@ public final class HiveSessionProperties
         return session.getProperty(S3_SELECT_PUSHDOWN_ENABLED, Boolean.class);
     }
 
-    public static boolean isStreamingAggregationEnabled(ConnectorSession session)
+    public static boolean isOrderBasedExecutionEnabled(ConnectorSession session)
     {
         return session.getProperty(ORDER_BASED_EXECUTION_ENABLED, Boolean.class);
     }
