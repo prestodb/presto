@@ -166,7 +166,8 @@ public class HashGenerationOptimizer
         {
             Optional<HashComputation> groupByHash = Optional.empty();
             List<VariableReferenceExpression> groupingKeys = node.getGroupingKeys();
-            if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
+            if (!node.isStreamable() && !node.isSegmentedAggregationEligible() && !canSkipHashGeneration(node.getGroupingKeys())) {
+                // todo: for segmented aggregation, add optimizations for the fields that need to compute hash
                 groupByHash = computeHash(groupingKeys, functionAndTypeManager);
             }
 

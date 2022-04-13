@@ -210,7 +210,18 @@ public final class AggregationNode
 
     public boolean isStreamable()
     {
-        return !preGroupedVariables.isEmpty() && groupingSets.getGroupingSetCount() == 1 && groupingSets.getGlobalGroupingSets().isEmpty();
+        return !preGroupedVariables.isEmpty()
+                && groupingSets.getGroupingSetCount() == 1
+                && groupingSets.getGlobalGroupingSets().isEmpty()
+                && preGroupedVariables.size() == groupingSets.groupingKeys.size();
+    }
+
+    public boolean isSegmentedAggregationEligible()
+    {
+        return !preGroupedVariables.isEmpty()
+                && groupingSets.getGroupingSetCount() == 1
+                && groupingSets.getGlobalGroupingSets().isEmpty()
+                && preGroupedVariables.size() < groupingSets.groupingKeys.size();
     }
 
     @Override

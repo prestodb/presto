@@ -612,6 +612,9 @@ public class PlanPrinter
             if (node.getStep() != AggregationNode.Step.SINGLE) {
                 type = format("(%s)", node.getStep().toString());
             }
+            if (node.isSegmentedAggregationEligible()) {
+                type = format("%s(SEGMENTED, %s)", type, node.getPreGroupedVariables());
+            }
             if (node.isStreamable()) {
                 type = format("%s(STREAMING)", type);
             }

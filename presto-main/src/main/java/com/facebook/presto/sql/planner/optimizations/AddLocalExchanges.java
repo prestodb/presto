@@ -71,6 +71,7 @@ import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabl
 import static com.facebook.presto.SystemSessionProperties.isEnforceFixedDistributionForOutputOperator;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
+import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -331,9 +332,25 @@ public class AddLocalExchanges
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
             List<VariableReferenceExpression> preGroupedSymbols = ImmutableList.of();
-            if (!LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys)).get(0).isPresent()) {
+            // Logic in LocalProperties.match(localProperties, groupingKeys)
+            // 1. Extract the longest prefix of localProperties to a set that is a subset of groupingKeys
+            // 2. Iterate grouped-by keys and add the elements that's not in the set to the result
+            // Result would be a List of one element: Optional<GroupingProperty>, GroupingProperty would contain one/multiple elements from step 2
+            // Eg:
+            // [A, B] [(B, A)]     ->   List.of(Optional.empty())
+            // [A, B] [B]          ->   List.of(Optional.of(GroupingProperty(B)))
+            // [A, B] [A]          ->   List.of(Optional.empty())
+            // [A, B] [(A, C)]     ->   List.of(Optional.of(GroupingProperty(C)))
+            // [A, B] [(D, A, C)]  ->   List.of(Optional.of(GroupingProperty(D, C)))
+            List<Optional<LocalProperty<VariableReferenceExpression>>> matchResult = LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys));
+            if (!matchResult.get(0).isPresent()) {
                 // !isPresent() indicates the property was satisfied completely
                 preGroupedSymbols = groupingKeys;
+            }
+            else if (matchResult.get(0).get().getColumns().size() < groupingKeys.size() && isSegmentedAggregationEnabled(session)) {
+                // If the result size = original groupingKeys size: all grouping keys are not pre-grouped, can't enable segmented aggregation
+                // Otherwise: partial grouping keys are pre-grouped, can enable segmented aggregation, the result represents the grouping keys that's not pre-grouped
+                preGroupedSymbols = groupingKeys.stream().filter(groupingKey -> !matchResult.get(0).get().getColumns().contains(groupingKey)).collect(toImmutableList());
             }
 
             AggregationNode result = new AggregationNode(

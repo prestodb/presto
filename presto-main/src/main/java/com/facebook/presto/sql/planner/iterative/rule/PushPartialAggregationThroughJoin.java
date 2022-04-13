@@ -56,8 +56,8 @@ public class PushPartialAggregationThroughJoin
 
     private static boolean isSupportedAggregationNode(AggregationNode aggregationNode)
     {
-        // Don't split streaming aggregations
-        if (aggregationNode.isStreamable()) {
+        // Don't split streaming aggregations or segmented aggregations
+        if (aggregationNode.isStreamable() || aggregationNode.isSegmentedAggregationEligible()) {
             return false;
         }
 
