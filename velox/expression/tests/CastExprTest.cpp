@@ -211,7 +211,6 @@ TEST_F(CastExprTest, basics) {
   // Testing non-null or error cases
   const std::vector<std::optional<int32_t>> ii = {1, 2, 3, 100, -100};
   const std::vector<std::optional<double>> oo = {1.0, 2.0, 3.0, 100.0, -100.0};
-  std::cout << oo[2].has_value();
   testCast<int32_t, double>(
       "double", {1, 2, 3, 100, -100}, {1.0, 2.0, 3.0, 100.0, -100.0});
   testCast<int32_t, std::string>(
