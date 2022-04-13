@@ -39,7 +39,7 @@ option(VELOX_ENABLE_EXPRESSION "Build expression." ON)
 option(VELOX_ENABLE_PARSE "Build parser used for unit tests." ON)
 option(VELOX_ENABLE_EXAMPLES
        "Build examples. This will enable VELOX_ENABLE_EXPRESSION automatically."
-       ON)
+       OFF)
 option(VELOX_ENABLE_SUBSTRAIT "Buid Substrait-to-Velox converter." OFF)
 option(VELOX_ENABLE_BENCHMARKS "Build velox top level benchmarks." OFF)
 option(VELOX_ENABLE_BENCHMARKS_BASIC "Build velox basic benchmarks." OFF)
@@ -75,10 +75,12 @@ if(${VELOX_BUILD_TESTING})
   set(VELOX_ENABLE_HIVE_CONNECTOR ON)
   set(VELOX_ENABLE_SPARK_FUNCTIONS ON)
   set(VELOX_ENABLE_TEST_UTILS OFF)
+  set(VELOX_ENABLE_EXAMPLES ON)
 endif()
 
 if(${VELOX_ENABLE_EXAMPLES})
   set(VELOX_ENABLE_EXPRESSION ON)
+  set(VELOX_ENABLE_TEST_UTILS ON)
 endif()
 
 if(${VELOX_ENABLE_BENCHMARKS} OR ${VELOX_ENABLE_BENCHMARKS_BASIC})
