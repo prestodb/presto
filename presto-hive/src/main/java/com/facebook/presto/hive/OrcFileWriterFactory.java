@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -89,6 +90,8 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 public class OrcFileWriterFactory
         implements HiveFileWriterFactory
 {
+    private static final Logger log = Logger.get(OrcFileWriterFactory.class);
+
     private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
     private final DataSinkFactory dataSinkFactory;
@@ -158,6 +161,7 @@ public class OrcFileWriterFactory
             ConnectorSession session,
             Optional<EncryptionInformation> encryptionInformation)
     {
+//        log.info("OrcFileWriterFactory creating file " + path.toString());
         if (!HiveSessionProperties.isOrcOptimizedWriterEnabled(session)) {
             return Optional.empty();
         }

@@ -294,7 +294,8 @@ public class HiveFilterPushdown
                                         remainingExpression,
                                         domainPredicate),
                                 currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty()),
-                                false)),
+                                false,
+                                Optional.empty())),
                 dynamicFilterExpression);
     }
 

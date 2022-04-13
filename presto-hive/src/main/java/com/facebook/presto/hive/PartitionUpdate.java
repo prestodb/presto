@@ -177,6 +177,33 @@ public class PartitionUpdate
         return new HiveBasicStatistics(fileWriteInfos.size(), rowCount, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
     }
 
+    public PartitionUpdate withFileWriteInfos(List<FileWriteInfo> infos)
+    {
+        // Need to calculate accurate statistics so rows don't get double counted
+        return new PartitionUpdate(
+                name,
+                updateMode,
+                writePath,
+                targetPath,
+                infos,
+                infos.stream()
+                        .map(FileWriteInfo::getFileWriteStatistics)
+                        .map(Optional::get)
+                        .map(FileWriteStatistics::getRowCount)
+                        .reduce(0L, Long::sum),
+                infos.stream()
+                        .map(FileWriteInfo::getFileWriteStatistics)
+                        .map(Optional::get)
+                        .map(FileWriteStatistics::getInMemoryDataSize)
+                        .reduce(0L, Long::sum),
+                infos.stream()
+                        .map(FileWriteInfo::getFileWriteStatistics)
+                        .map(Optional::get)
+                        .map(FileWriteStatistics::getFileSize)
+                        .reduce(0L, Long::sum),
+                containsNumberedFileNames);
+    }
+
     public static List<PartitionUpdate> mergePartitionUpdates(Iterable<PartitionUpdate> unMergedUpdates)
     {
         ImmutableList.Builder<PartitionUpdate> partitionUpdates = ImmutableList.builder();
@@ -223,21 +250,88 @@ public class PartitionUpdate
         OVERWRITE,
     }
 
+    public static class FileWriteStatistics
+    {
+        private final long rowCount;
+        private final long inMemoryDataSize;
+        private final long fileSize;
+
+        @JsonCreator
+        public FileWriteStatistics(
+                @JsonProperty("rowCount") long rowCount,
+                @JsonProperty("inMemoryDataSize") long inMemoryDataSize,
+                @JsonProperty("fileSize") long fileSize)
+        {
+            this.rowCount = rowCount;
+            this.inMemoryDataSize = inMemoryDataSize;
+            this.fileSize = fileSize;
+        }
+
+        @JsonProperty
+        public long getRowCount()
+        {
+            return rowCount;
+        }
+
+        @JsonProperty
+        public long getInMemoryDataSize()
+        {
+            return inMemoryDataSize;
+        }
+
+        @JsonProperty
+        public long getFileSize()
+        {
+            return fileSize;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("rowCount", rowCount)
+                    .add("inMemoryDataSize", inMemoryDataSize)
+                    .add("fileSize", fileSize)
+                    .toString();
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            FileWriteStatistics that = (FileWriteStatistics) o;
+            return fileSize == that.fileSize &&
+                    inMemoryDataSize == that.inMemoryDataSize &&
+                    rowCount == that.rowCount;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(fileSize, inMemoryDataSize, rowCount);
+        }
+    }
+
     public static class FileWriteInfo
     {
         private final String writeFileName;
         private final String targetFileName;
-        private final Optional<Long> fileSize;
+        private final Optional<FileWriteStatistics> fileWriteStatistics;
 
         @JsonCreator
         public FileWriteInfo(
                 @JsonProperty("writeFileName") String writeFileName,
                 @JsonProperty("targetFileName") String targetFileName,
-                @JsonProperty("fileSize") Optional<Long> fileSize)
+                @JsonProperty("fileWriteStatistics") Optional<FileWriteStatistics> fileWriteStatistics)
         {
             this.writeFileName = requireNonNull(writeFileName, "writeFileName is null");
             this.targetFileName = requireNonNull(targetFileName, "targetFileName is null");
-            this.fileSize = requireNonNull(fileSize, "fileSize is null");
+            this.fileWriteStatistics = requireNonNull(fileWriteStatistics, "fileWriteStatistics is null");
         }
 
         @JsonProperty
@@ -253,9 +347,9 @@ public class PartitionUpdate
         }
 
         @JsonProperty
-        public Optional<Long> getFileSize()
+        public Optional<FileWriteStatistics> getFileWriteStatistics()
         {
-            return fileSize;
+            return fileWriteStatistics;
         }
 
         @Override
@@ -270,13 +364,13 @@ public class PartitionUpdate
             FileWriteInfo that = (FileWriteInfo) o;
             return Objects.equals(writeFileName, that.writeFileName) &&
                     Objects.equals(targetFileName, that.targetFileName) &&
-                    Objects.equals(fileSize, that.fileSize);
+                    Objects.equals(fileWriteStatistics, that.fileWriteStatistics);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(writeFileName, targetFileName, fileSize);
+            return Objects.hash(writeFileName, targetFileName, fileWriteStatistics);
         }
 
         @Override
@@ -285,7 +379,7 @@ public class PartitionUpdate
             return toStringHelper(this)
                     .add("writeFileName", writeFileName)
                     .add("targetFileName", targetFileName)
-                    .add("fileSize", fileSize)
+                    .add("fileWriteStatistics", fileWriteStatistics)
                     .toString();
         }
     }

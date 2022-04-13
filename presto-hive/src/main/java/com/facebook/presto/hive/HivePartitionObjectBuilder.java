@@ -27,13 +27,13 @@ import static com.facebook.presto.hive.HiveSessionProperties.getNewPartitionUser
 public class HivePartitionObjectBuilder
         implements PartitionObjectBuilder
 {
-    @Override
     public Partition buildPartitionObject(
             ConnectorSession session,
             Table table,
             PartitionUpdate partitionUpdate,
             String prestoVersion,
-            Map<String, String> extraParameters)
+            Map<String, String> extraParameters,
+            boolean uncommitted)
     {
         ImmutableMap.Builder extraParametersBuilder = ImmutableMap.builder()
                 .put(HiveMetadata.PRESTO_VERSION_NAME, prestoVersion)
@@ -53,7 +53,7 @@ public class HivePartitionObjectBuilder
                         .setStorageFormat(HiveSessionProperties.isRespectTableFormat(session) ?
                                 table.getStorage().getStorageFormat() :
                                 StorageFormat.fromHiveStorageFormat(HiveSessionProperties.getHiveStorageFormat(session)))
-                        .setLocation(partitionUpdate.getTargetPath().toString())
+                        .setLocation(uncommitted ? partitionUpdate.getWritePath().toString() : partitionUpdate.getTargetPath().toString())
                         .setBucketProperty(table.getStorage().getBucketProperty())
                         .setSerdeParameters(table.getStorage().getSerdeParameters())
                         .setParameters(table.getStorage().getParameters()))

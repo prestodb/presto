@@ -30,6 +30,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.sql.planner.SmallFragmentCoalescer;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -99,6 +100,7 @@ public class TestTableFinishOperator
             throws Exception
     {
         TestingTableFinisher tableFinisher = new TestingTableFinisher();
+        TestingSmallFragmentCoalescer smallFragmentCoalescer = new TestingSmallFragmentCoalescer();
         TestingPageSinkCommitter pageSinkCommitter = new TestingPageSinkCommitter();
         ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
         StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
@@ -122,7 +124,8 @@ public class TestTableFinishOperator
                 descriptor,
                 session,
                 TABLE_COMMIT_CONTEXT_CODEC,
-                false);
+                false,
+                smallFragmentCoalescer);
         DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
@@ -180,6 +183,7 @@ public class TestTableFinishOperator
             throws Exception
     {
         TestingTableFinisher tableFinisher = new TestingTableFinisher();
+        TestingSmallFragmentCoalescer smallFragmentCoalescer = new TestingSmallFragmentCoalescer();
         TestingPageSinkCommitter pageSinkCommitter = new TestingPageSinkCommitter();
         ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
         StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
@@ -203,7 +207,8 @@ public class TestTableFinishOperator
                 descriptor,
                 session,
                 TABLE_COMMIT_CONTEXT_CODEC,
-                false);
+                false,
+                smallFragmentCoalescer);
         DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
@@ -286,15 +291,17 @@ public class TestTableFinishOperator
     {
         private boolean finished;
         private Collection<Slice> fragments;
+        private Collection<Slice> deprecatedFragments;
         private Collection<ComputedStatistics> computedStatistics;
 
         @Override
-        public Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+        public Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics)
         {
             checkState(!finished, "already finished");
             finished = true;
             this.fragments = fragments;
             this.computedStatistics = computedStatistics;
+            this.deprecatedFragments = deprecatedFragments;
             return Optional.empty();
         }
 
@@ -306,6 +313,16 @@ public class TestTableFinishOperator
         public Collection<ComputedStatistics> getComputedStatistics()
         {
             return computedStatistics;
+        }
+    }
+
+    private static class TestingSmallFragmentCoalescer
+            extends SmallFragmentCoalescer
+    {
+        @Override
+        public SmallFragmentCoalescingResult coalesceSmallFragments(Collection<Slice> fragments)
+        {
+            return new SmallFragmentCoalescingResult(ImmutableList.copyOf(fragments), ImmutableList.of(), 1);
         }
     }
 

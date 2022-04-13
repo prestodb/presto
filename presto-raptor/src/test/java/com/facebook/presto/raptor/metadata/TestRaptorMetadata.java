@@ -756,7 +756,7 @@ public class TestRaptorMetadata
         assertNull(transactionSuccessful(transactionId));
 
         // commit insert
-        metadata.finishInsert(SESSION, insertHandle, ImmutableList.of(), ImmutableList.of());
+        metadata.finishInsert(SESSION, insertHandle, ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
         assertTrue(transactionExists(transactionId));
         assertTrue(transactionSuccessful(transactionId));
     }

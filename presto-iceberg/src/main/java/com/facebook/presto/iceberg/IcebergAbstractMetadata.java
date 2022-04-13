@@ -40,6 +40,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFiles;
@@ -70,6 +71,7 @@ import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -190,7 +192,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, computedStatistics);
+        return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, ImmutableSet.of(), computedStatistics);
     }
 
     protected ConnectorInsertTableHandle beginIcebergTableInsert(IcebergTableHandle table, org.apache.iceberg.Table icebergTable)
@@ -209,8 +211,9 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics)
     {
+        checkArgument(deprecatedFragments.isEmpty(), "Deprecated fragments are unsupported");
         if (fragments.isEmpty()) {
             transaction.commitTransaction();
             return Optional.empty();

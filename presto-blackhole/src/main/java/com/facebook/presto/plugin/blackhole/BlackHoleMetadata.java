@@ -54,6 +54,7 @@ import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_P
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -237,8 +238,9 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics)
     {
+        checkArgument(deprecatedFragments.isEmpty(), "deprecatedFragments are unsupported");
         return Optional.empty();
     }
 

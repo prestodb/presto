@@ -168,6 +168,7 @@ import com.facebook.presto.spiller.StandaloneSpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -369,6 +370,7 @@ public class LocalExecutionPlanner
     private final ObjectMapper objectMapper;
     private final boolean tableFinishOperatorMemoryTrackingEnabled;
     private final StandaloneSpillerFactory standaloneSpillerFactory;
+    private final SplitManager splitManager;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -400,7 +402,8 @@ public class LocalExecutionPlanner
             DeterminismEvaluator determinismEvaluator,
             FragmentResultCacheManager fragmentResultCacheManager,
             ObjectMapper objectMapper,
-            StandaloneSpillerFactory standaloneSpillerFactory)
+            StandaloneSpillerFactory standaloneSpillerFactory,
+            SplitManager splitManager)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -435,6 +438,7 @@ public class LocalExecutionPlanner
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
         this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
         this.standaloneSpillerFactory = requireNonNull(standaloneSpillerFactory, "standaloneSpillerFactory is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
     }
 
     public LocalExecutionPlan plan(
@@ -612,6 +616,11 @@ public class LocalExecutionPlanner
                 .forEach(LocalPlannerAware::localPlannerComplete);
 
         return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder, stageExecutionDescriptor);
+    }
+
+    private SmallFragmentCoalescer createSmallFragmentCoalescer(Session session, Metadata metadata, ExecutionWriterTarget target)
+    {
+        return new SmallFragmentCoalescer(session, metadata, target, pageSourceProvider, pageSinkManager, metadataUpdaterManager, splitManager);
     }
 
     private static void addLookupOuterDrivers(LocalExecutionPlanContext context)
@@ -2724,7 +2733,8 @@ public class LocalExecutionPlanner
                     descriptor,
                     session,
                     tableCommitContextCodec,
-                    tableFinishOperatorMemoryTrackingEnabled);
+                    tableFinishOperatorMemoryTrackingEnabled,
+                    createSmallFragmentCoalescer(session, metadata, writerTarget));
             Map<VariableReferenceExpression, Integer> layout = ImmutableMap.of(node.getOutputVariables().get(0), 0);
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
@@ -3190,12 +3200,12 @@ public class LocalExecutionPlanner
 
     private static TableFinisher createTableFinisher(Session session, Metadata metadata, ExecutionWriterTarget target)
     {
-        return (fragments, statistics) -> {
+        return (fragments, deprecatedFragments, statistics) -> {
             if (target instanceof CreateHandle) {
                 return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments, statistics);
             }
             else if (target instanceof InsertHandle) {
-                return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments, statistics);
+                return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments, deprecatedFragments, statistics);
             }
             else if (target instanceof DeleteHandle) {
                 metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);

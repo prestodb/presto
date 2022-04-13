@@ -18,6 +18,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.TupleDomain.ColumnDomain;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -58,6 +59,7 @@ public final class HiveTableLayoutHandle
     private final String layoutString;
     private final Optional<Set<HiveColumnHandle>> requestedColumns;
     private final boolean partialAggregationsPushedDown;
+    private final Optional<Table> metastoreTable;
 
     // coordinator-only properties
     @Nullable
@@ -97,6 +99,7 @@ public final class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
+        this.metastoreTable = Optional.empty();
     }
 
     public HiveTableLayoutHandle(
@@ -115,7 +118,8 @@ public final class HiveTableLayoutHandle
             boolean pushdownFilterEnabled,
             String layoutString,
             Optional<Set<HiveColumnHandle>> requestedColumns,
-            boolean partialAggregationsPushedDown)
+            boolean partialAggregationsPushedDown,
+            Optional<Table> metastoreTable)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
@@ -133,6 +137,7 @@ public final class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
+        this.metastoreTable = requireNonNull(metastoreTable, "metastoreTable is null");
     }
 
     @JsonProperty
@@ -269,5 +274,10 @@ public final class HiveTableLayoutHandle
                 .put("remainingPredicate", remainingPredicate)
                 .put("bucketFilter", bucketFilter)
                 .build();
+    }
+
+    public Optional<Table> getMetastoreTable()
+    {
+        return metastoreTable;
     }
 }

@@ -124,7 +124,8 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))),
+                    Optional.empty()));
         }
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
@@ -139,7 +140,8 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)),
+                    Optional.empty()));
         }
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
@@ -154,13 +156,15 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))),
+                    Optional.empty()));
         }
 
         partitions.add(new HivePartition(
                 new SchemaTableName("test", "test"),
                 "null",
-                ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
+                ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)),
+                Optional.empty()));
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
     }

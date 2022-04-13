@@ -784,8 +784,9 @@ public class RaptorMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics)
     {
+        checkArgument(deprecatedFragments.isEmpty(), "deprecated fragments are unsupported");
         RaptorInsertTableHandle handle = (RaptorInsertTableHandle) insertHandle;
         long transactionId = handle.getTransactionId();
         long tableId = handle.getTableId();

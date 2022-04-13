@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
@@ -441,9 +442,16 @@ public class TestHiveRecoverableExecution
                 ImmutableMap.of(),
                 ImmutableMap.of());
 
-        return testSessionBuilder()
+        return setRecoverableSessionProperties(testSessionBuilder(), writerConcurrency, optimizedPartitionUpdateSerializationEnabled)
                 .setIdentity(identity)
-                .setSystemProperty(COLOCATED_JOIN, "true")
+                .setCatalog(HIVE_CATALOG)
+                .setSchema(TPCH_BUCKETED_SCHEMA)
+                .build();
+    }
+
+    public static Session.SessionBuilder setRecoverableSessionProperties(SessionBuilder builder, int writerConcurrency, boolean optimizedPartitionUpdateSerializationEnabled)
+    {
+        return builder.setSystemProperty(COLOCATED_JOIN, "true")
                 .setSystemProperty(GROUPED_EXECUTION, "true")
                 .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                 .setSystemProperty(RECOVERABLE_GROUPED_EXECUTION, "true")
@@ -456,9 +464,6 @@ public class TestHiveRecoverableExecution
                 .setSystemProperty(HASH_PARTITION_COUNT, "11")
                 .setSystemProperty(MAX_STAGE_RETRIES, "4")
                 .setCatalogSessionProperty(HIVE_CATALOG, VIRTUAL_BUCKET_COUNT, "16")
-                .setCatalogSessionProperty(HIVE_CATALOG, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
-                .setCatalog(HIVE_CATALOG)
-                .setSchema(TPCH_BUCKETED_SCHEMA)
-                .build();
+                .setCatalogSessionProperty(HIVE_CATALOG, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "");
     }
 }

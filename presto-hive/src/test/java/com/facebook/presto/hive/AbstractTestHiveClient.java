@@ -783,7 +783,7 @@ public abstract class AbstractTestHiveClient
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
-                ImmutableList.of(new HivePartition(invalidTable, "unknown", ImmutableMap.of())),
+                ImmutableList.of(new HivePartition(invalidTable, "unknown", ImmutableMap.of(), Optional.empty())),
                 TupleDomain.all(),
                 TRUE_CONSTANT,
                 ImmutableMap.of(),
@@ -793,7 +793,8 @@ public abstract class AbstractTestHiveClient
                 false,
                 "layout",
                 Optional.empty(),
-                false);
+                false,
+                Optional.empty());
 
         int partitionColumnIndex = MAX_PARTITION_KEY_COLUMN_INDEX;
         dsColumn = new HiveColumnHandle("ds", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), partitionColumnIndex--, PARTITION_KEY, Optional.empty(), Optional.empty());
@@ -810,28 +811,32 @@ public abstract class AbstractTestHiveClient
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("textfile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 1L))
-                                .build()))
+                                .build(),
+                                Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("sequencefile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 2L))
-                                .build()))
+                                .build(),
+                                Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=rctext/dummy=3",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rctext")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 3L))
-                                .build()))
+                                .build(),
+                                Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=rcbinary/dummy=4",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rcbinary")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 4L))
-                                .build()))
+                                .build(),
+                                Optional.empty()))
                 .build();
         partitionCount = partitions.size();
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29"))));
@@ -862,7 +867,8 @@ public abstract class AbstractTestHiveClient
                         false,
                         "layout",
                         Optional.empty(),
-                        false),
+                        false,
+                        Optional.empty()),
                 Optional.empty(),
                 withColumnDomains(ImmutableMap.of(
                         dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
@@ -907,7 +913,8 @@ public abstract class AbstractTestHiveClient
                 false,
                 "layout",
                 Optional.empty(),
-                false));
+                false,
+                Optional.empty()));
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(timeZoneId)));
     }
 
@@ -982,7 +989,14 @@ public abstract class AbstractTestHiveClient
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                new HiveSmallFragmentCoalescingPlanner(
+                        HiveTestUtils.PARTITION_UPDATE_CODEC,
+                        HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
+                        getHiveClientConfig(),
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new HivePartitionObjectBuilder(),
+                        new NodeVersion(TEST_SERVER_VERSION)));
         transactionManager = new HiveTransactionManager();
         encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of());
         splitManager = new HiveSplitManager(
@@ -1392,7 +1406,7 @@ public abstract class AbstractTestHiveClient
             sink.appendPage(dataBefore.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
-            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
+            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of(), ImmutableList.of());
 
             transaction.commit();
         }
@@ -1489,7 +1503,7 @@ public abstract class AbstractTestHiveClient
             sink.appendPage(dataAfter.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
-            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
+            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of(), ImmutableList.of());
 
             transaction.commit();
 
@@ -2096,7 +2110,8 @@ public abstract class AbstractTestHiveClient
                     false,
                     "layout",
                     Optional.empty(),
-                    false);
+                    false,
+                    Optional.empty());
 
             List<ConnectorSplit> splits = getAllSplits(session, transaction, modifiedReadBucketCountLayoutHandle);
             assertEquals(splits.size(), 16);
@@ -3242,7 +3257,7 @@ public abstract class AbstractTestHiveClient
             }
 
             // finish insert
-            metadata.finishInsert(session, insert, fragments, ImmutableList.of());
+            metadata.finishInsert(session, insert, fragments, ImmutableList.of(), ImmutableList.of());
 
             // Only one split since there is only one non empty bucket
             assertEquals(getAllSplits(transaction, tableHandle, TupleDomain.all()).size(), 1);
@@ -3339,7 +3354,7 @@ public abstract class AbstractTestHiveClient
             }
 
             // finish only second insert
-            metadata.finishInsert(session, secondInsert, secondFragments, ImmutableList.of());
+            metadata.finishInsert(session, secondInsert, secondFragments, ImmutableList.of(), ImmutableList.of());
 
             // no splits for empty buckets if zero row file is not created
             assertLessThanOrEqual(getAllSplits(transaction, tableHandle, TupleDomain.all()).size(), bucketCount);
@@ -4126,7 +4141,7 @@ public abstract class AbstractTestHiveClient
                 assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPageSinkAsync(session, insertTableHandle, fragments).get();
             }
-            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
+            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of(), ImmutableList.of());
 
             // statistics, visible from within transaction
             HiveBasicStatistics tableStatistics = getBasicStatisticsForTable(metastoreContext, transaction, tableName);
@@ -4348,7 +4363,7 @@ public abstract class AbstractTestHiveClient
                 assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPageSinkAsync(session, insertTableHandle, fragments).get();
             }
-            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
+            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of(), ImmutableList.of());
 
             // verify all temp files start with the unique prefix
             HdfsContext context = new HdfsContext(
@@ -4476,7 +4491,7 @@ public abstract class AbstractTestHiveClient
                 assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPageSinkAsync(session, insertTableHandle, fragments).get();
             }
-            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
+            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of(), ImmutableList.of());
 
             // verify all temp files start with the unique prefix
             HdfsContext context = new HdfsContext(
@@ -4637,7 +4652,7 @@ public abstract class AbstractTestHiveClient
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // commit the insert
-            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
+            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of(), ImmutableList.of());
             transaction.commit();
         }
 
@@ -5568,7 +5583,7 @@ public abstract class AbstractTestHiveClient
                 rollbackIfEquals(tag, ROLLBACK_AFTER_APPEND_PAGE);
                 Collection<Slice> fragments = getFutureValue(sink.finish());
                 rollbackIfEquals(tag, ROLLBACK_AFTER_SINK_FINISH);
-                metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
+                metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of(), ImmutableList.of());
                 rollbackIfEquals(tag, ROLLBACK_AFTER_FINISH_INSERT);
 
                 assertEquals(tag, COMMIT);

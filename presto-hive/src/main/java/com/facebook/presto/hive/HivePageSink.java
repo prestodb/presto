@@ -447,7 +447,7 @@ public class HivePageSink
     private void updateFileInfo(List<Slice> partitionUpdatesWithRenamedFileNames, SettableFuture<?> renamingFuture, PartitionUpdate partitionUpdate, String fileName, FileWriteInfo fileWriteInfo, int writerIndex)
     {
         // Update the file info in partitionUpdate with new filename
-        FileWriteInfo fileInfoWithRenamedFileName = new FileWriteInfo(fileName, fileName, fileWriteInfo.getFileSize());
+        FileWriteInfo fileInfoWithRenamedFileName = new FileWriteInfo(fileName, fileName, fileWriteInfo.getFileWriteStatistics());
         PartitionUpdate partitionUpdateWithRenamedFileName = new PartitionUpdate(partitionUpdate.getName(),
                 partitionUpdate.getUpdateMode(),
                 partitionUpdate.getWritePath(),

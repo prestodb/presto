@@ -192,6 +192,9 @@ Property Name                                      Description                  
                                                    S3SelectPushdown.
 
 ``hive.metastore.load-balancing-enabled``          Enable load balancing between multiple Metastore instances
+
+``hive.small-file-coalescing-threshold``           Data size threshold below which small files will be merged   ``0B``
+                                                   together to produce larger files. Set to 0 to disable.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties

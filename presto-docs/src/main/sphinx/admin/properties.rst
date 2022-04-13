@@ -53,6 +53,16 @@ General Properties
     redistributing all the data across the network. This can also be specified
     on a per-query basis using the ``redistribute_writes`` session property.
 
+``small-fragment-coalescing-scan-parallelism``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``32``
+
+    This property controls the number of concurrent scan threads used to coalesce small
+    fragments produced when writing out tables. This can also be specified on a per-query
+    basis using the ``small_fragment_coalescing_scan_parallelism`` session property.
+
 .. _tuning-memory:
 
 Memory Management Properties

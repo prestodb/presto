@@ -78,6 +78,7 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteFile;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getFileSystem;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isPrestoView;
@@ -117,7 +118,7 @@ public class SemiTransactionalHiveMetastore
 
     private final ExtendedHiveMetastore delegate;
     private final HdfsEnvironment hdfsEnvironment;
-    private final ListeningExecutorService renameExecutor;
+    private final ListeningExecutorService updateExecutor;
     private final ColumnConverterProvider columnConverterProvider;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
@@ -138,7 +139,7 @@ public class SemiTransactionalHiveMetastore
     public SemiTransactionalHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             ExtendedHiveMetastore delegate,
-            ListeningExecutorService renameExecutor,
+            ListeningExecutorService updateExecutor,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
             boolean undoMetastoreOperationsEnabled,
@@ -146,7 +147,7 @@ public class SemiTransactionalHiveMetastore
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.renameExecutor = requireNonNull(renameExecutor, "renameExecutor is null");
+        this.updateExecutor = requireNonNull(updateExecutor, "updateExecutor is null");
         this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
@@ -1199,6 +1200,44 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    /*
+     * Deprecated files will never be needed (they have been replaced) so deleting them eagerly
+     * keeps the rest of the transaction mechanisms working and avoids the data accidentally being read
+     */
+    public synchronized void deleteDeprecatedFiles(HdfsContext context, Path currentPath, List<String> deprecatedFileNames)
+    {
+        List<ListenableFuture<Boolean>> futures = asyncDelete(hdfsEnvironment, updateExecutor, context, currentPath, deprecatedFileNames);
+
+        ListenableFuture<Boolean> listenableFutureAggregate = whenAllSucceed(futures).call(() -> null, directExecutor());
+        try {
+            int failed = 0;
+            for (ListenableFuture<Boolean> future : futures) {
+                if (!getFutureValue(future, PrestoException.class)) {
+                    failed++;
+                }
+            }
+
+            /*
+             * Delete can time out with the file successfully deleted in which case the retry delete
+             * returns false. It's fine for this to happen occasionally, but if all files fail to delete it
+             * indicates that the wrong file names or paths were probably provided. So ignore it as long as some succeed.
+             */
+            if (futures.isEmpty() || (!futures.isEmpty() && failed / (double) futures.size() < 0.80)) {
+                log.debug("While deleting deprecated files encountered " + failed + " failures to delete out of " + futures.size());
+            }
+            else {
+                String message = "While deleting deprecated files encountered " + failed + " failures to delete out of " + futures.size();
+                log.error(message);
+                getFutureValue(listenableFutureAggregate, PrestoException.class);
+                throw new PrestoException(HIVE_FILESYSTEM_ERROR, message);
+            }
+        }
+        catch (RuntimeException e) {
+            listenableFutureAggregate.cancel(true);
+            throw e;
+        }
+    }
+
     private class Committer
     {
         private final AtomicBoolean fileRenameCancelled = new AtomicBoolean(false);
@@ -1316,7 +1355,7 @@ public class SemiTransactionalHiveMetastore
             Path currentPath = tableAndMore.getCurrentLocation().get();
             cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, false));
             if (!targetPath.equals(currentPath)) {
-                asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, tableAndMore.getFileNames().get());
+                asyncRename(hdfsEnvironment, updateExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, tableAndMore.getFileNames().get());
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(metastoreContext,
                     table.getSchemaTableName(),
@@ -1460,7 +1499,7 @@ public class SemiTransactionalHiveMetastore
             Path currentPath = partitionAndMore.getCurrentLocation();
             cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, false));
             if (!targetPath.equals(currentPath)) {
-                asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, partitionAndMore.getFileNames());
+                asyncRename(hdfsEnvironment, updateExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, partitionAndMore.getFileNames());
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(metastoreContext,
                     partition.getSchemaTableName(),
@@ -1959,6 +1998,20 @@ public class SemiTransactionalHiveMetastore
                 renameFile(fileSystem, source, target);
             }));
         }
+    }
+
+    private static List<ListenableFuture<Boolean>> asyncDelete(
+            HdfsEnvironment hdfsEnvironment,
+            ListeningExecutorService executor,
+            HdfsContext context,
+            Path currentPath,
+            List<String> fileNames)
+    {
+        FileSystem fileSystem = getFileSystem(hdfsEnvironment, context, currentPath);
+        return fileNames.stream().map(fileName -> {
+            Path path = new Path(currentPath, fileName);
+            return executor.submit(() -> deleteFile(fileSystem, path));
+        }).collect(toImmutableList());
     }
 
     private void recursiveDeleteFilesAndLog(HdfsContext context, Path directory, Set<String> queryIds, boolean deleteEmptyDirectories, String reason)

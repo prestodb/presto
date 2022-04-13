@@ -33,6 +33,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
@@ -65,7 +66,12 @@ public class BenchmarkGetPartitionsSample
             ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();
             SchemaTableName table = new SchemaTableName("schema", "table");
             for (int i = 0; i < TOTAL_SIZE; i++) {
-                partitions.add(new HivePartition(table, "partition_" + i, ImmutableMap.of()));
+                partitions.add(
+                        new HivePartition(
+                                table,
+                                "partition_" + i,
+                                ImmutableMap.of(),
+                                Optional.empty()));
             }
             this.partitions = partitions.build();
         }

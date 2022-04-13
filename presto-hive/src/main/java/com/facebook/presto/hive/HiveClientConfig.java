@@ -218,6 +218,8 @@ public class HiveClientConfig
     private boolean columnIndexFilterEnabled;
     private boolean fileSplittable = true;
 
+    private DataSize smallFileCoalescingThreshold = DataSize.succinctDataSize(0, MEGABYTE);
+
     @Min(0)
     public int getMaxInitialSplits()
     {
@@ -1845,5 +1847,18 @@ public class HiveClientConfig
     public boolean isHudiMetadataEnabled()
     {
         return this.hudiMetadataEnabled;
+    }
+
+    @Config("hive.small-file-coalescing-threshold")
+    @ConfigDescription("Coalesce together files smaller than this. Default is 0 bytes (disabled).")
+    public HiveClientConfig setSmallFileCoalescingThreshold(DataSize smallFileCoalescingThreshold)
+    {
+        this.smallFileCoalescingThreshold = smallFileCoalescingThreshold;
+        return this;
+    }
+
+    public DataSize getSmallFileCoalescingThreshold()
+    {
+        return smallFileCoalescingThreshold;
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.event.client.EventClient;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
@@ -103,6 +104,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 
 public class HiveWriterFactory
 {
+    private static final Logger LOGGER = Logger.get(HiveSmallFragmentCoalescingPlanner.class);
     private static final int MAX_BUCKET_COUNT = 100_000;
     private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
     private static final Iterable<Pattern> BUCKET_PATTERNS = ImmutableList.of(
@@ -365,6 +367,8 @@ public class HiveWriterFactory
         }
 
         Path path = new Path(writerParameters.getWriteInfo().getWritePath(), writeFileName);
+
+        LOGGER.info("HiveWriterFactory path to write " + path);
 
         HiveFileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {

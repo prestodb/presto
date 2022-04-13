@@ -40,6 +40,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveErrorCode.MALFORMED_HIVE_FILE_STATISTICS;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
+import static com.facebook.presto.hive.PartitionUpdate.FileWriteStatistics;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -100,12 +101,12 @@ public class HiveManifestUtils
         BlockBuilder fileNameBuilder = manifestBuilder.getBlockBuilder(0);
         BlockBuilder fileSizeBuilder = manifestBuilder.getBlockBuilder(1);
         for (FileWriteInfo fileWriteInfo : partitionUpdate.getFileWriteInfos()) {
-            if (!fileWriteInfo.getFileSize().isPresent()) {
+            if (!fileWriteInfo.getFileWriteStatistics().isPresent()) {
                 return Optional.empty();
             }
             manifestBuilder.declarePosition();
             VARCHAR.writeSlice(fileNameBuilder, utf8Slice(fileWriteInfo.getWriteFileName()));
-            BIGINT.writeLong(fileSizeBuilder, fileWriteInfo.getFileSize().get());
+            BIGINT.writeLong(fileSizeBuilder, fileWriteInfo.getFileWriteStatistics().get().getFileSize());
         }
         return Optional.of(manifestBuilder.build());
     }
@@ -124,7 +125,7 @@ public class HiveManifestUtils
         fileWriteInfos.sort(Comparator.comparing(info -> Integer.valueOf(info.getWriteFileName())));
 
         List<String> fileNames = fileWriteInfos.stream().map(FileWriteInfo::getWriteFileName).collect(toImmutableList());
-        List<Long> fileSizes = fileWriteInfos.stream().map(FileWriteInfo::getFileSize).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
+        List<Long> fileSizes = fileWriteInfos.stream().map(FileWriteInfo::getFileWriteStatistics).filter(Optional::isPresent).map(Optional::get).map(FileWriteStatistics::getFileSize).collect(toImmutableList());
 
         if (fileSizes.size() < fileNames.size()) {
             if (fileSizes.isEmpty()) {
@@ -160,7 +161,7 @@ public class HiveManifestUtils
             }
             List<FileWriteInfo> fileWriteInfos = partitionUpdate.getFileWriteInfos();
             return OptionalLong.of(compressFileNames(fileWriteInfos.stream().map(FileWriteInfo::getWriteFileName).collect(toImmutableList())).length()
-                    + compressFileSizes(fileWriteInfos.stream().map(FileWriteInfo::getFileSize).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList())).length());
+                    + compressFileSizes(fileWriteInfos.stream().map(FileWriteInfo::getFileWriteStatistics).filter(Optional::isPresent).map(Optional::get).map(FileWriteStatistics::getFileSize).collect(toImmutableList())).length());
         }
 
         return OptionalLong.empty();

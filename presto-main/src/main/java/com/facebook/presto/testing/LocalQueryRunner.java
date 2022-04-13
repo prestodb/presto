@@ -847,7 +847,8 @@ public class LocalQueryRunner
                 new RowExpressionDeterminismEvaluator(metadata),
                 new NoOpFragmentResultCacheManager(),
                 new ObjectMapper(),
-                standaloneSpillerFactory);
+                standaloneSpillerFactory,
+                splitManager);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();

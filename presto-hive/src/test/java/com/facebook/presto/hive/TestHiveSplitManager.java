@@ -512,7 +512,14 @@ public class TestHiveSplitManager
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                new HiveSmallFragmentCoalescingPlanner(
+                        HiveTestUtils.PARTITION_UPDATE_CODEC,
+                        HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
+                        hiveClientConfig,
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new HivePartitionObjectBuilder(),
+                        new NodeVersion(TEST_SERVER_VERSION)));
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),
@@ -543,7 +550,8 @@ public class TestHiveSplitManager
                 new HivePartition(
                         new SchemaTableName("test_schema", "test_table"),
                         PARTITION_NAME,
-                        ImmutableMap.of(partitionColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice(PARTITION_VALUE)))));
+                        ImmutableMap.of(partitionColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice(PARTITION_VALUE))),
+                        Optional.empty()));
         TupleDomain<Subfield> domainPredicate = queryTupleDomain
                 .transform(HiveColumnHandle.class::cast)
                 .transform(column -> new Subfield(column.getName(), ImmutableList.of()));
@@ -569,7 +577,8 @@ public class TestHiveSplitManager
                         false,
                         "layout",
                         Optional.empty(),
-                        false),
+                        false,
+                        Optional.empty()),
                 SPLIT_SCHEDULING_CONTEXT);
         List<Set<ColumnHandle>> actualRedundantColumnDomains = splitSource.getNextBatch(NOT_PARTITIONED, 100).get().getSplits().stream()
                 .map(HiveSplit.class::cast)

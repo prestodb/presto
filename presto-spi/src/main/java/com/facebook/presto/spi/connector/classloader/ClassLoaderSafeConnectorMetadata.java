@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSmallFragmentCoalescingPlan;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -446,10 +447,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishInsert(session, insertHandle, fragments, computedStatistics);
+            return delegate.finishInsert(session, insertHandle, fragments, deprecatedFragments, computedStatistics);
         }
     }
 
@@ -714,6 +715,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableLayoutFilterCoverage(tableHandle, relevantPartitionColumns);
+        }
+    }
+
+    @Override
+    public ConnectorSmallFragmentCoalescingPlan createSmallFragmentCoalescingPlan(ConnectorSession connectorSession, ConnectorInsertTableHandle connectorHandle, Collection<Slice> fragments)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.createSmallFragmentCoalescingPlan(connectorSession, connectorHandle, fragments);
         }
     }
 }

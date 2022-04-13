@@ -66,9 +66,9 @@ public class TestingSemiTransactionalHiveMetastore
 
     private List<String> partitionNames;
 
-    private TestingSemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, ListeningExecutorService renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback, boolean undoMetastoreOperationsEnabled, ColumnConverterProvider columnConverterProvider)
+    private TestingSemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, ListeningExecutorService updateExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback, boolean undoMetastoreOperationsEnabled, ColumnConverterProvider columnConverterProvider)
     {
-        super(hdfsEnvironment, delegate, renameExecutor, skipDeletionForAlter, skipTargetCleanupOnRollback, undoMetastoreOperationsEnabled, columnConverterProvider);
+        super(hdfsEnvironment, delegate, updateExecutor, skipDeletionForAlter, skipTargetCleanupOnRollback, undoMetastoreOperationsEnabled, columnConverterProvider);
     }
 
     public static TestingSemiTransactionalHiveMetastore create()
@@ -82,9 +82,9 @@ public class TestingSemiTransactionalHiveMetastore
         ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
         ExtendedHiveMetastore delegate = new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig), new HivePartitionMutator());
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
-        ListeningExecutorService renameExecutor = listeningDecorator(executor);
+        ListeningExecutorService updateExecutor = listeningDecorator(executor);
 
-        return new TestingSemiTransactionalHiveMetastore(hdfsEnvironment, delegate, renameExecutor, false, false, true, columnConverterProvider);
+        return new TestingSemiTransactionalHiveMetastore(hdfsEnvironment, delegate, updateExecutor, false, false, true, columnConverterProvider);
     }
 
     public void addTable(String database, String tableName, Table table, List<String> partitions)

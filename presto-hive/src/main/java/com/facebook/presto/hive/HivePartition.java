@@ -14,13 +14,16 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class HivePartition
@@ -30,20 +33,23 @@ public class HivePartition
     private final SchemaTableName tableName;
     private final String partitionId;
     private final Map<ColumnHandle, NullableValue> keys;
+    private final Optional<Partition> metastorePartition;
 
     public HivePartition(SchemaTableName tableName)
     {
-        this(tableName, UNPARTITIONED_ID, ImmutableMap.of());
+        this(tableName, UNPARTITIONED_ID, ImmutableMap.of(), Optional.empty());
     }
 
     public HivePartition(
             SchemaTableName tableName,
             String partitionId,
-            Map<ColumnHandle, NullableValue> keys)
+            Map<ColumnHandle, NullableValue> keys,
+            Optional<Partition> metastorePartition)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.partitionId = requireNonNull(partitionId, "partitionId is null");
         this.keys = ImmutableMap.copyOf(requireNonNull(keys, "keys is null"));
+        this.metastorePartition = requireNonNull(metastorePartition, "metastorePartition is null");
     }
 
     public SchemaTableName getTableName()
@@ -59,6 +65,22 @@ public class HivePartition
     public Map<ColumnHandle, NullableValue> getKeys()
     {
         return keys;
+    }
+
+    public boolean hasMetastorePartition()
+    {
+        return metastorePartition.isPresent();
+    }
+
+    public Optional<Partition> getMetastorePartition()
+    {
+        return metastorePartition;
+    }
+
+    public HivePartition withMetastorePartition(Partition metastorePartition)
+    {
+        checkState(!this.metastorePartition.isPresent() || metastorePartition.equals(this.metastorePartition.get()), "Metastore partition is already present and != to new one");
+        return new HivePartition(tableName, partitionId, keys, Optional.of(metastorePartition));
     }
 
     @Override

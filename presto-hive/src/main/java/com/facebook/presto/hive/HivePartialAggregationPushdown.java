@@ -263,7 +263,8 @@ public class HivePartialAggregationPushdown
                     oldTableLayoutHandle.isPushdownFilterEnabled(),
                     oldTableLayoutHandle.getLayoutString(),
                     oldTableLayoutHandle.getRequestedColumns(),
-                    true);
+                    true,
+                    Optional.empty());
 
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
