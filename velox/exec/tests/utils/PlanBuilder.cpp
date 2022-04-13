@@ -15,11 +15,12 @@
  */
 
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include <velox/exec/Aggregate.h>
-#include <velox/exec/HashPartitionFunction.h>
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/duckdb/conversion/DuckParser.h"
+#include "velox/exec/Aggregate.h"
+#include "velox/exec/HashPartitionFunction.h"
+#include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/parse/Expressions.h"
 #include "velox/type/tests/FilterBuilder.h"
@@ -647,14 +648,15 @@ PlanBuilder& PlanBuilder::finalAggregation() {
   const auto* aggNode = findPartialAggregation(planNode_.get());
 
   if (!exec::isRawInput(aggNode->step())) {
-    // Check the source node.
-    aggNode =
-        dynamic_cast<const core::AggregationNode*>(aggNode->sources()[0].get());
-    VELOX_CHECK_NOT_NULL(
-        aggNode,
-        "Plan node before current plan node must be a partial aggregation.");
-    VELOX_CHECK(exec::isRawInput(aggNode->step()));
-    VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
+    // If aggregation node is not the partial aggregation, keep looking again.
+    aggNode = findPartialAggregation(aggNode->sources()[0].get());
+    if (!exec::isRawInput(aggNode->step())) {
+      VELOX_CHECK_NOT_NULL(
+          aggNode,
+          "Plan node before current plan node must be a partial aggregation.");
+      VELOX_CHECK(exec::isRawInput(aggNode->step()));
+      VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
+    }
   }
 
   auto step = core::AggregationNode::Step::kFinal;
@@ -925,6 +927,26 @@ PlanBuilder& PlanBuilder::localPartition(
       nextPlanNodeId(),
       keys.empty() ? core::LocalPartitionNode::Type::kGather
                    : core::LocalPartitionNode::Type::kRepartition,
+      partitionFunctionFactory,
+      outputType,
+      sources);
+  return *this;
+}
+
+PlanBuilder& PlanBuilder::localPartitionRoundRobin(
+    const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
+    const std::vector<std::string>& outputLayout) {
+  VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
+  auto inputType = sources[0]->outputType();
+  auto outputType = outputLayout.empty() ? sources[0]->outputType()
+                                         : extract(inputType, outputLayout);
+  auto partitionFunctionFactory = [](auto numPartitions) {
+    return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
+        numPartitions);
+  };
+  planNode_ = std::make_shared<core::LocalPartitionNode>(
+      nextPlanNodeId(),
+      core::LocalPartitionNode::Type::kRepartition,
       partitionFunctionFactory,
       outputType,
       sources);

@@ -120,19 +120,19 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::FLAT);
+    decodedIntermediate_.decode(*args[0], rows);
 
-    auto vector = args[0]->asUnchecked<FlatVector<int64_t>>();
-    auto rawValues = vector->rawValues();
     int64_t count = 0;
-    if (vector->mayHaveNulls()) {
+    if (decodedIntermediate_.mayHaveNulls()) {
       rows.applyToSelected([&](vector_size_t i) {
-        if (!vector->isNullAt(i)) {
-          count += rawValues[i];
+        if (!decodedIntermediate_.isNullAt(i)) {
+          count += decodedIntermediate_.valueAt<int64_t>(i);
         }
       });
     } else {
-      rows.applyToSelected([&](vector_size_t i) { count += rawValues[i]; });
+      rows.applyToSelected([&](vector_size_t i) {
+        count += decodedIntermediate_.valueAt<int64_t>(i);
+      });
     }
 
     addToGroup(group, count);

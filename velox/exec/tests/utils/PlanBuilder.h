@@ -334,6 +334,10 @@ class PlanBuilder {
       const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
       const std::vector<std::string>& outputLayout = {});
 
+  PlanBuilder& localPartitionRoundRobin(
+      const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
+      const std::vector<std::string>& outputLayout = {});
+
   // 'leftKeys' and 'rightKeys' are column names of the output of the
   // previous PlanNode and 'build', respectively. 'output' is a subset of
   // column names from the left and right sides of the join to project out.
