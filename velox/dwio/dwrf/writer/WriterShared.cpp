@@ -247,6 +247,9 @@ bool WriterShared::shouldFlush(
   if (UNLIKELY(
           overBudget && !context.isLowMemoryMode() &&
           !flushPolicy_(false, context))) {
+    // The previous memory budget check made sure we have enough budget to
+    // flush with a conservative esitmate, which also makes sure we have
+    // enough to switch encoding as is.
     enterLowMemoryMode();
     // Recalculate memory usage due to encoding switch.
     overBudget = overMemoryBudget(context, nextWriteLength);
@@ -256,12 +259,6 @@ bool WriterShared::shouldFlush(
 
 void WriterShared::setLowMemoryMode() {
   getContext().setLowMemoryMode();
-}
-
-bool safeToSwitchEncoding(const WriterContext& context) {
-  return getTotalMemoryUsage(context) +
-      context.getEstimatedEncodingSwitchOverhead() >
-      context.getMemoryBudget();
 }
 
 // Low memory allows for the writer to write the same data with a lower
@@ -274,12 +271,9 @@ void WriterShared::enterLowMemoryMode() {
   auto& context = getContext();
   // Until we have capability to abandon dictionary after the first
   // stripe, do nothing and rely solely on flush to comply with budget.
-  // TODO: extract context.canSwitchEncoding().
   if (UNLIKELY(context.checkLowMemoryMode() && context.stripeIndex == 0)) {
-    if (safeToSwitchEncoding(context)) {
-      // Idempotent call to switch to less memory intensive encodings.
-      abandonDictionariesImpl();
-    }
+    // Idempotent call to switch to less memory intensive encodings.
+    abandonDictionariesImpl();
   }
 }
 

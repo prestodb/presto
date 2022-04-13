@@ -369,11 +369,6 @@ class WriterContext : public CompressionBufferPool {
     return ceil(flushOverheadRatioTracker_.getEstimatedRatio() * dataRawSize);
   }
 
-  // At this point we won't have data to estimate flush overhead.
-  int64_t getEstimatedEncodingSwitchOverhead() const {
-    return stripeRawSize;
-  }
-
   bool checkLowMemoryMode() const {
     return checkLowMemoryMode_;
   }
