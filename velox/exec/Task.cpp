@@ -417,6 +417,7 @@ void Task::createDriversLocked(
 void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
   bool foundDriver = false;
   bool allOutputDriversFinished = false;
+  TaskCompletionNotifier completionNotifier;
   {
     std::lock_guard<std::mutex> taskLock(self->mutex_);
     for (auto& driverPtr : self->drivers_) {
@@ -447,6 +448,10 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
       driverPtr = nullptr;
       self->driverClosedLocked();
 
+      if (self->checkIfFinishedLocked()) {
+        self->activateTaskCompletionNotifier(completionNotifier);
+      }
+
       // Check if a split group is finished.
       if (splitGroupState.numRunningDrivers == 0) {
         if (self->isGroupedExecution()) {
@@ -466,6 +471,8 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
   if (!foundDriver) {
     LOG(WARNING) << "Trying to remove a Driver twice from its Task";
   }
+
+  completionNotifier.notify();
 
   // TODO Add support for terminating processing early in grouped execution.
   if (self->isUngroupedExecution() && allOutputDriversFinished) {
@@ -640,7 +647,8 @@ void Task::noMoreSplitsForGroup(
 
 void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
   checkPlanNodeIdForSplit(planNodeId);
-  std::vector<ContinuePromise> promises;
+  std::vector<ContinuePromise> splitPromises;
+  TaskCompletionNotifier completionNotifier;
   {
     std::lock_guard<std::mutex> l(mutex_);
 
@@ -653,7 +661,7 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
       // Mark all split stores as 'no more splits'.
       for (auto& it : splitsState.groupSplitsStores) {
         it.second.noMoreSplits = true;
-        promises = std::move(it.second.splitPromises);
+        splitPromises = std::move(it.second.splitPromises);
       }
     } else if (isUngroupedExecution()) {
       // During ungrouped execution, in the unlikely case there are no split
@@ -661,16 +669,21 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
       splitsState.groupSplitsStores.emplace(0, SplitsStore{{}, true, {}});
     }
 
-    checkNoMoreSplitGroupsLocked();
+    if (checkNoMoreSplitGroupsLocked()) {
+      activateTaskCompletionNotifier(completionNotifier);
+    }
   }
-  for (auto& promise : promises) {
+
+  completionNotifier.notify();
+
+  for (auto& promise : splitPromises) {
     promise.setValue(false);
   }
 }
 
-void Task::checkNoMoreSplitGroupsLocked() {
+bool Task::checkNoMoreSplitGroupsLocked() {
   if (isUngroupedExecution()) {
-    return;
+    return false;
   }
 
   // For grouped execution, when all plan nodes have 'no more splits' coming,
@@ -692,8 +705,10 @@ void Task::checkNoMoreSplitGroupsLocked() {
           taskId(), numDriversInPartitionedOutput_ * seenSplitGroups_.size());
     }
 
-    checkIfFinishedLocked();
+    return checkIfFinishedLocked();
   }
+
+  return false;
 }
 
 bool Task::isAllSplitsFinishedLocked() {
@@ -821,21 +836,26 @@ int Task::getOutputPipelineId() const {
 
 void Task::setAllOutputConsumed() {
   bool terminateEarly = false;
+  TaskCompletionNotifier completionNotifier;
   {
     std::lock_guard<std::mutex> l(mutex_);
     partitionedOutputConsumed_ = true;
-    checkIfFinishedLocked();
+    if (checkIfFinishedLocked()) {
+      activateTaskCompletionNotifier(completionNotifier);
+    } else {
+      // TODO Add support for terminating processing early in grouped execution.
+      if (isUngroupedExecution() && !driverFactories_.empty()) {
+        auto outputPipelineId = getOutputPipelineId();
 
-    // TODO Add support for terminating processing early in grouped execution.
-    if (isUngroupedExecution() && !driverFactories_.empty()) {
-      auto outputPipelineId = getOutputPipelineId();
-
-      if (splitGroupStates_[0].numFinishedOutputDrivers ==
-          numDrivers(outputPipelineId)) {
-        terminateEarly = true;
+        if (splitGroupStates_[0].numFinishedOutputDrivers ==
+            numDrivers(outputPipelineId)) {
+          terminateEarly = true;
+        }
       }
     }
   }
+
+  completionNotifier.notify();
 
   if (terminateEarly) {
     terminate(TaskState::kFinished);
@@ -847,10 +867,9 @@ void Task::driverClosedLocked() {
     --numRunningDrivers_;
   }
   ++numFinishedDrivers_;
-  checkIfFinishedLocked();
 }
 
-void Task::checkIfFinishedLocked() {
+bool Task::checkIfFinishedLocked() {
   if ((numFinishedDrivers_ == numTotalDrivers_) && isRunningLocked()) {
     if (taskStats_.executionEndTimeMs == 0) {
       // In case we haven't set executionEndTimeMs due to all splits depleted,
@@ -861,9 +880,11 @@ void Task::checkIfFinishedLocked() {
     if ((not hasPartitionedOutput_) || partitionedOutputConsumed_) {
       taskStats_.endTimeMs = getCurrentTimeMs();
       state_ = TaskState::kFinished;
-      stateChangedLocked();
+      return true;
     }
   }
+
+  return false;
 }
 
 bool Task::allPeersFinished(
@@ -982,6 +1003,7 @@ static void movePromisesOut(
 
 ContinueFuture Task::terminate(TaskState terminalState) {
   std::vector<std::shared_ptr<Driver>> offThreadDrivers;
+  TaskCompletionNotifier completionNotifier;
   {
     std::lock_guard<std::mutex> l(mutex_);
     if (taskStats_.executionEndTimeMs == 0) {
@@ -1001,6 +1023,8 @@ ContinueFuture Task::terminate(TaskState terminalState) {
       }
     }
 
+    activateTaskCompletionNotifier(completionNotifier);
+
     // Drivers that are on thread will see this at latest when they go off
     // thread.
     terminateRequested_ = true;
@@ -1008,7 +1032,6 @@ ContinueFuture Task::terminate(TaskState terminalState) {
     // 'numRunningDrivers_' is cleared here so that this is 0 right
     // after terminate as tests expect.
     numRunningDrivers_ = 0;
-    stateChangedLocked();
     for (auto& driver : drivers_) {
       if (driver) {
         if (enterForTerminateLocked(driver->state()) ==
@@ -1019,6 +1042,8 @@ ContinueFuture Task::terminate(TaskState terminalState) {
       }
     }
   }
+
+  completionNotifier.notify();
 
   // Get the stats and free the resources of Drivers that were not on
   // thread.
@@ -1114,14 +1139,7 @@ uint64_t Task::timeSinceEndMs() const {
   return getCurrentTimeMs() - taskStats_.executionEndTimeMs;
 }
 
-void Task::stateChangedLocked() {
-  // TODO Move this logic outside of the lock. Satisfying promises triggers
-  // external callbacks which may try to acquire the lock and deadlock.
-  for (auto& promise : stateChangePromises_) {
-    promise.setValue(true);
-  }
-  stateChangePromises_.clear();
-
+void Task::onTaskCompletion() {
   listeners().withRLock([&](auto& listeners) {
     for (auto& listener : listeners) {
       listener->onTaskCompletion(uuid_, state_, exception_, taskStats_);
@@ -1459,5 +1477,30 @@ StopReason Task::shouldStopLocked() {
 ContinueFuture Task::requestPauseLocked(bool pause) {
   pauseRequested_ = pause;
   return makeFinishFutureLocked("Task::requestPause");
+}
+
+Task::TaskCompletionNotifier::~TaskCompletionNotifier() {
+  notify();
+}
+
+void Task::TaskCompletionNotifier::activate(
+    std::function<void()> callback,
+    std::vector<ContinuePromise> promises) {
+  active_ = true;
+  callback_ = callback;
+  promises_ = std::move(promises);
+}
+
+void Task::TaskCompletionNotifier::notify() {
+  if (active_) {
+    for (auto& promise : promises_) {
+      promise.setValue(true);
+    }
+    promises_.clear();
+
+    callback_();
+
+    active_ = false;
+  }
 }
 } // namespace facebook::velox::exec

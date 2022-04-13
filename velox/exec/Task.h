@@ -481,15 +481,20 @@ class Task : public std::enable_shared_from_this<Task> {
 
   void driverClosedLocked();
 
-  /// Checks if the Task is finished due to all drivers done and all output
-  /// consumed.
-  void checkIfFinishedLocked();
+  /// Returns true if Task is in kRunning state, but all drivers finished
+  /// processing and all output has been consumed. In other words, returns true
+  /// if task should transition to kFinished state.
+  bool checkIfFinishedLocked();
 
   /// Check if we have no more split groups coming and adjust the total number
-  /// of drivers if more split groups coming.
-  void checkNoMoreSplitGroupsLocked();
+  /// of drivers if more split groups coming. Returns true if Task is in
+  /// kRunning state, but no more split groups are commit and all drivers
+  /// finished processing and all output has been consumed. In other words,
+  /// returns true if task should transition to kFinished state.
+  bool checkNoMoreSplitGroupsLocked();
 
-  void stateChangedLocked();
+  /// Notifies listeners that the task is now complete.
+  void onTaskCompletion();
 
   // Returns true if all splits are finished processing and there are no more
   // splits coming for the task.
@@ -535,6 +540,36 @@ class Task : public std::enable_shared_from_this<Task> {
   }
 
   int getOutputPipelineId() const;
+
+  // RAII helper class to satisfy 'stateChangePromises_' and notify listeners
+  // that task is complete outside of the mutex. Inactive on creation. Must be
+  // activated explicitly by calling 'activate'.
+  class TaskCompletionNotifier {
+   public:
+    /// Calls notify() if it hasn't been called yet.
+    ~TaskCompletionNotifier();
+
+    /// Activates the notifier and provides a callback to invoke and promises to
+    /// satisfy on destruction or a call to 'notify'.
+    void activate(
+        std::function<void()> callback,
+        std::vector<ContinuePromise> promises);
+
+    /// Satisfies the promises passed to 'activate' and invokes the callback.
+    /// Does nothing if 'activate' hasn't been called or 'notify' has been
+    /// called already.
+    void notify();
+
+   private:
+    bool active_{false};
+    std::function<void()> callback_;
+    std::vector<ContinuePromise> promises_;
+  };
+
+  void activateTaskCompletionNotifier(TaskCompletionNotifier& notifier) {
+    notifier.activate(
+        [&]() { onTaskCompletion(); }, std::move(stateChangePromises_));
+  }
 
   /// Universally unique identifier of the task. Used to identify the task when
   /// calling TaskListener.
