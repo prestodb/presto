@@ -4881,6 +4881,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByWithConstants()
+    {
+        assertQuery("SELECT * FROM (SELECT regionkey, col, count(*) FROM (SELECT regionkey, 'bla' as col FROM nation) GROUP BY regionkey, col)");
+        assertQuery("select 'blah', * from (select regionkey, count(*) FROM nation GROUP BY regionkey)");
+        assertQuery("SELECT * FROM (SELECT col, count(*) FROM (SELECT 'bla' as col FROM nation) GROUP BY col)");
+        assertQuery("SELECT cnt FROM (SELECT col, count(*) as cnt FROM (SELECT 'bla' as col from nation) GROUP BY col)");
+        assertQuery("SELECT MIN(10), 1 as col1 GROUP BY 2");
+        assertQuery("SELECT col, 'bla' as const_col, count(*) FROM (SELECT 1 as col) GROUP BY 1,2");
+        assertQuery("SELECT AVG(x) FROM (SELECT 1 AS x, orderstatus FROM orders) GROUP BY x, orderstatus");
+    }
+
+    @Test
     public void testAccessControl()
     {
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
