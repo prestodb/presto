@@ -34,6 +34,7 @@ TEST(StringView, basic) {
     } else {
       EXPECT_EQ(view.data(), subText.data());
     }
+    EXPECT_EQ(view.materialize(), subText);
     EXPECT_EQ(view.getString(), subText);
     EXPECT_EQ(view, StringView(subText.data(), subText.size()));
 

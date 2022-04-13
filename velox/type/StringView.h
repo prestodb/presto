@@ -111,10 +111,6 @@ struct StringView {
     return size_;
   }
 
-  std::string getString() const {
-    return std::string(data(), size());
-  }
-
   friend std::ostream& operator<<(
       std::ostream& os,
       const StringView& stringView) {
@@ -191,16 +187,24 @@ struct StringView {
     return std::string(data(), size());
   }
 
+  std::string str() const {
+    return *this;
+  }
+
+  std::string getString() const {
+    return *this;
+  }
+
+  std::string materialize() const {
+    return *this;
+  }
+
   operator folly::dynamic() const {
     return folly::dynamic(folly::StringPiece(data(), size()));
   }
 
   explicit operator std::string_view() const {
     return std::string_view(data(), size());
-  }
-
-  std::string str() const {
-    return std::string(data(), size());
   }
 
   const char* begin() const {
