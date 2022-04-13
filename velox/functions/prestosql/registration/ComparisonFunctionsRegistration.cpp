@@ -16,11 +16,14 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Comparisons.h"
+#include "velox/type/Type.h"
 
 namespace facebook::velox::functions {
 
 void registerComparisonFunctions() {
   registerBinaryScalar<EqFunction, bool>({"eq"});
+  registerFunction<EqFunction, bool, Generic<T1>, Generic<T1>>({"eq"});
+
   registerBinaryScalar<NeqFunction, bool>({"neq"});
   registerBinaryScalar<LtFunction, bool>({"lt"});
   registerBinaryScalar<GtFunction, bool>({"gt"});

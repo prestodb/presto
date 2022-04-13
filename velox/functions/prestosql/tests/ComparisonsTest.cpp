@@ -75,3 +75,183 @@ TEST_F(ComparisonsTest, betweenDate) {
     EXPECT_EQ(result->valueAt(i), std::get<1>(testData[i])) << "at " << i;
   }
 }
+
+TEST_F(ComparisonsTest, eqArray) {
+  auto test =
+      [&](const std::optional<std::vector<std::optional<int64_t>>>& array1,
+          const std::optional<std::vector<std::optional<int64_t>>>& array2,
+          std::optional<bool> expected) {
+        auto vector1 = vectorMaker_.arrayVectorNullable<int64_t>({array1});
+        auto vector2 = vectorMaker_.arrayVectorNullable<int64_t>({array2});
+        auto result = evaluate<SimpleVector<bool>>(
+            "c0 == c1", makeRowVector({vector1, vector2}));
+
+        ASSERT_EQ(expected.has_value(), !result->isNullAt(0));
+        if (expected.has_value()) {
+          ASSERT_EQ(expected.value(), result->valueAt(0));
+        }
+      };
+
+  test(std::nullopt, std::nullopt, std::nullopt);
+  test(std::nullopt, {{1}}, std::nullopt);
+  test({{1}}, std::nullopt, std::nullopt);
+
+  test({{}}, {{}}, true);
+
+  test({{1, 2, 3}}, {{1, 2, 3}}, true);
+  test({{1, 2, 3}}, {{1, 2, 4}}, false);
+
+  // Checking the first element is enough to determine the result of the
+  // compare.
+  test({{1, std::nullopt}}, {{6, 2}}, false);
+
+  test({{1, std::nullopt}}, {{1, 2}}, std::nullopt);
+
+  // Different size arrays.
+  test({{}}, {{std::nullopt, std::nullopt}}, false);
+  test({{1, 2}}, {{1, 2, std::nullopt}}, false);
+  test(
+      {{std::nullopt, std::nullopt}},
+      {{std::nullopt, std::nullopt, std::nullopt}},
+      false);
+
+  test(
+      {{std::nullopt, std::nullopt}},
+      {{std::nullopt, std::nullopt}},
+      std::nullopt);
+}
+
+TEST_F(ComparisonsTest, eqMap) {
+  using map_t =
+      std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>>;
+  auto test =
+      [&](const map_t& map1, const map_t& map2, std::optional<bool> expected) {
+        auto vector1 = makeNullableMapVector<int64_t, int64_t>({map1});
+        auto vector2 = makeNullableMapVector<int64_t, int64_t>({map2});
+
+        auto result = evaluate<SimpleVector<bool>>(
+            "c0 == c1", makeRowVector({vector1, vector2}));
+
+        ASSERT_EQ(expected.has_value(), !result->isNullAt(0));
+
+        if (expected.has_value()) {
+          ASSERT_EQ(expected.value(), result->valueAt(0));
+        }
+      };
+
+  test({{{1, 2}, {3, 4}}}, {{{1, 2}, {3, 4}}}, true);
+
+  // Elements checked in sorted order.
+  test({{{3, 4}, {1, 2}}}, {{{1, 2}, {3, 4}}}, true);
+
+  test({{}}, {{}}, true);
+
+  test({{{1, 2}, {3, 5}}}, {{{1, 2}, {3, 4}}}, false);
+
+  test({{{1, 2}, {3, 4}}}, {{{11, 2}, {3, 4}}}, false);
+
+  // Null map entries.
+  test(std::nullopt, {{{1, 2}, {3, 4}}}, std::nullopt);
+  test({{{1, 2}, {3, 4}}}, std::nullopt, std::nullopt);
+
+  // Null in values should be read.
+  test({{{1, std::nullopt}, {3, 4}}}, {{{1, 2}, {3, 4}}}, std::nullopt);
+
+  test({{{1, 2}, {3, 4}}}, {{{1, 2}, {3, std::nullopt}}}, std::nullopt);
+
+  // Compare will find results before reading null.
+
+  // Keys are same, but first value is different.
+  test({{{1, 2}, {3, 4}}}, {{{1, 100}, {3, std::nullopt}}}, false);
+  test({{{3, 4}, {1, 2}}}, {{{3, std::nullopt}, {1, 100}}}, false);
+
+  // Keys are different.
+  test(
+      {{{1, std::nullopt}, {2, std::nullopt}}},
+      {{{1, std::nullopt}, {3, std::nullopt}}},
+      false);
+  test(
+      {{{2, std::nullopt}, {1, std::nullopt}}},
+      {{{1, std::nullopt}, {3, std::nullopt}}},
+      false);
+
+  // Different sizes.
+  test({{{1, 2}, {10, std::nullopt}}}, {{{1, std::nullopt}}}, false);
+  test({{{1, 2}, {10, std::nullopt}}}, {{{1, std::nullopt}}}, false);
+}
+
+TEST_F(ComparisonsTest, eqRow) {
+  auto test =
+      [&](const std::tuple<std::optional<int64_t>, std::optional<int64_t>>&
+              row1,
+          const std::tuple<std::optional<int64_t>, std::optional<int64_t>>&
+              row2,
+          std::optional<bool> expected) {
+        auto vector1 = vectorMaker_.rowVector(
+            {vectorMaker_.flatVectorNullable<int64_t>({std::get<0>(row1)}),
+             vectorMaker_.flatVectorNullable<int64_t>({std::get<1>(row1)})});
+
+        auto vector2 = vectorMaker_.rowVector(
+            {vectorMaker_.flatVectorNullable<int64_t>({std::get<0>(row2)}),
+             vectorMaker_.flatVectorNullable<int64_t>({std::get<1>(row2)})});
+
+        auto result = evaluate<SimpleVector<bool>>(
+            "c0 == c1", makeRowVector({vector1, vector2}));
+
+        ASSERT_EQ(expected.has_value(), !result->isNullAt(0));
+
+        if (expected.has_value()) {
+          ASSERT_EQ(expected.value(), result->valueAt(0));
+        }
+      };
+
+  test({1, 2}, {2, 3}, false);
+  test({1, 2}, {1, 2}, true);
+
+  test({2, std::nullopt}, {1, 2}, false);
+
+  test({1, 2}, {1, std::nullopt}, std::nullopt);
+  test({1, std::nullopt}, {1, 2}, std::nullopt);
+  test({1, 2}, {std::nullopt, 2}, std::nullopt);
+}
+
+TEST_F(ComparisonsTest, eqNestedComplex) {
+  // Comapre Row(Array<Array<int>>, int, Map<int, int>)
+  using array_type = std::optional<std::vector<std::optional<int64_t>>>;
+  array_type array1 = {{1, 2}};
+  array_type array2 = {{}};
+  array_type array3 = {{1, 100, 2}};
+
+  auto vector1 = makeNestedArrayVector<int64_t>({{array1, array2, array3}});
+  auto vector2 = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6});
+  auto vector3 = makeMapVector<int64_t, int64_t>({{{1, 2}, {3, 4}}});
+  auto row1 = makeRowVector({vector1, vector2, vector3});
+
+  // True result.
+  auto result =
+      evaluate<SimpleVector<bool>>("c0 == c1", makeRowVector({row1, row1}));
+  ASSERT_EQ(result->isNullAt(0), false);
+  ASSERT_EQ(result->valueAt(0), true);
+
+  // False result.
+  {
+    auto differentMap = makeMapVector<int64_t, int64_t>({{{1, 2}, {3, 10}}});
+    auto row2 = makeRowVector({vector1, vector2, differentMap});
+
+    auto result =
+        evaluate<SimpleVector<bool>>("c0 == c1", makeRowVector({row1, row2}));
+    ASSERT_EQ(result->isNullAt(0), false);
+    ASSERT_EQ(result->valueAt(0), false);
+  }
+
+  // Null result.
+  {
+    auto mapWithNull =
+        makeMapVector<int64_t, int64_t>({{{1, 2}, {3, std::nullopt}}});
+    auto row2 = makeRowVector({vector1, vector2, mapWithNull});
+
+    auto result =
+        evaluate<SimpleVector<bool>>("c0 == c1", makeRowVector({row1, row2}));
+    ASSERT_EQ(result->isNullAt(0), true);
+  }
+}
