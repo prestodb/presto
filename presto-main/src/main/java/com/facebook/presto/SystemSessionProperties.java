@@ -231,7 +231,7 @@ public final class SystemSessionProperties
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
     public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
     public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
-    public static final String ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT = "round_robin_shuffle_before_partial_distinct_limit";
+    public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1267,9 +1267,9 @@ public final class SystemSessionProperties
                         featuresConfig.getHyperloglogStandardErrorWarningThreshold(),
                         false),
                 booleanProperty(
-                        ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT,
-                        "Add a local roundrobin shuffle before partial distinct limit",
-                        featuresConfig.isRoundRobinShuffleBeforePartialDistinctLimit(),
+                        QUICK_DISTINCT_LIMIT_ENABLED,
+                        "Enable quick distinct limit queries that give results as soon as a new distinct value is found",
+                        featuresConfig.isQuickDistinctLimitEnabled(),
                         false));
     }
 
@@ -2131,8 +2131,8 @@ public final class SystemSessionProperties
         return session.getSystemProperty(HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD, Double.class);
     }
 
-    public static boolean isRoundRobinShuffleBeforePartialDistinctLimit(Session session)
+    public static boolean isQuickDistinctLimitEnabled(Session session)
     {
-        return session.getSystemProperty(ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT, Boolean.class);
+        return session.getSystemProperty(QUICK_DISTINCT_LIMIT_ENABLED, Boolean.class);
     }
 }
