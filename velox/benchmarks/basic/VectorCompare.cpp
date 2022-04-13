@@ -91,7 +91,7 @@ BENCHMARK_MULTI(compareSimilarSimpleFlat) {
   return benchmark->run(benchmark->flatVector_);
 }
 
-BENCHMARK_MULTI(compareSimilarSSimpleFlatNoDispatch) {
+BENCHMARK_MULTI(compareSimilarSimpleFlatNoDispatch) {
   return benchmark->runFastFlat();
 }
 
