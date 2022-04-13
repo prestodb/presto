@@ -223,6 +223,7 @@ public final class SystemSessionProperties
     public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
     public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
     public static final String PREFER_MERGE_JOIN = "prefer_merge_join";
+    public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1190,6 +1191,11 @@ public final class SystemSessionProperties
                                 "To make it work, the connector needs to guarantee and expose the data properties of the underlying table.",
                         featuresConfig.isPreferMergeJoin(),
                         true),
+                booleanProperty(
+                        SEGMENTED_AGGREGATION_ENABLED,
+                        "Enable segmented aggregation.",
+                        featuresConfig.isSegmentedAggregationEnabled(),
+                        true),
                 new PropertyMetadata<>(
                         AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY,
                         format("Set the strategy used to rewrite AGG IF to AGG FILTER. Options are %s",
@@ -2099,6 +2105,11 @@ public final class SystemSessionProperties
     public static boolean preferMergeJoin(Session session)
     {
         return session.getSystemProperty(PREFER_MERGE_JOIN, Boolean.class);
+    }
+
+    public static boolean isSegmentedAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(SEGMENTED_AGGREGATION_ENABLED, Boolean.class);
     }
 
     public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
