@@ -3,12 +3,12 @@ March 2022 Update
 ********************
 
 Documentation
--------------
+=============
 
 * Document :doc:`printPlanWithStats <../develop/debugging/print-plan-with-stats>` debugging tool.
 
 Core Library
-------------
+============
 
 * Add support for UNNEST WITH ORDINALITY for single array or map.
 * Add support for filter to INNER and LEFT merge joins.
@@ -29,7 +29,7 @@ Core Library
 * Fix crashes and correctness bugs in joins and aggregations.
 
 Presto Functions
-----------------
+================
 
 * Add support for CAST(x as JSON).
 * Add :func:`arrays_overlap` function.
@@ -38,7 +38,7 @@ Presto Functions
 * Fix :func:`approx_distinct` to return 0 instead of null with all inputs are null.
 
 Performance and Correctness Testing
------------------------------------
+===================================
 
 * Add linux-benchmarks-basic CircleCI job to run micro benchmarks on each PR. Initial set of benchmarks covers SelectivityVector, DecodedVector, simple comparisons and conjuncts.
 * Add TPC-H benchmark with support for q1, q6 and q18.
@@ -46,7 +46,7 @@ Performance and Correctness Testing
 * Add support for ORDER BY SQL clauses to PlanBuilder::localMerge() and PlanBuilder::orderBy().
 
 Debugging Experience
---------------------
+====================
 
 * Improve error messages in expression evaluation by including the expression being evaluated. :pr:`1138`
 * Improve error messages in CAST expression by including the to and from types. :pr:`1150`
@@ -56,7 +56,7 @@ Debugging Experience
 * Add runtime statistic "loadedToValueHook" to track number of values processed via aggregation pushdown into scan.
 
 Credits
--------
+=======
 
 Aditi Pandit, Amit Dutta, Amlan Nayak, Chad Austin, Chao Chen, David Greenberg,
 Deepak Majeti, Dimitri Bouche, Gilson Takaasi Gil, Hanqi Wu, Huameng Jiang,
@@ -68,10 +68,8 @@ Sridhar Anumandla, Victor Zverovich, Wei He, Wenlei Xie, Yoav Helfman, Yuan
 Chao Chou, Zhenyuan Zhao, tanjialiang
 
 
-********************
 Feature Of The Month
-********************
-
+====================
 
 Using vector readers/writers to simplify dealing with Velox vectors.
 --------------------------------------------------------------------
