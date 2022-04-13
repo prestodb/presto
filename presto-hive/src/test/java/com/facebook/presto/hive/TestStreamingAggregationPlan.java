@@ -247,38 +247,6 @@ public class TestStreamingAggregationPlan
     }
 
     @Test
-    public void testGroupbySupersetOfSortedKeys()
-    {
-        QueryRunner queryRunner = getQueryRunner();
-
-        try {
-            queryRunner.execute("CREATE TABLE test_customer7 WITH ( \n" +
-                    "  bucket_count = 4, bucketed_by = ARRAY['custkey'], \n" +
-                    "  sorted_by = ARRAY['custkey'], partitioned_by=array['ds'], \n" +
-                    "  format = 'DWRF' ) AS \n" +
-                    "SELECT *, '2021-07-11' as ds FROM customer LIMIT 1000\n");
-
-            // can't enable streaming aggregation, but streaming aggregation session property would disable splittable
-            assertPlan(
-                    streamingAggregationEnabled(),
-                    "SELECT custkey, name, COUNT(*) FROM test_customer7 \n" +
-                            "WHERE ds = '2021-07-11' GROUP BY 1, 2",
-                    anyTree(aggregation(
-                            singleGroupingSet("custkey", "name"),
-                            // note: partial aggregation function has no parameter
-                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
-                            ImmutableList.of(), // non-streaming
-                            ImmutableMap.of(),
-                            Optional.empty(),
-                            SINGLE,
-                            node(ProjectNode.class, tableScan("test_customer7", ImmutableMap.of("custkey", "custkey", "name", "name"))))));
-        }
-        finally {
-            queryRunner.execute("DROP TABLE IF EXISTS test_customer7");
-        }
-    }
-
-    @Test
     public void testGroupbyKeysNotPrefixOfSortedKeys()
     {
         QueryRunner queryRunner = getQueryRunner();
