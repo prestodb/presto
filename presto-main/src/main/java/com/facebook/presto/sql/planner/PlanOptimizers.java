@@ -75,6 +75,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownDereferences;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
@@ -415,7 +416,12 @@ public class PlanOptimizers
                                 new InlineProjections(metadata.getFunctionAndTypeManager()),
                                 new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject())),
-                new CheckSubqueryNodesAreRewritten());
+                new CheckSubqueryNodesAreRewritten(),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new PullConstantsAboveGroupBy())));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions

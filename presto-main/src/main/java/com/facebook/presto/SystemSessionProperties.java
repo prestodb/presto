@@ -178,6 +178,7 @@ public final class SystemSessionProperties
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
+    public static final String OPTIMIZE_CONSTANT_GROUPING_KEYS = "optimize_constant_grouping_keys";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
     public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
@@ -957,6 +958,11 @@ public final class SystemSessionProperties
                         PUSH_LIMIT_THROUGH_OUTER_JOIN,
                         "push limits to the outer side of an outer join",
                         featuresConfig.isPushLimitThroughOuterJoin(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_CONSTANT_GROUPING_KEYS,
+                        "Pull constant grouping keys above the group by",
+                        featuresConfig.isOptimizeConstantGroupingKeys(),
                         false),
                 integerProperty(
                         MAX_CONCURRENT_MATERIALIZATIONS,
@@ -2053,6 +2059,11 @@ public final class SystemSessionProperties
     public static boolean isPushLimitThroughOuterJoin(Session session)
     {
         return session.getSystemProperty(PUSH_LIMIT_THROUGH_OUTER_JOIN, Boolean.class);
+    }
+
+    public static boolean isOptimizeConstantGroupingKeys(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CONSTANT_GROUPING_KEYS, Boolean.class);
     }
 
     public static int getMaxConcurrentMaterializations(Session session)
