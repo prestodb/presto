@@ -70,7 +70,7 @@ public class TestStreamingAggregationPlan
 
             // even with streaming aggregation enabled, non-ordered table that can't be applied streaming aggregation would use hash based aggregation
             assertPlan(
-                    streamingAggregationEnabled(),
+                    orderBasedExecutionEnabled(),
                     "SELECT custkey, COUNT(*) FROM test_customer \n" +
                             "WHERE ds = '2021-07-11' GROUP BY 1",
                     aggregationPlanWithNoStreaming("test_customer", false, "custkey"));
@@ -102,7 +102,7 @@ public class TestStreamingAggregationPlan
 
             // streaming aggregation enabled
             assertPlan(
-                    streamingAggregationEnabled(),
+                    orderBasedExecutionEnabled(),
                     "SELECT custkey, COUNT(*) FROM test_customer2 \n" +
                             "WHERE ds = '2021-07-11' GROUP BY 1",
                     node(
@@ -137,14 +137,14 @@ public class TestStreamingAggregationPlan
 
             // can't enable stream
             assertPlan(
-                    streamingAggregationEnabled(),
+                    orderBasedExecutionEnabled(),
                     "SELECT custkey, COUNT(*) FROM test_customer3 \n" +
                             "WHERE ds = '2021-07-11' GROUP BY 1",
                     aggregationPlanWithNoStreaming("test_customer3", false, "custkey"));
 
             // can't enable stream
             assertPlan(
-                    streamingAggregationEnabled(),
+                    orderBasedExecutionEnabled(),
                     "SELECT name, COUNT(*) FROM test_customer3 \n" +
                             "WHERE ds = '2021-07-11' GROUP BY 1",
                     aggregationPlanWithNoStreaming("test_customer3", true, "name"));
@@ -168,7 +168,7 @@ public class TestStreamingAggregationPlan
 
             // streaming aggregation enabled
             assertPlan(
-                    streamingAggregationEnabled(),
+                    orderBasedExecutionEnabled(),
                     "SELECT custkey, name, COUNT(*) FROM test_customer4 \n" +
                             "WHERE ds = '2021-07-11' GROUP BY 1, 2",
                     node(
@@ -202,7 +202,7 @@ public class TestStreamingAggregationPlan
                     "SELECT *, '2021-07-11' as ds FROM customer LIMIT 1000\n");
 
             // can't enable stream
-            assertPlan(streamingAggregationEnabled(),
+            assertPlan(orderBasedExecutionEnabled(),
                     "SELECT custkey, COUNT(*) FROM test_customer5 \n" +
                             "WHERE ds = '2021-07-11' GROUP BY 1", aggregationPlanWithNoStreaming("test_customer5", false, "custkey"));
         }
@@ -225,7 +225,7 @@ public class TestStreamingAggregationPlan
                     "SELECT *, '2021-07-11' as ds FROM customer LIMIT 1000\n");
 
             // can enable streaming aggregation
-            assertPlan(streamingAggregationEnabled(),
+            assertPlan(orderBasedExecutionEnabled(),
                     "SELECT custkey, name, COUNT(*) FROM test_customer6 \n" +
                             "WHERE ds = '2021-07-11' GROUP BY 1, 2",
                     node(
@@ -246,7 +246,6 @@ public class TestStreamingAggregationPlan
         }
     }
 
-    @Test
     public void testGroupbyKeysNotPrefixOfSortedKeys()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -260,7 +259,7 @@ public class TestStreamingAggregationPlan
 
             // can't enable streaming aggregation
             assertPlan(
-                    streamingAggregationEnabled(),
+                    orderBasedExecutionEnabled(),
                     "SELECT name, COUNT(*) FROM test_customer8 \n" +
                             "WHERE ds = '2021-07-11' GROUP BY 1",
                     aggregationPlanWithNoStreaming("test_customer8", true, "name"));
@@ -289,7 +288,7 @@ public class TestStreamingAggregationPlan
 
             // can't enable streaming aggregation when querying multiple partitions without grouping by partition keys
             assertPlan(
-                    streamingAggregationEnabled(),
+                    orderBasedExecutionEnabled(),
                     "SELECT custkey, COUNT(*) FROM test_customer9 \n" +
                             "WHERE ds = '2021-07-11' or ds = '2021-07-12' GROUP BY 1",
                     aggregationPlanWithNoStreaming("test_customer9", false, "custkey"));
@@ -301,7 +300,7 @@ public class TestStreamingAggregationPlan
         }
     }
 
-    private Session streamingAggregationEnabled()
+    private Session orderBasedExecutionEnabled()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(HIVE_CATALOG, ORDER_BASED_EXECUTION_ENABLED, "true")
