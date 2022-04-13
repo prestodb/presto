@@ -56,7 +56,7 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUN
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
-import static com.facebook.presto.SystemSessionProperties.ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT;
+import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -965,10 +965,10 @@ public abstract class AbstractTestQueries
                 "HAVING COUNT(DISTINCT clerk) > 1");
     }
     @Test
-    public void testDistinctLimitWithRoundRobinShuffleBeforePartialDistinctLimit()
+    public void testDistinctLimitWithQuickDistinctLimitEnabled()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT, "true")
+                .setSystemProperty(QUICK_DISTINCT_LIMIT_ENABLED, "true")
                 .build();
         testDistinctLimitInternal(session);
     }
