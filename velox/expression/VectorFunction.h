@@ -131,8 +131,8 @@ class SimpleFunctionAdapterFactory {
 
 /// Returns a list of signatures supported by VectorFunction with the specified
 /// name. Returns std::nullopt if there is no function with the specified name.
-std::optional<std::vector<std::shared_ptr<FunctionSignature>>>
-getVectorFunctionSignatures(const std::string& name);
+std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(
+    const std::string& name);
 
 /// Returns an instance of VectorFunction for the given name, input types and
 /// optionally constant input values.
@@ -150,7 +150,7 @@ std::shared_ptr<VectorFunction> getVectorFunction(
 /// Returns true iff an new function is inserted
 bool registerVectorFunction(
     const std::string& name,
-    std::vector<std::shared_ptr<FunctionSignature>> signatures,
+    std::vector<FunctionSignaturePtr> signatures,
     std::unique_ptr<VectorFunction> func,
     bool overwrite = true);
 
@@ -166,7 +166,7 @@ using VectorFunctionFactory = std::function<std::shared_ptr<VectorFunction>(
     const std::vector<VectorFunctionArg>& inputArgs)>;
 
 struct VectorFunctionEntry {
-  std::vector<std::shared_ptr<FunctionSignature>> signatures;
+  std::vector<FunctionSignaturePtr> signatures;
   VectorFunctionFactory factory;
 };
 
@@ -198,7 +198,7 @@ VectorFunctionFactory makeVectorFunctionFactory() {
 // Returns true iff the function was inserted
 bool registerStatefulVectorFunction(
     const std::string& name,
-    std::vector<std::shared_ptr<FunctionSignature>> signatures,
+    std::vector<FunctionSignaturePtr> signatures,
     VectorFunctionFactory factory,
     bool overwrite = true);
 

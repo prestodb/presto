@@ -25,8 +25,8 @@ VectorFunctionMap& vectorFunctionFactories() {
   return factories;
 }
 
-std::optional<std::vector<std::shared_ptr<FunctionSignature>>>
-getVectorFunctionSignatures(const std::string& name) {
+std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(
+    const std::string& name) {
   return vectorFunctionFactories().withRLock([&name](auto& functions) -> auto {
     auto it = functions.find(name);
     return it == functions.end() ? std::nullopt
@@ -68,7 +68,7 @@ std::shared_ptr<VectorFunction> getVectorFunction(
 /// Returns true iff an insertion actually happened
 bool registerStatefulVectorFunction(
     const std::string& name,
-    std::vector<std::shared_ptr<FunctionSignature>> signatures,
+    std::vector<FunctionSignaturePtr> signatures,
     VectorFunctionFactory factory,
     bool overwrite) {
   if (overwrite) {
@@ -89,7 +89,7 @@ bool registerStatefulVectorFunction(
 // Returns true iff an insertion actually happened
 bool registerVectorFunction(
     const std::string& name,
-    std::vector<std::shared_ptr<FunctionSignature>> signatures,
+    std::vector<FunctionSignaturePtr> signatures,
     std::unique_ptr<VectorFunction> func,
     bool overwrite) {
   std::shared_ptr<VectorFunction> sharedFunc = std::move(func);

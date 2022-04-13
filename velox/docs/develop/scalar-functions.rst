@@ -142,7 +142,7 @@ an array:
   template <typename TExecParams>
   struct ArrayMinFunction {
     VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
-    
+
     template <typename TInput>
     FOLLY_ALWAYS_INLINE bool callNullFree(
         TInput& out,
@@ -182,7 +182,7 @@ An example of such function is rand():
   template <typename TExecParams>
   struct RandFunction {
     static constexpr bool is_deterministic = false;
-    
+
     FOLLY_ALWAYS_INLINE bool call(double& result) {
       result = folly::Random::randDouble01();
       return true;
@@ -214,10 +214,10 @@ Here is an example of a trim function:
   template <typename TExecParams>
   struct TrimFunction {
     VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
-    
+
     // ASCII input always produces ASCII result.
     static constexpr bool is_default_ascii_behavior = true;
-    
+
     // Properly handles multi-byte characters.
     FOLLY_ALWAYS_INLINE bool call(
         out_type<Varchar>& result,
@@ -225,7 +225,7 @@ Here is an example of a trim function:
       stringImpl::trimUnicodeWhiteSpace<leftTrim, rightTrim>(result, input);
       return true;
     }
-    
+
     // Assumes input is all ASCII.
     FOLLY_ALWAYS_INLINE bool callAscii(
         out_type<Varchar>& result,
@@ -276,15 +276,15 @@ properties and using it when processing inputs.
   template <typename TExecParams>
   struct HourFunction {
     VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
-    
+
     const date::time_zone* timeZone_ = nullptr;
-    
+
     FOLLY_ALWAYS_INLINE void initialize(
         const core::QueryConfig& config,
         const arg_type<Timestamp>* /*timestamp*/) {
       timeZone_ = getTimeZoneFromConfig(config);
     }
-    
+
     FOLLY_ALWAYS_INLINE bool call(
         int64_t& result,
         const arg_type<Timestamp>& timestamp) {
@@ -305,10 +305,10 @@ individual rows.
   template <typename TExecParams>
   struct DateTruncFunction {
     VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
-    
+
     const date::time_zone* timeZone_ = nullptr;
     std::optional<DateTimeUnit> unit_;
-    
+
     FOLLY_ALWAYS_INLINE void initialize(
         const core::QueryConfig& config,
         const arg_type<Varchar>* unitString,
@@ -318,7 +318,7 @@ individual rows.
         unit_ = fromDateTimeUnitString(*unitString);
       }
     }
-    
+
     FOLLY_ALWAYS_INLINE bool call(
         out_type<Timestamp>& result,
         const arg_type<Varchar>& unitString,
@@ -371,7 +371,7 @@ Here is an example with ceil function.
 .. code-block:: c++
 
   #include "velox/functions/prestosql/ArithmeticImpl.h"
-  
+
   template <typename TExecParams>
   struct CeilFunction {
     template <typename T>
@@ -504,7 +504,7 @@ ArrayView supports the following:
   template <typename T>
   struct ArraySum {
     VELOX_DEFINE_FUNCTION_TYPES(T);
-    
+
     bool call(const int64_t& output, const arg_type<Array<int64_t>>& array) {
       output = 0;
       for (const auto& value : array.skipNulls()) {
@@ -1023,7 +1023,7 @@ Use f4d::exec::registerVectorFunction to register a stateless vector function.
 
     bool registerVectorFunction(
         const std::string& name,
-        std::vector<std::shared_ptr<FunctionSignature>> signatures,
+        std::vector<FunctionSignaturePtr> signatures,
         std::unique_ptr<VectorFunction> func,
         bool overwrite = true)
 
@@ -1039,7 +1039,7 @@ function.
 
     bool registerStatefulVectorFunction(
         const std::string& name,
-        std::vector<std::shared_ptr<FunctionSignature>> signatures,
+        std::vector<FunctionSignaturePtr> signatures,
         VectorFunctionFactory factory,
         bool overwrite = true)
 

@@ -120,6 +120,8 @@ class FunctionSignature {
   const bool variableArity_;
 };
 
+using FunctionSignaturePtr = std::shared_ptr<FunctionSignature>;
+
 class AggregateFunctionSignature : public FunctionSignature {
  public:
   AggregateFunctionSignature(
@@ -194,7 +196,7 @@ class FunctionSignatureBuilder {
     return *this;
   }
 
-  std::shared_ptr<FunctionSignature> build();
+  FunctionSignaturePtr build();
 
  private:
   std::vector<TypeVariableConstraint> typeVariableConstants_;

@@ -174,7 +174,7 @@ FunctionSignature::FunctionSignature(
   validate(typeVariableConstants_, returnType_, argumentTypes_);
 }
 
-std::shared_ptr<FunctionSignature> FunctionSignatureBuilder::build() {
+FunctionSignaturePtr FunctionSignatureBuilder::build() {
   VELOX_CHECK(returnType_.has_value());
   return std::make_shared<FunctionSignature>(
       std::move(typeVariableConstants_),
