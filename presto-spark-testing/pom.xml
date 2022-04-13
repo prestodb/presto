@@ -97,12 +97,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-            <scope>test</scope>
-        </dependency>
-
         <!-- Just to make sure these two packages are built before the presto-spark-testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>

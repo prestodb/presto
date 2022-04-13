@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import io.airlift.units.Duration;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -40,6 +39,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Paths;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -85,7 +85,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPrestoSparkLauncherIntegrationSmokeTest
 {
     private static final Logger log = Logger.get(TestPrestoSparkLauncherIntegrationSmokeTest.class);
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final ZoneId TIME_ZONE = ZoneId.of("America/Bahia_Banderas");
 
     private File tempDir;
     private File sparkWorkDirectory;
@@ -104,7 +104,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
     public void setUp()
             throws Exception
     {
-        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+        assertEquals(ZoneId.systemDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
         // the default temporary directory location on MacOS is not sharable to docker
         tempDir = new File("/tmp", randomUUID().toString());
         createDirectories(tempDir.toPath());
@@ -136,7 +136,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 hiveConnectorFactory,
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://127.0.0.1:9083",
-                        "hive.time-zone", TIME_ZONE.getID(),
+                        "hive.time-zone", TIME_ZONE.getId(),
                         "hive.experimental-optimized-partition-update-serialization-enabled", "true"));
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
         // it may take some time for the docker container to start
@@ -161,7 +161,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 // hadoop native cannot be run within the spark docker container
                 // the getnetgrent dependency is missing
                 "hive.dfs.require-hadoop-native", "false",
-                "hive.time-zone", TIME_ZONE.getID()));
+                "hive.time-zone", TIME_ZONE.getId()));
         storeProperties(new File(catalogDirectory, "tpch.properties"), ImmutableMap.of(
                 "connector.name", "tpch",
                 "tpch.splits-per-node", "4",
