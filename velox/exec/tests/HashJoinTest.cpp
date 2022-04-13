@@ -730,14 +730,9 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
   // Push-down that requires merging filters.
   {
-    auto filters =
-        common::test::singleSubfieldFilter("c0", common::test::lessThan(500));
     core::PlanNodeId leftScanId;
     auto op = PlanBuilder(planNodeIdGenerator)
-                  .tableScan(
-                      probeType,
-                      makeTableHandle(std::move(filters)),
-                      allRegularColumns(probeType))
+                  .tableScan(probeType, {"c0 < 500::INTEGER"})
                   .capturePlanNodeId(leftScanId)
                   .hashJoin({"c0"}, {"u_c0"}, buildSide, "", {"c1", "u_c1"})
                   .project({"c1 + u_c1"})
@@ -776,14 +771,9 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
   // Push-down that requires merging filters and turns join into a no-op.
   {
-    auto filters =
-        common::test::singleSubfieldFilter("c0", common::test::lessThan(500));
     core::PlanNodeId leftScanId;
     auto op = PlanBuilder(planNodeIdGenerator)
-                  .tableScan(
-                      probeType,
-                      makeTableHandle(std::move(filters)),
-                      allRegularColumns(probeType))
+                  .tableScan(probeType, {"c0 < 500::INTEGER"})
                   .capturePlanNodeId(leftScanId)
                   .hashJoin({"c0"}, {"u_c0"}, keyOnlyBuildSide, "", {"c1"})
                   .project({"c1 + 1"})
@@ -802,14 +792,10 @@ TEST_F(HashJoinTest, dynamicFilters) {
   // Push-down with highly selective filter in the scan.
   {
     // Inner join.
-    auto filters =
-        common::test::singleSubfieldFilter("c0", common::test::lessThan(200));
-    auto probeTableHandle = makeTableHandle(std::move(filters));
     core::PlanNodeId leftScanId;
     auto op =
         PlanBuilder(planNodeIdGenerator)
-            .tableScan(
-                probeType, probeTableHandle, allRegularColumns(probeType))
+            .tableScan(probeType, {"c0 < 200::INTEGER"})
             .capturePlanNodeId(leftScanId)
             .hashJoin(
                 {"c0"}, {"u_c0"}, buildSide, "", {"c1"}, core::JoinType::kInner)
@@ -827,8 +813,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     // Semi join.
     op = PlanBuilder(planNodeIdGenerator)
-             .tableScan(
-                 probeType, probeTableHandle, allRegularColumns(probeType))
+             .tableScan(probeType, {"c0 < 200::INTEGER"})
              .capturePlanNodeId(leftScanId)
              .hashJoin(
                  {"c0"}, {"u_c0"}, buildSide, "", {"c1"}, core::JoinType::kSemi)

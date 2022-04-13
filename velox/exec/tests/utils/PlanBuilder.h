@@ -54,7 +54,20 @@ class PlanBuilder {
   explicit PlanBuilder(memory::MemoryPool* pool = nullptr)
       : PlanBuilder(std::make_shared<PlanNodeIdGenerator>(), pool) {}
 
-  PlanBuilder& tableScan(const RowTypePtr& outputType);
+  /// Add a TableScanNode to scan a Hive table.
+  ///
+  /// @param outputType List of column names and types to read from the table.
+  /// @param subfieldFilters A list of SQL expressions for the range filters to
+  /// apply to individual columns. Supported filters are: column <= value,
+  /// column < value, column >= value, column > value, column = value, column IN
+  /// (v1, v2,.. vN), column < v1 OR column >= v2.
+  /// @param remainingFilter SQL expression for the additional conjunct. May
+  /// include multiple columns and SQL functions. The remainingFilter is AND'ed
+  /// with all the subfieldFilters.
+  PlanBuilder& tableScan(
+      const RowTypePtr& outputType,
+      const std::vector<std::string>& subfieldFilters = {},
+      const std::string& remainingFilter = "");
 
   PlanBuilder& tableScan(
       const RowTypePtr& outputType,
