@@ -141,6 +141,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_MAP_SUBSCRIPT = "do_not_use_legacy_map_subscript";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
+    public static final String QUERY_ANALYZER_TIMEOUT = "query_analyzer_timeout";
     public static final String RUNTIME_OPTIMIZER_ENABLED = "runtime_optimizer_enabled";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String EXCHANGE_CHECKSUM = "exchange_checksum";
@@ -741,6 +742,15 @@ public final class SystemSessionProperties
                         VARCHAR,
                         Duration.class,
                         featuresConfig.getIterativeOptimizerTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                new PropertyMetadata<>(
+                        QUERY_ANALYZER_TIMEOUT,
+                        "Maximum processing time for query analyzer",
+                        VARCHAR,
+                        Duration.class,
+                        featuresConfig.getQueryAnalyzerTimeout(),
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
@@ -1700,6 +1710,11 @@ public final class SystemSessionProperties
     public static Duration getOptimizerTimeout(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, Duration.class);
+    }
+
+    public static Duration getQueryAnalyzerTimeout(Session session)
+    {
+        return session.getSystemProperty(QUERY_ANALYZER_TIMEOUT, Duration.class);
     }
 
     public static boolean isExchangeCompressionEnabled(Session session)
