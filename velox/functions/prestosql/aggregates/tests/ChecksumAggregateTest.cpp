@@ -43,44 +43,57 @@ class ChecksumAggregateTest : public AggregationTestBase {
       VectorPtr inputVector,
       const std::string& expectedChecksum) {
     auto rowVectors = std::vector{makeRowVector({inputVector})};
+    const auto expectedDuckDbSql =
+        fmt::format("VALUES (CAST(\'{}\' AS VARCHAR))", expectedChecksum);
 
     // DuckDB doesnt have checksum aggregation, so we will just pass in
     // expected values to compare.
-    {
-      auto agg = PlanBuilder()
-                     .values(rowVectors)
-                     .partialAggregation({}, {"checksum(c0)"})
-                     .finalAggregation()
-                     .project({"to_base64(a0) as c0"})
-                     .planNode();
-      assertQuery(
-          agg,
-          fmt::format("VALUES (CAST(\'{}\' AS VARCHAR))", expectedChecksum));
-    }
+    auto agg = PlanBuilder()
+                   .values(rowVectors)
+                   .partialAggregation({}, {"checksum(c0)"})
+                   .finalAggregation()
+                   .project({"to_base64(a0) as c0"})
+                   .planNode();
+    assertQuery(agg, expectedDuckDbSql);
 
-    {
-      auto agg = PlanBuilder()
-                     .values(rowVectors)
-                     .singleAggregation({}, {"checksum(c0)"})
-                     .project({"to_base64(a0) as c0"})
-                     .planNode();
-      assertQuery(
-          agg,
-          fmt::format("VALUES (CAST(\'{}\' AS VARCHAR))", expectedChecksum));
-    }
+    agg = PlanBuilder()
+              .values(rowVectors)
+              .singleAggregation({}, {"checksum(c0)"})
+              .project({"to_base64(a0) as c0"})
+              .planNode();
+    assertQuery(agg, expectedDuckDbSql);
 
-    {
-      auto agg = PlanBuilder()
-                     .values(rowVectors)
-                     .partialAggregation({}, {"checksum(c0)"})
+    agg = PlanBuilder()
+              .values(rowVectors)
+              .partialAggregation({}, {"checksum(c0)"})
+              .intermediateAggregation()
+              .finalAggregation()
+              .project({"to_base64(a0) as c0"})
+              .planNode();
+    assertQuery(agg, expectedDuckDbSql);
+
+    // Add local exchange before intermediate aggregation.
+    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    CursorParameters params;
+    params.planNode =
+        PlanBuilder(planNodeIdGenerator)
+            .localPartition(
+                {},
+                {PlanBuilder(planNodeIdGenerator)
+                     .localPartitionRoundRobin(
+                         {PlanBuilder(planNodeIdGenerator)
+                              .values(rowVectors)
+                              .partialAggregation({}, {"checksum(c0)"})
+                              .planNode()})
                      .intermediateAggregation()
-                     .finalAggregation()
-                     .project({"to_base64(a0) as c0"})
-                     .planNode();
-      assertQuery(
-          agg,
-          fmt::format("VALUES (CAST(\'{}\' AS VARCHAR))", expectedChecksum));
-    }
+                     .planNode()})
+            .finalAggregation()
+            .project({"to_base64(a0) as c0"})
+            .planNode();
+
+    params.maxDrivers = 2;
+
+    assertQuery(params, expectedDuckDbSql);
   }
 
   template <typename G, typename T>
@@ -107,32 +120,29 @@ class ChecksumAggregateTest : public AggregationTestBase {
     assertQuery(agg, "VALUES " + boost::algorithm::join(expectedResults, ","));
 
     // Add local exchange before intermediate aggregation.
-    {
-      std::vector<std::string> expectedInts;
-      expectedInts.reserve(expectedChecksums.size());
-      for (const auto& checksum : expectedChecksums) {
-        expectedInts.push_back(
-            fmt::format("({}::bigint)", decodeChecksum(checksum)));
-      }
-
-      auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-
-      CursorParameters params;
-      params.planNode = PlanBuilder(planNodeIdGenerator)
-                            .localPartition(
-                                {"c0"},
-                                {PlanBuilder(planNodeIdGenerator)
-                                     .values(rowVectors)
-                                     .partialAggregation({0}, {"checksum(c1)"})
-                                     .planNode()})
-                            .intermediateAggregation()
-                            .project({"a0"})
-                            .planNode();
-      params.maxDrivers = 2;
-
-      assertQuery(
-          params, "VALUES " + boost::algorithm::join(expectedInts, ","));
+    std::vector<std::string> expectedInts;
+    expectedInts.reserve(expectedChecksums.size());
+    for (const auto& checksum : expectedChecksums) {
+      expectedInts.push_back(
+          fmt::format("({}::bigint)", decodeChecksum(checksum)));
     }
+
+    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+
+    CursorParameters params;
+    params.planNode = PlanBuilder(planNodeIdGenerator)
+                          .localPartition(
+                              {"c0"},
+                              {PlanBuilder(planNodeIdGenerator)
+                                   .values(rowVectors)
+                                   .partialAggregation({0}, {"checksum(c1)"})
+                                   .planNode()})
+                          .intermediateAggregation()
+                          .project({"a0"})
+                          .planNode();
+    params.maxDrivers = 2;
+
+    assertQuery(params, "VALUES " + boost::algorithm::join(expectedInts, ","));
   }
 
   template <typename T>

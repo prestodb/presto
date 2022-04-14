@@ -40,109 +40,85 @@ TEST_F(CountAggregation, count) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {"count(1)"})
-                   .planNode();
-    assertQuery(agg, "SELECT count(1) FROM tmp");
-  }
+  auto agg = PlanBuilder()
+                 .values(vectors)
+                 .partialAggregation({}, {"count(1)"})
+                 .planNode();
+  assertQuery(agg, "SELECT count(1) FROM tmp");
 
-  {
-    // count over column with nulls; only non-null rows should be counted
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {"count(c1)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT count(c1) FROM tmp");
-  }
-
-  {
-    // count over zero rows; the result should be 0, not null
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .filter("c0 % 3 > 5")
-                   .partialAggregation({}, {"count(c1)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT count(c1) FROM tmp WHERE c0 % 3 > 5");
-  }
-
-  {
-    // final count aggregation is a sum of partial counts
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .project({"cast(c1 as bigint) AS c1_bigint"})
-                   .finalAggregation({}, {"count(c1_bigint)"}, {BIGINT()})
-                   .planNode();
-    assertQuery(agg, "SELECT sum(c1) FROM tmp");
-  }
-
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .project({"c0 % 10", "c1"})
-                   .partialAggregation({0}, {"count(1)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT c0 % 10, count(1) FROM tmp GROUP BY 1");
-  }
-
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .project({"c0 % 10 AS c0_mod_10", "c7"})
-                   .partialAggregation({0}, {"count(c7)"})
-                   .planNode();
-    assertQuery(agg, "SELECT c0 % 10, count(c7) FROM tmp GROUP BY 1");
-  }
-
-  // Add local exchange before intermediate aggregation.
-  {
-    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-
-    CursorParameters params;
-    params.planNode = PlanBuilder(planNodeIdGenerator)
-                          .localPartition(
-                              {"p0"},
-                              {PlanBuilder(planNodeIdGenerator)
-                                   .values(vectors)
-                                   .project({"c0 % 10", "c1"})
-                                   .partialAggregation({0}, {"count(1)"})
-                                   .planNode()})
-                          .intermediateAggregation()
-                          .planNode();
-    params.maxDrivers = 2;
-
-    assertQuery(params, "SELECT c0 % 10, count(1) FROM tmp GROUP BY 1");
-  }
-
-  // Add local exchange before intermediate aggregation. Single group.
-  {
-    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-
-    CursorParameters params;
-    params.planNode =
-        PlanBuilder(planNodeIdGenerator)
-            .localPartition(
-                {},
-                {PlanBuilder(planNodeIdGenerator)
-                     .localPartitionRoundRobin(
-                         {PlanBuilder(planNodeIdGenerator)
-                              .values(vectors)
-                              .project({"c0"})
-                              .partialAggregation({}, {"count(1)"})
-                              .planNode()})
-                     .intermediateAggregation()
-                     .planNode()})
+  // count over column with nulls; only non-null rows should be counted
+  agg = PlanBuilder()
+            .values(vectors)
+            .partialAggregation({}, {"count(c1)"})
             .finalAggregation()
             .planNode();
+  assertQuery(agg, "SELECT count(c1) FROM tmp");
 
-    params.maxDrivers = 2;
+  // count over zero rows; the result should be 0, not null
+  agg = PlanBuilder()
+            .values(vectors)
+            .filter("c0 % 3 > 5")
+            .partialAggregation({}, {"count(c1)"})
+            .finalAggregation()
+            .planNode();
+  assertQuery(agg, "SELECT count(c1) FROM tmp WHERE c0 % 3 > 5");
 
-    assertQuery(params, "SELECT count(1) FROM tmp");
-  }
+  // final count aggregation is a sum of partial counts
+  agg = PlanBuilder()
+            .values(vectors)
+            .project({"cast(c1 as bigint) AS c1_bigint"})
+            .finalAggregation({}, {"count(c1_bigint)"}, {BIGINT()})
+            .planNode();
+  assertQuery(agg, "SELECT sum(c1) FROM tmp");
+
+  agg = PlanBuilder()
+            .values(vectors)
+            .project({"c0 % 10", "c1"})
+            .partialAggregation({0}, {"count(1)"})
+            .finalAggregation()
+            .planNode();
+  assertQuery(agg, "SELECT c0 % 10, count(1) FROM tmp GROUP BY 1");
+
+  agg = PlanBuilder()
+            .values(vectors)
+            .project({"c0 % 10 AS c0_mod_10", "c7"})
+            .partialAggregation({0}, {"count(c7)"})
+            .planNode();
+  assertQuery(agg, "SELECT c0 % 10, count(c7) FROM tmp GROUP BY 1");
+
+  // Add local exchange before intermediate aggregation.
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+
+  CursorParameters params;
+  params.planNode = PlanBuilder(planNodeIdGenerator)
+                        .localPartition(
+                            {"p0"},
+                            {PlanBuilder(planNodeIdGenerator)
+                                 .values(vectors)
+                                 .project({"c0 % 10", "c1"})
+                                 .partialAggregation({0}, {"count(1)"})
+                                 .planNode()})
+                        .intermediateAggregation()
+                        .planNode();
+  params.maxDrivers = 2;
+  assertQuery(params, "SELECT c0 % 10, count(1) FROM tmp GROUP BY 1");
+
+  // Add local exchange before intermediate aggregation. Single group.
+  params.planNode = PlanBuilder(planNodeIdGenerator)
+                        .localPartition(
+                            {},
+                            {PlanBuilder(planNodeIdGenerator)
+                                 .localPartitionRoundRobin(
+                                     {PlanBuilder(planNodeIdGenerator)
+                                          .values(vectors)
+                                          .project({"c0"})
+                                          .partialAggregation({}, {"count(1)"})
+                                          .planNode()})
+                                 .intermediateAggregation()
+                                 .planNode()})
+                        .finalAggregation()
+                        .planNode();
+  assertQuery(params, "SELECT count(1) FROM tmp");
 }
 
 } // namespace

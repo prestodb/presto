@@ -172,18 +172,19 @@ class MapAggAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
+    decodedIntermediate_.decode(*args[0], rows);
+
     auto accumulator = value<MapAccumulator>(group);
+    auto mapVector = decodedIntermediate_.base()->as<MapVector>();
     auto& keys = accumulator->keys;
     auto& values = accumulator->values;
 
-    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::MAP);
-    auto mapVector = args[0]->as<MapVector>();
     auto& mapKeys = mapVector->mapKeys();
     auto& mapValues = mapVector->mapValues();
-    auto tracker = trackRowSize(group);
     rows.applyToSelected([&](vector_size_t row) {
-      auto offset = mapVector->offsetAt(row);
-      auto size = mapVector->sizeAt(row);
+      auto decodedRow = decodedIntermediate_.index(row);
+      auto offset = mapVector->offsetAt(decodedRow);
+      auto size = mapVector->sizeAt(decodedRow);
       keys.appendRange(mapKeys, offset, size, allocator_);
       values.appendRange(mapValues, offset, size, allocator_);
     });

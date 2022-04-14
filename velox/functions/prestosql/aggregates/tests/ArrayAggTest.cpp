@@ -119,6 +119,25 @@ TEST_F(ArrayAggTest, global) {
     }
   }
   ASSERT_EQ(velox::variant::array(expected), value);
+
+  // Add local exchange before intermediate aggregation. Expect the same result.
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  op = PlanBuilder(planNodeIdGenerator)
+           .localPartition(
+               {},
+               {PlanBuilder(planNodeIdGenerator)
+                    .localPartitionRoundRobin(
+                        {PlanBuilder(planNodeIdGenerator)
+                             .values(vectors)
+                             .partialAggregation({}, {"array_agg(c0)"})
+                             .planNode()})
+                    .intermediateAggregation()
+                    .planNode()})
+           .finalAggregation()
+           .planNode();
+
+  value = readSingleValue(op, 2);
+  ASSERT_EQ(velox::variant::array(expected), value);
 }
 
 TEST_F(ArrayAggTest, globalNoData) {

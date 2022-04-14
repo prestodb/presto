@@ -164,7 +164,8 @@ std::shared_ptr<Task> assertQuery(
     const std::vector<RowVectorPtr>& expectedResults);
 
 velox::variant readSingleValue(
-    const std::shared_ptr<const core::PlanNode>& plan);
+    const std::shared_ptr<const core::PlanNode>& plan,
+    int32_t maxDrivers = 1);
 
 void assertEqualResults(
     const std::vector<RowVectorPtr>& expected,

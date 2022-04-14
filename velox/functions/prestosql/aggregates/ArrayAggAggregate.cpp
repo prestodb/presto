@@ -140,17 +140,17 @@ class ArrayAggAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
-    auto& values = value<ArrayAccumulator>(group)->elements;
+    decodedIntermediate_.decode(*args[0], rows);
+    auto arrayVector = decodedIntermediate_.base()->as<ArrayVector>();
 
-    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::ARRAY);
-    auto arrayVector = args[0]->as<ArrayVector>();
+    auto& values = value<ArrayAccumulator>(group)->elements;
     auto elements = arrayVector->elements();
-    auto tracker = trackRowSize(group);
     rows.applyToSelected([&](vector_size_t row) {
+      auto decodedRow = decodedIntermediate_.index(row);
       values.appendRange(
           elements,
-          arrayVector->offsetAt(row),
-          arrayVector->sizeAt(row),
+          arrayVector->offsetAt(decodedRow),
+          arrayVector->sizeAt(decodedRow),
           allocator_);
     });
   }

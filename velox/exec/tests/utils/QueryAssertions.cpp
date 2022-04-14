@@ -787,9 +787,11 @@ std::shared_ptr<Task> assertQuery(
 }
 
 velox::variant readSingleValue(
-    const std::shared_ptr<const core::PlanNode>& plan) {
+    const std::shared_ptr<const core::PlanNode>& plan,
+    int32_t maxDrivers) {
   CursorParameters params;
   params.planNode = plan;
+  params.maxDrivers = maxDrivers;
   auto result = readCursor(params, [](Task*) {});
 
   EXPECT_EQ(1, result.second.size());

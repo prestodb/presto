@@ -159,15 +159,13 @@ class ChecksumAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushDown*/) override {
-    const auto& arg = args[0];
-    auto vector = arg->asUnchecked<FlatVector<int64_t>>();
-    VELOX_CHECK(vector);
-    auto rawValues = vector->rawValues();
+    decodedIntermediate_.decode(*args[0], rows);
+
     int64_t result = 0;
     bool clearGroupNull = false;
-    rows.applyToSelected([&](vector_size_t i) {
-      if (!vector->isNullAt(i)) {
-        safeAdd(result, rawValues[i]);
+    rows.applyToSelected([&](vector_size_t row) {
+      if (!decodedIntermediate_.isNullAt(row)) {
+        safeAdd(result, decodedIntermediate_.valueAt<int64_t>(row));
         clearGroupNull = true;
       }
     });

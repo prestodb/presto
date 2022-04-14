@@ -129,6 +129,24 @@ TEST_F(MapAggTest, global) {
            .finalAggregation()
            .planNode();
   ASSERT_EQ(mapExpected, readSingleValue(op));
+
+  // Add local exchange before intermediate aggregation. Expect the same result.
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  op = PlanBuilder(planNodeIdGenerator)
+           .localPartition(
+               {},
+               {PlanBuilder(planNodeIdGenerator)
+                    .localPartitionRoundRobin(
+                        {PlanBuilder(planNodeIdGenerator)
+                             .values(vectors)
+                             .partialAggregation({}, {"map_agg(c0, c1)"})
+                             .planNode()})
+                    .intermediateAggregation()
+                    .planNode()})
+           .finalAggregation()
+           .planNode();
+
+  ASSERT_EQ(mapExpected, readSingleValue(op, 2));
 }
 
 TEST_F(MapAggTest, globalNoData) {
