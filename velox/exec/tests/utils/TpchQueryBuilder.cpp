@@ -16,8 +16,7 @@
 #include "velox/exec/tests/utils/TpchQueryBuilder.h"
 #include "velox/common/base/tests/Fs.h"
 #include "velox/connectors/hive/HiveConnector.h"
-#include "velox/type/tests/FilterBuilder.h"
-#include "velox/type/tests/SubfieldFiltersBuilder.h"
+
 namespace facebook::velox::exec::test {
 
 static int64_t toDate(std::string_view stringDate) {
@@ -88,39 +87,6 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
   }
 }
 
-namespace {
-using ColumnHandleMap =
-    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>;
-
-std::shared_ptr<connector::hive::HiveTableHandle> makeTableHandle(
-    const std::string& tableName,
-    common::test::SubfieldFilters subfieldFilters,
-    const std::shared_ptr<const core::ITypedExpr>& remainingFilter = nullptr) {
-  return std::make_shared<connector::hive::HiveTableHandle>(
-      tableName, true, std::move(subfieldFilters), remainingFilter);
-}
-
-std::shared_ptr<connector::hive::HiveColumnHandle> regularColumn(
-    const std::string& name,
-    const TypePtr& type) {
-  return std::make_shared<connector::hive::HiveColumnHandle>(
-      name, connector::hive::HiveColumnHandle::ColumnType::kRegular, type);
-}
-
-ColumnHandleMap allRegularColumns(
-    const std::shared_ptr<const RowType>& rowType,
-    const std::unordered_map<std::string, std::string>& fileColumnNames) {
-  ColumnHandleMap assignments;
-  assignments.reserve(rowType->size());
-  for (uint32_t i = 0; i < rowType->size(); ++i) {
-    const auto& name = rowType->nameOf(i);
-    assignments[name] =
-        regularColumn(fileColumnNames.at(name), rowType->childAt(i));
-  }
-  return assignments;
-}
-} // namespace
-
 TpchPlan TpchQueryBuilder::getQ1Plan() const {
   static const std::string kLineitem = "lineitem";
   std::vector<std::string> selectedColumns = {
@@ -137,27 +103,20 @@ TpchPlan TpchQueryBuilder::getQ1Plan() const {
 
   // shipdate <= '1998-09-02'
   const auto shipDate = "l_shipdate";
-  common::test::SubfieldFiltersBuilder filtersBuilder;
+  std::string filter;
   // DWRF does not support Date type. Use Varchar instead.
   if (selectedRowType->findChild(shipDate)->isVarchar()) {
-    filtersBuilder.add(
-        fileColumnNames.at(shipDate),
-        common::test::lessThanOrEqual("1998-09-02"));
+    filter = "l_shipdate <= '1998-09-02'";
   } else {
-    filtersBuilder.add(
-        fileColumnNames.at(shipDate),
-        common::test::lessThanOrEqual(toDate("1998-09-02")));
+    filter = "l_shipdate <= '1998-09-02'::DATE";
   }
-  auto filters = filtersBuilder.build();
+
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
   core::PlanNodeId lineitemPlanNodeId;
 
   const auto partialAggStage =
       PlanBuilder(planNodeIdGenerator)
-          .tableScan(
-              selectedRowType,
-              makeTableHandle(kLineitem, std::move(filters)),
-              allRegularColumns(selectedRowType, fileColumnNames))
+          .tableScan(kLineitem, selectedRowType, fileColumnNames, {filter})
           .capturePlanNodeId(lineitemPlanNodeId)
           .project(
               {"l_returnflag",
@@ -218,43 +177,34 @@ TpchPlan TpchQueryBuilder::getQ6Plan() const {
   const auto& fileColumnNames = getFileColumnNames(kLineitem);
 
   const auto shipDate = "l_shipdate";
-  common::test::SubfieldFiltersBuilder filtersBuilder;
+  std::string shipDateFilter;
   // DWRF does not support Date type. Use Varchar instead.
   if (selectedRowType->findChild(shipDate)->isVarchar()) {
-    filtersBuilder.add(
-        fileColumnNames.at(shipDate),
-        common::test::between("1994-01-01", "1994-12-31"));
+    shipDateFilter = "l_shipdate between '1994-01-01' and '1994-12-31'";
   } else {
-    filtersBuilder.add(
-        fileColumnNames.at(shipDate),
-        common::test::between(toDate("1994-01-01"), toDate("1994-12-31")));
+    shipDateFilter =
+        "l_shipdate between '1994-01-01'::DATE and '1994-12-31'::DATE";
   }
-  auto filters = filtersBuilder
-                     .add(
-                         fileColumnNames.at("l_discount"),
-                         common::test::betweenDouble(0.05, 0.07))
-                     .add(
-                         fileColumnNames.at("l_quantity"),
-                         common::test::lessThanDouble(24.0))
-                     .build();
 
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
   core::PlanNodeId lineitemPlanNodeId;
-  auto plan =
-      PlanBuilder(planNodeIdGenerator)
-          .localPartition(
-              {},
-              {PlanBuilder(planNodeIdGenerator)
-                   .tableScan(
-                       selectedRowType,
-                       makeTableHandle(kLineitem, std::move(filters)),
-                       allRegularColumns(selectedRowType, fileColumnNames))
-                   .capturePlanNodeId(lineitemPlanNodeId)
-                   .project({"l_extendedprice * l_discount"})
-                   .partialAggregation({}, {"sum(p0)"})
-                   .planNode()})
-          .finalAggregation({}, {"sum(a0)"}, {DOUBLE()})
-          .planNode();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .localPartition(
+                      {},
+                      {PlanBuilder(planNodeIdGenerator)
+                           .tableScan(
+                               kLineitem,
+                               selectedRowType,
+                               fileColumnNames,
+                               {shipDateFilter,
+                                "l_discount between 0.05 and 0.07",
+                                "l_quantity < 24.0"})
+                           .capturePlanNodeId(lineitemPlanNodeId)
+                           .project({"l_extendedprice * l_discount"})
+                           .partialAggregation({}, {"sum(p0)"})
+                           .planNode()})
+                  .finalAggregation({}, {"sum(a0)"}, {DOUBLE()})
+                  .planNode();
   TpchPlan context;
   context.plan = std::move(plan);
   context.dataFiles[lineitemPlanNodeId] = getTableFilePaths(kLineitem);
@@ -291,11 +241,7 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
               {"l_orderkey"},
               {PlanBuilder(planNodeIdGenerator)
                    .tableScan(
-                       lineitemSelectedRowType,
-                       makeTableHandle(
-                           kLineitem, common::test::SubfieldFilters{}),
-                       allRegularColumns(
-                           lineitemSelectedRowType, lineitemFileColumns))
+                       kLineitem, lineitemSelectedRowType, lineitemFileColumns)
                    .capturePlanNodeId(lineitemScanNodeId)
                    .partialAggregation({0}, {"sum(l_quantity) AS partial_sum"})
                    .planNode()})
@@ -308,12 +254,7 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
           .localPartition(
               {},
               {PlanBuilder(planNodeIdGenerator)
-                   .tableScan(
-                       ordersSelectedRowType,
-                       makeTableHandle(
-                           kOrders, common::test::SubfieldFilters{}),
-                       allRegularColumns(
-                           ordersSelectedRowType, ordersFileColumns))
+                   .tableScan(kOrders, ordersSelectedRowType, ordersFileColumns)
                    .capturePlanNodeId(ordersScanNodeId)
                    .hashJoin(
                        {"o_orderkey"},
@@ -331,12 +272,9 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
                        {"c_custkey"},
                        PlanBuilder(planNodeIdGenerator)
                            .tableScan(
+                               kCustomer,
                                customerSelectedRowType,
-                               makeTableHandle(
-                                   kCustomer, common::test::SubfieldFilters{}),
-                               allRegularColumns(
-                                   customerSelectedRowType,
-                                   customerFileColumns))
+                               customerFileColumns)
                            .capturePlanNodeId(customerScanNodeId)
                            .planNode(),
                        "",
