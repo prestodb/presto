@@ -20,6 +20,7 @@
 
 #include <folly/container/F14Map.h>
 
+#include "velox/common/time/CpuWallTimer.h"
 #include "velox/core/Expressions.h"
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/EvalCtx.h"
@@ -30,6 +31,11 @@ namespace facebook::velox::exec {
 class ExprSet;
 class FieldReference;
 class VectorFunction;
+
+struct ExprStats {
+  CpuWallTiming timing;
+  uint64_t numProcessedRows{0};
+};
 
 // An executable expression.
 class Expr {
@@ -318,6 +324,9 @@ class Expr {
 
   // Count of times the cacheable vector is seen for a non-first time.
   int32_t numCacheableRepeats_{0};
+
+  /// Runtime statistics. CPU time, wall time and number of processed rows.
+  ExprStats stats_;
 };
 
 using ExprPtr = std::shared_ptr<Expr>;
