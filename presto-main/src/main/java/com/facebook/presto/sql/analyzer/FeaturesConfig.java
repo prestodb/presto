@@ -156,6 +156,7 @@ public class FeaturesConfig
     private boolean pushLimitThroughOuterJoin = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
+    private Duration queryAnalyzerTimeout = new Duration(3, MINUTES);
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
@@ -1107,6 +1108,19 @@ public class FeaturesConfig
     public FeaturesConfig setIterativeOptimizerTimeout(Duration timeout)
     {
         this.iterativeOptimizerTimeout = timeout;
+        return this;
+    }
+
+    public Duration getQueryAnalyzerTimeout()
+    {
+        return this.queryAnalyzerTimeout;
+    }
+
+    @Config("planner.query-analyzer-timeout")
+    @ConfigDescription("Maximum running time for the query analyzer in case the processing takes too long or is stuck in an infinite loop.")
+    public FeaturesConfig setQueryAnalyzerTimeout(Duration timeout)
+    {
+        this.queryAnalyzerTimeout = timeout;
         return this;
     }
 
