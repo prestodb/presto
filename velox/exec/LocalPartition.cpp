@@ -19,7 +19,7 @@
 
 namespace facebook::velox::exec {
 namespace {
-void notify(std::vector<VeloxPromise<bool>>& promises) {
+void notify(std::vector<ContinuePromise>& promises) {
   for (auto& promise : promises) {
     promise.setValue(true);
   }
@@ -42,7 +42,7 @@ bool LocalExchangeMemoryManager::increaseMemoryUsage(
 }
 
 void LocalExchangeMemoryManager::decreaseMemoryUsage(int64_t removed) {
-  std::vector<VeloxPromise<bool>> promises;
+  std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(mutex_);
     bufferedBytes_ -= removed;
@@ -64,8 +64,8 @@ void LocalExchangeQueue::addProducer() {
 }
 
 void LocalExchangeQueue::noMoreProducers() {
-  std::vector<VeloxPromise<bool>> consumerPromises;
-  std::vector<VeloxPromise<bool>> producerPromises;
+  std::vector<ContinuePromise> consumerPromises;
+  std::vector<ContinuePromise> producerPromises;
   queue_.withWLock([&](auto& queue) {
     VELOX_CHECK(!noMoreProducers_, "noMoreProducers can be called only once");
     noMoreProducers_ = true;
@@ -88,7 +88,7 @@ BlockingReason LocalExchangeQueue::enqueue(
     ContinueFuture* future) {
   auto inputBytes = input->retainedSize();
 
-  std::vector<VeloxPromise<bool>> consumerPromises;
+  std::vector<ContinuePromise> consumerPromises;
   bool isClosed = queue_.withWLock([&](auto& queue) {
     if (closed_) {
       return true;
@@ -112,8 +112,8 @@ BlockingReason LocalExchangeQueue::enqueue(
 }
 
 void LocalExchangeQueue::noMoreData() {
-  std::vector<VeloxPromise<bool>> consumerPromises;
-  std::vector<VeloxPromise<bool>> producerPromises;
+  std::vector<ContinuePromise> consumerPromises;
+  std::vector<ContinuePromise> producerPromises;
   queue_.withWLock([&](auto queue) {
     VELOX_CHECK_GT(pendingProducers_, 0);
     --pendingProducers_;
@@ -132,7 +132,7 @@ BlockingReason LocalExchangeQueue::next(
     ContinueFuture* future,
     memory::MemoryPool* pool,
     RowVectorPtr* data) {
-  std::vector<VeloxPromise<bool>> producerPromises;
+  std::vector<ContinuePromise> producerPromises;
   auto blockingReason = queue_.withWLock([&](auto& queue) {
     *data = nullptr;
     if (queue.empty()) {
@@ -192,8 +192,8 @@ bool LocalExchangeQueue::isFinished() {
 }
 
 void LocalExchangeQueue::close() {
-  std::vector<VeloxPromise<bool>> producerPromises;
-  std::vector<VeloxPromise<bool>> consumerPromises;
+  std::vector<ContinuePromise> producerPromises;
+  std::vector<ContinuePromise> consumerPromises;
   queue_.withWLock([&](auto& queue) {
     uint64_t freedBytes = 0;
     while (!queue.empty()) {

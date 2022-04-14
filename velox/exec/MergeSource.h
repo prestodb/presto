@@ -65,11 +65,11 @@ class MergeJoinSource {
   // Satisfied when data becomes available or the producer reports that it
   // finished producing, e.g. state_.data is not nullptr or state_.atEnd is
   // true.
-  std::optional<VeloxPromise<bool>> consumerPromise_;
+  std::optional<ContinuePromise> consumerPromise_;
 
   // Satisfied when previously enqueued data has been consumed, e.g. state_.data
   // is nullptr.
-  std::optional<VeloxPromise<bool>> producerPromise_;
+  std::optional<ContinuePromise> producerPromise_;
 };
 
 } // namespace facebook::velox::exec

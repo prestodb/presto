@@ -177,7 +177,7 @@ class ExchangeQueue {
   bool atEnd_ = false;
   std::mutex mutex_;
   std::deque<std::unique_ptr<SerializedPage>> queue_;
-  std::vector<VeloxPromise<bool>> promises_;
+  std::vector<ContinuePromise> promises_;
   // When set, all promises will be realized and the next dequeue will
   // throw an exception with this message.
   std::string error_;

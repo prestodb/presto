@@ -891,7 +891,7 @@ bool Task::allPeersFinished(
     const core::PlanNodeId& planNodeId,
     Driver* caller,
     ContinueFuture* future,
-    std::vector<VeloxPromise<bool>>& promises,
+    std::vector<ContinuePromise>& promises,
     std::vector<std::shared_ptr<Driver>>& peers) {
   std::lock_guard<std::mutex> l(mutex_);
   if (exception_) {
@@ -993,8 +993,8 @@ std::string Task::shortId(const std::string& id) {
 
 /// Moves split promises from one vector to another.
 static void movePromisesOut(
-    std::vector<VeloxPromise<bool>>& from,
-    std::vector<VeloxPromise<bool>>& to) {
+    std::vector<ContinuePromise>& from,
+    std::vector<ContinuePromise>& to) {
   for (auto& promise : from) {
     to.push_back(std::move(promise));
   }

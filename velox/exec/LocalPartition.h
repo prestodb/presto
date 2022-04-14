@@ -37,7 +37,7 @@ class LocalExchangeMemoryManager {
   const int64_t maxBufferSize_;
   std::mutex mutex_;
   int64_t bufferedBytes_{0};
-  std::vector<VeloxPromise<bool>> promises_;
+  std::vector<ContinuePromise> promises_;
 };
 
 /// Buffers data for a single partition produced by local exchange. Allows
@@ -102,11 +102,11 @@ class LocalExchangeQueue {
   // Satisfied when data becomes available or all producers report that they
   // finished producing, e.g. queue_ is not empty or noMoreProducers_ is true
   // and pendingProducers_ is zero.
-  std::vector<VeloxPromise<bool>> consumerPromises_;
+  std::vector<ContinuePromise> consumerPromises_;
   // Satisfied when all data has been fetched and no more data will be produced,
   // e.g. queue_ is empty, noMoreProducers_ is true and pendingProducers_ is
   // zero.
-  std::vector<VeloxPromise<bool>> producerPromises_;
+  std::vector<ContinuePromise> producerPromises_;
   int pendingProducers_{0};
   bool noMoreProducers_{false};
   bool closed_{false};

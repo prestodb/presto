@@ -34,7 +34,7 @@ enum TaskState { kRunning, kFinished, kCanceled, kAborted, kFailed };
 struct BarrierState {
   int32_t numRequested;
   std::vector<std::shared_ptr<Driver>> drivers;
-  std::vector<VeloxPromise<bool>> promises;
+  std::vector<ContinuePromise> promises;
 };
 
 /// Structure to accumulate splits for distribution.
@@ -44,7 +44,7 @@ struct SplitsStore {
   /// Signal, that no more splits will arrive.
   bool noMoreSplits{false};
   /// Blocking promises given out when out of splits to distribute.
-  std::vector<VeloxPromise<bool>> splitPromises;
+  std::vector<ContinuePromise> splitPromises;
 };
 
 /// Structure contains the current info on splits for a particular plan node.

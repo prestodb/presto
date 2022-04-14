@@ -68,4 +68,7 @@ std::pair<VeloxPromise<T>, folly::SemiFuture<T>> makeVeloxPromiseContract(
   auto f = p.getSemiFuture();
   return std::make_pair(std::move(p), std::move(f));
 }
+
+using ContinuePromise = VeloxPromise<bool>;
+
 } // namespace facebook::velox

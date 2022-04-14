@@ -28,10 +28,10 @@ class JoinBridge {
   void cancel();
 
  protected:
-  static void notify(std::vector<VeloxPromise<bool>> promises);
+  static void notify(std::vector<ContinuePromise> promises);
 
   std::mutex mutex_;
-  std::vector<VeloxPromise<bool>> promises_;
+  std::vector<ContinuePromise> promises_;
   bool cancelled_{false};
 };
 } // namespace facebook::velox::exec

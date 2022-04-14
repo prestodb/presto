@@ -92,9 +92,9 @@ class TaskQueue {
   // adding the result.
   uint64_t maxBytes_;
   std::mutex mutex_;
-  std::vector<VeloxPromise<bool>> producerUnblockPromises_;
+  std::vector<ContinuePromise> producerUnblockPromises_;
   bool consumerBlocked_ = false;
-  VeloxPromise<bool> consumerPromise_;
+  ContinuePromise consumerPromise_;
   folly::Future<bool> consumerFuture_;
   bool closed_ = false;
 };

@@ -18,14 +18,14 @@
 namespace facebook::velox::exec {
 
 // static
-void JoinBridge::notify(std::vector<VeloxPromise<bool>> promises) {
+void JoinBridge::notify(std::vector<ContinuePromise> promises) {
   for (auto& promise : promises) {
     promise.setValue(true);
   }
 }
 
 void JoinBridge::cancel() {
-  std::vector<VeloxPromise<bool>> promises;
+  std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(mutex_);
     cancelled_ = true;

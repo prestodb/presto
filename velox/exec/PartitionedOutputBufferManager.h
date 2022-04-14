@@ -153,7 +153,7 @@ class PartitionedOutputBuffer {
   // 'promises'.
   void updateAfterAcknowledgeLocked(
       const std::vector<std::shared_ptr<SerializedPage>>& freed,
-      std::vector<VeloxPromise<bool>>& promises);
+      std::vector<ContinuePromise>& promises);
 
   /// Given an updated total number of broadcast buffers, add any missing ones
   /// and enqueue data that has been produced so far (e.g. dataToBroadcast_).
@@ -181,7 +181,7 @@ class PartitionedOutputBuffer {
   std::mutex mutex_;
   // Actual data size in 'buffers_'.
   uint64_t totalSize_ = 0;
-  std::vector<VeloxPromise<bool>> promises_;
+  std::vector<ContinuePromise> promises_;
   // One buffer per destination
   std::vector<std::unique_ptr<DestinationBuffer>> buffers_;
   uint32_t numFinished_{0};

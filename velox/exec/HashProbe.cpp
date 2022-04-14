@@ -576,7 +576,7 @@ void HashProbe::ensureLoadedIfNotAtEnd(ChannelIndex channel) {
 void HashProbe::noMoreInput() {
   Operator::noMoreInput();
   if (isRightJoin(joinType_) || isFullJoin(joinType_)) {
-    std::vector<VeloxPromise<bool>> promises;
+    std::vector<ContinuePromise> promises;
     std::vector<std::shared_ptr<Driver>> peers;
     // The last Driver to hit HashProbe::finish is responsible for producing
     // non-matching build-side rows for the right join.

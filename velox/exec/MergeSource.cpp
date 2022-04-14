@@ -104,8 +104,8 @@ class LocalMergeSource : public MergeSource {
 
     bool atEnd_{false};
     boost::circular_buffer<RowVectorPtr> data_;
-    std::vector<VeloxPromise<bool>> consumerPromises_;
-    std::vector<VeloxPromise<bool>> producerPromises_;
+    std::vector<ContinuePromise> consumerPromises_;
+    std::vector<ContinuePromise> producerPromises_;
   };
 
   folly::Synchronized<LocalMergeSourceQueue> queue_;
@@ -192,7 +192,7 @@ std::shared_ptr<MergeSource> MergeSource::createMergeExchangeSource(
 }
 
 namespace {
-void notify(std::optional<VeloxPromise<bool>>& promise) {
+void notify(std::optional<ContinuePromise>& promise) {
   if (promise) {
     promise->setValue(true);
     promise.reset();
@@ -215,7 +215,7 @@ BlockingReason MergeJoinSource::next(
       return BlockingReason::kNotBlocked;
     }
 
-    consumerPromise_ = VeloxPromise<bool>("MergeJoinSource::next");
+    consumerPromise_ = ContinuePromise("MergeJoinSource::next");
     *future = consumerPromise_->getSemiFuture();
     return BlockingReason::kWaitForExchange;
   });
@@ -242,7 +242,7 @@ BlockingReason MergeJoinSource::enqueue(
     state.data = std::move(data);
     notify(consumerPromise_);
 
-    producerPromise_ = VeloxPromise<bool>("MergeJoinSource::enqueue");
+    producerPromise_ = ContinuePromise("MergeJoinSource::enqueue");
     *future = producerPromise_->getSemiFuture();
     return BlockingReason::kWaitForConsumer;
   });

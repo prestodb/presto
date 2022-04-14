@@ -31,8 +31,6 @@ class PartitionedOutputBufferManager;
 class HashJoinBridge;
 class CrossJoinBridge;
 
-using ContinuePromise = VeloxPromise<bool>;
-
 class Task : public std::enable_shared_from_this<Task> {
  public:
   /// Creates a task to execute a plan fragment, but doesn't start execution
@@ -333,7 +331,7 @@ class Task : public std::enable_shared_from_this<Task> {
       const core::PlanNodeId& planNodeId,
       Driver* FOLLY_NONNULL caller,
       ContinueFuture* FOLLY_NONNULL future,
-      std::vector<VeloxPromise<bool>>& promises,
+      std::vector<ContinuePromise>& promises,
       std::vector<std::shared_ptr<Driver>>& peers);
 
   // Adds HashJoinBridge's for all the specified plan node IDs.
@@ -654,7 +652,7 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Stores separate splits state for each plan node.
   std::unordered_map<core::PlanNodeId, SplitsState> splitsStates_;
 
-  std::vector<VeloxPromise<bool>> stateChangePromises_;
+  std::vector<ContinuePromise> stateChangePromises_;
 
   TaskStats taskStats_;
   std::unique_ptr<memory::MemoryPool> pool_;
@@ -686,7 +684,7 @@ class Task : public std::enable_shared_from_this<Task> {
   // Promises for the futures returned to callers of requestPause() or
   // terminate(). They are fulfilled when the last thread stops
   // running for 'this'.
-  std::vector<VeloxPromise<bool>> threadFinishPromises_;
+  std::vector<ContinuePromise> threadFinishPromises_;
 };
 
 /// Listener invoked on task completion.

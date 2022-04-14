@@ -57,7 +57,7 @@ exec::BlockingReason TaskQueue::enqueue(
 RowVectorPtr TaskQueue::dequeue() {
   for (;;) {
     RowVectorPtr vector;
-    std::vector<VeloxPromise<bool>> mayContinue;
+    std::vector<ContinuePromise> mayContinue;
     {
       std::lock_guard<std::mutex> l(mutex_);
       if (!queue_.empty()) {
@@ -74,7 +74,7 @@ RowVectorPtr TaskQueue::dequeue() {
       }
       if (!vector) {
         consumerBlocked_ = true;
-        consumerPromise_ = VeloxPromise<bool>();
+        consumerPromise_ = ContinuePromise();
         consumerFuture_ = consumerPromise_.getFuture();
       }
     }
