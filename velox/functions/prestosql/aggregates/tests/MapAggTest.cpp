@@ -131,6 +131,24 @@ TEST_F(MapAggTest, global) {
   ASSERT_EQ(mapExpected, readSingleValue(op));
 }
 
+TEST_F(MapAggTest, globalNoData) {
+  std::vector<RowVectorPtr> vectors = {
+      vectorMaker_.rowVector(ROW({"c0", "c1"}, {INTEGER(), DOUBLE()}), 0)};
+
+  auto op = PlanBuilder()
+                .values(vectors)
+                .partialAggregation({}, {"map_agg(c0, c1)"})
+                .planNode();
+  ASSERT_EQ(velox::variant::map({}), readSingleValue(op));
+
+  op = PlanBuilder()
+           .values(vectors)
+           .partialAggregation({}, {"map_agg(c0, c1)"})
+           .finalAggregation()
+           .planNode();
+  ASSERT_EQ(velox::variant::map({}), readSingleValue(op));
+}
+
 TEST_F(MapAggTest, globalDuplicateKeys) {
   vector_size_t size = 10;
 

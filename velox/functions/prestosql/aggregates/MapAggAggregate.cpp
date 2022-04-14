@@ -76,14 +76,18 @@ class MapAggAggregate : public exec::Aggregate {
 
       auto accumulator = value<MapAccumulator>(group);
       auto mapSize = accumulator->keys.size();
-      ValueListReader keysReader(accumulator->keys);
-      ValueListReader valuesReader(accumulator->values);
-      for (auto index = 0; index < mapSize; ++index) {
-        keysReader.next(*mapKeys, offset + index);
-        valuesReader.next(*mapValues, offset + index);
+      if (mapSize) {
+        ValueListReader keysReader(accumulator->keys);
+        ValueListReader valuesReader(accumulator->values);
+        for (auto index = 0; index < mapSize; ++index) {
+          keysReader.next(*mapKeys, offset + index);
+          valuesReader.next(*mapValues, offset + index);
+        }
+        mapVector->setOffsetAndSize(i, offset, mapSize);
+        offset += mapSize;
+      } else {
+        mapVector->setOffsetAndSize(i, offset, 0);
       }
-      mapVector->setOffsetAndSize(i, offset, mapSize);
-      offset += mapSize;
     }
 
     // canonicalize requires a singly referenced MapVector. std::move
