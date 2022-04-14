@@ -140,14 +140,29 @@ void toDuckDbFilter(
       }
       break;
     }
+    case common::FilterKind::kBigintValuesUsingHashTable: {
+      auto valuesFilter =
+          static_cast<common::BigintValuesUsingHashTable*>(filter);
+      const auto& values = valuesFilter->values();
+      if (values.size() == 1) {
+        filters.PushFilter(
+            colIdx, constantEqualFilter(makeValue(type, *values.begin())));
+      } else {
+        auto duckFilter = std::make_unique<::duckdb::ConjunctionOrFilter>();
+        for (const auto& value : values) {
+          duckFilter->child_filters.push_back(
+              constantEqualFilter(makeValue(type, value)));
+        }
+        filters.PushFilter(colIdx, std::move(duckFilter));
+      }
+      break;
+    }
 
     case common::FilterKind::kAlwaysFalse:
     case common::FilterKind::kAlwaysTrue:
     case common::FilterKind::kIsNull:
     case common::FilterKind::kIsNotNull:
     case common::FilterKind::kBoolValue:
-    case common::FilterKind::kBigintValuesUsingHashTable:
-    case common::FilterKind::kBigintValuesUsingBitmask:
     case common::FilterKind::kFloatRange:
     case common::FilterKind::kBigintMultiRange:
     case common::FilterKind::kMultiRange:
@@ -180,7 +195,9 @@ ParquetRowReader::ParquetRowReader(
     std::shared_ptr<::duckdb::ParquetReader> reader,
     const dwio::common::RowReaderOptions& options,
     memory::MemoryPool& pool)
-    : reader_(std::move(reader)), pool_(pool) {
+    : reader_(std::move(reader)),
+      pool_(pool),
+      scanSpec_{options.getScanSpec()} {
   auto& selector = *options.getSelector();
   rowType_ = selector.buildSelectedReordered();
   duckdbRowType_.reserve(rowType_->size());
@@ -233,10 +250,19 @@ uint64_t ParquetRowReader::next(uint64_t /*size*/, velox::VectorPtr& result) {
 
   if (output.size() > 0) {
     std::vector<VectorPtr> columns;
-    columns.reserve(output.data.size());
-    for (int i = 0; i < output.data.size(); i++) {
-      columns.emplace_back(duckdb::toVeloxVector(
-          output.size(), output.data[i], rowType_->childAt(i), &pool_));
+    columns.resize(output.data.size());
+    for (auto& spec : scanSpec_->children()) {
+      if (spec->isConstant()) {
+        columns[spec->channel()] =
+            BaseVector::wrapInConstant(output.size(), 0, spec->constantValue());
+      } else if (spec->projectOut()) {
+        auto index = rowType_->getChildIdx(spec->fieldName());
+        columns[spec->channel()] = duckdb::toVeloxVector(
+            output.size(),
+            output.data[index],
+            rowType_->childAt(index),
+            &pool_);
+      }
     }
 
     result = std::make_shared<RowVector>(

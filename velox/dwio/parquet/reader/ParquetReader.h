@@ -51,6 +51,7 @@ class ParquetRowReader : public dwio::common::RowReader {
   memory::MemoryPool& pool_;
   RowTypePtr rowType_;
   std::vector<::duckdb::LogicalType> duckdbRowType_;
+  velox::common::ScanSpec* scanSpec_;
 };
 
 class ParquetReader : public dwio::common::Reader {

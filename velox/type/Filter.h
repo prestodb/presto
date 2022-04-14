@@ -683,6 +683,10 @@ class BigintValuesUsingHashTable final : public Filter {
     return max_;
   }
 
+  const std::vector<int64_t>& values() const {
+    return values_;
+  }
+
   std::string toString() const final {
     return fmt::format(
         "BigintValuesUsingHashTable: [{}, {}] {}",
