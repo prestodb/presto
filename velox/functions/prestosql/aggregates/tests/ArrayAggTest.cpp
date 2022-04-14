@@ -121,5 +121,19 @@ TEST_F(ArrayAggTest, global) {
   ASSERT_EQ(velox::variant::array(expected), value);
 }
 
+TEST_F(ArrayAggTest, globalNoData) {
+  std::vector<RowVectorPtr> vectors = {
+      vectorMaker_.rowVector(ROW({"c0"}, {INTEGER()}), 0)};
+
+  auto op = PlanBuilder()
+                .values(vectors)
+                .partialAggregation({}, {"array_agg(c0)"})
+                .finalAggregation()
+                .planNode();
+
+  auto value = readSingleValue(op);
+  ASSERT_EQ(velox::variant::array({}), value);
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

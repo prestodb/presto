@@ -68,12 +68,16 @@ class ArrayAggAggregate : public exec::Aggregate {
 
       auto& values = value<ArrayAccumulator>(groups[i])->elements;
       auto arraySize = values.size();
-      ValueListReader reader(values);
-      for (auto index = 0; index < arraySize; ++index) {
-        reader.next(*elements, offset + index);
+      if (arraySize) {
+        ValueListReader reader(values);
+        for (auto index = 0; index < arraySize; ++index) {
+          reader.next(*elements, offset + index);
+        }
+        vector->setOffsetAndSize(i, offset, arraySize);
+        offset += arraySize;
+      } else {
+        vector->setOffsetAndSize(i, offset, 0);
       }
-      vector->setOffsetAndSize(i, offset, arraySize);
-      offset += arraySize;
     }
   }
 
