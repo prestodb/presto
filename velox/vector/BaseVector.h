@@ -43,10 +43,6 @@
 namespace facebook {
 namespace velox {
 
-namespace cdvi {
-const folly::F14FastMap<std::string, std::string> EMPTY_METADATA;
-} // namespace cdvi
-
 template <typename T>
 class SimpleVector;
 

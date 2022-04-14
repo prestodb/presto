@@ -468,7 +468,7 @@ class VectorTestBase {
         /*isNull=*/!value.has_value(),
         CppToType<T>::create(),
         value ? EvalType<T>(*value) : EvalType<T>(),
-        cdvi::EMPTY_METADATA,
+        SimpleVectorStats<EvalType<T>>{},
         sizeof(EvalType<T>));
   }
 

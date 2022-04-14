@@ -55,8 +55,7 @@ class DictionaryVector : public SimpleVector<T> {
       VectorPtr dictionaryValues,
       TypeKind indexTypeKind,
       BufferPtr dictionaryIndexArray,
-      const folly::F14FastMap<std::string, std::string>& metaData =
-          cdvi::EMPTY_METADATA,
+      const SimpleVectorStats<T>& stats = {},
       std::optional<vector_size_t> distinctValueCount = std::nullopt,
       std::optional<vector_size_t> nullCount = std::nullopt,
       std::optional<bool> isSorted = std::nullopt,
@@ -114,13 +113,12 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   /**
-   * @return metadata for the internal dictionary value vector. They
+   * @return stats for the internal dictionary value vector. They
    * hold the min and max value in the dictionary.
    */
   // TODO (T61713241): Remove this later.
-  inline const folly::F14FastMap<std::string, std::string>&
-  getDictionaryMetaData() const {
-    return dictionaryMetaData_;
+  inline const SimpleVectorStats<T>& getDictionaryStats() const {
+    return dictionaryStats_;
   }
 
   inline const BufferPtr& indices() const {
@@ -238,8 +236,8 @@ class DictionaryVector : public SimpleVector<T> {
 
   void setInternalState();
 
-  // metadata over the contained vector data
-  folly::F14FastMap<std::string, std::string> dictionaryMetaData_;
+  // stats over the contained vector data
+  SimpleVectorStats<T> dictionaryStats_;
 
   // the dictionary indices of the vector can be variable types depending on the
   // size of the dictionary - kept as original and typed

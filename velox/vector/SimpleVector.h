@@ -38,33 +38,11 @@ namespace exec {
 class EvalCtx;
 }
 
-/**
- * Adds the given value to the metaData in a proper encoding.  Will overwrite
- * any existing value in the map.
- */
-template <typename V>
-void encodeMetaData(
-    folly::F14FastMap<std::string, std::string>& metaData,
-    const std::string& key,
-    V value) {
-  metaData.insert_or_assign(key, velox::to<std::string>(value));
-}
-
-template <>
-inline void encodeMetaData(
-    folly::F14FastMap<std::string, std::string>& metaData,
-    const std::string& key,
-    StringView value) {
-  metaData.insert_or_assign(key, std::string(value.data(), value.size()));
-}
-
-template <>
-inline void encodeMetaData(
-    folly::F14FastMap<std::string, std::string>& /*metaData*/,
-    const std::string& /*key*/,
-    std::shared_ptr<void> /*value*/) {
-  VELOX_NYI();
-}
+template <typename T>
+struct SimpleVectorStats {
+  std::optional<T> min;
+  std::optional<T> max;
+};
 
 // This class abstracts over various Columnar Storage Formats such that Velox
 // can select the most appropriate one on a per field / per block basis.
@@ -78,15 +56,12 @@ inline void encodeMetaData(
 template <typename T>
 class SimpleVector : public BaseVector {
  public:
-  constexpr static auto META_MIN = folly::makeFixedString("CTV1");
-  constexpr static auto META_MAX = folly::makeFixedString("CTV2");
-
   SimpleVector(
       velox::memory::MemoryPool* pool,
       std::shared_ptr<const Type> type,
       BufferPtr nulls,
       size_t length,
-      const folly::F14FastMap<std::string, std::string>& metaData,
+      const SimpleVectorStats<T>& stats,
       std::optional<vector_size_t> distinctValueCount,
       std::optional<vector_size_t> nullCount,
       std::optional<bool> isSorted,
@@ -102,16 +77,15 @@ class SimpleVector : public BaseVector {
             representedByteCount,
             storageByteCount),
         isSorted_(isSorted),
-        elementSize_(sizeof(T)) {
-    setMinMax(metaData);
-  }
+        elementSize_(sizeof(T)),
+        stats_(stats) {}
 
   // Constructs SimpleVector inferring the type from T.
   SimpleVector(
       velox::memory::MemoryPool* pool,
       BufferPtr nulls,
       size_t length,
-      const folly::F14FastMap<std::string, std::string>& metaData,
+      const SimpleVectorStats<T>& stats,
       std::optional<vector_size_t> distinctValueCount,
       std::optional<vector_size_t> nullCount,
       std::optional<bool> isSorted,
@@ -122,7 +96,7 @@ class SimpleVector : public BaseVector {
             CppToType<T>::create(),
             std::move(nulls),
             length,
-            metaData,
+            stats,
             distinctValueCount,
             nullCount,
             isSorted,
@@ -131,15 +105,8 @@ class SimpleVector : public BaseVector {
 
   virtual ~SimpleVector() override {}
 
-  folly::F14FastMap<std::string, std::string> genMetaData() const {
-    folly::F14FastMap<std::string, std::string> metaData;
-    if (min_.hasValue()) {
-      encodeMetaData(metaData, META_MIN, min_.value());
-    }
-    if (max_.hasValue()) {
-      encodeMetaData(metaData, META_MAX, max_.value());
-    }
-    return metaData;
+  SimpleVectorStats<T> getStats() const {
+    return stats_;
   }
 
   // Concrete Vector types need to implement this themselves.
@@ -182,11 +149,11 @@ class SimpleVector : public BaseVector {
   }
 
   const std::optional<T>& getMin() const {
-    return min_;
+    return stats_.min;
   }
 
   const std::optional<T>& getMax() const {
-    return max_;
+    return stats_.max;
   }
 
   void resize(vector_size_t size, bool setNotNull = true) override {
@@ -353,18 +320,6 @@ class SimpleVector : public BaseVector {
         sizeof(T));
   }
 
-  std::optional<T> min_;
-  std::optional<T> max_;
-  // Holds the data for StringView min/max.
-  std::string minString_;
-  std::string maxString_;
-
- private:
-  void setMinMax(const folly::F14FastMap<std::string, std::string>& metaData) {
-    min_ = getMetaDataValue<T>(metaData, META_MIN);
-    max_ = getMetaDataValue<T>(metaData, META_MAX);
-  }
-
  protected:
   int comparePrimitiveAsc(const T& left, const T& right) const {
     if constexpr (std::is_floating_point<T>::value) {
@@ -393,19 +348,9 @@ class SimpleVector : public BaseVector {
   // If T is StringView, store set of rows
   // where we have computed asciiness. A set bit means the row was processed.
   SelectivityVector asciiSetRows_;
+
+  SimpleVectorStats<T> stats_;
 }; // namespace velox
-
-template <>
-void SimpleVector<StringView>::setMinMax(
-    const folly::F14FastMap<std::string, std::string>& metaData);
-
-template <>
-inline void SimpleVector<ComplexType>::setMinMax(
-    const folly::F14FastMap<std::string, std::string>& /*metaData*/) {}
-
-template <>
-inline void SimpleVector<std::shared_ptr<void>>::setMinMax(
-    const folly::F14FastMap<std::string, std::string>& /*metaData*/) {}
 
 template <>
 inline std::optional<int32_t> SimpleVector<ComplexType>::compare(

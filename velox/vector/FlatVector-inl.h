@@ -111,7 +111,7 @@ std::unique_ptr<SimpleVector<uint64_t>> FlatVector<T>::hashAll() const {
       BaseVector::length_,
       std::move(hashBuffer),
       std::vector<BufferPtr>() /*stringBuffers*/,
-      folly::F14FastMap<std::string, std::string>(),
+      SimpleVectorStats<uint64_t>{}, /* stats */
       std::nullopt /*distinctValueCount*/,
       0 /*nullCount*/,
       false /*sorted*/,

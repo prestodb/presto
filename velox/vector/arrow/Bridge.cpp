@@ -595,7 +595,7 @@ VectorPtr createFlatVector(
       length,
       values,
       std::vector<BufferPtr>(),
-      cdvi::EMPTY_METADATA,
+      SimpleVectorStats<T>{},
       std::nullopt,
       nullCount == -1 ? std::nullopt : std::optional<int64_t>(nullCount));
 }
@@ -636,7 +636,7 @@ VectorPtr createStringFlatVector(
       length,
       stringViews,
       std::move(stringViewBuffers),
-      cdvi::EMPTY_METADATA,
+      SimpleVectorStats<StringView>{},
       std::nullopt,
       nullCount == -1 ? std::nullopt : std::optional<int64_t>(nullCount));
 }

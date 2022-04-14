@@ -44,8 +44,7 @@ class SequenceVector : public SimpleVector<T> {
       size_t length,
       std::shared_ptr<BaseVector> sequenceValues,
       BufferPtr sequenceLengths,
-      const folly::F14FastMap<std::string, std::string>& metaData =
-          cdvi::EMPTY_METADATA,
+      const SimpleVectorStats<T>& stats = {},
       std::optional<int32_t> distinctCount = std::nullopt,
       std::optional<vector_size_t> nullCount = std::nullopt,
       std::optional<bool> sorted = std::nullopt,

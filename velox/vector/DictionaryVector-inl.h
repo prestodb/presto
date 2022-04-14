@@ -55,7 +55,7 @@ DictionaryVector<T>::DictionaryVector(
     std::shared_ptr<BaseVector> dictionaryValues,
     TypeKind indexType,
     BufferPtr dictionaryIndices,
-    const folly::F14FastMap<std::string, std::string>& metaData,
+    const SimpleVectorStats<T>& stats,
     std::optional<vector_size_t> distinctValueCount,
     std::optional<vector_size_t> nullCount,
     std::optional<bool> isSorted,
@@ -66,13 +66,13 @@ DictionaryVector<T>::DictionaryVector(
           dictionaryValues->type(),
           nulls,
           length,
-          metaData,
+          stats,
           distinctValueCount,
           nullCount,
           isSorted,
           representedBytes,
           storageByteCount),
-      dictionaryMetaData_(metaData) {
+      dictionaryStats_(stats) {
   VELOX_CHECK(dictionaryValues != nullptr, "dictionaryValues must not be null");
   VELOX_CHECK(
       dictionaryIndices != nullptr, "dictionaryIndices must not be null");
@@ -139,7 +139,7 @@ std::unique_ptr<SimpleVector<uint64_t>> DictionaryVector<T>::hashAll() const {
       BaseVector::length_,
       hashes,
       std::vector<BufferPtr>(0) /* stringBuffers */,
-      folly::F14FastMap<std::string, std::string>(),
+      SimpleVectorStats<uint64_t>{},
       BaseVector::distinctValueCount_.value() +
           (BaseVector::nullCount_.value_or(0) > 0 ? 1 : 0),
       0 /* nullCount */,

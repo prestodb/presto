@@ -46,8 +46,6 @@ static inline __m256i simdAdd(const __m256i& left, const __m256i& right) {
  * 2 buffers.
  *
  * Buffer order: [nullData, valueData]
- *
- * The bias value is stored in the metaData block via the BIAS_VALUE key.
  */
 template <typename T>
 BiasVector<T>::BiasVector(
@@ -56,7 +54,8 @@ BiasVector<T>::BiasVector(
     size_t length,
     TypeKind valueType,
     BufferPtr values,
-    const folly::F14FastMap<std::string, std::string>& metaData,
+    T bias,
+    const SimpleVectorStats<T>& stats,
     std::optional<vector_size_t> distinctCount,
     std::optional<vector_size_t> nullCount,
     std::optional<bool> sorted,
@@ -66,23 +65,20 @@ BiasVector<T>::BiasVector(
           pool,
           nulls,
           length,
-          metaData,
+          stats,
           distinctCount,
           nullCount,
           sorted,
           representedBytes,
           storageByteCount),
       valueType_(valueType),
-      values_(std::move(values)) {
+      values_(std::move(values)),
+      bias_(bias) {
   VELOX_CHECK(
       valueType_ == TypeKind::INTEGER || valueType_ == TypeKind::SMALLINT ||
           valueType_ == TypeKind::TINYINT,
       "Invalid array type for biased values");
 
-  auto bias =
-      SimpleVector<T>::template getMetaDataValue<T>(metaData, BIAS_VALUE);
-  VELOX_CHECK(bias.has_value(), "Bias value is required");
-  bias_ = bias.value();
   biasBuffer_ = simd::setAll256i(bias_);
 
   switch (valueType_) {
@@ -122,7 +118,7 @@ std::unique_ptr<SimpleVector<uint64_t>> BiasVector<T>::hashAll() const {
       BaseVector::length_,
       hashes,
       std::vector<BufferPtr>(0) /*stringBuffers*/,
-      cdvi::EMPTY_METADATA,
+      SimpleVectorStats<uint64_t>{},
       std::nullopt /*distinctValueCount*/,
       0 /* nullCount */,
       false /*isSorted*/,

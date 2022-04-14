@@ -1564,40 +1564,39 @@ static inline int32_t sizeOfTypeKind(TypeKind kind) {
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(sizeOfTypeKindHelper, kind);
 }
 
-// Helper for using folly::to with StringView.
 template <typename T, typename U>
-static inline T to(U value) {
+static inline T to(const U& value) {
   return folly::to<T>(value);
 }
 
 template <>
-inline Timestamp to(std::string value) {
+inline Timestamp to(const std::string& value) {
   return Timestamp(0, 0);
 }
 
 template <>
-inline UnknownValue to(std::string /* value */) {
+inline UnknownValue to(const std::string& /* value */) {
   return UnknownValue();
 }
 
 template <>
-inline std::string to(Timestamp value) {
+inline std::string to(const Timestamp& value) {
   return value.toString();
 }
 
 template <>
-inline std::string to(velox::StringView value) {
+inline std::string to(const velox::StringView& value) {
   return std::string(value.data(), value.size());
 }
 
 template <>
-inline std::string to(ComplexType value) {
+inline std::string to(const ComplexType& value) {
   return std::string("ComplexType");
 }
 
 template <>
-inline ComplexType to(std::string value) {
-  return ComplexType();
+inline velox::StringView to(const std::string& value) {
+  return velox::StringView(value);
 }
 
 namespace exec {

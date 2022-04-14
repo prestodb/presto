@@ -24,7 +24,7 @@ std::unique_ptr<SimpleVector<uint64_t>> ConstantVector<T>::hashAll() const {
       BaseVector::length_,
       false /* isNull */,
       this->hashValueAt(0),
-      folly::F14FastMap<std::string, std::string>(),
+      SimpleVectorStats<uint64_t>{}, /* stats */
       sizeof(uint64_t) * BaseVector::length_ /* representedBytes */);
 }
 

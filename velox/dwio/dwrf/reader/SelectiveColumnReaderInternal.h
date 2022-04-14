@@ -129,7 +129,7 @@ void SelectiveColumnReader::getFlatValues(
         true,
         type,
         T(),
-        cdvi::EMPTY_METADATA,
+        SimpleVectorStats<TVector>{},
         sizeof(TVector) * rows.size());
     return;
   }

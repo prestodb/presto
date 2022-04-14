@@ -141,7 +141,7 @@ void EvalCtx::addError(
         AlignedBuffer::allocate<ErrorVector::value_type>(
             size, pool(), ErrorVector::value_type()),
         std::vector<BufferPtr>(0),
-        cdvi::EMPTY_METADATA,
+        SimpleVectorStats<std::shared_ptr<void>>{},
         1 /*distinctValueCount*/,
         size /*nullCount*/,
         false /*isSorted*/,

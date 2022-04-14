@@ -25,6 +25,7 @@
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/LazyVector.h"
+#include "velox/vector/SimpleVector.h"
 #include "velox/vector/TypeAliases.h"
 #include "velox/vector/VectorTypeUtils.h"
 #include "velox/vector/tests/VectorMaker.h"
@@ -148,15 +149,14 @@ class VectorTest : public testing::Test {
         rawValues[i] = testValue<TBias>(i, buffer) - kBias;
       }
     }
-    folly::F14FastMap<std::string, std::string> metadata;
-    metadata[BiasVector<T>::BIAS_VALUE] = folly::to<std::string>(kBias);
     return std::make_shared<BiasVector<T>>(
         pool_.get(),
         nulls,
         size,
         BiasKind,
         std::move(values),
-        std::move(metadata),
+        kBias,
+        SimpleVectorStats<T>{},
         std::nullopt,
         numNulls,
         false,

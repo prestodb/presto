@@ -15,22 +15,11 @@
  */
 
 #include <algorithm>
+
+#include "velox/vector/SimpleVector.h"
 #include "velox/vector/tests/VectorMakerStats.h"
 
 namespace facebook::velox::test {
-
-template <typename T>
-folly::F14FastMap<std::string, std::string> getMetadata(
-    const VectorMakerStats<T>& stats) {
-  folly::F14FastMap<std::string, std::string> metadata;
-  if (stats.min.has_value()) {
-    encodeMetaData(metadata, SimpleVector<T>::META_MIN, stats.min.value());
-  }
-  if (stats.max.has_value()) {
-    encodeMetaData(metadata, SimpleVector<T>::META_MAX, stats.max.value());
-  }
-  return metadata;
-}
 
 template <typename T, typename ShortType>
 BufferPtr buildBiasedBuffer(
@@ -75,9 +64,6 @@ BiasVectorPtr<VectorMaker::EvalType<T>> VectorMaker::biasVector(
     // Check BiasVector.h for explanation of this calculation.
     TEvalType bias = min + static_cast<TEvalType>(std::ceil(delta / 2.0));
 
-    auto metadata = getMetadata(stats);
-    encodeMetaData(metadata, BiasVector<TEvalType>::BIAS_VALUE, bias);
-
     BufferPtr buffer;
     TypeKind valueType;
 
@@ -98,7 +84,8 @@ BiasVectorPtr<VectorMaker::EvalType<T>> VectorMaker::biasVector(
         data.size(),
         valueType,
         buffer,
-        metadata,
+        bias,
+        stats.asSimpleVectorStats(),
         stats.distinctCount(),
         stats.nullCount,
         stats.isSorted);
@@ -152,7 +139,7 @@ SequenceVectorPtr<VectorMaker::EvalType<T>> VectorMaker::sequenceVector(
       data.size(),
       flatVectorNullable(sequenceVals),
       copyToBuffer(sequenceLengths, pool_),
-      getMetadata(stats),
+      stats.asSimpleVectorStats(),
       stats.distinctCount(),
       stats.nullCount,
       stats.isSorted);
@@ -177,7 +164,7 @@ ConstantVectorPtr<VectorMaker::EvalType<T>> VectorMaker::constantVector(
       data.size(),
       nullCount > 0,
       (nullCount > 0) ? TEvalType() : folly::copy(*data.front()),
-      getMetadata(stats));
+      stats.asSimpleVectorStats());
 }
 
 template <typename T>
@@ -216,7 +203,7 @@ DictionaryVectorPtr<VectorMaker::EvalType<T>> VectorMaker::dictionaryVector(
       std::move(values),
       TypeKind::INTEGER,
       std::move(indices),
-      getMetadata(stats),
+      stats.asSimpleVectorStats(),
       indexMap.size(),
       nullCount,
       stats.isSorted);
@@ -244,7 +231,7 @@ FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVectorNullable(
       data.size(),
       std::move(dataBuffer),
       std::vector<BufferPtr>(),
-      getMetadata(stats),
+      stats.asSimpleVectorStats(),
       stats.distinctCount(),
       stats.nullCount,
       stats.isSorted);
@@ -275,7 +262,7 @@ FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVector(
       data.size(),
       std::move(dataBuffer),
       std::vector<BufferPtr>(),
-      getMetadata(stats),
+      stats.asSimpleVectorStats(),
       stats.distinctCount(),
       stats.nullCount,
       stats.isSorted);
