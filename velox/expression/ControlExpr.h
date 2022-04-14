@@ -87,7 +87,7 @@ class ConstantExpr : public SpecialForm {
     return sharedSubexprValues_;
   }
 
-  std::string toString() const override;
+  std::string toString(bool recursive = true) const override;
 
  private:
   const variant value_;

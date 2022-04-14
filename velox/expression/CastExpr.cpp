@@ -632,13 +632,20 @@ void CastExpr::evalSpecialForm(
   inputs_[0]->eval(rows, context, &input);
   auto fromType = inputs_[0]->type();
   auto toType = std::const_pointer_cast<const Type>(type_);
+
+  stats_.numProcessedRows += rows.countSelected();
+  CpuWallTimer timer(stats_.timing);
   apply(rows, input, context, fromType, toType, result);
 }
 
-std::string CastExpr::toString() const {
+std::string CastExpr::toString(bool recursive) const {
   std::stringstream out;
   out << "cast(";
-  appendInputs(out);
+  if (recursive) {
+    appendInputs(out);
+  } else {
+    out << inputs_[0]->toString(false);
+  }
   out << " as " << type_->toString() << ")";
   return out.str();
 }

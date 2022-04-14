@@ -66,7 +66,7 @@ void ConstantExpr::evalSpecialFormSimplified(
   }
 }
 
-std::string ConstantExpr::toString() const {
+std::string ConstantExpr::toString(bool /*recursive*/) const {
   if (sharedSubexprValues_ == nullptr) {
     return fmt::format("{}:{}", value_.toJson(), type()->toString());
   } else {

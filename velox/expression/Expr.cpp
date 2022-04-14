@@ -15,6 +15,7 @@
  */
 
 #include "velox/expression/Expr.h"
+#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/core/Expressions.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/expression/ExprCompiler.h"
@@ -1140,11 +1141,15 @@ void Expr::applySingleConstArgVectorFunction(
   }
 }
 
-std::string Expr::toString() const {
-  std::stringstream out;
-  out << name_;
-  appendInputs(out);
-  return out.str();
+std::string Expr::toString(bool recursive) const {
+  if (recursive) {
+    std::stringstream out;
+    out << name_;
+    appendInputs(out);
+    return out.str();
+  }
+
+  return name_;
 }
 
 void Expr::appendInputs(std::stringstream& stream) const {
@@ -1224,4 +1229,33 @@ std::unique_ptr<ExprSet> makeExprSetFromFlag(
   return std::make_unique<ExprSet>(std::move(source), execCtx);
 }
 
+namespace {
+void printExprWithStats(
+    const exec::Expr& expr,
+    const std::string& indent,
+    std::stringstream& out) {
+  const auto& stats = expr.stats();
+  out << indent << expr.toString(false)
+      << " [cpu time: " << succinctNanos(stats.timing.cpuNanos)
+      << ", rows: " << stats.numProcessedRows << "] -> "
+      << expr.type()->toString() << std::endl;
+
+  auto newIndent = indent + "   ";
+  for (const auto& input : expr.inputs()) {
+    printExprWithStats(*input, newIndent, out);
+  }
+}
+} // namespace
+
+std::string printExprWithStats(const exec::ExprSet& exprSet) {
+  const auto& exprs = exprSet.exprs();
+  std::stringstream out;
+  for (auto i = 0; i < exprs.size(); ++i) {
+    if (i > 0) {
+      out << std::endl;
+    }
+    printExprWithStats(*exprs[i], "", out);
+  }
+  return out.str();
+}
 } // namespace facebook::velox::exec

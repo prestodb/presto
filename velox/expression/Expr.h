@@ -157,7 +157,13 @@ class Expr {
     return inputs_;
   }
 
-  virtual std::string toString() const;
+  /// @param recursive If true, the output includes input expressions and all
+  /// their inputs recursively.
+  virtual std::string toString(bool recursive = true) const;
+
+  const ExprStats& stats() const {
+    return stats_;
+  }
 
  private:
   void setAllNulls(
@@ -431,5 +437,11 @@ class ExprSetSimplified : public ExprSet {
 std::unique_ptr<ExprSet> makeExprSetFromFlag(
     std::vector<std::shared_ptr<const core::ITypedExpr>>&& source,
     core::ExecCtx* execCtx);
+
+/// Returns a string representation of the expression trees annotated with
+/// runtime statistics. Expected to be called after calling ExprSet::eval one or
+/// more times. If called before ExprSet::eval runtime statistics will be all
+/// zeros.
+std::string printExprWithStats(const ExprSet& exprSet);
 
 } // namespace facebook::velox::exec

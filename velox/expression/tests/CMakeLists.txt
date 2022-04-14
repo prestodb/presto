@@ -15,6 +15,7 @@
 add_executable(
   velox_expression_test
   ExprTest.cpp
+  ExprStatsTest.cpp
   CastExprTest.cpp
   MapWriterTest.cpp
   ArrayWriterTest.cpp
@@ -59,6 +60,7 @@ target_link_libraries(
   velox_vector_fuzzer
   gtest
   gtest_main
+  gmock
   ${FOLLY_WITH_DEPENDENCIES}
   ${gflags_LIBRARIES}
   glog::glog
