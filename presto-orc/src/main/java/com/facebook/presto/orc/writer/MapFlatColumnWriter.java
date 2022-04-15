@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_MAP_FLAT;
@@ -47,15 +48,22 @@ public class MapFlatColumnWriter
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
     private final CompressedMetadataWriter metadataWriter;
+    private final Supplier<ColumnWriter> valueWriterFactory;
 
     private boolean closed;
 
-    public MapFlatColumnWriter(int column, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, MetadataWriter metadataWriter)
+    public MapFlatColumnWriter(int column,
+            ColumnWriterOptions columnWriterOptions,
+            Supplier<ColumnWriter> valueWriterFactory,
+            Optional<DwrfDataEncryptor> dwrfEncryptor,
+            MetadataWriter metadataWriter)
     {
         // TODO: Flat map needs to get factories for key and value writers, instead of already initialized writers
         checkArgument(column >= 0, "column is negative");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
+
         this.column = column;
+        this.valueWriterFactory = requireNonNull(valueWriterFactory, "valueWriterFactory is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(DWRF_MAP_FLAT, 0); // TODO Use c'tor with additionalSequenceEncodings
         this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
