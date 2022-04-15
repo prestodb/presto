@@ -419,9 +419,13 @@ void PartitionedOutputBuffer::getData(
 }
 
 void PartitionedOutputBuffer::terminate() {
-  std::lock_guard<std::mutex> l(mutex_);
-  VELOX_CHECK(not task_->isRunning());
-  for (auto& promise : promises_) {
+  std::vector<ContinuePromise> outstandingPromises;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    VELOX_CHECK(not task_->isRunning());
+    outstandingPromises.swap(promises_);
+  }
+  for (auto& promise : outstandingPromises) {
     promise.setValue(true);
   }
 }
