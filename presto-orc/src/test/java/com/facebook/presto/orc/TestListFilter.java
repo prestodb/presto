@@ -68,6 +68,29 @@ public class TestListFilter
                 2, BigintRange.of(25, 50, false)), data);
     }
 
+    @Test
+    public void testArrayFilterCodeOverflowBug()
+    {
+        Integer[][] data = new Integer[ROW_COUNT][];
+        for (int i = 0; i < data.length; i++) {
+            data[i] = new Integer[100];
+            for (int j = 0; j < data[i].length; j++) {
+                data[i][j] = j;
+            }
+        }
+
+        // build filters checking for exact value from the data
+        ImmutableMap.Builder<Integer, TupleDomainFilter> filters = ImmutableMap.builder();
+
+        // ListFilter allows up to 64 filters
+        for (int j = 1; j <= 64; j++) {
+            long value = j - 1;
+            filters.put(j, BigintRange.of(value, value, false));
+        }
+
+        assertPositionalFilter(filters.build(), data);
+    }
+
     private void assertPositionalFilter(Map<Integer, TupleDomainFilter> filters, Integer[][] data)
     {
         ListFilter listFilter = buildListFilter(filters, data);
