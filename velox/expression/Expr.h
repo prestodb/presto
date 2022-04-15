@@ -35,6 +35,11 @@ class VectorFunction;
 struct ExprStats {
   CpuWallTiming timing;
   uint64_t numProcessedRows{0};
+
+  void add(const ExprStats& other) {
+    timing.add(other.timing);
+    numProcessedRows += other.numProcessedRows;
+  }
 };
 
 // An executable expression.
@@ -109,6 +114,10 @@ class Expr {
 
   const TypePtr& type() const {
     return type_;
+  }
+
+  const std::string& name() const {
+    return name_;
   }
 
   bool isString() const {
@@ -348,7 +357,7 @@ class ExprSet {
       core::ExecCtx* execCtx,
       bool enableConstantFolding = true);
 
-  virtual ~ExprSet() {}
+  virtual ~ExprSet();
 
   // Initialize and evaluate all expressions available in this ExprSet.
   void eval(
@@ -443,5 +452,35 @@ std::unique_ptr<ExprSet> makeExprSetFromFlag(
 /// more times. If called before ExprSet::eval runtime statistics will be all
 /// zeros.
 std::string printExprWithStats(const ExprSet& exprSet);
+
+struct ExprSetCompletionEvent {
+  /// Aggregated runtime stats keyed on expression name (e.g. built-in
+  /// expression like and, or, switch or a function name).
+  std::unordered_map<std::string, exec::ExprStats> stats;
+};
+
+/// Listener invoked on ExprSet destruction.
+class ExprSetListener {
+ public:
+  virtual ~ExprSetListener() = default;
+
+  /// Called on ExprSet destruction. Provides runtime statistics about
+  /// expression evaluation.
+  /// @param uuid Universally unique identifier of the set of expressions.
+  /// @param event Runtime stats.
+  virtual void onCompletion(
+      const std::string& uuid,
+      const ExprSetCompletionEvent& event) = 0;
+};
+
+/// Register a listener to be invoked on ExprSet destruction. Returns true if
+/// listener was successfully registered, false if listener is already
+/// registered.
+bool registerExprSetListener(std::shared_ptr<ExprSetListener> listener);
+
+/// Unregister a listener registered earlier. Returns true if listener was
+/// unregistered successfully, false if listener was not found.
+bool unregisterExprSetListener(
+    const std::shared_ptr<ExprSetListener>& listener);
 
 } // namespace facebook::velox::exec

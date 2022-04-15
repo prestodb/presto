@@ -162,3 +162,79 @@ TEST_F(ExprStatsTest, printWithStats) {
             "   0:BIGINT .cpu time: 0ns, rows: 0. -> BIGINT\n"));
   }
 }
+
+struct Event {
+  std::string uuid;
+  std::unordered_map<std::string, exec::ExprStats> stats;
+};
+
+class TestListener : public exec::ExprSetListener {
+ public:
+  explicit TestListener(std::vector<Event>& events) : events_{events} {}
+
+  void onCompletion(
+      const std::string& uuid,
+      const exec::ExprSetCompletionEvent& event) override {
+    events_.push_back({uuid, event.stats});
+  }
+
+ private:
+  std::vector<Event>& events_;
+};
+
+TEST_F(ExprStatsTest, listener) {
+  vector_size_t size = 1'024;
+
+  // Register a listener to receive stats on ExprSet destruction.
+  std::vector<Event> events;
+  auto listener = std::make_shared<TestListener>(events);
+  ASSERT_TRUE(exec::registerExprSetListener(listener));
+  ASSERT_FALSE(exec::registerExprSetListener(listener));
+
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
+  });
+
+  // Evaluate a couple of expressions and sanity check the stats received by the
+  // listener.
+  auto rowType = asRowType(data->type());
+  {
+    auto exprSet =
+        compileExpressions({"(c0 + 3) * c1", "(c0 + c1) % 2 = 0"}, rowType);
+    evaluate(*exprSet, data);
+  }
+  ASSERT_EQ(1, events.size());
+  auto stats = events.back().stats;
+  ASSERT_EQ(1024 * 2, stats.at("plus").numProcessedRows);
+  ASSERT_EQ(1024, stats.at("multiply").numProcessedRows);
+  ASSERT_EQ(1024, stats.at("mod").numProcessedRows);
+
+  // Evaluate the same expressions twice and verify that stats received by the
+  // listener are "doubled".
+  {
+    auto exprSet =
+        compileExpressions({"(c0 + 3) * c1", "(c0 + c1) % 2 = 0"}, rowType);
+    evaluate(*exprSet, data);
+    evaluate(*exprSet, data);
+  }
+  ASSERT_EQ(2, events.size());
+  stats = events.back().stats;
+  ASSERT_EQ(1024 * 2 * 2, stats.at("plus").numProcessedRows);
+  ASSERT_EQ(1024 * 2, stats.at("multiply").numProcessedRows);
+  ASSERT_EQ(1024 * 2, stats.at("mod").numProcessedRows);
+
+  ASSERT_NE(events[0].uuid, events[1].uuid);
+
+  // Unregister the listener, evaluate expressions again and verify the listener
+  // wasn't invoked.
+  ASSERT_TRUE(exec::unregisterExprSetListener(listener));
+  ASSERT_FALSE(exec::unregisterExprSetListener(listener));
+
+  {
+    auto exprSet =
+        compileExpressions({"(c0 + 3) * c1", "(c0 + c1) % 2 = 0"}, rowType);
+    evaluate(*exprSet, data);
+  }
+  ASSERT_EQ(2, events.size());
+}
