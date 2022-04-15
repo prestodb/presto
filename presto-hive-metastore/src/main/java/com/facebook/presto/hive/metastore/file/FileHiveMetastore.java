@@ -90,6 +90,7 @@ import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
@@ -119,8 +120,6 @@ public class FileHiveMetastore
     private static final String ADMIN_ROLE_NAME = "admin";
     private static final String PRESTO_SCHEMA_FILE_NAME = ".prestoSchema";
     private static final String PRESTO_PERMISSIONS_DIRECTORY_NAME = ".prestoPermissions";
-    private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
-    private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
 
@@ -262,7 +261,7 @@ public class FileHiveMetastore
                 if (!externalFileSystem.isDirectory(externalLocation)) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location does not exist");
                 }
-                if (isChildDirectory(catalogDirectory, externalLocation) && !isIcebergTable(table.getParameters())) {
+                if (isChildDirectory(catalogDirectory, externalLocation) && !isIcebergTable(table)) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location can not be inside the system metadata directory");
                 }
             }
@@ -451,7 +450,7 @@ public class FileHiveMetastore
         checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
 
         Table table = getRequiredTable(metastoreContext, databaseName, tableName);
-        if ((!table.getTableType().equals(VIRTUAL_VIEW) || !newTable.getTableType().equals(VIRTUAL_VIEW)) && !isIcebergTable(table.getParameters())) {
+        if ((!table.getTableType().equals(VIRTUAL_VIEW) || !newTable.getTableType().equals(VIRTUAL_VIEW)) && !isIcebergTable(table)) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Only views can be updated with replaceTable");
         }
         if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
@@ -484,7 +483,7 @@ public class FileHiveMetastore
 
         Table table = getRequiredTable(metastoreContext, databaseName, tableName);
         getRequiredDatabase(metastoreContext, newDatabaseName);
-        if (isIcebergTable(table.getParameters())) {
+        if (isIcebergTable(table)) {
             throw new PrestoException(NOT_SUPPORTED, "Rename not supported for Iceberg tables");
         }
 
@@ -501,11 +500,6 @@ public class FileHiveMetastore
         }
 
         return EMPTY_RESULT;
-    }
-
-    private static boolean isIcebergTable(Map<String, String> parameters)
-    {
-        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(parameters.get(ICEBERG_TABLE_TYPE_NAME));
     }
 
     @Override
