@@ -437,18 +437,21 @@ public class ElasticsearchClient
         });
     }
 
-    public List<String> getAliases()
+    public Map<String, List<String>> getAliases()
     {
         return doRequest("/_aliases", body -> {
             try {
-                ImmutableList.Builder<String> result = ImmutableList.builder();
+                ImmutableMap.Builder<String, List<String>> result = ImmutableMap.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
 
-                Iterator<JsonNode> elements = root.elements();
+                Iterator<Map.Entry<String, JsonNode>> elements = root.fields();
                 while (elements.hasNext()) {
-                    JsonNode element = elements.next();
-                    JsonNode aliases = element.get("aliases");
-                    result.addAll(aliases.fieldNames());
+                    Map.Entry<String, JsonNode> element = elements.next();
+                    JsonNode aliases = element.getValue().get("aliases");
+                    Iterator<String> aliasNames = aliases.fieldNames();
+                    if (aliasNames.hasNext()) {
+                        result.put(element.getKey(), ImmutableList.copyOf(aliasNames));
+                    }
                 }
                 return result.build();
             }
