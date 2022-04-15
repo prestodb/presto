@@ -263,9 +263,11 @@ public class NodeScheduler
                     .map(InternalNode::getNodeIdentifier)
                     .collect(toImmutableSet());
 
-            int weight = (int) ceil(1.0 * minVirtualNodeCount / activeNodes.size());
-            ConsistentHashingNodeProvider consistentHashingNodeProvider = ConsistentHashingNodeProvider.create(activeNodes, weight);
-
+            ConsistentHashingNodeProvider consistentHashingNodeProvider = null;
+            if (nodeSelectionHashStrategy == nodeSelectionHashStrategy.CONSISTENT_HASHING) {
+                int weight = (int) ceil(1.0 * minVirtualNodeCount / activeNodes.size());
+                consistentHashingNodeProvider = ConsistentHashingNodeProvider.create(activeNodes, weight);
+            }
             for (InternalNode node : allNodes) {
                 if (node.getNodeStatus() == ALIVE) {
                     activeNodesByNodeId.put(node.getNodeIdentifier(), node);
