@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore.glue.converter;
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.facebook.presto.hive.HiveBucketProperty;
+import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
@@ -40,6 +41,10 @@ import java.util.function.UnaryOperator;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isDeltaLakeTable;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.util.Memoizers.memoizeLast;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -66,8 +71,7 @@ public final class GlueToPrestoConverter
 
     public static Table convertTable(com.amazonaws.services.glue.model.Table glueTable, String dbName)
     {
-        requireNonNull(glueTable.getStorageDescriptor(), "Table StorageDescriptor is null");
-        StorageDescriptor sd = glueTable.getStorageDescriptor();
+        Map<String, String> tableParameters = convertParameters(glueTable.getParameters());
 
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(dbName)
@@ -75,19 +79,33 @@ public final class GlueToPrestoConverter
                 .setOwner(nullToEmpty(glueTable.getOwner()))
                 // Athena treats missing table type as EXTERNAL_TABLE.
                 .setTableType(PrestoTableType.optionalValueOf(glueTable.getTableType()).orElse(EXTERNAL_TABLE))
-                .setDataColumns(convertColumns(sd.getColumns()))
-                .setParameters(convertParameters(glueTable.getParameters()))
+                .setParameters(tableParameters)
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
-
-        if (glueTable.getPartitionKeys() != null) {
-            tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys()));
+        StorageDescriptor sd = glueTable.getStorageDescriptor();
+        if (sd == null) {
+            if (isIcebergTable(tableParameters) || isDeltaLakeTable(tableParameters)) {
+                // Iceberg and Delta Lake tables do not use the StorageDescriptor field, but we need to return a Table so the caller can check that
+                // the table is an Iceberg/Delta table and decide whether to redirect or fail.
+                tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty(), Optional.empty())));
+                tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
+            }
+            else {
+                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
+            }
         }
         else {
-            tableBuilder.setPartitionColumns(ImmutableList.of());
+            tableBuilder.setDataColumns(convertColumns(sd.getColumns()));
+            if (glueTable.getPartitionKeys() != null) {
+                tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys()));
+            }
+            else {
+                tableBuilder.setPartitionColumns(ImmutableList.of());
+            }
+
+            new StorageConverter().setConvertedStorage(sd, tableBuilder.getStorageBuilder());
         }
 
-        new StorageConverter().setConvertedStorage(sd, tableBuilder.getStorageBuilder());
         return tableBuilder.build();
     }
 
