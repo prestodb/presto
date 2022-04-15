@@ -126,21 +126,6 @@ struct SimpleGeneralInterface {
   }
 };
 
-template <typename T>
-struct SimpleOld {
-  template <typename TOut>
-  bool call(TOut& out, const int64_t& n) {
-    for (int i = 0; i < n; i++) {
-      if (WITH_NULLS && i % 5) {
-        out.append(std::nullopt);
-      } else {
-        out.append(i);
-      }
-    }
-    return true;
-  }
-};
-
 class ArrayWriterBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   ArrayWriterBenchmark() : FunctionBenchmarkBase() {
@@ -150,7 +135,6 @@ class ArrayWriterBenchmark : public functions::test::FunctionBenchmarkBase {
         {"simple_push_back"});
     registerFunction<SimpleGeneralInterface, ArrayWriterT<int64_t>, int64_t>(
         {"simple_general"});
-    registerFunction<SimpleOld, Array<int64_t>, int64_t>({"simple_old"});
 
     facebook::velox::exec::registerVectorFunction(
         "vector_resize_optimized",

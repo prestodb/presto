@@ -288,7 +288,7 @@ struct MySimpleSplitFunction {
   const char splitChar{' '};
 
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<Array<Varchar>>& out,
+      out_type<ArrayWriterT<Varchar>>& out,
       const arg_type<Varchar>& input) {
     auto start = input.begin();
     auto cur = start;
@@ -296,7 +296,7 @@ struct MySimpleSplitFunction {
     // This code doesn't copy the string contents.
     do {
       cur = std::find(start, input.end(), splitChar);
-      out.append(out_type<Varchar>(StringView(start, cur - start)));
+      out.add_item().copy_from(StringView(start, cur - start));
       start = cur + 1;
     } while (cur < input.end());
     return true;
@@ -307,7 +307,7 @@ void register6() {
   registerFunction<MyAsciiAwareFunction, Varchar, Varchar>(
       {"my_ascii_aware_func"});
 
-  registerFunction<MySimpleSplitFunction, Array<Varchar>, Varchar>(
+  registerFunction<MySimpleSplitFunction, ArrayWriterT<Varchar>, Varchar>(
       {"my_simple_split_func"});
 }
 
@@ -405,11 +405,11 @@ struct MyComplexTimesTwoFunction {
   // are currently implemented based on std::vector. Vector elements are
   // currently wrapped by std::optional to represent their nullability.
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<Array<int64_t>>& result,
+      out_type<ArrayWriterT<int64_t>>& result,
       const arg_type<Array<int64_t>>& inputArray) {
     result.reserve(inputArray.size());
     for (const auto& it : inputArray) {
-      result.append(it.has_value() ? it.value() * 2 : 0);
+      result.push_back(it.has_value() ? it.value() * 2 : 0);
     }
     return true;
   }
@@ -417,7 +417,7 @@ struct MyComplexTimesTwoFunction {
   // This method takes and returns a Map. Map proxy objects are implemented
   // using std::unordered_map; values are wrapped by std::optional.
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<Map<int64_t, double>>& result,
+      out_type<MapWriterT<int64_t, double>>& result,
       const arg_type<Map<int64_t, double>>& inputMap) {
     result.reserve(inputMap.size());
     for (const auto& it : inputMap) {
@@ -430,7 +430,7 @@ struct MyComplexTimesTwoFunction {
   // Takes and returns a Row. Rows are backed by std::tuple; individual elements
   // are std::optional.
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<Row<int64_t, double>>& result,
+      out_type<RowWriterT<int64_t, double>>& result,
       const arg_type<Row<int64_t, double>>& inputRow) {
     const auto& elem0 = inputRow.template at<0>();
     const auto& elem1 = inputRow.template at<1>();
@@ -456,15 +456,17 @@ struct MyComplexTimesTwoFunction {
 };
 
 void register8() {
-  registerFunction<MyComplexTimesTwoFunction, Array<int64_t>, Array<int64_t>>(
-      {"my_array_func"});
   registerFunction<
       MyComplexTimesTwoFunction,
-      Map<int64_t, double>,
+      ArrayWriterT<int64_t>,
+      Array<int64_t>>({"my_array_func"});
+  registerFunction<
+      MyComplexTimesTwoFunction,
+      MapWriterT<int64_t, double>,
       Map<int64_t, double>>({"my_map_func"});
   registerFunction<
       MyComplexTimesTwoFunction,
-      Row<int64_t, double>,
+      RowWriterT<int64_t, double>,
       Row<int64_t, double>>({"my_row_func"});
   registerFunction<
       MyComplexTimesTwoFunction,

@@ -94,18 +94,18 @@ struct ArrayWriterFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void call(
-      out_type<Array<int64_t>>& out,
+      out_type<ArrayWriterT<int64_t>>& out,
       const arg_type<int64_t>& input) {
     const size_t size = arrayData[input].size();
     out.reserve(size);
     for (const auto i : arrayData[input]) {
-      out.append(i);
+      out.push_back(i);
     }
   }
 };
 
 TEST_F(SimpleFunctionTest, arrayWriter) {
-  registerFunction<ArrayWriterFunction, Array<int64_t>, int64_t>(
+  registerFunction<ArrayWriterFunction, ArrayWriterT<int64_t>, int64_t>(
       {"array_writer_func"}, ARRAY(BIGINT()));
 
   const size_t rows = arrayData.size();
@@ -131,19 +131,21 @@ struct ArrayOfStringsWriterFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void call(
-      out_type<Array<Varchar>>& out,
+      out_type<ArrayWriterT<Varchar>>& out,
       const arg_type<int64_t>& input) {
     const size_t size = stringArrayData[input].size();
     out.reserve(size);
     for (const auto value : stringArrayData[input]) {
-      out.append(out_type<Varchar>(StringView(value)));
+      out.add_item().copy_from(value);
     }
   }
 };
 
 TEST_F(SimpleFunctionTest, arrayOfStringsWriter) {
-  registerFunction<ArrayOfStringsWriterFunction, Array<Varchar>, int64_t>(
-      {"array_of_strings_writer_func"}, ARRAY(VARCHAR()));
+  registerFunction<
+      ArrayOfStringsWriterFunction,
+      ArrayWriterT<Varchar>,
+      int64_t>({"array_of_strings_writer_func"}, ARRAY(VARCHAR()));
 
   const size_t rows = stringArrayData.size();
   auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });
@@ -240,7 +242,7 @@ struct RowWriterFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<Row<int64_t, double>>& out,
+      out_type<RowWriterT<int64_t, double>>& out,
       const arg_type<int64_t>& input) {
     out = std::make_tuple(rowVectorCol1[input], rowVectorCol2[input]);
     return true;
@@ -248,7 +250,7 @@ struct RowWriterFunction {
 };
 
 TEST_F(SimpleFunctionTest, rowWriter) {
-  registerFunction<RowWriterFunction, Row<int64_t, double>, int64_t>(
+  registerFunction<RowWriterFunction, RowWriterT<int64_t, double>, int64_t>(
       {"row_writer_func"}, ROW({BIGINT(), DOUBLE()}));
 
   const size_t rows = rowVectorCol1.size();
@@ -336,13 +338,13 @@ struct ArrayRowWriterFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<Array<Row<int64_t, double>>>& out,
+      out_type<ArrayWriterT<RowWriterT<int64_t, double>>>& out,
       const arg_type<int32_t>& input) {
     // Appends each row three times.
     auto tuple = std::make_tuple(rowVectorCol1[input], rowVectorCol2[input]);
-    out.append(std::optional(tuple));
-    out.append(std::optional(tuple));
-    out.append(std::optional(tuple));
+    out.add_item() = tuple;
+    out.add_item() = tuple;
+    out.add_item() = tuple;
     return true;
   }
 };
@@ -350,7 +352,7 @@ struct ArrayRowWriterFunction {
 TEST_F(SimpleFunctionTest, arrayRowWriter) {
   registerFunction<
       ArrayRowWriterFunction,
-      Array<Row<int64_t, double>>,
+      ArrayWriterT<RowWriterT<int64_t, double>>,
       int32_t>({"array_row_writer_func"}, ARRAY(ROW({BIGINT(), DOUBLE()})));
 
   const size_t rows = rowVectorCol1.size();
@@ -731,20 +733,22 @@ struct MyArrayStringReuseFunction {
 
   static constexpr int32_t reuse_strings_from_arg = 0;
 
-  void call(out_type<Array<Varchar>>& out, const arg_type<Varchar>& input) {
+  void call(
+      out_type<ArrayWriterT<Varchar>>& out,
+      const arg_type<Varchar>& input) {
     auto start = input.begin();
     auto cur = start;
 
     do {
       cur = std::find(start, input.end(), ' ');
-      out.append(std::optional{StringView(start, cur - start)});
+      out.add_item().copy_from(StringView(start, cur - start));
       start = cur + 1;
     } while (cur < input.end());
   }
 };
 
 TEST_F(SimpleFunctionTest, arrayStringReuse) {
-  registerFunction<MyArrayStringReuseFunction, Array<Varchar>, Varchar>(
+  registerFunction<MyArrayStringReuseFunction, ArrayWriterT<Varchar>, Varchar>(
       {"my_array_string_reuse_func"});
 
   std::vector<StringView> inputData = {
@@ -772,15 +776,17 @@ template <typename T>
 struct MapStringOut {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  void call(out_type<Map<Varchar, Varchar>>& out, int64_t n) {
+  void call(out_type<MapWriterT<Varchar, Varchar>>& out, int64_t n) {
     auto string = std::to_string(n);
-    out.emplace(StringView(string), std::optional{StringView(string)});
+    auto [key, value] = out.add_item();
+    key.copy_from(string);
+    value.copy_from(string);
   }
 };
 
 // Output map with string.
 TEST_F(SimpleFunctionTest, mapStringOut) {
-  registerFunction<MapStringOut, Map<Varchar, Varchar>, int64_t>(
+  registerFunction<MapStringOut, MapWriterT<Varchar, Varchar>, int64_t>(
       {"func_map_string_out"});
 
   auto input = vectorMaker_.flatVector<int64_t>({1, 2, 3, 4});
