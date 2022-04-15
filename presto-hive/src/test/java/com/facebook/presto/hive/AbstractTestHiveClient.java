@@ -1148,7 +1148,7 @@ public abstract class AbstractTestHiveClient
         return new HiveTransaction(transactionManager, metadataFactory.get());
     }
 
-    interface Transaction
+    protected interface Transaction
             extends AutoCloseable
     {
         ConnectorMetadata getMetadata();
