@@ -1161,7 +1161,9 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
       char* next = nullptr;
       if (nextOffset_) {
         next = nextRow(iter.nextHit);
-        __builtin_prefetch(reinterpret_cast<char*>(next) + nextOffset_);
+        if (next) {
+          __builtin_prefetch(reinterpret_cast<char*>(next) + nextOffset_);
+        }
       }
       inputRows[numOut] = (*iter.rows)[iter.lastRowIndex]; // NOLINT
       hits[numOut] = iter.nextHit;
