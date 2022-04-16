@@ -858,7 +858,7 @@ public final class PlanMatchPattern
     public static GroupingSetDescriptor singleGroupingSet(List<String> groupingKeys)
     {
         Set<Integer> globalGroupingSets;
-        if (groupingKeys.size() == 0) {
+        if (groupingKeys.isEmpty()) {
             globalGroupingSets = ImmutableSet.of(0);
         }
         else {

@@ -120,7 +120,7 @@ public class PlanNodeSearcher
     public <T extends PlanNode> T findOnlyElement(T defaultValue)
     {
         List<T> all = findAll();
-        if (all.size() == 0) {
+        if (all.isEmpty()) {
             return defaultValue;
         }
         return getOnlyElement(all);
