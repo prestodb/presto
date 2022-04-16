@@ -50,7 +50,7 @@ public final class ValuesNode
         this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(Collectors.toList()));
 
         for (List<RowExpression> row : rows) {
-            if (!(row.size() == outputVariables.size() || row.size() == 0)) {
+            if (!(row.size() == outputVariables.size() || row.isEmpty())) {
                 throw new IllegalArgumentException(format("Expected row to have %s values, but row has %s values", outputVariables.size(), row.size()));
             }
         }

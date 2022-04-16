@@ -179,7 +179,7 @@ public class ColumnStatistics
 
     public static ColumnStatistics mergeColumnStatistics(List<ColumnStatistics> stats)
     {
-        if (stats.size() == 0) {
+        if (stats.isEmpty()) {
             return new ColumnStatistics(0L, null);
         }
 

@@ -96,7 +96,7 @@ public class WindowInfo
             }
 
             List<IndexInfo> indexInfos = indexInfosBuilder.build();
-            if (indexInfos.size() == 0) {
+            if (indexInfos.isEmpty()) {
                 return new DriverWindowInfo(0.0, 0.0, 0.0, 0, 0, 0);
             }
             long totalRowsCount = indexInfos.stream()
@@ -214,7 +214,7 @@ public class WindowInfo
         public Optional<IndexInfo> build()
         {
             List<Integer> partitions = partitionsSizes.build();
-            if (partitions.size() == 0) {
+            if (partitions.isEmpty()) {
                 return Optional.empty();
             }
             double avgSize = partitions.stream().mapToLong(Integer::longValue).average().getAsDouble();
