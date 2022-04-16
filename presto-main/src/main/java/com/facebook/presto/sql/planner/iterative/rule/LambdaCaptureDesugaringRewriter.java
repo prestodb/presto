@@ -88,7 +88,7 @@ public class LambdaCaptureDesugaringRewriter
             Function<VariableReferenceExpression, Expression> variableMapping = variable -> createSymbolReference(variablesMap.getOrDefault(variable, variable));
             Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineVariables(variableMapping, rewrittenBody, variableAllocator.getTypes()));
 
-            if (captureVariables.size() != 0) {
+            if (!captureVariables.isEmpty()) {
                 List<Expression> capturedValues = captureVariables.stream()
                         .map(variable -> createSymbolReference(variable))
                         .collect(toImmutableList());

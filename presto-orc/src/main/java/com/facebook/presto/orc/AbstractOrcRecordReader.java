@@ -849,7 +849,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         public static OrcBatchRecordReader.LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
         {
-            if (stripes.size() == 0) {
+            if (stripes.isEmpty()) {
                 return new OrcBatchRecordReader.LinearProbeRangeFinder(ImmutableList.of());
             }
 
