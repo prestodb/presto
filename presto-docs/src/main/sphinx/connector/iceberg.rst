@@ -189,3 +189,96 @@ original state.
      regionkey | bigint  |       |
      comment   | varchar |       |
     (4 rows)
+
+
+Time Travel
+------------------------
+
+Iceberg and Presto Iceberg connector supports time travel via table snapshots
+identified by unique snapshot IDs. The snapshot IDs are stored in the `$snapshots`
+metadata table. We can rollback the state of a table to a previous snapshot ID.
+
+Example Queries
+^^^^^^^^^^^^^^^
+
+Similar to the example queries in the `Schema Evolution`, let's create an Iceberg
+table named `ctas_nation`, created from the TPCH `nation` table.
+
+.. code-block:: sql
+
+    USE iceberg.tpch;
+    CREATE TABLE IF NOT EXISTS ctas_nation AS (SELECT * FROM nation);
+    DESCRIBE ctas_nation;
+
+.. code-block:: text
+
+      Column   |  Type   | Extra | Comment
+    -----------+---------+-------+---------
+     nationkey | bigint  |       |
+     name      | varchar |       |
+     regionkey | bigint  |       |
+     comment   | varchar |       |
+    (4 rows)
+
+We can find snapshot IDs of the Iceberg table from the `$snapshots` metadata table.
+
+.. code-block:: sql
+
+    SELECT snapshot_id FROM iceberg.tpch."ctas_nation$snapshots" ORDER BY committed_at;
+
+.. code-block:: text
+
+         snapshot_id
+    ---------------------
+     5837462824399906536
+    (1 row)
+
+For now, as we've just created the table, there's only one snapshot ID. Let's
+insert one row into the table and see the change of the snapshot IDs.
+
+.. code-block:: sql
+
+    INSERT INTO ctas_nation VALUES(25, 'new country', 1, 'comment');
+    SELECT snapshot_id FROM iceberg.tpch."ctas_nation$snapshots" ORDER BY committed_at;
+
+.. code-block:: text
+
+         snapshot_id
+    ---------------------
+     5837462824399906536
+     5140039250977437531
+    (2 rows)
+
+Now there's a new snapshot (`5140039250977437531`) created as a new row is
+inserted into the table. The new row can be verified by running
+
+.. code-block:: sql
+
+    SELECT * FROM ctas_nation WHERE name = 'new country';
+
+.. code-block:: text
+
+     nationkey |    name     | regionkey | comment
+    -----------+-------------+-----------+---------
+            25 | new country |         1 | comment
+    (1 row)
+
+With the time travel feature, we can rollback to the previous state without the
+new row by calling `iceberg.system.rollback_to_snapshot`:
+
+.. code-block:: sql
+
+    CALL iceberg.system.rollback_to_snapshot('tpch', 'ctas_nation', 5837462824399906536);
+
+Now if we check the table again, we'll find the inserted new row no longer
+exists as we've rollbacked to the previous state.
+
+.. code-block:: sql
+
+    SELECT * FROM ctas_nation WHERE name = 'new country';
+
+.. code-block:: text
+
+     nationkey | name | regionkey | comment
+    -----------+------+-----------+---------
+    (0 rows)
