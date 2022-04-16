@@ -50,12 +50,42 @@ public class TestSegmentedAggregation
     }
 
     @Test
+    public void testSortedbyKeysPrefixNotASubsetOfGroupbyKeys()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        try {
+            queryRunner.execute("CREATE TABLE test_segmented_aggregation_customer0 WITH ( \n" +
+                    "  bucket_count = 4, bucketed_by = ARRAY['custkey'], \n" +
+                    "  sorted_by = ARRAY['name', 'custkey'], partitioned_by=array['ds'], \n" +
+                    "  format = 'DWRF' ) AS \n" +
+                    "SELECT *, '2021-07-11' as ds FROM customer LIMIT 1000\n");
+
+            // can't enable segmented aggregation
+            assertPlan(orderBasedExecutionEnabled(),
+                    "SELECT custkey, count(name) FROM test_segmented_aggregation_customer0 \n" +
+                            "WHERE ds = '2021-07-11' GROUP BY 1",
+                    anyTree(aggregation(
+                            singleGroupingSet("custkey"),
+                            ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("name"))),
+                            ImmutableList.of(), // no segmented streaming
+                            ImmutableMap.of(),
+                            Optional.empty(),
+                            SINGLE,
+                            tableScan("test_segmented_aggregation_customer0", ImmutableMap.of("custkey", "custkey", "name", "name")))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_segmented_aggregation_customer0");
+        }
+    }
+
+    @Test
     public void testAndSortedByKeysArePrefixOfGroupbyKeys()
     {
         QueryRunner queryRunner = getQueryRunner();
 
         try {
-            queryRunner.execute("CREATE TABLE test_segmented_streaming_customer WITH ( \n" +
+            queryRunner.execute("CREATE TABLE test_segmented_aggregation_customer WITH ( \n" +
                     "  bucket_count = 4, bucketed_by = ARRAY['custkey', 'name'], \n" +
                     "  sorted_by = ARRAY['custkey', 'name'], partitioned_by=array['ds'], \n" +
                     "  format = 'DWRF' ) AS \n" +
@@ -63,7 +93,7 @@ public class TestSegmentedAggregation
 
             assertPlan(
                     orderBasedExecutionEnabled(),
-                    "SELECT custkey, name, nationkey, COUNT(*) FROM test_segmented_streaming_customer \n" +
+                    "SELECT custkey, name, nationkey, COUNT(*) FROM test_segmented_aggregation_customer \n" +
                             "WHERE ds = '2021-07-11' GROUP BY 1, 2, 3",
                     anyTree(aggregation(
                             singleGroupingSet("custkey", "name", "nationkey"),
@@ -72,14 +102,72 @@ public class TestSegmentedAggregation
                             ImmutableMap.of(),
                             Optional.empty(),
                             SINGLE,
-                            tableScan("test_segmented_streaming_customer", ImmutableMap.of("custkey", "custkey", "name", "name", "nationkey", "nationkey")))));
+                            tableScan("test_segmented_aggregation_customer", ImmutableMap.of("custkey", "custkey", "name", "name", "nationkey", "nationkey")))));
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS test_segmented_streaming_customer");
+            queryRunner.execute("DROP TABLE IF EXISTS test_segmented_aggregation_customer");
         }
     }
 
-    //todo:add test when Group-by Keys And prefix of Sorted-by Keys share the same elemens
+    @Test
+    public void testSortedByPrefixOfBucketedKeys()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        try {
+            queryRunner.execute("CREATE TABLE test_segmented_aggregation_customer2 WITH ( \n" +
+                    "  bucket_count = 4, bucketed_by = ARRAY['custkey', 'name'], \n" +
+                    "  sorted_by = ARRAY['custkey'], partitioned_by=array['ds'], \n" +
+                    "  format = 'DWRF' ) AS \n" +
+                    "SELECT *, '2021-07-11' as ds FROM customer LIMIT 1000\n");
+
+            // can enable segmented aggregation
+            assertPlan(orderBasedExecutionEnabled(),
+                    "SELECT name, custkey, COUNT(*) FROM test_segmented_aggregation_customer2 \n" +
+                            "WHERE ds = '2021-07-11' GROUP BY 1, 2",
+                    anyTree(aggregation(
+                            singleGroupingSet("name", "custkey"),
+                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                            ImmutableList.of("custkey"), // segmented aggregation
+                            ImmutableMap.of(),
+                            Optional.empty(),
+                            SINGLE,
+                            tableScan("test_segmented_aggregation_customer2", ImmutableMap.of("name", "name", "custkey", "custkey")))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_segmented_aggregation_customer2");
+        }
+    }
+
+    @Test
+    public void testGroupByKeysShareElementsAsSortedByKeysPrefix()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        try {
+            queryRunner.execute("CREATE TABLE test_segmented_aggregation_customer_share_elements WITH ( \n" +
+                    "  bucket_count = 4, bucketed_by = ARRAY['custkey', 'name', 'nationkey'], \n" +
+                    "  sorted_by = ARRAY['custkey', 'phone'], partitioned_by=array['ds'], \n" +
+                    "  format = 'DWRF' ) AS \n" +
+                    "SELECT *, '2021-07-11' as ds FROM customer LIMIT 1000\n");
+
+            // can enable segmented aggregation
+            assertPlan(orderBasedExecutionEnabled(),
+                    "SELECT name, custkey, nationkey, COUNT(*) FROM test_segmented_aggregation_customer_share_elements \n" +
+                            "WHERE ds = '2021-07-11' GROUP BY 1, 2, 3",
+                    anyTree(aggregation(
+                            singleGroupingSet("name", "custkey", "nationkey"),
+                            ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                            ImmutableList.of("custkey"), // segmented aggregation
+                            ImmutableMap.of(),
+                            Optional.empty(),
+                            SINGLE,
+                            tableScan("test_segmented_aggregation_customer_share_elements", ImmutableMap.of("name", "name", "custkey", "custkey", "nationkey", "nationkey")))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_segmented_aggregation_customer_share_elements");
+        }
+    }
 
     private Session orderBasedExecutionEnabled()
     {
