@@ -14,6 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,6 +30,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TableFinishInfo
         implements OperatorInfo
 {
@@ -60,6 +64,7 @@ public class TableFinishInfo
     }
 
     @JsonCreator
+    @ThriftConstructor
     public TableFinishInfo(
             @JsonProperty("serializedConnectorOutputMetadata") String serializedConnectorOutputMetadata,
             @JsonProperty("jsonLengthLimitExceeded") boolean jsonLengthLimitExceeded,
@@ -73,24 +78,28 @@ public class TableFinishInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getSerializedConnectorOutputMetadata()
     {
         return serializedConnectorOutputMetadata;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public boolean isJsonLengthLimitExceeded()
     {
         return jsonLengthLimitExceeded;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public Duration getStatisticsWallTime()
     {
         return statisticsWallTime;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public Duration getStatisticsCpuTime()
     {
         return statisticsCpuTime;
