@@ -71,6 +71,7 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
+import com.facebook.presto.resourcemanager.cpu.ClusterCPUManager;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
@@ -202,6 +203,7 @@ public class CoordinatorModule
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
 
         // cluster memory manager
+        binder.bind(ClusterCPUManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("memoryManager", ForMemoryManager.class)

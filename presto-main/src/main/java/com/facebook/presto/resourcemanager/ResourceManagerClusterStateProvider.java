@@ -20,6 +20,7 @@ import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.resourcemanager.cpu.CPUInfo;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.QueryId;
@@ -327,6 +328,15 @@ public class ResourceManagerClusterStateProvider
             String nodeHost = URI.create(e.getValue().getNodeStatus().getExternalAddress()).getHost();
             return nodeIdentifier + " [" + nodeHost + "]";
         }, e -> e.getValue().getNodeStatus().getMemoryInfo()));
+    }
+
+    public Map<String, CPUInfo> getWorkerCPUInfo()
+    {
+        return nodeStatuses.entrySet().stream().collect(toImmutableMap(e -> {
+            String nodeIdentifier = e.getValue().getNodeStatus().getNodeId();
+            String nodeHost = URI.create(e.getValue().getNodeStatus().getExternalAddress()).getHost();
+            return nodeIdentifier + " [" + nodeHost + "]";
+        }, e -> e.getValue().getNodeStatus().getCpuInfo()));
     }
 
     private void validateCoordinatorConsistency()

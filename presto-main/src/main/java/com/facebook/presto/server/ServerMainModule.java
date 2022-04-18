@@ -123,6 +123,9 @@ import com.facebook.presto.resourcemanager.ResourceManagerClusterStatusSender;
 import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
+import com.facebook.presto.resourcemanager.cpu.CPUInfo;
+import com.facebook.presto.resourcemanager.cpu.CPUResource;
+import com.facebook.presto.resourcemanager.cpu.LocalCPUManager;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
@@ -441,6 +444,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
         configBinder(binder).bindConfig(ReservedSystemMemoryConfig.class);
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
+        binder.bind(LocalCPUManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
         binder.bind(EmbedVersion.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
@@ -507,10 +511,13 @@ public class ServerMainModule
 
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);
+        jaxrsBinder(binder).bind(CPUResource.class);
 
         jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(CPUInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(MemoryPoolAssignmentsRequest.class);
         smileCodecBinder(binder).bindSmileCodec(MemoryInfo.class);
+        smileCodecBinder(binder).bindSmileCodec(CPUInfo.class);
         smileCodecBinder(binder).bindSmileCodec(MemoryPoolAssignmentsRequest.class);
 
         // transaction manager

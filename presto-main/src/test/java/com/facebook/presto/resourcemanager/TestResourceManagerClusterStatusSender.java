@@ -19,6 +19,7 @@ import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.resourcemanager.cpu.CPUInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.ConnectorId;
@@ -56,7 +57,8 @@ public class TestResourceManagerClusterStatusSender
             2.0,
             1,
             2,
-            3);
+            3,
+            new CPUInfo(1L));
     private static final int HEARTBEAT_INTERVAL = 100;
     private static final int SLEEP_DURATION = 1000;
     private static final int TARGET_HEARTBEATS = SLEEP_DURATION / HEARTBEAT_INTERVAL;

@@ -116,6 +116,14 @@ public class HttpLocationFactory
                 .appendPath("/v1/memory").build();
     }
 
+    @Override
+    public URI createCPUInfoLocation(InternalNode node)
+    {
+        requireNonNull(node, "node is null");
+        return uriBuilderFrom(node.getInternalUri())
+                .appendPath("/v1/cpu").build();
+    }
+
     private URI createHttpTaskLocation(InternalNode node, TaskId taskId)
     {
         requireNonNull(node, "node is null");
