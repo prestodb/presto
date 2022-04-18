@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+@ThriftStruct
 public class LocalExchangeBufferInfo
         implements Mergeable<LocalExchangeBufferInfo>, OperatorInfo
 {
@@ -25,6 +29,7 @@ public class LocalExchangeBufferInfo
     private final int bufferedPages;
 
     @JsonCreator
+    @ThriftConstructor
     public LocalExchangeBufferInfo(
             @JsonProperty("bufferedBytes") long bufferedBytes,
             @JsonProperty("bufferedPages") int bufferedPages)
@@ -34,12 +39,14 @@ public class LocalExchangeBufferInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public long getBufferedBytes()
     {
         return bufferedBytes;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public int getBufferedPages()
     {
         return bufferedPages;
