@@ -393,7 +393,7 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
             protocol::readBlock(type, pexpr->valueBlock.data, pool_);
         return std::make_shared<ConstantTypedExpr>(
             std::make_shared<velox::ConstantVector<velox::ComplexType>>(
-                pool_, 1, 0, valueVector, velox::cdvi::EMPTY_METADATA));
+                pool_, 1, 0, valueVector));
       }
     }
     case TypeKind::ARRAY: {
@@ -401,7 +401,7 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
           protocol::readBlock(type, pexpr->valueBlock.data, pool_);
       return std::make_shared<ConstantTypedExpr>(
           std::make_shared<velox::ConstantVector<velox::ComplexType>>(
-              pool_, 1, 0, valueVector, velox::cdvi::EMPTY_METADATA));
+              pool_, 1, 0, valueVector));
     }
     default: {
       const auto value = getConstantValue(type, pexpr->valueBlock);

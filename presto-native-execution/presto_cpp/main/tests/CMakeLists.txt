@@ -19,6 +19,7 @@ add_test(presto_server_test presto_server_test)
 target_link_libraries(
   presto_server_test
   presto_server_lib
+  $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   velox_exec_test_util
   velox_hive_connector

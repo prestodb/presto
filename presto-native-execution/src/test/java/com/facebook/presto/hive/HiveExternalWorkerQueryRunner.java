@@ -104,7 +104,7 @@ public class HiveExternalWorkerQueryRunner
         createSupplier(queryRunner);
         createEmptyTable(queryRunner);
         createPrestoBenchTables(queryRunner);
-        createBucketedLineitemAndCustomer(queryRunner);
+        createBucketedLineitemAndOrders(queryRunner);
 
         return queryRunner;
     }
@@ -419,18 +419,18 @@ public class HiveExternalWorkerQueryRunner
     }
 
     // Create two bucketed by 'orderkey' tables to be able to run bucketed execution join query on them.
-    private static void createBucketedLineitemAndCustomer(QueryRunner queryRunner)
+    private static void createBucketedLineitemAndOrders(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem_bucketed")) {
             queryRunner.execute("CREATE TABLE lineitem_bucketed(orderkey BIGINT, partkey BIGINT, suppkey BIGINT, linenumber INTEGER, quantity DOUBLE, ds VARCHAR) " +
-                    "WITH (bucket_count = 10, bucketed_by = ARRAY['orderkey'], partitioned_by = ARRAY['ds'])");
+                    "WITH (bucket_count = 10, bucketed_by = ARRAY['orderkey'], sorted_by = ARRAY['orderkey'], partitioned_by = ARRAY['ds'])");
             queryRunner.execute("INSERT INTO lineitem_bucketed SELECT orderkey, partkey, suppkey, linenumber, quantity, '2021-12-20' FROM tpch.tiny.lineitem");
             queryRunner.execute("INSERT INTO lineitem_bucketed SELECT orderkey, partkey, suppkey, linenumber, quantity+10, '2021-12-21' FROM tpch.tiny.lineitem");
         }
 
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders_bucketed")) {
             queryRunner.execute("CREATE TABLE orders_bucketed (orderkey BIGINT, custkey BIGINT, orderstatus VARCHAR, ds VARCHAR) " +
-                    "WITH (bucket_count = 10, bucketed_by = ARRAY['orderkey'], partitioned_by = ARRAY['ds'])");
+                    "WITH (bucket_count = 10, bucketed_by = ARRAY['orderkey'], sorted_by = ARRAY['orderkey'], partitioned_by = ARRAY['ds'])");
             queryRunner.execute("INSERT INTO orders_bucketed SELECT orderkey, custkey, orderstatus, '2021-12-20' FROM tpch.tiny.orders");
             queryRunner.execute("INSERT INTO orders_bucketed SELECT orderkey, custkey, orderstatus, '2021-12-21' FROM tpch.tiny.orders");
         }

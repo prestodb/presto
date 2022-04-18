@@ -34,6 +34,7 @@ add_dependencies(presto_server_lib presto_protocol presto_types
 target_include_directories(presto_server_lib PRIVATE ${presto_thrift_INCLUDES})
 target_link_libraries(
   presto_server_lib
+  $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   $<TARGET_OBJECTS:presto_protocol>
   presto_adapters

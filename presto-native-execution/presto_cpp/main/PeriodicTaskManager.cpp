@@ -19,6 +19,7 @@
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/memory/MappedMemory.h"
+#include "velox/exec/Driver.h"
 
 namespace facebook::presto {
 
@@ -94,8 +95,18 @@ void PeriodicTaskManager::start() {
           REPORT_ADD_STAT_VALUE(
               kCounterNumTasksFailed,
               taskNumbers[velox::exec::TaskState::kFailed]);
+          auto driverCountStats = taskManager->getDriverCountStats();
+
           REPORT_ADD_STAT_VALUE(
-              kCounterNumDrivers, taskManager->getNumRunningDrivers());
+              kCounterNumRunningDrivers, driverCountStats.numRunningDrivers);
+          REPORT_ADD_STAT_VALUE(
+              kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
+
+          REPORT_ADD_STAT_VALUE(
+              kCounterTotalPartitionedOutputBuffer,
+              velox::exec::PartitionedOutputBufferManager::getInstance()
+                  .lock()
+                  ->numBuffers());
         },
         std::chrono::microseconds{kTaskPeriodGlobalCounters},
         "task_counters");

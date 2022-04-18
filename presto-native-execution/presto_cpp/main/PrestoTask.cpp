@@ -63,7 +63,7 @@ void setTiming(
 
 protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
-    const exec::RuntimeMetric& metric) {
+    const RuntimeMetric& metric) {
   return protocol::RuntimeMetric{
       name, metric.sum, metric.count, metric.min, metric.max};
 }
@@ -188,7 +188,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
 
   prestoTaskStats.pipelines.resize(taskStats.pipelineStats.size());
 
-  std::unordered_map<std::string, exec::RuntimeMetric> taskRuntimeStats;
+  std::unordered_map<std::string, RuntimeMetric> taskRuntimeStats;
 
   if (taskStats.endTimeMs >= taskStats.executionEndTimeMs) {
     taskRuntimeStats["outputConsumedDelayInNanos"].addValue(
@@ -313,7 +313,11 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
         auto statName =
             fmt::format("{}.{}.{}", op.operatorType, op.planNodeId, stat.first);
         opOut.runtimeStats[statName] = toRuntimeMetric(statName, stat.second);
-        taskRuntimeStats[statName].merge(stat.second);
+        if (taskRuntimeStats.count(statName)) {
+          taskRuntimeStats[statName].merge(stat.second);
+        } else {
+          taskRuntimeStats[statName] = stat.second;
+        }
       }
 
       auto wallNanos = op.addInputTiming.wallNanos +
