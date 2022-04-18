@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+@ThriftStruct
 public class HashCollisionsInfo
         implements Mergeable<HashCollisionsInfo>, OperatorInfo
 {
@@ -38,6 +42,7 @@ public class HashCollisionsInfo
     }
 
     @JsonCreator
+    @ThriftConstructor
     public HashCollisionsInfo(
             @JsonProperty(WEIGHTED_HASH_COLLISIONS_PROPERTY) double weightedHashCollisions,
             @JsonProperty(WEIGHTED_SUM_SQUARED_HASH_COLLISIONS) double weightedSumSquaredHashCollisions,
@@ -49,18 +54,21 @@ public class HashCollisionsInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public double getWeightedSumSquaredHashCollisions()
     {
         return weightedSumSquaredHashCollisions;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public double getWeightedHashCollisions()
     {
         return weightedHashCollisions;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public double getWeightedExpectedHashCollisions()
     {
         return weightedExpectedHashCollisions;

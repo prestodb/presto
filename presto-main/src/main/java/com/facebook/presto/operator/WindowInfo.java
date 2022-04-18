@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.operator.window.WindowPartition;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,6 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 
+@ThriftStruct
 public class WindowInfo
         implements Mergeable<WindowInfo>, OperatorInfo
 {
@@ -39,12 +43,14 @@ public class WindowInfo
     private final List<DriverWindowInfo> windowInfos;
 
     @JsonCreator
+    @ThriftConstructor
     public WindowInfo(@JsonProperty("windowInfos") List<DriverWindowInfo> windowInfos)
     {
         this.windowInfos = ImmutableList.copyOf(windowInfos);
     }
 
     @JsonProperty
+    @ThriftField(1)
     public List<DriverWindowInfo> getWindowInfos()
     {
         return windowInfos;
@@ -131,6 +137,7 @@ public class WindowInfo
     }
 
     @Immutable
+    @ThriftStruct
     public static class DriverWindowInfo
     {
         private final double sumSquaredDifferencesPositionsOfIndex; // sum of (indexPositions - averageIndexPositions) ^ 2 for all indexes
@@ -141,6 +148,7 @@ public class WindowInfo
         private final long numberOfIndexes;
 
         @JsonCreator
+        @ThriftConstructor
         public DriverWindowInfo(
                 @JsonProperty("sumSquaredDifferencesPositionsOfIndex") double sumSquaredDifferencesPositionsOfIndex,
                 @JsonProperty("sumSquaredDifferencesSizeOfIndex") double sumSquaredDifferencesSizeOfIndex,
@@ -158,36 +166,42 @@ public class WindowInfo
         }
 
         @JsonProperty
+        @ThriftField(1)
         public double getSumSquaredDifferencesPositionsOfIndex()
         {
             return sumSquaredDifferencesPositionsOfIndex;
         }
 
         @JsonProperty
+        @ThriftField(2)
         public double getSumSquaredDifferencesSizeOfIndex()
         {
             return sumSquaredDifferencesSizeOfIndex;
         }
 
         @JsonProperty
+        @ThriftField(3)
         public double getSumSquaredDifferencesSizeInPartition()
         {
             return sumSquaredDifferencesSizeInPartition;
         }
 
         @JsonProperty
+        @ThriftField(4)
         public long getTotalPartitionsCount()
         {
             return totalPartitionsCount;
         }
 
         @JsonProperty
+        @ThriftField(5)
         public long getTotalRowsCount()
         {
             return totalRowsCount;
         }
 
         @JsonProperty
+        @ThriftField(6)
         public long getNumberOfIndexes()
         {
             return numberOfIndexes;

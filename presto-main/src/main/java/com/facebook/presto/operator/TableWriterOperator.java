@@ -14,6 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -491,6 +494,7 @@ public class TableWriterOperator
                 succinctNanos(pageSink.getValidationCpuNanos()));
     }
 
+    @ThriftStruct
     public static class TableWriterInfo
             implements Mergeable<TableWriterInfo>, OperatorInfo
     {
@@ -500,6 +504,7 @@ public class TableWriterOperator
         private final Duration validationCpuTime;
 
         @JsonCreator
+        @ThriftConstructor
         public TableWriterInfo(
                 @JsonProperty("pageSinkPeakMemoryUsage") long pageSinkPeakMemoryUsage,
                 @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
@@ -513,24 +518,28 @@ public class TableWriterOperator
         }
 
         @JsonProperty
+        @ThriftField(1)
         public long getPageSinkPeakMemoryUsage()
         {
             return pageSinkPeakMemoryUsage;
         }
 
         @JsonProperty
+        @ThriftField(2)
         public Duration getStatisticsWallTime()
         {
             return statisticsWallTime;
         }
 
         @JsonProperty
+        @ThriftField(3)
         public Duration getStatisticsCpuTime()
         {
             return statisticsCpuTime;
         }
 
         @JsonProperty
+        @ThriftField(4)
         public Duration getValidationCpuTime()
         {
             return validationCpuTime;
