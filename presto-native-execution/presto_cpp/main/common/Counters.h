@@ -44,7 +44,14 @@ constexpr folly::StringPiece kCounterNumTasksAborted{
     "presto_cpp.num_tasks_aborted"};
 constexpr folly::StringPiece kCounterNumTasksFailed{
     "presto_cpp.num_tasks_failed"};
-constexpr folly::StringPiece kCounterNumDrivers{"presto_cpp.num_drivers"};
+constexpr folly::StringPiece kCounterNumZombieTasks{
+    "presto_cpp.num_zombie_tasks"};
+constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
+    "presto_cpp.num_zombie_presto_tasks"};
+constexpr folly::StringPiece kCounterNumRunningDrivers{
+    "presto_cpp.num_running_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedDrivers{
+    "presto_cpp.num_blocked_drivers"};
 
 // Number of bytes of memory MappedMemory currently maps (RSS). It also includes
 // memory that was freed and currently not in use.
@@ -54,4 +61,8 @@ constexpr folly::StringPiece kCounterMappedMemoryBytes{
 constexpr folly::StringPiece kCounterAllocatedMemoryBytes{
     "presto_cpp.allocated_memory_bytes"};
 
+// Number of total PartitionedOutputBuffer managed by all
+// PartitionedOutputBufferManager
+constexpr folly::StringPiece kCounterTotalPartitionedOutputBuffer{
+    "presto_cpp.num_partitioned_output_buffer"};
 } // namespace facebook::presto

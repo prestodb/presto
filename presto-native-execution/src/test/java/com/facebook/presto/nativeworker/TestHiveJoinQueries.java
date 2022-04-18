@@ -93,6 +93,13 @@ public class TestHiveJoinQueries
         assertQuery("SELECT name, (SELECT max(name) FROM region WHERE regionkey = nation.regionkey) FROM nation");
     }
 
+    @Test
+    public void testMergeJoin()
+    {
+        String sql = "SELECT COUNT(*) FROM lineitem_bucketed a, orders_bucketed b WHERE a.orderkey = b.orderkey AND a.ds = '2021-12-20' AND b.ds = '2021-12-20' AND a.\"$bucket\" = 1 AND b.\"$bucket\" = 1";
+        assertQuery(mergeJoin(), sql, getSession(), sql);
+    }
+
     private Session partitionedJoin()
     {
         return Session.builder(getSession())
@@ -104,6 +111,14 @@ public class TestHiveJoinQueries
     {
         return Session.builder(getSession())
                 .setSystemProperty("join_distribution_type", "BROADCAST")
+                .build();
+    }
+
+    private Session mergeJoin()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty("prefer_merge_join", "true")
+                .setCatalogSessionProperty("hive", "order_based_execution_enabled", "true")
                 .build();
     }
 }

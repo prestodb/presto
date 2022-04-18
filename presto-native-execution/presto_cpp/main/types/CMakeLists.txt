@@ -10,14 +10,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(
-  presto_types OBJECT
-  PrestoToVeloxQueryPlan.cpp PrestoToVeloxExpr.cpp PrestoToVeloxSplit.cpp
+  presto_type_converter OBJECT
   TypeSignatureTypeConverter.cpp antlr/TypeSignatureLexer.cpp
   antlr/TypeSignatureParser.cpp)
 
-add_dependencies(presto_types velox_type)
+add_dependencies(presto_type_converter velox_type)
 
-target_link_libraries(presto_types velox_hive_partition_function)
+add_library(presto_types OBJECT PrestoToVeloxQueryPlan.cpp
+                                PrestoToVeloxExpr.cpp PrestoToVeloxSplit.cpp)
+add_dependencies(presto_types presto_type_converter velox_type)
+
+target_link_libraries(presto_types presto_type_converter
+                      velox_hive_partition_function)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

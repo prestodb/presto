@@ -12,7 +12,8 @@
  * limitations under the License.
  */
 namespace facebook::presto::protocol {
-struct MergeJoinNode {
+struct MergeJoinNode : public PlanNode {
+  MergeJoinNode() noexcept;
   PlanNodeId id = {};
   // JoinNodeType is referenced as JoinNode.Type in Presto
   // Since presto_cpp codegen can't nicely handle inner class references

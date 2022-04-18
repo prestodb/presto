@@ -12,13 +12,15 @@
  * limitations under the License.
  */
 
-#include "TaskManager.h"
+#include "presto_cpp/main/TaskManager.h"
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <velox/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -356,6 +358,77 @@ size_t TaskManager::cleanOldTasks() {
   size_t numCleanedTasks{0};
 
   auto taskMap = taskMap_.wlock();
+
+  struct ZombieTaskCounts {
+    size_t numRunning{0};
+    size_t numFinished{0};
+    size_t numCanceled{0};
+    size_t numAborted{0};
+    size_t numFailed{0};
+    size_t numTotal{0};
+
+    const size_t numSampleTaskId{20};
+    std::vector<std::string> taskIds;
+
+    ZombieTaskCounts() {
+      taskIds.reserve(numSampleTaskId);
+    }
+
+    void updateCounts(std::shared_ptr<exec::Task>& task) {
+      switch (task->state()) {
+        case exec::TaskState::kRunning:
+          ++numRunning;
+          break;
+        case exec::TaskState::kFinished:
+          ++numFinished;
+          break;
+        case exec::TaskState::kCanceled:
+          ++numCanceled;
+          break;
+        case exec::TaskState::kAborted:
+          ++numAborted;
+          break;
+        case exec::TaskState::kFailed:
+          ++numFailed;
+          break;
+        default:
+          break;
+      }
+      if (taskIds.size() < numSampleTaskId) {
+        taskIds.emplace_back(task->taskId());
+      }
+    }
+
+    void logZombieTaskStatus(const std::string& hangingClassName) {
+      auto length = 0;
+      for (auto& id : taskIds) {
+        length += id.length() + 2; // for comma and space
+      }
+      std::string taskIdsStr;
+      taskIdsStr.reserve(length);
+      for (auto i = 0; i < taskIds.size(); i++) {
+        if (i == taskIds.size() - 1) {
+          taskIdsStr.append(taskIds[i]);
+        } else {
+          taskIdsStr.append(taskIds[i]).append(", ");
+        }
+      }
+
+      LOG(ERROR) << "There are " << numTotal << " zombie " << hangingClassName
+                 << " that satisfy cleanup conditions but could not be "
+                    "cleaned up, because the "
+                 << hangingClassName
+                 << " are referenced by more than 1 owners. "
+                    "RUNNING["
+                 << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
+                 << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
+                 << numFailed << "]  Sample task IDs (shows only "
+                 << numSampleTaskId << " IDs): {" << taskIdsStr << "}";
+    }
+  };
+
+  ZombieTaskCounts zombieTaskCounts;
+  ZombieTaskCounts zombiePrestoTaskCounts;
   for (auto it = taskMap->begin(); it != taskMap->end();) {
     bool eraseTask{false};
     if (it->second->task != nullptr) {
@@ -372,18 +445,24 @@ size_t TaskManager::cleanOldTasks() {
       }
     }
 
+    auto prestoTaskRefCount = it->second.use_count();
+    auto taskRefCount = it->second->task.use_count();
     // We assume 'not erase' is the 'most common' case.
     if (not eraseTask) {
       ++it;
+    } else if (prestoTaskRefCount > 1 || taskRefCount > 1) {
+      auto& task = it->second->task;
+      if (prestoTaskRefCount > 1) {
+        ++zombiePrestoTaskCounts.numTotal;
+        if (task != nullptr) {
+          zombiePrestoTaskCounts.updateCounts(task);
+        }
+      }
+      if (taskRefCount > 1) {
+        ++zombieTaskCounts.numTotal;
+        zombieTaskCounts.updateCounts(task);
+      }
     } else {
-      VELOX_CHECK_EQ(
-          it->second.use_count(),
-          1,
-          "PrestoTask still referenced by more than 1 owner");
-      VELOX_CHECK_EQ(
-          it->second->task.use_count(),
-          1,
-          "Task still referenced by more than 1 owner");
       it = taskMap->erase(it);
       ++numCleanedTasks;
     }
@@ -392,6 +471,15 @@ size_t TaskManager::cleanOldTasks() {
   if (numCleanedTasks > 0) {
     LOG(INFO) << "Cleaned " << numCleanedTasks << " old task(s).";
   }
+  if (zombieTaskCounts.numTotal > 0) {
+    zombieTaskCounts.logZombieTaskStatus("Task");
+  }
+  if (zombiePrestoTaskCounts.numTotal > 0) {
+    zombiePrestoTaskCounts.logZombieTaskStatus("PrestoTask");
+  }
+  REPORT_ADD_STAT_VALUE(kCounterNumZombieTasks, zombieTaskCounts.numTotal);
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumZombiePrestoTasks, zombiePrestoTaskCounts.numTotal);
   return numCleanedTasks;
 }
 
@@ -683,15 +771,18 @@ std::string TaskManager::toString() {
   return out.str();
 }
 
-size_t TaskManager::getNumRunningDrivers() const {
+DriverCountStats TaskManager::getDriverCountStats() const {
   auto taskMap = taskMap_.rlock();
-  size_t numDrivers = 0;
+  DriverCountStats driverCountStats;
   for (const auto& pair : *taskMap) {
     if (pair.second->task != nullptr) {
-      numDrivers += pair.second->task->numRunningDrivers();
+      driverCountStats.numRunningDrivers +=
+          pair.second->task->numRunningDrivers();
     }
   }
-  return numDrivers;
+  driverCountStats.numBlockedDrivers =
+      velox::exec::BlockingState::numBlockedDrivers();
+  return driverCountStats;
 }
 
 std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {

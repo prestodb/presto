@@ -50,9 +50,6 @@ clean:					#: Delete all build artifacts
 velox-submodule:		#: Check out code for velox submodule
 	git submodule sync --recursive
 	git submodule update --init --recursive
-	# update local velox submodule to fetch the latest on remote
-	git -C velox checkout main
-	git submodule update --remote
 
 submodules: velox-submodule
 
