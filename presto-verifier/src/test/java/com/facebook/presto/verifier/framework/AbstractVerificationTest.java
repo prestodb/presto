@@ -159,6 +159,7 @@ public abstract class AbstractVerificationTest
         VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID).setExplain(explain);
         verificationSettings.ifPresent(settings -> {
             settings.concurrentControlAndTest.ifPresent(verifierConfig::setConcurrentControlAndTest);
+            settings.skipControl.ifPresent(verifierConfig::setSkipControl);
         });
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> getPrestoAction(Optional.of(sourceQuery.getControlConfiguration())));
@@ -183,6 +184,13 @@ public abstract class AbstractVerificationTest
 
     public static class VerificationSettings
     {
+        public VerificationSettings()
+        {
+            concurrentControlAndTest = Optional.empty();
+            skipControl = Optional.empty();
+        }
+
         Optional<Boolean> concurrentControlAndTest;
+        Optional<Boolean> skipControl;
     }
 }

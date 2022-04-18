@@ -53,6 +53,7 @@ public class TestDataVerification
         extends AbstractVerificationTest
 {
     private static VerificationSettings concurrentControlAndTestSettings;
+    private static VerificationSettings skipControlSettings;
 
     public TestDataVerification()
             throws Exception
@@ -64,6 +65,8 @@ public class TestDataVerification
     {
         concurrentControlAndTestSettings = new VerificationSettings();
         concurrentControlAndTestSettings.concurrentControlAndTest = Optional.of(true);
+        skipControlSettings = new VerificationSettings();
+        skipControlSettings.skipControl = Optional.of(true);
     }
 
     @Test
@@ -77,6 +80,19 @@ public class TestDataVerification
         event = runVerification("INSERT INTO success_test SELECT 1.0", "INSERT INTO success_test SELECT 1.00001");
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
+    public void testSuccessSkipControl()
+    {
+        Optional<VerifierQueryEvent> event = runVerification("SELECT 1.0", "SELECT 1.00001", skipControlSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
+
+        getQueryRunner().execute("CREATE TABLE success_skip_control (x double)");
+        event = runVerification("INSERT INTO success_skip_control SELECT 1.0", "INSERT INTO success_skip_control SELECT 1.00001", skipControlSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
     }
 
     @Test
@@ -348,6 +364,17 @@ public class TestDataVerification
             Optional<String> expectedErrorCode,
             Optional<String> expectedErrorMessageRegex)
     {
+        assertEvent(event, expectedStatus, expectedDeterminismAnalysis, expectedErrorCode, expectedErrorMessageRegex, true);
+    }
+
+    private void assertEvent(
+            VerifierQueryEvent event,
+            EventStatus expectedStatus,
+            Optional<DeterminismAnalysis> expectedDeterminismAnalysis,
+            Optional<String> expectedErrorCode,
+            Optional<String> expectedErrorMessageRegex,
+            boolean isControlQueryExecuted)
+    {
         assertEquals(event.getSuite(), SUITE);
         assertEquals(event.getTestId(), TEST_ID);
         assertEquals(event.getName(), NAME);
@@ -363,8 +390,10 @@ public class TestDataVerification
         }
 
         if (event.getStatus().equals(SUCCEEDED.name())) {
-            QueryType queryType = QueryType.of(getSqlParser().createStatement(event.getControlQueryInfo().getOriginalQuery(), PARSING_OPTIONS));
-            assertSuccessQueryInfo(queryType, event.getControlQueryInfo());
+            QueryType queryType = QueryType.of(getSqlParser().createStatement(event.getTestQueryInfo().getOriginalQuery(), PARSING_OPTIONS));
+            if (isControlQueryExecuted) {
+                assertSuccessQueryInfo(queryType, event.getControlQueryInfo());
+            }
             assertSuccessQueryInfo(queryType, event.getTestQueryInfo());
         }
     }
