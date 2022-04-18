@@ -22,6 +22,7 @@ target_link_libraries(
   velox_hive_connector
   velox_exec
   velox_dwio_common_exception
+  presto_type_converter
   presto_types
   ${ANTLR4_RUNTIME}
   velox_hive_partition_function)
@@ -49,6 +50,7 @@ target_link_libraries(
   gtest
   gtest_main
   $<TARGET_OBJECTS:presto_protocol>
+  $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   velox_core
   velox_dwio_common_exception
