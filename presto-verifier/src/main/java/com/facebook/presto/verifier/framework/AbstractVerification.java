@@ -205,9 +205,6 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 QueryBundle controlQueryBundle = control.get();
                 controlQueryFuture = executor.submit(() -> runMainQuery(controlQueryBundle.getQuery(), CONTROL, controlQueryContext));
             }
-            else {
-                controlQueryContext.setState(NOT_RUN);
-            }
 
             if (!concurrentControlAndTest) {
                 getFutureValue(controlQueryFuture);
@@ -216,7 +213,12 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             // Run test queries
             ListenableFuture<Optional<QueryResult<V>>> testQueryFuture = executor.submit(() -> runMainQuery(testQueryBundle.getQuery(), TEST, testQueryContext));
             controlQueryResult = getFutureValue(controlQueryFuture);
-            controlQueryContext.setState(QueryState.SUCCEEDED);
+            if (!skipControl) {
+                controlQueryContext.setState(QueryState.SUCCEEDED);
+            }
+            else {
+                controlQueryContext.setState(NOT_RUN);
+            }
             testQueryResult = getFutureValue(testQueryFuture);
             testQueryContext.setState(QueryState.SUCCEEDED);
 
