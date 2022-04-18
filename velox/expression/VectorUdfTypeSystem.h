@@ -19,6 +19,7 @@
 #include <velox/vector/BaseVector.h>
 #include <velox/vector/TypeAliases.h>
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <string_view>
 #include <type_traits>
@@ -449,9 +450,6 @@ struct VectorReader<Array<V>> {
         lengths_{vector_.rawSizes()},
         childReader_{detail::decode(arrayValuesDecoder_, *vector_.elements())} {
   }
-
-  explicit VectorReader(const VectorReader<Array<V>>&) = delete;
-  VectorReader<Array<V>>& operator=(const VectorReader<Array<V>>&) = delete;
 
   bool isSet(size_t offset) const {
     return !decoded_.isNullAt(offset);
@@ -1458,8 +1456,7 @@ struct VectorReader<Generic<T>> {
   using exec_in_t = GenericView;
   using exec_null_free_in_t = exec_in_t;
 
-  explicit VectorReader(const DecodedVector* decoded)
-      : decoded_(*decoded), base_(decoded->base()) {}
+  explicit VectorReader(const DecodedVector* decoded) : decoded_(*decoded) {}
 
   explicit VectorReader(const VectorReader<Generic<T>>&) = delete;
 
@@ -1471,7 +1468,7 @@ struct VectorReader<Generic<T>> {
 
   exec_in_t operator[](size_t offset) const {
     auto index = decoded_.index(offset);
-    return GenericView{base_, index};
+    return GenericView{decoded_, castReaders_, castType_, index};
   }
 
   exec_null_free_in_t readNullFree(vector_size_t offset) const {
@@ -1509,7 +1506,11 @@ struct VectorReader<Generic<T>> {
   }
 
   const DecodedVector& decoded_;
-  const BaseVector* base_;
+
+  // Those two variables are mutated by the GenericView during cast operations,
+  // and are shared across GenericViews constructed by the reader.
+  mutable std::array<std::shared_ptr<void>, 3> castReaders_;
+  mutable TypePtr castType_ = nullptr;
 };
 
 } // namespace facebook::velox::exec

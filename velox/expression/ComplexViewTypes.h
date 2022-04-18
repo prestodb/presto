@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <fmt/format.h>
 #include <iterator>
 #include <optional>
 
@@ -921,27 +922,228 @@ inline auto get(const RowView<returnsOptionalValues, Types...>& row) {
   return row.template at<I>();
 }
 
+template <typename T>
+using reader_ptr_t = VectorReader<T>*;
+
+template <typename T>
+struct HasGeneric {
+  static constexpr bool value() {
+    return false;
+  }
+};
+
+template <typename T>
+struct HasGeneric<Generic<T>> {
+  static constexpr bool value() {
+    return true;
+  }
+};
+
+template <typename K, typename V>
+struct HasGeneric<Map<K, V>> {
+  static constexpr bool value() {
+    return HasGeneric<K>::value() || HasGeneric<V>::value();
+  }
+};
+
+template <typename V>
+struct HasGeneric<Array<V>> {
+  static constexpr bool value() {
+    return HasGeneric<V>::value();
+  }
+};
+
+template <typename... T>
+struct HasGeneric<Row<T...>> {
+  static constexpr bool value() {
+    return (HasGeneric<T>::value() || ...);
+  }
+};
+
+// This is basically Array<Any>, Map<Any,Any>, Row<Any....>.
+template <typename T>
+struct AllGenericExceptTop {
+  static constexpr bool value() {
+    return false;
+  }
+};
+
+template <typename V>
+struct AllGenericExceptTop<Array<V>> {
+  static constexpr bool value() {
+    return isGenericType<V>::value;
+  }
+};
+
+template <typename K, typename V>
+struct AllGenericExceptTop<Map<K, V>> {
+  static constexpr bool value() {
+    return isGenericType<K>::value && isGenericType<V>::value;
+  }
+};
+
+template <typename... T>
+struct AllGenericExceptTop<Row<T...>> {
+  static constexpr bool value() {
+    return (isGenericType<T>::value && ...);
+  }
+};
+
 class GenericView {
  public:
-  GenericView(const BaseVector* vector, vector_size_t index)
-      : vector_(vector), index_(index) {}
+  GenericView(
+      const DecodedVector& decoded,
+      std::array<std::shared_ptr<void>, 3>& castReaders,
+      TypePtr& castType,
+      vector_size_t index)
+      : decoded_(decoded),
+        castReaders_(castReaders),
+        castType_(castType),
+        index_(index) {}
 
   uint64_t hash() const {
-    return vector_->hashValueAt(index_);
+    return decoded_.base()->hashValueAt(index_);
   }
 
   bool operator==(const GenericView& other) const {
-    return vector_->equalValueAt(other.vector_, index_, other.index_);
+    return decoded_.base()->equalValueAt(
+        other.decoded_.base(), index_, other.index_);
   }
 
   std::optional<int64_t> compare(
       const GenericView& other,
       const CompareFlags flags) const {
-    return vector_->compare(other.vector_, index_, other.index_, flags);
+    return decoded_.base()->compare(
+        other.decoded_.base(), index_, other.index_, flags);
+  }
+
+  TypeKind kind() const {
+    return decoded_.base()->typeKind();
+  }
+
+  const TypePtr type() const {
+    return decoded_.base()->type();
+  }
+
+  // If conversion is invalid, behavior is undefined. However, debug time
+  // checks will throw an exception.
+  template <typename ToType>
+  typename VectorReader<ToType>::exec_in_t castTo() const {
+    VELOX_DCHECK(
+        CastTypeChecker<ToType>::check(type()),
+        fmt::format(
+            "castTo type is not compatible with type of vector, vector type is {}, casted to type is {}",
+            type()->toString(),
+            CppToType<ToType>::create()->toString()));
+
+    // TODO: We can distinguish if this is a null-free or not null-free
+    // generic. And based on that determine if we want to call operator[] or
+    // readNullFree. For now we always return nullable.
+    return ensureReader<ToType>()->operator[](index_);
+  }
+
+  template <typename ToType>
+  std::optional<typename VectorReader<ToType>::exec_in_t> tryCastTo() const {
+    if (!CastTypeChecker<ToType>::check(type())) {
+      return std::nullopt;
+    }
+
+    return ensureReader<ToType>()->operator[](index_);
   }
 
  private:
-  const BaseVector* vector_;
+  // Utility class that checks that vectorType matches T.
+  template <typename T>
+  struct CastTypeChecker {
+    static bool check(const TypePtr& vectorType) {
+      return CppToType<T>::typeKind == vectorType->kind();
+    }
+  };
+
+  template <typename T>
+  struct CastTypeChecker<Generic<T>> {
+    static bool check(const TypePtr&) {
+      return true;
+    }
+  };
+
+  template <typename T>
+  struct CastTypeChecker<Array<T>> {
+    static bool check(const TypePtr& vectorType) {
+      return TypeKind::ARRAY == vectorType->kind() &&
+          CastTypeChecker<T>::check(vectorType->childAt(0));
+    }
+  };
+
+  template <typename K, typename V>
+  struct CastTypeChecker<Map<K, V>> {
+    static bool check(const TypePtr& vectorType) {
+      return TypeKind::MAP == vectorType->kind() &&
+          CastTypeChecker<K>::check(vectorType->childAt(0)) &&
+          CastTypeChecker<V>::check(vectorType->childAt(1));
+    }
+  };
+
+  template <typename... T>
+  struct CastTypeChecker<Row<T...>> {
+    static bool check(const TypePtr& vectorType) {
+      int index = 0;
+      return TypeKind::ROW == vectorType->kind() &&
+          (CastTypeChecker<T>::check(vectorType->childAt(index++)) && ... &&
+           true);
+    }
+  };
+
+  template <typename B>
+  VectorReader<B>* ensureReader() const {
+    static_assert(
+        !isGenericType<B>::value && !isVariadicType<B>::value,
+        "That does not make any sense! You cant cast to Generic or Variadic");
+
+    // This is an optimization to avoid checking dynamically for every row that
+    // the user is always casting to the same type.
+    // Types are divided into three sets, for 1, and 2 we do not do the check,
+    // since no two types can ever refer to the same vector.
+
+    if constexpr (!HasGeneric<B>::value()) {
+      // Two types with no generic can never represent same vector.
+      return ensureReaderImpl<B, 0>();
+    } else {
+      if constexpr (AllGenericExceptTop<B>::value()) {
+        // This is basically Array<Any>, Map<Any,Any>, Row<Any....>.
+        return ensureReaderImpl<B, 1>();
+      } else {
+        auto requestedType = CppToType<B>::create();
+        if (castType_) {
+          VELOX_USER_CHECK(
+              castType_->operator==(*requestedType),
+              fmt::format(
+                  "Not allowed to cast to the two types {} and {} within the same batch."
+                  "Consider creating a new type set to allow it.",
+                  castType_->toString(),
+                  requestedType->toString()));
+        } else {
+          castType_ = std::move(requestedType);
+        }
+        return ensureReaderImpl<B, 2>();
+      }
+    }
+  }
+
+  template <typename B, size_t I>
+  VectorReader<B>* ensureReaderImpl() const {
+    auto* reader = static_cast<VectorReader<B>*>(castReaders_[I].get());
+    if (LIKELY(reader != nullptr)) {
+      return reader;
+    } else {
+      castReaders_[I] = std::make_shared<VectorReader<B>>(&decoded_);
+      return static_cast<VectorReader<B>*>(castReaders_[I].get());
+    }
+  }
+
+  const DecodedVector& decoded_;
+  std::array<std::shared_ptr<void>, 3>& castReaders_;
+  TypePtr& castType_;
   vector_size_t index_;
 };
 
