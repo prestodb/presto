@@ -23,11 +23,11 @@ template <typename T>
 struct CardinalityFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  void call(int64_t& out, const arg_type<Array<Generic<>>>& input) {
+  void call(int64_t& out, const arg_type<Array<Any>>& input) {
     out = input.size();
   }
 
-  void call(int64_t& out, const arg_type<Map<Generic<>, Generic<>>>& input) {
+  void call(int64_t& out, const arg_type<Map<Any, Any>>& input) {
     out = input.size();
   }
 };

@@ -32,9 +32,8 @@ void registerGeneralFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_least, "least");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_greatest, "greatest");
 
-  registerFunction<CardinalityFunction, int64_t, Array<Generic<>>>(
-      {"cardinality"});
-  registerFunction<CardinalityFunction, int64_t, Map<Generic<>, Generic<>>>(
+  registerFunction<CardinalityFunction, int64_t, Array<Any>>({"cardinality"});
+  registerFunction<CardinalityFunction, int64_t, Map<Any, Any>>(
       {"cardinality"});
 }
 

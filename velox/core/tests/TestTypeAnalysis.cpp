@@ -97,23 +97,23 @@ TEST_F(TypeAnalysisTest, hasGeneric) {
   testHasGeneric<Variadic<int32_t>>(false);
   testHasGeneric<Map<Array<int32_t>, Array<int32_t>>>(false);
 
-  testHasGeneric<Map<Array<Generic<>>, Array<int32_t>>>(true);
+  testHasGeneric<Map<Array<Any>, Array<int32_t>>>(true);
   testHasGeneric<Map<Array<Generic<T1>>, Array<int32_t>>>(true);
-  testHasGeneric<Map<Array<int32_t>, Generic<>>>(true);
-  testHasGeneric<Variadic<Generic<>>>(true);
-  testHasGeneric<Generic<>>(true);
-  testHasGeneric<int32_t, Generic<>>(true);
-  testHasGeneric<Generic<>, int32_t>(true);
+  testHasGeneric<Map<Array<int32_t>, Any>>(true);
+  testHasGeneric<Variadic<Any>>(true);
+  testHasGeneric<Any>(true);
+  testHasGeneric<int32_t, Any>(true);
+  testHasGeneric<Any, int32_t>(true);
 }
 
 TEST_F(TypeAnalysisTest, hasVariadic) {
   testHasVariadic<int32_t>(false);
   testHasVariadic<Map<Array<int32_t>, Array<int32_t>>>(false);
-  testHasVariadic<Map<Array<int32_t>, Generic<>>>(false);
+  testHasVariadic<Map<Array<int32_t>, Any>>(false);
   testHasVariadic<int32_t, Array<int32_t>>(false);
 
   testHasVariadic<Variadic<int32_t>>(true);
-  testHasVariadic<Variadic<Generic<>>>(true);
+  testHasVariadic<Variadic<Any>>(true);
   testHasVariadic<Variadic<int64_t>, Array<int32_t>>(true);
   testHasVariadic<int32_t, Variadic<Array<int32_t>>>(true);
 }
@@ -121,17 +121,17 @@ TEST_F(TypeAnalysisTest, hasVariadic) {
 TEST_F(TypeAnalysisTest, hasVariadicOfGeneric) {
   testHasVariadicOfGeneric<int32_t>(false);
   testHasVariadicOfGeneric<Map<Array<int32_t>, Array<int32_t>>>(false);
-  testHasVariadicOfGeneric<Map<Array<int32_t>, Generic<>>>(false);
+  testHasVariadicOfGeneric<Map<Array<int32_t>, Any>>(false);
   testHasVariadicOfGeneric<int32_t, Array<int32_t>>(false);
   testHasVariadicOfGeneric<Variadic<int32_t>>(false);
   testHasVariadicOfGeneric<Variadic<int64_t>, Array<int32_t>>(false);
   testHasVariadicOfGeneric<int32_t, Variadic<Array<int32_t>>>(false);
-  testHasVariadicOfGeneric<Variadic<int32_t>, Generic<>>(false);
-  testHasVariadicOfGeneric<Generic<>, Variadic<int32_t>>(false);
+  testHasVariadicOfGeneric<Variadic<int32_t>, Any>(false);
+  testHasVariadicOfGeneric<Any, Variadic<int32_t>>(false);
 
-  testHasVariadicOfGeneric<Variadic<Generic<>>>(true);
-  testHasVariadicOfGeneric<Variadic<Generic<>>, int32_t>(true);
-  testHasVariadicOfGeneric<int32_t, Variadic<Array<Generic<>>>>(true);
+  testHasVariadicOfGeneric<Variadic<Any>>(true);
+  testHasVariadicOfGeneric<Variadic<Any>, int32_t>(true);
+  testHasVariadicOfGeneric<int32_t, Variadic<Array<Any>>>(true);
   testHasVariadicOfGeneric<int32_t, Variadic<Map<int64_t, Array<Generic<T1>>>>>(
       true);
 }
@@ -141,23 +141,23 @@ TEST_F(TypeAnalysisTest, countConcrete) {
   testCountConcrete<int32_t>(1);
   testCountConcrete<int32_t, int32_t>(2);
   testCountConcrete<int32_t, int32_t, double>(3);
-  testCountConcrete<Generic<>>(0);
+  testCountConcrete<Any>(0);
   testCountConcrete<Generic<T1>>(0);
-  testCountConcrete<Variadic<Generic<>>>(0);
+  testCountConcrete<Variadic<Any>>(0);
   testCountConcrete<Variadic<int32_t>>(1);
-  testCountConcrete<Variadic<Array<Generic<>>>>(1);
+  testCountConcrete<Variadic<Array<Any>>>(1);
 
   testCountConcrete<Map<Array<int32_t>, Array<int32_t>>>(5);
-  testCountConcrete<Map<Array<int32_t>, Generic<>>>(3);
+  testCountConcrete<Map<Array<int32_t>, Any>>(3);
   testCountConcrete<int32_t, Array<int32_t>>(3);
   testCountConcrete<Variadic<int64_t>, Array<int32_t>>(3);
   testCountConcrete<int32_t, Variadic<Array<int32_t>>>(3);
-  testCountConcrete<Variadic<int32_t>, Generic<>>(1);
-  testCountConcrete<Generic<>, Variadic<int32_t>>(1);
+  testCountConcrete<Variadic<int32_t>, Any>(1);
+  testCountConcrete<Any, Variadic<int32_t>>(1);
 
-  testCountConcrete<Variadic<Generic<>>>(0);
-  testCountConcrete<Variadic<Generic<>>, int32_t>(1);
-  testCountConcrete<int32_t, Variadic<Array<Generic<>>>>(2);
+  testCountConcrete<Variadic<Any>>(0);
+  testCountConcrete<Variadic<Any>, int32_t>(1);
+  testCountConcrete<int32_t, Variadic<Array<Any>>>(2);
 }
 
 TEST_F(TypeAnalysisTest, testStringType) {
@@ -167,10 +167,10 @@ TEST_F(TypeAnalysisTest, testStringType) {
   testStringType<float>({"real"});
 
   testStringType<Array<int32_t>>({"array(integer)"});
-  testStringType<Map<Generic<>, int32_t>>({"map(any, integer)"});
+  testStringType<Map<Any, int32_t>>({"map(any, integer)"});
   testStringType<Row<int32_t, int32_t>>({"row(integer, integer)"});
 
-  testStringType<Generic<>>({"any"});
+  testStringType<Any>({"any"});
   testStringType<Generic<T1>>({"__user_T1"});
 
   testStringType<Variadic<int32_t>>({"integer"});
@@ -183,16 +183,16 @@ TEST_F(TypeAnalysisTest, testStringType) {
 
   testStringType<ArrayWriterT<int32_t>>({"array(integer)"});
   testStringType<MapWriterT<int64_t, double>>({"map(bigint, double)"});
-  testStringType<RowWriterT<Generic<>, double, Generic<T1>>>(
+  testStringType<RowWriterT<Any, double, Generic<T1>>>(
       {"row(any, double, __user_T1)"});
 }
 
 TEST_F(TypeAnalysisTest, testVariables) {
   testVariables<int32_t>({});
   testVariables<Array<int32_t>>({});
-  testVariables<Generic<>>({});
+  testVariables<Any>({});
   testVariables<Generic<T1>>({"__user_T1"});
-  testVariables<Map<Generic<>, int32_t>>({});
+  testVariables<Map<Any, int32_t>>({});
   testVariables<Variadic<int32_t>>({});
   testVariables<int32_t, Generic<T5>, Map<Array<int32_t>, Generic<T2>>>(
       {"__user_T2", "__user_T5"});
@@ -207,15 +207,15 @@ TEST_F(TypeAnalysisTest, testRank) {
   testRank<Array<int32_t>, int, Variadic<int32_t>>(2);
   testRank<Variadic<Array<int32_t>>>(2);
 
-  testRank<Generic<>>(3);
-  testRank<Array<int32_t>, Generic<>, Variadic<int32_t>>(3);
+  testRank<Any>(3);
+  testRank<Array<int32_t>, Any, Variadic<int32_t>>(3);
   testRank<Array<int32_t>, Generic<T2>>(3);
-  testRank<Array<Generic<>>, Generic<T2>>(3);
-  testRank<Array<Generic<>>, int32_t>(3);
-  testRank<Array<int32_t>, Generic<>, Generic<>>(3);
+  testRank<Array<Any>, Generic<T2>>(3);
+  testRank<Array<Any>, int32_t>(3);
+  testRank<Array<int32_t>, Any, Any>(3);
 
-  testRank<Variadic<Generic<>>>(4);
-  testRank<Array<int32_t>, Generic<>, Variadic<Array<Generic<>>>>(4);
+  testRank<Variadic<Any>>(4);
+  testRank<Array<int32_t>, Any, Variadic<Array<Any>>>(4);
 }
 
 TEST_F(TypeAnalysisTest, testPriority) {
@@ -227,17 +227,17 @@ TEST_F(TypeAnalysisTest, testPriority) {
 
   test(getPriority<int32_t, int32_t>(), getPriority<Variadic<int32_t>>());
 
-  test(getPriority<Variadic<int32_t>>(), getPriority<Variadic<Generic<>>>());
+  test(getPriority<Variadic<int32_t>>(), getPriority<Variadic<Any>>());
 
-  test(getPriority<Variadic<int32_t>>(), getPriority<Generic<>, Generic<>>());
+  test(getPriority<Variadic<int32_t>>(), getPriority<Any, Any>());
 
-  test(getPriority<Generic<>, Generic<>>(), getPriority<Variadic<Generic<>>>());
+  test(getPriority<Any, Any>(), getPriority<Variadic<Any>>());
 
-  test(getPriority<int32_t, Generic<>>(), getPriority<Generic<>, Generic<>>());
+  test(getPriority<int32_t, Any>(), getPriority<Any, Any>());
 
   test(
-      getPriority<Generic<>, Variadic<Array<Generic<>>>>(),
-      getPriority<Generic<>, Variadic<Generic<>>>());
+      getPriority<Any, Variadic<Array<Any>>>(),
+      getPriority<Any, Variadic<Any>>());
 }
 } // namespace
 } // namespace facebook::velox::core

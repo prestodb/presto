@@ -55,13 +55,12 @@ struct TestFunction {
     return true;
   }
 
-  bool call(int32_t& out, const arg_type<Variadic<Generic<>>>&) {
+  bool call(int32_t& out, const arg_type<Variadic<Any>>&) {
     out = 4;
     return true;
   }
 
-  bool
-  call(int32_t& out, const int32_t&, const arg_type<Variadic<Generic<>>>&) {
+  bool call(int32_t& out, const int32_t&, const arg_type<Variadic<Any>>&) {
     out = 5;
     return true;
   }
@@ -71,7 +70,7 @@ TEST_F(SimpleFunctionResolutionTest, rank1Picked) {
   registerFunction<TestFunction, int32_t, int32_t, int32_t>({"f1"});
   registerFunction<TestFunction, int32_t, Variadic<int32_t>>({"f1"});
   registerFunction<TestFunction, int32_t, Generic<T1>, Generic<T1>>({"f1"});
-  registerFunction<TestFunction, int32_t, Variadic<Generic<>>>({"f1"});
+  registerFunction<TestFunction, int32_t, Variadic<Any>>({"f1"});
 
   checkResults("f1", 1);
 }
@@ -79,25 +78,25 @@ TEST_F(SimpleFunctionResolutionTest, rank1Picked) {
 TEST_F(SimpleFunctionResolutionTest, rank2Picked) {
   registerFunction<TestFunction, int32_t, Variadic<int32_t>>({"f2"});
   registerFunction<TestFunction, int32_t, Generic<T1>, Generic<T1>>({"f2"});
-  registerFunction<TestFunction, int32_t, Variadic<Generic<>>>({"f2"});
+  registerFunction<TestFunction, int32_t, Variadic<Any>>({"f2"});
   checkResults("f2", 2);
 }
 
 TEST_F(SimpleFunctionResolutionTest, rank3Picked) {
   registerFunction<TestFunction, int32_t, Generic<T1>, Generic<T1>>({"f3"});
-  registerFunction<TestFunction, int32_t, Variadic<Generic<>>>({"f3"});
+  registerFunction<TestFunction, int32_t, Variadic<Any>>({"f3"});
   checkResults("f3", 3);
 }
 
 TEST_F(SimpleFunctionResolutionTest, rank4Picked) {
-  registerFunction<TestFunction, int32_t, Variadic<Generic<>>>({"f4"});
+  registerFunction<TestFunction, int32_t, Variadic<Any>>({"f4"});
   checkResults("f4", 4);
 }
 
 // Test when two functions have the same rank.
 TEST_F(SimpleFunctionResolutionTest, sameRank) {
-  registerFunction<TestFunction, int32_t, Variadic<Generic<>>>({"f5"});
-  registerFunction<TestFunction, int32_t, int32_t, Variadic<Generic<>>>({"f5"});
+  registerFunction<TestFunction, int32_t, Variadic<Any>>({"f5"});
+  registerFunction<TestFunction, int32_t, int32_t, Variadic<Any>>({"f5"});
   checkResults("f5", 5);
 }
 

@@ -120,18 +120,18 @@ struct TypeAnalysisResults {
     // rank 2: has variadic but generic free.
     //    e.g: Variadic<int> -> int.
     // rank 3: has generic but no variadic of generic.
-    //    e.g: Generic<>, Generic<>, -> int.
+    //    e.g: Any, Any, -> int.
     // rank 4: has variadic of generic.
-    //    e.g: Variadic<Generic<>> -> int.
+    //    e.g: Variadic<Any> -> int.
 
     // If two functions have the same rank, then concreteCount is used to
     // to resolve the ordering.
     // e.g: consider the two functions:
-    //    1. int, Generic<>, Variadic<int> -> has rank 3. concreteCount =2
-    //    2. int, Generic<>, Generic<>     -> has rank 3. concreteCount =1
+    //    1. int, Any, Variadic<int> -> has rank 3. concreteCount =2
+    //    2. int, Any, Any     -> has rank 3. concreteCount =1
     // in this case (1) is picked.
-    // e.g: (Generic<>, int) will be picked before (Generic<>, Generic<>)
-    // e.g: Variadic<Array<Generic<>>> is picked before Variadic<Generic<>>.
+    // e.g: (Any, int) will be picked before (Any, Any)
+    // e.g: Variadic<Array<Any>> is picked before Variadic<Any>.
     uint32_t getRank() {
       if (!hasGeneric && !hasVariadic) {
         return 1;

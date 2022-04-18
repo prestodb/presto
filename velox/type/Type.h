@@ -1301,6 +1301,8 @@ struct Generic {
   Generic() = delete;
 };
 
+using Any = Generic<>;
+
 template <typename>
 struct isVariadicType : public std::false_type {};
 

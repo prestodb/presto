@@ -563,7 +563,7 @@ TEST_F(VectorReaderTest, genericContainsNull) {
       [](vector_size_t row) { return row; },
       [](vector_size_t row) { return row % 5 == 0; });
   DecodedVector decoded;
-  exec::VectorReader<Generic<>> reader(decode(decoded, *vector.get()));
+  exec::VectorReader<Any> reader(decode(decoded, *vector.get()));
 
   ASSERT_THROW(reader.containsNull(1), VeloxUserError);
   // TODO (kevinwilfong): Add these back once generics are supported, and add

@@ -467,14 +467,12 @@ struct TestFunction {
     out = 3;
   }
 
-  void call(int64_t& out, const arg_type<Variadic<Generic<>>>&) {
+  void call(int64_t& out, const arg_type<Variadic<Any>>&) {
     out = 4;
   }
 
-  void call(
-      double& out,
-      const arg_type<Varchar>&,
-      const arg_type<Variadic<Generic<>>>&) {
+  void
+  call(double& out, const arg_type<Varchar>&, const arg_type<Variadic<Any>>&) {
     out = 5;
   }
 };
@@ -482,9 +480,9 @@ struct TestFunction {
 TEST_F(FunctionRegistryTest, resolveFunctionsBasedOnPriority) {
   std::string func = "func_with_priority";
 
-  registerFunction<TestFunction, double, Varchar, Variadic<Generic<>>>({func});
+  registerFunction<TestFunction, double, Varchar, Variadic<Any>>({func});
   registerFunction<TestFunction, Varchar, Varchar, Varchar>({func});
-  registerFunction<TestFunction, int64_t, Variadic<Generic<>>>({func});
+  registerFunction<TestFunction, int64_t, Variadic<Any>>({func});
   registerFunction<TestFunction, int32_t, Variadic<Varchar>>({func});
   registerFunction<TestFunction, float, Generic<T1>, Generic<T1>>({func});
 
