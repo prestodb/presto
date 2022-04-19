@@ -446,7 +446,7 @@ set_state(int table, long sf, long procs, long step, DSS_HUGE *extra_rows) {
 		/* need to set seeds of child in case there's a dependency */
 		/* NOTE: this assumes that the parent and child have the same base row
 		 * count */
-		if (tdefs[table].child != NONE)
+		if (tdefs[table].child != DBGEN_NONE)
 			tdefs[tdefs[table].child].gen_seed(0, rowcount);
 	}
 	if (step > procs) /* moving to the end to generate updates */

@@ -40,7 +40,7 @@
 #define printf(...)
 #define fprintf(...)
 
-#define NONE -1
+#define DBGEN_NONE -1
 #define PART 0
 #define PSUPP 1
 #define SUPP 2
