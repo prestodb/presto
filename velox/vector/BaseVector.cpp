@@ -345,13 +345,13 @@ VectorPtr BaseVector::create(
 }
 
 void BaseVector::addNulls(const uint64_t* bits, const SelectivityVector& rows) {
-  VELOX_CHECK(mayAddNulls());
+  VELOX_CHECK(isNullsWritable());
   VELOX_CHECK(length_ >= rows.end());
   ensureNulls();
   auto target = nulls_->asMutable<uint64_t>();
   const uint64_t* selected = rows.asRange().bits();
   if (!bits) {
-    // A A 1 in rows makes a 0 in nulls.
+    // A 1 in rows makes a 0 in nulls.
     bits::andWithNegatedBits(target, selected, rows.begin(), rows.end());
     return;
   }
@@ -368,7 +368,7 @@ void BaseVector::addNulls(const uint64_t* bits, const SelectivityVector& rows) {
 }
 
 void BaseVector::clearNulls(const SelectivityVector& rows) {
-  VELOX_CHECK(mayAddNulls());
+  VELOX_CHECK(isNullsWritable());
   if (!nulls_) {
     return;
   }
@@ -390,7 +390,7 @@ void BaseVector::clearNulls(const SelectivityVector& rows) {
 }
 
 void BaseVector::clearNulls(vector_size_t begin, vector_size_t end) {
-  VELOX_CHECK(mayAddNulls());
+  VELOX_CHECK(isNullsWritable());
   if (!nulls_) {
     return;
   }

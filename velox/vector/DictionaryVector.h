@@ -186,7 +186,7 @@ class DictionaryVector : public SimpleVector<T> {
     return dictionaryValues_->wrappedIndex(rawIndices_[index]);
   }
 
-  bool mayAddNulls() const override {
+  bool isNullsWritable() const override {
     return true;
   }
 

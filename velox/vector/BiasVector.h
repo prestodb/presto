@@ -159,7 +159,7 @@ class BiasVector : public SimpleVector<T> {
     return true;
   }
 
-  bool mayAddNulls() const override {
+  bool isNullsWritable() const override {
     return true;
   }
 

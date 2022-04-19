@@ -673,13 +673,19 @@ void Expr::addNulls(
     return;
   }
 
-  if (!result->unique() || !(*result)->mayAddNulls()) {
+  if (!result->unique() || !(*result)->isNullsWritable()) {
     BaseVector::ensureWritable(
         SelectivityVector::empty(), type(), context->pool(), result);
   }
+
   if ((*result)->size() < rows.end()) {
-    (*result)->resize(rows.end());
+    // Not all Vectors support resize.  Since we only want to append nulls,
+    // we can work around that by calling setSize to resize the vector and
+    // ensureNullsCapacity to resize the nulls_ bit vector.
+    (*result)->setSize(rows.end());
+    (*result)->ensureNullsCapacity(rows.end(), true);
   }
+
   (*result)->addNulls(rawNulls, rows);
 }
 

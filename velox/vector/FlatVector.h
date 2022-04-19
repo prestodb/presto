@@ -290,7 +290,7 @@ class FlatVector final : public SimpleVector<T> {
     return size;
   }
 
-  bool mayAddNulls() const override {
+  bool isNullsWritable() const override {
     return true;
   }
 

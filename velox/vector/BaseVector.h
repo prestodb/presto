@@ -187,16 +187,26 @@ class BaseVector {
   }
 
   virtual BufferPtr mutableNulls(vector_size_t size) {
+    ensureNullsCapacity(size);
+    return nulls_;
+  }
+
+  /*
+   * Allocates or reallocates nulls_ with the given size if nulls_ hasn't
+   * been allocated yet or has been allocated with a smaller capacity.
+   */
+  void ensureNullsCapacity(vector_size_t size, bool setNotNull = false) {
     if (nulls_ && nulls_->capacity() >= bits::nbytes(size)) {
-      return nulls_;
+      return;
     }
     if (nulls_) {
-      AlignedBuffer::reallocate<bool>(&nulls_, size, false);
+      AlignedBuffer::reallocate<bool>(
+          &nulls_, size, setNotNull ? bits::kNotNull : bits::kNull);
     } else {
-      nulls_ = AlignedBuffer::allocate<bool>(size, pool_, false);
+      nulls_ = AlignedBuffer::allocate<bool>(
+          size, pool_, setNotNull ? bits::kNotNull : bits::kNull);
     }
     rawNulls_ = nulls_->as<uint64_t>();
-    return nulls_;
   }
 
   std::optional<vector_size_t> getDistinctValueCount() const {
@@ -342,7 +352,7 @@ class BaseVector {
     return countNulls(nulls, 0, size);
   }
 
-  virtual bool mayAddNulls() const {
+  virtual bool isNullsWritable() const {
     return true;
   }
 

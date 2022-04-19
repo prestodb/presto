@@ -2570,3 +2570,72 @@ TEST_F(ExprTest, constantToString) {
       "4 elements starting at 0 {1.2000000476837158, 3.4000000953674316, null, 5.599999904632568}:ARRAY<REAL>",
       exprSet.exprs()[2]->toString());
 }
+
+namespace {
+// A naive function that wraps the input in a dictionary vector resized to
+// rows.end() - 1.  It assumes all selected values are non-null.
+class TestingShrinkingDictionary : public exec::VectorFunction {
+ public:
+  bool isDefaultNullBehavior() const override {
+    return true;
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    BufferPtr indices =
+        AlignedBuffer::allocate<vector_size_t>(rows.end(), context->pool());
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    rows.applyToSelected([&](int row) { rawIndices[row] = row; });
+
+    *result =
+        BaseVector::wrapInDictionary(nullptr, indices, rows.end() - 1, args[0]);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    return {exec::FunctionSignatureBuilder()
+                .returnType("bigint")
+                .argumentType("bigint")
+                .build()};
+  }
+};
+} // namespace
+
+TEST_F(ExprTest, specialFormPropagateNulls) {
+  exec::registerVectorFunction(
+      "test_shrinking_dictionary",
+      TestingShrinkingDictionary::signatures(),
+      std::make_unique<TestingShrinkingDictionary>());
+
+  // This test verifies an edge case where applyFunctionWithPeeling may produce
+  // a result vector which is dictionary encoded and has fewer values than
+  // are rows.
+  // This can happen when the last value in a column used in an expression is
+  // null which causes removeSureNulls to move the end of the SelectivityVector
+  // forward.  When we incorrectly use rows.end() as the size of the
+  // dictionary when rewrapping the results.
+  // Normally this is masked when this vector is used in a function call which
+  // produces a new output vector.  However, in SpecialForm expressions, we may
+  // return the output untouched, and when we try to add back in the nulls, we
+  // get an exception trying to resize the DictionaryVector.
+  // This is difficult to reproduce, so this test artificially triggers the
+  // issue by using a UDF that returns a dictionary one smaller than rows.end().
+
+  // Making the last row NULL, so we call addNulls in eval.
+  auto c0 = makeFlatVector<int64_t>(
+      5,
+      [](vector_size_t row) { return row; },
+      [](vector_size_t row) { return row == 4; });
+
+  auto rowVector = makeRowVector({c0});
+  auto evalResult = evaluate("test_shrinking_dictionary(\"c0\")", rowVector);
+
+  auto expectedResult = makeFlatVector<int64_t>(
+      5,
+      [](vector_size_t row) { return row; },
+      [](vector_size_t row) { return row == 4; });
+  assertEqualVectors(expectedResult, evalResult);
+}
