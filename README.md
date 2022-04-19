@@ -4,10 +4,6 @@ Presto is a distributed SQL query engine for big data.
 
 See the [User Manual](https://prestodb.github.io/docs/current/) for deployment instructions and end user documentation.
 
-## 2021 Elections
-
-Elections are now open for all TSC seats.  [Please see here for more details](https://github.com/prestodb/tsc/blob/master/README.md#2021-elections), including how to submit your nomination.
-
 ## Requirements
 
 * Mac OS X or Linux
