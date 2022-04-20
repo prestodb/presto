@@ -459,6 +459,9 @@ std::unique_ptr<exec::Aggregate> create(
 
 template <template <typename U, typename V> class T>
 bool registerMinMaxByAggregate(const std::string& name) {
+  // TODO(spershin): Need to add support for varchar and other types of
+  // variable length. For both arguments. See MinMaxAggregates for
+  // reference.
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& valueType :
        {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
@@ -500,12 +503,6 @@ bool registerMinMaxByAggregate(const std::string& name) {
               "{} final aggregation takes ROW({NUMERIC,NUMERIC}) structs as input",
               name);
         }
-
-        // TODO In Presto, intermediate results are represented as a struct with
-        // 4 fields: value, is_value_null, compare, is_compare_null
-        // Having separate fields for null flags is unnecessary, but fixing this
-        // appears to be hard. We need to add support for this type of
-        // intermediate results.
 
         auto valueType = isRawInput ? argTypes[0] : argTypes[0]->childAt(0);
         auto compareType = isRawInput ? argTypes[1] : argTypes[0]->childAt(1);
