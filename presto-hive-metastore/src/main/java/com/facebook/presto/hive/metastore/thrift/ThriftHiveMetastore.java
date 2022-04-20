@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -113,7 +112,9 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRecursively;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isManagedTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
@@ -144,7 +145,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
 import static org.apache.hadoop.hive.metastore.api.LockState.ACQUIRED;
 import static org.apache.hadoop.hive.metastore.api.LockState.WAITING;
@@ -155,8 +155,6 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
 public class ThriftHiveMetastore
         implements HiveMetastore
 {
-    private static final Logger log = Logger.get(ThriftHiveMetastore.class);
-
     private static final String DEFAULT_METASTORE_USER = "presto";
     private static final HdfsContext hdfsContext = new HdfsContext(new ConnectorIdentity(DEFAULT_METASTORE_USER, Optional.empty(), Optional.empty()));
 
@@ -916,8 +914,8 @@ public class ThriftHiveMetastore
                                     Table table = client.getTable(databaseName, tableName);
                                     client.dropTable(databaseName, tableName, deleteData);
                                     String tableLocation = table.getSd().getLocation();
-                                    if (deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
-                                        deleteDirectoryRecursively(hdfsContext, hdfsEnvironment, new Path(tableLocation));
+                                    if (deleteData && isManagedTable(table.getTableType()) && !isNullOrEmpty(tableLocation)) {
+                                        deleteDirectoryRecursively(hdfsContext, hdfsEnvironment, new Path(tableLocation), true);
                                     }
                                 }
                                 return null;
@@ -932,22 +930,6 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
-    }
-
-    private static void deleteDirectoryRecursively(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
-    {
-        try {
-            hdfsEnvironment.getFileSystem(context, path).delete(path, true);
-        }
-        catch (IOException | RuntimeException e) {
-            // don't fail if unable to delete path
-            log.warn(e, "Failed to delete path: " + path.toString());
-        }
-    }
-
-    private static boolean isManagedTable(Table table)
-    {
-        return table.getTableType().equals(MANAGED_TABLE.name());
     }
 
     @Override
