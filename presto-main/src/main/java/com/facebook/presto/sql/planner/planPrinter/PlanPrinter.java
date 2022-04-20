@@ -581,7 +581,13 @@ public class PlanPrinter
 
             addNode(node,
                     "MergeJoin",
-                    format("[type: %s], [%s]%s", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable())));
+                    format(
+                            "[type: %s], [%s]%s, [left sorting properties: %s], [right sorting properties: %s]",
+                            node.getType().getJoinLabel(),
+                            Joiner.on(" AND ").join(joinExpressions),
+                            formatHash(node.getLeftHashVariable(), node.getRightHashVariable()),
+                            node.getLeftSortingProperties(),
+                            node.getRightSortingProperties()));
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
             return null;

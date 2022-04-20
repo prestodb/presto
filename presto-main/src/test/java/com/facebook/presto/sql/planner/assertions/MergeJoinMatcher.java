@@ -111,6 +111,8 @@ public class MergeJoinMatcher
             return NO_MATCH;
         }
 
+        // todo: compare sortingProperties
+
         return MatchResult.match();
     }
 

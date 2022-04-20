@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -38,6 +39,8 @@ public class MergeJoinNode
     private final PlanNode left;
     private final PlanNode right;
     private final List<JoinNode.EquiJoinClause> criteria;
+    private final List<SortingProperty<VariableReferenceExpression>> leftSortingProperties;
+    private final List<SortingProperty<VariableReferenceExpression>> rightSortingProperties;
     private final Optional<RowExpression> filter;
     private final List<VariableReferenceExpression> outputVariables;
     private final Optional<VariableReferenceExpression> leftHashVariable;
@@ -47,20 +50,24 @@ public class MergeJoinNode
     public MergeJoinNode(
             Optional<SourceLocation> sourceLocation,
             @JsonProperty ("id") PlanNodeId id,
-            @JsonProperty("type") JoinNode.Type type,
-            @JsonProperty("left") PlanNode left,
-            @JsonProperty("right") PlanNode right,
-            @JsonProperty("criteria") List<JoinNode.EquiJoinClause> criteria,
-            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
-            @JsonProperty("filter") Optional<RowExpression> filter,
-            @JsonProperty("leftHashVariable") Optional<VariableReferenceExpression> leftHashVariable,
-            @JsonProperty("rightHashVariable") Optional<VariableReferenceExpression> rightHashVariable)
+            @JsonProperty ("type") JoinNode.Type type,
+            @JsonProperty ("left") PlanNode left,
+            @JsonProperty ("right") PlanNode right,
+            @JsonProperty ("criteria") List<JoinNode.EquiJoinClause> criteria,
+            @JsonProperty ("leftSortingProperties") List<SortingProperty<VariableReferenceExpression>> leftSortingProperties,
+            @JsonProperty ("rightSortingProperties") List<SortingProperty<VariableReferenceExpression>> rightSortingProperties,
+            @JsonProperty ("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty ("filter") Optional<RowExpression> filter,
+            @JsonProperty ("leftHashVariable") Optional<VariableReferenceExpression> leftHashVariable,
+            @JsonProperty ("rightHashVariable") Optional<VariableReferenceExpression> rightHashVariable)
     {
         super(sourceLocation, id);
         this.type = requireNonNull(type, "type is null");
         this.left = requireNonNull(left, "left is null");
         this.right = requireNonNull(right, "right is null");
         this.criteria = ImmutableList.copyOf(requireNonNull(criteria, "criteria is null"));
+        this.leftSortingProperties = ImmutableList.copyOf(requireNonNull(leftSortingProperties, "leftOrderProperty is null"));
+        this.rightSortingProperties = ImmutableList.copyOf(requireNonNull(rightSortingProperties, "rightOrderProperty is null"));
         this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.filter = requireNonNull(filter, "filter is null");
         this.leftHashVariable = requireNonNull(leftHashVariable, "leftHashVariable is null");
@@ -89,6 +96,18 @@ public class MergeJoinNode
     public List<JoinNode.EquiJoinClause> getCriteria()
     {
         return criteria;
+    }
+
+    @JsonProperty
+    public List<SortingProperty<VariableReferenceExpression>> getLeftSortingProperties()
+    {
+        return leftSortingProperties;
+    }
+
+    @JsonProperty
+    public List<SortingProperty<VariableReferenceExpression>> getRightSortingProperties()
+    {
+        return rightSortingProperties;
     }
 
     @Override
@@ -126,7 +145,19 @@ public class MergeJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new MergeJoinNode(getSourceLocation(), getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputVariables, filter, leftHashVariable, rightHashVariable);
+        return new MergeJoinNode(
+                getSourceLocation(),
+                getId(),
+                type,
+                newChildren.get(0),
+                newChildren.get(1),
+                criteria,
+                leftSortingProperties,
+                rightSortingProperties,
+                outputVariables,
+                filter,
+                leftHashVariable,
+                rightHashVariable);
     }
 
     @Override

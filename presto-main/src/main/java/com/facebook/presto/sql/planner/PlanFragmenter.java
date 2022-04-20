@@ -59,6 +59,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -1080,6 +1081,41 @@ public class PlanFragmenter
                 default:
                     throw new UnsupportedOperationException("Unknown distribution type: " + node.getDistributionType());
             }
+        }
+
+        @Override
+        public GroupedExecutionProperties visitMergeJoin(MergeJoinNode node, Void context)
+        {
+            GroupedExecutionProperties left = node.getLeft().accept(this, null);
+            GroupedExecutionProperties right = node.getRight().accept(this, null);
+
+            if (!groupedExecutionEnabled) {
+                // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
+                return GroupedExecutionProperties.notCapable();
+            }
+
+            if (left.currentNodeCapable && right.currentNodeCapable) {
+                checkState(left.totalLifespans == right.totalLifespans, format("Mismatched number of lifespans on left(%s) and right(%s) side of join", left.totalLifespans, right.totalLifespans));
+                return new GroupedExecutionProperties(
+                        true,
+                        true,
+                        ImmutableList.<PlanNodeId>builder()
+                                .addAll(left.capableTableScanNodes)
+                                .addAll(right.capableTableScanNodes)
+                                .build(),
+                        left.totalLifespans,
+                        left.recoveryEligible && right.recoveryEligible);
+            }
+            // right.subTreeUseful && !left.currentNodeCapable:
+            //   It's not particularly helpful to do grouped execution on the right side
+            //   because the benefit is likely cancelled out due to required buffering for hash build.
+            //   In theory, it could still be helpful (e.g. when the underlying aggregation's intermediate group state maybe larger than aggregation output).
+            //   However, this is not currently implemented. JoinBridgeManager need to support such a lifecycle.
+            // !right.currentNodeCapable:
+            //   The build/right side needs to buffer fully for this JOIN, but the probe/left side will still stream through.
+            //   As a result, there is no reason to change currentNodeCapable or subTreeUseful to false.
+            //
+            return left;
         }
 
         @Override
