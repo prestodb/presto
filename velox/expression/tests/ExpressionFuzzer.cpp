@@ -223,7 +223,14 @@ std::optional<CallableSignature> processSignature(
   // Process each argument and figure out its type.
   for (const auto& arg : signature.argumentTypes()) {
     auto resolvedType = SignatureBinder::tryResolveType(arg, {});
-    VELOX_CHECK_NOT_NULL(resolvedType);
+
+    // TODO: Check if any input is Generic and substitute all
+    // possible primitive types, creating a list of signatures to fuzz.
+    if (!resolvedType) {
+      LOG(WARNING) << "Skipping unsupported signature with generic: "
+                   << functionName << signature.toString();
+      return std::nullopt;
+    }
 
     onlyPrimitiveTypes &= resolvedType->isPrimitiveType();
     callable.args.emplace_back(resolvedType);
