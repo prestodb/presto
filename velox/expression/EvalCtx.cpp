@@ -100,8 +100,18 @@ void EvalCtx::setWrapped(
     return;
   }
   if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
-    *result = BaseVector::wrapInConstant(
-        rows.size(), constantWrapIndex_, std::move(source));
+    if (errors_ && constantWrapIndex_ < errors_->size() &&
+        !errors_->isNullAt(constantWrapIndex_)) {
+      // If the single row caused an error that will be caught by a TRY
+      // upstream source may be not initialized, or otherwise in a bad state.
+      // Just return NULL, the value won't be used and TRY is just going to
+      // NULL out the result anyway.
+      *result =
+          BaseVector::createNullConstant(expr->type(), rows.size(), pool());
+    } else {
+      *result = BaseVector::wrapInConstant(
+          rows.size(), constantWrapIndex_, std::move(source));
+    }
     return;
   }
   VELOX_CHECK(false, "Bad expression wrap encoding {}", wrapEncoding_);

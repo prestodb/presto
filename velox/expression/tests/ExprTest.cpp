@@ -2639,3 +2639,39 @@ TEST_F(ExprTest, specialFormPropagateNulls) {
       [](vector_size_t row) { return row == 4; });
   assertEqualVectors(expectedResult, evalResult);
 }
+
+namespace {
+template <typename T>
+struct AlwaysThrowsFunction {
+  template <typename TResult, typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TResult&, const TInput&) {
+    VELOX_CHECK(false);
+  }
+};
+} // namespace
+
+TEST_F(ExprTest, tryWithConstantFailure) {
+  // This test verifies the behavior of constant peeling on a function wrapped
+  // in a TRY.  Specifically the case when the UDF executed on the peeled
+  // vector throws an exception on the constant value.
+
+  // When wrapping a peeled ConstantVector, the result is wrapped in a
+  // ConstantVector.  ConstantVector has special handling logic to copy the
+  // underlying string when the type is Varchar.  When an exception is thrown
+  // and the StringView isn't initialized, without special handling logic in
+  // EvalCtx this results in reading uninitialized memory triggering ASAN
+  // errors.
+  registerFunction<AlwaysThrowsFunction, Varchar, Varchar>({"always_throws"});
+  auto c0 = makeConstantVector("test", 5);
+  auto c1 = makeFlatVector<int64_t>(5, [](vector_size_t row) { return row; });
+  auto rowVector = makeRowVector({c0, c1});
+
+  // We use strpos and c1 to ensure that the constant is peeled before calling
+  // always_throws, not before the try.
+  auto evalResult =
+      evaluate("try(strpos(always_throws(\"c0\"), 't', c1))", rowVector);
+
+  auto expectedResult = makeFlatVector<int64_t>(
+      5, [](vector_size_t) { return 0; }, [](vector_size_t) { return true; });
+  assertEqualVectors(expectedResult, evalResult);
+}
