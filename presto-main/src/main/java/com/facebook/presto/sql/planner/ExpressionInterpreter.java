@@ -617,6 +617,13 @@ public class ExpressionInterpreter
             List<Object> values = new ArrayList<>(valueList.getValues().size());
             List<Type> types = new ArrayList<>(valueList.getValues().size());
             for (Expression expression : valueList.getValues()) {
+                if (value instanceof Expression && expression instanceof Literal) {
+                    // skip interpreting of literal IN term since it cannot be compared
+                    // with unresolved "value" and it cannot be simplified further
+                    values.add(expression);
+                    types.add(type(expression));
+                    continue;
+                }
                 Object inValue = process(expression, context);
                 if (value instanceof Expression || inValue instanceof Expression) {
                     hasUnresolvedValue = true;
