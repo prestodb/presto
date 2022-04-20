@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
@@ -100,6 +101,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
@@ -136,6 +138,8 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class MetastoreUtil
 {
+    private static final Logger log = Logger.get(MetastoreUtil.class);
+
     public static final String METASTORE_HEADERS = "metastore_headers";
     public static final String PRESTO_OFFLINE = "presto_offline";
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
@@ -946,6 +950,22 @@ public class MetastoreUtil
         }
         catch (Exception e) {
             return false;
+        }
+    }
+
+    public static boolean isManagedTable(String tableType)
+    {
+        return tableType.equals(MANAGED_TABLE.name());
+    }
+
+    public static void deleteDirectoryRecursively(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, boolean recursive)
+    {
+        try {
+            hdfsEnvironment.getFileSystem(context, path).delete(path, recursive);
+        }
+        catch (IOException | RuntimeException e) {
+            // don't fail if unable to delete path
+            log.warn(e, "Failed to delete path: " + path.toString());
         }
     }
 }

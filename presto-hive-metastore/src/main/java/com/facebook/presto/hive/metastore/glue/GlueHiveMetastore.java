@@ -58,7 +58,6 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
@@ -123,12 +122,13 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURI
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRecursively;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isManagedTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
-import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static com.facebook.presto.hive.metastore.glue.converter.GlueInputConverter.convertColumn;
@@ -148,8 +148,6 @@ import static java.util.stream.Collectors.toMap;
 public class GlueHiveMetastore
         implements ExtendedHiveMetastore
 {
-    private static final Logger log = Logger.get(GlueHiveMetastore.class);
-
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String DEFAULT_METASTORE_USER = "presto";
     private static final String WILDCARD_EXPRESSION = "";
@@ -537,24 +535,8 @@ public class GlueHiveMetastore
         }
 
         String tableLocation = table.getStorage().getLocation();
-        if (deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
-            deleteDir(hdfsContext, hdfsEnvironment, new Path(tableLocation), true);
-        }
-    }
-
-    private static boolean isManagedTable(Table table)
-    {
-        return table.getTableType().equals(MANAGED_TABLE);
-    }
-
-    private static void deleteDir(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, boolean recursive)
-    {
-        try {
-            hdfsEnvironment.getFileSystem(context, path).delete(path, recursive);
-        }
-        catch (Exception e) {
-            // don't fail if unable to delete path
-            log.warn(e, "Failed to delete path: " + path.toString());
+        if (deleteData && isManagedTable(table.getTableType().name()) && !isNullOrEmpty(tableLocation)) {
+            deleteDirectoryRecursively(hdfsContext, hdfsEnvironment, new Path(tableLocation), true);
         }
     }
 
@@ -924,8 +906,8 @@ public class GlueHiveMetastore
         }
 
         String partLocation = partition.getStorage().getLocation();
-        if (deleteData && isManagedTable(table) && !isNullOrEmpty(partLocation)) {
-            deleteDir(hdfsContext, hdfsEnvironment, new Path(partLocation), true);
+        if (deleteData && isManagedTable(table.getTableType().name()) && !isNullOrEmpty(partLocation)) {
+            deleteDirectoryRecursively(hdfsContext, hdfsEnvironment, new Path(partLocation), true);
         }
     }
 
