@@ -291,8 +291,19 @@ class TryExpr : public SpecialForm {
       EvalCtx* context,
       VectorPtr* result) override;
 
+  void evalSpecialFormSimplified(
+      const SelectivityVector& rows,
+      EvalCtx* context,
+      VectorPtr* result) override;
+
   bool propagatesNulls() const override {
     return inputs_[0]->propagatesNulls();
   }
+
+ private:
+  void nullOutErrors(
+      const SelectivityVector& rows,
+      EvalCtx* context,
+      VectorPtr* result);
 };
 } // namespace facebook::velox::exec

@@ -130,17 +130,69 @@ TEST_F(TryExprTest, nestedTryParentErrors) {
       result);
 }
 
+namespace {
+// A function that sets result to be a ConstantVector and then throws an
+// exception.
+class CreateConstantAndThrow : public exec::VectorFunction {
+ public:
+  bool isDefaultNullBehavior() const override {
+    return true;
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& /* args */,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    *result =
+        BaseVector::createConstant((int64_t)1, rows.end(), context->pool());
+
+    rows.applyToSelected([&](int row) {
+      context->setError(
+          row, std::make_exception_ptr(std::invalid_argument("expected")));
+    });
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    return {exec::FunctionSignatureBuilder()
+                .returnType("bigint")
+                .argumentType("bigint")
+                .build()};
+  }
+};
+} // namespace
+
 TEST_F(TryExprTest, constant) {
-  // Test a TRY around an expression over a constant vector and other constants
-  // that throws an exception (division by 0).
+  // Test a TRY around an expression that sets result to be a ConstantVector
+  // and then throws an exception.
+  exec::registerVectorFunction(
+      "create_constant_and_throw",
+      CreateConstantAndThrow::signatures(),
+      std::make_unique<CreateConstantAndThrow>());
+
   auto constant = makeConstant<int64_t>(0, 10);
 
-  // We use evaluateSimplified here because evaluate peels the encodings before
-  // invoking the expression.  Since evaluateSimplified does not, the result
-  // vector the TRY expression sees is a non-null ConstantVector.
-  auto result = evaluateSimplified<ConstantVector<int64_t>>(
-      "try(1 / c0)", makeRowVector({constant}));
+  // This should return a ConstantVector of NULLs since every row throws an
+  // exception.
+  auto result = evaluate<ConstantVector<int64_t>>(
+      "try(create_constant_and_throw(c0))", makeRowVector({constant}));
 
   assertEqualVectors(makeNullConstant(TypeKind::BIGINT, 10), result);
+}
+
+TEST_F(TryExprTest, evalSimplified) {
+  registerFunction<CountCallsFunction, int64_t, int64_t>(
+      {"count_calls"}, BIGINT());
+
+  std::vector<std::optional<int64_t>> expected{0, 1, 2, 3};
+  auto constant = makeConstant<int64_t>(0, 4);
+  // Test that count_calls is called with evalSimplified, not eval.
+  // If eval were to be invoked then count_calls would be invoked once and the
+  // result would be a constant vector with the value 0 repeated 4 times.
+  auto result = evaluateSimplified<FlatVector<int64_t>>(
+      "try(count_calls(c0))", makeRowVector({constant}));
+
+  assertEqualVectors(makeNullableFlatVector(expected), result);
 }
 } // namespace facebook::velox

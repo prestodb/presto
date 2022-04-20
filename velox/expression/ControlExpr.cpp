@@ -767,6 +767,33 @@ void TryExpr::evalSpecialForm(
       context->errorsPtr(), nullptr);
   inputs_[0]->eval(rows, context, result);
 
+  nullOutErrors(rows, context, result);
+}
+
+void TryExpr::evalSpecialFormSimplified(
+    const SelectivityVector& rows,
+    EvalCtx* context,
+    VectorPtr* result) {
+  VarSetter throwOnError(context->mutableThrowOnError(), false);
+  // It's possible with nested TRY expressions that some rows already threw
+  // exceptions in earlier expressions that haven't been handled yet. To avoid
+  // incorrectly handling them here, store those errors and temporarily reset
+  // the errors in context to nullptr, so we only handle errors coming from
+  // expressions that are children of this TRY expression.
+  // This also prevents this TRY expression from leaking exceptions to the
+  // parent TRY expression, so the parent won't incorrectly null out rows that
+  // threw exceptions which this expression already handled.
+  VarSetter<EvalCtx::ErrorVectorPtr> errorsSetter(
+      context->errorsPtr(), nullptr);
+  inputs_[0]->evalSimplified(rows, context, result);
+
+  nullOutErrors(rows, context, result);
+}
+
+void TryExpr::nullOutErrors(
+    const SelectivityVector& rows,
+    EvalCtx* context,
+    VectorPtr* result) {
   auto errors = context->errors();
   if (errors) {
     if ((*result)->encoding() == VectorEncoding::Simple::CONSTANT) {
