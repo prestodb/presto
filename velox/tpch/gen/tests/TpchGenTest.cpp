@@ -47,7 +47,7 @@ TEST(TpchGenTestNation, default) {
 
 // Ensure scale factor doesn't affect Nation table.
 TEST(TpchGenTestNation, scaleFactor) {
-  auto rowVector = genTpchNation(10000, 0, 1000);
+  auto rowVector = genTpchNation(10'000, 0, 1'000);
   ASSERT_NE(rowVector, nullptr);
 
   EXPECT_EQ(4, rowVector->childrenSize());
@@ -88,6 +88,51 @@ TEST(TpchGenTestNation, smallBatchPastEnd) {
   auto nationKey = rowVector->childAt(0)->asFlatVector<int64_t>();
   EXPECT_EQ(20, nationKey->valueAt(0));
   EXPECT_EQ(24, nationKey->valueAt(4));
+}
+
+TEST(TpchGenTestOrders, batches) {
+  auto rowVector1 = genTpchOrders(10'000);
+
+  EXPECT_EQ(9, rowVector1->childrenSize());
+  EXPECT_EQ(10'000, rowVector1->size());
+
+  auto orderKey = rowVector1->childAt(0)->asFlatVector<int64_t>();
+  auto orderDate = rowVector1->childAt(4)->asFlatVector<StringView>();
+
+  EXPECT_EQ(1, orderKey->valueAt(0));
+  EXPECT_EQ("1996-01-02"_sv, orderDate->valueAt(0));
+  LOG(INFO) << rowVector1->toString(0);
+
+  EXPECT_EQ(40'000, orderKey->valueAt(9999));
+  EXPECT_EQ("1995-01-30"_sv, orderDate->valueAt(9999));
+  LOG(INFO) << rowVector1->toString(9999);
+
+  // Get second batch.
+  auto rowVector2 = genTpchOrders(10'000, 10'000);
+
+  EXPECT_EQ(9, rowVector2->childrenSize());
+  EXPECT_EQ(10'000, rowVector2->size());
+
+  orderKey = rowVector2->childAt(0)->asFlatVector<int64_t>();
+  orderDate = rowVector2->childAt(4)->asFlatVector<StringView>();
+
+  EXPECT_EQ(40001, orderKey->valueAt(0));
+  EXPECT_EQ("1995-02-25"_sv, orderDate->valueAt(0));
+  LOG(INFO) << rowVector2->toString(0);
+
+  EXPECT_EQ(80000, orderKey->valueAt(9999));
+  EXPECT_EQ("1995-12-15"_sv, orderDate->valueAt(9999));
+  LOG(INFO) << rowVector2->toString(9999);
+}
+
+TEST(TpchGenTestOrders, lastBatch) {
+  // Ask for 200 but there are only 100 left.
+  auto rowVector = genTpchOrders(200, 1'499'900);
+  EXPECT_EQ(100, rowVector->size());
+
+  // Ensure we get 200 on a larger scale factor.
+  rowVector = genTpchOrders(200, 1'499'900, 2);
+  EXPECT_EQ(200, rowVector->size());
 }
 
 } // namespace

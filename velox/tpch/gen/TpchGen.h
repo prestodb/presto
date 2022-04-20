@@ -52,6 +52,27 @@ enum class Table {
 ///  https://www.tpc.org/tpch/
 constexpr size_t getRowCount(Table table, size_t scaleFactor);
 
+/// Returns a row vector containing at most `maxRows` rows of the "orders"
+/// table, starting at `offset`, and given the scale factor. The row vector
+/// returned has the following schema:
+///
+///  o_orderkey: BIGINT
+///  o_custkey: BIGINT
+///  o_orderstatus: VARCHAR
+///  o_totalprice: DOUBLE
+///  o_orderdate: VARCHAR
+///  o_orderpriority: VARCHAR
+///  o_clerk: VARCHAR
+///  o_shippriority: INTEGER
+///  o_comment: VARCHAR
+///
+RowVectorPtr genTpchOrders(
+    size_t maxRows = 10000,
+    size_t offset = 0,
+    size_t scaleFactor = 1,
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+
 /// Returns a row vector containing at most `maxRows` rows of the "nation"
 /// table, starting at `offset`, and given the scale factor. The row vector
 /// returned has the following schema:

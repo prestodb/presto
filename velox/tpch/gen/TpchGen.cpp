@@ -80,6 +80,93 @@ constexpr size_t getRowCount(Table table, size_t scaleFactor) {
   return 0; // make gcc happy.
 }
 
+RowVectorPtr genTpchOrders(
+    size_t maxRows,
+    size_t offset,
+    size_t scaleFactor,
+    memory::MemoryPool* pool) {
+  size_t rowCount = getRowCount(Table::TBL_ORDERS, scaleFactor);
+  size_t vectorSize = std::min(rowCount - offset, maxRows);
+
+  // DBGEN takes the scale factor through this ugly global variable.
+  scale = scaleFactor;
+
+  // Create schema and allocate vectors.
+  static TypePtr ordersRowType = ROW(
+      {
+          "o_orderkey",
+          "o_custkey",
+          "o_orderstatus",
+          "o_totalprice",
+          "o_orderdate",
+          "o_orderpriority",
+          "o_clerk",
+          "o_shippriority",
+          "o_comment",
+      },
+      {
+          BIGINT(),
+          BIGINT(),
+          VARCHAR(),
+          DOUBLE(),
+          VARCHAR(),
+          VARCHAR(),
+          VARCHAR(),
+          INTEGER(),
+          VARCHAR(),
+      });
+  std::vector<VectorPtr> children = {
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(DOUBLE(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(INTEGER(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+  };
+
+  auto orderKeyVector = children[0]->asFlatVector<int64_t>();
+  auto custKeyVector = children[1]->asFlatVector<int64_t>();
+  auto orderStatusVector = children[2]->asFlatVector<StringView>();
+  auto totalPriceVector = children[3]->asFlatVector<double>();
+  auto orderDateVector = children[4]->asFlatVector<StringView>();
+  auto orderPriorityVector = children[5]->asFlatVector<StringView>();
+  auto clerkVector = children[6]->asFlatVector<StringView>();
+  auto shipPriorityVector = children[7]->asFlatVector<int32_t>();
+  auto commentVector = children[8]->asFlatVector<StringView>();
+
+  // load_dists()/cleanup_dists() need to be called to ensure the global
+  // variables required by dbgen are populated.
+  load_dists();
+  order_t order;
+
+  // Dbgen generates the dataset one row at a time, so we need to transpose it
+  // into a columnar format.
+  for (size_t i = 0; i < vectorSize; ++i) {
+    row_start(ORDER);
+    mk_order(i + offset + 1, &order, 0);
+
+    orderKeyVector->set(i, order.okey);
+    custKeyVector->set(i, order.custkey);
+    orderStatusVector->set(i, StringView(&order.orderstatus, 1));
+    totalPriceVector->set(i, order.totalprice);
+    orderDateVector->set(i, StringView(order.odate, strlen(order.odate)));
+    orderPriorityVector->set(
+        i, StringView(order.opriority, strlen(order.opriority)));
+    clerkVector->set(i, StringView(order.clerk, strlen(order.clerk)));
+    shipPriorityVector->set(i, order.spriority);
+    commentVector->set(i, StringView(order.comment, order.clen));
+
+    row_stop_h(ORDER);
+  }
+  cleanup_dists();
+
+  return std::make_shared<RowVector>(
+      pool, ordersRowType, BufferPtr(nullptr), vectorSize, std::move(children));
+}
+
 RowVectorPtr genTpchNation(
     size_t maxRows,
     size_t offset,
@@ -87,6 +174,9 @@ RowVectorPtr genTpchNation(
     memory::MemoryPool* pool) {
   size_t rowCount = getRowCount(Table::TBL_NATION, scaleFactor);
   size_t vectorSize = std::min(rowCount - offset, maxRows);
+
+  // DBGEN takes the scale factor through this ugly global variable.
+  scale = scaleFactor;
 
   // Create schema and allocate vectors.
   static TypePtr nationRowType =
