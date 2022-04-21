@@ -37,6 +37,7 @@ public final class StandardTypes
     public static final String INTERVAL_DAY_TO_SECOND = "interval day to second";
     public static final String INTERVAL_YEAR_TO_MONTH = "interval year to month";
     public static final String TIMESTAMP = "timestamp";
+    public static final String TIMESTAMP_MICROSECONDS = "timestamp microseconds";
     public static final String TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone";
     public static final String TIME = "time";
     public static final String TIME_WITH_TIME_ZONE = "time with time zone";
