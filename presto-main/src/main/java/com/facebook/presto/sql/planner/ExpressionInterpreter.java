@@ -589,22 +589,24 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            Set<?> set = inListCache.get(valueList);
+            if (!(value instanceof Expression)) {
+                Set<?> set = inListCache.get(valueList);
 
-            // We use the presence of the node in the map to indicate that we've already done
-            // the analysis below. If the value is null, it means that we can't apply the HashSet
-            // optimization
-            if (!inListCache.containsKey(valueList)) {
-                if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
-                        valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
-                    Set objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
-                    set = FastutilSetHelper.toFastutilHashSet(objectSet, type(node.getValue()), metadata.getFunctionAndTypeManager());
+                // We use the presence of the node in the map to indicate that we've already done
+                // the analysis below. If the value is null, it means that we can't apply the HashSet
+                // optimization
+                if (!inListCache.containsKey(valueList)) {
+                    if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
+                            valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
+                        Set objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
+                        set = FastutilSetHelper.toFastutilHashSet(objectSet, type(node.getValue()), metadata.getFunctionAndTypeManager());
+                    }
+                    inListCache.put(valueList, set);
                 }
-                inListCache.put(valueList, set);
-            }
 
-            if (set != null && !(value instanceof Expression)) {
-                return set.contains(value);
+                if (set != null) {
+                    return set.contains(value);
+                }
             }
 
             boolean hasUnresolvedValue = false;
