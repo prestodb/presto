@@ -68,6 +68,22 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
         rowVector->children()[1]->as<SimpleVector<int16_t>>()->valueAt(0)};
   }
 
+  std::optional<Timestamp> dateParse(
+      const std::optional<std::string>& input,
+      const std::optional<std::string>& format) {
+    auto resultVector = evaluate(
+        "date_parse(c0, c1)",
+        makeRowVector(
+            {makeNullableFlatVector<std::string>({input}),
+             makeNullableFlatVector<std::string>({format})}));
+    EXPECT_EQ(1, resultVector->size());
+
+    if (resultVector->isNullAt(0)) {
+      return std::nullopt;
+    }
+    return resultVector->as<SimpleVector<Timestamp>>()->valueAt(0);
+  }
+
   std::optional<std::string> dateFormat(
       std::optional<Timestamp> timestamp,
       const std::string& format) {
@@ -1491,4 +1507,18 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   EXPECT_THROW(
       dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%x"),
       VeloxUserError);
+}
+
+TEST_F(DateTimeFunctionsTest, dateParse) {
+  EXPECT_EQ(Timestamp(86400, 0), dateParse("1970-01-02", "%Y-%m-%d"));
+  EXPECT_EQ(Timestamp(0, 0), dateParse("1970-01-01", "%Y-%m-%d"));
+
+  // Check null behavior.
+  EXPECT_EQ(std::nullopt, dateParse("1970-01-01", std::nullopt));
+  EXPECT_EQ(std::nullopt, dateParse(std::nullopt, "%Y-%m-%d"));
+  EXPECT_EQ(std::nullopt, dateParse(std::nullopt, std::nullopt));
+
+  // Ensure it throws.
+  EXPECT_THROW(dateParse("", ""), VeloxUserError);
+  EXPECT_THROW(dateParse("1999-01-01-Jan", "%Y-%m-%d-%M"), VeloxUserError);
 }
