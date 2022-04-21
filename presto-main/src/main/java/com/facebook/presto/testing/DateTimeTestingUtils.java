@@ -74,7 +74,7 @@ public final class DateTimeTestingUtils
             ConnectorSession session)
     {
         if (session.getSqlFunctionProperties().isLegacyTimestamp()) {
-            return new SqlTimestamp(new DateTime(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, baseZone).getMillis(), timestampZone);
+            return new SqlTimestamp(new DateTime(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, baseZone).getMillis(), timestampZone, MILLISECONDS);
         }
         return sqlTimestampOf(LocalDateTime.of(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisToNanos(millisOfSecond)));
     }
@@ -84,7 +84,7 @@ public final class DateTimeTestingUtils
      */
     public static SqlTimestamp sqlTimestampOf(LocalDateTime dateTime)
     {
-        return new SqlTimestamp(DAYS.toMillis(dateTime.toLocalDate().toEpochDay()) + NANOSECONDS.toMillis(dateTime.toLocalTime().toNanoOfDay()));
+        return new SqlTimestamp(DAYS.toMillis(dateTime.toLocalDate().toEpochDay()) + NANOSECONDS.toMillis(dateTime.toLocalTime().toNanoOfDay()), MILLISECONDS);
     }
 
     public static SqlTimestamp sqlTimestampOf(DateTime dateTime, Session session)
@@ -102,10 +102,10 @@ public final class DateTimeTestingUtils
         SqlFunctionProperties properties = session.getSqlFunctionProperties();
 
         if (properties.isLegacyTimestamp()) {
-            return new SqlTimestamp(millis, properties.getTimeZoneKey());
+            return new SqlTimestamp(millis, properties.getTimeZoneKey(), MILLISECONDS);
         }
         else {
-            return new SqlTimestamp(millis);
+            return new SqlTimestamp(millis, MILLISECONDS);
         }
     }
 

@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 //
 // A timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
@@ -40,10 +41,10 @@ public final class TimestampType
         }
 
         if (properties.isLegacyTimestamp()) {
-            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey());
+            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey(), MILLISECONDS);
         }
         else {
-            return new SqlTimestamp(block.getLong(position));
+            return new SqlTimestamp(block.getLong(position), MILLISECONDS);
         }
     }
 

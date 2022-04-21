@@ -888,7 +888,7 @@ public abstract class AbstractTestParquetReader
         ContiguousSet<Long> longValues = longsBetween(1_000_000, 1_001_000);
         ImmutableList.Builder<SqlTimestamp> expectedValues = new ImmutableList.Builder<>();
         for (Long value : longValues) {
-            expectedValues.add(new SqlTimestamp(value / 1000L, UTC_KEY));
+            expectedValues.add(new SqlTimestamp(value / 1000L, UTC_KEY, MILLISECONDS));
         }
         tester.testRoundTrip(javaTimestampObjectInspector, longValues, expectedValues.build(), TIMESTAMP, parquetSchema);
     }
@@ -901,7 +901,7 @@ public abstract class AbstractTestParquetReader
         ContiguousSet<Long> longValues = longsBetween(1_000_000, 1_001_000);
         ImmutableList.Builder<SqlTimestamp> expectedValues = new ImmutableList.Builder<>();
         for (Long value : longValues) {
-            expectedValues.add(new SqlTimestamp(value, UTC_KEY));
+            expectedValues.add(new SqlTimestamp(value, UTC_KEY, MILLISECONDS));
         }
         tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), TIMESTAMP, Optional.of(parquetSchema));
     }

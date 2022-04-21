@@ -382,7 +382,7 @@ public class MaterializedResult
                         zone);
             }
             else if (prestoValue instanceof SqlTimestamp) {
-                convertedValue = SqlTimestamp.JSON_FORMATTER.parse(prestoValue.toString(), LocalDateTime::from);
+                convertedValue = SqlTimestamp.JSON_MILLIS_FORMATTER.parse(prestoValue.toString(), LocalDateTime::from);
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
                 convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())

@@ -66,7 +66,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -102,7 +101,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@OutputTimeUnit(MILLISECONDS)
 @Fork(2)
 @Warmup(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
 @Measurement(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
@@ -425,7 +424,7 @@ public class BenchmarkSelectiveStreamReaders
             if (type == TIMESTAMP) {
                 // We use int because longs will be converted to int when being written.
                 long value = random.nextInt();
-                return new SqlTimestamp(value, TimeZoneKey.UTC_KEY);
+                return new SqlTimestamp(value, TimeZoneKey.UTC_KEY, MILLISECONDS);
             }
 
             if (type == REAL) {

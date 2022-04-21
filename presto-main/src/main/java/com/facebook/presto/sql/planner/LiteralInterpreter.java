@@ -86,6 +86,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class LiteralInterpreter
 {
@@ -148,9 +149,9 @@ public final class LiteralInterpreter
         if (type instanceof TimestampType) {
             try {
                 if (properties.isLegacyTimestamp()) {
-                    return new SqlTimestamp((long) node.getValue(), properties.getTimeZoneKey());
+                    return new SqlTimestamp((long) node.getValue(), properties.getTimeZoneKey(), MILLISECONDS);
                 }
-                return new SqlTimestamp((long) node.getValue());
+                return new SqlTimestamp((long) node.getValue(), MILLISECONDS);
             }
             catch (RuntimeException e) {
                 throw new PrestoException(GENERIC_USER_ERROR, format("'%s' is not a valid timestamp literal", (String) node.getValue()));
