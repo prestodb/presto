@@ -224,7 +224,7 @@ public class TestingPrestoClient
             }
         }
         else if (TIMESTAMP.equals(type)) {
-            return SqlTimestamp.JSON_FORMATTER.parse((String) value, LocalDateTime::from);
+            return SqlTimestamp.JSON_MILLIS_FORMATTER.parse((String) value, LocalDateTime::from);
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);

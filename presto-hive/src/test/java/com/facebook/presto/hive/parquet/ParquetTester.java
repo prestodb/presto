@@ -133,6 +133,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.COMPRESSION;
@@ -603,7 +604,7 @@ public class ParquetTester
             return new SqlDate(((Long) fieldFromCursor).intValue());
         }
         if (TIMESTAMP.equals(type)) {
-            return new SqlTimestamp((long) fieldFromCursor, UTC_KEY);
+            return new SqlTimestamp((long) fieldFromCursor, UTC_KEY, MILLISECONDS);
         }
         return fieldFromCursor;
     }

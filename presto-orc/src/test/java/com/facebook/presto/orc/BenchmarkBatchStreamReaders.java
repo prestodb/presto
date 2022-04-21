@@ -49,7 +49,6 @@ import java.math.BigInteger;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -73,7 +72,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@OutputTimeUnit(MILLISECONDS)
 @Fork(3)
 @Warmup(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @Measurement(iterations = 20, time = 500, timeUnit = MILLISECONDS)
@@ -186,7 +185,7 @@ public class BenchmarkBatchStreamReaders
                 case "decimal(30,10)":
                     return new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), LONG_DECIMAL_TYPE.getPrecision(), LONG_DECIMAL_TYPE.getScale());
                 case "timestamp":
-                    return new SqlTimestamp((random.nextLong()), UTC_KEY);
+                    return new SqlTimestamp((random.nextLong()), UTC_KEY, MILLISECONDS);
                 case "real":
                     return random.nextFloat();
                 case "double":
