@@ -717,7 +717,7 @@ examples,
 - :func:`is_null` function copies the “nulls” buffer of the input vector, flips the bits in bulk and returns the result.
 - :func:`element_at` function and subscript operator for arrays and maps use dictionary encoding to represent a subset of the input “elements” or “values” vector without copying.
 
-To define a vector function, make a subclass of f4d::exec::VectorFunction and
+To define a vector function, make a subclass of exec::VectorFunction and
 implement the “apply” method.
 
 .. code-block:: c++
@@ -1017,7 +1017,7 @@ using context->setError.
 Registration
 ^^^^^^^^^^^^
 
-Use f4d::exec::registerVectorFunction to register a stateless vector function.
+Use exec::registerVectorFunction to register a stateless vector function.
 
 .. code-block:: c++
 
@@ -1027,12 +1027,12 @@ Use f4d::exec::registerVectorFunction to register a stateless vector function.
         std::unique_ptr<VectorFunction> func,
         bool overwrite = true)
 
-f4d::exec::registerVectorFunction takes a name, a list of supported signatures
+exec::registerVectorFunction takes a name, a list of supported signatures
 and unique_ptr to an instance of the function. An optional “overwrite” flag
 specifies whether to overwrite a function if a function with the specified
 name already exists.
 
-Use f4d::exec::registerStatefulVectorFunction to register a stateful vector
+Use exec::registerStatefulVectorFunction to register a stateful vector
 function.
 
 .. code-block:: c++
@@ -1043,7 +1043,7 @@ function.
         VectorFunctionFactory factory,
         bool overwrite = true)
 
-f4d::exec::registerStatefulVectorFunction takes a name, a list of supported
+exec::registerStatefulVectorFunction takes a name, a list of supported
 signatures and a factory function that can be used to create an instance of
 the vector function. Expression evaluation engine uses a factory function to
 create a new instance of the vector function for each thread of execution. In
