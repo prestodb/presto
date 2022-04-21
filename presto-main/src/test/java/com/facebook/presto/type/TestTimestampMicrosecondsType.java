@@ -21,31 +21,33 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+import static java.lang.Long.MAX_VALUE;
+import static java.lang.Long.MIN_VALUE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
-public class TestTimestampType
+public class TestTimestampMicrosecondsType
         extends AbstractTestType
 {
-    public TestTimestampType()
+    public TestTimestampMicrosecondsType()
     {
-        super(TIMESTAMP, SqlTimestamp.class, createTestBlock());
+        super(TIMESTAMP_MICROSECONDS, SqlTimestamp.class, createTestBlock());
     }
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP.createBlockBuilder(null, 15);
-        TIMESTAMP.writeLong(blockBuilder, 1111);
-        TIMESTAMP.writeLong(blockBuilder, 1111);
-        TIMESTAMP.writeLong(blockBuilder, 1111);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 3333);
-        TIMESTAMP.writeLong(blockBuilder, 3333);
-        TIMESTAMP.writeLong(blockBuilder, 4444);
+        BlockBuilder blockBuilder = TIMESTAMP_MICROSECONDS.createBlockBuilder(null, 15);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, MIN_VALUE);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, MIN_VALUE + 1_000_000);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, 0);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, 1_000_000L);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, 1_000_000_000L);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, 1_000_000_000L);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, 1_000_000_000L);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, 1_000_000_000L);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, 1_000_000_000L);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, 1_000_000_000_000L);
+        TIMESTAMP_MICROSECONDS.writeLong(blockBuilder, MAX_VALUE - 1);
         return blockBuilder.build();
     }
 
@@ -58,10 +60,10 @@ public class TestTimestampType
     @Test
     public void testEqualsHashcode()
     {
-        TimestampType timeStampType = TIMESTAMP;
-        assertEquals(timeStampType, TIMESTAMP);
-        assertEquals(timeStampType.hashCode(), TIMESTAMP.hashCode());
+        TimestampType timeStampType = TIMESTAMP_MICROSECONDS;
+        assertEquals(timeStampType, TIMESTAMP_MICROSECONDS);
+        assertEquals(timeStampType.hashCode(), TIMESTAMP_MICROSECONDS.hashCode());
 
-        assertNotEquals(timeStampType, TIMESTAMP_MICROSECONDS);
+        assertNotEquals(timeStampType, TIMESTAMP);
     }
 }
