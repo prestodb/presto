@@ -93,7 +93,7 @@ public class AggregationOperator
     public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories, boolean useSystemMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(AggregationOperator.class.getSimpleName());
+        this.systemMemoryContext = operatorContext.localSystemMemoryContext();
         this.userMemoryContext = operatorContext.localUserMemoryContext();
         this.useSystemMemory = useSystemMemory;
 
@@ -126,7 +126,7 @@ public class AggregationOperator
     public void close()
     {
         userMemoryContext.setBytes(0);
-        systemMemoryContext.close();
+        systemMemoryContext.setBytes(0);
     }
 
     @Override

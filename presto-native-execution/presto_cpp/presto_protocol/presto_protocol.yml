@@ -124,6 +124,7 @@ AbstractClasses:
         - { name: UnnestNode,               key: com.facebook.presto.sql.planner.plan.UnnestNode }
         - { name: ValuesNode,               key: .ValuesNode }
         - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
+        - { name: MergeJoinNode,            key: com.facebook.presto.sql.planner.plan.MergeJoinNode }
 
     RowExpression:
       super: JsonEncodedSubclass

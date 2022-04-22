@@ -34,6 +34,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -126,7 +127,7 @@ public class TableScanOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(TableScanOperator.class.getSimpleName());
+        this.systemMemoryContext = operatorContext.localSystemMemoryContext();
     }
 
     @Override
@@ -154,7 +155,13 @@ public class TableScanOperator
         this.split = split;
 
         Object splitInfo = split.getInfo();
-        if (splitInfo != null) {
+        Map<String, String> infoMap = split.getInfoMap();
+
+        //Make the implicit assumption that if infoMap is populated we can use that instead of the raw object.
+        if (infoMap != null && !infoMap.isEmpty()) {
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(infoMap)));
+        }
+        else if (splitInfo != null) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(splitInfo)));
         }
 

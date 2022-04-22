@@ -94,6 +94,10 @@ TEST(TestValues, valuesPlan) {
       nullptr,
       "20201107_130540_00011_wrpkw.1.2.3");
 
+  ASSERT_EQ(values->name(), "Filter");
+  ASSERT_EQ(values->sources()[0]->name(), "LocalPartition");
+  ASSERT_EQ(values->sources()[0]->sources()[0]->name(), "Values");
+
   ASSERT_EQ(values->id(), "4");
-  ASSERT_EQ(values->sources()[0]->id(), "0");
+  ASSERT_EQ(values->sources()[0]->sources()[0]->id(), "0");
 }

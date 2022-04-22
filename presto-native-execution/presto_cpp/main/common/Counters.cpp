@@ -41,11 +41,19 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumTasksFailed, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterNumDrivers, facebook::velox::StatType::AVG);
+      kCounterNumZombieTasks, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterNumZombiePrestoTasks, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterNumRunningDrivers, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterNumBlockedDrivers, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMappedMemoryBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterAllocatedMemoryBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterTotalPartitionedOutputBuffer, facebook::velox::StatType::AVG);
 }
 
 } // namespace facebook::presto

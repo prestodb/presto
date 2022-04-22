@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 
-import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -273,6 +272,7 @@ public class QueryStats
     public static QueryStats create(
             QueryStateTimer queryStateTimer,
             Optional<StageInfo> rootStage,
+            List<StageInfo> allStages,
             int peakRunningTasks,
             DataSize peakUserMemoryReservation,
             DataSize peakTotalMemoryReservation,
@@ -318,15 +318,14 @@ public class QueryStats
 
         long writtenIntermediatePhysicalDataSize = 0;
 
-        ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builder();
+        ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builderWithExpectedSize(allStages.size());
 
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
-        boolean completeInfo = true;
         RuntimeStats mergedRuntimeStats = RuntimeStats.copyOf(runtimeStats);
-        for (StageInfo stageInfo : getAllStages(rootStage)) {
+        for (StageInfo stageInfo : allStages) {
             StageExecutionStats stageExecutionStats = stageInfo.getLatestAttemptExecutionInfo().getStats();
             totalTasks += stageExecutionStats.getTotalTasks();
             runningTasks += stageExecutionStats.getRunningTasks();
@@ -381,7 +380,6 @@ public class QueryStats
 
             stageGcStatistics.add(stageExecutionStats.getGcInfo());
 
-            completeInfo = completeInfo && stageInfo.isFinalStageInfo();
             operatorStatsSummary.addAll(stageExecutionStats.getOperatorSummaries());
             // We prepend each metric name with the stage id to avoid merging metrics across stages.
             int stageId = stageInfo.getStageId().getId();
@@ -396,6 +394,11 @@ public class QueryStats
             outputDataSize += outputStageStats.getOutputDataSize().toBytes();
             outputPositions += outputStageStats.getOutputPositions();
         }
+
+        boolean isScheduled = rootStage.isPresent() && allStages.stream()
+                .map(StageInfo::getLatestAttemptExecutionInfo)
+                .map(StageExecutionInfo::getState)
+                .allMatch(state -> (state == StageExecutionState.RUNNING) || state.isDone());
 
         return new QueryStats(
                 queryStateTimer.getCreateTime(),
@@ -436,7 +439,7 @@ public class QueryStats
                 peakTaskTotalMemory,
                 peakNodeTotalMemory,
 
-                isScheduled(rootStage),
+                isScheduled,
 
                 succinctDuration(totalScheduledTime, MILLISECONDS),
                 succinctDuration(totalCpuTime, MILLISECONDS),
@@ -464,17 +467,6 @@ public class QueryStats
 
                 operatorStatsSummary.build(),
                 mergedRuntimeStats);
-    }
-
-    private static boolean isScheduled(Optional<StageInfo> rootStage)
-    {
-        if (!rootStage.isPresent()) {
-            return false;
-        }
-        return getAllStages(rootStage).stream()
-                .map(StageInfo::getLatestAttemptExecutionInfo)
-                .map(StageExecutionInfo::getState)
-                .allMatch(state -> (state == StageExecutionState.RUNNING) || state.isDone());
     }
 
     private static long computeRetriedCpuTime(StageInfo stageInfo)

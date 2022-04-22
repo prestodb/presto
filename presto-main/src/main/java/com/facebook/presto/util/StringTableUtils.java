@@ -25,7 +25,7 @@ public class StringTableUtils
 
     public static String getShortestTableStringFormat(List<List<String>> table)
     {
-        if (table.size() == 0) {
+        if (table.isEmpty()) {
             throw new IllegalArgumentException("Table must include at least one row");
         }
 

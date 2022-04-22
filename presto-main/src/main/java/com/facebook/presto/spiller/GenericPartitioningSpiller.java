@@ -75,7 +75,6 @@ public class GenericPartitioningSpiller
         this.spillContext = closer.register(requireNonNull(spillContext, "spillContext is null"));
 
         requireNonNull(memoryContext, "memoryContext is null");
-        closer.register(memoryContext::close);
         this.memoryContext = memoryContext;
         int partitionCount = partitionFunction.getPartitionCount();
         this.pageBuilders = new PageBuilder[partitionCount];

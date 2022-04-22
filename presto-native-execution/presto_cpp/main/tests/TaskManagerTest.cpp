@@ -12,13 +12,7 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#if __has_include("filesystem")
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
+#include "velox/common/base/tests/Fs.h"
 
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskManager.h"
@@ -45,7 +39,7 @@ class Cursor {
   Cursor(
       TaskManager* taskManager,
       const protocol::TaskId& taskId,
-      const std::shared_ptr<const RowType>& rowType,
+      const RowTypePtr& rowType,
       memory::MemoryPool* pool)
       : pool_(pool),
         taskManager_(taskManager),
@@ -106,7 +100,7 @@ class Cursor {
   memory::MappedMemory* mappedMemory_ = memory::MappedMemory::getInstance();
   TaskManager* taskManager_;
   const protocol::TaskId taskId_;
-  std::shared_ptr<const RowType> rowType_;
+  RowTypePtr rowType_;
   bool atEnd_ = false;
   uint64_t sequence_ = 0;
 };
@@ -245,7 +239,7 @@ class TaskManagerTest : public testing::Test {
 
   ResultsOrFailure fetchAllResults(
       const protocol::TaskId& taskId,
-      const std::shared_ptr<const RowType>& resultType,
+      const RowTypePtr& resultType,
       const std::vector<std::string>& allTaskIds) {
     Cursor cursor(taskManager_.get(), taskId, resultType, pool_.get());
     std::vector<RowVectorPtr> vectors;
@@ -274,7 +268,7 @@ class TaskManagerTest : public testing::Test {
 
   void assertResults(
       const protocol::TaskId& taskId,
-      const std::shared_ptr<const RowType>& resultType,
+      const RowTypePtr& resultType,
       const std::string& duckDbSql) {
     auto resultOrFailure = fetchAllResults(taskId, resultType, {taskId});
     ASSERT_EQ(resultOrFailure.status, nullptr);
@@ -284,7 +278,7 @@ class TaskManagerTest : public testing::Test {
 
   std::unique_ptr<protocol::TaskInfo> createOutputTask(
       const std::vector<std::string>& taskUris,
-      const std::shared_ptr<const RowType>& outputType,
+      const RowTypePtr& outputType,
       long& splitSequenceId,
       protocol::TaskId outputTaskId = "output.0.0.1") {
     std::vector<std::string> locations;
@@ -292,12 +286,14 @@ class TaskManagerTest : public testing::Test {
       locations.emplace_back(fmt::format("{}/results/0", taskUri));
     }
 
+    auto planFragment = exec::test::PlanBuilder()
+                            .exchange(outputType)
+                            .partitionedOutput({}, 1)
+                            .planFragment();
+
     return taskManager_->createOrUpdateTask(
         outputTaskId,
-        exec::test::PlanBuilder()
-            .exchange(outputType)
-            .partitionedOutput({}, 1)
-            .planFragment(),
+        planFragment,
         {makeRemoteSource("0", locations, true, splitSequenceId)},
         {},
         {},
@@ -374,12 +370,13 @@ class TaskManagerTest : public testing::Test {
     std::vector<std::string> allTaskIds;
 
     // Create scan + partial agg tasks
-    auto partialAggPlanFragment = exec::test::PlanBuilder()
-                                      .tableScan(rowType_)
-                                      .project({"c0 % 5"})
-                                      .partialAggregation({0}, {"count(1)"})
-                                      .partitionedOutput({0}, 3, {0, 1})
-                                      .planFragment();
+    auto partialAggPlanFragment =
+        exec::test::PlanBuilder()
+            .tableScan(rowType_)
+            .project({"c0 % 5"})
+            .partialAggregation({0}, {"count(1)"})
+            .partitionedOutput({"p0"}, 3, {"p0", "a0"})
+            .planFragment();
 
     std::vector<std::string> partialAggTasks;
     long splitSequenceId{0};
@@ -392,13 +389,22 @@ class TaskManagerTest : public testing::Test {
       partialAggTasks.emplace_back(taskInfo->taskStatus.self);
     }
 
+    auto planNodeIdGenerator =
+        std::make_shared<exec::test::PlanNodeIdGenerator>();
+
     // Create final-agg tasks
-    auto finalAggBuilder = exec::test::PlanBuilder();
+    auto finalAggBuilder = exec::test::PlanBuilder(planNodeIdGenerator);
     auto finalAggPlanFragment =
-        finalAggBuilder.exchange(partialAggPlanFragment.planNode->outputType())
+        finalAggBuilder
+            .localPartition(
+                {"p0"},
+                {exec::test::PlanBuilder(planNodeIdGenerator)
+                     .exchange(partialAggPlanFragment.planNode->outputType())
+                     .planNode()})
             .finalAggregation({0}, {"count(a0)"}, {BIGINT()})
-            .partitionedOutput({}, 1, {0, 1})
+            .partitionedOutput({}, 1, {"p0", "a0"})
             .planFragment();
+
     std::vector<std::string> finalAggTasks;
     for (int i = 0; i < 3; i++) {
       protocol::TaskId finalAggTaskId = fmt::format("{}.1.0.{}", queryId, i);
@@ -487,7 +493,7 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .filter("c0 % 5 = 0")
-                          .partitionedOutput({}, 1, {0, 1})
+                          .partitionedOutput({}, 1, {"c0", "c1"})
                           .planFragment();
 
   long splitSequenceId{0};
@@ -513,7 +519,7 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .filter("c0 % 5 = 1")
-                          .partitionedOutput({}, 1, {0, 1})
+                          .partitionedOutput({}, 1, {"c0", "c1"})
                           .planFragment();
 
   protocol::TaskId taskId = "scan.0.0.1";
@@ -544,7 +550,7 @@ TEST_F(TaskManagerTest, tableScanMultipleTasks) {
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .filter("c0 % 5 = 1")
-                          .partitionedOutput({}, 1, {0, 1})
+                          .partitionedOutput({}, 1, {"c0", "c1"})
                           .planFragment();
 
   std::vector<std::string> tasks;
@@ -569,7 +575,7 @@ TEST_F(TaskManagerTest, emptyFile) {
   auto filePaths = makeFilePaths(1);
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
-                          .partitionedOutput({}, 1, {0, 1})
+                          .partitionedOutput({}, 1, {"c0", "c1"})
                           .planFragment();
 
   // Create task to scan an empty file.
@@ -633,7 +639,17 @@ TEST_F(TaskManagerTest, outOfQueryUserMemory) {
 
   // Verify the query is successful with some limits.
   setMemoryLimits(20 * kGB, 20 * kGB);
-  testCountAggregation("test-count-agg", filePaths);
+  testCountAggregation("test-count-aggr", filePaths);
+
+  // Wait a little to allow for futures to complete.
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  auto tasks = taskManager_->tasks();
+
+  for (const auto& [taskId, prestoTask] : tasks) {
+    const auto& task = prestoTask->task;
+    ASSERT_LE(1, task.use_count()) << taskId;
+  }
 }
 
 // Tests whether the returned futures timeout.
@@ -650,7 +666,7 @@ TEST_F(TaskManagerTest, outOfOrderRequests) {
   auto planFragment = exec::test::PlanBuilder()
                           .values(vectors)
                           .filter("c0 % 5 = 0")
-                          .partitionedOutput({}, 1, {0, 1})
+                          .partitionedOutput({}, 1, {"c0", "c1"})
                           .planFragment();
 
   protocol::TaskId taskId = "scan.0.0.1";

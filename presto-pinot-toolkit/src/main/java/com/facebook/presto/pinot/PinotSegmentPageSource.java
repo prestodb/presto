@@ -167,7 +167,7 @@ public class PinotSegmentPageSource
         if (currentDataTable != null) {
             estimatedMemoryUsageInBytes -= currentDataTable.getEstimatedSizeInBytes();
         }
-        if (dataTableList.size() == 0) {
+        if (dataTableList.isEmpty()) {
             close();
             return null;
         }

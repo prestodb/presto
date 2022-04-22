@@ -551,6 +551,22 @@ std::vector<ChannelIndex> toChannels(
   }
   return channels;
 }
+
+template <typename T>
+std::string toJsonString(const T& value) {
+  return ((json)value).dump();
+}
+
+LocalPartitionNode::Type toLocalExchangeType(protocol::ExchangeNodeType type) {
+  switch (type) {
+    case protocol::ExchangeNodeType::GATHER:
+      return velox::core::LocalPartitionNode::Type::kGather;
+    case protocol::ExchangeNodeType::REPARTITION:
+      return velox::core::LocalPartitionNode::Type::kRepartition;
+    default:
+      VELOX_UNSUPPORTED("Unsupported exchange type: {}", toJsonString(type));
+  }
+}
 } // namespace
 
 std::shared_ptr<const velox::core::PlanNode>
@@ -562,12 +578,13 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
       node->scope == protocol::ExchangeNodeScope::LOCAL,
       "Unsupported ExchangeNode scope");
 
-  if (node->orderingScheme) {
-    VELOX_USER_CHECK_EQ(
-        node->sources.size(),
-        1,
-        "ExchangeNode with ordering scheme and multiple sources is not supported yet");
+  std::vector<std::shared_ptr<const PlanNode>> sourceNodes;
+  sourceNodes.reserve(node->sources.size());
+  for (const auto& source : node->sources) {
+    sourceNodes.emplace_back(toVeloxQueryPlan(source, tableWriteInfo, taskId));
+  }
 
+  if (node->orderingScheme) {
     std::vector<std::shared_ptr<const FieldAccessTypedExpr>> sortingKeys;
     std::vector<SortOrder> sortingOrders;
     sortingKeys.reserve(node->orderingScheme->orderBy.size());
@@ -576,20 +593,15 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
       sortingKeys.emplace_back(exprConverter_.toVeloxExpr(orderBy.variable));
       sortingOrders.emplace_back(toVeloxSortOrder(orderBy.sortOrder));
     }
-    std::vector<std::shared_ptr<const PlanNode>> sources = {
-        toVeloxQueryPlan(node->sources[0], tableWriteInfo, taskId)};
     return std::make_shared<velox::core::LocalMergeNode>(
-        node->id, sortingKeys, sortingOrders, std::move(sources));
+        node->id, sortingKeys, sortingOrders, std::move(sourceNodes));
   }
 
-  if (isHashPartition(node)) {
-    std::vector<std::shared_ptr<const PlanNode>> sourceNodes;
-    sourceNodes.reserve(node->sources.size());
-    for (const auto& source : node->sources) {
-      sourceNodes.emplace_back(
-          toVeloxQueryPlan(source, tableWriteInfo, taskId));
-    }
+  const auto type = toLocalExchangeType(node->type);
 
+  const auto outputType = toRowType(node->partitioningScheme.outputLayout);
+
+  if (isHashPartition(node)) {
     auto partitionKeys = toFieldExprs(
         node->partitioningScheme.partitioning.arguments, exprConverter_);
 
@@ -603,17 +615,33 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
 
     return std::make_shared<velox::core::LocalPartitionNode>(
         node->id,
+        type,
         partitionFunctionFactory,
-        toRowType(node->partitioningScheme.outputLayout),
+        outputType,
         std::move(sourceNodes));
   }
 
-  VELOX_USER_CHECK_EQ(
-      node->sources.size(),
-      1,
-      "ExchangeNode with multiple sources is not supported yet");
+  if (isRoundRobinPartition(node)) {
+    auto partitionFunctionFactory = [](auto numPartitions) {
+      return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
+          numPartitions);
+    };
 
-  return toVeloxQueryPlan(node->sources[0], tableWriteInfo, taskId);
+    return std::make_shared<velox::core::LocalPartitionNode>(
+        node->id,
+        type,
+        partitionFunctionFactory,
+        outputType,
+        std::move(sourceNodes));
+  }
+
+  if (type == velox::core::LocalPartitionNode::Type::kGather) {
+    return velox::core::LocalPartitionNode::gather(
+        node->id, outputType, std::move(sourceNodes));
+  }
+
+  VELOX_UNSUPPORTED(
+      "Unsupported flavor of local exchange: {}", toJsonString(node));
 }
 
 namespace {
@@ -662,11 +690,6 @@ std::shared_ptr<protocol::CallExpression> isGreaterThan(
   static const std::string_view kGreaterThan =
       "presto.default.$operator$greater_than";
   return isFunctionCall(expression, kGreaterThan);
-}
-
-template <typename T>
-std::string toJsonString(const T& value) {
-  return ((json)value).dump();
 }
 
 /// Checks if input PlanNode represents a local exchange with single source and
@@ -1011,40 +1034,8 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
   aggrMasks.reserve(node->aggregations.size());
   for (const auto& entry : node->aggregations) {
     aggregateNames.emplace_back(entry.first.name);
-    auto callExpr = std::dynamic_pointer_cast<const CallTypedExpr>(
-        exprConverter_.toVeloxExpr(entry.second.call));
-
-    // Drop "accuracy" parameter from approx_percentile call.
-    // TODO Remove this once Velox adds support for "accuracy".
-    if (callExpr->name() == "approx_percentile") {
-      const auto& inputs = callExpr->inputs();
-
-      // Here are all possible signatures:
-      //      approx_percentile(x, percentage)
-      //      approx_percentile(x, percentage, accuracy)
-      //      approx_percentile(x, percentages)
-      //      approx_percentile(x, percentages, accuracy)
-      //      approx_percentile(x, w, percentage)
-      //      approx_percentile(x, w, percentage, accuracy)
-      //      approx_percentile(x, w, percentages)
-      //      approx_percentile(x, w, percentages, accuracy)
-      // "accuracy" is always the last parameter. All 4-parameter signatures
-      // have "accuracy" parameter. Among 3-parameter signatures, only
-      // signatures without the weight parameter have accuracy parameter. We
-      // check if 2-nd argument is of type BIGINT to detect the "weight"
-      // parameter.
-      if (inputs.size() == 4 ||
-          (inputs.size() == 3 && inputs[1]->type() != BIGINT())) {
-        std::vector<std::shared_ptr<const ITypedExpr>> newInputs;
-        newInputs.reserve(inputs.size() - 1);
-        for (auto i = 0; i < inputs.size() - 1; ++i) {
-          newInputs.push_back(callExpr->inputs()[i]);
-        }
-        callExpr = std::make_shared<CallTypedExpr>(
-            callExpr->type(), std::move(newInputs), callExpr->name());
-      }
-    }
-    aggregates.emplace_back(std::move(callExpr));
+    aggregates.emplace_back(std::dynamic_pointer_cast<const CallTypedExpr>(
+        exprConverter_.toVeloxExpr(entry.second.call)));
     if (entry.second.mask == nullptr) {
       aggrMasks.emplace_back(nullptr);
     } else {
@@ -1157,6 +1148,34 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
   }
 
   return std::make_shared<velox::core::HashJoinNode>(
+      node->id,
+      joinType,
+      leftKeys,
+      rightKeys,
+      node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
+      toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+      toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+      toRowType(node->outputVariables));
+}
+
+std::shared_ptr<const velox::core::PlanNode>
+VeloxQueryPlanConverter::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::MergeJoinNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  auto joinType = toJoinType(node->type);
+
+  std::vector<std::shared_ptr<const FieldAccessTypedExpr>> leftKeys;
+  std::vector<std::shared_ptr<const FieldAccessTypedExpr>> rightKeys;
+
+  leftKeys.reserve(node->criteria.size());
+  rightKeys.reserve(node->criteria.size());
+  for (const auto& clause : node->criteria) {
+    leftKeys.emplace_back(exprConverter_.toVeloxExpr(clause.left));
+    rightKeys.emplace_back(exprConverter_.toVeloxExpr(clause.right));
+  }
+
+  return std::make_shared<velox::core::MergeJoinNode>(
       node->id,
       joinType,
       leftKeys,
@@ -1351,6 +1370,10 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
     return toVeloxQueryPlan(distinctLimit, tableWriteInfo, taskId);
   }
   if (auto join = std::dynamic_pointer_cast<const protocol::JoinNode>(node)) {
+    return toVeloxQueryPlan(join, tableWriteInfo, taskId);
+  }
+  if (auto join =
+          std::dynamic_pointer_cast<const protocol::MergeJoinNode>(node)) {
     return toVeloxQueryPlan(join, tableWriteInfo, taskId);
   }
   if (auto remoteSource =

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.util.Mergeable;
@@ -35,6 +38,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @Immutable
+@ThriftStruct
 public class OperatorStats
 {
     private final int stageId;
@@ -86,6 +90,8 @@ public class OperatorStats
 
     @Nullable
     private final OperatorInfo info;
+    @Nullable
+    private final OperatorInfoUnion infoUnion;
 
     private final RuntimeStats runtimeStats;
 
@@ -197,219 +203,367 @@ public class OperatorStats
         this.blockedReason = blockedReason;
 
         this.info = info;
+        this.infoUnion = null;
+    }
+
+    @ThriftConstructor
+    public OperatorStats(
+            int stageId,
+            int stageExecutionId,
+            int pipelineId,
+            int operatorId,
+            PlanNodeId planNodeId,
+            String operatorType,
+
+            long totalDrivers,
+
+            long addInputCalls,
+            Duration addInputWall,
+            Duration addInputCpu,
+            DataSize addInputAllocation,
+            DataSize rawInputDataSize,
+            long rawInputPositions,
+            DataSize inputDataSize,
+            long inputPositions,
+            double sumSquaredInputPositions,
+
+            long getOutputCalls,
+            Duration getOutputWall,
+            Duration getOutputCpu,
+            DataSize getOutputAllocation,
+            DataSize outputDataSize,
+            long outputPositions,
+
+            DataSize physicalWrittenDataSize,
+
+            Duration additionalCpu,
+            Duration blockedWall,
+
+            long finishCalls,
+            Duration finishWall,
+            Duration finishCpu,
+            DataSize finishAllocation,
+
+            DataSize userMemoryReservation,
+            DataSize revocableMemoryReservation,
+            DataSize systemMemoryReservation,
+            DataSize peakUserMemoryReservation,
+            DataSize peakSystemMemoryReservation,
+            DataSize peakTotalMemoryReservation,
+
+            DataSize spilledDataSize,
+
+            Optional<BlockedReason> blockedReason,
+
+            RuntimeStats runtimeStats,
+            @Nullable
+            OperatorInfoUnion infoUnion)
+    {
+        this.stageId = stageId;
+        this.stageExecutionId = stageExecutionId;
+        this.pipelineId = pipelineId;
+
+        checkArgument(operatorId >= 0, "operatorId is negative");
+        this.operatorId = operatorId;
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.operatorType = requireNonNull(operatorType, "operatorType is null");
+
+        this.totalDrivers = totalDrivers;
+
+        this.addInputCalls = addInputCalls;
+        this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
+        this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
+        this.addInputAllocation = requireNonNull(addInputAllocation, "addInputAllocation is null");
+        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
+        this.rawInputPositions = requireNonNull(rawInputPositions, "rawInputPositions is null");
+        this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
+        checkArgument(inputPositions >= 0, "inputPositions is negative");
+        this.inputPositions = inputPositions;
+        this.sumSquaredInputPositions = sumSquaredInputPositions;
+
+        this.getOutputCalls = getOutputCalls;
+        this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
+        this.getOutputCpu = requireNonNull(getOutputCpu, "getOutputCpu is null");
+        this.getOutputAllocation = requireNonNull(getOutputAllocation, "getOutputAllocation is null");
+        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
+        checkArgument(outputPositions >= 0, "outputPositions is negative");
+        this.outputPositions = outputPositions;
+
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+
+        this.additionalCpu = requireNonNull(additionalCpu, "additionalCpu is null");
+        this.blockedWall = requireNonNull(blockedWall, "blockedWall is null");
+
+        this.finishCalls = finishCalls;
+        this.finishWall = requireNonNull(finishWall, "finishWall is null");
+        this.finishCpu = requireNonNull(finishCpu, "finishCpu is null");
+        this.finishAllocation = requireNonNull(finishAllocation, "finishAllocation is null");
+
+        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
+        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
+
+        this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
+        this.peakSystemMemoryReservation = requireNonNull(peakSystemMemoryReservation, "peakSystemMemoryReservation is null");
+        this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
+
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+
+        this.runtimeStats = runtimeStats;
+
+        this.blockedReason = blockedReason;
+
+        this.infoUnion = infoUnion;
+        this.info = null;
     }
 
     @JsonProperty
+    @ThriftField(1)
     public int getStageId()
     {
         return stageId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public int getStageExecutionId()
     {
         return stageExecutionId;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public int getPipelineId()
     {
         return pipelineId;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public int getOperatorId()
     {
         return operatorId;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public PlanNodeId getPlanNodeId()
     {
         return planNodeId;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public String getOperatorType()
     {
         return operatorType;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public long getTotalDrivers()
     {
         return totalDrivers;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public long getAddInputCalls()
     {
         return addInputCalls;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public Duration getAddInputWall()
     {
         return addInputWall;
     }
 
     @JsonProperty
+    @ThriftField(10)
     public Duration getAddInputCpu()
     {
         return addInputCpu;
     }
 
     @JsonProperty
+    @ThriftField(11)
     public DataSize getAddInputAllocation()
     {
         return addInputAllocation;
     }
 
     @JsonProperty
+    @ThriftField(12)
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
     }
 
     @JsonProperty
+    @ThriftField(13)
     public long getRawInputPositions()
     {
         return rawInputPositions;
     }
 
     @JsonProperty
+    @ThriftField(14)
     public DataSize getInputDataSize()
     {
         return inputDataSize;
     }
 
     @JsonProperty
+    @ThriftField(15)
     public long getInputPositions()
     {
         return inputPositions;
     }
 
     @JsonProperty
+    @ThriftField(16)
     public double getSumSquaredInputPositions()
     {
         return sumSquaredInputPositions;
     }
 
     @JsonProperty
+    @ThriftField(17)
     public long getGetOutputCalls()
     {
         return getOutputCalls;
     }
 
     @JsonProperty
+    @ThriftField(18)
     public Duration getGetOutputWall()
     {
         return getOutputWall;
     }
 
     @JsonProperty
+    @ThriftField(19)
     public Duration getGetOutputCpu()
     {
         return getOutputCpu;
     }
 
     @JsonProperty
+    @ThriftField(20)
     public DataSize getGetOutputAllocation()
     {
         return getOutputAllocation;
     }
 
     @JsonProperty
+    @ThriftField(21)
     public DataSize getOutputDataSize()
     {
         return outputDataSize;
     }
 
     @JsonProperty
+    @ThriftField(22)
     public long getOutputPositions()
     {
         return outputPositions;
     }
 
     @JsonProperty
+    @ThriftField(23)
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
     }
 
     @JsonProperty
+    @ThriftField(24)
     public Duration getAdditionalCpu()
     {
         return additionalCpu;
     }
 
     @JsonProperty
+    @ThriftField(25)
     public Duration getBlockedWall()
     {
         return blockedWall;
     }
 
     @JsonProperty
+    @ThriftField(26)
     public long getFinishCalls()
     {
         return finishCalls;
     }
 
     @JsonProperty
+    @ThriftField(27)
     public Duration getFinishWall()
     {
         return finishWall;
     }
 
     @JsonProperty
+    @ThriftField(28)
     public Duration getFinishCpu()
     {
         return finishCpu;
     }
 
     @JsonProperty
+    @ThriftField(29)
     public DataSize getFinishAllocation()
     {
         return finishAllocation;
     }
 
     @JsonProperty
+    @ThriftField(30)
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
     }
 
     @JsonProperty
+    @ThriftField(31)
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
     }
 
     @JsonProperty
+    @ThriftField(32)
     public DataSize getSystemMemoryReservation()
     {
         return systemMemoryReservation;
     }
 
     @JsonProperty
+    @ThriftField(33)
     public DataSize getPeakUserMemoryReservation()
     {
         return peakUserMemoryReservation;
     }
 
     @JsonProperty
+    @ThriftField(34)
     public DataSize getPeakSystemMemoryReservation()
     {
         return peakSystemMemoryReservation;
     }
 
     @JsonProperty
+    @ThriftField(35)
     public DataSize getPeakTotalMemoryReservation()
     {
         return peakTotalMemoryReservation;
     }
 
     @JsonProperty
+    @ThriftField(36)
     public DataSize getSpilledDataSize()
     {
         return spilledDataSize;
@@ -417,12 +571,14 @@ public class OperatorStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(37)
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
     }
 
     @JsonProperty
+    @ThriftField(38)
     public Optional<BlockedReason> getBlockedReason()
     {
         return blockedReason;
@@ -433,6 +589,12 @@ public class OperatorStats
     public OperatorInfo getInfo()
     {
         return info;
+    }
+
+    @ThriftField(39)
+    public OperatorInfoUnion getInfoUnion()
+    {
+        return infoUnion;
     }
 
     public OperatorStats add(OperatorStats operatorStats)

@@ -221,6 +221,11 @@
 
         <dependency>
             <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-codec</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 

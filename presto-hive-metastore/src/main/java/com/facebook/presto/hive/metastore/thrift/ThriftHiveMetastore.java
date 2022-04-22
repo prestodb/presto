@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.HdfsContext;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
@@ -38,6 +40,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -46,6 +49,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
@@ -108,7 +112,9 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRecursively;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isManagedTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
@@ -128,6 +134,7 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_N
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -148,20 +155,27 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
 public class ThriftHiveMetastore
         implements HiveMetastore
 {
+    private static final String DEFAULT_METASTORE_USER = "presto";
+    private static final HdfsContext hdfsContext = new HdfsContext(new ConnectorIdentity(DEFAULT_METASTORE_USER, Optional.empty(), Optional.empty()));
+
     private final ThriftHiveMetastoreStats stats;
     private final HiveCluster clientProvider;
     private final Function<Exception, Exception> exceptionMapper;
+    private final HdfsEnvironment hdfsEnvironment;
     private final boolean impersonationEnabled;
     private final boolean isMetastoreAuthenticationEnabled;
+    private final boolean deleteFilesOnTableDrop;
 
     @Inject
-    public ThriftHiveMetastore(HiveCluster hiveCluster, MetastoreClientConfig config)
+    public ThriftHiveMetastore(HiveCluster hiveCluster, MetastoreClientConfig config, HdfsEnvironment hdfsEnvironment)
     {
         this(
                 hiveCluster,
                 new ThriftHiveMetastoreStats(),
                 identity(),
+                hdfsEnvironment,
                 requireNonNull(config, "config is null").isMetastoreImpersonationEnabled(),
+                requireNonNull(config, "config is null").isDeleteFilesOnTableDrop(),
                 requireNonNull(config, "config is null").getHiveMetastoreAuthenticationType() != HiveMetastoreAuthenticationType.NONE);
     }
 
@@ -169,13 +183,17 @@ public class ThriftHiveMetastore
             HiveCluster hiveCluster,
             ThriftHiveMetastoreStats stats,
             Function<Exception, Exception> exceptionMapper,
+            HdfsEnvironment hdfsEnvironment,
             boolean impersonationEnabled,
+            boolean deleteFilesOnTableDrop,
             boolean isMetastoreAuthenticationEnabled)
     {
         this.clientProvider = requireNonNull(hiveCluster, "hiveCluster is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.exceptionMapper = requireNonNull(exceptionMapper, "exceptionMapper is null");
         this.impersonationEnabled = impersonationEnabled;
+        this.deleteFilesOnTableDrop = deleteFilesOnTableDrop;
         this.isMetastoreAuthenticationEnabled = isMetastoreAuthenticationEnabled;
     }
 
@@ -889,7 +907,17 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropTable", stats.getDropTable().wrap(() ->
                             getMetastoreClientThenCall(metastoreContext, client -> {
-                                client.dropTable(databaseName, tableName, deleteData);
+                                if (!deleteFilesOnTableDrop) {
+                                    client.dropTable(databaseName, tableName, deleteData);
+                                }
+                                else {
+                                    Table table = client.getTable(databaseName, tableName);
+                                    client.dropTable(databaseName, tableName, deleteData);
+                                    String tableLocation = table.getSd().getLocation();
+                                    if (deleteData && isManagedTable(table.getTableType()) && !isNullOrEmpty(tableLocation)) {
+                                        deleteDirectoryRecursively(hdfsContext, hdfsEnvironment, new Path(tableLocation), true);
+                                    }
+                                }
                                 return null;
                             })));
         }

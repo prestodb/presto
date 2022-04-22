@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,6 +25,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+@ThriftStruct
 public class TableWriterMergeInfo
         implements Mergeable<TableWriterMergeInfo>, OperatorInfo
 {
@@ -29,6 +33,7 @@ public class TableWriterMergeInfo
     private final Duration statisticsCpuTime;
 
     @JsonCreator
+    @ThriftConstructor
     public TableWriterMergeInfo(
             @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
             @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime)
@@ -38,12 +43,14 @@ public class TableWriterMergeInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Duration getStatisticsWallTime()
     {
         return statisticsWallTime;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Duration getStatisticsCpuTime()
     {
         return statisticsCpuTime;

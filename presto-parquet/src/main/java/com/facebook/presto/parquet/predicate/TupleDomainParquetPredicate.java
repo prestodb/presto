@@ -160,7 +160,7 @@ public class TupleDomainParquetPredicate
 
             if (columnIndexStore.isPresent()) {
                 ColumnIndex columnIndex = columnIndexStore.get().getColumnIndex(ColumnPath.get(column.getPath()));
-                if (columnIndex == null || columnIndex.getMinValues().size() == 0 || columnIndex.getMaxValues().size() == 0 || columnIndex.getMinValues().size() != columnIndex.getMaxValues().size()) {
+                if (columnIndex == null || columnIndex.getMinValues().isEmpty() || columnIndex.getMaxValues().isEmpty() || columnIndex.getMinValues().size() != columnIndex.getMaxValues().size()) {
                     continue;
                 }
                 else {
@@ -440,7 +440,7 @@ public class TupleDomainParquetPredicate
 
     private static <T extends Comparable<T>> Domain createDomain(Type type, ColumnIndex columnIndex, boolean hasNullValue, List<T> mins, List<T> maxs)
     {
-        if (mins.size() == 0 || maxs.size() == 0 || mins.size() != maxs.size()) {
+        if (mins.isEmpty() || maxs.isEmpty() || mins.size() != maxs.size()) {
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
         int pageCount = columnIndex.getMinValues().size();
@@ -491,7 +491,7 @@ public class TupleDomainParquetPredicate
     // Caller should verify isCorruptedColumnIndex is false first
     private boolean isEmptyColumnIndex(ColumnIndex columnIndex)
     {
-        return columnIndex.getMaxValues().size() == 0;
+        return columnIndex.getMaxValues().isEmpty();
     }
 
     public FilterPredicate getParquetUserDefinedPredicate()

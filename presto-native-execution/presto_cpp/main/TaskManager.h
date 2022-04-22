@@ -23,6 +23,11 @@
 
 namespace facebook::presto {
 
+struct DriverCountStats {
+  size_t numBlockedDrivers{0};
+  size_t numRunningDrivers{0};
+};
+
 class TaskManager {
  public:
   explicit TaskManager(
@@ -31,6 +36,10 @@ class TaskManager {
 
   void setBaseUri(const std::string& baseUri) {
     baseUri_ = baseUri;
+  }
+
+  TaskMap tasks() const {
+    return taskMap_.withRLock([](const auto& tasks) { return tasks; });
   }
 
   void abortResults(const protocol::TaskId& taskId, long bufferId);
@@ -103,7 +112,7 @@ class TaskManager {
   }
 
   // Returns the number of running drivers in all tasks.
-  size_t getNumRunningDrivers() const;
+  DriverCountStats getDriverCountStats() const;
 
   // Returns array with number of tasks for each of five TaskState (enum defined
   // in exec/Task.h).

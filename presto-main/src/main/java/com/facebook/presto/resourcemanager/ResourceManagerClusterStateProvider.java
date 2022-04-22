@@ -53,6 +53,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -232,7 +233,7 @@ public class ResourceManagerClusterStateProvider
                     if (info.getState() == QUEUED) {
                         builder.addQueuedQueries(1);
                     }
-                    else if (!info.getState().isDone()) {
+                    else if (!info.getState().isDone() && info.getState() != WAITING_FOR_PREREQUISITES) {
                         builder.addRunningQueries(1);
                     }
                     builder.addUserMemoryReservationBytes(info.getQueryStats().getUserMemoryReservation().toBytes());
@@ -242,7 +243,7 @@ public class ResourceManagerClusterStateProvider
                         if (info.getState() == QUEUED) {
                             parentBuilder.addDescendantQueuedQueries(1);
                         }
-                        else if (!info.getState().isDone()) {
+                        else if (!info.getState().isDone() && info.getState() != WAITING_FOR_PREREQUISITES) {
                             parentBuilder.addDescendantRunningQueries(1);
                         }
                     }

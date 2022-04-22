@@ -261,6 +261,10 @@ public class OperatorContext
         return revocableMemoryFuture.get();
     }
 
+    // Create a new LocalMemoryContext if either of the following are true
+    // 1. you need more than one memory context for the operator (calls to setBytes that should be aggregated rather than override each other)
+    // 2. you want to use a different allocation tag
+    // Otherwise call localSystemMemoryContext() to use the LocalMemoryContext already associated with the operator
     // caller should close this context as it's a new context
     public LocalMemoryContext newLocalSystemMemoryContext(String allocationTag)
     {
@@ -297,10 +301,10 @@ public class OperatorContext
         return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), memoryFuture, this::updateTaskRevocableMemoryReservation, false);
     }
 
-    // caller should close this context as it's a new context
-    public AggregatedMemoryContext newAggregateSystemMemoryContext()
+    // caller shouldn't close this context as it's managed by the OperatorContext
+    public AggregatedMemoryContext aggregateSystemMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
     }
 
     // listen to all memory allocations and update the peak memory reservations accordingly
