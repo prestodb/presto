@@ -23,6 +23,9 @@ class InPredicateTest : public FunctionBaseTest {
  protected:
   template <typename T>
   void testIntegers() {
+    std::unique_ptr<memory::MemoryPool> pool{
+        memory::getDefaultScopedMemoryPool()};
+
     const vector_size_t size = 1'000;
     auto vector = makeFlatVector<T>(size, [](auto row) { return row % 17; });
     auto vectorWithNulls = makeFlatVector<T>(
@@ -94,6 +97,40 @@ class InPredicateTest : public FunctionBaseTest {
           return row % 7 == 0 || !(n == 2);
         });
 
+    assertEqualVectors(expected, result);
+
+    // Test on a dictionary with nulls.
+    // Two dictionary elements would be nulls.
+    BufferPtr nulls =
+        AlignedBuffer::allocate<bool>(size, pool.get(), bits::kNotNull);
+    uint64_t* rawNulls = nulls->asMutable<uint64_t>();
+    bits::setNull(rawNulls, 20);
+    bits::setNull(rawNulls, size - 1 - 2);
+
+    // Build reverse indices.
+    BufferPtr indices =
+        AlignedBuffer::allocate<vector_size_t>(size, pool.get());
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    for (auto i = 0; i < size; ++i) {
+      rawIndices[i] = size - i - 1;
+    }
+
+    // Build the expected vector with a couple of nulls.
+    expected = makeFlatVector<bool>(
+        size,
+        [&](auto row) {
+          const auto inverseRow = size - row - 1;
+          auto n = inverseRow % 17;
+          return n == 2 or n == 5 or n == 9;
+        },
+        [&](vector_size_t row) {
+          return (row == 20) or (row == (size - 1 - 2));
+        });
+
+    auto dict = BaseVector::wrapInDictionary(nulls, indices, size, vector);
+
+    rowVector = makeRowVector({dict});
+    result = evaluate<SimpleVector<bool>>("c0 IN (2, 5, 9)", rowVector);
     assertEqualVectors(expected, result);
   }
 

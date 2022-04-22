@@ -132,10 +132,10 @@ class InPredicate : public exec::VectorFunction {
     return std::make_shared<InPredicate>(std::move(filter));
   }
 
-  // x IN (2, null) returns null when x != 2 and true when x == 2
-  // null for x always produces null
+  // x IN (2, null) returns null when x != 2 and true when x == 2.
+  // Null for x always produces null, regardless of 'IN' list.
   bool isDefaultNullBehavior() const override {
-    return false;
+    return true;
   }
 
   void apply(
