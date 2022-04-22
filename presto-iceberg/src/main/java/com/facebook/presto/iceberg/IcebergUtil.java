@@ -45,7 +45,6 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -115,11 +114,7 @@ public final class IcebergUtil
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
-                .map(column -> new IcebergColumnHandle(
-                        column.fieldId(),
-                        column.name(),
-                        toPrestoType(column.type(), typeManager),
-                        Optional.ofNullable(column.doc())))
+                .map(column -> IcebergColumnHandle.create(column, typeManager))
                 .collect(toImmutableList());
     }
 
