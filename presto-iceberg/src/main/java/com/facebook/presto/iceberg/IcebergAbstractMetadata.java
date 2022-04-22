@@ -61,6 +61,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
@@ -256,7 +257,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new IcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
+        return primitiveIcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
     }
 
     @Override
