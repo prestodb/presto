@@ -42,6 +42,9 @@ public class PrestoSparkConfig
     private double memoryRevokingThreshold;
     private double memoryRevokingTarget;
     private boolean retryOnOutOfMemoryBroadcastJoinEnabled;
+    private boolean automaticResourceManagementEnabled = true;
+    private double multiplierForResourceManagement = 1.25;
+    private boolean resourceManagementDIRCUoptimized = true;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -237,6 +240,46 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setRetryOnOutOfMemoryBroadcastJoinEnabled(boolean retryOnOutOfMemoryBroadcastJoinEnabled)
     {
         this.retryOnOutOfMemoryBroadcastJoinEnabled = retryOnOutOfMemoryBroadcastJoinEnabled;
+        return this;
+    }
+
+    public boolean isAutomaticResourceManagementEnabled()
+    {
+        return automaticResourceManagementEnabled;
+    }
+
+    @Config("spark.automatic-resource-management-enabled")
+    @ConfigDescription("Automatic tuning of spark partition count based on max splits data size per partition")
+    public PrestoSparkConfig setAutomaticResourceManagementEnabled(boolean posAutomaticResourceManagementEnabled)
+    {
+        this.automaticResourceManagementEnabled = posAutomaticResourceManagementEnabled;
+        return this;
+    }
+
+    @DecimalMin("1.0")
+    @DecimalMax("1.3")
+    public double getMultiplierForResourceManagement()
+    {
+        return multiplierForResourceManagement;
+    }
+
+    @Config("spark.multiplier-for-resource-management")
+    @ConfigDescription("Tunable Multiplier for automatic resource management")
+    public PrestoSparkConfig setMultiplierForResourceManagement(double multiplierForResourceManagement)
+    {
+        this.multiplierForResourceManagement = multiplierForResourceManagement;
+        return this;
+    }
+    public boolean isResourceManagementDIRCUoptimized()
+    {
+        return resourceManagementDIRCUoptimized;
+    }
+
+    @Config("spark.resource-management-dircu-optimized")
+    @ConfigDescription("Automatic tuning of spark partition count based on max splits data size per partition")
+    public PrestoSparkConfig setResourceManagementDIRCUoptimized(boolean resourceManagementDIRCUoptimized)
+    {
+        this.resourceManagementDIRCUoptimized = resourceManagementDIRCUoptimized;
         return this;
     }
 }
