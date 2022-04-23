@@ -17,6 +17,7 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
+import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -47,6 +48,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.INSERT_EXISTING_PAR
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -216,6 +218,8 @@ public class HiveClientConfig
 
     private boolean columnIndexFilterEnabled;
     private boolean fileSplittable = true;
+    private Protocol thriftProtocol = Protocol.BINARY;
+    private DataSize thriftBufferSize = new DataSize(128, BYTE);
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1824,5 +1828,31 @@ public class HiveClientConfig
     public boolean isHudiMetadataEnabled()
     {
         return this.hudiMetadataEnabled;
+    }
+
+    public Protocol getThriftProtocol()
+    {
+        return thriftProtocol;
+    }
+
+    @Config("hive.internal-communication.thrift-transport-protocol")
+    @ConfigDescription("Thrift encoding type for internal communication")
+    public HiveClientConfig setThriftProtocol(Protocol thriftProtocol)
+    {
+        this.thriftProtocol = thriftProtocol;
+        return this;
+    }
+
+    public DataSize getThriftBufferSize()
+    {
+        return thriftBufferSize;
+    }
+
+    @Config("hive.internal-communication.thrift-transport-buffer-size")
+    @ConfigDescription("Thrift buffer size for internal communication")
+    public HiveClientConfig setThriftBufferSize(DataSize thriftBufferSize)
+    {
+        this.thriftBufferSize = thriftBufferSize;
+        return this;
     }
 }
