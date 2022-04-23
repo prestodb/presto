@@ -38,6 +38,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.ScalarStatsCalculator;
@@ -522,6 +523,9 @@ public class ServerMainModule
 
         // connector distributed metadata manager
         binder.bind(ConnectorMetadataUpdaterManager.class).in(Scopes.SINGLETON);
+
+        // connector metadata update handle serde manager
+        binder.bind(ConnectorTypeSerdeManager.class).in(Scopes.SINGLETON);
 
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);
