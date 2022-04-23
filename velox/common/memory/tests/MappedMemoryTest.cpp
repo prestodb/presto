@@ -19,6 +19,8 @@
 
 #include <thread>
 
+#include <folly/Random.h>
+#include <folly/Range.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
@@ -440,6 +442,85 @@ TEST_P(MappedMemoryTest, minSizeClass) {
       tracker->getCurrentUserBytes());
   mappedMemory->free(result);
   EXPECT_EQ(0, tracker->getCurrentUserBytes());
+}
+
+TEST_P(MappedMemoryTest, allocateBytes) {
+  constexpr int32_t kNumAllocs = 50;
+  // Different sizes, including below minimum and above largest size class.
+  std::vector<MachinePageCount> sizes = {
+      MappedMemory::kMaxMallocBytes / 2,
+      100000,
+      1000000,
+      instance_->sizeClasses().back() * MappedMemory::kPageSize + 100000};
+  folly::Random::DefaultGenerator rng;
+  rng.seed(1);
+
+  // We fill 'data' with random size allocations. Each is filled with its index
+  // in 'data' cast to char.
+  std::vector<folly::Range<char*>> data(kNumAllocs);
+  for (auto counter = 0; counter < data.size() * 4; ++counter) {
+    int32_t index = folly::Random::rand32(rng) % kNumAllocs;
+    int32_t bytes = sizes[folly::Random::rand32() % sizes.size()];
+    char expected = static_cast<char>(index);
+    if (data[index].data()) {
+      // If there is pre-existing data, we check that it has not been
+      // overwritten.
+      for (auto byte : data[index]) {
+        EXPECT_EQ(expected, byte);
+      }
+      instance_->freeBytes(data[index].data(), data[index].size());
+    }
+    data[index] = folly::Range<char*>(
+        reinterpret_cast<char*>(instance_->allocateBytes(bytes)), bytes);
+    for (auto& byte : data[index]) {
+      byte = expected;
+    }
+  }
+  EXPECT_TRUE(instance_->checkConsistency());
+  for (auto& range : data) {
+    if (range.data()) {
+      instance_->freeBytes(range.data(), range.size());
+    }
+  }
+  auto stats = MappedMemory::allocateBytesStats();
+  EXPECT_EQ(0, stats.totalSmall);
+  EXPECT_EQ(0, stats.totalInSizeClasses);
+  EXPECT_EQ(0, stats.totalLarge);
+
+  EXPECT_EQ(0, instance_->numAllocated());
+  EXPECT_TRUE(instance_->checkConsistency());
+}
+
+TEST_P(MappedMemoryTest, stlMappedMemoryAllocator) {
+  {
+    std::vector<double, StlMappedMemoryAllocator<double>> data(
+        0, StlMappedMemoryAllocator<double>(instance_));
+    // The contiguous size goes to 2MB, covering malloc, size
+    // Allocation from classes and ContiguousAllocation outside size
+    // classes.
+    constexpr int32_t kNumDoubles = 256 * 1024;
+    size_t capacity = 0;
+    for (auto i = 0; i < kNumDoubles; i++) {
+      data.push_back(i);
+      if (data.capacity() != capacity) {
+        capacity = data.capacity();
+        auto stats = MappedMemory::allocateBytesStats();
+        EXPECT_EQ(
+            capacity * sizeof(double),
+            stats.totalSmall + stats.totalInSizeClasses + stats.totalLarge);
+      }
+    }
+    for (auto i = 0; i < kNumDoubles; i++) {
+      ASSERT_EQ(i, data[i]);
+    }
+    EXPECT_EQ(512, instance_->numAllocated());
+    auto stats = MappedMemory::allocateBytesStats();
+    EXPECT_EQ(0, stats.totalSmall);
+    EXPECT_EQ(0, stats.totalInSizeClasses);
+    EXPECT_EQ(2 << 20, stats.totalLarge);
+  }
+  EXPECT_EQ(0, instance_->numAllocated());
+  EXPECT_TRUE(instance_->checkConsistency());
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

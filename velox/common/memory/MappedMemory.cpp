@@ -306,6 +306,9 @@ bool MappedMemoryImpl::checkConsistency() const {
 MappedMemory* MappedMemory::customInstance_;
 std::unique_ptr<MappedMemory> MappedMemory::instance_;
 std::mutex MappedMemory::initMutex_;
+std::atomic<uint64_t> MappedMemory::totalSmallAllocateBytes_;
+std::atomic<uint64_t> MappedMemory::totalSizeClassAllocateBytes_;
+std::atomic<uint64_t> MappedMemory::totalLargeAllocateBytes_;
 
 // static
 MappedMemory* MappedMemory::getInstance() {
@@ -336,6 +339,74 @@ void MappedMemory::setDefaultInstance(MappedMemory* instance) {
 std::shared_ptr<MappedMemory> MappedMemory::addChild(
     std::shared_ptr<MemoryUsageTracker> tracker) {
   return std::make_shared<ScopedMappedMemory>(this, tracker);
+}
+
+namespace {
+// Returns the size class size that corresponds to 'bytes'.
+MachinePageCount roundUpToSizeClassSize(
+    size_t bytes,
+    const std::vector<MachinePageCount>& sizes) {
+  auto pages =
+      bits::roundUp(bytes, MappedMemory::kPageSize) / MappedMemory::kPageSize;
+  VELOX_CHECK_LE(pages, sizes.back());
+  return *std::lower_bound(sizes.begin(), sizes.end(), pages);
+}
+} // namespace
+
+void* FOLLY_NULLABLE
+MappedMemory::allocateBytes(uint64_t bytes, uint64_t maxMallocSize) {
+  if (bytes <= maxMallocSize) {
+    auto result = ::malloc(bytes);
+    if (result) {
+      totalSmallAllocateBytes_ += bytes;
+    }
+    return result;
+  }
+  if (bytes <= sizeClassSizes_.back() * kPageSize) {
+    Allocation allocation(this);
+    auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
+    if (allocate(numPages, kMallocOwner, allocation, nullptr, numPages)) {
+      auto run = allocation.runAt(0);
+      VELOX_CHECK_EQ(
+          1,
+          allocation.numRuns(),
+          "A size class allocateBytes must produce one run");
+      allocation.clear();
+      totalSizeClassAllocateBytes_ += numPages * kPageSize;
+      return run.data<char>();
+    }
+    return nullptr;
+  }
+  ContiguousAllocation allocation;
+  auto numPages = bits::roundUp(bytes, kPageSize) / kPageSize;
+  if (allocateContiguous(numPages, nullptr, allocation)) {
+    char* data = allocation.data<char>();
+    allocation.reset(nullptr, nullptr, 0);
+    totalLargeAllocateBytes_ += numPages * kPageSize;
+    return data;
+  }
+  return nullptr;
+}
+
+void MappedMemory::freeBytes(
+    void* FOLLY_NONNULL p,
+    uint64_t bytes,
+    uint64_t maxMallocSize) noexcept {
+  if (bytes <= maxMallocSize) {
+    ::free(p); // NOLINT
+    totalSmallAllocateBytes_ -= bytes;
+  } else if (bytes <= sizeClassSizes_.back() * kPageSize) {
+    Allocation allocation(this);
+    auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
+    allocation.append(reinterpret_cast<uint8_t*>(p), numPages);
+    free(allocation);
+    totalSizeClassAllocateBytes_ -= numPages * kPageSize;
+  } else {
+    ContiguousAllocation allocation;
+    allocation.reset(this, p, bytes);
+    freeContiguous(allocation);
+    totalLargeAllocateBytes_ -= bits::roundUp(bytes, kPageSize);
+  }
 }
 
 bool ScopedMappedMemory::allocate(
