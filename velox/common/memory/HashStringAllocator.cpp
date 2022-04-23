@@ -316,6 +316,85 @@ void HashStringAllocator::free(Header* _header) {
   } while (header);
 }
 
+//  static
+int64_t HashStringAllocator::offset(
+    Header* FOLLY_NONNULL header,
+    Position position) {
+  int64_t size = 0;
+  for (;;) {
+    assert(header);
+    bool continued = header->isContinued();
+    auto length = header->size() - (continued ? sizeof(void*) : 0);
+    auto begin = header->begin();
+    if (position.position >= begin && position.position <= begin + length) {
+      return size + (position.position - begin);
+    }
+    if (!continued) {
+      return -1;
+    }
+    size += length;
+    header = getNextContinued(header);
+  }
+}
+
+//  static
+HashStringAllocator::Position HashStringAllocator::seek(
+    Header* FOLLY_NONNULL header,
+    int64_t offset) {
+  int64_t size = 0;
+  for (;;) {
+    assert(header);
+    bool continued = header->isContinued();
+    auto length = header->size() - (continued ? sizeof(void*) : 0);
+    auto begin = header->begin();
+    if (offset <= size + length) {
+      return Position{header, begin + (offset - size)};
+    }
+    if (!continued) {
+      return {nullptr, nullptr};
+    }
+    size += length;
+    header = getNextContinued(header);
+  }
+}
+
+// static
+int64_t HashStringAllocator::available(const Position& position) {
+  auto header = position.header;
+  auto startOffset = position.position - position.header->begin();
+  // startOffset bytes from the first block are already used.
+  int64_t size = -startOffset;
+  for (;;) {
+    assert(header);
+    auto continued = header->isContinued();
+    auto length = header->size() - (continued ? sizeof(void*) : 0);
+    ;
+    size += length;
+    if (!continued) {
+      return size;
+    }
+    header = getNextContinued(header);
+    startOffset = 0;
+  }
+}
+
+void HashStringAllocator::ensureAvailable(int32_t bytes, Position& position) {
+  if (available(position) >= bytes) {
+    return;
+  }
+  ByteStream stream(this);
+  auto fromHeader = offset(position.header, position);
+  extendWrite(position, stream);
+  static char data[128];
+  while (bytes) {
+    auto written = std::min<size_t>(bytes, sizeof(data));
+    stream.append(folly::StringPiece(data, written));
+    bytes -= written;
+  }
+  finishWrite(stream, 0);
+  position = seek(position.header, fromHeader);
+}
+
 void HashStringAllocator::checkConsistency() const {
   uint64_t numFree = 0;
   uint64_t freeBytes = 0;

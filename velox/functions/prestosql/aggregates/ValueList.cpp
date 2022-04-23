@@ -18,6 +18,11 @@
 
 namespace facebook::velox::aggregate {
 void ValueList::prepareAppend(HashStringAllocator* allocator) {
+  if (!nullsBegin_) {
+    nullsBegin_ = allocator->allocate(HashStringAllocator::kMinAlloc);
+    nullsCurrent_ = {nullsBegin_, nullsBegin_->begin()};
+  }
+
   if (!dataBegin_) {
     dataBegin_ = allocator->allocate(kInitialSize);
     dataCurrent_ = {dataBegin_, dataBegin_->begin()};
@@ -26,6 +31,10 @@ void ValueList::prepareAppend(HashStringAllocator* allocator) {
   if (size_ && size_ % 64 == 0) {
     writeLastNulls(allocator);
     lastNulls_ = 0;
+    // Make sure there is space for another word of null flags without
+    // allocating more space. This is needed for finalize to finish in
+    // constant space.
+    allocator->ensureAvailable(sizeof(int64_t), nullsCurrent_);
   }
 }
 
