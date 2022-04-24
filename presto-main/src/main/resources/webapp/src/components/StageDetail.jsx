@@ -644,7 +644,7 @@ export class StageDetail extends React.Component {
         }
 
         let stageOperatorGraph = null;
-        if (!isQueryEnded(query)) {
+        if (!isQueryEnded(query.state)) {
             stageOperatorGraph = (
                 <div className="row error-message">
                     <div className="col-xs-12">
