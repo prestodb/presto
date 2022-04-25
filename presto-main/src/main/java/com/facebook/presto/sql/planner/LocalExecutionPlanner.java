@@ -19,11 +19,13 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
@@ -126,6 +128,7 @@ import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.OptimizedPartitionedOutputFactory;
 import com.facebook.presto.operator.repartition.PartitionedOutputOperator.PartitionedOutputFactory;
+import com.facebook.presto.operator.unnest.UnnestArrayConstant;
 import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ColumnHandle;
@@ -1539,6 +1542,26 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
 
+        private Block unnestSingleConstantArray(UnnestNode node)
+        {
+            List<VariableReferenceExpression> unnestVariables = ImmutableList.copyOf(node.getUnnestVariables().keySet());
+            if (unnestVariables.size() == 1) {
+                VariableReferenceExpression unnestVariable = unnestVariables.get(0);
+                PlanNode source = node.getSource();
+                RowExpression assignment;
+                if (source instanceof ProjectNode && source.getOutputVariables().contains(unnestVariable)) {
+                    assignment = ((ProjectNode) source).getAssignments().get(unnestVariable);
+                    if (assignment != null) {
+                        if (assignment instanceof ConstantExpression && ((ConstantExpression) assignment).getValue() instanceof Block) {
+                            return (Block) ((ConstantExpression) assignment).getValue();
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
         @Override
         public PhysicalOperation visitUnnest(UnnestNode node, LocalExecutionPlanContext context)
         {
@@ -1553,6 +1576,7 @@ public class LocalExecutionPlanner
             for (VariableReferenceExpression variable : unnestVariables) {
                 unnestTypes.add(variable.getType());
             }
+
             Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable();
             Optional<Type> ordinalityType = ordinalityVariable.map(VariableReferenceExpression::getType);
             ordinalityType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of ordinalityVariable must always be BIGINT."));
@@ -1577,6 +1601,21 @@ public class LocalExecutionPlanner
                 outputMappings.put(ordinalityVariable.get(), channel);
                 channel++;
             }
+
+            // We special-case for simple CROSS JOIN UNNEST(<constant array>)
+            Block block = unnestSingleConstantArray(node);
+            if (!ordinalityVariable.isPresent() && block != null) {
+                source = ((ProjectNode) node.getSource()).getSource().accept(this, context);
+                OperatorFactory operatorFactory = new UnnestArrayConstant.UnnestArrayConstantFactory(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        channel - 1,
+                        ((ArrayType) unnestTypes.build().get(0)).getElementType(),
+                        block,
+                        false);
+                return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
+            }
+
             OperatorFactory operatorFactory = new UnnestOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),

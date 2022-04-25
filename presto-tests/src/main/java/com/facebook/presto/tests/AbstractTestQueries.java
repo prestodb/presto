@@ -6044,6 +6044,15 @@ public abstract class AbstractTestQueries
                 "VALUES (3, 2), (1, 1)");
     }
 
+    @Test
+    public void testCrossJoinUnnestConst()
+    {
+        assertQuery("select count(1) from nation cross join unnest(sequence(1,1)) T(x) group by x", "select count(1) from nation");
+        assertQuery("select count(1) from nation cross join unnest(array[1,2])", "select count(1) * 2 from nation");
+        assertQuery("select count(1) from nation cross join unnest(sequence(1,2))", "select count(1) * 2 from nation");
+        assertQuery("select count(1), nationkey from nation cross join unnest(array[1,3,4]) AS T(x) WHERE x=nationkey group by 2", "values (1,1),(1,3),(1,4)");
+    }
+
     public void testSourceLocationInPlan()
     {
         MaterializedResult result = computeActual("explain(type distributed) select max(orderkey + 1) over(partition by custkey) m from orders");
