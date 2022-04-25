@@ -164,6 +164,7 @@ public class OperatorInfoUnion
         return tableWriterInfo;
     }
 
+    @ThriftConstructor
     public OperatorInfoUnion(TableWriterMergeInfo tableWriterMergeInfo)
     {
         this.tableWriterMergeInfo = tableWriterMergeInfo;
