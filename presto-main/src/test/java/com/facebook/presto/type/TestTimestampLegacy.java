@@ -33,6 +33,14 @@ public class TestTimestampLegacy
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 21, 8, 55, 5, 321, session));
         assertFunction(
+                "cast('2001-1-22 03:04:05.321123 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 8, 55, 5, 321, session));
+        assertFunction(
+                "cast('2001-1-22 03:04:05.321123456 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 8, 55, 5, 321, session));
+        assertFunction(
                 "cast('2001-1-22 03:04:05 +07:09' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 21, 8, 55, 5, 0, session));
@@ -47,6 +55,14 @@ public class TestTimestampLegacy
 
         assertFunction(
                 "cast('2001-1-22 03:04:05.321 Asia/Oral' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 12, 4, 5, 321, session));
+        assertFunction(
+                "cast('2001-1-22 03:04:05.321123 Asia/Oral' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 12, 4, 5, 321, session));
+        assertFunction(
+                "cast('2001-1-22 03:04:05.321123456 Asia/Oral' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 21, 12, 4, 5, 321, session));
         assertFunction(
