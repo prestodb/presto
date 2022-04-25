@@ -65,6 +65,6 @@ public class BigQueryPageSourceProvider
                 .map(BigQueryColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        return new BigQueryResultPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryTableHandle, bigQueryColumnHandles);
+        return new BigQueryResultPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryColumnHandles);
     }
 }
