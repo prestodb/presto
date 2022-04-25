@@ -226,6 +226,12 @@ public abstract class TestTimestampBase
         assertFunction("cast('2001-1-22 03:04:05.321' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+        assertFunction("cast('2001-1-22 03:04:05.321123' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+        assertFunction("cast('2001-1-22 03:04:05.321123456' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
         assertFunction("cast('2001-1-22 03:04:05' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, session));
