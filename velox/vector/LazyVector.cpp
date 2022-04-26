@@ -119,6 +119,7 @@ void LazyVector::ensureLoadedRows(
   RowSet rowSet;
   if (decoded.isConstantMapping()) {
     rowNumbers.push_back(decoded.index(rows.begin()));
+    rowSet = RowSet(rowNumbers);
   } else if (decoded.isIdentityMapping()) {
     if (rows.isAllSelected()) {
       auto iota = velox::iota(rows.end(), rowNumbers);

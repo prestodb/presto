@@ -62,6 +62,40 @@ TEST_F(LazyVectorTest, lazyInDictionary) {
   EXPECT_EQ(loadedRows, (std::vector<vector_size_t>{0, 5}));
 }
 
+TEST_F(LazyVectorTest, lazyInCostant) {
+  // Wrap Lazy vector in a Constant, load some indices and verify that the
+  // results.
+  static constexpr int32_t kInnerSize = 100;
+  static constexpr int32_t kOuterSize = 1000;
+  auto base = makeFlatVector<int32_t>(kInnerSize, [](auto row) { return row; });
+  std::vector<vector_size_t> loadedRows;
+  auto lazy = std::make_shared<LazyVector>(
+      pool_.get(),
+      INTEGER(),
+      kInnerSize,
+      std::make_unique<test::SimpleVectorLoader>([&](auto rows) {
+        for (auto row : rows) {
+          loadedRows.push_back(row);
+        }
+        return base;
+      }));
+  VectorPtr wrapped =
+      std::make_shared<ConstantVector<int32_t>>(pool_.get(), 10, 7, lazy);
+
+  SelectivityVector rows(kOuterSize, false);
+  rows.setValid(1, true);
+  rows.setValid(9, true);
+  rows.setValid(55, true);
+  rows.updateBounds();
+  LazyVector::ensureLoadedRows(wrapped, rows);
+  EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::CONSTANT);
+  EXPECT_EQ(loadedRows, (std::vector<vector_size_t>{7}));
+
+  EXPECT_EQ(wrapped->as<SimpleVector<int32_t>>()->valueAt(1), 7);
+  EXPECT_EQ(wrapped->as<SimpleVector<int32_t>>()->valueAt(9), 7);
+  EXPECT_EQ(wrapped->as<SimpleVector<int32_t>>()->valueAt(55), 7);
+}
+
 TEST_F(LazyVectorTest, lazyInDoubleDictionary) {
   // We have dictionaries over LazyVector. We load for some indices in
   // the top dictionary. The intermediate dictionaries refer to
