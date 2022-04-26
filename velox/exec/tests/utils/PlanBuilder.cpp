@@ -278,6 +278,9 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
     case TypeKind::DATE:
       return common::test::between(
           singleValue<Date>(lower).days(), singleValue<Date>(upper).days());
+    case TypeKind::VARCHAR:
+      return common::test::between(
+          singleValue<StringView>(lower), singleValue<StringView>(upper));
     default:
       VELOX_NYI(
           "Unsupported value for 'between' filter: {} BETWEEN {} AND {}",
