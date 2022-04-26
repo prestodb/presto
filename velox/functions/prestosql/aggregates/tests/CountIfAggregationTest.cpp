@@ -23,7 +23,7 @@ namespace facebook::velox::aggregate::test {
 
 class CountIfAggregationTest : public AggregationTestBase {
  protected:
-  std::shared_ptr<const RowType> rowType_{
+  RowTypePtr rowType_{
       ROW({"c0", "c1", "c2"}, {INTEGER(), BOOLEAN(), BOOLEAN()})};
 };
 
@@ -33,8 +33,8 @@ TEST_F(CountIfAggregationTest, countIfConst) {
       makeRowVector({
           makeFlatVector<int64_t>(
               10, [](vector_size_t row) { return row / 3; }),
-          BaseVector::createConstant(true, 10, pool_.get()),
-          BaseVector::createConstant(false, 10, pool_.get()),
+          makeConstant(true, 10),
+          makeConstant(false, 10),
       }),
   };
 
@@ -55,7 +55,7 @@ TEST_F(CountIfAggregationTest, countIfConst) {
   {
     auto agg = PlanBuilder()
                    .values(vectors)
-                   .partialAggregation({0}, {"count_if(c1)", "count_if(c2)"})
+                   .partialAggregation({"c0"}, {"count_if(c1)", "count_if(c2)"})
                    .finalAggregation()
                    .planNode();
     assertQuery(
@@ -88,7 +88,7 @@ TEST_F(CountIfAggregationTest, oneAggregateMultipleGroups) {
   createDuckDbTable(vectors);
   auto agg = PlanBuilder()
                  .values(vectors)
-                 .partialAggregation({0}, {"count_if(c1)"})
+                 .partialAggregation({"c0"}, {"count_if(c1)"})
                  .finalAggregation()
                  .planNode();
   assertQuery(
@@ -115,7 +115,7 @@ TEST_F(CountIfAggregationTest, twoAggregatesMultipleGroups) {
   createDuckDbTable(vectors);
   auto agg = PlanBuilder()
                  .values(vectors)
-                 .partialAggregation({0}, {"count_if(c1)", "count_if(c2)"})
+                 .partialAggregation({"c0"}, {"count_if(c1)", "count_if(c2)"})
                  .finalAggregation()
                  .planNode();
   assertQuery(
@@ -127,13 +127,14 @@ TEST_F(CountIfAggregationTest, twoAggregatesMultipleGroups) {
 TEST_F(CountIfAggregationTest, twoAggregatesMultipleGroupsWrapped) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .filter("c0 % 2 = 0")
-                 .project({"c0 % 11 AS c0_mod_11", "c1", "c2"})
-                 .partialAggregation({0}, {"count_if(c1)", "count_if(c2)"})
-                 .finalAggregation()
-                 .planNode();
+  auto agg =
+      PlanBuilder()
+          .values(vectors)
+          .filter("c0 % 2 = 0")
+          .project({"c0 % 11 AS c0_mod_11", "c1", "c2"})
+          .partialAggregation({"c0_mod_11"}, {"count_if(c1)", "count_if(c2)"})
+          .finalAggregation()
+          .planNode();
   assertQuery(
       agg,
       "SELECT c0 % 11, SUM(CASE WHEN c1 THEN 1 ELSE 0 END), "

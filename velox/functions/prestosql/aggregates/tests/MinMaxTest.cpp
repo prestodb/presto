@@ -61,7 +61,7 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
     op = PlanBuilder()
              .values(vectors)
              .project({"c0 % 10", "c1"})
-             .partialAggregation({0}, {agg(c1)})
+             .partialAggregation({"p0"}, {agg(c1)})
              .planNode();
     assertQuery(
         op, fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
@@ -70,7 +70,7 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
     op = PlanBuilder()
              .values(vectors)
              .project({"c0 % 10", "c1"})
-             .partialAggregation({0}, {agg(c1)})
+             .partialAggregation({"p0"}, {agg(c1)})
              .finalAggregation()
              .planNode();
     assertQuery(
@@ -81,7 +81,7 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
              .values(vectors)
              .filter("c0 % 2 = 0")
              .project({"c0 % 11", "c1"})
-             .partialAggregation({0}, {agg(c1)})
+             .partialAggregation({"p0"}, {agg(c1)})
              .planNode();
 
     assertQuery(
@@ -142,7 +142,7 @@ TEST_F(MinMaxTest, maxVarchar) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .project({"c0 % 11", "c1"})
-                .partialAggregation({0}, {"max(c1)"})
+                .partialAggregation({"p0"}, {"max(c1)"})
                 .planNode();
   assertQuery(op, "SELECT c0 % 11, max(c1) FROM tmp GROUP BY 1");
 
@@ -157,7 +157,7 @@ TEST_F(MinMaxTest, maxVarchar) {
            .values(vectors)
            .filter("c0 % 2 = 0")
            .project({"c0 % 11", "c1"})
-           .partialAggregation({0}, {"max(c1)"})
+           .partialAggregation({"p0"}, {"max(c1)"})
            .planNode();
   assertQuery(
       op, "SELECT c0 % 11, max(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
@@ -166,7 +166,7 @@ TEST_F(MinMaxTest, maxVarchar) {
            .values(vectors)
            .filter("c0 % 2 = 0")
            .project({"c0 % 11", "c1"})
-           .partialAggregation({0}, {"max(c1)"})
+           .partialAggregation({"p0"}, {"max(c1)"})
            .finalAggregation()
            .planNode();
   assertQuery(
@@ -198,7 +198,7 @@ TEST_F(MinMaxTest, minVarchar) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .project({"c0 % 17", "c1"})
-                .partialAggregation({0}, {"min(c1)"})
+                .partialAggregation({"p0"}, {"min(c1)"})
                 .planNode();
   assertQuery(op, "SELECT c0 % 17, min(c1) FROM tmp GROUP BY 1");
 
@@ -213,7 +213,7 @@ TEST_F(MinMaxTest, minVarchar) {
            .values(vectors)
            .filter("c0 % 2 = 0")
            .project({"c0 % 17", "c1"})
-           .partialAggregation({0}, {"min(c1)"})
+           .partialAggregation({"p0"}, {"min(c1)"})
            .planNode();
   assertQuery(
       op, "SELECT c0 % 17, min(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
@@ -222,7 +222,7 @@ TEST_F(MinMaxTest, minVarchar) {
            .values(vectors)
            .filter("c0 % 2 = 0")
            .project({"c0 % 17", "c1"})
-           .partialAggregation({0}, {"min(c1)"})
+           .partialAggregation({"p0"}, {"min(c1)"})
            .finalAggregation()
            .planNode();
   assertQuery(
@@ -250,11 +250,12 @@ TEST_F(MinMaxTest, constVarchar) {
   // Column c1 with 1K of nulls and 1K of nulls.
   auto constVectors = {
       makeRowVector(
-          {BaseVector::createConstant("apple", 1'000, pool_.get()),
-           BaseVector::createNullConstant(VARCHAR(), 1'000, pool_.get())}),
-      makeRowVector(
-          {BaseVector::createConstant("banana", 1'000, pool_.get()),
-           BaseVector::createNullConstant(VARCHAR(), 1'000, pool_.get())})};
+          {makeConstant("apple", 1'000),
+           makeNullConstant(TypeKind::VARCHAR, 1'000)}),
+      makeRowVector({
+          makeConstant("banana", 1'000),
+          makeConstant(TypeKind::VARCHAR, 1'000),
+      })};
   auto op =
       PlanBuilder()
           .values({constVectors})

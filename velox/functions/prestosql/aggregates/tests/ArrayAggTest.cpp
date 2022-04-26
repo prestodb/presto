@@ -37,7 +37,7 @@ TEST_F(ArrayAggTest, groupBy) {
   // 90], repeated 10 times.
   batches.push_back(
       std::static_pointer_cast<RowVector>(velox::test::BatchMaker::createBatch(
-          ROW({"C0", "a"}, {INTEGER(), ARRAY(VARCHAR())}), 100, *pool_)));
+          ROW({"c0", "a"}, {INTEGER(), ARRAY(VARCHAR())}), 100, *pool_)));
   // We divide the rows into 10 groups.
   auto keys = batches[0]->childAt(0)->as<FlatVector<int32_t>>();
   for (auto i = 0; i < keys->size(); ++i) {
@@ -54,7 +54,7 @@ TEST_F(ArrayAggTest, groupBy) {
   CursorParameters params;
   params.planNode = PlanBuilder()
                         .values(batches)
-                        .partialAggregation({0}, {"array_agg(A)"})
+                        .partialAggregation({"c0"}, {"array_agg(A)"})
                         .finalAggregation()
                         .planNode();
 
@@ -84,10 +84,10 @@ TEST_F(ArrayAggTest, groupBy) {
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
   params.planNode = PlanBuilder(planNodeIdGenerator)
                         .localPartition(
-                            {"C0"},
+                            {"c0"},
                             {PlanBuilder(planNodeIdGenerator)
                                  .values(batches)
-                                 .partialAggregation({0}, {"array_agg(A)"})
+                                 .partialAggregation({"c0"}, {"array_agg(A)"})
                                  .planNode()})
                         .intermediateAggregation()
                         .planNode();

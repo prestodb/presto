@@ -52,7 +52,7 @@ class MinMaxByAggregationTest : public AggregationTestBase {
     }
   }
 
-  std::shared_ptr<const RowType> rowType_{
+  RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6"},
           {TINYINT(),
            SMALLINT(),
@@ -67,8 +67,8 @@ TEST_F(MinMaxByAggregationTest, maxByPartialConst) {
   // Const values.
   auto vectors = {
       makeRowVector({
-          BaseVector::createConstant(5, 10, pool_.get()),
-          BaseVector::createConstant(10, 10, pool_.get()),
+          makeConstant(5, 10),
+          makeConstant(10, 10),
       }),
   };
 
@@ -83,8 +83,8 @@ TEST_F(MinMaxByAggregationTest, maxByPartialConst) {
 TEST_F(MinMaxByAggregationTest, maxByPartialConstNull) {
   auto vectors = {
       makeRowVector({
-          BaseVector::createConstant(5, 10, pool_.get()),
-          BaseVector::createNullConstant(BIGINT(), 10, pool_.get()),
+          makeConstant(5, 10),
+          makeNullConstant(TypeKind::BIGINT, 10),
       }),
   };
 
@@ -137,7 +137,7 @@ TEST_F(MinMaxByAggregationTest, maxByPartialGroupByNullCase) {
 
   auto partialAgg = PlanBuilder()
                         .values(vectors)
-                        .partialAggregation({2}, {"max_by(c0, c1)"})
+                        .partialAggregation({"c2"}, {"max_by(c0, c1)"})
                         .planNode();
   assertQuery(
       partialAgg,
@@ -172,7 +172,7 @@ TEST_F(MinMaxByAggregationTest, maxByFinalGroupByNullCase) {
 
   auto op = PlanBuilder()
                 .values(vectors)
-                .partialAggregation({2}, {"max_by(c0, c1)"})
+                .partialAggregation({"c2"}, {"max_by(c0, c1)"})
                 .finalAggregation()
                 .planNode();
   assertQuery(op, "SELECT * FROM( VALUES (1, NULL), (2, 5), (3, NULL)) AS t");
@@ -198,7 +198,7 @@ TEST_F(MinMaxByAggregationTest, maxByGroupBy) {
 
   auto op = PlanBuilder()
                 .values(vectors)
-                .partialAggregation({2}, {"max_by(c0, c1)"})
+                .partialAggregation({"c2"}, {"max_by(c0, c1)"})
                 .finalAggregation()
                 .planNode();
   assertQuery(
@@ -248,7 +248,7 @@ TEST_F(MinMaxByAggregationTest, minByFinalGroupByNullCase) {
 
   auto op = PlanBuilder()
                 .values(vectors)
-                .partialAggregation({2}, {"min_by(c0, c1)"})
+                .partialAggregation({"c2"}, {"min_by(c0, c1)"})
                 .finalAggregation()
                 .planNode();
   assertQuery(op, "SELECT * FROM( VALUES (1, 5), (2, NULL), (3, 5)) AS t");
@@ -274,7 +274,7 @@ TEST_F(MinMaxByAggregationTest, minByGroupBy) {
 
   auto op = PlanBuilder()
                 .values(vectors)
-                .partialAggregation({2}, {"min_by(c0, c1)"})
+                .partialAggregation({"c2"}, {"min_by(c0, c1)"})
                 .finalAggregation()
                 .planNode();
   assertQuery(

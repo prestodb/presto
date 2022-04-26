@@ -109,12 +109,14 @@ class ApproxPercentileTest : public AggregationTestBase {
     auto call = functionCall(true, weights.get(), percentile, accuracy);
     auto rows = weights ? makeRowVector({keys, values, weights})
                         : makeRowVector({keys, values});
-    auto op =
-        PlanBuilder().values({rows}).singleAggregation({0}, {call}).planNode();
+    auto op = PlanBuilder()
+                  .values({rows})
+                  .singleAggregation({"c0"}, {call})
+                  .planNode();
     assertQuery(op, expectedResult);
     op = PlanBuilder()
              .values({rows})
-             .partialAggregation({0}, {call})
+             .partialAggregation({"c0"}, {call})
              .finalAggregation()
              .planNode();
     assertQuery(op, expectedResult);

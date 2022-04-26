@@ -38,8 +38,7 @@ namespace {
 
 class PushdownBenchmark : public HiveConnectorTestBase {
  public:
-  explicit PushdownBenchmark(const std::shared_ptr<const RowType>& rowType)
-      : rowType_(rowType) {
+  explicit PushdownBenchmark(const RowTypePtr& rowType) : rowType_(rowType) {
     HiveConnectorTestBase::SetUp();
     vectors_ = HiveConnectorTestBase::makeVectors(
         rowType_, kNumVectors, kRowsPerVector);
@@ -96,7 +95,7 @@ class PushdownBenchmark : public HiveConnectorTestBase {
 
  private:
   std::vector<RowVectorPtr> vectors_;
-  std::shared_ptr<const RowType> rowType_;
+  RowTypePtr rowType_;
   std::shared_ptr<TempFilePath> filePath_;
 };
 

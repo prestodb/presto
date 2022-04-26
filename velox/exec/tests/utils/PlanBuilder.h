@@ -172,7 +172,7 @@ class PlanBuilder {
   /// will produce output columns k1, k2, min_a and a1, assuming the names of
   /// the first two input columns are k1 and k2.
   PlanBuilder& partialAggregation(
-      const std::vector<ChannelIndex>& groupingKeys,
+      const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks = {}) {
     return aggregation(
@@ -194,7 +194,7 @@ class PlanBuilder {
   // to specify the result types for aggregates which cannot infer result type
   // solely from the types of the intermediate results.
   PlanBuilder& finalAggregation(
-      const std::vector<ChannelIndex>& groupingKeys,
+      const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<TypePtr>& resultTypes) {
     return aggregation(
@@ -213,7 +213,7 @@ class PlanBuilder {
   PlanBuilder& intermediateAggregation();
 
   PlanBuilder& intermediateAggregation(
-      const std::vector<ChannelIndex>& groupingKeys,
+      const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<TypePtr>& resultTypes) {
     return aggregation(
@@ -227,7 +227,7 @@ class PlanBuilder {
   }
 
   PlanBuilder& singleAggregation(
-      const std::vector<ChannelIndex>& groupingKeys,
+      const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates) {
     return aggregation(
         groupingKeys,
@@ -239,7 +239,7 @@ class PlanBuilder {
   }
 
   PlanBuilder& aggregation(
-      const std::vector<ChannelIndex>& groupingKeys,
+      const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks,
       core::AggregationNode::Step step,
@@ -250,8 +250,8 @@ class PlanBuilder {
   }
 
   PlanBuilder& aggregation(
-      const std::vector<ChannelIndex>& groupingKeys,
-      const std::vector<ChannelIndex>& preGroupedKeys,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& preGroupedKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks,
       core::AggregationNode::Step step,
@@ -259,7 +259,7 @@ class PlanBuilder {
       const std::vector<TypePtr>& resultTypes = {});
 
   PlanBuilder& partialStreamingAggregation(
-      const std::vector<ChannelIndex>& groupingKeys,
+      const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks = {}) {
     return streamingAggregation(
@@ -271,7 +271,7 @@ class PlanBuilder {
   }
 
   PlanBuilder& finalStreamingAggregation(
-      const std::vector<ChannelIndex>& groupingKeys,
+      const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<TypePtr>& resultTypes = {}) {
     return streamingAggregation(
@@ -284,7 +284,7 @@ class PlanBuilder {
   }
 
   PlanBuilder& streamingAggregation(
-      const std::vector<ChannelIndex>& groupingKeys,
+      const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks,
       core::AggregationNode::Step step,

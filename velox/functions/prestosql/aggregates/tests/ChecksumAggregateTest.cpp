@@ -113,7 +113,7 @@ class ChecksumAggregateTest : public AggregationTestBase {
 
     auto agg = PlanBuilder()
                    .values(rowVectors)
-                   .partialAggregation({0}, {"checksum(c1)"})
+                   .partialAggregation({"c0"}, {"checksum(c1)"})
                    .finalAggregation()
                    .project({"to_base64(a0) AS c0"})
                    .planNode();
@@ -135,7 +135,7 @@ class ChecksumAggregateTest : public AggregationTestBase {
                               {"c0"},
                               {PlanBuilder(planNodeIdGenerator)
                                    .values(rowVectors)
-                                   .partialAggregation({0}, {"checksum(c1)"})
+                                   .partialAggregation({"c0"}, {"checksum(c1)"})
                                    .planNode()})
                           .intermediateAggregation()
                           .project({"a0"})

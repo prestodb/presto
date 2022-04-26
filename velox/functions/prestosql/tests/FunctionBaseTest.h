@@ -66,7 +66,7 @@ class FunctionBaseTest : public testing::Test,
 
   std::shared_ptr<const core::ITypedExpr> makeTypedExpr(
       const std::string& text,
-      const std::shared_ptr<const RowType>& rowType) {
+      const RowTypePtr& rowType) {
     auto untyped = parse::parseExpr(text);
     return core::Expressions::inferTypes(untyped, rowType, execCtx_.pool());
   }
@@ -223,7 +223,7 @@ class FunctionBaseTest : public testing::Test,
   /// @param body Body of the lambda as SQL expression.
   void registerLambda(
       const std::string& name,
-      const std::shared_ptr<const RowType>& signature,
+      const RowTypePtr& signature,
       TypePtr rowType,
       const std::string& body) {
     core::Expressions::registerLambda(

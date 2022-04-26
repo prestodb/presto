@@ -127,7 +127,7 @@ TpchPlan TpchQueryBuilder::getQ1Plan() const {
                "l_extendedprice * (1.0 - l_discount) * (1.0 + l_tax) AS l_sum_charge",
                "l_discount"})
           .partialAggregation(
-              {0, 1},
+              {"l_returnflag", "l_linestatus"},
               {"sum(l_quantity)",
                "sum(l_extendedprice)",
                "sum(l_sum_disc_price)",
@@ -140,24 +140,7 @@ TpchPlan TpchQueryBuilder::getQ1Plan() const {
 
   auto plan = PlanBuilder(planNodeIdGenerator)
                   .localPartition({}, {partialAggStage})
-                  .finalAggregation(
-                      {0, 1},
-                      {"sum(a0)",
-                       "sum(a1)",
-                       "sum(a2)",
-                       "sum(a3)",
-                       "avg(a4)",
-                       "avg(a5)",
-                       "avg(a6)",
-                       "count(a7)"},
-                      {DOUBLE(),
-                       DOUBLE(),
-                       DOUBLE(),
-                       DOUBLE(),
-                       DOUBLE(),
-                       DOUBLE(),
-                       DOUBLE(),
-                       BIGINT()})
+                  .finalAggregation()
                   .orderBy({"l_returnflag", "l_linestatus"}, false)
                   .planNode();
 
@@ -203,7 +186,7 @@ TpchPlan TpchQueryBuilder::getQ6Plan() const {
                            .project({"l_extendedprice * l_discount"})
                            .partialAggregation({}, {"sum(p0)"})
                            .planNode()})
-                  .finalAggregation({}, {"sum(a0)"}, {DOUBLE()})
+                  .finalAggregation()
                   .planNode();
   TpchPlan context;
   context.plan = std::move(plan);
@@ -243,9 +226,11 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
                    .tableScan(
                        kLineitem, lineitemSelectedRowType, lineitemFileColumns)
                    .capturePlanNodeId(lineitemScanNodeId)
-                   .partialAggregation({0}, {"sum(l_quantity) AS partial_sum"})
+                   .partialAggregation(
+                       {"l_orderkey"}, {"sum(l_quantity) AS partial_sum"})
                    .planNode()})
-          .finalAggregation({0}, {"sum(partial_sum) AS quantity"}, {DOUBLE()})
+          .finalAggregation(
+              {"l_orderkey"}, {"sum(partial_sum) AS quantity"}, {DOUBLE()})
           .filter("quantity > 300.0")
           .planNode();
 

@@ -61,7 +61,7 @@ TEST_F(ArbitraryTest, noNulls) {
             .values(vectors)
             .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
             .partialAggregation(
-                {0},
+                {"p0"},
                 {"arbitrary(c1)",
                  "arbitrary(c2)",
                  "arbitrary(c3)",
@@ -97,7 +97,7 @@ TEST_F(ArbitraryTest, noNulls) {
             .values(vectors)
             .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
             .partialAggregation(
-                {0},
+                {"p0"},
                 {"arbitrary(c1)",
                  "arbitrary(c2)",
                  "arbitrary(c3)",
@@ -117,7 +117,7 @@ TEST_F(ArbitraryTest, noNulls) {
             .filter("c0 % 2 = 0")
             .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
             .partialAggregation(
-                {0},
+                {"p0"},
                 {"arbitrary(c1)",
                  "arbitrary(c2)",
                  "arbitrary(c3)",
@@ -175,7 +175,7 @@ TEST_F(ArbitraryTest, nulls) {
   // Group by partial aggregation.
   agg = PlanBuilder()
             .values(vectors)
-            .partialAggregation({0}, {"arbitrary(c1)", "arbitrary(c2)"})
+            .partialAggregation({"c0"}, {"arbitrary(c1)", "arbitrary(c2)"})
             .planNode();
   assertQuery(
       agg,
@@ -192,7 +192,7 @@ TEST_F(ArbitraryTest, nulls) {
   // Group by final aggregation.
   agg = PlanBuilder()
             .values(vectors)
-            .partialAggregation({0}, {"arbitrary(c1)", "arbitrary(c2)"})
+            .partialAggregation({"c0"}, {"arbitrary(c1)", "arbitrary(c2)"})
             .finalAggregation()
             .planNode();
   assertQuery(
@@ -208,7 +208,7 @@ TEST_F(ArbitraryTest, varchar) {
   auto op = PlanBuilder()
                 .values(vectors)
                 .project({"c0 % 11", "c1"})
-                .partialAggregation({0}, {"arbitrary(c1)"})
+                .partialAggregation({"p0"}, {"arbitrary(c1)"})
                 .planNode();
 
   assertQuery(
@@ -226,7 +226,7 @@ TEST_F(ArbitraryTest, varchar) {
            .values(vectors)
            .filter("c0 % 2 = 0")
            .project({"c0 % 11", "c1"})
-           .partialAggregation({0}, {"arbitrary(c1)"})
+           .partialAggregation({"p0"}, {"arbitrary(c1)"})
            .planNode();
 
   assertQuery(
@@ -244,10 +244,11 @@ TEST_F(ArbitraryTest, varchar) {
 }
 
 TEST_F(ArbitraryTest, varcharConstAndNulls) {
-  auto vectors = {makeRowVector(
-      {makeFlatVector<int32_t>(100, [](auto row) { return row % 7; }),
-       BaseVector::createConstant("apple", 100, pool_.get()),
-       BaseVector::createNullConstant(VARCHAR(), 100, pool_.get())})};
+  auto vectors = {makeRowVector({
+      makeFlatVector<int32_t>(100, [](auto row) { return row % 7; }),
+      makeConstant("apple", 100),
+      makeConstant(TypeKind::VARCHAR, 100),
+  })};
 
   createDuckDbTable(vectors);
 
@@ -260,7 +261,7 @@ TEST_F(ArbitraryTest, varcharConstAndNulls) {
 
   op = PlanBuilder()
            .values(vectors)
-           .partialAggregation({0}, {"arbitrary(c1)", "arbitrary(c2)"})
+           .partialAggregation({"c0"}, {"arbitrary(c1)", "arbitrary(c2)"})
            .finalAggregation()
            .planNode();
   assertQuery(op, "SELECT c0, first(c1), first(c2) FROM tmp group by c0");
@@ -269,8 +270,8 @@ TEST_F(ArbitraryTest, varcharConstAndNulls) {
 TEST_F(ArbitraryTest, numericConstAndNulls) {
   auto vectors = {makeRowVector(
       {makeFlatVector<int32_t>(100, [](auto row) { return row % 7; }),
-       BaseVector::createConstant(11, 100, pool_.get()),
-       BaseVector::createNullConstant(BIGINT(), 100, pool_.get())})};
+       makeConstant(11, 100),
+       makeNullConstant(TypeKind::BIGINT, 100)})};
 
   createDuckDbTable(vectors);
 
@@ -283,7 +284,7 @@ TEST_F(ArbitraryTest, numericConstAndNulls) {
 
   op = PlanBuilder()
            .values(vectors)
-           .partialAggregation({0}, {"arbitrary(c1)", "arbitrary(c2)"})
+           .partialAggregation({"c0"}, {"arbitrary(c1)", "arbitrary(c2)"})
            .finalAggregation()
            .planNode();
   assertQuery(op, "SELECT c0, first(c1), first(c2) FROM tmp group by c0");

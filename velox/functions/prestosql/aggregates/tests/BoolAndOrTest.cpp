@@ -64,7 +64,7 @@ TEST_P(BoolAndOrTest, basic) {
   agg = PlanBuilder()
             .values(vectors)
             .project({"c0 % 10", "c1"})
-            .partialAggregation({0}, {partialAgg})
+            .partialAggregation({"p0"}, {partialAgg})
             .planNode();
   assertQuery(
       agg,
@@ -75,7 +75,7 @@ TEST_P(BoolAndOrTest, basic) {
   agg = PlanBuilder()
             .values(vectors)
             .project({"c0 % 10", "c1"})
-            .partialAggregation({0}, {partialAgg})
+            .partialAggregation({"p0"}, {partialAgg})
             .finalAggregation()
             .planNode();
   assertQuery(
@@ -88,7 +88,7 @@ TEST_P(BoolAndOrTest, basic) {
             .values(vectors)
             .filter("c0 % 2 = 0")
             .project({"c0 % 11", "c1"})
-            .partialAggregation({0}, {partialAgg})
+            .partialAggregation({"p0"}, {partialAgg})
             .planNode();
 
   assertQuery(

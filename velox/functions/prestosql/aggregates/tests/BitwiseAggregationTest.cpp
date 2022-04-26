@@ -24,7 +24,7 @@ namespace {
 
 class BitwiseAggregationTest : public AggregationTestBase {
  protected:
-  std::shared_ptr<const RowType> rowType_{
+  RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4"},
           {BIGINT(), TINYINT(), SMALLINT(), INTEGER(), BIGINT()})};
 };
@@ -71,7 +71,7 @@ TEST_F(BitwiseAggregationTest, bitwiseOr) {
                    .values(vectors)
                    .project({"c0 % 10", "c1", "c2", "c3", "c4"})
                    .partialAggregation(
-                       {0},
+                       {"p0"},
                        {"bitwise_or_agg(c1)",
                         "bitwise_or_agg(c2)",
                         "bitwise_or_agg(c3)",
@@ -88,7 +88,7 @@ TEST_F(BitwiseAggregationTest, bitwiseOr) {
                         .values(vectors)
                         .project({"c0 % 10", "c1", "c2", "c3", "c4"})
                         .partialAggregation(
-                            {0},
+                            {"p0"},
                             {"bitwise_or_agg(c1)",
                              "bitwise_or_agg(c2)",
                              "bitwise_or_agg(c3)",
@@ -144,7 +144,7 @@ TEST_F(BitwiseAggregationTest, bitwiseAnd) {
                    .values(vectors)
                    .project({"c0 % 10", "c1", "c2", "c3", "c4"})
                    .partialAggregation(
-                       {0},
+                       {"p0"},
                        {"bitwise_and_agg(c1)",
                         "bitwise_and_agg(c2)",
                         "bitwise_and_agg(c3)",
@@ -161,7 +161,7 @@ TEST_F(BitwiseAggregationTest, bitwiseAnd) {
                         .values(vectors)
                         .project({"c0 % 10", "c1", "c2", "c3", "c4"})
                         .partialAggregation(
-                            {0},
+                            {"p0"},
                             {"bitwise_and_agg(c1)",
                              "bitwise_and_agg(c2)",
                              "bitwise_and_agg(c3)",

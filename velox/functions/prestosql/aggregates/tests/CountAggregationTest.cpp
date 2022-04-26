@@ -24,7 +24,7 @@ namespace {
 
 class CountAggregation : public AggregationTestBase {
  protected:
-  std::shared_ptr<const RowType> rowType_{
+  RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"},
           {BIGINT(),
            SMALLINT(),
@@ -73,8 +73,8 @@ TEST_F(CountAggregation, count) {
 
   agg = PlanBuilder()
             .values(vectors)
-            .project({"c0 % 10", "c1"})
-            .partialAggregation({0}, {"count(1)"})
+            .project({"c0 % 10 AS c0_mod_10", "c1"})
+            .partialAggregation({"c0_mod_10"}, {"count(1)"})
             .finalAggregation()
             .planNode();
   assertQuery(agg, "SELECT c0 % 10, count(1) FROM tmp GROUP BY 1");
@@ -82,7 +82,7 @@ TEST_F(CountAggregation, count) {
   agg = PlanBuilder()
             .values(vectors)
             .project({"c0 % 10 AS c0_mod_10", "c7"})
-            .partialAggregation({0}, {"count(c7)"})
+            .partialAggregation({"c0_mod_10"}, {"count(c7)"})
             .planNode();
   assertQuery(agg, "SELECT c0 % 10, count(c7) FROM tmp GROUP BY 1");
 
@@ -96,7 +96,7 @@ TEST_F(CountAggregation, count) {
                             {PlanBuilder(planNodeIdGenerator)
                                  .values(vectors)
                                  .project({"c0 % 10", "c1"})
-                                 .partialAggregation({0}, {"count(1)"})
+                                 .partialAggregation({"p0"}, {"count(1)"})
                                  .planNode()})
                         .intermediateAggregation()
                         .planNode();

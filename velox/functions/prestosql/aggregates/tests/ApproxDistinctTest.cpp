@@ -117,27 +117,27 @@ class ApproxDistinctTest : public AggregationTestBase {
 
     auto op = PlanBuilder()
                   .values({makeRowVector({keys, values})})
-                  .singleAggregation({0}, {"approx_distinct(c1)"})
+                  .singleAggregation({"c0"}, {"approx_distinct(c1)"})
                   .planNode();
     assertQuery(op, expected);
 
     op = PlanBuilder()
              .values({makeRowVector({keys, values})})
-             .partialAggregation({0}, {"approx_distinct(c1)"})
+             .partialAggregation({"c0"}, {"approx_distinct(c1)"})
              .finalAggregation()
              .planNode();
     assertQuery(op, expected);
 
     op = PlanBuilder()
              .values({makeRowVector({keys, values})})
-             .singleAggregation({0}, {"approx_set(c1)"})
+             .singleAggregation({"c0"}, {"approx_set(c1)"})
              .project({"c0", "cardinality(a0)"})
              .planNode();
     assertQuery(op, expected);
 
     op = PlanBuilder()
              .values({makeRowVector({keys, values})})
-             .partialAggregation({0}, {"approx_set(c1)"})
+             .partialAggregation({"c0"}, {"approx_set(c1)"})
              .finalAggregation()
              .project({"c0", "cardinality(a0)"})
              .planNode();
@@ -214,13 +214,13 @@ TEST_F(ApproxDistinctTest, groupByAllNulls) {
   auto expected = toRowVector(expectedResult);
   auto op = PlanBuilder()
                 .values({makeRowVector({keys, values})})
-                .singleAggregation({0}, {"approx_distinct(c1)"})
+                .singleAggregation({"c0"}, {"approx_distinct(c1)"})
                 .planNode();
   assertQuery(op, expected);
 
   op = PlanBuilder()
            .values({makeRowVector({keys, values})})
-           .partialAggregation({0}, {"approx_distinct(c1)"})
+           .partialAggregation({"c0"}, {"approx_distinct(c1)"})
            .finalAggregation()
            .planNode();
   assertQuery(op, expected);

@@ -163,7 +163,7 @@ TEST_F(PlanNodeToStringTest, aggregation) {
   // Group-by aggregation.
   plan = PlanBuilder()
              .values({data_})
-             .singleAggregation({0}, {"sum(c1) AS a", "avg(c2) AS b"})
+             .singleAggregation({"c0"}, {"sum(c1) AS a", "avg(c2) AS b"})
              .planNode();
 
   ASSERT_EQ("-> Aggregation\n", plan->toString());

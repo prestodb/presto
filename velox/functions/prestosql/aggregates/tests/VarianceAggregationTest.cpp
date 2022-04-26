@@ -38,7 +38,7 @@ std::string genAggr(const char* aggrName, const char* colName) {
 // The test class.
 class VarianceAggregationTest : public AggregationTestBase {
  protected:
-  std::shared_ptr<const RowType> rowType_{
+  RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
           {BIGINT(), SMALLINT(), INTEGER(), BIGINT(), REAL(), DOUBLE()})};
 
@@ -60,37 +60,35 @@ TEST_F(VarianceAggregationTest, varianceConst) {
       makeRowVector({
           makeFlatVector<int64_t>(
               10, [](vector_size_t row) { return row / 3; }),
-          BaseVector::createConstant(5, 10, pool_.get()),
-          BaseVector::createConstant(6.0, 10, pool_.get()),
+          makeConstant(5, 10),
+          makeConstant(6.0, 10),
       }),
       makeRowVector({
           makeFlatVector<int64_t>(
               10, [](vector_size_t row) { return row / 3; }),
-          BaseVector::createConstant(5, 10, pool_.get()),
-          BaseVector::createConstant(6.0, 10, pool_.get()),
+          makeConstant(5, 10),
+          makeConstant(6.0, 10),
       }),
   };
 
   createDuckDbTable(vectors);
 
-  std::string sql;
-  std::shared_ptr<core::PlanNode> agg;
   for (const auto& aggrName : aggrNames_) {
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation({}, {GEN_AGG("c1"), GEN_AGG("c2")})
-              .finalAggregation()
-              .planNode();
-    sql = genAggrQuery("SELECT {0}(c1), {0}(c2) FROM tmp", aggrName);
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({}, {GEN_AGG("c1"), GEN_AGG("c2")})
+                   .finalAggregation()
+                   .planNode();
+    auto sql = genAggrQuery("SELECT {0}(c1), {0}(c2) FROM tmp", aggrName);
     assertQuery(agg, sql);
 
     agg = PlanBuilder()
               .values(vectors)
-              .partialAggregation({0}, {GEN_AGG("c1"), GEN_AGG("c2")})
+              .partialAggregation({"c0"}, {GEN_AGG("c1"), GEN_AGG("c2")})
               .finalAggregation()
               .planNode();
     sql = genAggrQuery(
-        "SELECT c0, {0}(c1), {0}(c2) FROM tmp group by c0", aggrName);
+        "SELECT c0, {0}(c1), {0}(c2) FROM tmp GROUP BY 1", aggrName);
     assertQuery(agg, sql);
 
     agg = PlanBuilder()
@@ -104,10 +102,10 @@ TEST_F(VarianceAggregationTest, varianceConst) {
     agg = PlanBuilder()
               .values(vectors)
               .project({"c0 % 2 AS c0_mod_2", "c0"})
-              .partialAggregation({0}, {GEN_AGG("c0")})
+              .partialAggregation({"c0_mod_2"}, {GEN_AGG("c0")})
               .finalAggregation()
               .planNode();
-    sql = genAggrQuery("SELECT c0 % 2, {0}(c0) FROM tmp group by 1", aggrName);
+    sql = genAggrQuery("SELECT c0 % 2, {0}(c0) FROM tmp GROUP BY 1", aggrName);
     assertQuery(agg, sql);
   }
 }
@@ -117,13 +115,13 @@ TEST_F(VarianceAggregationTest, varianceConstNull) {
   auto vectors = {
       makeRowVector({
           makeNullableFlatVector<int64_t>({0, 1, 2, 0, 1, 2, 0, 1, 2, 0}),
-          BaseVector::createNullConstant(BIGINT(), 10, pool_.get()),
-          BaseVector::createNullConstant(DOUBLE(), 10, pool_.get()),
+          makeNullConstant(TypeKind::BIGINT, 10),
+          makeNullConstant(TypeKind::DOUBLE, 10),
       }),
       makeRowVector({
           makeNullableFlatVector<int64_t>({0, 1, 2, 0, 1, 2, 0, 1, 2, 0}),
-          BaseVector::createNullConstant(BIGINT(), 10, pool_.get()),
-          BaseVector::createNullConstant(DOUBLE(), 10, pool_.get()),
+          makeNullConstant(TypeKind::BIGINT, 10),
+          makeNullConstant(TypeKind::DOUBLE, 10),
       }),
   };
 
@@ -142,7 +140,7 @@ TEST_F(VarianceAggregationTest, varianceConstNull) {
 
     agg = PlanBuilder()
               .values(vectors)
-              .partialAggregation({0}, {GEN_AGG("c1"), GEN_AGG("c2")})
+              .partialAggregation({"c0"}, {GEN_AGG("c1"), GEN_AGG("c2")})
               .finalAggregation()
               .planNode();
     sql = genAggrQuery(
@@ -177,20 +175,18 @@ TEST_F(VarianceAggregationTest, varianceNulls) {
 
   createDuckDbTable(vectors);
 
-  std::string sql;
-  std::shared_ptr<core::PlanNode> agg;
   for (const auto& aggrName : aggrNames_) {
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation({}, {GEN_AGG("c1"), GEN_AGG("c2")})
-              .finalAggregation()
-              .planNode();
-    sql = genAggrQuery("SELECT {0}(c1), {0}(c2) FROM tmp", aggrName);
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({}, {GEN_AGG("c1"), GEN_AGG("c2")})
+                   .finalAggregation()
+                   .planNode();
+    auto sql = genAggrQuery("SELECT {0}(c1), {0}(c2) FROM tmp", aggrName);
     assertQuery(agg, sql);
 
     agg = PlanBuilder()
               .values(vectors)
-              .partialAggregation({0}, {GEN_AGG("c1"), GEN_AGG("c2")})
+              .partialAggregation({"c0"}, {GEN_AGG("c1"), GEN_AGG("c2")})
               .finalAggregation()
               .planNode();
     sql = genAggrQuery(
@@ -203,18 +199,17 @@ TEST_F(VarianceAggregationTest, variance) {
   auto vectors = makeVectors(rowType_, 10, 20);
   createDuckDbTable(vectors);
 
-  std::string sql;
-  std::shared_ptr<core::PlanNode> agg;
   for (const auto& aggrName : aggrNames_) {
     // Global aggregation
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation(
-                  {},
-                  {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")})
-              .finalAggregation()
-              .planNode();
-    sql = genAggrQuery(
+    auto agg =
+        PlanBuilder()
+            .values(vectors)
+            .partialAggregation(
+                {},
+                {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")})
+            .finalAggregation()
+            .planNode();
+    auto sql = genAggrQuery(
         "SELECT {0}(c1), {0}(c2), {0}(c4), {0}(c5) FROM tmp", aggrName);
     assertQuery(agg, sql);
 
@@ -281,7 +276,7 @@ TEST_F(VarianceAggregationTest, variance) {
               .values(vectors)
               .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5"})
               .partialAggregation(
-                  {0},
+                  {"p0"},
                   {GEN_AGG("c1"),
                    GEN_AGG("c2"),
                    GEN_AGG("c3"),
@@ -299,7 +294,7 @@ TEST_F(VarianceAggregationTest, variance) {
               .values(vectors)
               .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5"})
               .singleAggregation(
-                  {0},
+                  {"p0"},
                   {GEN_AGG("c1"),
                    GEN_AGG("c2"),
                    GEN_AGG("c3"),
@@ -316,7 +311,7 @@ TEST_F(VarianceAggregationTest, variance) {
               .values(vectors)
               .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5"})
               .partialAggregation(
-                  {0},
+                  {"p0"},
                   {GEN_AGG("c1"),
                    GEN_AGG("c2"),
                    GEN_AGG("c3"),
@@ -336,20 +331,17 @@ TEST_F(VarianceAggregationTest, variance) {
               .values(vectors)
               .project({"c0 % 10 AS c0_mod_10", "c1"})
               .filter("c0_mod_10 > 10")
-              .partialAggregation({0}, {GEN_AGG("c1")})
+              .partialAggregation({"c0_mod_10"}, {GEN_AGG("c1")})
               .finalAggregation()
               .planNode();
-    sql = genAggrQuery(
-        "SELECT c0 % 10, {0}(c1) FROM tmp WHERE c0 % 10 > 10 GROUP BY 1",
-        aggrName);
-    assertQuery(agg, sql);
+    assertQueryReturnsEmptyResult(agg);
 
     // Group by over filter
     agg = PlanBuilder()
               .values(vectors)
               .filter("c2 % 5 = 3")
               .project({"c0 % 10", "c1"})
-              .partialAggregation({0}, {GEN_AGG("c1")})
+              .partialAggregation({"p0"}, {GEN_AGG("c1")})
               .finalAggregation()
               .planNode();
     sql = genAggrQuery(

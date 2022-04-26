@@ -32,7 +32,7 @@ class CovarianceAggregationTest
 
     auto op = PlanBuilder()
                   .values({data})
-                  .partialAggregation({0}, {partialAgg})
+                  .partialAggregation({"c0"}, {partialAgg})
                   .finalAggregation()
                   .project({"c0", "round(a0, cast(2 as integer))"})
                   .planNode();
@@ -41,7 +41,7 @@ class CovarianceAggregationTest
 
     op = PlanBuilder()
              .values({data})
-             .singleAggregation({0}, {partialAgg})
+             .singleAggregation({"c0"}, {partialAgg})
              .project({"c0", "round(a0, cast(2 as integer))"})
              .planNode();
 
@@ -49,17 +49,17 @@ class CovarianceAggregationTest
 
     op = PlanBuilder()
              .values({data})
-             .partialAggregation({0}, {partialAgg})
+             .partialAggregation({"c0"}, {partialAgg})
              .planNode();
 
     auto partialResults = getResults(op);
 
-    op =
-        PlanBuilder()
-            .values({partialResults})
-            .finalAggregation({0}, {fmt::format("{}(a0)", aggName)}, {DOUBLE()})
-            .project({"c0", "round(a0, cast(2 as integer))"})
-            .planNode();
+    op = PlanBuilder()
+             .values({partialResults})
+             .finalAggregation(
+                 {"c0"}, {fmt::format("{}(a0)", aggName)}, {DOUBLE()})
+             .project({"c0", "round(a0, cast(2 as integer))"})
+             .planNode();
     assertQuery(op, sql);
   }
 

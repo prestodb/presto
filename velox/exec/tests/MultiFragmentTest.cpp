@@ -129,7 +129,7 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
     partialAggPlan = PlanBuilder()
                          .tableScan(rowType_)
                          .project({"c0 % 10 AS c0", "c1"})
-                         .partialAggregation({0}, {"sum(c1)"})
+                         .partialAggregation({"c0"}, {"sum(c1)"})
                          .partitionedOutput({"c0"}, 3)
                          .planNode();
 
@@ -144,7 +144,7 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
   for (int i = 0; i < 3; i++) {
     finalAggPlan = PlanBuilder()
                        .exchange(partialAggPlan->outputType())
-                       .finalAggregation({0}, {"sum(a0)"}, {BIGINT()})
+                       .finalAggregation({"c0"}, {"sum(a0)"}, {BIGINT()})
                        .partitionedOutput({}, 1)
                        .planNode();
 
@@ -170,7 +170,7 @@ TEST_F(MultiFragmentTest, aggregationMultiKey) {
     partialAggPlan = PlanBuilder()
                          .tableScan(rowType_)
                          .project({"c0 % 10 AS c0", "c1 % 2 AS c1", "c2"})
-                         .partialAggregation({0, 1}, {"sum(c2)"})
+                         .partialAggregation({"c0", "c1"}, {"sum(c2)"})
                          .partitionedOutput({"c0", "c1"}, 3)
                          .planNode();
 
@@ -185,7 +185,7 @@ TEST_F(MultiFragmentTest, aggregationMultiKey) {
   for (int i = 0; i < 3; i++) {
     finalAggPlan = PlanBuilder()
                        .exchange(partialAggPlan->outputType())
-                       .finalAggregation({0, 1}, {"sum(a0)"}, {BIGINT()})
+                       .finalAggregation({"c0", "c1"}, {"sum(a0)"}, {BIGINT()})
                        .partitionedOutput({}, 1)
                        .planNode();
 

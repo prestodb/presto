@@ -36,7 +36,7 @@ TEST_F(MapAggTest, finalGroupBy) {
 
   auto op = PlanBuilder()
                 .values(vectors)
-                .partialAggregation({0}, {"map_agg(c1, c2)"})
+                .partialAggregation({"c0"}, {"map_agg(c1, c2)"})
                 .finalAggregation()
                 .planNode();
 
@@ -66,7 +66,7 @@ TEST_F(MapAggTest, groupBy) {
 
   auto op = PlanBuilder()
                 .values(vectors)
-                .singleAggregation({0}, {"map_agg(c1, c2)"})
+                .singleAggregation({"c0"}, {"map_agg(c1, c2)"})
                 .planNode();
 
   auto expectedResult = {makeRowVector(
@@ -85,15 +85,16 @@ TEST_F(MapAggTest, groupBy) {
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
 
   CursorParameters params;
-  params.planNode = PlanBuilder(planNodeIdGenerator)
-                        .localPartition(
-                            {"c0"},
-                            {PlanBuilder(planNodeIdGenerator)
-                                 .values(vectors)
-                                 .partialAggregation({0}, {"map_agg(c1, c2)"})
-                                 .planNode()})
-                        .intermediateAggregation()
-                        .planNode();
+  params.planNode =
+      PlanBuilder(planNodeIdGenerator)
+          .localPartition(
+              {"c0"},
+              {PlanBuilder(planNodeIdGenerator)
+                   .values(vectors)
+                   .partialAggregation({"c0"}, {"map_agg(c1, c2)"})
+                   .planNode()})
+          .intermediateAggregation()
+          .planNode();
   params.maxDrivers = 2;
 
   exec::test::assertQuery(params, expectedResult);

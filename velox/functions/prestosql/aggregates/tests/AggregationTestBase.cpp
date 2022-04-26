@@ -20,7 +20,7 @@
 namespace facebook::velox::aggregate::test {
 
 std::vector<RowVectorPtr> AggregationTestBase::makeVectors(
-    const std::shared_ptr<const RowType>& rowType,
+    const RowTypePtr& rowType,
     vector_size_t size,
     int numVectors) {
   std::vector<RowVectorPtr> vectors;

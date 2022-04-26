@@ -21,10 +21,8 @@ namespace facebook::velox::aggregate::test {
 
 class AggregationTestBase : public exec::test::OperatorTestBase {
  protected:
-  std::vector<RowVectorPtr> makeVectors(
-      const std::shared_ptr<const RowType>& rowType,
-      vector_size_t size,
-      int numVectors);
+  std::vector<RowVectorPtr>
+  makeVectors(const RowTypePtr& rowType, vector_size_t size, int numVectors);
 };
 
 } // namespace facebook::velox::aggregate::test
