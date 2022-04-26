@@ -42,7 +42,7 @@ class VarianceAggregationTest : public AggregationTestBase {
       ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
           {BIGINT(), SMALLINT(), INTEGER(), BIGINT(), REAL(), DOUBLE()})};
 
-  // We test these aggregation in this class.
+  // We test these aggregations in this class.
   // It is possible to temporarily alter this array to only focus on one, when
   // debugging tests.
   const std::vector<const char*> aggrNames_{
@@ -74,39 +74,24 @@ TEST_F(VarianceAggregationTest, varianceConst) {
   createDuckDbTable(vectors);
 
   for (const auto& aggrName : aggrNames_) {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {GEN_AGG("c1"), GEN_AGG("c2")})
-                   .finalAggregation()
-                   .planNode();
     auto sql = genAggrQuery("SELECT {0}(c1), {0}(c2) FROM tmp", aggrName);
-    assertQuery(agg, sql);
+    testAggregations(vectors, {}, {GEN_AGG("c1"), GEN_AGG("c2")}, sql);
 
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation({"c0"}, {GEN_AGG("c1"), GEN_AGG("c2")})
-              .finalAggregation()
-              .planNode();
     sql = genAggrQuery(
         "SELECT c0, {0}(c1), {0}(c2) FROM tmp GROUP BY 1", aggrName);
-    assertQuery(agg, sql);
+    testAggregations(vectors, {"c0"}, {GEN_AGG("c1"), GEN_AGG("c2")}, sql);
 
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation({}, {GEN_AGG("c0")})
-              .finalAggregation()
-              .planNode();
     sql = genAggrQuery("SELECT {0}(c0) FROM tmp", aggrName);
-    assertQuery(agg, sql);
+    testAggregations(vectors, {}, {GEN_AGG("c0")}, sql);
 
-    agg = PlanBuilder()
-              .values(vectors)
-              .project({"c0 % 2 AS c0_mod_2", "c0"})
-              .partialAggregation({"c0_mod_2"}, {GEN_AGG("c0")})
-              .finalAggregation()
-              .planNode();
     sql = genAggrQuery("SELECT c0 % 2, {0}(c0) FROM tmp GROUP BY 1", aggrName);
-    assertQuery(agg, sql);
+    testAggregations(
+        [&](PlanBuilder& builder) {
+          builder.values(vectors).project({"c0 % 2 AS c0_mod_2", "c0"});
+        },
+        {"c0_mod_2"},
+        {GEN_AGG("c0")},
+        sql);
   }
 }
 
@@ -127,34 +112,13 @@ TEST_F(VarianceAggregationTest, varianceConstNull) {
 
   createDuckDbTable(vectors);
 
-  std::string sql;
-  std::shared_ptr<core::PlanNode> agg;
   for (const auto& aggrName : aggrNames_) {
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation({}, {GEN_AGG("c1"), GEN_AGG("c2")})
-              .finalAggregation()
-              .planNode();
-    sql = genAggrQuery("SELECT {0}(c1), {0}(c2) FROM tmp", aggrName);
-    assertQuery(agg, sql);
+    auto sql = genAggrQuery("SELECT {0}(c1), {0}(c2) FROM tmp", aggrName);
+    testAggregations(vectors, {}, {GEN_AGG("c1"), GEN_AGG("c2")}, sql);
 
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation({"c0"}, {GEN_AGG("c1"), GEN_AGG("c2")})
-              .finalAggregation()
-              .planNode();
     sql = genAggrQuery(
         "SELECT c0, {0}(c1), {0}(c2) FROM tmp group by c0", aggrName);
-    assertQuery(agg, sql);
-
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation({}, {GEN_AGG("c0")})
-              .finalAggregation()
-              .project({"round(a0, cast (10 as int))"})
-              .planNode();
-    sql = genAggrQuery("SELECT round({0}(c0), 10) FROM tmp", aggrName);
-    assertQuery(agg, sql);
+    testAggregations(vectors, {"c0"}, {GEN_AGG("c1"), GEN_AGG("c2")}, sql);
   }
 }
 
@@ -176,22 +140,12 @@ TEST_F(VarianceAggregationTest, varianceNulls) {
   createDuckDbTable(vectors);
 
   for (const auto& aggrName : aggrNames_) {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {GEN_AGG("c1"), GEN_AGG("c2")})
-                   .finalAggregation()
-                   .planNode();
     auto sql = genAggrQuery("SELECT {0}(c1), {0}(c2) FROM tmp", aggrName);
-    assertQuery(agg, sql);
+    testAggregations(vectors, {}, {GEN_AGG("c1"), GEN_AGG("c2")}, sql);
 
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation({"c0"}, {GEN_AGG("c1"), GEN_AGG("c2")})
-              .finalAggregation()
-              .planNode();
     sql = genAggrQuery(
         "SELECT c0, {0}(c1), {0}(c2) FROM tmp group by c0", aggrName);
-    assertQuery(agg, sql);
+    testAggregations(vectors, {"c0"}, {GEN_AGG("c1"), GEN_AGG("c2")}, sql);
   }
 }
 
@@ -201,153 +155,79 @@ TEST_F(VarianceAggregationTest, variance) {
 
   for (const auto& aggrName : aggrNames_) {
     // Global aggregation
-    auto agg =
-        PlanBuilder()
-            .values(vectors)
-            .partialAggregation(
-                {},
-                {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")})
-            .finalAggregation()
-            .planNode();
     auto sql = genAggrQuery(
         "SELECT {0}(c1), {0}(c2), {0}(c4), {0}(c5) FROM tmp", aggrName);
-    assertQuery(agg, sql);
-
-    agg = PlanBuilder()
-              .values(vectors)
-              .singleAggregation(
-                  {},
-                  {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")})
-              .planNode();
-    assertQuery(agg, sql);
-
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation(
-                  {},
-                  {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")})
-              .planNode();
-
-    auto partialResults = getResults(agg);
-
-    agg = PlanBuilder()
-              .values({partialResults})
-              .finalAggregation(
-                  {},
-                  {GEN_AGG("a0"), GEN_AGG("a1"), GEN_AGG("a2"), GEN_AGG("a3")},
-                  {DOUBLE(), DOUBLE(), DOUBLE(), DOUBLE(), DOUBLE()})
-              .planNode();
-    assertQuery(agg, sql);
-
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation(
-                  {},
-                  {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")})
-              .intermediateAggregation()
-              .finalAggregation()
-              .planNode();
-    sql = genAggrQuery(
-        "SELECT {0}(c1), {0}(c2), {0}(c4), {0}(c5) FROM tmp", aggrName);
-    assertQuery(agg, sql);
+    testAggregations(
+        vectors,
+        {},
+        {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")},
+        sql);
 
     // Global aggregation; no input
-    agg = PlanBuilder()
-              .values(vectors)
-              .filter("c0 % 2 = 5")
-              .partialAggregation({}, {GEN_AGG("c0")})
-              .finalAggregation()
-              .planNode();
     sql = genAggrQuery("SELECT {0}(c0) FROM tmp WHERE c0 % 2 = 5", aggrName);
-    assertQuery(agg, sql);
+    testAggregations(
+        [&](PlanBuilder& builder) {
+          builder.values(vectors).filter("c0 % 2 = 5");
+        },
+        {},
+        {GEN_AGG("c0")},
+        sql);
 
     // Global aggregation over filter
-    agg = PlanBuilder()
-              .values(vectors)
-              .filter("c0 % 5 = 3")
-              .partialAggregation({}, {GEN_AGG("c1")})
-              .finalAggregation()
-              .planNode();
-    sql = genAggrQuery("SELECT {0}(c1) FROM tmp WHERE c0 % 5 = 3", aggrName);
-    assertQuery(agg, sql);
+    sql = genAggrQuery("SELECT {0}(c0) FROM tmp WHERE c0 % 5 = 3", aggrName);
+    testAggregations(
+        [&](PlanBuilder& builder) {
+          builder.values(vectors).filter("c0 % 5 = 3");
+        },
+        {},
+        {GEN_AGG("c0")},
+        sql);
 
     // Group by
-    agg = PlanBuilder()
-              .values(vectors)
-              .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5"})
-              .partialAggregation(
-                  {"p0"},
-                  {GEN_AGG("c1"),
-                   GEN_AGG("c2"),
-                   GEN_AGG("c3"),
-                   GEN_AGG("c4"),
-                   GEN_AGG("c5")})
-              .finalAggregation()
-              .planNode();
     sql = genAggrQuery(
         "SELECT c0 % 10, {0}(c1), {0}(c2), {0}(c3::DOUBLE), {0}(c4), {0}(c5) "
         "FROM tmp GROUP BY 1",
         aggrName);
-    assertQuery(agg, sql);
-
-    agg = PlanBuilder()
-              .values(vectors)
-              .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5"})
-              .singleAggregation(
-                  {"p0"},
-                  {GEN_AGG("c1"),
-                   GEN_AGG("c2"),
-                   GEN_AGG("c3"),
-                   GEN_AGG("c4"),
-                   GEN_AGG("c5")})
-              .planNode();
-    sql = genAggrQuery(
-        "SELECT c0 % 10, {0}(c1), {0}(c2), {0}(c3::DOUBLE), {0}(c4), {0}(c5) "
-        "FROM tmp GROUP BY 1",
-        aggrName);
-    assertQuery(agg, sql);
-
-    agg = PlanBuilder()
-              .values(vectors)
-              .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5"})
-              .partialAggregation(
-                  {"p0"},
-                  {GEN_AGG("c1"),
-                   GEN_AGG("c2"),
-                   GEN_AGG("c3"),
-                   GEN_AGG("c4"),
-                   GEN_AGG("c5")})
-              .intermediateAggregation()
-              .finalAggregation()
-              .planNode();
-    sql = genAggrQuery(
-        "SELECT c0 % 10, {0}(c1), {0}(c2), {0}(c3::DOUBLE), {0}(c4), {0}(c5) "
-        "FROM tmp GROUP BY 1",
-        aggrName);
-    assertQuery(agg, sql);
+    testAggregations(
+        [&](PlanBuilder& builder) {
+          builder.values(vectors).project(
+              {"c0 % 10", "c1", "c2", "c3", "c4", "c5"});
+        },
+        {"p0"},
+        {GEN_AGG("c1"),
+         GEN_AGG("c2"),
+         GEN_AGG("c3"),
+         GEN_AGG("c4"),
+         GEN_AGG("c5")},
+        sql);
 
     // Group by; no input
-    agg = PlanBuilder()
-              .values(vectors)
-              .project({"c0 % 10 AS c0_mod_10", "c1"})
-              .filter("c0_mod_10 > 10")
-              .partialAggregation({"c0_mod_10"}, {GEN_AGG("c1")})
-              .finalAggregation()
-              .planNode();
-    assertQueryReturnsEmptyResult(agg);
+    sql = genAggrQuery(
+        "SELECT c0 % 10, {0}(c1) FROM tmp WHERE c0 % 2 = 5 GROUP BY 1",
+        aggrName);
+    testAggregations(
+        [&](PlanBuilder& builder) {
+          builder.values(vectors)
+              .filter("c0 % 2 = 5")
+              .project({"c0 % 10", "c1"});
+        },
+        {"p0"},
+        {GEN_AGG("c1")},
+        sql);
 
     // Group by over filter
-    agg = PlanBuilder()
-              .values(vectors)
-              .filter("c2 % 5 = 3")
-              .project({"c0 % 10", "c1"})
-              .partialAggregation({"p0"}, {GEN_AGG("c1")})
-              .finalAggregation()
-              .planNode();
     sql = genAggrQuery(
         "SELECT c0 % 10, {0}(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1",
         aggrName);
-    assertQuery(agg, sql);
+    testAggregations(
+        [&](PlanBuilder& builder) {
+          builder.values(vectors)
+              .filter("c2 % 5 = 3")
+              .project({"c0 % 10", "c1"});
+        },
+        {"p0"},
+        {GEN_AGG("c1")},
+        sql);
   }
 }
 

@@ -30,74 +30,20 @@ class CovarianceAggregationTest
     auto sql = fmt::format(
         "SELECT c0, round({}(c1, c2), 2) FROM tmp GROUP BY 1", aggName);
 
-    auto op = PlanBuilder()
-                  .values({data})
-                  .partialAggregation({"c0"}, {partialAgg})
-                  .finalAggregation()
-                  .project({"c0", "round(a0, cast(2 as integer))"})
-                  .planNode();
-
-    assertQuery(op, sql);
-
-    op = PlanBuilder()
-             .values({data})
-             .singleAggregation({"c0"}, {partialAgg})
-             .project({"c0", "round(a0, cast(2 as integer))"})
-             .planNode();
-
-    assertQuery(op, sql);
-
-    op = PlanBuilder()
-             .values({data})
-             .partialAggregation({"c0"}, {partialAgg})
-             .planNode();
-
-    auto partialResults = getResults(op);
-
-    op = PlanBuilder()
-             .values({partialResults})
-             .finalAggregation(
-                 {"c0"}, {fmt::format("{}(a0)", aggName)}, {DOUBLE()})
-             .project({"c0", "round(a0, cast(2 as integer))"})
-             .planNode();
-    assertQuery(op, sql);
+    testAggregations(
+        {data},
+        {"c0"},
+        {partialAgg},
+        {"c0", "round(a0, cast(2 as integer))"},
+        sql);
   }
 
   void testGlobalAgg(const std::string& aggName, const RowVectorPtr& data) {
     auto partialAgg = fmt::format("{}(c1, c2)", aggName);
     auto sql = fmt::format("SELECT round({}(c1, c2), 2) FROM tmp", aggName);
 
-    auto op = PlanBuilder()
-                  .values({data})
-                  .partialAggregation({}, {partialAgg})
-                  .finalAggregation()
-                  .project({"round(a0, cast(2 as integer))"})
-                  .planNode();
-
-    assertQuery(op, sql);
-
-    op = PlanBuilder()
-             .values({data})
-             .singleAggregation({}, {partialAgg})
-             .project({"round(a0, cast(2 as integer))"})
-             .planNode();
-
-    assertQuery(op, sql);
-
-    op = PlanBuilder()
-             .values({data})
-             .partialAggregation({}, {partialAgg})
-             .planNode();
-
-    auto partialResults = getResults(op);
-
-    op = PlanBuilder()
-             .values({partialResults})
-             .finalAggregation({}, {fmt::format("{}(a0)", aggName)}, {DOUBLE()})
-             .project({"round(a0, cast(2 as integer))"})
-             .planNode();
-
-    assertQuery(op, sql);
+    testAggregations(
+        {data}, {}, {partialAgg}, {"round(a0, cast(2 as integer))"}, sql);
   }
 };
 
