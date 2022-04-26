@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <folly/init/Init.h>
 #include "gtest/gtest.h"
 
 #include "velox/tpch/gen/TpchGen.h"
@@ -24,6 +25,8 @@ namespace {
 
 using namespace facebook::velox;
 using namespace facebook::velox::tpch;
+
+// Nation tests.
 
 TEST(TpchGenTestNation, default) {
   auto rowVector = genTpchNation();
@@ -90,6 +93,27 @@ TEST(TpchGenTestNation, smallBatchPastEnd) {
   EXPECT_EQ(24, nationKey->valueAt(4));
 }
 
+TEST(TpchGenTestNation, reproducible) {
+  auto rowVector1 = genTpchNation();
+  auto rowVector2 = genTpchNation();
+  auto rowVector3 = genTpchNation();
+
+  for (size_t i = 0; i < rowVector1->size(); ++i) {
+    ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
+    ASSERT_TRUE(rowVector1->equalValueAt(rowVector3.get(), i, i));
+  }
+
+  // Ensure it's also reproducible if we add an offset.
+  auto rowVector4 = genTpchNation(100, 10);
+  auto rowVector5 = genTpchNation(100, 10);
+
+  for (size_t i = 0; i < rowVector4->size(); ++i) {
+    ASSERT_TRUE(rowVector4->equalValueAt(rowVector5.get(), i, i));
+  }
+}
+
+// Orders tests.
+
 TEST(TpchGenTestOrders, batches) {
   auto rowVector1 = genTpchOrders(10'000);
 
@@ -117,11 +141,11 @@ TEST(TpchGenTestOrders, batches) {
   orderDate = rowVector2->childAt(4)->asFlatVector<StringView>();
 
   EXPECT_EQ(40001, orderKey->valueAt(0));
-  EXPECT_EQ("1995-02-25"_sv, orderDate->valueAt(0));
+  EXPECT_EQ("1996-01-02"_sv, orderDate->valueAt(0));
   LOG(INFO) << rowVector2->toString(0);
 
   EXPECT_EQ(80000, orderKey->valueAt(9999));
-  EXPECT_EQ("1995-12-15"_sv, orderDate->valueAt(9999));
+  EXPECT_EQ("1995-01-30"_sv, orderDate->valueAt(9999));
   LOG(INFO) << rowVector2->toString(9999);
 }
 
@@ -135,4 +159,45 @@ TEST(TpchGenTestOrders, lastBatch) {
   EXPECT_EQ(200, rowVector->size());
 }
 
+TEST(TpchGenTestOrders, reproducible) {
+  {
+    auto rowVector1 = genTpchOrders(1000);
+    auto rowVector2 = genTpchOrders(1000);
+    auto rowVector3 = genTpchOrders(1000);
+
+    for (size_t i = 0; i < rowVector1->size(); ++i) {
+      ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
+      ASSERT_TRUE(rowVector1->equalValueAt(rowVector3.get(), i, i));
+    }
+  }
+
+  // Ensure it's also reproducible if we add an offset.
+  {
+    auto rowVector1 = genTpchOrders(1000, 2000);
+    auto rowVector2 = genTpchOrders(1000, 2000);
+    auto rowVector3 = genTpchOrders(1000, 2000);
+
+    for (size_t i = 0; i < rowVector1->size(); ++i) {
+      ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
+      ASSERT_TRUE(rowVector1->equalValueAt(rowVector3.get(), i, i));
+    }
+  }
+
+  // Ensure that if the offsets are different, records will be different.
+  {
+    auto rowVector1 = genTpchOrders(1000, 2000);
+    auto rowVector2 = genTpchOrders(1000, 2001);
+
+    for (size_t i = 0; i < rowVector2->size(); ++i) {
+      ASSERT_FALSE(rowVector1->equalValueAt(rowVector2.get(), i, i));
+    }
+  }
+}
+
 } // namespace
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::init(&argc, &argv, false);
+  return RUN_ALL_TESTS();
+}

@@ -18,6 +18,7 @@
 #include "velox/external/duckdb/tpch/dbgen/include/dbgen/dbgen_gunk.hpp"
 #include "velox/external/duckdb/tpch/dbgen/include/dbgen/dss.h"
 #include "velox/external/duckdb/tpch/dbgen/include/dbgen/dsstypes.h"
+#include "velox/tpch/gen/DBGenIterator.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::tpch {
@@ -88,9 +89,6 @@ RowVectorPtr genTpchOrders(
   size_t rowCount = getRowCount(Table::TBL_ORDERS, scaleFactor);
   size_t vectorSize = std::min(rowCount - offset, maxRows);
 
-  // DBGEN takes the scale factor through this ugly global variable.
-  scale = scaleFactor;
-
   // Create schema and allocate vectors.
   static TypePtr ordersRowType = ROW(
       {
@@ -137,16 +135,13 @@ RowVectorPtr genTpchOrders(
   auto shipPriorityVector = children[7]->asFlatVector<int32_t>();
   auto commentVector = children[8]->asFlatVector<StringView>();
 
-  // load_dists()/cleanup_dists() need to be called to ensure the global
-  // variables required by dbgen are populated.
-  load_dists();
+  auto dbgenIt = DBGenIterator::create(scaleFactor);
   order_t order;
 
   // Dbgen generates the dataset one row at a time, so we need to transpose it
   // into a columnar format.
   for (size_t i = 0; i < vectorSize; ++i) {
-    row_start(ORDER);
-    mk_order(i + offset + 1, &order, 0);
+    dbgenIt.genOrder(i + offset + 1, order);
 
     orderKeyVector->set(i, order.okey);
     custKeyVector->set(i, order.custkey);
@@ -158,11 +153,7 @@ RowVectorPtr genTpchOrders(
     clerkVector->set(i, StringView(order.clerk, strlen(order.clerk)));
     shipPriorityVector->set(i, order.spriority);
     commentVector->set(i, StringView(order.comment, order.clen));
-
-    row_stop_h(ORDER);
   }
-  cleanup_dists();
-
   return std::make_shared<RowVector>(
       pool, ordersRowType, BufferPtr(nullptr), vectorSize, std::move(children));
 }
@@ -174,9 +165,6 @@ RowVectorPtr genTpchNation(
     memory::MemoryPool* pool) {
   size_t rowCount = getRowCount(Table::TBL_NATION, scaleFactor);
   size_t vectorSize = std::min(rowCount - offset, maxRows);
-
-  // DBGEN takes the scale factor through this ugly global variable.
-  scale = scaleFactor;
 
   // Create schema and allocate vectors.
   static TypePtr nationRowType =
@@ -194,24 +182,19 @@ RowVectorPtr genTpchNation(
   auto regionKeyVector = children[2]->asFlatVector<int64_t>();
   auto commentVector = children[3]->asFlatVector<StringView>();
 
-  // load_dists()/cleanup_dists() need to be called to ensure the global
-  // variables required by dbgen are populated.
-  load_dists();
+  auto dbgenIt = DBGenIterator::create(scaleFactor);
   code_t code;
 
   // Dbgen generates the dataset one row at a time, so we need to transpose it
   // into a columnar format.
   for (size_t i = 0; i < vectorSize; ++i) {
-    row_start(NATION);
-    mk_nation(i + offset + 1, &code);
+    dbgenIt.genNation(i + offset + 1, code);
+
     nationKeyVector->set(i, code.code);
     nameVector->set(i, StringView(code.text, strlen(code.text)));
     regionKeyVector->set(i, code.join);
     commentVector->set(i, StringView(code.comment, code.clen));
-    row_stop_h(NATION);
   }
-  cleanup_dists();
-
   return std::make_shared<RowVector>(
       pool, nationRowType, BufferPtr(nullptr), vectorSize, std::move(children));
 }
