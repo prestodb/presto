@@ -170,6 +170,8 @@ class E2EFilterTestBase : public testing::Test {
   // found in sampling is not changed.
   void makeNotNull(int32_t firstRow = 0);
 
+  void makeNotNullRecursive(int32_t firstRow, RowVectorPtr batch);
+
   virtual void writeToMemory(
       const TypePtr& type,
       const std::vector<RowVectorPtr>& batches,

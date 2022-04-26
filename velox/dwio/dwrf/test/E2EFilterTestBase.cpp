@@ -144,26 +144,39 @@ void E2EFilterTestBase::makeStringUnique(const Subfield& field) {
 
 void E2EFilterTestBase::makeNotNull(int32_t firstRow) {
   for (RowVectorPtr batch : batches_) {
-    for (auto& data : batch->children()) {
-      std::vector<vector_size_t> nonNulls;
-      vector_size_t probe = 0;
-      for (auto counter = 0; counter < 23; ++counter) {
-        // Sample with a prime stride for a handful of non-null  values.
-        probe = (probe + 47) % data->size();
-        if (!data->isNullAt(probe)) {
-          nonNulls.push_back(probe);
-        }
+    makeNotNullRecursive(firstRow, batch);
+  }
+}
+
+void E2EFilterTestBase::makeNotNullRecursive(
+    int32_t firstRow,
+    RowVectorPtr batch) {
+  // make all children in nested structs non-null.
+  for (auto& data : batch->children()) {
+    if (data->typeKind() == TypeKind::ROW) {
+      auto rowVector = std::dynamic_pointer_cast<RowVector>(data);
+      makeNotNullRecursive(firstRow, rowVector);
+    }
+  }
+  for (auto& data : batch->children()) {
+    std::vector<vector_size_t> nonNulls;
+    vector_size_t probe = 0;
+    for (auto counter = 0; counter < 23; ++counter) {
+      // Sample with a prime stride for a handful of non-null  values.
+      probe = (probe + 47) % data->size();
+      if (!data->isNullAt(probe)) {
+        nonNulls.push_back(probe);
       }
-      if (nonNulls.empty()) {
-        continue;
-      }
-      int32_t nonNullCounter = 0;
-      for (auto row = firstRow; row < data->size(); ++row) {
-        if (data->isNullAt(row)) {
-          data->copy(
-              data.get(), row, nonNulls[nonNullCounter % nonNulls.size()], 1);
-          ++nonNullCounter;
-        }
+    }
+    if (nonNulls.empty()) {
+      continue;
+    }
+    int32_t nonNullCounter = 0;
+    for (auto row = firstRow; row < data->size(); ++row) {
+      if (data->isNullAt(row)) {
+        data->copy(
+            data.get(), row, nonNulls[nonNullCounter % nonNulls.size()], 1);
+        ++nonNullCounter;
       }
     }
   }
@@ -302,6 +315,15 @@ bool E2EFilterTestBase::loadWithHook(
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       checkLoadWithHook, kind, batch, columnIndex, child, hitRows, rowIndex);
 }
+namespace {
+// Recursively clear extractValues so that eager read is not forced.
+void setLazy(ScanSpec& spec) {
+  spec.setExtractValues(false);
+  for (auto& child : spec.children()) {
+    setLazy(*child);
+  }
+}
+} // namespace
 
 void E2EFilterTestBase::testFilterSpecs(
     const std::vector<FilterSpec>& filterSpecs) {
@@ -321,7 +343,7 @@ void E2EFilterTestBase::testFilterSpecs(
   // Redo the test with LazyVectors for non-filtered columns.
   timeWithFilter = 0;
   for (auto& childSpec : spec->children()) {
-    childSpec->setExtractValues(false);
+    setLazy(*childSpec);
   }
   readWithFilter(spec.get(), batches_, hitRows, timeWithFilter, false);
   timeWithFilter = 0;

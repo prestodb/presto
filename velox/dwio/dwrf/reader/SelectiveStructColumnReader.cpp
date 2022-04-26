@@ -95,10 +95,15 @@ uint64_t SelectiveStructColumnReader::skip(uint64_t numValues) {
   // null. But because struct nulls are injected as nulls in child
   // readers, it is practical to keep the row numbers in terms of the
   // enclosing struct.
+  //
+  // Setting the 'readOffset_' in children is recursive so that nested
+  // nullable structs, where inner structs may advance less because of
+  // nulls above them still end up on the same row in terms of top
+  // level rows.
   for (auto& child : children_) {
     if (child) {
       child->skip(numNonNulls);
-      child->setReadOffset(child->readOffset() + numValues);
+      child->setReadOffsetRecursive(child->readOffset() + numValues);
     }
   }
   return numValues;

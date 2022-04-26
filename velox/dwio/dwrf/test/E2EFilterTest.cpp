@@ -221,3 +221,16 @@ TEST_F(E2EFilterTest, nullCompactRanges) {
       false,
       false);
 }
+
+TEST_F(E2EFilterTest, lazyStruct) {
+  testWithTypes(
+      "long_val:bigint,"
+      "outer_struct: struct<nested1:bigint, "
+      "inner_struct: struct<nested2: bigint>>",
+      [&]() {},
+      true,
+      {"long_val"},
+      10,
+      true,
+      false);
+}
