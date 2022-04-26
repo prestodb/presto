@@ -66,7 +66,9 @@ std::string normalizeFuncName(std::string input) {
       {"or", "or"},
       {"is", "is"},
       {"~~", "like"},
+      {"!~~", "notlike"},
       {"like_escape", "like"},
+      {"not_like_escape", "notlike"},
   };
   auto it = kLookup.find(input);
   return (it == kLookup.end()) ? input : it->second;
@@ -151,10 +153,16 @@ std::shared_ptr<const core::IExpr> parseFunctionExpr(ParsedExpression& expr) {
   for (const auto& c : functionExpr.children) {
     params.emplace_back(parseExpr(*c));
   }
-  return callExpr(
-      normalizeFuncName(functionExpr.function_name),
-      std::move(params),
-      getAlias(expr));
+  auto func = normalizeFuncName(functionExpr.function_name);
+  // NOT LIKE function needs special handling as it maps to two functions
+  // "not" and "like".
+  if (func == "notlike") {
+    auto likeParams = params;
+    params.clear();
+    params.emplace_back(callExpr("like", std::move(likeParams), {}));
+    func = "not";
+  }
+  return callExpr(func, std::move(params), getAlias(expr));
 }
 
 // Parse a comparison (a > b, a = b, etc).

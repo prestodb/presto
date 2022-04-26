@@ -298,6 +298,15 @@ TEST(DuckParserTest, like) {
       parseExpr("name LIKE '%#_%' ESCAPE '#'")->toString());
 }
 
+TEST(DuckParserTest, notLike) {
+  EXPECT_EQ(
+      "not(like(\"name\",\"%b%\"))",
+      parseExpr("name NOT LIKE '%b%'")->toString());
+  EXPECT_EQ(
+      "not(like(\"name\",\"%#_%\",\"#\"))",
+      parseExpr("name NOT LIKE '%#_%' ESCAPE '#'")->toString());
+}
+
 TEST(DuckParserTest, orderBy) {
   auto parse = [](const auto& expr) {
     auto orderBy = parseOrderByExpr(expr);
