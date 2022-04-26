@@ -131,6 +131,16 @@ class Filter {
         testInt64(x[2]) ? -1LL : 0LL,
         testInt64(x[3]) ? -1LL : 0LL);
   }
+
+  __m256i test4xDouble(__m256i x) {
+    auto d = reinterpret_cast<__m256d>(x);
+    return _mm256_setr_epi64x(
+        testDouble(d[0]) ? -1LL : 0LL,
+        testDouble(d[1]) ? -1LL : 0LL,
+        testDouble(d[2]) ? -1LL : 0LL,
+        testDouble(d[3]) ? -1LL : 0LL);
+  }
+
   virtual __m256si test8x32(__m256i x) {
     auto as32 = reinterpret_cast<__m256si>(x);
     return (__m256si)_mm256_setr_epi32(
@@ -142,6 +152,19 @@ class Filter {
         testInt64(simd::Vectors<int32_t>::extract<5>(as32)) ? -1 : 0,
         testInt64(simd::Vectors<int32_t>::extract<6>(as32)) ? -1 : 0,
         testInt64(simd::Vectors<int32_t>::extract<7>(as32)) ? -1 : 0);
+  }
+
+  __m256si test8xFloat(__m256i x) {
+    auto f = reinterpret_cast<__m256>(x);
+    return (__m256si)_mm256_setr_epi32(
+        testFloat(f[0]) ? -1 : 0,
+        testFloat(f[1]) ? -1 : 0,
+        testFloat(f[2]) ? -1 : 0,
+        testFloat(f[3]) ? -1 : 0,
+        testFloat(f[4]) ? -1 : 0,
+        testFloat(f[5]) ? -1 : 0,
+        testFloat(f[6]) ? -1 : 0,
+        testFloat(f[7]) ? -1 : 0);
   }
 
   virtual __m256hi test16x16(__m256i x) {
@@ -1320,12 +1343,14 @@ class MultiRange final : public Filter {
 
   bool testBytes(const char* value, int32_t length) const final;
 
-  bool testLength(int32_t length) const override;
+  bool testLength(int32_t length) const final;
 
   bool testBytesRange(
       std::optional<std::string_view> min,
       std::optional<std::string_view> max,
-      bool hasNull) const override;
+      bool hasNull) const final;
+
+  bool testDoubleRange(double min, double max, bool hasNull) const final;
 
   const std::vector<std::unique_ptr<Filter>>& filters() const {
     return filters_;

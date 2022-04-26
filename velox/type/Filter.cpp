@@ -562,6 +562,20 @@ bool MultiRange::testBytesRange(
   return false;
 }
 
+bool MultiRange::testDoubleRange(double min, double max, bool hasNull) const {
+  if (hasNull && nullAllowed_) {
+    return true;
+  }
+
+  for (const auto& filter : filters_) {
+    if (filter->testDoubleRange(min, max, hasNull)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 std::unique_ptr<Filter> MultiRange::mergeWith(const Filter* other) const {
   switch (other->kind()) {
     // Rules of MultiRange with IsNull/IsNotNull

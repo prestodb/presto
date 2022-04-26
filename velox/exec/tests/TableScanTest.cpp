@@ -1462,6 +1462,28 @@ TEST_P(TableScanTest, bucket) {
   }
 }
 
+TEST_P(TableScanTest, floatingPointNotEqualFilter) {
+  auto vectors = makeVectors(1, 1'000);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vectors);
+  createDuckDbTable(vectors);
+
+  const std::string tableName = "t";
+
+  auto outputType = ROW({"c4"}, {DOUBLE()});
+  auto op = PlanBuilder()
+                .tableScan(tableName, outputType, {}, {"c4 != 0.0"})
+                .planNode();
+  assertQuery(op, {filePath}, "SELECT c4 FROM tmp WHERE c4 != 0.0");
+
+  outputType = ROW({"c3"}, {REAL()});
+  op = PlanBuilder()
+           .tableScan(tableName, outputType, {}, {"c3 != cast(0.0 as REAL)"})
+           .planNode();
+  assertQuery(
+      op, {filePath}, "SELECT c3 FROM tmp WHERE c3 != cast(0.0 as REAL)");
+}
+
 TEST_P(TableScanTest, remainingFilter) {
   auto rowType = ROW(
       {"c0", "c1", "c2", "c3"}, {INTEGER(), INTEGER(), DOUBLE(), BOOLEAN()});

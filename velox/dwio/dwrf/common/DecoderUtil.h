@@ -35,11 +35,17 @@ namespace facebook::velox::dwrf {
 
 template <typename T, typename Filter>
 __m256i testSimd(Filter& filter, __m256i values) {
-  if (std::is_same<T, double>::value || std::is_same<T, int64_t>::value) {
+  if (std::is_same<T, int64_t>::value) {
     return filter.test4x64(values);
   }
-  if (std::is_same<T, float>::value || std::is_same<T, int32_t>::value) {
+  if (std::is_same<T, double>::value) {
+    return filter.test4xDouble(values);
+  }
+  if (std::is_same<T, int32_t>::value) {
     return reinterpret_cast<__m256i>(filter.test8x32(values));
+  }
+  if (std::is_same<T, float>::value) {
+    return reinterpret_cast<__m256i>(filter.test8xFloat(values));
   }
   if (std::is_same<T, int16_t>::value) {
     return reinterpret_cast<__m256i>(filter.test16x16(values));
