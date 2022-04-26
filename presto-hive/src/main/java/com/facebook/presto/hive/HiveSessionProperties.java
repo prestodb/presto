@@ -138,7 +138,6 @@ public final class HiveSessionProperties
     private static final String USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT = "use_record_page_source_for_custom_split";
     public static final String MAX_INITIAL_SPLITS = "max_initial_splits";
     public static final String FILE_SPLITTABLE = "file_splittable";
-    private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -665,12 +664,7 @@ public final class HiveSessionProperties
                         FILE_SPLITTABLE,
                         "If a hive file is splittable when coordinator schedules splits",
                         hiveClientConfig.isFileSplittable(),
-                        true),
-                booleanProperty(
-                        HUDI_METADATA_ENABLED,
-                        "For Hudi tables prefer to fetch the list of file names, sizes and other metadata from the internal metadata table rather than storage",
-                        hiveClientConfig.isHudiMetadataEnabled(),
-                        false));
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1164,10 +1158,5 @@ public final class HiveSessionProperties
     public static boolean isFileSplittable(ConnectorSession session)
     {
         return session.getProperty(FILE_SPLITTABLE, Boolean.class);
-    }
-
-    public static boolean isHudiMetadataEnabled(ConnectorSession session)
-    {
-        return session.getProperty(HUDI_METADATA_ENABLED, Boolean.class);
     }
 }
