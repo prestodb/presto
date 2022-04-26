@@ -159,19 +159,14 @@ RowContainer::RowContainer(
   // A distinct hash table has no aggregates and if the hash table has
   // no nulls, it may be that there are no null flags.
   if (!nullOffsets_.empty()) {
-    // Aggregates start life as null, join dependent columns as non-null.
-    initialNulls_.resize(nullBytes, isJoinBuild_ ? 0x0 : 0xff);
-    // The free flag has an initial value of 0.
-    bits::clearBit(
-        initialNulls_.data(), freeFlagOffset_ - nullOffsets_.front());
-    if (nullableKeys) {
-      for (int32_t i = 0; i < keyTypes_.size(); ++i) {
-        bits::clearBit(initialNulls_.data(), i);
-      }
+    // All flags like free and probed flags and null flags for keys and non-keys
+    // start as 0.
+    initialNulls_.resize(nullBytes, 0x0);
+    // Aggregates are null on a new row.
+    auto aggregateNullOffset = nullableKeys ? keyTypes.size() : 0;
+    for (int32_t i = 0; i < aggregates_.size(); ++i) {
+      bits::setBit(initialNulls_.data(), i + aggregateNullOffset);
     }
-  }
-  if (hasProbedFlag) {
-    bits::clearBit(initialNulls_.data(), probedFlagOffset_ - nullOffsets_[0]);
   }
   normalizedKeySize_ = hasNormalizedKeys_ ? sizeof(normalized_key_t) : 0;
   for (auto i = 0; i < offsets_.size(); ++i) {
@@ -250,8 +245,7 @@ void RowContainer::freeVariableWidthFields(folly::Range<char**> rows) {
           }
         }
       } break;
-      default:
-        break;
+      default:;
     }
   }
 }
@@ -524,6 +518,8 @@ void RowContainer::clear() {
   if (hasNormalizedKeys_) {
     normalizedKeySize_ = sizeof(normalized_key_t);
   }
+  numFreeRows_ = 0;
+  firstFreeRow_ = nullptr;
 }
 
 void RowContainer::setProbedFlag(char** rows, int32_t numRows) {

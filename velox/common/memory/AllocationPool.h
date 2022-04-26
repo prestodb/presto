@@ -70,7 +70,7 @@ class AllocationPool {
   }
 
   // Returns number of bytes left at the end of the current run.
-  int32_t availableInRun() {
+  int32_t availableInRun() const {
     if (!allocation_.numRuns()) {
       return 0;
     }

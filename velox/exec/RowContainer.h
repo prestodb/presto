@@ -19,6 +19,7 @@
 #include "velox/common/memory/MappedMemory.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
+#include "velox/exec/Spill.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/VectorTypeUtils.h"
 namespace facebook::velox::exec {
@@ -203,7 +204,6 @@ class RowContainer {
   static inline uint8_t nullMask(int32_t nullOffset) {
     return 1 << (nullOffset & 7);
   }
-
   // Extracts up to 'maxRows' rows starting at the position of
   // 'iter'. A default constructed or reset iter starts at the
   // beginning. Returns the number of rows written to 'rows'. Returns
@@ -257,8 +257,8 @@ class RowContainer {
       vector_size_t index,
       CompareFlags flags = CompareFlags());
 
-  // Compares the value at 'columnIndex' between 'left' and 'right'. Returns 0
-  // for equal, < 0 for left < right, > 0 otherwise.
+  // Compares the value at 'columnIndex' between 'left' and 'right'. Returns
+  // 0 for equal, < 0 for left < right, > 0 otherwise.
   int32_t compare(
       const char* left,
       const char* right,
@@ -280,8 +280,8 @@ class RowContainer {
     return rowColumns_[index];
   }
 
-  // Bit offset of the probed flag for a full or right outer join  payload. 0 if
-  // not applicable.
+  // Bit offset of the probed flag for a full or right outer join  payload.
+  // 0 if not applicable.
   int32_t probedFlagOffset() const {
     return probedFlagOffset_;
   }
@@ -309,6 +309,15 @@ class RowContainer {
 
   uint64_t allocatedBytes() const {
     return rows_.allocatedBytes() + stringAllocator_.retainedSize();
+  }
+
+  // Returns the number of fixed size rows that can be allocated
+  // without growing the container and the number of unused bytes of
+  // reserved storage for variable length data.
+  std::pair<uint64_t, uint64_t> freeSpace() const {
+    return std::make_pair<uint64_t, uint64_t>(
+        rows_.availableInRun() / fixedRowSize_ + numFreeRows_,
+        stringAllocator_.freeSpace());
   }
 
   // Resets the state to be as after construction. Frees memory for payload.
@@ -345,18 +354,39 @@ class RowContainer {
     return stringAllocator_.mappedMemory();
   }
 
+  // Returns the types of all non-aggregate columns of 'this', keys first.
+  const auto& columnTypes() const {
+    return types_;
+  }
+
+  const auto& keyTypes() const {
+    return keyTypes_;
+  }
+
+  const auto& aggregates() const {
+    return aggregates_;
+  }
+
+  auto numFreeRows() const {
+    return numFreeRows_;
+  }
+
+  const HashStringAllocator& stringAllocator() const {
+    return stringAllocator_;
+  }
+
   // Checks that row and free row counts match and that free list
   // membership is consistent with free flag.
   void checkConsistency();
-
- private:
-  // Offset of the pointer to the next free row on a free row.
-  static constexpr int32_t kNextFreeOffset = 0;
 
   static inline bool
   isNullAt(const char* row, int32_t nullByte, uint8_t nullMask) {
     return (row[nullByte] & nullMask) != 0;
   }
+
+ private:
+  // Offset of the pointer to the next free row on a free row.
+  static constexpr int32_t kNextFreeOffset = 0;
 
   template <typename T>
   static inline T valueAt(const char* group, int32_t offset) {
@@ -749,7 +779,8 @@ class RowContainer {
   // Offset and null indicator offset of non-aggregate fields as a single word.
   // Corresponds pairwise to 'types_'.
   std::vector<RowColumn> rowColumns_;
-  // Bit position of probed flag, 0 if none.
+  // Bit offset of the probed flag for a full or right outer join  payload. 0 if
+  // not applicable.
   int32_t probedFlagOffset_ = 0;
 
   // Bit position of free bit.
@@ -775,6 +806,7 @@ class RowContainer {
 
   AllocationPool rows_;
   HashStringAllocator stringAllocator_;
+
   const RowSerde& serde_;
   // RowContainer requires a valid reference to a vector of aggregates. We use
   // a static constant to ensure the aggregates_ is valid throughout the

@@ -54,15 +54,16 @@ class RowContainerTest : public testing::Test {
 
   std::unique_ptr<RowContainer> makeRowContainer(
       const std::vector<TypePtr>& keyTypes,
-      const std::vector<TypePtr>& dependentTypes) {
+      const std::vector<TypePtr>& dependentTypes,
+      bool isJoinBuild = true) {
     static const std::vector<std::unique_ptr<Aggregate>> kEmptyAggregates;
     return std::make_unique<RowContainer>(
         keyTypes,
-        false,
+        !isJoinBuild,
         kEmptyAggregates,
         dependentTypes,
-        true,
-        true,
+        isJoinBuild,
+        isJoinBuild,
         true,
         true,
         mappedMemory_,
@@ -387,6 +388,11 @@ TEST_F(RowContainerTest, types) {
       }
     }
   }
+  // We check that there is unused space in rows and variable length
+  // data.
+  auto free = data->freeSpace();
+  EXPECT_LT(0, free.first);
+  EXPECT_LT(0, free.second);
 }
 
 TEST_F(RowContainerTest, erase) {
@@ -434,6 +440,32 @@ TEST_F(RowContainerTest, erase) {
   auto newRow = data->newRow();
   EXPECT_EQ(rowSet.end(), rowSet.find(newRow));
   data->checkConsistency();
+  data->clear();
+  EXPECT_EQ(0, data->numRows());
+  auto free = data->freeSpace();
+  EXPECT_EQ(0, free.first);
+  EXPECT_EQ(0, free.second);
+  data->checkConsistency();
+}
+
+TEST_F(RowContainerTest, initialNulls) {
+  std::vector<TypePtr> keys{INTEGER()};
+  std::vector<TypePtr> dependent{INTEGER()};
+  // Join build.
+  auto data = makeRowContainer(keys, dependent, true);
+  auto row = data->newRow();
+  auto isNullAt = [](const RowContainer& data, const char* row, int32_t i) {
+    auto column = data.columnAt(i);
+    return RowContainer::isNullAt(row, column.nullByte(), column.nullMask());
+  };
+
+  EXPECT_FALSE(isNullAt(*data, row, 0));
+  EXPECT_FALSE(isNullAt(*data, row, 1));
+  // Non-join build.
+  data = makeRowContainer(keys, dependent, false);
+  row = data->newRow();
+  EXPECT_FALSE(isNullAt(*data, row, 0));
+  EXPECT_FALSE(isNullAt(*data, row, 1));
 }
 
 TEST_F(RowContainerTest, rowSize) {
