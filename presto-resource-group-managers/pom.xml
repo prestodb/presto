@@ -55,6 +55,12 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>stats</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
