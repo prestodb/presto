@@ -55,6 +55,7 @@ public class ScoreBasedNodeSelection
 
         return candidates.stream()
                 .filter(node -> hint.canIncludeCoordinator() || !node.isCoordinator())
+                .filter(node -> !hint.hasExclusionSet() || !hint.getExclusionSet().contains(node))
                 .sorted(Comparator.comparing(nodeScoreMap::getLong, scoreComparator))
                 .limit(hint.getLimit().orElse(Long.MAX_VALUE))
                 .collect(ImmutableList.toImmutableList());

@@ -20,6 +20,7 @@ import it.unimi.dsi.fastutil.longs.LongComparator;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -57,9 +58,10 @@ public class PowerOfTwoChoiceNodeSelection
     public List<InternalNode> select(List<InternalNode> candidates, NodeSelectionHint hint)
     {
         long count = hint.getLimit().orElse(candidates.size());
-        ImmutableList<InternalNode> candidateNodes = candidates.stream()
+        List<InternalNode> candidateNodes = candidates.stream()
                 .filter(node -> hint.canIncludeCoordinator() || !node.isCoordinator())
-                .collect(toImmutableList());
+                .filter(node -> !hint.hasExclusionSet() || !hint.getExclusionSet().contains(node))
+                .collect(Collectors.toList());
 
         if (candidateNodes.size() < 2 || candidateNodes.size() < count) {
             return candidateNodes;

@@ -7,6 +7,7 @@ import com.facebook.presto.execution.scheduler.nodeSelection.RandomNodeSelection
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import it.unimi.dsi.fastutil.objects.Object2IntArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import org.testng.annotations.Test;
@@ -20,7 +21,7 @@ public class RandomNodeSelectionTest
     public static final int TEST_ITERS = 5;
 
     @Test
-    public void shouldReturnAllNodes()
+    public void testReturnAllNodes()
             throws Exception
     {
         InternalNode node = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, false);
@@ -36,7 +37,7 @@ public class RandomNodeSelectionTest
     }
 
     @Test
-    public void shouldReturnOneNode()
+    public void testReturnOneNode()
             throws Exception
     {
         InternalNode node1 = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, false);
@@ -61,7 +62,7 @@ public class RandomNodeSelectionTest
     }
 
     @Test
-    public void shouldIgnoreCoordinator()
+    public void testIgnoreCoordinator()
             throws Exception
     {
         InternalNode node1 = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, false);
@@ -71,6 +72,32 @@ public class RandomNodeSelectionTest
         NodeSelectionHint hint = NodeSelectionHint.newBuilder()
                 .limit(1)
                 .includeCoordinator(false)
+                .build();
+        NodeSelection selector = new RandomNodeSelection();
+
+        int count = TEST_ITERS;
+        while (count-- > 0) {
+            List<InternalNode> selectedNodes = selector.select(candidateNodes, hint);
+
+            Assert.assertEquals(1, selectedNodes.size());
+            Assert.assertEquals(node1, selectedNodes.get(0));
+        }
+    }
+
+    @Test
+    public void testSkipNodesOnExclusionList()
+            throws Exception
+    {
+        InternalNode node1 = new InternalNode("node1", new URI("/"), NodeVersion.UNKNOWN, false);
+        InternalNode node2 = new InternalNode("node2", new URI("/"), NodeVersion.UNKNOWN, true);
+        InternalNode node3 = new InternalNode("node3", new URI("/"), NodeVersion.UNKNOWN, true);
+        InternalNode node4 = new InternalNode("node4", new URI("/"), NodeVersion.UNKNOWN, false);
+        InternalNode node5 = new InternalNode("node5", new URI("/"), NodeVersion.UNKNOWN, false);
+        ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1, node2, node3, node4, node5);
+        NodeSelectionHint hint = NodeSelectionHint.newBuilder()
+                .limit(1)
+                .includeCoordinator(false)
+                .excludeNodes(ImmutableSet.of(node4, node5))
                 .build();
         NodeSelection selector = new RandomNodeSelection();
 

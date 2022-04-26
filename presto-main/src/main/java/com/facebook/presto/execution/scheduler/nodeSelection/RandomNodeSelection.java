@@ -32,6 +32,7 @@ public class RandomNodeSelection
     {
         return Streams.stream(new ResettableRandomizedIterator<>(candidates))
                 .filter(node -> hint.canIncludeCoordinator() || !node.isCoordinator())
+                .filter(node -> !hint.hasExclusionSet() || !hint.getExclusionSet().contains(node))
                 .limit(hint.getLimit().orElse(Long.MAX_VALUE))
                 .collect(ImmutableList.toImmutableList());
     }

@@ -8,6 +8,7 @@ import com.facebook.presto.execution.scheduler.nodeSelection.PowerOfTwoChoiceNod
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.testng.annotations.Test;
 
@@ -18,12 +19,12 @@ import java.util.UUID;
 
 public class PowerOfTwoChoiceNodeSelectionTest
 {
-    private final InternalNode node1 = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, false);
-    private final InternalNode node2 = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, false);
-    private final InternalNode coordinator = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, true);
+    private final InternalNode node1 = new InternalNode("node1", new URI("/"), NodeVersion.UNKNOWN, false);
+    private final InternalNode node2 = new InternalNode("node2", new URI("/"), NodeVersion.UNKNOWN, false);
+    private final InternalNode coordinator = new InternalNode("coordinator", new URI("/"), NodeVersion.UNKNOWN, true);
 
     @Test
-    public void shouldReturnNodes()
+    public void testReturnNodes()
     {
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1, node2, coordinator);
         NodeSelectionHint hint = NodeSelectionHint.newBuilder()
@@ -44,7 +45,7 @@ public class PowerOfTwoChoiceNodeSelectionTest
     }
 
     @Test
-    public void shouldSkipCoordinatorInSelection()
+    public void testSkipCoordinatorInSelection()
     {
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1, node2, coordinator);
         NodeSelectionHint hint = NodeSelectionHint.newBuilder()
@@ -52,7 +53,7 @@ public class PowerOfTwoChoiceNodeSelectionTest
                 .includeCoordinator(false)
                 .build();
 
-        NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 10 : 1);
+        NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 40 : 1);
 
         NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
 
@@ -66,7 +67,30 @@ public class PowerOfTwoChoiceNodeSelectionTest
     }
 
     @Test
-    public void shouldSelectFromSingleNode()
+    public void testSkipNodesOnExclusionListInSelection()
+    {
+        ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1, node2, coordinator);
+        NodeSelectionHint hint = NodeSelectionHint.newBuilder()
+                .limit(1)
+                .includeCoordinator(true)
+                .excludeNodes(ImmutableSet.of(coordinator))
+                .build();
+
+        NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 40 : 1);
+
+        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
+
+        int count = 5;
+        while (count-- > 0) {
+            List<InternalNode> selectedNodes = selector.select(candidateNodes, hint);
+
+            Assert.assertEquals(1, selectedNodes.size());
+            Assert.assertSame(node2, selectedNodes.get(0));
+        }
+    }
+
+    @Test
+    public void testSelectFromSingleNode()
     {
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1);
         NodeSelectionHint hint = NodeSelectionHint.newBuilder()
@@ -87,7 +111,7 @@ public class PowerOfTwoChoiceNodeSelectionTest
     }
 
     @Test
-    public void shouldSelectFromEmptyCandidateSet()
+    public void testSelectFromEmptyCandidateSet()
     {
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of();
         NodeSelectionHint hint = NodeSelectionHint.newBuilder()

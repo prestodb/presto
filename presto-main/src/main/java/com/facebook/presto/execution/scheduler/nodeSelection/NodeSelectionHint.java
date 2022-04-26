@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.execution.scheduler.nodeSelection;
 
+import com.facebook.presto.metadata.InternalNode;
 import com.google.common.base.Preconditions;
 
+import java.util.Collections;
 import java.util.OptionalLong;
+import java.util.Set;
 
 /**
  * Class helps to provide suitable hint to the selection algorithm
@@ -25,11 +28,13 @@ public class NodeSelectionHint
 {
     private final OptionalLong limit;
     private final boolean includeCoordinator;
+    private final Set<InternalNode> exclusionSet;
 
-    public NodeSelectionHint(OptionalLong limit, boolean includeCoordinator)
+    public NodeSelectionHint(OptionalLong limit, boolean includeCoordinator, Set<InternalNode> exclusionSet)
     {
         this.limit = limit;
         this.includeCoordinator = includeCoordinator;
+        this.exclusionSet = exclusionSet;
     }
 
     public OptionalLong getLimit()
@@ -42,6 +47,14 @@ public class NodeSelectionHint
         return includeCoordinator;
     }
 
+    public Set<InternalNode> getExclusionSet() {
+        return exclusionSet;
+    }
+
+    public boolean hasExclusionSet() {
+        return !exclusionSet.isEmpty();
+    }
+
     public static Builder newBuilder()
     {
         return new Builder();
@@ -50,6 +63,7 @@ public class NodeSelectionHint
     public static class Builder
     {
         private OptionalLong limit = OptionalLong.empty();
+        private Set<InternalNode> exclusionSet = Collections.emptySet();
         private boolean includeCoordinator = true;
 
         public Builder limit(long limit)
@@ -65,9 +79,14 @@ public class NodeSelectionHint
             return this;
         }
 
+        public Builder excludeNodes(Set<InternalNode> exclusionSet) {
+            this.exclusionSet = Collections.unmodifiableSet(exclusionSet);
+            return this;
+        }
+
         public NodeSelectionHint build()
         {
-            return new NodeSelectionHint(limit, includeCoordinator);
+            return new NodeSelectionHint(limit, includeCoordinator, exclusionSet);
         }
     }
 }
