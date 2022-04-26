@@ -123,12 +123,6 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public List<InternalNode> getAllNodes()
-    {
-        return ImmutableList.copyOf(nodeMap.get().get().getAllNodes());
-    }
-
-    @Override
     public InternalNode selectCurrentNode()
     {
         // TODO: this is a hack to force scheduling on the coordinator

@@ -128,12 +128,6 @@ public class SimpleTtlNodeSelector
     }
 
     @Override
-    public List<InternalNode> getAllNodes()
-    {
-        return simpleNodeSelector.getAllNodes();
-    }
-
-    @Override
     public InternalNode selectCurrentNode()
     {
         return simpleNodeSelector.selectCurrentNode();
@@ -175,7 +169,7 @@ public class SimpleTtlNodeSelector
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
-        NodeSelection randomNodeSelection = new RandomNodeSelection(eligibleNodes, minCandidates);
+        NodeSelection randomNodeSelection = new RandomNodeSelection();
 
         boolean splitWaitingForAnyNode = false;
 
@@ -187,7 +181,10 @@ public class SimpleTtlNodeSelector
                         format("Unsupported node selection strategy for TTL scheduling: %s", split.getNodeSelectionStrategy()));
             }
 
-            List<InternalNode> candidateNodes = randomNodeSelection.pickNodes(split);
+            List<InternalNode> candidateNodes = randomNodeSelection.select(eligibleNodes, NodeSelectionHint.newBuilder()
+                    .includeCoordinator(includeCoordinator)
+                    .limit(minCandidates)
+                    .build());
             if (candidateNodes.isEmpty()) {
                 log.warn("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getActiveNodes());
                 throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");

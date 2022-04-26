@@ -138,16 +138,15 @@ public final class SystemPartitioningHandle
 
     public NodePartitionMap getNodePartitionMap(Session session, NodeScheduler nodeScheduler)
     {
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, null);
         List<InternalNode> nodes;
         if (partitioning == SystemPartitioning.COORDINATOR_ONLY) {
-            nodes = ImmutableList.of(nodeSelector.selectCurrentNode());
+            nodes = ImmutableList.of(nodeScheduler.createNodeSelector(session, null).selectCurrentNode());
         }
         else if (partitioning == SystemPartitioning.SINGLE) {
-            nodes = nodeSelector.selectRandomNodes(1);
+            nodes = nodeScheduler.selectNodes(session, null, 1);
         }
         else if (partitioning == SystemPartitioning.FIXED) {
-            nodes = nodeSelector.selectRandomNodes(min(getHashPartitionCount(session), getMaxTasksPerStage(session)));
+            nodes = nodeScheduler.selectNodes(session, null, min(getHashPartitionCount(session), getMaxTasksPerStage(session)));
         }
         else {
             throw new IllegalArgumentException("Unsupported plan distribution " + partitioning);

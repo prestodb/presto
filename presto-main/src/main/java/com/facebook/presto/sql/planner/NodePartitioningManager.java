@@ -142,7 +142,7 @@ public class NodePartitioningManager
                 break;
             case NO_PREFERENCE:
                 bucketToNode = createArbitraryBucketToNode(
-                        nodeScheduler.createNodeSelector(session, connectorId).selectRandomNodes(getMaxTasksPerStage(session)),
+                        nodeScheduler.selectNodes(session, connectorId, getMaxTasksPerStage(session)),
                         connectorBucketNodeMap.getBucketCount());
                 cacheable = false;
                 break;
@@ -190,7 +190,7 @@ public class NodePartitioningManager
                 return new FixedBucketNodeMap(
                         getSplitToBucket(session, partitioningHandle),
                         createArbitraryBucketToNode(
-                                nodeScheduler.createNodeSelector(session, partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session)),
+                                nodeScheduler.selectNodes(session, partitioningHandle.getConnectorId().get(), getMaxTasksPerStage(session)),
                                 connectorBucketNodeMap.getBucketCount()),
                         false);
             default:
@@ -264,7 +264,7 @@ public class NodePartitioningManager
     public List<Node> getNodes(Session session, ConnectorId connectorId)
     {
         // Nodes returned by the node selector are already sorted based on nodeIdentifier. No need to sort again
-        List<InternalNode> allNodes = nodeScheduler.createNodeSelector(session, connectorId).getAllNodes();
+        List<InternalNode> allNodes = nodeScheduler.getAllNodes(session, connectorId);
 
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
         int nodeCount = allNodes.size();

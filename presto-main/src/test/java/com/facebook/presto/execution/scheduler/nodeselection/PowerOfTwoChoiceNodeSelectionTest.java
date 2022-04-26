@@ -1,9 +1,10 @@
 package com.facebook.presto.execution.scheduler.nodeselection;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.execution.scheduler.nodeSelection.INodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelection;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeScorer;
-import com.facebook.presto.execution.scheduler.nodeSelection.PowerOfTwoChoiceNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionHint;
+import com.facebook.presto.execution.scheduler.nodeSelection.PowerOfTwoChoiceNodeSelection;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
@@ -15,7 +16,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.UUID;
 
-public class PowerOfTwoChoiceNodeSelectorTest
+public class PowerOfTwoChoiceNodeSelectionTest
 {
     private final InternalNode node1 = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, false);
     private final InternalNode node2 = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, false);
@@ -25,13 +26,13 @@ public class PowerOfTwoChoiceNodeSelectorTest
     public void shouldReturnNodes()
     {
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1, node2, coordinator);
-        INodeSelector.NodeSelectionHint hint = INodeSelector.NodeSelectionHint.newBuilder()
+        NodeSelectionHint hint = NodeSelectionHint.newBuilder()
                 .limit(1)
                 .build();
 
         NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 10 : 1);
 
-        INodeSelector selector = new PowerOfTwoChoiceNodeSelector(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
 
         int count = 5;
         while (count-- > 0) {
@@ -46,14 +47,14 @@ public class PowerOfTwoChoiceNodeSelectorTest
     public void shouldSkipCoordinatorInSelection()
     {
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1, node2, coordinator);
-        INodeSelector.NodeSelectionHint hint = INodeSelector.NodeSelectionHint.newBuilder()
+        NodeSelectionHint hint = NodeSelectionHint.newBuilder()
                 .limit(1)
                 .includeCoordinator(false)
                 .build();
 
         NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 10 : 1);
 
-        INodeSelector selector = new PowerOfTwoChoiceNodeSelector(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
 
         int count = 5;
         while (count-- > 0) {
@@ -68,13 +69,13 @@ public class PowerOfTwoChoiceNodeSelectorTest
     public void shouldSelectFromSingleNode()
     {
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1);
-        INodeSelector.NodeSelectionHint hint = INodeSelector.NodeSelectionHint.newBuilder()
+        NodeSelectionHint hint = NodeSelectionHint.newBuilder()
                 .limit(10)
                 .build();
 
         NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 10 : 1);
 
-        INodeSelector selector = new PowerOfTwoChoiceNodeSelector(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
 
         int count = 5;
         while (count-- > 0) {
@@ -89,13 +90,13 @@ public class PowerOfTwoChoiceNodeSelectorTest
     public void shouldSelectFromEmptyCandidateSet()
     {
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of();
-        INodeSelector.NodeSelectionHint hint = INodeSelector.NodeSelectionHint.newBuilder()
+        NodeSelectionHint hint = NodeSelectionHint.newBuilder()
                 .limit(10)
                 .build();
 
         NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 10 : 1);
 
-        INodeSelector selector = new PowerOfTwoChoiceNodeSelector(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
 
         int count = 5;
         while (count-- > 0) {
@@ -105,7 +106,7 @@ public class PowerOfTwoChoiceNodeSelectorTest
         }
     }
 
-    public PowerOfTwoChoiceNodeSelectorTest()
+    public PowerOfTwoChoiceNodeSelectionTest()
             throws URISyntaxException
     {}
 }

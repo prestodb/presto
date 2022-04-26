@@ -69,6 +69,7 @@ import java.net.URI;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -246,7 +247,7 @@ public class TestNodeScheduler
         Set<Split> splits = ImmutableSet.of(split);
 
         Map.Entry<InternalNode, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments().entries());
-        assertEquals(assignment.getKey().getHostAndPort(), split.getPreferredNodes(new ModularHashingNodeProvider(nodeSelector.getAllNodes())).get(0));
+        assertEquals(assignment.getKey().getHostAndPort(), split.getPreferredNodes(new ModularHashingNodeProvider(nodeScheduler.getAllNodes(session, CONNECTOR_ID))).get(0));
         assertEquals(assignment.getValue(), split);
     }
 
@@ -364,7 +365,7 @@ public class TestNodeScheduler
         int rack1 = 0;
         int rack2 = 0;
         for (Split split : unassigned) {
-            String rack = topology.locate(split.getPreferredNodes(new ModularHashingNodeProvider(nodeSelector.getAllNodes())).get(0)).getSegments().get(0);
+            String rack = topology.locate(split.getPreferredNodes(new ModularHashingNodeProvider(nodeScheduler.getAllNodes(session, CONNECTOR_ID))).get(0)).getSegments().get(0);
             switch (rack) {
                 case "rack1":
                     rack1++;
@@ -442,14 +443,13 @@ public class TestNodeScheduler
         // Query is estimated to take 20 mins and has been executing for 3 mins, i.e, 17 mins left
         // So only node2 and node3 have enough TTL to run additional work
         Session session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(20, TimeUnit.MINUTES));
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
         queryManager.setExecutionTime(new Duration(3, TimeUnit.MINUTES));
-        assertEquals(ImmutableSet.copyOf(nodeSelector.selectRandomNodes(3)), ImmutableSet.of(node2, node3));
+        assertEquals(ImmutableSet.copyOf(nodeScheduler.selectNodes(session, CONNECTOR_ID, 3)), ImmutableSet.of(node2, node3));
 
         // Query is estimated to take 1 hour and has been executing for 45 mins, i.e, 15 mins left
         // So only node2 and node3 have enough TTL to work on new splits
         session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(1, TimeUnit.HOURS));
-        nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
         queryManager.setExecutionTime(new Duration(45, TimeUnit.MINUTES));
         Set<Split> splits = new HashSet<>();
         for (int i = 0; i < 2; i++) {
@@ -960,8 +960,8 @@ public class TestNodeScheduler
         long fullyLoadedStandardSplitWeight = weightLimitPerNode + weightLimitPendingPerTask;
 
         // Single worker node
-        nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 1);
-        InternalNode workerNode = nodeSelector.selectRandomNodes(1).get(0);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 1);
+        InternalNode workerNode = nodeScheduler.selectNodes(session, CONNECTOR_ID, 1).get(0);
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
 
         TaskId taskId = new TaskId("test", 1, 0, 1);
@@ -1160,6 +1160,20 @@ public class TestNodeScheduler
         internalNodes = splitPlacementResult.getAssignments().keySet();
         assertEquals(internalNodes.size(), 2);
         assertTrue(internalNodesSecondCall.containsAll(internalNodes));
+    }
+
+    @Test
+    public void testGetAllNodes() {
+        List<InternalNode> result = nodeScheduler.getAllNodes(session, null);
+
+        assertEquals(result, nodeManager.getAllNodes().getActiveNodes());
+    }
+
+    @Test
+    public void testGetAllNodesForConnectorId() {
+        List<InternalNode> result = nodeScheduler.getAllNodes(session, CONNECTOR_ID);
+
+        assertEquals(result, nodeManager.getActiveConnectorNodes(CONNECTOR_ID));
     }
 
     private List<RemoteTask> getRemoteTableScanTask(SplitPlacementResult splitPlacementResult)

@@ -14,17 +14,22 @@
 package com.facebook.presto.execution.scheduler.nodeSelection;
 
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.metadata.Split;
 
 import java.util.List;
 
+/**
+ * Represents algorithm to select nodes from a set of candidates
+ * based on certain user provided hint.
+ */
 public interface NodeSelection
 {
     /**
+     * Selects the elements from candidate nodes and returns based on
+     * hint passed.
      *
-     * Pick nodes according to different strategies for a split
-     * @param split
-     * @return picked nodes
+     * @param candidates Nodes to select from
+     * @param hint Hint to the selection algorithm
+     * @return List of selected nodes.
      */
-    List<InternalNode> pickNodes(Split split);
+    List<InternalNode> select(List<InternalNode> candidates, NodeSelectionHint hint);
 }

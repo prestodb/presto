@@ -343,7 +343,7 @@ public class SectionExecutionFactory
                                 .collect(toImmutableList());
                     }
                     else {
-                        stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, connectorId).selectRandomNodes(maxTasksPerStage));
+                        stageNodeList = new ArrayList<>(nodeScheduler.selectNodes(session, connectorId, maxTasksPerStage));
                     }
                 }
                 else {

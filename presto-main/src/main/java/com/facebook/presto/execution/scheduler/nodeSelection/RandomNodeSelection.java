@@ -15,33 +15,24 @@ package com.facebook.presto.execution.scheduler.nodeSelection;
 
 import com.facebook.presto.execution.scheduler.ResettableRandomizedIterator;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.metadata.Split;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
 import java.util.List;
 
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
-import static java.util.Objects.requireNonNull;
-
+/**
+ * This NodeSelector makes a selection from the candidates randomly. The selection
+ * is strictly random and based on ResettableRandomizedIterator
+ */
 public class RandomNodeSelection
         implements NodeSelection
 {
-    private final int minCandidates;
-
-    private final ResettableRandomizedIterator<InternalNode> randomCandidates;
-
-    public RandomNodeSelection(
-            List<InternalNode> eligibleNodes,
-            int minCandidates)
-    {
-        requireNonNull(eligibleNodes, "eligibleNodes is null");
-        this.randomCandidates = new ResettableRandomizedIterator<>(eligibleNodes);
-        this.minCandidates = minCandidates;
-    }
-
     @Override
-    public List<InternalNode> pickNodes(Split split)
+    public List<InternalNode> select(List<InternalNode> candidates, NodeSelectionHint hint)
     {
-        randomCandidates.reset();
-        return selectNodes(minCandidates, randomCandidates);
+        return Streams.stream(new ResettableRandomizedIterator<>(candidates))
+                .filter(node -> hint.canIncludeCoordinator() || !node.isCoordinator())
+                .limit(hint.getLimit().orElse(Long.MAX_VALUE))
+                .collect(ImmutableList.toImmutableList());
     }
 }

@@ -122,12 +122,6 @@ public class SimpleNodeSelector
     }
 
     @Override
-    public List<InternalNode> getAllNodes()
-    {
-        return ImmutableList.copyOf(nodeMap.get().get().getAllNodes());
-    }
-
-    @Override
     public InternalNode selectCurrentNode()
     {
         // TODO: this is a hack to force scheduling on the coordinator
@@ -148,7 +142,7 @@ public class SimpleNodeSelector
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
-        NodeSelection randomNodeSelection = new RandomNodeSelection(eligibleNodes, minCandidates);
+        NodeSelection randomNodeSelection = new RandomNodeSelection();
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
@@ -171,11 +165,17 @@ public class SimpleNodeSelector
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder()
                             .addAll(candidateNodes)
-                            .addAll(randomNodeSelection.pickNodes(split))
+                            .addAll(randomNodeSelection.select(eligibleNodes, NodeSelectionHint.newBuilder()
+                                    .includeCoordinator(includeCoordinator)
+                                    .limit(minCandidates)
+                                    .build()))
                             .build();
                     break;
                 case NO_PREFERENCE:
-                    candidateNodes = randomNodeSelection.pickNodes(split);
+                    candidateNodes = randomNodeSelection.select(eligibleNodes, NodeSelectionHint.newBuilder()
+                            .includeCoordinator(includeCoordinator)
+                            .limit(minCandidates)
+                            .build());
                     break;
                 default:
                     throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", split.getNodeSelectionStrategy()));

@@ -18,8 +18,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionHint;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.RandomNodeSelection;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleNodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
@@ -31,6 +34,8 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SplitWeight;
+import com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo;
+import com.facebook.presto.spi.ttl.NodeTtl;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.google.common.base.Supplier;
 import com.google.common.collect.HashMultimap;
@@ -47,13 +52,16 @@ import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
@@ -66,6 +74,7 @@ import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.addExact;
@@ -175,6 +184,66 @@ public class NodeScheduler
             counters.put(i == 0 ? "all" : networkLocationSegmentNames.get(i - 1), topologicalSplitCounters.get(i));
         }
         return counters.build();
+    }
+
+    public List<InternalNode> getAllNodes(Session session, ConnectorId connectorId)
+    {
+        return createNodeMapSupplier(connectorId).get().getAllNodes();
+    }
+
+    public List<InternalNode> getActiveNodes(Session session, ConnectorId connectorId)
+    {
+        return createNodeMapSupplier(connectorId).get().getActiveNodes();
+    }
+
+    public List<InternalNode> selectNodes(Session session, ConnectorId connectorId, int limit)
+    {
+        NodeSelection selection = new RandomNodeSelection();
+        NodeSelectionHint hint = NodeSelectionHint.newBuilder()
+                .includeCoordinator(includeCoordinator)
+                .limit(limit)
+                .build();
+        List<InternalNode> candidateNodes = getCandidateNodes(session, connectorId);
+        return selection.select(candidateNodes, hint);
+    }
+
+    private List<InternalNode> getCandidateNodes(Session session, ConnectorId connectorId)
+    {
+        ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = getResourceAwareSchedulingStrategy(session);
+
+        if (resourceAwareSchedulingStrategy != TTL) {
+            return getActiveNodes(session, connectorId);
+        }
+
+        Map<InternalNode, NodeTtl> nodeTtlInfo = nodeTtlFetcherManager.getAllTtls();
+
+        Map<InternalNode, Optional<ConfidenceBasedTtlInfo>> ttlInfo = nodeTtlInfo
+                .entrySet()
+                .stream()
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().getTtlInfo()
+                                .stream()
+                                .min(Comparator.comparing(ConfidenceBasedTtlInfo::getExpiryInstant))));
+
+        List<InternalNode> activeNodes = getActiveNodes(session, connectorId);
+        Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining(session);
+
+        return activeNodes
+                .stream()
+                .filter(ttlInfo::containsKey)
+                .filter(node -> ttlInfo.get(node).isPresent())
+                .filter(node -> SimpleTtlNodeSelector.isTtlEnough(ttlInfo.get(node).get(), estimatedExecutionTimeRemaining))
+                .collect(toImmutableList());
+    }
+
+    private Duration getEstimatedExecutionTimeRemaining(Session session)
+    {
+        Duration estimatedExecutionTime = session.getResourceEstimates().getExecutionTime().orElse(simpleTtlNodeSelectorConfig.getDefaultExecutionTimeEstimate());
+        double totalEstimatedExecutionTime = estimatedExecutionTime.getValue(TimeUnit.MILLISECONDS);
+        double elapsedExecutionTime = queryManager.getQueryInfo(session.getQueryId()).getQueryStats().getExecutionTime().getValue(TimeUnit.MILLISECONDS);
+        double estimatedExecutionTimeRemaining = Math.max(totalEstimatedExecutionTime - elapsedExecutionTime, 0);
+        return new Duration(estimatedExecutionTimeRemaining, TimeUnit.MILLISECONDS);
     }
 
     public NodeSelector createNodeSelector(Session session, ConnectorId connectorId)

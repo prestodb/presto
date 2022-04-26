@@ -1,9 +1,9 @@
 package com.facebook.presto.execution.scheduler.nodeselection;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.execution.scheduler.nodeSelection.INodeSelector;
-import com.facebook.presto.execution.scheduler.nodeSelection.INodeSelector.NodeSelectionHint;
-import com.facebook.presto.execution.scheduler.nodeSelection.RandomNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionHint;
+import com.facebook.presto.execution.scheduler.nodeSelection.RandomNodeSelection;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
@@ -15,7 +15,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
-public class RandomNodeSelectorTest
+public class RandomNodeSelectionTest
 {
     public static final int TEST_ITERS = 5;
 
@@ -26,12 +26,13 @@ public class RandomNodeSelectorTest
         InternalNode node = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, false);
         InternalNode coordinator = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, true);
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node, coordinator);
-        NodeSelectionHint hint = NodeSelectionHint.newBuilder().build();
-        INodeSelector selector = new RandomNodeSelector();
+        NodeSelectionHint hint = NodeSelectionHint.newBuilder().includeCoordinator(true).build();
+        NodeSelection selector = new RandomNodeSelection();
 
         List<InternalNode> selectedNodes = selector.select(candidateNodes, hint);
 
-        Assert.assertEquals(candidateNodes, selectedNodes);
+        Assert.assertTrue(selectedNodes.contains(node));
+        Assert.assertTrue(selectedNodes.contains(coordinator));
     }
 
     @Test
@@ -43,7 +44,7 @@ public class RandomNodeSelectorTest
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1, node2);
         NodeSelectionHint hint = NodeSelectionHint.newBuilder().limit(1).build();
 
-        INodeSelector selector = new RandomNodeSelector();
+        NodeSelection selector = new RandomNodeSelection();
 
         Object2IntMap<InternalNode> countMap = new Object2IntArrayMap<>(2);
         int count = TEST_ITERS;
@@ -71,7 +72,7 @@ public class RandomNodeSelectorTest
                 .limit(1)
                 .includeCoordinator(false)
                 .build();
-        INodeSelector selector = new RandomNodeSelector();
+        NodeSelection selector = new RandomNodeSelection();
 
         int count = TEST_ITERS;
         while (count-- > 0) {

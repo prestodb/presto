@@ -25,19 +25,15 @@ import java.util.Set;
 
 public interface NodeSelector
 {
+    // DynamicSplitPlacementPolicy
     void lockDownNodes();
 
+    // DynamicSplitPlacementPolicy
     List<InternalNode> getActiveNodes();
-
-    List<InternalNode> getAllNodes();
 
     InternalNode selectCurrentNode();
 
-    default List<InternalNode> selectRandomNodes(int limit)
-    {
-        return selectRandomNodes(limit, ImmutableSet.of());
-    }
-
+    // Used in ScaledWriterScheduler
     List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes);
 
     /**
