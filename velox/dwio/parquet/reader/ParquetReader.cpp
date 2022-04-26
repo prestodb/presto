@@ -50,6 +50,24 @@ std::unique_ptr<::duckdb::ConstantFilter> constantEqualFilter(
       ::duckdb::ExpressionType::COMPARE_EQUAL, std::move(value));
 }
 
+void buildConjunctOrFilter(
+    uint64_t colIdx,
+    ::duckdb::LogicalType type,
+    const std::vector<int64_t>& values,
+    ::duckdb::TableFilterSet& filters) {
+  if (values.size() == 1) {
+    filters.PushFilter(
+        colIdx, constantEqualFilter(makeValue(type, *values.begin())));
+  } else {
+    auto duckFilter = std::make_unique<::duckdb::ConjunctionOrFilter>();
+    for (const auto& value : values) {
+      duckFilter->child_filters.push_back(
+          constantEqualFilter(makeValue(type, value)));
+    }
+    filters.PushFilter(colIdx, std::move(duckFilter));
+  }
+}
+
 void toDuckDbFilter(
     uint64_t colIdx,
     ::duckdb::LogicalType type,
@@ -140,24 +158,20 @@ void toDuckDbFilter(
       }
       break;
     }
+    case common::FilterKind::kBigintValuesUsingBitmask: {
+      auto valuesFilter =
+          static_cast<common::BigintValuesUsingBitmask*>(filter);
+      const auto values = valuesFilter->values();
+      buildConjunctOrFilter(colIdx, type, values, filters);
+      break;
+    }
     case common::FilterKind::kBigintValuesUsingHashTable: {
       auto valuesFilter =
           static_cast<common::BigintValuesUsingHashTable*>(filter);
       const auto& values = valuesFilter->values();
-      if (values.size() == 1) {
-        filters.PushFilter(
-            colIdx, constantEqualFilter(makeValue(type, *values.begin())));
-      } else {
-        auto duckFilter = std::make_unique<::duckdb::ConjunctionOrFilter>();
-        for (const auto& value : values) {
-          duckFilter->child_filters.push_back(
-              constantEqualFilter(makeValue(type, value)));
-        }
-        filters.PushFilter(colIdx, std::move(duckFilter));
-      }
+      buildConjunctOrFilter(colIdx, type, values, filters);
       break;
     }
-
     case common::FilterKind::kAlwaysFalse:
     case common::FilterKind::kAlwaysTrue:
     case common::FilterKind::kIsNull:

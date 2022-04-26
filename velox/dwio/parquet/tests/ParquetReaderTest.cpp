@@ -15,14 +15,15 @@
  */
 
 #include "velox/dwio/parquet/reader/ParquetReader.h"
-#include <gtest/gtest.h>
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
+#include "velox/type/Filter.h"
 #include "velox/type/Type.h"
 #include "velox/type/tests/FilterBuilder.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/tests/VectorMaker.h"
 
 #include <fmt/core.h>
+#include <gtest/gtest.h>
 #include <array>
 
 using namespace ::testing;
@@ -237,6 +238,22 @@ TEST_F(ParquetReaderTest, readSampleBigintRangeFilter) {
   // a BETWEEN 16 AND 20
   FilterMap filters;
   filters.insert({"a", common::test::between(16, 20)});
+
+  auto expected = vectorMaker_->rowVector(
+      {rangeVector<int64_t>(5, 16), rangeVector<double>(5, 16)});
+
+  assertReadWithFilters(
+      "sample.parquet", sampleSchema(), std::move(filters), expected);
+}
+
+TEST_F(ParquetReaderTest, readSampleBigintValuesUsingBitmaskFilter) {
+  // a in 16, 17, 18, 19, 20.
+  std::vector<int64_t> values{16, 17, 18, 19, 20};
+  auto bigintBitmaskFilter =
+      std::make_unique<facebook::velox::common::BigintValuesUsingBitmask>(
+          16, 20, std::move(values), false);
+  FilterMap filters;
+  filters.insert({"a", std::move(bigintBitmaskFilter)});
 
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(5, 16), rangeVector<double>(5, 16)});

@@ -767,6 +767,8 @@ class BigintValuesUsingBitmask final : public Filter {
     }
   }
 
+  std::vector<int64_t> values() const;
+
   bool testInt64(int64_t value) const final;
 
   bool testInt64Range(int64_t min, int64_t max, bool hasNull) const final;
