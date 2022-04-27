@@ -59,6 +59,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -1080,6 +1081,37 @@ public class PlanFragmenter
                 default:
                     throw new UnsupportedOperationException("Unknown distribution type: " + node.getDistributionType());
             }
+        }
+
+        @Override
+        public GroupedExecutionProperties visitMergeJoin(MergeJoinNode node, Void context)
+        {
+            GroupedExecutionProperties left = node.getLeft().accept(this, null);
+            GroupedExecutionProperties right = node.getRight().accept(this, null);
+
+            if (!groupedExecutionEnabled) {
+                throw new PrestoException(NOT_SUPPORTED, "Merge join can only be enabled when grouped execution is enabled");
+            }
+
+            if (left.currentNodeCapable && right.currentNodeCapable) {
+                checkState(left.totalLifespans == right.totalLifespans, format("Mismatched number of lifespans on left(%s) and right(%s) side of join", left.totalLifespans, right.totalLifespans));
+                return new GroupedExecutionProperties(
+                        true,
+                        true,
+                        ImmutableList.<PlanNodeId>builder()
+                                .addAll(left.capableTableScanNodes)
+                                .addAll(right.capableTableScanNodes)
+                                .build(),
+                        left.totalLifespans,
+                        left.recoveryEligible && right.recoveryEligible);
+            }
+
+            // Grouped execution property is checked and added in fragmenting phase, and grouped execution is a prerequisite for merge join plan.
+            // So when we detect grouped execution can't be enabled for MergeJoinNode, the plan becomes not valid, thus we have to abort by throwing exception
+            // The ideal solution is changing the plan back to hash aggregation
+            // But given the the logic order: planning -> fragmenting -> scheduling, we're not able to go back to previous step
+            // TODO: move the grouped execution check to planning phase to switch to hash aggregation when grouped execution can't be enabled
+            throw new PrestoException(NOT_SUPPORTED, "Merge join node's left and right nodes are not capable of grouped execution");
         }
 
         @Override
