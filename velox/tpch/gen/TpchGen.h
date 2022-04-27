@@ -38,7 +38,7 @@ namespace facebook::velox::tpch {
 enum class Table {
   TBL_PART,
   TBL_SUPPLIER,
-  TBL_PARTSUP,
+  TBL_PARTSUPP,
   TBL_CUSTOMER,
   TBL_ORDERS,
   TBL_LINEITEM,
@@ -108,6 +108,63 @@ RowVectorPtr genTpchOrders(
 RowVectorPtr genTpchLineItem(
     size_t maxOrdersRows = 10000,
     size_t ordersOffset = 0,
+    size_t scaleFactor = 1,
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+
+/// Returns a row vector containing at most `maxRows` rows of the "part"
+/// table, starting at `offset`, and given the scale factor. The row vector
+/// returned has the following schema:
+///
+///  p_partkey: BIGINT
+///  p_name: VARCHAR
+///  p_mfgr: VARCHAR
+///  p_brand: VARCHAR
+///  p_type: VARCHAR
+///  p_size: INTEGER
+///  p_container: VARCHAR
+///  p_retailprice: DOUBLE
+///  p_comment: VARCHAR
+///
+RowVectorPtr genTpchPart(
+    size_t maxRows = 10000,
+    size_t offset = 0,
+    size_t scaleFactor = 1,
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+
+/// Returns a row vector containing at most `maxRows` rows of the "supplier"
+/// table, starting at `offset`, and given the scale factor. The row vector
+/// returned has the following schema:
+///
+///  s_suppkey: BIGINT
+///  s_name: VARCHAR
+///  s_address: VARCHAR
+///  s_nationkey: BIGINT
+///  s_phone: VARCHAR
+///  s_acctbal: DOUBLE
+///  s_comment: VARCHAR
+///
+RowVectorPtr genTpchSupplier(
+    size_t maxRows = 10000,
+    size_t offset = 0,
+    size_t scaleFactor = 1,
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+
+/// Returns a row vector containing at most `maxRows` rows of the "partsupp"
+/// table, starting at `offset`, and given the scale factor. The row vector
+/// returned has the following schema:
+///
+///  ps_partkey: BIGINT
+///  ps_suppkey: BIGINT
+///  ps_availqty: INTEGER
+///  ps_supplycost: DOUBLE
+///  ps_comment: VARCHAR
+///
+RowVectorPtr genTpchPartSupp(
+    size_t maxRows = 10000,
+    size_t offset = 0,
     size_t scaleFactor = 1,
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());

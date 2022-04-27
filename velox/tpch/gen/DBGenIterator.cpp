@@ -95,4 +95,16 @@ void DBGenIterator::genOrder(size_t index, order_t& order) {
   row_stop_h(ORDER);
 }
 
+void DBGenIterator::genSupplier(size_t index, supplier_t& supplier) {
+  row_start(SUPP);
+  mk_supp(index, &supplier);
+  row_stop_h(SUPP);
+}
+
+void DBGenIterator::genPart(size_t index, part_t& part) {
+  row_start(PART);
+  mk_part(index, &part);
+  row_stop_h(PART);
+}
+
 } // namespace facebook::velox::tpch

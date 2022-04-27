@@ -65,7 +65,7 @@ constexpr size_t getRowCount(Table table, size_t scaleFactor) {
       return 200'000 * scaleFactor;
     case Table::TBL_SUPPLIER:
       return 10'000 * scaleFactor;
-    case Table::TBL_PARTSUP:
+    case Table::TBL_PARTSUPP:
       return 800'000 * scaleFactor;
     case Table::TBL_CUSTOMER:
       return 150'000 * scaleFactor;
@@ -301,6 +301,231 @@ RowVectorPtr genTpchLineItem(
       lineItemRowType,
       BufferPtr(nullptr),
       lineItemCount,
+      std::move(children));
+}
+
+RowVectorPtr genTpchPart(
+    size_t maxRows,
+    size_t offset,
+    size_t scaleFactor,
+    memory::MemoryPool* pool) {
+  size_t rowCount = getRowCount(Table::TBL_PART, scaleFactor);
+  size_t vectorSize = std::min(rowCount - offset, maxRows);
+
+  // Create schema and allocate vectors.
+  static TypePtr partRowType = ROW(
+      {
+          "p_partkey",
+          "p_name",
+          "p_mfgr",
+          "p_brand",
+          "p_type",
+          "p_size",
+          "p_container",
+          "p_retailprice",
+          "p_comment",
+      },
+      {
+          BIGINT(),
+          VARCHAR(),
+          VARCHAR(),
+          VARCHAR(),
+          VARCHAR(),
+          INTEGER(),
+          VARCHAR(),
+          DOUBLE(),
+          VARCHAR(),
+      });
+  std::vector<VectorPtr> children = {
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(INTEGER(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(DOUBLE(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+  };
+
+  auto partKeyVector = children[0]->asFlatVector<int64_t>();
+  auto nameVector = children[1]->asFlatVector<StringView>();
+  auto mfgrVector = children[2]->asFlatVector<StringView>();
+  auto brandVector = children[3]->asFlatVector<StringView>();
+  auto typeVector = children[4]->asFlatVector<StringView>();
+  auto sizeVector = children[5]->asFlatVector<int32_t>();
+  auto containerVector = children[6]->asFlatVector<StringView>();
+  auto retailPriceVector = children[7]->asFlatVector<double>();
+  auto commentVector = children[8]->asFlatVector<StringView>();
+
+  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  part_t part;
+
+  // Dbgen generates the dataset one row at a time, so we need to transpose it
+  // into a columnar format.
+  for (size_t i = 0; i < vectorSize; ++i) {
+    dbgenIt.genPart(i + offset + 1, part);
+
+    partKeyVector->set(i, part.partkey);
+    nameVector->set(i, StringView(part.name, strlen(part.name)));
+    mfgrVector->set(i, StringView(part.mfgr, strlen(part.mfgr)));
+    brandVector->set(i, StringView(part.brand, strlen(part.brand)));
+    typeVector->set(i, StringView(part.type, part.tlen));
+    sizeVector->set(i, part.size);
+    containerVector->set(i, StringView(part.container, strlen(part.container)));
+    retailPriceVector->set(i, part.retailprice);
+    commentVector->set(i, StringView(part.comment, part.clen));
+  }
+  return std::make_shared<RowVector>(
+      pool, partRowType, BufferPtr(nullptr), vectorSize, std::move(children));
+}
+
+RowVectorPtr genTpchSupplier(
+    size_t maxRows,
+    size_t offset,
+    size_t scaleFactor,
+    memory::MemoryPool* pool) {
+  size_t rowCount = getRowCount(Table::TBL_SUPPLIER, scaleFactor);
+  size_t vectorSize = std::min(rowCount - offset, maxRows);
+
+  // Create schema and allocate vectors.
+  static TypePtr supplierRowType = ROW(
+      {
+          "s_suppkey",
+          "s_name",
+          "s_address",
+          "s_nationkey",
+          "s_phone",
+          "s_acctbal",
+          "s_comment",
+      },
+      {
+          BIGINT(),
+          VARCHAR(),
+          VARCHAR(),
+          BIGINT(),
+          VARCHAR(),
+          DOUBLE(),
+          VARCHAR(),
+      });
+  std::vector<VectorPtr> children = {
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(DOUBLE(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+  };
+
+  auto suppKeyVector = children[0]->asFlatVector<int64_t>();
+  auto nameVector = children[1]->asFlatVector<StringView>();
+  auto addressVector = children[2]->asFlatVector<StringView>();
+  auto nationKeyVector = children[3]->asFlatVector<int64_t>();
+  auto phoneVector = children[4]->asFlatVector<StringView>();
+  auto acctbalVector = children[5]->asFlatVector<double>();
+  auto commentVector = children[6]->asFlatVector<StringView>();
+
+  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  supplier_t supp;
+
+  // Dbgen generates the dataset one row at a time, so we need to transpose it
+  // into a columnar format.
+  for (size_t i = 0; i < vectorSize; ++i) {
+    dbgenIt.genSupplier(i + offset + 1, supp);
+
+    suppKeyVector->set(i, supp.suppkey);
+    nameVector->set(i, StringView(supp.name, strlen(supp.name)));
+    addressVector->set(i, StringView(supp.address, supp.alen));
+    nationKeyVector->set(i, supp.nation_code);
+    phoneVector->set(i, StringView(supp.phone, strlen(supp.phone)));
+    acctbalVector->set(i, supp.acctbal);
+    commentVector->set(i, StringView(supp.comment, supp.clen));
+  }
+  return std::make_shared<RowVector>(
+      pool,
+      supplierRowType,
+      BufferPtr(nullptr),
+      vectorSize,
+      std::move(children));
+}
+
+RowVectorPtr genTpchPartSupp(
+    size_t maxRows,
+    size_t offset,
+    size_t scaleFactor,
+    memory::MemoryPool* pool) {
+  size_t rowCount = getRowCount(Table::TBL_PARTSUPP, scaleFactor);
+  size_t vectorSize = std::min(rowCount - offset, maxRows);
+
+  // Create schema and allocate vectors.
+  static TypePtr partSuppRowType = ROW(
+      {
+          "ps_partkey",
+          "ps_suppkey",
+          "ps_availqty",
+          "ps_supplycost",
+          "ps_comment",
+      },
+      {
+          BIGINT(),
+          BIGINT(),
+          INTEGER(),
+          DOUBLE(),
+          VARCHAR(),
+      });
+  std::vector<VectorPtr> children = {
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(INTEGER(), vectorSize, pool),
+      BaseVector::create(DOUBLE(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+  };
+
+  auto partKeyVector = children[0]->asFlatVector<int64_t>();
+  auto suppKeyVector = children[1]->asFlatVector<int64_t>();
+  auto availQtyVector = children[2]->asFlatVector<int32_t>();
+  auto supplyCostVector = children[3]->asFlatVector<double>();
+  auto commentVector = children[4]->asFlatVector<StringView>();
+
+  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  part_t part;
+
+  // The iteration logic is a bit more complicated as partsupp records are
+  // generated using mk_part(), which returns a vector of 4 (SUPP_PER_PART)
+  // partsupp record at a time. So we need to align the user's requested window
+  // (maxRows, offset), with the 4-at-a-time record window provided by DBGEN.
+  size_t partIdx = offset / SUPP_PER_PART;
+  size_t partSuppIdx = offset % SUPP_PER_PART;
+  size_t partSuppCount = 0;
+
+  do {
+    dbgenIt.genPart(partIdx + 1, part);
+
+    while ((partSuppIdx < SUPP_PER_PART) && (partSuppCount < vectorSize)) {
+      const auto& partSupp = part.s[partSuppIdx];
+
+      partKeyVector->set(partSuppCount, partSupp.partkey);
+      suppKeyVector->set(partSuppCount, partSupp.suppkey);
+      availQtyVector->set(partSuppCount, partSupp.qty);
+      supplyCostVector->set(partSuppCount, partSupp.scost);
+      commentVector->set(
+          partSuppCount, StringView(partSupp.comment, partSupp.clen));
+
+      ++partSuppIdx;
+      ++partSuppCount;
+    }
+    partSuppIdx = 0;
+    ++partIdx;
+
+  } while (partSuppCount < vectorSize);
+
+  VELOX_CHECK_EQ(partSuppCount, vectorSize);
+  return std::make_shared<RowVector>(
+      pool,
+      partSuppRowType,
+      BufferPtr(nullptr),
+      vectorSize,
       std::move(children));
 }
 
