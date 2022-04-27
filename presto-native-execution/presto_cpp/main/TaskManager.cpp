@@ -354,82 +354,90 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
   return std::make_unique<TaskInfo>(prestoTask->info);
 }
 
+namespace {
+
+// Helper structure holding stats for 'zombie' tasks.
+struct ZombieTaskCounts {
+  size_t numRunning{0};
+  size_t numFinished{0};
+  size_t numCanceled{0};
+  size_t numAborted{0};
+  size_t numFailed{0};
+  size_t numTotal{0};
+
+  const size_t numSampleTaskId{20};
+  std::vector<std::string> taskIds;
+
+  ZombieTaskCounts() {
+    taskIds.reserve(numSampleTaskId);
+  }
+
+  void updateCounts(std::shared_ptr<exec::Task>& task) {
+    switch (task->state()) {
+      case exec::TaskState::kRunning:
+        ++numRunning;
+        break;
+      case exec::TaskState::kFinished:
+        ++numFinished;
+        break;
+      case exec::TaskState::kCanceled:
+        ++numCanceled;
+        break;
+      case exec::TaskState::kAborted:
+        ++numAborted;
+        break;
+      case exec::TaskState::kFailed:
+        ++numFailed;
+        break;
+      default:
+        break;
+    }
+    if (taskIds.size() < numSampleTaskId) {
+      taskIds.emplace_back(task->taskId());
+    }
+  }
+
+  void logZombieTaskStatus(const std::string& hangingClassName) {
+    auto length = 0;
+    for (auto& id : taskIds) {
+      length += id.length() + 2; // for comma and space
+    }
+    std::string taskIdsStr;
+    taskIdsStr.reserve(length);
+    for (auto i = 0; i < taskIds.size(); i++) {
+      if (i == taskIds.size() - 1) {
+        taskIdsStr.append(taskIds[i]);
+      } else {
+        taskIdsStr.append(taskIds[i]).append(", ");
+      }
+    }
+
+    LOG(ERROR) << "There are " << numTotal << " zombie " << hangingClassName
+               << " that satisfy cleanup conditions but could not be "
+                  "cleaned up, because the "
+               << hangingClassName
+               << " are referenced by more than 1 owners. RUNNING["
+               << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
+               << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
+               << numFailed << "]  Sample task IDs (shows only "
+               << numSampleTaskId << " IDs): {" << taskIdsStr << "}";
+  }
+};
+
+}; // namespace
+
 size_t TaskManager::cleanOldTasks() {
-  size_t numCleanedTasks{0};
+  const auto startTimeMs = getCurrentTimeMs();
 
-  auto taskMap = taskMap_.wlock();
-
-  struct ZombieTaskCounts {
-    size_t numRunning{0};
-    size_t numFinished{0};
-    size_t numCanceled{0};
-    size_t numAborted{0};
-    size_t numFailed{0};
-    size_t numTotal{0};
-
-    const size_t numSampleTaskId{20};
-    std::vector<std::string> taskIds;
-
-    ZombieTaskCounts() {
-      taskIds.reserve(numSampleTaskId);
-    }
-
-    void updateCounts(std::shared_ptr<exec::Task>& task) {
-      switch (task->state()) {
-        case exec::TaskState::kRunning:
-          ++numRunning;
-          break;
-        case exec::TaskState::kFinished:
-          ++numFinished;
-          break;
-        case exec::TaskState::kCanceled:
-          ++numCanceled;
-          break;
-        case exec::TaskState::kAborted:
-          ++numAborted;
-          break;
-        case exec::TaskState::kFailed:
-          ++numFailed;
-          break;
-        default:
-          break;
-      }
-      if (taskIds.size() < numSampleTaskId) {
-        taskIds.emplace_back(task->taskId());
-      }
-    }
-
-    void logZombieTaskStatus(const std::string& hangingClassName) {
-      auto length = 0;
-      for (auto& id : taskIds) {
-        length += id.length() + 2; // for comma and space
-      }
-      std::string taskIdsStr;
-      taskIdsStr.reserve(length);
-      for (auto i = 0; i < taskIds.size(); i++) {
-        if (i == taskIds.size() - 1) {
-          taskIdsStr.append(taskIds[i]);
-        } else {
-          taskIdsStr.append(taskIds[i]).append(", ");
-        }
-      }
-
-      LOG(ERROR) << "There are " << numTotal << " zombie " << hangingClassName
-                 << " that satisfy cleanup conditions but could not be "
-                    "cleaned up, because the "
-                 << hangingClassName
-                 << " are referenced by more than 1 owners. "
-                    "RUNNING["
-                 << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
-                 << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
-                 << numFailed << "]  Sample task IDs (shows only "
-                 << numSampleTaskId << " IDs): {" << taskIdsStr << "}";
-    }
-  };
+  // We copy task map locally to avoid locking task map for a potentially long
+  // time. We also lock for 'read'.
+  TaskMap taskMap;
+  std::unordered_set<protocol::TaskId> taskIdsToClean;
+  { taskMap = *(taskMap_.rlock()); }
 
   ZombieTaskCounts zombieTaskCounts;
   ZombieTaskCounts zombiePrestoTaskCounts;
-  for (auto it = taskMap->begin(); it != taskMap->end();) {
+  for (auto it = taskMap.begin(); it != taskMap.end(); ++it) {
     bool eraseTask{false};
     if (it->second->task != nullptr) {
       if (it->second->task->state() != exec::TaskState::kRunning) {
@@ -445,14 +453,21 @@ size_t TaskManager::cleanOldTasks() {
       }
     }
 
-    auto prestoTaskRefCount = it->second.use_count();
-    auto taskRefCount = it->second->task.use_count();
     // We assume 'not erase' is the 'most common' case.
     if (not eraseTask) {
-      ++it;
-    } else if (prestoTaskRefCount > 1 || taskRefCount > 1) {
+      continue;
+    }
+
+    auto prestoTaskRefCount = it->second.use_count();
+    auto taskRefCount = it->second->task.use_count();
+
+    // Do not remove 'zombie' tasks (with outstanding references) from the map.
+    // We use it to track the number of tasks.
+    // Note, since we copied the task map, presto tasks should have an extra
+    // reference (2 from two maps).
+    if (prestoTaskRefCount > 2 || taskRefCount > 1) {
       auto& task = it->second->task;
-      if (prestoTaskRefCount > 1) {
+      if (prestoTaskRefCount > 2) {
         ++zombiePrestoTaskCounts.numTotal;
         if (task != nullptr) {
           zombiePrestoTaskCounts.updateCounts(task);
@@ -463,14 +478,27 @@ size_t TaskManager::cleanOldTasks() {
         zombieTaskCounts.updateCounts(task);
       }
     } else {
-      it = taskMap->erase(it);
-      ++numCleanedTasks;
+      taskIdsToClean.emplace(it->first);
     }
   }
 
-  if (numCleanedTasks > 0) {
-    LOG(INFO) << "Cleaned " << numCleanedTasks << " old task(s).";
+  const auto elapsedMs = (getCurrentTimeMs() - startTimeMs);
+  if (not taskIdsToClean.empty()) {
+    {
+      // Remove tasks from the task map. We briefly lock for write here.
+      auto writableTaskMap = taskMap_.wlock();
+      for (const auto& taskId : taskIdsToClean) {
+        writableTaskMap->erase(taskId);
+      }
+    }
+    LOG(INFO) << "cleanOldTasks: Cleaned " << taskIdsToClean.size()
+              << " old task(s) in " << elapsedMs << "ms";
+  } else if (elapsedMs > 1000) {
+    // If we took more than 1 second to run this, something might be wrong.
+    LOG(INFO) << "cleanOldTasks: Didn't clean any old task(s). Took "
+              << elapsedMs << "ms";
   }
+
   if (zombieTaskCounts.numTotal > 0) {
     zombieTaskCounts.logZombieTaskStatus("Task");
   }
@@ -480,7 +508,7 @@ size_t TaskManager::cleanOldTasks() {
   REPORT_ADD_STAT_VALUE(kCounterNumZombieTasks, zombieTaskCounts.numTotal);
   REPORT_ADD_STAT_VALUE(
       kCounterNumZombiePrestoTasks, zombiePrestoTaskCounts.numTotal);
-  return numCleanedTasks;
+  return taskIdsToClean.size();
 }
 
 folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
@@ -756,7 +784,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
   }
 }
 
-std::string TaskManager::toString() {
+std::string TaskManager::toString() const {
   std::stringstream out;
   auto taskMap = taskMap_.rlock();
   for (const auto& pair : *taskMap) {

@@ -306,8 +306,8 @@ abstract class TestHiveQueries
         assertQuery("SELECT substr(comment, 1, 10), length(comment), rtrim(comment) FROM orders");
 
         // Split
-        assertQuery("SELECT shipmode, comment, split(comment, 'ly') FROM lineitem order by 1,2");
-        assertQuery("SELECT shipmode, comment, split(comment, 'i', 3) FROM lineitem order by 1,2");
+        assertQueryOrdered("SELECT shipmode, comment, split(comment, 'ly') FROM lineitem order by 1,2");
+        assertQueryOrdered("SELECT shipmode, comment, split(comment, 'i', 3) FROM lineitem order by 1,2");
         assertQuery("SELECT shipmode, comment, split(comment, 'i', linenumber) FROM lineitem order by 1,2");
 
         // Split_part

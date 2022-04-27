@@ -374,7 +374,7 @@ class TaskManagerTest : public testing::Test {
         exec::test::PlanBuilder()
             .tableScan(rowType_)
             .project({"c0 % 5"})
-            .partialAggregation({0}, {"count(1)"})
+            .partialAggregation({"p0"}, {"count(1)"})
             .partitionedOutput({"p0"}, 3, {"p0", "a0"})
             .planFragment();
 
@@ -401,7 +401,7 @@ class TaskManagerTest : public testing::Test {
                 {exec::test::PlanBuilder(planNodeIdGenerator)
                      .exchange(partialAggPlanFragment.planNode->outputType())
                      .planNode()})
-            .finalAggregation({0}, {"count(a0)"}, {BIGINT()})
+            .finalAggregation({"p0"}, {"count(a0)"}, {BIGINT()})
             .partitionedOutput({}, 1, {"p0", "a0"})
             .planFragment();
 

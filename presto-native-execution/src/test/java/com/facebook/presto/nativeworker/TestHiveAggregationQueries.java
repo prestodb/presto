@@ -45,7 +45,7 @@ public class TestHiveAggregationQueries
         assertQuery("SELECT bitwise_and_agg(custkey), bitwise_or_agg(orderkey) FROM orders");
         assertQuery("SELECT shippriority, bitwise_and_agg(orderkey), bitwise_or_agg(custkey) FROM orders GROUP BY shippriority");
 
-        assertQuery("SELECT sum(totalprice), clerk FROM orders GROUP BY clerk HAVING sum(totalprice) > 1532544.84");
+        assertQuery("SELECT sum(custkey), clerk FROM orders GROUP BY clerk HAVING sum(custkey) > 10000");
 
         // non-deterministic query
         assertQuerySucceeds("SELECT orderkey, arbitrary(comment) FROM lineitem GROUP BY 1");

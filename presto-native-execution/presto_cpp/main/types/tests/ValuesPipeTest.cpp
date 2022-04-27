@@ -36,6 +36,10 @@ std::string getDataPath(const std::string& fileName) {
   if (boost::algorithm::ends_with(current_path, "fbcode")) {
     return current_path + "/presto_cpp/main/types/tests/data/" + fileName;
   }
+  if (boost::algorithm::ends_with(current_path, "fbsource")) {
+    return current_path + "/third-party/presto_cpp/main/types/tests/data/" +
+        fileName;
+  }
   return current_path + "/data/" + fileName;
 }
 } // namespace

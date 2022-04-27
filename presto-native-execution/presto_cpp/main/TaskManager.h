@@ -97,7 +97,7 @@ class TaskManager {
       const protocol::TaskId& taskId,
       const protocol::TaskId& remoteSourceTaskId);
 
-  std::string toString();
+  std::string toString() const;
 
   QueryContextManager* getQueryContextManager() {
     return &queryContextManager_;
