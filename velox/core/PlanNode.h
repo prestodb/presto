@@ -208,7 +208,12 @@ class FilterNode : public PlanNode {
       const PlanNodeId& id,
       std::shared_ptr<const ITypedExpr> filter,
       std::shared_ptr<const PlanNode> source)
-      : PlanNode(id), sources_{source}, filter_(filter) {}
+      : PlanNode(id), sources_{std::move(source)}, filter_(std::move(filter)) {
+    VELOX_CHECK(
+        filter_->type()->isBoolean(),
+        "Filter expression must be of type BOOLEAN. Got {}.",
+        filter_->type()->toString());
+  }
 
   const RowTypePtr& outputType() const override {
     return sources_[0]->outputType();

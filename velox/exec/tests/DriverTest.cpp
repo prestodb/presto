@@ -323,7 +323,8 @@ class DriverTest : public OperatorTestBase {
 
 TEST_F(DriverTest, error) {
   CursorParameters params;
-  params.planNode = makeValuesFilterProject(rowType_, "m1 % 0", "", 100, 10);
+  params.planNode =
+      makeValuesFilterProject(rowType_, "m1 % 0 > 0", "", 100, 10);
   params.maxDrivers = 20;
   int32_t numRead = 0;
   try {
