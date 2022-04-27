@@ -25,7 +25,7 @@ import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSplitAssigner;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Metadata;
@@ -283,8 +283,8 @@ public class SectionExecutionFactory
                 connectorId = null;
             }
 
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage);
-            SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
+            NodeSplitAssigner nodeSplitAssigner = nodeScheduler.createNodeSplitAssigner(session, connectorId, maxTasksPerStage);
+            SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSplitAssigner, stageExecution::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
             return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize);
@@ -369,7 +369,7 @@ public class SectionExecutionFactory
                         bucketNodeMap,
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
-                        nodeScheduler.createNodeSelector(session, connectorId),
+                        nodeScheduler.createNodeSplitAssigner(session, connectorId),
                         connectorPartitionHandles);
                 if (plan.getFragment().getStageExecutionDescriptor().isRecoverableGroupedExecution()) {
                     stageExecution.registerStageTaskRecoveryCallback(taskId -> {

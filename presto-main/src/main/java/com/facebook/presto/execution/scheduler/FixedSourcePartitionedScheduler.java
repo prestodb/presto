@@ -22,7 +22,7 @@ import com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason;
 import com.facebook.presto.execution.scheduler.group.DynamicLifespanScheduler;
 import com.facebook.presto.execution.scheduler.group.FixedLifespanScheduler;
 import com.facebook.presto.execution.scheduler.group.LifespanScheduler;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSplitAssigner;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -86,7 +86,7 @@ public class FixedSourcePartitionedScheduler
             BucketNodeMap bucketNodeMap,
             int splitBatchSize,
             OptionalInt concurrentLifespansPerTask,
-            NodeSelector nodeSelector,
+            NodeSplitAssigner nodeSplitAssigner,
             List<ConnectorPartitionHandle> partitionHandles)
     {
         requireNonNull(stage, "stage is null");
@@ -101,7 +101,7 @@ public class FixedSourcePartitionedScheduler
 
         checkArgument(splitSources.keySet().equals(ImmutableSet.copyOf(schedulingOrder)));
 
-        BucketedSplitPlacementPolicy splitPlacementPolicy = new BucketedSplitPlacementPolicy(nodeSelector, nodes, bucketNodeMap, stage::getAllTasks);
+        BucketedSplitPlacementPolicy splitPlacementPolicy = new BucketedSplitPlacementPolicy(nodeSplitAssigner, nodes, bucketNodeMap, stage::getAllTasks);
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
         checkArgument(
@@ -293,18 +293,18 @@ public class FixedSourcePartitionedScheduler
     public static class BucketedSplitPlacementPolicy
             implements SplitPlacementPolicy
     {
-        private final NodeSelector nodeSelector;
+        private final NodeSplitAssigner nodeSplitAssigner;
         private final List<InternalNode> activeNodes;
         private final BucketNodeMap bucketNodeMap;
         private final Supplier<? extends List<RemoteTask>> remoteTasks;
 
         public BucketedSplitPlacementPolicy(
-                NodeSelector nodeSelector,
+                NodeSplitAssigner nodeSplitAssigner,
                 List<InternalNode> activeNodes,
                 BucketNodeMap bucketNodeMap,
                 Supplier<? extends List<RemoteTask>> remoteTasks)
         {
-            this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
+            this.nodeSplitAssigner = requireNonNull(nodeSplitAssigner, "nodeSelector is null");
             this.activeNodes = ImmutableList.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
             this.bucketNodeMap = requireNonNull(bucketNodeMap, "bucketNodeMap is null");
             this.remoteTasks = requireNonNull(remoteTasks, "remoteTasks is null");
@@ -313,7 +313,7 @@ public class FixedSourcePartitionedScheduler
         @Override
         public SplitPlacementResult computeAssignments(Set<Split> splits)
         {
-            return nodeSelector.computeAssignments(splits, remoteTasks.get(), bucketNodeMap);
+            return nodeSplitAssigner.computeAssignments(splits, remoteTasks.get(), bucketNodeMap);
         }
 
         @Override

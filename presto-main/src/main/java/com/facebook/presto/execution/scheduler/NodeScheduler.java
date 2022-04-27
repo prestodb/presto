@@ -21,12 +21,12 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStrategy;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionHint;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSplitAssigner;
 import com.facebook.presto.execution.scheduler.nodeSelection.RandomNodeSelectionStrategy;
-import com.facebook.presto.execution.scheduler.nodeSelection.SimpleNodeSelector;
-import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleNodeSplitAssigner;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSplitAssigner;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
-import com.facebook.presto.execution.scheduler.nodeSelection.TopologyAwareNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.TopologyAwareNodeSplitAssigner;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
@@ -219,51 +219,12 @@ public class NodeScheduler
         return nodeSelectionStrategy.select(candidateNodes, hint);
     }
 
-    private List<InternalNode> getCandidateNodes(Session session, ConnectorId connectorId)
+    public NodeSplitAssigner createNodeSplitAssigner(Session session, ConnectorId connectorId)
     {
-        ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = getResourceAwareSchedulingStrategy(session);
-
-        if (resourceAwareSchedulingStrategy != TTL) {
-            return getActiveNodes(session, connectorId);
-        }
-
-        Map<InternalNode, NodeTtl> nodeTtlInfo = nodeTtlFetcherManager.getAllTtls();
-
-        Map<InternalNode, Optional<ConfidenceBasedTtlInfo>> ttlInfo = nodeTtlInfo
-                .entrySet()
-                .stream()
-                .collect(toImmutableMap(
-                        Map.Entry::getKey,
-                        e -> e.getValue().getTtlInfo()
-                                .stream()
-                                .min(Comparator.comparing(ConfidenceBasedTtlInfo::getExpiryInstant))));
-
-        List<InternalNode> activeNodes = getActiveNodes(session, connectorId);
-        Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining(session);
-
-        return activeNodes
-                .stream()
-                .filter(ttlInfo::containsKey)
-                .filter(node -> ttlInfo.get(node).isPresent())
-                .filter(node -> SimpleTtlNodeSelector.isTtlEnough(ttlInfo.get(node).get(), estimatedExecutionTimeRemaining))
-                .collect(toImmutableList());
+        return createNodeSplitAssigner(session, connectorId, Integer.MAX_VALUE);
     }
 
-    private Duration getEstimatedExecutionTimeRemaining(Session session)
-    {
-        Duration estimatedExecutionTime = session.getResourceEstimates().getExecutionTime().orElse(simpleTtlNodeSelectorConfig.getDefaultExecutionTimeEstimate());
-        double totalEstimatedExecutionTime = estimatedExecutionTime.getValue(TimeUnit.MILLISECONDS);
-        double elapsedExecutionTime = queryManager.getQueryInfo(session.getQueryId()).getQueryStats().getExecutionTime().getValue(TimeUnit.MILLISECONDS);
-        double estimatedExecutionTimeRemaining = Math.max(totalEstimatedExecutionTime - elapsedExecutionTime, 0);
-        return new Duration(estimatedExecutionTimeRemaining, TimeUnit.MILLISECONDS);
-    }
-
-    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId)
-    {
-        return createNodeSelector(session, connectorId, Integer.MAX_VALUE);
-    }
-
-    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId, int maxTasksPerStage)
+    public NodeSplitAssigner createNodeSplitAssigner(Session session, ConnectorId connectorId, int maxTasksPerStage)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
@@ -273,7 +234,7 @@ public class NodeScheduler
         int maxUnacknowledgedSplitsPerTask = getMaxUnacknowledgedSplitsPerTask(requireNonNull(session, "session is null"));
         ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = getResourceAwareSchedulingStrategy(session);
         if (useNetworkTopology) {
-            return new TopologyAwareNodeSelector(
+            return new TopologyAwareNodeSplitAssigner(
                     nodeManager,
                     nodeSelectionStats,
                     nodeTaskMap,
@@ -289,7 +250,7 @@ public class NodeScheduler
                     nodeSelectionHashStrategy);
         }
 
-        SimpleNodeSelector simpleNodeSelector = new SimpleNodeSelector(
+        SimpleNodeSplitAssigner simpleNodeSelector = new SimpleNodeSplitAssigner(
                 nodeManager,
                 nodeSelectionStats,
                 nodeTaskMap,
@@ -303,7 +264,7 @@ public class NodeScheduler
                 nodeSelectionHashStrategy);
 
         if (resourceAwareSchedulingStrategy == TTL) {
-            return new SimpleTtlNodeSelector(
+            return new SimpleTtlNodeSplitAssigner(
                     simpleNodeSelector,
                     simpleTtlNodeSelectorConfig,
                     nodeTaskMap,
@@ -319,6 +280,15 @@ public class NodeScheduler
         }
 
         return simpleNodeSelector;
+    }
+
+    private Duration getEstimatedExecutionTimeRemaining(Session session)
+    {
+        Duration estimatedExecutionTime = session.getResourceEstimates().getExecutionTime().orElse(simpleTtlNodeSelectorConfig.getDefaultExecutionTimeEstimate());
+        double totalEstimatedExecutionTime = estimatedExecutionTime.getValue(TimeUnit.MILLISECONDS);
+        double elapsedExecutionTime = queryManager.getQueryInfo(session.getQueryId()).getQueryStats().getExecutionTime().getValue(TimeUnit.MILLISECONDS);
+        double estimatedExecutionTimeRemaining = Math.max(totalEstimatedExecutionTime - elapsedExecutionTime, 0);
+        return new Duration(estimatedExecutionTimeRemaining, TimeUnit.MILLISECONDS);
     }
 
     private Supplier<NodeMap> createNodeMapSupplier(ConnectorId connectorId)
@@ -377,6 +347,36 @@ public class NodeScheduler
                     allNodesByHostAndPort.build(),
                     consistentHashingNodeProvider);
         };
+    }
+
+    private List<InternalNode> getCandidateNodes(Session session, ConnectorId connectorId)
+    {
+        ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = getResourceAwareSchedulingStrategy(session);
+
+        if (resourceAwareSchedulingStrategy != TTL) {
+            return getActiveNodes(session, connectorId);
+        }
+
+        Map<InternalNode, NodeTtl> nodeTtlInfo = nodeTtlFetcherManager.getAllTtls();
+
+        Map<InternalNode, Optional<ConfidenceBasedTtlInfo>> ttlInfo = nodeTtlInfo
+                .entrySet()
+                .stream()
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().getTtlInfo()
+                                .stream()
+                                .min(Comparator.comparing(ConfidenceBasedTtlInfo::getExpiryInstant))));
+
+        List<InternalNode> activeNodes = getActiveNodes(session, connectorId);
+        Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining(session);
+
+        return activeNodes
+                .stream()
+                .filter(ttlInfo::containsKey)
+                .filter(node -> ttlInfo.get(node).isPresent())
+                .filter(node -> SimpleTtlNodeSplitAssigner.isTtlEnough(ttlInfo.get(node).get(), estimatedExecutionTimeRemaining))
+                .collect(toImmutableList());
     }
 
     public static List<InternalNode> selectNodes(int limit, ResettableRandomizedIterator<InternalNode> candidates)

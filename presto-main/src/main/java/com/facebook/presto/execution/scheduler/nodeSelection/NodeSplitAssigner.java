@@ -18,17 +18,14 @@ import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Set;
 
-public interface NodeSelector
+public interface NodeSplitAssigner
 {
-    // DynamicSplitPlacementPolicy
     void lockDownNodes();
 
-    // DynamicSplitPlacementPolicy
     List<InternalNode> getActiveNodes();
 
     /**

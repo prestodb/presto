@@ -65,10 +65,10 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public class SimpleNodeSelector
-        implements NodeSelector
+public class SimpleNodeSplitAssigner
+        implements NodeSplitAssigner
 {
-    private static final Logger log = Logger.get(SimpleNodeSelector.class);
+    private static final Logger log = Logger.get(SimpleNodeSplitAssigner.class);
 
     private final InternalNodeManager nodeManager;
     private final NodeSelectionStats nodeSelectionStats;
@@ -82,7 +82,7 @@ public class SimpleNodeSelector
     private final int maxTasksPerStage;
     private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
 
-    public SimpleNodeSelector(
+    public SimpleNodeSplitAssigner(
             InternalNodeManager nodeManager,
             NodeSelectionStats nodeSelectionStats,
             NodeTaskMap nodeTaskMap,

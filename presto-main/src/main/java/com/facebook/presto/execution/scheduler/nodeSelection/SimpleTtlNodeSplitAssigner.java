@@ -66,10 +66,10 @@ import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public class SimpleTtlNodeSelector
-        implements NodeSelector
+public class SimpleTtlNodeSplitAssigner
+        implements NodeSplitAssigner
 {
-    private static final Logger log = Logger.get(SimpleTtlNodeSelector.class);
+    private static final Logger log = Logger.get(SimpleTtlNodeSplitAssigner.class);
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
     private final Session session;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
@@ -79,12 +79,12 @@ public class SimpleTtlNodeSelector
     private final long maxSplitsWeightPerNode;
     private final long maxPendingSplitsWeightPerTask;
     private final int maxTasksPerStage;
-    private final SimpleNodeSelector simpleNodeSelector;
+    private final SimpleNodeSplitAssigner simpleNodeSelector;
     private final QueryManager queryManager;
     private final Duration estimatedExecutionTime;
 
-    public SimpleTtlNodeSelector(
-            SimpleNodeSelector simpleNodeSelector,
+    public SimpleTtlNodeSplitAssigner(
+            SimpleNodeSplitAssigner simpleNodeSelector,
             SimpleTtlNodeSelectorConfig config,
             NodeTaskMap nodeTaskMap,
             Supplier<NodeMap> nodeMap,

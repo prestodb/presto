@@ -50,20 +50,18 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.calculateLowWatermark;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.canAssignSplitBasedOnWeight;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class TopologyAwareNodeSelector
-        implements NodeSelector
+public class TopologyAwareNodeSplitAssigner
+        implements NodeSplitAssigner
 {
-    private static final Logger log = Logger.get(TopologyAwareNodeSelector.class);
+    private static final Logger log = Logger.get(TopologyAwareNodeSplitAssigner.class);
 
     private final InternalNodeManager nodeManager;
     private final NodeSelectionStats nodeSelectionStats;
@@ -79,7 +77,7 @@ public class TopologyAwareNodeSelector
     private final NetworkLocationCache networkLocationCache;
     private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
 
-    public TopologyAwareNodeSelector(
+    public TopologyAwareNodeSplitAssigner(
             InternalNodeManager nodeManager,
             NodeSelectionStats nodeSelectionStats,
             NodeTaskMap nodeTaskMap,

@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.metadata.InternalNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
