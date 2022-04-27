@@ -28,6 +28,7 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/TpchQueryBuilder.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/parse/TypeResolver.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -78,6 +79,7 @@ class TpchBenchmark {
  public:
   void initialize() {
     functions::prestosql::registerAllScalarFunctions();
+    parse::registerTypeResolver();
     filesystems::registerLocalFileSystem();
     parquet::registerParquetReaderFactory();
     dwrf::registerDwrfReaderFactory();
@@ -125,6 +127,11 @@ BENCHMARK(q1) {
 
 BENCHMARK(q6) {
   const auto planContext = queryBuilder->getQueryPlan(6);
+  benchmark.run(planContext);
+}
+
+BENCHMARK(q13) {
+  const auto planContext = queryBuilder->getQueryPlan(13);
   benchmark.run(planContext);
 }
 

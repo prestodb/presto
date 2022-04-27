@@ -84,7 +84,8 @@ class ParquetTpchTest : public testing::Test {
 
   std::shared_ptr<Task> assertQuery(
       const TpchPlan& tpchPlan,
-      const std::string& duckQuery) const {
+      const std::string& duckQuery,
+      std::optional<std::vector<uint32_t>> sortingKeys) const {
     bool noMoreSplits = false;
     constexpr int kNumSplits = 10;
     auto addSplits = [&](exec::Task* task) {
@@ -105,16 +106,18 @@ class ParquetTpchTest : public testing::Test {
     CursorParameters params;
     params.maxDrivers = kNumDrivers;
     params.planNode = tpchPlan.plan;
-    return exec::test::assertQuery(params, addSplits, duckQuery, *duckDb_);
+    return exec::test::assertQuery(
+        params, addSplits, duckQuery, *duckDb_, sortingKeys);
   }
 
   void assertQuery(
       int queryId,
       const int expectedPipelineCount,
-      const int expectedFinishedSplits) const {
+      const int expectedFinishedSplits,
+      std::optional<std::vector<uint32_t>> sortingKeys = {}) const {
     auto tpchPlan = tpchBuilder_.getQueryPlan(queryId);
     auto duckDbSql = duckDb_->getTpchQuery(queryId);
-    auto task = assertQuery(tpchPlan, duckDbSql);
+    auto task = assertQuery(tpchPlan, duckDbSql, sortingKeys);
     const auto& stats = task->taskStats();
     ASSERT_EQ(expectedPipelineCount, stats.pipelineStats.size());
     ASSERT_EQ(expectedFinishedSplits, stats.numFinishedSplits);
@@ -159,6 +162,11 @@ TEST_F(ParquetTpchTest, Q1) {
 
 TEST_F(ParquetTpchTest, Q6) {
   assertQuery(6, 2, 10);
+}
+
+TEST_F(ParquetTpchTest, Q13) {
+  std::vector<uint32_t> sortingKeys{0, 1};
+  assertQuery(13, 3, 20, std::move(sortingKeys));
 }
 
 TEST_F(ParquetTpchTest, Q18) {
