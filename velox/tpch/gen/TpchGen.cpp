@@ -158,6 +158,152 @@ RowVectorPtr genTpchOrders(
       pool, ordersRowType, BufferPtr(nullptr), vectorSize, std::move(children));
 }
 
+RowVectorPtr genTpchLineItem(
+    size_t maxOrderRows,
+    size_t ordersOffset,
+    size_t scaleFactor,
+    memory::MemoryPool* pool) {
+  // We control the buffer size based on the orders table, then allocate the
+  // underlying buffer using the worst case (orderVectorSize * 7).
+  size_t orderRowCount = getRowCount(Table::TBL_ORDERS, scaleFactor);
+  size_t orderVectorSize = std::min(orderRowCount - ordersOffset, maxOrderRows);
+  size_t lineItemUpperBound = orderVectorSize * 7;
+
+  // Create schema and allocate vectors.
+  static TypePtr lineItemRowType = ROW(
+      {
+          "l_orderkey",
+          "l_partkey",
+          "l_suppkey",
+          "l_linenumber",
+          "l_quantity",
+          "l_extendedprice",
+          "l_discount",
+          "l_tax",
+          "l_returnflag",
+          "l_linestatus",
+          "l_shipdate",
+          "l_commitdate",
+          "l_receiptdate",
+          "l_shipinstruct",
+          "l_shipmode",
+          "l_comment",
+      },
+      {
+          BIGINT(),
+          BIGINT(),
+          BIGINT(),
+          INTEGER(),
+          DOUBLE(),
+          DOUBLE(),
+          DOUBLE(),
+          DOUBLE(),
+          VARCHAR(),
+          VARCHAR(),
+          VARCHAR(),
+          VARCHAR(),
+          VARCHAR(),
+          VARCHAR(),
+          VARCHAR(),
+          VARCHAR(),
+      });
+
+  std::vector<VectorPtr> children = {
+      BaseVector::create(BIGINT(), lineItemUpperBound, pool),
+      BaseVector::create(BIGINT(), lineItemUpperBound, pool),
+      BaseVector::create(BIGINT(), lineItemUpperBound, pool),
+      BaseVector::create(INTEGER(), lineItemUpperBound, pool),
+      BaseVector::create(DOUBLE(), lineItemUpperBound, pool),
+      BaseVector::create(DOUBLE(), lineItemUpperBound, pool),
+      BaseVector::create(DOUBLE(), lineItemUpperBound, pool),
+      BaseVector::create(DOUBLE(), lineItemUpperBound, pool),
+      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
+      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
+      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
+      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
+      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
+      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
+      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
+      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
+  };
+
+  auto orderKeyVector = children[0]->asFlatVector<int64_t>();
+  auto partKeyVector = children[1]->asFlatVector<int64_t>();
+  auto suppKeyVector = children[2]->asFlatVector<int64_t>();
+  auto lineNumberVector = children[3]->asFlatVector<int32_t>();
+
+  auto quantityVector = children[4]->asFlatVector<double>();
+  auto extendedPriceVector = children[5]->asFlatVector<double>();
+  auto discountVector = children[6]->asFlatVector<double>();
+  auto taxVector = children[7]->asFlatVector<double>();
+
+  auto returnFlagVector = children[8]->asFlatVector<StringView>();
+  auto lineStatusVector = children[9]->asFlatVector<StringView>();
+  auto shipDateVector = children[10]->asFlatVector<StringView>();
+  auto commitDateVector = children[11]->asFlatVector<StringView>();
+  auto receiptDateVector = children[12]->asFlatVector<StringView>();
+  auto shipInstructVector = children[13]->asFlatVector<StringView>();
+  auto shipModeVector = children[14]->asFlatVector<StringView>();
+  auto commentVector = children[15]->asFlatVector<StringView>();
+
+  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  order_t order;
+
+  // Dbgen can't generate lineItem one row at a time; instead, it generates
+  // orders with a random number of lineitems associated. So we treat offset
+  // and maxRows as being in terms of orders (to make it deterministic), and
+  // return a RowVector with a variable number of rows.
+  size_t lineItemCount = 0;
+
+  for (size_t i = 0; i < orderVectorSize; ++i) {
+    dbgenIt.genOrder(i + ordersOffset + 1, order);
+
+    for (size_t l = 0; l < order.lines; ++l) {
+      const auto& line = order.l[l];
+      orderKeyVector->set(lineItemCount + l, line.okey);
+      partKeyVector->set(lineItemCount + l, line.partkey);
+      suppKeyVector->set(lineItemCount + l, line.suppkey);
+
+      lineNumberVector->set(lineItemCount + l, line.lcnt);
+
+      quantityVector->set(lineItemCount + l, line.quantity);
+      extendedPriceVector->set(lineItemCount + l, line.eprice);
+      discountVector->set(lineItemCount + l, line.discount);
+      taxVector->set(lineItemCount + l, line.tax);
+
+      returnFlagVector->set(lineItemCount + l, StringView(line.rflag, 1));
+      lineStatusVector->set(lineItemCount + l, StringView(line.lstatus, 1));
+
+      shipDateVector->set(
+          lineItemCount + l, StringView(line.sdate, strlen(line.sdate)));
+      commitDateVector->set(
+          lineItemCount + l, StringView(line.cdate, strlen(line.cdate)));
+      receiptDateVector->set(
+          lineItemCount + l, StringView(line.rdate, strlen(line.rdate)));
+
+      shipInstructVector->set(
+          lineItemCount + l,
+          StringView(line.shipinstruct, strlen(line.shipinstruct)));
+      shipModeVector->set(
+          lineItemCount + l, StringView(line.shipmode, strlen(line.shipmode)));
+      commentVector->set(
+          lineItemCount + l, StringView(line.comment, strlen(line.comment)));
+    }
+    lineItemCount += order.lines;
+  }
+
+  // Resize to shrink the buffers - since we allocated based on the upper bound.
+  for (auto& child : children) {
+    child->resize(lineItemCount);
+  }
+  return std::make_shared<RowVector>(
+      pool,
+      lineItemRowType,
+      BufferPtr(nullptr),
+      lineItemCount,
+      std::move(children));
+}
+
 RowVectorPtr genTpchNation(
     size_t maxRows,
     size_t offset,

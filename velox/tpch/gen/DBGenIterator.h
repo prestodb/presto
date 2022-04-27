@@ -46,7 +46,7 @@ class DBGenIterator {
 
  private:
   // Should not instantiate directly.
-  DBGenIterator(std::unique_lock<std::mutex>&& lease)
+  explicit DBGenIterator(std::unique_lock<std::mutex>&& lease)
       : lockGuard_(std::move(lease)) {}
 
   // unique_lock instead of lock_guard so it's movable.

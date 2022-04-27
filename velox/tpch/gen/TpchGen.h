@@ -73,6 +73,45 @@ RowVectorPtr genTpchOrders(
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
+/// NOTE: This function's parameters have different semantic from the function
+/// above. Dbgen does not provide deterministic random access to lineitem
+/// generated rows (like it does for all other tables), because the number of
+/// lineitems in an order is chosen at random (between 1 and 7, 4 on average).
+//
+/// In order to make this function reproducible and deterministic, the
+/// parameters (maxRows and offset) refer to orders, not lineitems, and thus the
+/// number of linteitem returned rows will be on average 4 * maxOrderRows.
+///
+/// Returns a row vector containing on average `maxOrderRows * 4` (from
+/// `maxOrderRows` to `maxOrderRows * 7`) rows of the "lineitem" table. The
+/// offset is controlled based on the orders table, starting at `ordersOffset`,
+/// and given the scale factor. The row vector returned has the following
+/// schema:
+///
+///  l_orderkey: BIGINT
+///  l_partkey: BIGINT
+///  l_suppkey: BIGINT
+///  l_linenumber: INTEGER
+///  l_quantity: DOUBLE
+///  l_extendedprice: DOUBLE
+///  l_discount: DOUBLE
+///  l_tax: DOUBLE
+///  l_returnflag: VARCHAR
+///  l_linestatus: VARCHAR
+///  l_shipdate: VARCHAR
+///  l_commitdate: VARCHAR
+///  l_receiptdate: VARCHAR
+///  l_shipinstruct: VARCHAR
+///  l_shipmode: VARCHAR
+///  l_comment: VARCHAR
+///
+RowVectorPtr genTpchLineItem(
+    size_t maxOrdersRows = 10000,
+    size_t ordersOffset = 0,
+    size_t scaleFactor = 1,
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+
 /// Returns a row vector containing at most `maxRows` rows of the "nation"
 /// table, starting at `offset`, and given the scale factor. The row vector
 /// returned has the following schema:

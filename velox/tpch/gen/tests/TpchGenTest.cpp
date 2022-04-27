@@ -194,6 +194,97 @@ TEST(TpchGenTestOrders, reproducible) {
   }
 }
 
+// Lineitem.
+
+TEST(TpchGenTestLineItem, batches) {
+  size_t ordersMaxSize = 100;
+  auto rowVector1 = genTpchLineItem(ordersMaxSize);
+
+  // Always returns 16 columns, and number of lineItem rows varies from 1 to 7
+  // per order.
+  EXPECT_EQ(16, rowVector1->childrenSize());
+  EXPECT_GE(rowVector1->size(), ordersMaxSize);
+  EXPECT_LE(rowVector1->size(), ordersMaxSize * 7);
+
+  auto orderKey = rowVector1->childAt(0)->asFlatVector<int64_t>();
+  auto shipDate = rowVector1->childAt(10)->asFlatVector<StringView>();
+
+  EXPECT_EQ(1, orderKey->valueAt(0));
+  EXPECT_EQ("1996-03-13"_sv, shipDate->valueAt(0));
+  LOG(INFO) << rowVector1->toString(0);
+
+  size_t lastRow = rowVector1->size() - 1;
+  EXPECT_EQ(388, orderKey->valueAt(lastRow));
+  EXPECT_EQ("1992-12-24"_sv, shipDate->valueAt(lastRow));
+  LOG(INFO) << rowVector1->toString(lastRow);
+
+  // Get next batch.
+  auto rowVector2 = genTpchLineItem(ordersMaxSize, ordersMaxSize);
+
+  EXPECT_EQ(16, rowVector2->childrenSize());
+  EXPECT_GE(rowVector2->size(), ordersMaxSize);
+  EXPECT_LE(rowVector2->size(), ordersMaxSize * 7);
+
+  orderKey = rowVector2->childAt(0)->asFlatVector<int64_t>();
+  shipDate = rowVector2->childAt(10)->asFlatVector<StringView>();
+
+  EXPECT_EQ(389, orderKey->valueAt(0));
+  EXPECT_EQ("1996-03-13"_sv, shipDate->valueAt(0));
+  LOG(INFO) << rowVector2->toString(0);
+
+  lastRow = rowVector2->size() - 1;
+  EXPECT_EQ(800, orderKey->valueAt(lastRow));
+  EXPECT_EQ("1992-12-24"_sv, shipDate->valueAt(lastRow));
+  LOG(INFO) << rowVector2->toString(lastRow);
+}
+
+TEST(TpchGenTestLineItem, lastBatch) {
+  // Ask for 1000 lineItems but there are only 10 orders left.
+  auto rowVector = genTpchLineItem(1000, 1'499'990);
+  EXPECT_GE(rowVector->size(), 10);
+  EXPECT_LE(rowVector->size(), 10 * 7);
+
+  // Ensure we get 1000 orders on a larger scale factor.
+  rowVector = genTpchLineItem(1000, 1'499'990, 2);
+  EXPECT_GE(rowVector->size(), 1000);
+  EXPECT_LE(rowVector->size(), 1000 * 7);
+}
+
+TEST(TpchGenTestLineItem, reproducible) {
+  {
+    auto rowVector1 = genTpchLineItem(1000);
+    auto rowVector2 = genTpchLineItem(1000);
+    auto rowVector3 = genTpchLineItem(1000);
+
+    for (size_t i = 0; i < rowVector1->size(); ++i) {
+      ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
+      ASSERT_TRUE(rowVector1->equalValueAt(rowVector3.get(), i, i));
+    }
+  }
+
+  // Ensure it's also reproducible if we add an offset.
+  {
+    auto rowVector1 = genTpchLineItem(1000, 2000);
+    auto rowVector2 = genTpchLineItem(1000, 2000);
+    auto rowVector3 = genTpchLineItem(1000, 2000);
+
+    for (size_t i = 0; i < rowVector1->size(); ++i) {
+      ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
+      ASSERT_TRUE(rowVector1->equalValueAt(rowVector3.get(), i, i));
+    }
+  }
+
+  // Ensure that if the offsets are different, records will be different.
+  {
+    auto rowVector1 = genTpchLineItem(1000, 2000);
+    auto rowVector2 = genTpchLineItem(1000, 2001);
+
+    for (size_t i = 0; i < rowVector2->size(); ++i) {
+      ASSERT_FALSE(rowVector1->equalValueAt(rowVector2.get(), i, i));
+    }
+  }
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
