@@ -174,6 +174,12 @@ public class TestPinotSplitManager
     }
 
     @Test
+    public void testOfflineSegmentSplitsManySegmentPerServer()
+    {
+        testSegmentSplitsHelperNoFilter(offlineOnlyTable, Integer.MAX_VALUE, 2, false);
+    }
+
+    @Test
     public void testHybridSegmentSplitsOneSegmentPerServer()
     {
         testSegmentSplitsHelperNoFilter(hybridTable, 1, 8, true);

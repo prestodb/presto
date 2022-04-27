@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.Iterables;
+import org.apache.pinot.spi.config.table.TableType;
 
 import javax.inject.Inject;
 
@@ -47,6 +48,8 @@ import static java.util.Objects.requireNonNull;
 public class PinotSplitManager
         implements ConnectorSplitManager
 {
+    private static final String REALTIME_SUFFIX = "_" + TableType.REALTIME;
+    private static final String OFFLINE_SUFFIX = "_" + TableType.OFFLINE;
     private final String connectorId;
     private final PinotConnection pinotPrestoConnection;
 
@@ -77,9 +80,12 @@ public class PinotSplitManager
         List<ConnectorSplit> splits = new ArrayList<>();
         if (!routingTable.isEmpty()) {
             GeneratedPinotQuery segmentPql = tableHandle.getPinotQuery().orElseThrow(() -> new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Expected to find realtime and offline pql in " + tableHandle));
-            PinotClusterInfoFetcher.TimeBoundary timeBoundary = pinotPrestoConnection.getTimeBoundary(tableName);
-            String realtime = getSegmentPql(segmentPql, "_REALTIME", timeBoundary.getOnlineTimePredicate());
-            String offline = getSegmentPql(segmentPql, "_OFFLINE", timeBoundary.getOfflineTimePredicate());
+            PinotClusterInfoFetcher.TimeBoundary timeBoundary = new PinotClusterInfoFetcher.TimeBoundary(null, null);
+            if (routingTable.containsKey(tableName + REALTIME_SUFFIX) && routingTable.containsKey(tableName + OFFLINE_SUFFIX)) {
+                timeBoundary = pinotPrestoConnection.getTimeBoundary(tableName);
+            }
+            String realtime = getSegmentPql(segmentPql, REALTIME_SUFFIX, timeBoundary.getOnlineTimePredicate());
+            String offline = getSegmentPql(segmentPql, OFFLINE_SUFFIX, timeBoundary.getOfflineTimePredicate());
             generateSegmentSplits(splits, expectedColumnHandles, routingTable, tableName, "_REALTIME", session, realtime);
             generateSegmentSplits(splits, expectedColumnHandles, routingTable, tableName, "_OFFLINE", session, offline);
         }
