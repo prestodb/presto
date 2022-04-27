@@ -24,7 +24,6 @@ add_library(
   ArrayIntersectExcept.cpp
   ArrayMinMax.cpp
   ArrayPosition.cpp
-  Coalesce.cpp
   ElementAt.cpp
   FilterFunctions.cpp
   FromUnixTime.cpp

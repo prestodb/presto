@@ -39,23 +39,36 @@ TEST_F(CoalesceTest, basic) {
 
   auto row = makeRowVector({first, second, third});
   auto result = evaluate<FlatVector<int32_t>>("coalesce(c0, c1, c2)", row);
-  for (int i = 0; i < size; ++i) {
-    EXPECT_EQ(result->valueAt(i), i * pow(10, i % 3)) << "at " << i;
-  }
+  auto expectedResult = makeFlatVector<int32_t>(
+      size, [](auto row) { return row * pow(10, row % 3); });
+  assertEqualVectors(expectedResult, result);
+
+  // Verify that input expressions are evaluated only on rows that are still
+  // null after evaluating all the preceding inputs and not evaluated at all if
+  // there are no nulls remaining.
+
+  // The last expression 'c1 / 0' should not be evaluated.
+  result = evaluate<FlatVector<int32_t>>(
+      "coalesce(c0, c1, c2, cast(c1 / 0 as integer))", row);
+  assertEqualVectors(expectedResult, result);
+
+  // The second expression 'c1 / (c1 % 3)' should not be evaluated on rows where
+  // c1 % 3 is zero.
+  result = evaluate<FlatVector<int32_t>>(
+      "coalesce(c0, cast(c1 / (c1 % 3) as integer), c2)", row);
+  assertEqualVectors(expectedResult, result);
 
   result = evaluate<FlatVector<int32_t>>("coalesce(c2, c1, c0)", row);
-  for (int i = 0; i < size; ++i) {
-    EXPECT_EQ(result->valueAt(i), i * 100) << "at " << i;
-  }
+  expectedResult =
+      makeFlatVector<int32_t>(size, [](auto row) { return row * 100; });
+  assertEqualVectors(expectedResult, result);
 
   result = evaluate<FlatVector<int32_t>>("coalesce(c0, c1)", row);
-  for (int i = 0; i < size; ++i) {
-    if (i % 3 == 2) {
-      EXPECT_TRUE(result->isNullAt(i));
-    } else {
-      EXPECT_EQ(result->valueAt(i), i * pow(10, i % 3)) << "at " << i;
-    }
-  }
+  expectedResult = makeFlatVector<int32_t>(
+      size,
+      [](auto row) { return row * pow(10, row % 3); },
+      [](auto row) { return row % 3 == 2; });
+  assertEqualVectors(expectedResult, result);
 }
 
 TEST_F(CoalesceTest, strings) {

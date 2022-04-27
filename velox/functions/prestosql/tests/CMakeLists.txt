@@ -34,7 +34,6 @@ add_executable(
   BitwiseTest.cpp
   CardinalityTest.cpp
   CeilFloorTest.cpp
-  CoalesceTest.cpp
   ComparisonsTest.cpp
   DateTimeFunctionsTest.cpp
   ElementAtTest.cpp

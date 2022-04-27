@@ -49,7 +49,8 @@ std::shared_ptr<const Type> resolveType(
     return BOOLEAN();
   }
 
-  if (expr->getFunctionName() == "try") {
+  if (expr->getFunctionName() == "try" ||
+      expr->getFunctionName() == "coalesce") {
     VELOX_CHECK(!inputs.empty());
     return inputs.front()->type();
   }

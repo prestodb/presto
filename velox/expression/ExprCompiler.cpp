@@ -15,8 +15,8 @@
  */
 
 #include "velox/expression/ExprCompiler.h"
-#include "velox/core/SimpleFunctionMetadata.h"
 #include "velox/expression/CastExpr.h"
+#include "velox/expression/CoalesceExpr.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
@@ -192,6 +192,9 @@ ExprPtr getSpecialForm(
   if (name == kTry) {
     VELOX_CHECK_EQ(compiledChildren.size(), 1);
     return std::make_shared<TryExpr>(type, std::move(compiledChildren[0]));
+  }
+  if (name == kCoalesce) {
+    return std::make_shared<CoalesceExpr>(type, std::move(compiledChildren));
   }
   return nullptr;
 }

@@ -202,7 +202,7 @@ class FlatVector final : public SimpleVector<T> {
   T* mutableRawValues() {
     if (!values_ || !values_->unique()) {
       BufferPtr newValues =
-          AlignedBuffer::allocate<T>(BaseVector::length_, values_->pool());
+          AlignedBuffer::allocate<T>(BaseVector::length_, BaseVector::pool());
       if (values_) {
         // This codepath is not yet enabled for OPAQUE types (asMutable will
         // fail below)

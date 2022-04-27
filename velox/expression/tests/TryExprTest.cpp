@@ -82,14 +82,14 @@ TEST_F(TryExprTest, nestedTryChildErrors) {
   // throw.
   auto flatVector = makeFlatVector<StringView>(
       5, [&](auto row) { return row % 2 == 0 ? "1" : "a"; });
-  auto result = evaluate<FlatVector<int64_t>>(
-      "try(coalesce(try(cast(c0 as integer)), 3))",
+  auto result = evaluate<FlatVector<int32_t>>(
+      "try(coalesce(try(cast(c0 as integer)), cast(3 as integer)))",
       makeRowVector({flatVector}));
 
   assertEqualVectors(
       // Every other row throws an exception, which should get caught and
       // coalesced to 3.
-      makeFlatVector<int64_t>({1, 3, 1, 3, 1}),
+      makeFlatVector<int32_t>({1, 3, 1, 3, 1}),
       result);
 }
 
@@ -104,12 +104,12 @@ TEST_F(TryExprTest, nestedTryParentErrors) {
       size, [&](auto row) { return row % 3 == 0 ? "a" : "1"; });
   auto col1 = makeFlatVector<StringView>(
       size, [&](auto row) { return row % 3 == 1 ? "a" : "1"; });
-  auto result = evaluate<FlatVector<int64_t>>(
-      "try(cast(c1 as integer) + coalesce(try(cast(c0 as integer)), 3))",
+  auto result = evaluate<FlatVector<int32_t>>(
+      "try(cast(c1 as integer) + coalesce(try(cast(c0 as integer)), cast(3 as integer)))",
       makeRowVector({col0, col1}));
 
   assertEqualVectors(
-      makeFlatVector<int64_t>(
+      makeFlatVector<int32_t>(
           size,
           [&](auto row) {
             if (row % 3 == 0) {

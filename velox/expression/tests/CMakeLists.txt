@@ -17,6 +17,7 @@ add_executable(
   ExprTest.cpp
   ExprStatsTest.cpp
   CastExprTest.cpp
+  CoalesceTest.cpp
   MapWriterTest.cpp
   ArrayWriterTest.cpp
   RowWriterTest.cpp

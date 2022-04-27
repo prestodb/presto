@@ -20,6 +20,7 @@ target_link_libraries(velox_expression_functions velox_common_base)
 add_library(
   velox_expression
   CastExpr.cpp
+  CoalesceExpr.cpp
   ControlExpr.cpp
   EvalCtx.cpp
   Expr.cpp
