@@ -45,6 +45,10 @@ struct ExceptionContext {
   /// Value to pass to `messageFunc`. Can be null.
   void* arg{nullptr};
 
+  /// Pointer to the parent context when there are hierarchical exception
+  /// contexts.
+  ExceptionContext* parent{nullptr};
+
   /// Calls `messageFunc(arg)` and returns the result. Returns empty string if
   /// `messageFunc` is null.
   std::string message() {
@@ -59,11 +63,15 @@ struct ExceptionContext {
 /// expression evaluation.
 ExceptionContext& getExceptionContext();
 
-/// RAII class to set and restore context for exceptions.
+/// RAII class to set and restore context for exceptions. Links the new
+/// exception context with the previous context held by the thread_local
+/// variable to allow retrieving the top-level context when there is an
+/// exception context hierarchy.
 class ExceptionContextSetter {
  public:
   explicit ExceptionContextSetter(ExceptionContext value)
       : prev_{getExceptionContext()} {
+    value.parent = &prev_;
     getExceptionContext() = std::move(value);
   }
 
@@ -196,6 +204,10 @@ class VeloxException : public std::exception {
     return state_->context;
   }
 
+  const std::string& topLevelContext() const {
+    return state_->topLevelContext;
+  }
+
  private:
   struct State {
     std::unique_ptr<process::StackTrace> stackTrace;
@@ -207,7 +219,10 @@ class VeloxException : public std::exception {
     std::string message;
     std::string errorSource;
     std::string errorCode;
+    // The current exception context.
     std::string context;
+    // The top-level ancestor of the current exception context.
+    std::string topLevelContext;
     bool isRetriable;
 
     mutable folly::once_flag once;

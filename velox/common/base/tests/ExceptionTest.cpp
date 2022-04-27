@@ -450,11 +450,24 @@ TEST(ExceptionTest, context) {
       "\nFile: ");
 
   // With context.
+  auto messageFunction = [](auto* arg) {
+    return std::string(static_cast<char*>(arg));
+  };
+
   {
-    std::string troubleshootingAid = "Troubleshooting aid.";
-    facebook::velox::ExceptionContextSetter context(
-        {[](auto* arg) { return std::string(static_cast<char*>(arg)); },
-         troubleshootingAid.data()});
+    // Create multi-layer contexts.
+    std::string topLevelTroubleshootingAid = "Top-level troubleshooting aid.";
+    facebook::velox::ExceptionContextSetter topLevelContext(
+        {messageFunction, topLevelTroubleshootingAid.data()});
+
+    std::string midLevelTroubleshootingAid = "Mid-level troubleshooting aid.";
+    facebook::velox::ExceptionContextSetter midLevelContext(
+        {messageFunction, midLevelTroubleshootingAid.data()});
+
+    std::string innerLevelTroubleshootingAid =
+        "Inner-level troubleshooting aid.";
+    facebook::velox::ExceptionContextSetter innerLevelContext(
+        {messageFunction, innerLevelTroubleshootingAid.data()});
 
     verifyVeloxException(
         [&]() { VELOX_CHECK_EQ(1, 3); },
@@ -464,17 +477,19 @@ TEST(ExceptionTest, context) {
         "\nReason: (1 vs. 3)"
         "\nRetriable: False"
         "\nExpression: 1 == 3"
-        "\nContext: Troubleshooting aid."
+        "\nContext: Inner-level troubleshooting aid."
+        "\nTop-Level Context: Top-level troubleshooting aid."
         "\nFunction: operator()"
         "\nFile: ");
   }
 
   // Different context.
   {
+    // Create a single layer of context. Context and top-level context are
+    // expected to be the same.
     std::string debuggingInfo = "Debugging info.";
     facebook::velox::ExceptionContextSetter context(
-        {[](auto* arg) { return std::string(static_cast<char*>(arg)); },
-         debuggingInfo.data()});
+        {messageFunction, debuggingInfo.data()});
 
     verifyVeloxException(
         [&]() { VELOX_CHECK_EQ(1, 3); },
@@ -485,6 +500,7 @@ TEST(ExceptionTest, context) {
         "\nRetriable: False"
         "\nExpression: 1 == 3"
         "\nContext: Debugging info."
+        "\nTop-Level Context: Same as context."
         "\nFunction: operator()"
         "\nFile: ");
   }

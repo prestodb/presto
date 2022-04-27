@@ -686,16 +686,17 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return indicesBuffer;
   }
 
-  void assertError(
+  void assertErrorContext(
       const std::string& expression,
       const VectorPtr& input,
-      const std::string& errorMessage) {
+      const std::string& context,
+      const std::string& topLevelContext) {
     try {
       evaluate(expression, makeRowVector({input}));
       ASSERT_TRUE(false) << "Expected an error";
-    } catch (std::exception& e) {
-      ASSERT_TRUE(
-          std::string(e.what()).find(errorMessage) != std::string::npos);
+    } catch (VeloxException& e) {
+      ASSERT_EQ(context, e.context());
+      ASSERT_EQ(topLevelContext, e.topLevelContext());
     }
   }
 
@@ -2552,10 +2553,13 @@ TEST_F(ExprTest, exceptionContext) {
   });
 
   try {
-    evaluate("(c0 + c1) % 0", data);
+    evaluate("c0 + (c0 + c1) % 0", data);
     FAIL() << "Expected an exception";
   } catch (const VeloxException& e) {
     ASSERT_EQ("mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT)", e.context());
+    ASSERT_EQ(
+        "plus(cast((c0) as BIGINT), mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT))",
+        e.topLevelContext());
   }
 
   try {
@@ -2563,6 +2567,9 @@ TEST_F(ExprTest, exceptionContext) {
     FAIL() << "Expected an exception";
   } catch (const VeloxException& e) {
     ASSERT_EQ("mod(cast((c1) as BIGINT), 0:BIGINT)", e.context());
+    ASSERT_EQ(
+        "plus(cast((c0) as BIGINT), mod(cast((c1) as BIGINT), 0:BIGINT))",
+        e.topLevelContext());
   }
 }
 
@@ -2691,15 +2698,19 @@ TEST_F(ExprTest, tryWithConstantFailure) {
 }
 
 TEST_F(ExprTest, castExceptionContext) {
-  assertError(
-      "cast(c0 as bigint)", makeFlatVector({"a"}), "cast((c0) as BIGINT)");
+  assertErrorContext(
+      "cast(c0 as bigint)",
+      makeFlatVector({"a"}),
+      "cast((c0) as BIGINT)",
+      "Same as context.");
 }
 
 TEST_F(ExprTest, switchExceptionContext) {
-  assertError(
+  assertErrorContext(
       "case c0 when 7 then c0 / 0 else 0 end",
       makeFlatVector<int64_t>({7}),
-      "divide(c0, 0:BIGINT)");
+      "divide(c0, 0:BIGINT)",
+      "switch(eq(c0, 7:BIGINT), divide(c0, 0:BIGINT), 0:BIGINT)");
 }
 
 TEST_F(ExprTest, conjunctExceptionContext) {
@@ -2713,10 +2724,11 @@ TEST_F(ExprTest, conjunctExceptionContext) {
         "if (bigint1 % 409 < 300 and bigint1 / 0 < 30, 1, 2)",
         [&](int32_t /*row*/) { return 0; });
     ASSERT_TRUE(false) << "Expected an error";
-  } catch (std::exception& e) {
-    ASSERT_TRUE(
-        std::string(e.what()).find("divide(bigint1, 0:BIGINT)") !=
-        std::string::npos);
+  } catch (VeloxException& e) {
+    ASSERT_EQ("divide(bigint1, 0:BIGINT)", e.context());
+    ASSERT_EQ(
+        "switch(and(lt(mod(bigint1, 409:BIGINT), 300:BIGINT), lt(divide(bigint1, 0:BIGINT), 30:BIGINT)), 1:BIGINT, 2:BIGINT)",
+        e.topLevelContext());
   }
 }
 
@@ -2730,5 +2742,9 @@ TEST_F(ExprTest, lambdaExceptionContext) {
       parse::parseExpr("x / 0 > 1"),
       execCtx_->pool());
 
-  assertError("filter(c0, function('lambda'))", array, "divide(x, 0:BIGINT)");
+  assertErrorContext(
+      "filter(c0, function('lambda'))",
+      array,
+      "divide(x, 0:BIGINT)",
+      "filter(c0, lambda)");
 }
