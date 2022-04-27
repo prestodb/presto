@@ -127,28 +127,6 @@ public class SimpleTtlNodeSelector
     }
 
     @Override
-    public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
-    {
-        Map<InternalNode, NodeTtl> nodeTtlInfo = nodeTtlFetcherManager.getAllTtls();
-
-        Map<InternalNode, Optional<ConfidenceBasedTtlInfo>> ttlInfo = nodeTtlInfo
-                .entrySet()
-                .stream()
-                .collect(toImmutableMap(
-                        Map.Entry::getKey,
-                        e -> e.getValue().getTtlInfo()
-                                .stream()
-                                .min(Comparator.comparing(ConfidenceBasedTtlInfo::getExpiryInstant))));
-
-        NodeMap nodeMap = this.nodeMap.get().get();
-        List<InternalNode> activeNodes = nodeMap.getActiveNodes();
-
-        Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining();
-        List<InternalNode> eligibleNodes = filterNodesByTtl(activeNodes, excludedNodes, ttlInfo, estimatedExecutionTimeRemaining);
-        return selectNodes(limit, new ResettableRandomizedIterator<>(eligibleNodes));
-    }
-
-    @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         boolean isNodeSelectionStrategyNoPreference = splits.stream().allMatch(split -> split.getNodeSelectionStrategy() == com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE);

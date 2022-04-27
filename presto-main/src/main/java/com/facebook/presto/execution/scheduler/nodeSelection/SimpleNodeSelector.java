@@ -122,12 +122,6 @@ public class SimpleNodeSelector
     }
 
     @Override
-    public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
-    {
-        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));
-    }
-
-    @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         Multimap<InternalNode, Split> assignment = HashMultimap.create();

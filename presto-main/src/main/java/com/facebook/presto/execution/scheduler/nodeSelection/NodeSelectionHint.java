@@ -80,6 +80,7 @@ public class NodeSelectionHint
         }
 
         public Builder excludeNodes(Set<InternalNode> exclusionSet) {
+            Preconditions.checkNotNull(exclusionSet, "exclusionSet is null");
             this.exclusionSet = Collections.unmodifiableSet(exclusionSet);
             return this;
         }

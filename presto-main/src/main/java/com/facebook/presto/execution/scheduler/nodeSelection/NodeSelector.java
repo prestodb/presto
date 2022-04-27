@@ -31,9 +31,6 @@ public interface NodeSelector
     // DynamicSplitPlacementPolicy
     List<InternalNode> getActiveNodes();
 
-    // Used in ScaledWriterScheduler
-    List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes);
-
     /**
      * Identifies the nodes for running the specified splits.
      *

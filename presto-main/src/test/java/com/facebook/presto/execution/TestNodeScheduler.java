@@ -251,6 +251,26 @@ public class TestNodeScheduler
         assertEquals(assignment.getValue(), split);
     }
 
+    @Test
+    public void testSelectNode() {
+        List<InternalNode> nodes = nodeScheduler.selectNodes(session, CONNECTOR_ID, 2);
+
+        assertEquals(nodes.size(), 2);
+        assertTrue(nodeManager.getActiveConnectorNodes(CONNECTOR_ID).containsAll(nodes));
+    }
+
+    @Test
+    public void testSelectNodeToSkipNodesFromExclusionList() {
+        ArrayList<InternalNode> nodeList = new ArrayList<>(nodeManager.getActiveConnectorNodes(CONNECTOR_ID));
+        ImmutableSet<InternalNode> exclusionSet = ImmutableSet.of(nodeList.remove(0), nodeList.remove(0));
+        InternalNode expectedNode = nodeList.get(0);
+
+        List<InternalNode> nodes = nodeScheduler.selectNodes(session, CONNECTOR_ID, 2, exclusionSet);
+
+        assertEquals(nodes.size(), 1);
+        assertEquals(nodes.get(0), expectedNode);
+    }
+
     @Test(timeOut = 60 * 1000)
     public void testTopologyAwareScheduling()
             throws Exception

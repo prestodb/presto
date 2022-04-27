@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.TaskStatus;
@@ -40,10 +41,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ScaledWriterScheduler
         implements StageScheduler
 {
+    private final Session session;
     private final SqlStageExecution stage;
     private final Supplier<Collection<TaskStatus>> sourceTasksProvider;
     private final Supplier<Collection<TaskStatus>> writerTasksProvider;
-    private final NodeSelector nodeSelector;
+    private final NodeScheduler nodeScheduler;
     private final ScheduledExecutorService executor;
 
     private final boolean optimizedScaleWriterProducerBuffer;
@@ -55,18 +57,20 @@ public class ScaledWriterScheduler
     private volatile SettableFuture<?> future = SettableFuture.create();
 
     public ScaledWriterScheduler(
+            Session session,
             SqlStageExecution stage,
             Supplier<Collection<TaskStatus>> sourceTasksProvider,
             Supplier<Collection<TaskStatus>> writerTasksProvider,
-            NodeSelector nodeSelector,
+            NodeScheduler nodeScheduler,
             ScheduledExecutorService executor,
             DataSize writerMinSize,
             boolean optimizedScaleWriterProducerBuffer)
     {
+        this.session = requireNonNull(session, "session is null");
         this.stage = requireNonNull(stage, "stage is null");
         this.sourceTasksProvider = requireNonNull(sourceTasksProvider, "sourceTasksProvider is null");
         this.writerTasksProvider = requireNonNull(writerTasksProvider, "writerTasksProvider is null");
-        this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
+        this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.writerMinSizeBytes = requireNonNull(writerMinSize, "minWriterSize is null").toBytes();
         this.optimizedScaleWriterProducerBuffer = optimizedScaleWriterProducerBuffer;
@@ -131,7 +135,7 @@ public class ScaledWriterScheduler
             return ImmutableList.of();
         }
 
-        List<InternalNode> nodes = nodeSelector.selectRandomNodes(count, scheduledNodes);
+        List<InternalNode> nodes = nodeScheduler.selectNodes(session, null, count, scheduledNodes);
 
         checkCondition(!scheduledNodes.isEmpty() || !nodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
 

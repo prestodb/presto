@@ -123,12 +123,6 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
-    {
-        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));
-    }
-
-    @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         NodeMap nodeMap = this.nodeMap.get().get();

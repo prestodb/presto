@@ -52,6 +52,7 @@ import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -204,9 +205,15 @@ public class NodeScheduler
 
     public List<InternalNode> selectNodes(Session session, ConnectorId connectorId, int limit)
     {
+        return selectNodes(session, connectorId, limit, Collections.emptySet());
+    }
+
+    public List<InternalNode> selectNodes(Session session, ConnectorId connectorId, int limit, Set<InternalNode> exclusionSet)
+    {
         NodeSelectionHint hint = NodeSelectionHint.newBuilder()
                 .includeCoordinator(includeCoordinator)
                 .limit(limit)
+                .excludeNodes(exclusionSet)
                 .build();
         List<InternalNode> candidateNodes = getCandidateNodes(session, connectorId);
         return nodeSelectionStrategy.select(candidateNodes, hint);

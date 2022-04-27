@@ -301,10 +301,11 @@ public class SectionExecutionFactory
                     .collect(toList());
 
             ScaledWriterScheduler scheduler = new ScaledWriterScheduler(
+                    session,
                     stageExecution,
                     sourceTasksProvider,
                     writerTasksProvider,
-                    nodeScheduler.createNodeSelector(session, null),
+                    nodeScheduler,
                     scheduledExecutor,
                     getWriterMinSize(session),
                     isOptimizedScaleWriterProducerBuffer(session));
