@@ -17,9 +17,30 @@
 #pragma once
 
 #include <cstdint>
+#include "velox/dwio/common/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/WriterContext.h"
 
 namespace facebook::velox::dwrf {
+enum class FlushDecision {
+  SKIP,
+  FLUSH_DICTIONARY,
+  ABANDON_DICTIONARY,
+};
+
+class DWRFFlushPolicy : virtual public dwio::common::FlushPolicy {
+ public:
+  virtual ~DWRFFlushPolicy() override = default;
+  virtual bool shouldFlush(
+      const dwio::common::StripeProgress& stripeProgress) override = 0;
+  // Check additional flush criteria based on dictioanry encoding.
+  // Different actions can also be taken based on the additional checks.
+  // e.g. abandon dictionary encodings.
+  virtual FlushDecision shouldFlushDictionary(
+      bool stripeProgressDecision,
+      bool overMemoryBudget,
+      const WriterContext& context) = 0;
+  virtual void onClose() override = 0;
+};
 
 class DefaultFlushPolicy {
  public:
