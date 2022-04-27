@@ -279,7 +279,7 @@ public class MultiChannelGroupByHash
     @Override
     public boolean contains(int position, Page page, int[] hashChannels, long rawHash)
     {
-        int hashPosition = (int) getHashPosition(rawHash, mask);
+        int hashPosition = getHashPosition(rawHash, mask);
 
         // look for a slot containing this key
         while (groupAddressByHash[hashPosition] != -1) {
@@ -309,7 +309,7 @@ public class MultiChannelGroupByHash
 
     private int putIfAbsent(int position, Page page, long rawHash)
     {
-        int hashPosition = (int) getHashPosition(rawHash, mask);
+        int hashPosition = getHashPosition(rawHash, mask);
 
         // look for an empty slot or a slot containing this key
         int groupId = -1;
@@ -426,7 +426,7 @@ public class MultiChannelGroupByHash
 
             long rawHash = hashPosition(address);
             // find an empty slot for the address
-            int pos = (int) getHashPosition(rawHash, newMask);
+            int pos = getHashPosition(rawHash, newMask);
             while (newKey[pos] != -1) {
                 pos = (pos + 1) & newMask;
                 hashCollisions++;
@@ -476,9 +476,9 @@ public class MultiChannelGroupByHash
         return hashStrategy.positionNotDistinctFromRow(decodeSliceIndex(address), decodePosition(address), position, page, hashChannels);
     }
 
-    private static long getHashPosition(long rawHash, int mask)
+    private static int getHashPosition(long rawHash, int mask)
     {
-        return murmurHash3(rawHash) & mask;
+        return (int) (murmurHash3(rawHash) & mask); // mask is int so casting is safe
     }
 
     private static int calculateMaxFill(int hashSize)
