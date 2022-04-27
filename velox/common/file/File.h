@@ -47,8 +47,8 @@ class ReadFile {
 
   // Reads the data at [offset, offset + length) into the provided pre-allocated
   // buffer 'buf'. The bytes are returned as a string_view pointing to 'buf'.
-  virtual std::string_view pread(uint64_t offset, uint64_t length, void* buf)
-      const = 0;
+  virtual std::string_view
+  pread(uint64_t offset, uint64_t length, void* FOLLY_NONNULL buf) const = 0;
 
   // Same as above, but returns owned data directly.
   virtual std::string pread(uint64_t offset, uint64_t length) const = 0;
@@ -141,8 +141,8 @@ class InMemoryReadFile final : public ReadFile {
   explicit InMemoryReadFile(std::string file)
       : ownedFile_(std::move(file)), file_(ownedFile_) {}
 
-  std::string_view pread(uint64_t offset, uint64_t length, void* buf)
-      const final;
+  std::string_view
+  pread(uint64_t offset, uint64_t length, void* FOLLY_NONNULL buf) const final;
 
   std::string pread(uint64_t offset, uint64_t length) const final;
 
@@ -174,7 +174,7 @@ class InMemoryReadFile final : public ReadFile {
 
 class InMemoryWriteFile final : public WriteFile {
  public:
-  explicit InMemoryWriteFile(std::string* file) : file_(file) {}
+  explicit InMemoryWriteFile(std::string* FOLLY_NONNULL file) : file_(file) {}
 
   void append(std::string_view data) final;
   void flush() final {}
@@ -182,7 +182,7 @@ class InMemoryWriteFile final : public WriteFile {
   uint64_t size() const final;
 
  private:
-  std::string* file_;
+  std::string* FOLLY_NONNULL file_;
 };
 
 // Current implementation for the local version is quite simple (e.g. no
@@ -195,8 +195,8 @@ class LocalReadFile final : public ReadFile {
 
   explicit LocalReadFile(int32_t fd);
 
-  std::string_view pread(uint64_t offset, uint64_t length, void* buf)
-      const final;
+  std::string_view
+  pread(uint64_t offset, uint64_t length, void* FOLLY_NONNULL buf) const final;
 
   std::string pread(uint64_t offset, uint64_t length) const final;
 
@@ -213,7 +213,8 @@ class LocalReadFile final : public ReadFile {
   }
 
  private:
-  void preadInternal(uint64_t offset, uint64_t length, char* pos) const;
+  void preadInternal(uint64_t offset, uint64_t length, char* FOLLY_NONNULL pos)
+      const;
 
   int32_t fd_;
   mutable long size_ = -1;
@@ -231,7 +232,7 @@ class LocalWriteFile final : public WriteFile {
   uint64_t size() const final;
 
  private:
-  FILE* file_;
+  FILE* FOLLY_NONNULL file_;
   mutable long size_;
   bool closed_{false};
 };
