@@ -24,8 +24,8 @@ import java.util.List;
  * This NodeSelector makes a selection from the candidates randomly. The selection
  * is strictly random and based on ResettableRandomizedIterator
  */
-public class RandomNodeSelection
-        implements NodeSelection
+public class RandomNodeSelectionStrategy
+        implements NodeSelectionStrategy
 {
     @Override
     public List<InternalNode> select(List<InternalNode> candidates, NodeSelectionHint hint)

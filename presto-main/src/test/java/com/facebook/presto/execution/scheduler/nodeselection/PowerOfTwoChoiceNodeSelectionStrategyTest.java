@@ -1,10 +1,10 @@
 package com.facebook.presto.execution.scheduler.nodeselection;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStrategy;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeScorer;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionHint;
-import com.facebook.presto.execution.scheduler.nodeSelection.PowerOfTwoChoiceNodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.PowerOfTwoChoiceNodeSelectionStrategy;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
@@ -15,9 +15,8 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.UUID;
 
-public class PowerOfTwoChoiceNodeSelectionTest
+public class PowerOfTwoChoiceNodeSelectionStrategyTest
 {
     private final InternalNode node1 = new InternalNode("node1", new URI("/"), NodeVersion.UNKNOWN, false);
     private final InternalNode node2 = new InternalNode("node2", new URI("/"), NodeVersion.UNKNOWN, false);
@@ -33,7 +32,7 @@ public class PowerOfTwoChoiceNodeSelectionTest
 
         NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 10 : 1);
 
-        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelectionStrategy selector = new PowerOfTwoChoiceNodeSelectionStrategy(scorer, LongComparators.NATURAL_COMPARATOR);
 
         int count = 5;
         while (count-- > 0) {
@@ -55,7 +54,7 @@ public class PowerOfTwoChoiceNodeSelectionTest
 
         NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 40 : 1);
 
-        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelectionStrategy selector = new PowerOfTwoChoiceNodeSelectionStrategy(scorer, LongComparators.NATURAL_COMPARATOR);
 
         int count = 5;
         while (count-- > 0) {
@@ -78,7 +77,7 @@ public class PowerOfTwoChoiceNodeSelectionTest
 
         NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 40 : 1);
 
-        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelectionStrategy selector = new PowerOfTwoChoiceNodeSelectionStrategy(scorer, LongComparators.NATURAL_COMPARATOR);
 
         int count = 5;
         while (count-- > 0) {
@@ -99,7 +98,7 @@ public class PowerOfTwoChoiceNodeSelectionTest
 
         NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 10 : 1);
 
-        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelectionStrategy selector = new PowerOfTwoChoiceNodeSelectionStrategy(scorer, LongComparators.NATURAL_COMPARATOR);
 
         int count = 5;
         while (count-- > 0) {
@@ -120,7 +119,7 @@ public class PowerOfTwoChoiceNodeSelectionTest
 
         NodeScorer scorer = (node) -> node == node2 ? 20 : (node == coordinator ? 10 : 1);
 
-        NodeSelection selector = new PowerOfTwoChoiceNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelectionStrategy selector = new PowerOfTwoChoiceNodeSelectionStrategy(scorer, LongComparators.NATURAL_COMPARATOR);
 
         int count = 5;
         while (count-- > 0) {
@@ -130,7 +129,7 @@ public class PowerOfTwoChoiceNodeSelectionTest
         }
     }
 
-    public PowerOfTwoChoiceNodeSelectionTest()
+    public PowerOfTwoChoiceNodeSelectionStrategyTest()
             throws URISyntaxException
     {}
 }

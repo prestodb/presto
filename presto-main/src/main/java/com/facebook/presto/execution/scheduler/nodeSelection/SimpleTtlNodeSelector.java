@@ -29,7 +29,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SplitWeight;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo;
 import com.facebook.presto.spi.ttl.NodeTtl;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
@@ -128,12 +127,6 @@ public class SimpleTtlNodeSelector
     }
 
     @Override
-    public InternalNode selectCurrentNode()
-    {
-        return simpleNodeSelector.selectCurrentNode();
-    }
-
-    @Override
     public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
     {
         Map<InternalNode, NodeTtl> nodeTtlInfo = nodeTtlFetcherManager.getAllTtls();
@@ -158,7 +151,7 @@ public class SimpleTtlNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
-        boolean isNodeSelectionStrategyNoPreference = splits.stream().allMatch(split -> split.getNodeSelectionStrategy() == NodeSelectionStrategy.NO_PREFERENCE);
+        boolean isNodeSelectionStrategyNoPreference = splits.stream().allMatch(split -> split.getNodeSelectionStrategy() == com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE);
         // Current NodeSelectionStrategy support is limited to NO_PREFERENCE
         if (!isNodeSelectionStrategyNoPreference) {
             return simpleNodeSelector.computeAssignments(splits, existingTasks);
@@ -169,19 +162,19 @@ public class SimpleTtlNodeSelector
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
-        NodeSelection randomNodeSelection = new RandomNodeSelection();
+        NodeSelectionStrategy randomNodeSelectionStrategy = new RandomNodeSelectionStrategy();
 
         boolean splitWaitingForAnyNode = false;
 
         OptionalInt preferredNodeCount = OptionalInt.empty();
         for (Split split : splits) {
-            if (split.getNodeSelectionStrategy() != NodeSelectionStrategy.NO_PREFERENCE) {
+            if (split.getNodeSelectionStrategy() != com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE) {
                 throw new PrestoException(
                         NODE_SELECTION_NOT_SUPPORTED,
                         format("Unsupported node selection strategy for TTL scheduling: %s", split.getNodeSelectionStrategy()));
             }
 
-            List<InternalNode> candidateNodes = randomNodeSelection.select(eligibleNodes, NodeSelectionHint.newBuilder()
+            List<InternalNode> candidateNodes = randomNodeSelectionStrategy.select(eligibleNodes, NodeSelectionHint.newBuilder()
                     .includeCoordinator(includeCoordinator)
                     .limit(minCandidates)
                     .build());

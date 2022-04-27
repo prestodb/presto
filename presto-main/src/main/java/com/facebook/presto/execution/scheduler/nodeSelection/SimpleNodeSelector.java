@@ -122,13 +122,6 @@ public class SimpleNodeSelector
     }
 
     @Override
-    public InternalNode selectCurrentNode()
-    {
-        // TODO: this is a hack to force scheduling on the coordinator
-        return nodeManager.getCurrentNode();
-    }
-
-    @Override
     public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
     {
         return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));
@@ -142,7 +135,7 @@ public class SimpleNodeSelector
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
-        NodeSelection randomNodeSelection = new RandomNodeSelection();
+        NodeSelectionStrategy randomNodeSelectionStrategy = new RandomNodeSelectionStrategy();
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
@@ -165,14 +158,14 @@ public class SimpleNodeSelector
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder()
                             .addAll(candidateNodes)
-                            .addAll(randomNodeSelection.select(eligibleNodes, NodeSelectionHint.newBuilder()
+                            .addAll(randomNodeSelectionStrategy.select(eligibleNodes, NodeSelectionHint.newBuilder()
                                     .includeCoordinator(includeCoordinator)
                                     .limit(minCandidates)
                                     .build()))
                             .build();
                     break;
                 case NO_PREFERENCE:
-                    candidateNodes = randomNodeSelection.select(eligibleNodes, NodeSelectionHint.newBuilder()
+                    candidateNodes = randomNodeSelectionStrategy.select(eligibleNodes, NodeSelectionHint.newBuilder()
                             .includeCoordinator(includeCoordinator)
                             .limit(minCandidates)
                             .build());

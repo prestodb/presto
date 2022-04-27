@@ -18,11 +18,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStrategy;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionHint;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
-import com.facebook.presto.execution.scheduler.nodeSelection.RandomNodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.RandomNodeSelectionStrategy;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleNodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
@@ -103,6 +103,7 @@ public class NodeScheduler
     private final SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig;
     private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
     private final int minVirtualNodeCount;
+    private final NodeSelectionStrategy nodeSelectionStrategy = new RandomNodeSelectionStrategy();
 
     @Inject
     public NodeScheduler(
@@ -196,15 +197,19 @@ public class NodeScheduler
         return createNodeMapSupplier(connectorId).get().getActiveNodes();
     }
 
+    public InternalNode getCurrentNode()
+    {
+        return nodeManager.getCurrentNode();
+    }
+
     public List<InternalNode> selectNodes(Session session, ConnectorId connectorId, int limit)
     {
-        NodeSelection selection = new RandomNodeSelection();
         NodeSelectionHint hint = NodeSelectionHint.newBuilder()
                 .includeCoordinator(includeCoordinator)
                 .limit(limit)
                 .build();
         List<InternalNode> candidateNodes = getCandidateNodes(session, connectorId);
-        return selection.select(candidateNodes, hint);
+        return nodeSelectionStrategy.select(candidateNodes, hint);
     }
 
     private List<InternalNode> getCandidateNodes(Session session, ConnectorId connectorId)

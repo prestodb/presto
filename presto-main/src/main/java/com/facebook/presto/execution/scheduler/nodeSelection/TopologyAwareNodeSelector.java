@@ -123,13 +123,6 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public InternalNode selectCurrentNode()
-    {
-        // TODO: this is a hack to force scheduling on the coordinator
-        return nodeManager.getCurrentNode();
-    }
-
-    @Override
     public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
     {
         return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));

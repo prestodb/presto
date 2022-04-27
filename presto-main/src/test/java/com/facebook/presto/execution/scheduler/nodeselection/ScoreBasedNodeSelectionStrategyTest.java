@@ -1,10 +1,10 @@
 package com.facebook.presto.execution.scheduler.nodeselection;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStrategy;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeScorer;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionHint;
-import com.facebook.presto.execution.scheduler.nodeSelection.ScoreBasedNodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.ScoreBasedNodeSelectionStrategy;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
@@ -16,9 +16,8 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.UUID;
 
-public class ScoreBasedNodeSelectionTest
+public class ScoreBasedNodeSelectionStrategyTest
 {
     private InternalNode node1;
     private InternalNode coordinator;
@@ -43,7 +42,7 @@ public class ScoreBasedNodeSelectionTest
                 .build();
 
         NodeScorer scorer = (node) -> node == coordinator ? 20 : (node == node3 ? 10 : 1);
-        NodeSelection selector = new ScoreBasedNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelectionStrategy selector = new ScoreBasedNodeSelectionStrategy(scorer, LongComparators.NATURAL_COMPARATOR);
 
         List<InternalNode> selectedNodes = selector.select(candidateNodes, hint);
 
@@ -61,7 +60,7 @@ public class ScoreBasedNodeSelectionTest
                 .build();
 
         NodeScorer scorer = (node) -> node == coordinator ? 30 : (node == node3 ? 20 : 1);
-        NodeSelection selector = new ScoreBasedNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelectionStrategy selector = new ScoreBasedNodeSelectionStrategy(scorer, LongComparators.NATURAL_COMPARATOR);
 
         List<InternalNode> selectedNodes = selector.select(candidateNodes, hint);
 
@@ -80,7 +79,7 @@ public class ScoreBasedNodeSelectionTest
                 .build();
 
         NodeScorer scorer = (node) -> node == coordinator ? 30 : (node == node3 ? 20 : 1);
-        NodeSelection selector = new ScoreBasedNodeSelection(scorer, LongComparators.NATURAL_COMPARATOR);
+        NodeSelectionStrategy selector = new ScoreBasedNodeSelectionStrategy(scorer, LongComparators.NATURAL_COMPARATOR);
 
         List<InternalNode> selectedNodes = selector.select(candidateNodes, hint);
 

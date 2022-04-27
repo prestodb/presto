@@ -21,7 +21,7 @@ import java.util.List;
  * Represents algorithm to select nodes from a set of candidates
  * based on certain user provided hint.
  */
-public interface NodeSelection
+public interface NodeSelectionStrategy
 {
     /**
      * Selects the elements from candidate nodes and returns based on

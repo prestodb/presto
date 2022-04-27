@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.BucketPartitionFunction;
 import com.facebook.presto.operator.HashGenerator;
@@ -140,7 +139,7 @@ public final class SystemPartitioningHandle
     {
         List<InternalNode> nodes;
         if (partitioning == SystemPartitioning.COORDINATOR_ONLY) {
-            nodes = ImmutableList.of(nodeScheduler.createNodeSelector(session, null).selectCurrentNode());
+            nodes = ImmutableList.of(nodeScheduler.getCurrentNode());
         }
         else if (partitioning == SystemPartitioning.SINGLE) {
             nodes = nodeScheduler.selectNodes(session, null, 1);

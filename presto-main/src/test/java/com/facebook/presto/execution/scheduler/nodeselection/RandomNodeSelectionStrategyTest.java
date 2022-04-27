@@ -1,9 +1,9 @@
 package com.facebook.presto.execution.scheduler.nodeselection;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStrategy;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionHint;
-import com.facebook.presto.execution.scheduler.nodeSelection.RandomNodeSelection;
+import com.facebook.presto.execution.scheduler.nodeSelection.RandomNodeSelectionStrategy;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
@@ -16,7 +16,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
-public class RandomNodeSelectionTest
+public class RandomNodeSelectionStrategyTest
 {
     public static final int TEST_ITERS = 5;
 
@@ -28,7 +28,7 @@ public class RandomNodeSelectionTest
         InternalNode coordinator = new InternalNode(UUID.randomUUID().toString(), new URI("/"), NodeVersion.UNKNOWN, true);
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node, coordinator);
         NodeSelectionHint hint = NodeSelectionHint.newBuilder().includeCoordinator(true).build();
-        NodeSelection selector = new RandomNodeSelection();
+        NodeSelectionStrategy selector = new RandomNodeSelectionStrategy();
 
         List<InternalNode> selectedNodes = selector.select(candidateNodes, hint);
 
@@ -45,7 +45,7 @@ public class RandomNodeSelectionTest
         ImmutableList<InternalNode> candidateNodes = ImmutableList.of(node1, node2);
         NodeSelectionHint hint = NodeSelectionHint.newBuilder().limit(1).build();
 
-        NodeSelection selector = new RandomNodeSelection();
+        NodeSelectionStrategy selector = new RandomNodeSelectionStrategy();
 
         Object2IntMap<InternalNode> countMap = new Object2IntArrayMap<>(2);
         int count = TEST_ITERS;
@@ -73,7 +73,7 @@ public class RandomNodeSelectionTest
                 .limit(1)
                 .includeCoordinator(false)
                 .build();
-        NodeSelection selector = new RandomNodeSelection();
+        NodeSelectionStrategy selector = new RandomNodeSelectionStrategy();
 
         int count = TEST_ITERS;
         while (count-- > 0) {
@@ -99,7 +99,7 @@ public class RandomNodeSelectionTest
                 .includeCoordinator(false)
                 .excludeNodes(ImmutableSet.of(node4, node5))
                 .build();
-        NodeSelection selector = new RandomNodeSelection();
+        NodeSelectionStrategy selector = new RandomNodeSelectionStrategy();
 
         int count = TEST_ITERS;
         while (count-- > 0) {

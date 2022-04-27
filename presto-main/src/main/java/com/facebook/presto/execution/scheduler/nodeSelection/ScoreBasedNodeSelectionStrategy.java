@@ -31,13 +31,13 @@ import static java.util.Objects.requireNonNull;
  * and ranks them using the provided comparator to select the nodes with
  * highest scores.
  */
-public class ScoreBasedNodeSelection
-        implements NodeSelection
+public class ScoreBasedNodeSelectionStrategy
+        implements NodeSelectionStrategy
 {
     private final NodeScorer nodeScorer;
     private final LongComparator scoreComparator;
 
-    public ScoreBasedNodeSelection(NodeScorer nodeScorer, LongComparator scoreComparator)
+    public ScoreBasedNodeSelectionStrategy(NodeScorer nodeScorer, LongComparator scoreComparator)
     {
         this.nodeScorer = requireNonNull(nodeScorer, "NodeScorer cannot be null");
         this.scoreComparator = LongComparators.oppositeComparator(requireNonNull(scoreComparator, "Comparator cannot be null"));

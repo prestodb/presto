@@ -15,7 +15,6 @@ package com.facebook.presto.execution.scheduler.nodeSelection;
 
 import com.facebook.presto.execution.scheduler.ResettableRandomizedIterator;
 import com.facebook.presto.metadata.InternalNode;
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongComparator;
 
 import java.util.Comparator;
@@ -32,8 +31,8 @@ import static java.util.Objects.requireNonNull;
  * nodes. Rather the algorithm uniformly samples nodes and selects node with highest
  * score.
  */
-public class PowerOfTwoChoiceNodeSelection
-        implements NodeSelection
+public class PowerOfTwoChoiceNodeSelectionStrategy
+        implements NodeSelectionStrategy
 {
     private final Comparator<InternalNode> comparator;
 
@@ -47,7 +46,7 @@ public class PowerOfTwoChoiceNodeSelection
      * nodes to select. Nodes with the highest score based on the comparator are
      * selected and returned from the node selector.
      */
-    public PowerOfTwoChoiceNodeSelection(NodeScorer nodeScorer, LongComparator scoreComparator)
+    public PowerOfTwoChoiceNodeSelectionStrategy(NodeScorer nodeScorer, LongComparator scoreComparator)
     {
         NodeScorer scorer = requireNonNull(nodeScorer, "NodeScorer cannot be null");
         LongComparator scoreComp = requireNonNull(scoreComparator, "Comparator cannot be null");
