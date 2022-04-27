@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/WriterShared.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 
@@ -258,8 +259,8 @@ class WriterFlushTestHelper {
     options.schema = dwio::type::fbhive::HiveTypeParser().parse(
         "struct<int_val:int,string_val:string>");
     // A completely memory pressure based flush policy.
-    options.flushPolicy = [](bool overMemoryBudget, auto& /* context */) {
-      return overMemoryBudget;
+    options.flushPolicyFactory = []() {
+      return std::make_unique<LambdaFlushPolicy>([]() { return false; });
     };
     auto writer = std::make_unique<DummyWriter>(
         options,

@@ -21,6 +21,7 @@
 #include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/ComplexVector.h"
@@ -54,8 +55,10 @@ std::unique_ptr<RowReader> writeAndGetReader(
   WriterOptions options;
   options.config = config;
   options.schema = type;
-  options.flushPolicy = [](bool /* unused */, auto& /* unused */) {
-    return false; // All batches are in one stripe.
+  options.flushPolicyFactory = [&]() {
+    return std::make_unique<LambdaFlushPolicy>([]() {
+      return false; // All batches are in one stripe.
+    });
   };
 
   Writer writer{options, std::move(sink), pool};

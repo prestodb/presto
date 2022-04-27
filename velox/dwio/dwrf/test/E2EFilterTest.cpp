@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/test/E2EFilterTestBase.h"
+#include "velox/dwio/dwrf/writer/FlushPolicy.h"
 
 using namespace facebook::velox::dwio::dwrf;
 using namespace facebook::velox::dwrf;
@@ -37,11 +38,13 @@ class E2EFilterTest : public E2EFilterTestBase {
     options.config = config;
     options.schema = type;
     int32_t flushCounter = 0;
-    // If we test row group skip, we have all the data in one stripe. For scan,
-    // we start  a stripe every 'flushEveryNBatches_' batches.
-    options.flushPolicy = [&](auto /* unused */, auto& /* unused */) {
-      return forRowGroupSkip ? false
-                             : (++flushCounter % flushEveryNBatches_ == 0);
+    // If we test row group skip, we have all the data in one stripe. For
+    // scan, we start  a stripe every 'flushEveryNBatches_' batches.
+    options.flushPolicyFactory = [&]() {
+      return std::make_unique<LambdaFlushPolicy>([&]() {
+        return forRowGroupSkip ? false
+                               : (++flushCounter % flushEveryNBatches_ == 0);
+      });
     };
     auto sink = std::make_unique<MemorySink>(*pool_, 200 * 1024 * 1024);
     sinkPtr_ = sink.get();

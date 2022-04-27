@@ -111,7 +111,9 @@ class EncodingManager : public EncodingContainer {
 struct WriterOptionsShared {
   std::shared_ptr<const Config> config = std::make_shared<Config>();
   std::shared_ptr<const Type> schema;
-  std::function<bool(bool, const WriterContext&)> flushPolicy;
+  // The default factory allows the writer to construct the default flush
+  // policy with the configs in its ctor.
+  std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory;
   // Change the interface to stream list and encoding iter.
   std::function<
       std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
@@ -129,7 +131,6 @@ class WriterShared : public WriterBase {
       memory::MemoryPool& parentPool)
       : WriterBase{std::move(sink)},
         schema_{dwio::common::TypeWithId::create(options.schema)},
-        flushPolicy_{options.flushPolicy},
         layoutPlannerFactory_{options.layoutPlannerFactory} {
     auto handler =
         (options.encryptionSpec ? encryption::EncryptionHandler::create(
@@ -145,11 +146,13 @@ class WriterShared : public WriterBase {
                 folly::to<std::string>(folly::Random::rand64())),
             std::min(options.memoryBudget, parentPool.getCap())),
         std::move(handler));
-    if (!flushPolicy_) {
+    if (!options.flushPolicyFactory) {
       auto& context = getContext();
-      flushPolicy_ = DefaultFlushPolicy(
+      flushPolicy_ = std::make_unique<DefaultFlushPolicy>(
           context.stripeSizeFlushThreshold,
           context.dictionarySizeFlushThreshold);
+    } else {
+      flushPolicy_ = options.flushPolicyFactory();
     }
 
     if (!layoutPlannerFactory_) {
@@ -178,7 +181,6 @@ class WriterShared : public WriterBase {
 
   bool shouldFlush(const WriterContext& context, size_t nextWriteLength);
 
-  // Is it safe to call this after first flush?
   void enterLowMemoryMode();
 
   // Create a new stripe. No-op if there is no data written.
@@ -205,7 +207,7 @@ class WriterShared : public WriterBase {
   virtual void resetImpl() = 0;
 
   const std::shared_ptr<const dwio::common::TypeWithId> schema_;
-  std::function<bool(bool, const WriterContext&)> flushPolicy_;
+  std::unique_ptr<DWRFFlushPolicy> flushPolicy_;
   std::function<
       std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
       layoutPlannerFactory_;

@@ -489,7 +489,7 @@ TEST_P(PlanConversionTest, queryTest) {
   options.config = config;
   options.schema = type;
   options.memoryBudget = writerMemoryCap;
-  options.flushPolicy = nullptr;
+  options.flushPolicyFactory = nullptr;
   options.layoutPlannerFactory = nullptr;
   auto writer = std::make_unique<facebook::velox::dwrf::Writer>(
       options,

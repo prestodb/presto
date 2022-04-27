@@ -24,38 +24,52 @@ DefaultFlushPolicy::DefaultFlushPolicy(
     : stripeSizeThreshold_{stripeSizeThreshold},
       dictionarySizeThreshold_{dictionarySizeThreshold} {}
 
-bool DefaultFlushPolicy::operator()(
+FlushDecision DefaultFlushPolicy::shouldFlushDictionary(
+    bool stripeProgressDecision,
     bool overMemoryBudget,
-    const WriterContext& context) const {
-  const int64_t dictionaryMemUsage =
-      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY).getCurrentBytes();
-  const int64_t generalMemUsage =
-      context.getMemoryUsage(MemoryUsageCategory::GENERAL).getCurrentBytes();
-  const int64_t outputStreamSize = context.getEstimatedOutputStreamSize();
-  const bool decision =
-      overMemoryBudget ||
-      operator()(
-          std::max(
-              context.getEstimatedStripeSize(context.stripeRawSize),
-              context.stripeIndex == 0 ? outputStreamSize : 0),
-          dictionaryMemUsage);
-  if (decision) {
-    VLOG(1) << fmt::format(
-        "overMemoryBudget: {}, dictionaryMemUsage: {}, outputStreamSize: {}, generalMemUsage: {}, estimatedStripeSize: {}",
-        overMemoryBudget,
-        dictionaryMemUsage,
-        outputStreamSize,
-        generalMemUsage,
-        context.getEstimatedStripeSize(context.stripeRawSize));
+    int64_t dictionaryMemoryUsage) {
+  if (dictionaryMemoryUsage > dictionarySizeThreshold_) {
+    return FlushDecision::FLUSH_DICTIONARY;
   }
-  return decision;
+  return FlushDecision::SKIP;
 }
 
-bool DefaultFlushPolicy::operator()(
-    uint64_t estimatedStripeSize,
-    uint64_t dictionarySize) const {
-  return dictionarySize >= dictionarySizeThreshold_ ||
-      estimatedStripeSize >= stripeSizeThreshold_;
+FlushDecision DefaultFlushPolicy::shouldFlushDictionary(
+    bool stripeProgressDecision,
+    bool overMemoryBudget,
+    const WriterContext& context) {
+  return shouldFlushDictionary(
+      stripeProgressDecision,
+      overMemoryBudget,
+      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY)
+          .getCurrentBytes());
+}
+
+StaticBudgetFlushPolicy::StaticBudgetFlushPolicy(
+    uint64_t stripeSizeThreshold,
+    uint64_t dictionarySizeThreshold)
+    : defaultFlushPolicy_{stripeSizeThreshold, dictionarySizeThreshold} {}
+
+FlushDecision StaticBudgetFlushPolicy::shouldFlushDictionary(
+    bool stripeProgressDecision,
+    bool overMemoryBudget,
+    int64_t dictionaryMemoryUsage) {
+  if (overMemoryBudget && !stripeProgressDecision) {
+    return FlushDecision::ABANDON_DICTIONARY;
+  }
+  return defaultFlushPolicy_.shouldFlushDictionary(
+      stripeProgressDecision, overMemoryBudget, dictionaryMemoryUsage);
+}
+
+FlushDecision StaticBudgetFlushPolicy::shouldFlushDictionary(
+    bool stripeProgressDecision,
+    bool overMemoryBudget,
+    const WriterContext& context) {
+  return shouldFlushDictionary(
+      stripeProgressDecision,
+      overMemoryBudget,
+      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY)
+          .getCurrentBytes());
 }
 
 RowsPerStripeFlushPolicy::RowsPerStripeFlushPolicy(
@@ -73,27 +87,27 @@ RowsPerStripeFlushPolicy::RowsPerStripeFlushPolicy(
 }
 
 // We can throw if writer reported the incoming write to be over memory budget.
-bool RowsPerStripeFlushPolicy::operator()(
-    bool /* unused */,
-    const WriterContext& context) const {
-  const auto stripeIndex = context.stripeIndex;
+bool RowsPerStripeFlushPolicy::shouldFlush(
+    const dwio::common::StripeProgress& stripeProgress) {
+  const auto& stripeIndex = stripeProgress.stripeIndex;
+  const auto& stripeRowCount = stripeProgress.stripeRowCount;
   DWIO_ENSURE_LT(
       stripeIndex,
       rowsPerStripe_.size(),
       "Stripe index is bigger than expected");
 
   DWIO_ENSURE_LE(
-      context.stripeRowCount,
+      stripeRowCount,
       rowsPerStripe_.at(stripeIndex),
       "More rows in Stripe than expected ",
-      stripeIndex)
+      stripeIndex);
 
   if ((stripeIndex + 1) == rowsPerStripe_.size()) {
     // Last Stripe is always flushed at the time of close.
     return false;
   }
 
-  return context.stripeRowCount == rowsPerStripe_.at(stripeIndex);
+  return stripeRowCount == rowsPerStripe_.at(stripeIndex);
 }
 
 } // namespace facebook::velox::dwrf

@@ -1163,8 +1163,10 @@ std::unique_ptr<DwrfReader> getDwrfReader(
   WriterOptions options;
   options.config = config;
   options.schema = type;
-  options.flushPolicy = [](auto /* unused */, auto& /* context */) {
-    return true;
+  options.flushPolicyFactory = [&]() {
+    return std::make_unique<LambdaFlushPolicy>([]() {
+      return true; // Flushes every batch.
+    });
   };
   Writer writer{options, std::move(sink), pool};
   writer.write(batch);

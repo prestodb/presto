@@ -31,8 +31,9 @@ class E2EWriterTestUtil {
    *    type                    schema of the output data
    *    batches                 generated data
    *    config                  ORC configs
-   *    flushPolicy             function called by writer to determine when to
-   *                            flush the current stripe and start a new one
+   *    flushPolicyFactory      supplies the policy writer use to determine
+   *                            when to flush the current stripe and start a
+   *                            new one
    *    layoutPlannerFactory    supplies the layout planner and determine how
    *                            order of the data streams prior to flush
    *    writerMemoryCap         total memory budget for the writer
@@ -42,7 +43,8 @@ class E2EWriterTestUtil {
       const std::shared_ptr<const Type>& type,
       const std::vector<VectorPtr>& batches,
       const std::shared_ptr<Config>& config,
-      std::function<bool(bool, const WriterContext&)> flushPolicy = nullptr,
+      std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory =
+          nullptr,
       std::function<
           std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
           layoutPlannerFactory = nullptr,
@@ -62,7 +64,8 @@ class E2EWriterTestUtil {
       size_t numStripesLower,
       size_t numStripesUpper,
       const std::shared_ptr<Config>& config,
-      std::function<bool(bool, const WriterContext&)> flushPolicy = nullptr,
+      std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory =
+          nullptr,
       std::function<
           std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
           layoutPlannerFactory = nullptr,
@@ -78,12 +81,12 @@ class E2EWriterTestUtil {
 
   static std::vector<VectorPtr> generateBatches(VectorPtr batch);
 
-  static std::function<bool(bool, const WriterContext&)> simpleFlushPolicy(
-      bool flushPerBatch) {
-    return [flushPerBatch](bool /* unused */, auto& /* unused */) {
-      return flushPerBatch;
+  static std::function<std::unique_ptr<DWRFFlushPolicy>()>
+  simpleFlushPolicyFactory(bool flushPerBatch) {
+    return [flushPerBatch]() {
+      return std::make_unique<LambdaFlushPolicy>(
+          [flushPerBatch]() { return flushPerBatch; });
     };
   }
 };
-
 } // namespace facebook::velox::dwrf

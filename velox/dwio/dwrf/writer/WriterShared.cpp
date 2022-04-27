@@ -19,6 +19,7 @@
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
+#include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/LayoutPlanner.h"
 
 namespace facebook::velox::dwrf {
@@ -191,25 +192,12 @@ size_t estimateNextWriteSize(const WriterContext& context, size_t numRows) {
   // This is 0 for first slice. We are assuming reasonable input for now.
   return folly::to<size_t>(ceil(context.getAverageRowSize() * numRows));
 }
-
-int64_t getTotalMemoryUsage(const WriterContext& context) {
-  const auto& outputStreamPool =
-      context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM);
-  const auto& dictionaryPool =
-      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY);
-  const auto& generalPool =
-      context.getMemoryUsage(MemoryUsageCategory::GENERAL);
-
-  // TODO: override getCurrentBytes() to be lock-free for leaf level pools.
-  return outputStreamPool.getCurrentBytes() + dictionaryPool.getCurrentBytes() +
-      generalPool.getCurrentBytes();
-}
 } // namespace
 
 uint64_t WriterShared::flushTimeMemoryUsageEstimate(
     const WriterContext& context,
     size_t nextWriteSize) const {
-  return getTotalMemoryUsage(context) +
+  return context.getTotalMemoryUsage() +
       context.getEstimatedStripeSize(nextWriteSize) +
       context.getEstimatedFlushOverhead(context.stripeRawSize + nextWriteSize);
 }
@@ -222,6 +210,21 @@ bool WriterShared::overMemoryBudget(
   size_t nextWriteSize = estimateNextWriteSize(context, writeLength);
   return flushTimeMemoryUsageEstimate(context, nextWriteSize) >
       context.getMemoryBudget();
+}
+
+dwio::common::StripeProgress getStripeProgress(const WriterContext& context) {
+  return dwio::common::StripeProgress{
+      .stripeIndex = context.stripeIndex,
+      .stripeRowCount = context.stripeRowCount,
+      .totalMemoryUsage = context.getTotalMemoryUsage(),
+      .stripeSizeEstimate = std::max(
+          context.getEstimatedStripeSize(context.stripeRawSize),
+          // The stripe size estimate is only more accurate from the second
+          // stripe onward because it uses past stripe states in heuristics.
+          // We need to additionally bound it with output stream size based
+          // estimate for the first stripe.
+          context.stripeIndex == 0 ? context.getEstimatedOutputStreamSize()
+                                   : 0)};
 }
 
 // Writer will flush to make more memory if the incoming stride would make
@@ -241,20 +244,43 @@ bool WriterShared::overMemoryBudget(
 bool WriterShared::shouldFlush(
     const WriterContext& context,
     size_t nextWriteLength) {
+  // TODO: ideally, the heurstics to keep under the memory budget thing
+  // shouldn't be a first class concept for writer and should be wrapped in
+  // flush policy or some other abstraction for pluggability of the additional
+  // logic.
+
   // If we are hitting memory budget before satisfying flush criteria, try
   // entering low memory mode to work with less memory-intensive encodings.
   bool overBudget = overMemoryBudget(context, nextWriteLength);
-  if (UNLIKELY(
-          overBudget && !context.isLowMemoryMode() &&
-          !flushPolicy_(false, context))) {
-    // The previous memory budget check made sure we have enough budget to
-    // flush with a conservative esitmate, which also makes sure we have
-    // enough to switch encoding as is.
+  bool stripeProgressDecision =
+      flushPolicy_->shouldFlush(getStripeProgress(context));
+  auto dwrfFlushDecision = flushPolicy_->shouldFlushDictionary(
+      stripeProgressDecision, overBudget, context);
+
+  if (UNLIKELY(dwrfFlushDecision == FlushDecision::ABANDON_DICTIONARY)) {
     enterLowMemoryMode();
     // Recalculate memory usage due to encoding switch.
+    // We can still be over budget either due to not having enough budget to
+    // switch encoding or switching encoding not reducing memory footprint
+    // enough.
     overBudget = overMemoryBudget(context, nextWriteLength);
+    stripeProgressDecision =
+        flushPolicy_->shouldFlush(getStripeProgress(context));
   }
-  return flushPolicy_(overBudget, context);
+
+  const bool decision = overBudget || stripeProgressDecision ||
+      dwrfFlushDecision == FlushDecision::FLUSH_DICTIONARY;
+  if (decision) {
+    VLOG(1) << fmt::format(
+        "overMemoryBudget: {}, dictionaryMemUsage: {}, outputStreamSize: {}, generalMemUsage: {}, estimatedStripeSize: {}",
+        overBudget,
+        context.getMemoryUsage(MemoryUsageCategory::DICTIONARY)
+            .getCurrentBytes(),
+        context.getEstimatedOutputStreamSize(),
+        context.getMemoryUsage(MemoryUsageCategory::GENERAL).getCurrentBytes(),
+        context.getEstimatedStripeSize(context.stripeRawSize));
+  }
+  return decision;
 }
 
 void WriterShared::setLowMemoryMode() {
@@ -279,7 +305,7 @@ void WriterShared::enterLowMemoryMode() {
 
 void WriterShared::flushStripe(bool close) {
   auto& context = getContext();
-  auto preFlushTotalMemoryUsage = getTotalMemoryUsage(context);
+  auto preFlushTotalMemoryUsage = context.getTotalMemoryUsage();
   int64_t preFlushStreamMemoryUsage =
       context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM)
           .getCurrentBytes();
@@ -298,6 +324,8 @@ void WriterShared::flushStripe(bool close) {
     createRowIndexEntry();
   }
 
+  auto preFlushMem = context.getTotalMemoryUsage();
+
   auto& handler = context.getEncryptionHandler();
   EncodingManager encodingManager{handler};
 
@@ -312,6 +340,8 @@ void WriterShared::flushStripe(bool close) {
       preFlushStreamMemoryUsage;
   context.recordFlushOverhead(flushOverhead);
   metrics.flushOverhead = flushOverhead;
+
+  auto postFlushMem = context.getTotalMemoryUsage();
 
   auto& sink = getSink();
   auto stripeOffset = sink.size();
@@ -416,7 +446,7 @@ void WriterShared::flushStripe(bool close) {
   context.recordAverageRowSize();
   context.recordCompressionRatio(dataLength);
 
-  auto totalMemoryUsage = getTotalMemoryUsage(context);
+  auto totalMemoryUsage = context.getTotalMemoryUsage();
   metrics.limit = totalMemoryUsage;
   metrics.availableMemory = context.getMemoryBudget() - totalMemoryUsage;
 
@@ -436,9 +466,13 @@ void WriterShared::flushStripe(bool close) {
   metrics.close = close;
 
   LOG(INFO) << fmt::format(
-      "Flush overhead = {}, data length = {}",
+      "Stripe {}: Flush overhead = {}, data length = {}, pre flush mem = {}, post flush mem = {}. Closing = {}",
+      metrics.stripeIndex,
       metrics.flushOverhead,
-      metrics.stripeSize);
+      metrics.stripeSize,
+      preFlushMem,
+      postFlushMem,
+      metrics.close);
   // Add flush overhead and other ratio logging.
   context.metricLogger->logStripeFlush(metrics);
 
@@ -563,6 +597,7 @@ void WriterShared::flush() {
 
 void WriterShared::close() {
   flushInternal(true);
+  flushPolicy_->onClose();
   WriterBase::close();
 }
 

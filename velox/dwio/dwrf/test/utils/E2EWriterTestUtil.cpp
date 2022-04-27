@@ -20,6 +20,7 @@
 #include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/dwrf/writer/FlushPolicy.h"
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
@@ -34,7 +35,7 @@ namespace facebook::velox::dwrf {
     const std::shared_ptr<const Type>& type,
     const std::vector<VectorPtr>& batches,
     const std::shared_ptr<Config>& config,
-    std::function<bool(bool, const WriterContext&)> flushPolicy,
+    std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory,
     std::function<
         std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
         layoutPlannerFactory,
@@ -44,7 +45,7 @@ namespace facebook::velox::dwrf {
   options.config = config;
   options.schema = type;
   options.memoryBudget = writerMemoryCap;
-  options.flushPolicy = flushPolicy;
+  options.flushPolicyFactory = flushPolicyFactory;
   options.layoutPlannerFactory = layoutPlannerFactory;
 
   auto writer = std::make_unique<Writer>(
@@ -69,7 +70,7 @@ namespace facebook::velox::dwrf {
     size_t numStripesLower,
     size_t numStripesUpper,
     const std::shared_ptr<Config>& config,
-    std::function<bool(bool, const WriterContext&)> flushPolicy,
+    std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory,
     std::function<
         std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
         layoutPlannerFactory,
@@ -85,7 +86,7 @@ namespace facebook::velox::dwrf {
       type,
       batches,
       config,
-      flushPolicy,
+      flushPolicyFactory,
       layoutPlannerFactory,
       writerMemoryCap);
   // read it back and compare

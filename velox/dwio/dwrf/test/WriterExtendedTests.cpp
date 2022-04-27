@@ -98,7 +98,33 @@ void testWriterDefaultFlushPolicy(
       numStripesLower,
       numStripesUpper,
       config,
-      /* flushPolicy */ nullptr,
+      /* flushPolicyFactory */ nullptr,
+      /* layoutPlannerFactory */ nullptr,
+      memoryBudget,
+      false);
+}
+
+void testWriterStaticBudgetFlushPolicy(
+    ::facebook::velox::memory::MemoryPool& pool,
+    const std::shared_ptr<const Type>& type,
+    const std::vector<VectorPtr>& batches,
+    size_t numStripesLower,
+    size_t numStripesUpper,
+    const std::shared_ptr<Config>& config,
+    int64_t memoryBudget) {
+  E2EWriterTestUtil::testWriter(
+      pool,
+      type,
+      batches,
+      numStripesLower,
+      numStripesUpper,
+      config,
+      /* flushPolicyFactory */
+      [stripeSizeThreshold = config->get(Config::STRIPE_SIZE),
+       dictionarySizeThreshold = config->get(Config::MAX_DICTIONARY_SIZE)]() {
+        return std::make_unique<StaticBudgetFlushPolicy>(
+            stripeSizeThreshold, dictionarySizeThreshold);
+      },
       /* layoutPlannerFactory */ nullptr,
       memoryBudget,
       false);
@@ -364,7 +390,7 @@ TEST(E2EWriterTests, FlushPolicyNestedTypes) {
 }
 
 // T78009859
-TEST(E2EWriterTests, FlushPolicyWithMemoryBudget) {
+TEST(E2EWriterTests, FlushPolicyWithStaticMemoryBudget) {
   const size_t batchCount = 2000;
   const size_t size = 1000;
   auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
@@ -444,7 +470,7 @@ TEST(E2EWriterTests, FlushPolicyWithMemoryBudget) {
     config->set(Config::STRIPE_SIZE, testCase.stripeSize);
     auto batches = E2EWriterTestUtil::generateBatches(
         type, batchCount, size, testCase.seed, pool);
-    testWriterDefaultFlushPolicy(
+    testWriterStaticBudgetFlushPolicy(
         pool,
         type,
         batches,
@@ -455,7 +481,7 @@ TEST(E2EWriterTests, FlushPolicyWithMemoryBudget) {
   }
 }
 
-TEST(E2EWriterTests, FlushPolicyDictionaryEncodingWithMemoryBudget) {
+TEST(E2EWriterTests, FlushPolicyDictionaryEncodingWithStaticMemoryBudget) {
   const size_t batchCount = 500;
   const size_t size = 1000;
   auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
@@ -509,7 +535,7 @@ TEST(E2EWriterTests, FlushPolicyDictionaryEncodingWithMemoryBudget) {
     config->set(Config::STRIPE_SIZE, testCase.stripeSize);
     auto batches = E2EWriterTestUtil::generateBatches(
         type, batchCount, size, testCase.seed, pool);
-    testWriterDefaultFlushPolicy(
+    testWriterStaticBudgetFlushPolicy(
         pool,
         type,
         batches,
@@ -521,7 +547,7 @@ TEST(E2EWriterTests, FlushPolicyDictionaryEncodingWithMemoryBudget) {
 }
 
 // Test that some memory caps are not possible, or that stripe size
-TEST(E2EWriterTests, Trim) {
+TEST(E2EWriterTests, StaticMemoryBudgetTrim) {
   const size_t batchCount = 2000;
   const size_t size = 1000;
   auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
@@ -591,7 +617,7 @@ TEST(E2EWriterTests, Trim) {
     config->set(Config::STRIPE_SIZE, testCase.stripeSize);
     auto batches = E2EWriterTestUtil::generateBatches(
         type, batchCount, size, testCase.seed, pool);
-    testWriterDefaultFlushPolicy(
+    testWriterStaticBudgetFlushPolicy(
         pool,
         type,
         batches,
@@ -700,7 +726,7 @@ TEST(E2EWriterTests, FlushPolicyFlatMap) {
   }
 }
 
-TEST(E2EWriterTests, FlushPolicyFlatMapWithBudget) {
+TEST(E2EWriterTests, FlushPolicyFlatMapWithStaticMemoryBudget) {
   const size_t batchCount = 10;
   const size_t size = 1000;
   auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
@@ -772,7 +798,7 @@ TEST(E2EWriterTests, FlushPolicyFlatMapWithBudget) {
     auto batches = E2EWriterTestUtil::generateBatches(
         type, batchCount, size, testCase.seed, pool);
 
-    testWriterDefaultFlushPolicy(
+    testWriterStaticBudgetFlushPolicy(
         pool,
         type,
         batches,

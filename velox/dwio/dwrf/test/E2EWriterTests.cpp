@@ -90,7 +90,7 @@ TEST(E2EWriterTests, DISABLED_TestFileCreation) {
       type,
       batches,
       config,
-      E2EWriterTestUtil::simpleFlushPolicy(true));
+      E2EWriterTestUtil::simpleFlushPolicyFactory(true));
 }
 
 VectorPtr createRowVector(
@@ -242,7 +242,7 @@ TEST(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
       type,
       E2EWriterTestUtil::generateBatches(std::move(batch)),
       config,
-      E2EWriterTestUtil::simpleFlushPolicy(true));
+      E2EWriterTestUtil::simpleFlushPolicyFactory(true));
 
   // read it back and verify no present streams exist.
   auto input =
@@ -349,7 +349,7 @@ TEST(E2EWriterTests, FlatMapBackfill) {
       1,
       1,
       config,
-      E2EWriterTestUtil::simpleFlushPolicy(false));
+      E2EWriterTestUtil::simpleFlushPolicyFactory(false));
 }
 
 void testFlatMapWithNulls(
@@ -398,7 +398,7 @@ void testFlatMapWithNulls(
       1,
       1,
       config,
-      E2EWriterTestUtil::simpleFlushPolicy(false));
+      E2EWriterTestUtil::simpleFlushPolicyFactory(false));
 }
 
 TEST(E2EWriterTests, FlatMapWithNulls) {
@@ -462,7 +462,7 @@ TEST(E2EWriterTests, FlatMapEmpty) {
       1,
       1,
       config,
-      E2EWriterTestUtil::simpleFlushPolicy(false));
+      E2EWriterTestUtil::simpleFlushPolicyFactory(false));
 }
 
 void testFlatMapConfig(
@@ -667,7 +667,7 @@ TEST(E2EWriterTests, OversizeRows) {
       1,
       1,
       config,
-      /* flushPolicy */ nullptr,
+      /* flushPolicyFactory */ nullptr,
       /* layoutPlannerFactory */ nullptr,
       /* memoryBudget */ std::numeric_limits<int64_t>::max(),
       false);
@@ -700,7 +700,7 @@ TEST(E2EWriterTests, OversizeBatches) {
       10,
       10,
       config,
-      /* flushPolicy */ nullptr,
+      /* flushPolicyFactory */ nullptr,
       /* layoutPlannerFactory */ nullptr,
       /* memoryBudget */ std::numeric_limits<int64_t>::max(),
       false);
@@ -716,7 +716,7 @@ TEST(E2EWriterTests, OversizeBatches) {
       15,
       16,
       config,
-      /* flushPolicy */ nullptr,
+      /* flushPolicyFactory */ nullptr,
       /* layoutPlannerFactory */ nullptr,
       /* memoryBudget */ std::numeric_limits<int64_t>::max(),
       false);
@@ -771,7 +771,7 @@ TEST(E2EWriterTests, OverflowLengthIncrements) {
       1,
       1,
       config,
-      /*flushPolicy=*/nullptr,
+      /*flushPolicyFactory=*/nullptr,
       /*layoutPlannerFactory=*/nullptr,
       /*memoryBudget=*/std::numeric_limits<int64_t>::max(),
       false);
