@@ -77,6 +77,11 @@ void SelectiveColumnReader::prepareRead(
     const uint64_t* incomingNulls) {
   seekTo(offset, scanSpec_->readsNullsOnly());
   vector_size_t numRows = rows.back() + 1;
+
+  // Do not re-use unless singly-referenced.
+  if (nullsInReadRange_ && !nullsInReadRange_->unique()) {
+    nullsInReadRange_.reset();
+  }
   readNulls(numRows, incomingNulls, nullptr, nullsInReadRange_);
   // We check for all nulls and no nulls. We expect both calls to
   // bits::isAllSet to fail early in the common case. We could do a
