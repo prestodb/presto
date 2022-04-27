@@ -135,7 +135,7 @@ struct Converter<
         return folly::to<T>(v);
       }
     } catch (const std::exception& e) {
-      throw std::invalid_argument(e.what());
+      VELOX_USER_FAIL(e.what());
     }
   }
 
@@ -147,7 +147,7 @@ struct Converter<
         return folly::to<T>(folly::StringPiece(v));
       }
     } catch (const std::exception& e) {
-      throw std::invalid_argument(e.what());
+      VELOX_USER_FAIL(e.what());
     }
   }
 
@@ -159,7 +159,7 @@ struct Converter<
         return folly::to<T>(v);
       }
     } catch (const std::exception& e) {
-      throw std::invalid_argument(e.what());
+      VELOX_USER_FAIL(e.what());
     }
   }
 
@@ -288,7 +288,7 @@ struct Converter<
     try {
       return folly::to<T>(v);
     } catch (const std::exception& e) {
-      throw std::invalid_argument(e.what());
+      VELOX_USER_FAIL(e.what());
     }
   }
 

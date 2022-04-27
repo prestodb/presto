@@ -18,6 +18,7 @@
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/functions/Udf.h"
@@ -683,6 +684,19 @@ class ExprTest : public testing::Test, public VectorTestBase {
       rawIndices[i] = indices[i];
     }
     return indicesBuffer;
+  }
+
+  void assertError(
+      const std::string& expression,
+      const VectorPtr& input,
+      const std::string& errorMessage) {
+    try {
+      evaluate(expression, makeRowVector({input}));
+      ASSERT_TRUE(false) << "Expected an error";
+    } catch (std::exception& e) {
+      ASSERT_TRUE(
+          std::string(e.what()).find(errorMessage) != std::string::npos);
+    }
   }
 
   std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
@@ -2674,4 +2688,47 @@ TEST_F(ExprTest, tryWithConstantFailure) {
   auto expectedResult = makeFlatVector<int64_t>(
       5, [](vector_size_t) { return 0; }, [](vector_size_t) { return true; });
   assertEqualVectors(expectedResult, evalResult);
+}
+
+TEST_F(ExprTest, castExceptionContext) {
+  assertError(
+      "cast(c0 as bigint)", makeFlatVector({"a"}), "cast((c0) as BIGINT)");
+}
+
+TEST_F(ExprTest, switchExceptionContext) {
+  assertError(
+      "case c0 when 7 then c0 / 0 else 0 end",
+      makeFlatVector<int64_t>({7}),
+      "divide(c0, 0:BIGINT)");
+}
+
+TEST_F(ExprTest, conjunctExceptionContext) {
+  fillVectorAndReference<int64_t>(
+      {EncodingOptions::flat(20, 2)},
+      [](int32_t row) { return std::optional(static_cast<int64_t>(row)); },
+      &testData_.bigint1);
+
+  try {
+    run<int64_t>(
+        "if (bigint1 % 409 < 300 and bigint1 / 0 < 30, 1, 2)",
+        [&](int32_t /*row*/) { return 0; });
+    ASSERT_TRUE(false) << "Expected an error";
+  } catch (std::exception& e) {
+    ASSERT_TRUE(
+        std::string(e.what()).find("divide(bigint1, 0:BIGINT)") !=
+        std::string::npos);
+  }
+}
+
+TEST_F(ExprTest, lambdaExceptionContext) {
+  auto array = makeArrayVector<int64_t>(
+      10, [](auto /*row*/) { return 5; }, [](auto row) { return row * 3; });
+  core::Expressions::registerLambda(
+      "lambda",
+      ROW({"x"}, {BIGINT()}),
+      ROW({ARRAY(BIGINT())}),
+      parse::parseExpr("x / 0 > 1"),
+      execCtx_->pool());
+
+  assertError("filter(c0, function('lambda'))", array, "divide(x, 0:BIGINT)");
 }

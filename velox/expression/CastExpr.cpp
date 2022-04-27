@@ -112,37 +112,23 @@ void CastExpr::applyCastWithTry(
 
   if (!nullOnFailure_) {
     if (!isCastIntByTruncate) {
-      rows.applyToSelected([&](int row) {
+      context->applyToSelectedNoThrow(rows, [&](int row) {
         // Passing a false truncate flag
-        try {
-          bool nullOutput = false;
-          applyCastKernel<To, From, false>(
-              row, input, resultFlatVector, nullOutput);
-          if (nullOutput) {
-            context->setError(
-                row,
-                std::make_exception_ptr(std::invalid_argument(makeErrorMessage(
-                    input, row, resultFlatVector->type(), toString()))));
-          }
-        } catch (const std::exception& e) {
-          context->setError(
-              row,
-              std::make_exception_ptr(std::invalid_argument(makeErrorMessage(
-                  input, row, resultFlatVector->type(), toString()))));
+        bool nullOutput = false;
+        applyCastKernel<To, From, false>(
+            row, input, resultFlatVector, nullOutput);
+        if (nullOutput) {
+          VELOX_USER_FAIL("Cast failure.");
         }
       });
     } else {
-      rows.applyToSelected([&](int row) {
+      context->applyToSelectedNoThrow(rows, [&](int row) {
         // Passing a true truncate flag
-        try {
-          bool nullOutput = false;
-          applyCastKernel<To, From, true>(
-              row, input, resultFlatVector, nullOutput);
-          if (nullOutput) {
-            context->setError(row, std::current_exception());
-          }
-        } catch (const std::exception& e) {
-          context->setError(row, std::current_exception());
+        bool nullOutput = false;
+        applyCastKernel<To, From, true>(
+            row, input, resultFlatVector, nullOutput);
+        if (nullOutput) {
+          VELOX_USER_FAIL("Cast failure.");
         }
       });
     }
@@ -628,6 +614,9 @@ void CastExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   VectorPtr input;
   inputs_[0]->eval(rows, context, &input);
   auto fromType = inputs_[0]->type();

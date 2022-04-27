@@ -16,6 +16,7 @@
 
 #include <limits>
 #include "velox/buffer/Buffer.h"
+#include "velox/common/base/VeloxException.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/expression/VectorFunction.h"
@@ -186,7 +187,7 @@ class CastExprTest : public functions::test::FunctionBaseTest {
       EXPECT_THROW(
           evaluate<FlatVector<typename CppToType<TTo>::NativeType>>(
               castFunction + "(c0 as " + typeString + ")", rowVector),
-          std::invalid_argument);
+          VeloxException);
       return;
     }
     // run try cast and get the result vector
@@ -379,7 +380,7 @@ TEST_F(CastExprTest, truncateVsRound) {
   EXPECT_THROW(
       (testCast<int32_t, int8_t>(
           "tinyint", {1111111, 2, 3, 1000, -100101}, {71, 2, 3, -24, -5})),
-      std::invalid_argument);
+      folly::ConversionError);
 }
 
 TEST_F(CastExprTest, nullInputs) {
@@ -610,8 +611,7 @@ TEST_F(CastExprTest, testNullOnFailure) {
   testComplexCast("c0", input, expected, true);
 
   // nullOnFailure is false, so we should throw.
-  EXPECT_THROW(
-      testComplexCast("c0", input, expected, false), std::invalid_argument);
+  EXPECT_THROW(testComplexCast("c0", input, expected, false), VeloxUserError);
 }
 
 TEST_F(CastExprTest, toString) {

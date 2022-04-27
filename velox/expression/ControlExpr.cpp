@@ -25,6 +25,9 @@ void ConstantExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   if (!sharedSubexprValues_) {
     sharedSubexprValues_ =
         BaseVector::createConstant(value_, 1, context->execCtx()->pool());
@@ -55,6 +58,9 @@ void ConstantExpr::evalSpecialFormSimplified(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   // Simplified path should never ask us to write to a vector that was already
   // pre-allocated.
   VELOX_CHECK(*result == nullptr);
@@ -79,6 +85,9 @@ void FieldReference::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   if (*result) {
     BaseVector::ensureWritable(rows, type_, context->pool(), result);
   }
@@ -149,6 +158,9 @@ void FieldReference::evalSpecialFormSimplified(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   auto row = context->row();
   *result = row->childAt(index(context));
   BaseVector::flattenVector(result, rows.end());
@@ -158,6 +170,9 @@ void SwitchExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   LocalSelectivityVector remainingRows(context, rows.end());
   *remainingRows.get() = rows;
 
@@ -352,6 +367,9 @@ void ConjunctExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   // TODO Revisit error handling
   bool throwOnError = *context->mutableThrowOnError();
   VarSetter saveError(context->mutableThrowOnError(), false);
@@ -702,6 +720,9 @@ void LambdaExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   if (!typeWithCapture_) {
     makeTypeWithCapture(context);
   }
@@ -754,6 +775,9 @@ void TryExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  ExceptionContextSetter exceptionContext(
+      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+
   VarSetter throwOnError(context->mutableThrowOnError(), false);
   // It's possible with nested TRY expressions that some rows already threw
   // exceptions in earlier expressions that haven't been handled yet. To avoid
