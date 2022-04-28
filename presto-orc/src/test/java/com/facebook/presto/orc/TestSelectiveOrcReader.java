@@ -1081,7 +1081,6 @@ public class TestSelectiveOrcReader
         int rowCount = 10000;
         int longStringLength = 5000;
         Random random = new Random();
-        long start = System.currentTimeMillis();
         for (int i = 0; i < rowCount; ++i) {
             if (i < MAX_BATCH_SIZE) {
                 StringBuilder builder = new StringBuilder();
@@ -1094,7 +1093,7 @@ public class TestSelectiveOrcReader
                 values.add("");
             }
         }
-        System.out.println(System.currentTimeMillis() - start);
+
         writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, ImmutableList.of(values), new OrcWriterStats());
 
         try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(tempFile, OrcEncoding.DWRF, OrcPredicate.TRUE, type, MAX_BATCH_SIZE, false, false)) {
@@ -1128,8 +1127,7 @@ public class TestSelectiveOrcReader
     public void testHiddenConstantColumns()
             throws Exception
     {
-        Type type = BIGINT;
-        List<Type> types = ImmutableList.of(type);
+        List<Type> types = ImmutableList.of(BIGINT);
         List<List<?>> values = ImmutableList.of(ImmutableList.of(1L, 2L));
 
         TempFile tempFile = new TempFile();
