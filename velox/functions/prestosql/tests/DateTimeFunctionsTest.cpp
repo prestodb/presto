@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <optional>
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Date.h"
@@ -93,6 +94,32 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
             {makeNullableFlatVector<Timestamp>({timestamp}),
              makeNullableFlatVector<std::string>({format})}));
     return resultVector->as<SimpleVector<StringView>>()->valueAt(0);
+  }
+
+  template <typename T>
+  std::optional<T> evaluateWithTimestampWithTimezone(
+      const std::string& expression,
+      std::optional<int64_t> timestamp,
+      const std::optional<std::string>& timeZoneName) {
+    if (!timestamp.has_value() || !timeZoneName.has_value()) {
+      return evaluateOnce<T>(
+          expression,
+          makeRowVector({makeRowVector(
+              {
+                  makeNullableFlatVector<int64_t>({std::nullopt}),
+                  makeNullableFlatVector<int16_t>({std::nullopt}),
+              },
+              [](vector_size_t /*row*/) { return true; })}));
+    }
+
+    const std::optional<int64_t> tzid =
+        util::getTimeZoneID(timeZoneName.value());
+    return evaluateOnce<T>(
+        expression,
+        makeRowVector({makeRowVector({
+            makeNullableFlatVector<int64_t>({timestamp}),
+            makeNullableFlatVector<int16_t>({tzid}),
+        })}));
   }
 };
 
@@ -267,6 +294,35 @@ TEST_F(DateTimeFunctionsTest, yearDate) {
   EXPECT_EQ(1920, year(Date(-18262)));
 }
 
+TEST_F(DateTimeFunctionsTest, yearTimestampWithTimezone) {
+  EXPECT_EQ(
+      1969,
+      evaluateWithTimestampWithTimezone<int64_t>("year(c0)", 0, "-01:00"));
+  EXPECT_EQ(
+      1970,
+      evaluateWithTimestampWithTimezone<int64_t>("year(c0)", 0, "+00:00"));
+  EXPECT_EQ(
+      1973,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "year(c0)", 123456789000, "+14:00"));
+  EXPECT_EQ(
+      1966,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "year(c0)", -123456789000, "+03:00"));
+  EXPECT_EQ(
+      2001,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "year(c0)", 987654321000, "-07:00"));
+  EXPECT_EQ(
+      1938,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "year(c0)", -987654321000, "-13:00"));
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "year(c0)", std::nullopt, std::nullopt));
+}
+
 TEST_F(DateTimeFunctionsTest, quarter) {
   const auto quarter = [&](std::optional<Timestamp> date) {
     return evaluateOnce<int64_t>("quarter(c0)", date);
@@ -304,6 +360,35 @@ TEST_F(DateTimeFunctionsTest, quarterDate) {
   EXPECT_EQ(1, quarter(Date(-18262)));
 }
 
+TEST_F(DateTimeFunctionsTest, quarterTimestampWithTimezone) {
+  EXPECT_EQ(
+      4,
+      evaluateWithTimestampWithTimezone<int64_t>("quarter(c0)", 0, "-01:00"));
+  EXPECT_EQ(
+      1,
+      evaluateWithTimestampWithTimezone<int64_t>("quarter(c0)", 0, "+00:00"));
+  EXPECT_EQ(
+      4,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "quarter(c0)", 123456789000, "+14:00"));
+  EXPECT_EQ(
+      1,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "quarter(c0)", -123456789000, "+03:00"));
+  EXPECT_EQ(
+      2,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "quarter(c0)", 987654321000, "-07:00"));
+  EXPECT_EQ(
+      3,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "quarter(c0)", -987654321000, "-13:00"));
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "quarter(c0)", std::nullopt, std::nullopt));
+}
+
 TEST_F(DateTimeFunctionsTest, month) {
   const auto month = [&](std::optional<Timestamp> date) {
     return evaluateOnce<int64_t>("month(c0)", date);
@@ -338,6 +423,33 @@ TEST_F(DateTimeFunctionsTest, monthDate) {
   EXPECT_EQ(2, month(Date(40)));
   EXPECT_EQ(1, month(Date(18262)));
   EXPECT_EQ(1, month(Date(-18262)));
+}
+
+TEST_F(DateTimeFunctionsTest, monthTimestampWithTimezone) {
+  EXPECT_EQ(
+      12, evaluateWithTimestampWithTimezone<int64_t>("month(c0)", 0, "-01:00"));
+  EXPECT_EQ(
+      1, evaluateWithTimestampWithTimezone<int64_t>("month(c0)", 0, "+00:00"));
+  EXPECT_EQ(
+      11,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "month(c0)", 123456789000, "+14:00"));
+  EXPECT_EQ(
+      2,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "month(c0)", -123456789000, "+03:00"));
+  EXPECT_EQ(
+      4,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "month(c0)", 987654321000, "-07:00"));
+  EXPECT_EQ(
+      9,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "month(c0)", -987654321000, "-13:00"));
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "month(c0)", std::nullopt, std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, hour) {
@@ -429,6 +541,37 @@ TEST_F(DateTimeFunctionsTest, dayOfMonthDate) {
   EXPECT_EQ(10, day(Date(40)));
   EXPECT_EQ(1, day(Date(18262)));
   EXPECT_EQ(2, day(Date(-18262)));
+}
+
+TEST_F(DateTimeFunctionsTest, dayOfMonthTimestampWithTimezone) {
+  EXPECT_EQ(
+      31,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "day_of_month(c0)", 0, "-01:00"));
+  EXPECT_EQ(
+      1,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "day_of_month(c0)", 0, "+00:00"));
+  EXPECT_EQ(
+      30,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "day_of_month(c0)", 123456789000, "+14:00"));
+  EXPECT_EQ(
+      2,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "day_of_month(c0)", -123456789000, "+03:00"));
+  EXPECT_EQ(
+      18,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "day_of_month(c0)", 987654321000, "-07:00"));
+  EXPECT_EQ(
+      14,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "day_of_month(c0)", -987654321000, "-13:00"));
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "day_of_month(c0)", std::nullopt, std::nullopt));
 }
 
 TEST_F(DateTimeFunctionsTest, dayOfWeek) {

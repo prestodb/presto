@@ -29,12 +29,18 @@ void registerSimpleFunctions() {
 
   registerFunction<YearFunction, int64_t, Timestamp>({"year"});
   registerFunction<YearFunction, int64_t, Date>({"year"});
+  registerFunction<YearFunction, int64_t, TimestampWithTimezone>({"year"});
   registerFunction<QuarterFunction, int64_t, Timestamp>({"quarter"});
   registerFunction<QuarterFunction, int64_t, Date>({"quarter"});
+  registerFunction<QuarterFunction, int64_t, TimestampWithTimezone>(
+      {"quarter"});
   registerFunction<MonthFunction, int64_t, Timestamp>({"month"});
   registerFunction<MonthFunction, int64_t, Date>({"month"});
+  registerFunction<MonthFunction, int64_t, TimestampWithTimezone>({"month"});
   registerFunction<DayFunction, int64_t, Timestamp>({"day", "day_of_month"});
   registerFunction<DayFunction, int64_t, Date>({"day", "day_of_month"});
+  registerFunction<DayFunction, int64_t, TimestampWithTimezone>(
+      {"day", "day_of_month"});
   registerFunction<DayOfWeekFunction, int64_t, Timestamp>(
       {"dow", "day_of_week"});
   registerFunction<DayOfWeekFunction, int64_t, Date>({"dow", "day_of_week"});

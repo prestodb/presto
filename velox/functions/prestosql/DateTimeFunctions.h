@@ -20,6 +20,7 @@
 #include "velox/functions/lib/JodaDateTime.h"
 #include "velox/functions/prestosql/DateTimeImpl.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/type/Type.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions {
@@ -112,73 +113,124 @@ struct InitSessionTimezone {
   }
 };
 
+template <typename T>
+struct TimestampWithTimezoneSupport {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  Timestamp toTimestamp(
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    const auto milliseconds = *timestampWithTimezone.template at<0>();
+    Timestamp timestamp{milliseconds / kMillisecondsInSecond, 0UL};
+    timestamp.toTimezone(*timestampWithTimezone.template at<1>());
+
+    return timestamp;
+  }
+};
+
 } // namespace
 
 template <typename T>
-struct YearFunction : public InitSessionTimezone<T> {
+struct YearFunction : public InitSessionTimezone<T>,
+                      public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
-      int64_t& result,
-      const arg_type<Timestamp>& timestamp) {
-    result = 1900 + getDateTime(timestamp, this->timeZone_).tm_year;
-    return true;
+  FOLLY_ALWAYS_INLINE int64_t getYear(const std::tm& time) {
+    return 1900 + time.tm_year;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
-    result = 1900 + getDateTime(date).tm_year;
-    return true;
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getYear(getDateTime(timestamp, this->timeZone_));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
+    result = getYear(getDateTime(date));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = getYear(getDateTime(timestamp, nullptr));
   }
 };
 
 template <typename T>
-struct QuarterFunction : public InitSessionTimezone<T> {
+struct QuarterFunction : public InitSessionTimezone<T>,
+                         public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
-      int64_t& result,
-      const arg_type<Timestamp>& timestamp) {
-    result = getDateTime(timestamp, this->timeZone_).tm_mon / 3 + 1;
-    return true;
+  FOLLY_ALWAYS_INLINE int64_t getQuarter(const std::tm& time) {
+    return time.tm_mon / 3 + 1;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
-    result = getDateTime(date).tm_mon / 3 + 1;
-    return true;
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getQuarter(getDateTime(timestamp, this->timeZone_));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
+    result = getQuarter(getDateTime(date));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = getQuarter(getDateTime(timestamp, nullptr));
   }
 };
 
 template <typename T>
-struct MonthFunction : public InitSessionTimezone<T> {
+struct MonthFunction : public InitSessionTimezone<T>,
+                       public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
-      int64_t& result,
-      const arg_type<Timestamp>& timestamp) {
-    result = 1 + getDateTime(timestamp, this->timeZone_).tm_mon;
-    return true;
+  FOLLY_ALWAYS_INLINE int64_t getMonth(const std::tm& time) {
+    return 1 + time.tm_mon;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
-    result = 1 + getDateTime(date).tm_mon;
-    return true;
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getMonth(getDateTime(timestamp, this->timeZone_));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
+    result = getMonth(getDateTime(date));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = getMonth(getDateTime(timestamp, nullptr));
   }
 };
 
 template <typename T>
-struct DayFunction : public InitSessionTimezone<T> {
+struct DayFunction : public InitSessionTimezone<T>,
+                     public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
     result = getDateTime(timestamp, this->timeZone_).tm_mday;
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
     result = getDateTime(date).tm_mday;
-    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = getDateTime(timestamp, nullptr).tm_mday;
   }
 };
 
