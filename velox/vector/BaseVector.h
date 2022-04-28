@@ -391,6 +391,14 @@ class BaseVector {
     });
   }
 
+  // Utility for making a deep copy of a whole vector.
+  static std::shared_ptr<BaseVector> copy(const BaseVector& vector) {
+    auto result =
+        BaseVector::create(vector.type(), vector.size(), vector.pool());
+    result->copy(&vector, 0, 0, vector.size());
+    return result;
+  }
+
   // Move or copy an element at 'source' row into 'target' row.
   // This can be more efficient than copy for complex types.
   virtual void move(vector_size_t source, vector_size_t target) {

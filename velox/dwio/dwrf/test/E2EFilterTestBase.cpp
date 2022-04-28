@@ -143,40 +143,27 @@ void E2EFilterTestBase::makeStringUnique(const Subfield& field) {
 }
 
 void E2EFilterTestBase::makeNotNull(int32_t firstRow) {
-  for (RowVectorPtr batch : batches_) {
-    makeNotNullRecursive(firstRow, batch);
-  }
-}
-
-void E2EFilterTestBase::makeNotNullRecursive(
-    int32_t firstRow,
-    RowVectorPtr batch) {
-  // make all children in nested structs non-null.
-  for (auto& data : batch->children()) {
-    if (data->typeKind() == TypeKind::ROW) {
-      auto rowVector = std::dynamic_pointer_cast<RowVector>(data);
-      makeNotNullRecursive(firstRow, rowVector);
-    }
-  }
-  for (auto& data : batch->children()) {
-    std::vector<vector_size_t> nonNulls;
-    vector_size_t probe = 0;
-    for (auto counter = 0; counter < 23; ++counter) {
-      // Sample with a prime stride for a handful of non-null  values.
-      probe = (probe + 47) % data->size();
-      if (!data->isNullAt(probe)) {
-        nonNulls.push_back(probe);
+  for (const auto& batch : batches_) {
+    for (auto& data : batch->children()) {
+      std::vector<vector_size_t> nonNulls;
+      vector_size_t probe = 0;
+      for (auto counter = 0; counter < 23; ++counter) {
+        // Sample with a prime stride for a handful of non-null  values.
+        probe = (probe + 47) % data->size();
+        if (!data->isNullAt(probe)) {
+          nonNulls.push_back(probe);
+        }
       }
-    }
-    if (nonNulls.empty()) {
-      continue;
-    }
-    int32_t nonNullCounter = 0;
-    for (auto row = firstRow; row < data->size(); ++row) {
-      if (data->isNullAt(row)) {
-        data->copy(
-            data.get(), row, nonNulls[nonNullCounter % nonNulls.size()], 1);
-        ++nonNullCounter;
+      if (nonNulls.empty()) {
+        continue;
+      }
+      int32_t nonNullCounter = 0;
+      for (auto row = firstRow; row < data->size(); ++row) {
+        if (data->isNullAt(row)) {
+          data->copy(
+              data.get(), row, nonNulls[nonNullCounter % nonNulls.size()], 1);
+          ++nonNullCounter;
+        }
       }
     }
   }
@@ -195,6 +182,7 @@ void E2EFilterTestBase::readWithoutFilter(
   ;
   // The spec must stay live over the lifetime of the reader.
   rowReaderOpts.setScanSpec(spec);
+  OwnershipChecker ownershipChecker;
   auto rowReader = reader->createRowReader(rowReaderOpts);
 
   auto batchIndex = 0;
@@ -210,6 +198,7 @@ void E2EFilterTestBase::readWithoutFilter(
       break;
     }
 
+    ownershipChecker.check(batch);
     for (int32_t i = 0; i < batch->size(); ++i) {
       ASSERT_TRUE(batch->equalValueAt(batches[batchIndex].get(), i, rowIndex))
           << "Content mismatch at batch " << batchIndex << " at index "
@@ -243,6 +232,7 @@ void E2EFilterTestBase::readWithFilter(
   auto factory = std::make_unique<SelectiveColumnReaderFactory>(spec);
   // The  spec must stay live over the lifetime of the reader.
   rowReaderOpts.setScanSpec(spec);
+  OwnershipChecker ownershipChecker;
   auto rowReader = reader->createRowReader(rowReaderOpts);
   runtimeStats_ = dwio::common::RuntimeStatistics();
   auto rowIndex = 0;
@@ -294,6 +284,8 @@ void E2EFilterTestBase::readWithFilter(
           << batches[batchNumber(hit)]->toString(batchRow(hit))
           << " actual: " << batch->toString(i);
     }
+    // Check no overwrites after all LazyVectors are loaded.
+    ownershipChecker.check(batch);
   }
   if (!skipCheck) {
     ASSERT_EQ(rowIndex, hitRows.size());
@@ -315,15 +307,6 @@ bool E2EFilterTestBase::loadWithHook(
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       checkLoadWithHook, kind, batch, columnIndex, child, hitRows, rowIndex);
 }
-namespace {
-// Recursively clear extractValues so that eager read is not forced.
-void setLazy(ScanSpec& spec) {
-  spec.setExtractValues(false);
-  for (auto& child : spec.children()) {
-    setLazy(*child);
-  }
-}
-} // namespace
 
 void E2EFilterTestBase::testFilterSpecs(
     const std::vector<FilterSpec>& filterSpecs) {
@@ -343,7 +326,7 @@ void E2EFilterTestBase::testFilterSpecs(
   // Redo the test with LazyVectors for non-filtered columns.
   timeWithFilter = 0;
   for (auto& childSpec : spec->children()) {
-    setLazy(*childSpec);
+    childSpec->setExtractValues(false);
   }
   readWithFilter(spec.get(), batches_, hitRows, timeWithFilter, false);
   timeWithFilter = 0;
@@ -409,6 +392,33 @@ void E2EFilterTestBase::testWithTypes(
       testRowGroupSkip(filterable);
     }
   }
+}
+
+void OwnershipChecker::check(const VectorPtr& batch) {
+  // Check the 6 first pairs of previous, next batch to see that
+  // fetching the next does not overwrite parts reachable from a
+  // retained reference to the previous one.
+  if (batchCounter_ > 11) {
+    return;
+  }
+  if (batchCounter_ % 2 == 0) {
+    previousBatch_ = std::make_shared<RowVector>(
+        batch->pool(),
+        batch->type(),
+        BufferPtr(nullptr),
+        batch->size(),
+        batch->as<RowVector>()->children());
+    previousBatchCopy_ = BaseVector::copy(*batch);
+  }
+  if (batchCounter_ % 2 == 1) {
+    for (auto i = 0; i < previousBatch_->size(); ++i) {
+      ASSERT_TRUE(previousBatch_->equalValueAt(previousBatchCopy_.get(), i, i))
+          << "Retained reference of a batch has been overwritten by the next "
+          << "index " << i << " batch " << previousBatch_->toString(i)
+          << " original " << previousBatchCopy_->toString(i);
+    }
+  }
+  ++batchCounter_;
 }
 
 } // namespace facebook::velox::dwio::dwrf
