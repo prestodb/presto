@@ -380,16 +380,13 @@ TEST_F(Re2FunctionsTest, likePattern) {
 
   EXPECT_EQ(
       like(
-          u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 abc",
-          u8"\u4FE1\u5FF5 \u7231%"),
+          "\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 abc",
+          "\u4FE1\u5FF5 \u7231%"),
       true);
   EXPECT_EQ(
-      like(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ", u8"\u4FE1%\u7231%"),
-      true);
+      like("\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ", "\u4FE1%\u7231%"), true);
   EXPECT_EQ(
-      like(
-          u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ",
-          u8"\u7231\u4FE1%\u7231%"),
+      like("\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ", "\u7231\u4FE1%\u7231%"),
       false);
 
   EXPECT_EQ(like("abc", "MEDIUM POLISHED%"), false);

@@ -69,7 +69,7 @@ class ParquetTpchTest : public testing::Test {
       fs::create_directory(tableDirectory);
       auto filePath = fmt::format("{}/file.parquet", tableDirectory);
       auto query = fmt::format(
-          duckDbParquetWriteSQL_.at(tableName),
+          fmt::runtime(duckDbParquetWriteSQL_.at(tableName)),
           tableName,
           filePath,
           kRowGroupSize);

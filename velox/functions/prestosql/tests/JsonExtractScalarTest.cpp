@@ -65,15 +65,15 @@ TEST_F(JsonExtractScalarTest, simple) {
 TEST_F(JsonExtractScalarTest, utf8) {
   EXPECT_EQ(
       json_extract_scalar(R"({"k1":"I \u2665 UTF-8"})", "$.k1"),
-      u8"I \u2665 UTF-8");
+      "I \u2665 UTF-8");
   EXPECT_EQ(
-      json_extract_scalar(u8"{\"k1\":\"I \u2665 UTF-8\"}", "$.k1"),
-      u8"I \u2665 UTF-8");
+      json_extract_scalar("{\"k1\":\"I \u2665 UTF-8\"}", "$.k1"),
+      "I \u2665 UTF-8");
 
   EXPECT_EQ(
       json_extract_scalar(
-          u8"{\"k1\":\"I \U0001D11E playing in G-clef\"}", "$.k1"),
-      u8"I \U0001D11E playing in G-clef");
+          "{\"k1\":\"I \U0001D11E playing in G-clef\"}", "$.k1"),
+      "I \U0001D11E playing in G-clef");
 }
 
 TEST_F(JsonExtractScalarTest, invalidPath) {

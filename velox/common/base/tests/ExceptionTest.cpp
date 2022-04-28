@@ -354,7 +354,7 @@ TEST(ExceptionTest, notNull) {
 TEST(ExceptionTest, expressionString) {
   size_t i = 1;
   size_t j = 100;
-  std::string msgTemplate =
+  constexpr auto msgTemplate =
       "Exception: VeloxRuntimeError"
       "\nError Source: RUNTIME"
       "\nError Code: INVALID_STATE"

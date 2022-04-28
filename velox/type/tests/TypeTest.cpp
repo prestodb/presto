@@ -352,7 +352,7 @@ TEST(Type, OpaqueWithMetadata) {
   auto type = std::make_shared<OpaqueWithMetadataType>(123);
   auto type2 = std::make_shared<OpaqueWithMetadataType>(123);
   auto other = std::make_shared<OpaqueWithMetadataType>(234);
-  EXPECT_NE(*def, *type);
+  EXPECT_TRUE(def->operator!=(*type));
   EXPECT_EQ(*type, *type2);
   EXPECT_NE(*type, *other);
 
@@ -399,7 +399,7 @@ TEST(Type, Equality) {
   // scalar
   EXPECT_TRUE(*INTEGER() == *INTEGER());
   EXPECT_FALSE(*INTEGER() != *INTEGER());
-  EXPECT_FALSE(*INTEGER() == *REAL());
+  EXPECT_FALSE(INTEGER()->operator==(*REAL()));
 
   // map
   EXPECT_TRUE(*MAP(INTEGER(), REAL()) == *MAP(INTEGER(), REAL()));
@@ -431,9 +431,10 @@ TEST(Type, Equality) {
       *ROW({{"a", INTEGER()}, {"d", REAL()}}));
 
   // mix
-  EXPECT_FALSE(
-      *MAP(REAL(), INTEGER()) == *ROW({{"a", REAL()}, {"b", INTEGER()}}));
-  EXPECT_FALSE(*ARRAY(REAL()) == *ROW({{"a", REAL()}}));
+  EXPECT_FALSE(MAP(REAL(), INTEGER())
+                   ->
+                   operator==(*ROW({{"a", REAL()}, {"b", INTEGER()}})));
+  EXPECT_FALSE(ARRAY(REAL())->operator==(*ROW({{"a", REAL()}})));
 }
 
 TEST(Type, Cpp2Type) {

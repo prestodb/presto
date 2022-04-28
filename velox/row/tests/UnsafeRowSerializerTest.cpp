@@ -256,7 +256,7 @@ TEST_F(UnsafeRowSerializerTests, StringsDynamic) {
   bool nulls[4] = {false, false, true, false};
   StringView elements[4] = {
       StringView("Hello, World!", 13),
-      StringView(u8"", 0),
+      StringView("", 0),
       StringView(),
       StringView("INLINE", 6)};
   auto stringVec =
@@ -448,11 +448,11 @@ TEST_F(UnsafeRowSerializerTests, arrayStringView) {
   ///  size: 6
   ///  [ hello, longString, emptyString, null, null, world]
   ///  nulls: 0b011000
-  auto hello = StringView(u8"Hello", 5);
+  auto hello = StringView("Hello", 5);
   auto longString =
-      StringView(u8"This is a rather long string.  Quite long indeed.", 49);
-  auto emptyString = StringView(u8"", 0);
-  auto world = StringView(u8"World", 5);
+      StringView("This is a rather long string.  Quite long indeed.", 49);
+  auto emptyString = StringView("", 0);
+  auto world = StringView("World", 5);
   auto placeHolder = StringView();
 
   auto flatVector = makeNullableFlatVector<StringView>(
@@ -706,8 +706,8 @@ TEST_F(UnsafeRowSerializerTests, map) {
   /// @TODO in the future if needed we can fix the map serializer/deserializer
   /// And add corresponding tests here again.
 
-  auto hello = StringView(u8"Hello", 5);
-  auto world = StringView(u8"World", 5);
+  auto hello = StringView("Hello", 5);
+  auto world = StringView("World", 5);
   auto placeHolder = StringView();
 
   auto keysFlatVector =

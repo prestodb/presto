@@ -211,7 +211,7 @@ TEST_F(PrestoHasherTest, floats) {
 
 TEST_F(PrestoHasherTest, varchars) {
   assertHash<StringView>(
-      {"abcd"_sv, ""_sv, std::nullopt, u8"Thanks \u0020\u007F"_sv},
+      {"abcd"_sv, ""_sv, std::nullopt, "Thanks \u0020\u007F"_sv},
       {-2449070131962342708, -1205034819632174695, 0, 2911531567394159200});
 }
 

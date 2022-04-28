@@ -152,7 +152,7 @@ TEST_F(ChecksumAggregateTest, varchars) {
   assertSingleGroupChecksum<StringView>({{}}, "h8rrhbF5N54=");
   assertSingleGroupChecksum<StringView>({"abcd"_sv}, "lGFxgnIYgPw=");
   assertSingleGroupChecksum<StringView>(
-      {u8"Thanks \u0020\u007F"_sv}, "oEh7YyEV+dM=");
+      {"Thanks \u0020\u007F"_sv}, "oEh7YyEV+dM=");
 }
 
 TEST_F(ChecksumAggregateTest, arrays) {

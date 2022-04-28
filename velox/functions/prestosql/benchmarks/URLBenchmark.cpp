@@ -207,8 +207,8 @@ class UrlBenchmark : public functions::test::FunctionBenchmarkBase {
         : vectorMaker_.rowVector({vectorUrls});
 
     auto queryString = isParameter ? "{}(c0, c1)" : "{}(c0)";
-    auto exprSet =
-        compileExpression(fmt::format(queryString, fnName), rowVector->type());
+    auto exprSet = compileExpression(
+        fmt::format(fmt::runtime(queryString), fnName), rowVector->type());
 
     suspender.dismiss();
 

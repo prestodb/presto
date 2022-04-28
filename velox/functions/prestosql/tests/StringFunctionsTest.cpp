@@ -1314,11 +1314,11 @@ TEST_F(StringFunctionsTest, reverse) {
   EXPECT_EQ("koobecaF", reverse("Facebook"));
   EXPECT_EQ("ΨΧΦΥΤΣΣΡΠΟΞΝΜΛΚΙΘΗΖΕΔΓΒΑ", reverse("ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΣΤΥΦΧΨ"));
   EXPECT_EQ(
-      u8" \u2028 \u671B\u5E0C \u7231 \u5FF5\u4FE1",
-      reverse(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "));
+      " \u2028 \u671B\u5E0C \u7231 \u5FF5\u4FE1",
+      reverse("\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "));
   EXPECT_EQ(
-      u8"\u671B\u5E0C\u2014\u7231\u2014\u5FF5\u4FE1",
-      reverse(u8"\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B"));
+      "\u671B\u5E0C\u2014\u7231\u2014\u5FF5\u4FE1",
+      reverse("\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B"));
   EXPECT_EQ(expectedInvalidStr, reverse(invalidStr));
 }
 
@@ -1699,20 +1699,20 @@ TEST_F(StringFunctionsTest, trim) {
   EXPECT_EQ("a", trim("  a  "));
 
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      trim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim("\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      trim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      trim(u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim(" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      trim(u8"  \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim("  \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      trim(u8" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      trim(" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
 
   EXPECT_EQ(expectedComplexStr, trim(complexStr));
   EXPECT_EQ(
@@ -1739,20 +1739,20 @@ TEST_F(StringFunctionsTest, ltrim) {
   EXPECT_EQ("move fast", ltrim("\r\t move fast"));
   EXPECT_EQ("hello", ltrim("\n\t\r hello"));
 
-  EXPECT_EQ(u8"\u4F60\u597D", ltrim(u8" \u4F60\u597D"));
-  EXPECT_EQ(u8"\u4F60\u597D ", ltrim(u8" \u4F60\u597D "));
+  EXPECT_EQ("\u4F60\u597D", ltrim(" \u4F60\u597D"));
+  EXPECT_EQ("\u4F60\u597D ", ltrim(" \u4F60\u597D "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
-      ltrim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      ltrim("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B ",
-      ltrim(u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B ",
+      ltrim(" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      ltrim(u8"  \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      ltrim("  \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      ltrim(u8" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      ltrim(" \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"));
 
   EXPECT_EQ(expectedComplexStr, ltrim(complexStr));
   EXPECT_EQ("Ψ\xFF\xFFΣΓΔA", ltrim("  \u2028 \r \t \n   Ψ\xFF\xFFΣΓΔA"));
@@ -1778,20 +1778,20 @@ TEST_F(StringFunctionsTest, rtrim) {
   EXPECT_EQ("move fast", rtrim("move fast\r\t "));
   EXPECT_EQ("hello", rtrim("hello\n\t\r "));
 
-  EXPECT_EQ(u8" \u4F60\u597D", rtrim(u8" \u4F60\u597D"));
-  EXPECT_EQ(u8" \u4F60\u597D", rtrim(u8" \u4F60\u597D "));
+  EXPECT_EQ(" \u4F60\u597D", rtrim(" \u4F60\u597D"));
+  EXPECT_EQ(" \u4F60\u597D", rtrim(" \u4F60\u597D "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      rtrim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      rtrim("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
   EXPECT_EQ(
-      u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      rtrim(u8" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "));
+      " \u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      rtrim(" \u4FE1\u5FF5 \u7231 \u5E0C\u671B "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      rtrim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      rtrim("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  "));
   EXPECT_EQ(
-      u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
-      rtrim(u8"\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "));
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      rtrim("\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 "));
 
   EXPECT_EQ(expectedComplexStr, rtrim(complexStr));
   EXPECT_EQ("     Ψ\xFF\xFFΣΓΔA", rtrim("     Ψ\xFF\xFFΣΓΔA \u2028 \r \t \n"));
