@@ -21,11 +21,13 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -294,5 +296,30 @@ public class OrcType
         fieldTypesList.forEach(orcTypes::addAll);
 
         return orcTypes;
+    }
+
+    /**
+     * Converts zero-based column numbers to ORC node indexes.
+     * NOTE: This method ignores columns that are not included into the ORC types.
+     */
+    public static Set<Integer> mapColumnToNode(Set<Integer> columnIndexes, List<OrcType> orcTypes)
+    {
+        requireNonNull(columnIndexes, "columnIndexes is null");
+        requireNonNull(orcTypes, "orcTypes is null");
+
+        if (columnIndexes.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        ImmutableSet.Builder<Integer> nodes = ImmutableSet.builder();
+        OrcType rootType = orcTypes.get(0);
+
+        for (int columnIndex = 0; columnIndex < rootType.getFieldCount(); columnIndex++) {
+            if (columnIndexes.contains(columnIndex)) {
+                int nodeIndex = rootType.getFieldTypeIndex(columnIndex);
+                nodes.add(nodeIndex);
+            }
+        }
+        return nodes.build();
     }
 }
