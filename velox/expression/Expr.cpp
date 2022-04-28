@@ -547,7 +547,6 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
     const auto& rowsToDecode =
         context->isFinalSelection() ? rows : *context->finalSelection();
     decoded->makeIndices(*firstWrapper, rowsToDecode, numLevels);
-    auto indices = decoded->indices();
 
     newRows = translateToInnerRows(rows, *decoded, newRowsHolder);
 
@@ -1314,28 +1313,42 @@ namespace {
 void printExprWithStats(
     const exec::Expr& expr,
     const std::string& indent,
-    std::stringstream& out) {
+    std::stringstream& out,
+    std::unordered_map<const exec::Expr*, uint32_t>& uniqueExprs) {
+  auto it = uniqueExprs.find(&expr);
+  if (it != uniqueExprs.end()) {
+    // Common sub-expression. Print the full expression, but skip the stats. Add
+    // ID of the expression it duplicates.
+    out << indent << expr.toString(true) << " -> " << expr.type()->toString();
+    out << " [CSE #" << it->second << "]" << std::endl;
+    return;
+  }
+
+  uint32_t id = uniqueExprs.size() + 1;
+  uniqueExprs.insert({&expr, id});
+
   const auto& stats = expr.stats();
   out << indent << expr.toString(false)
       << " [cpu time: " << succinctNanos(stats.timing.cpuNanos)
       << ", rows: " << stats.numProcessedRows << "] -> "
-      << expr.type()->toString() << std::endl;
+      << expr.type()->toString() << " [#" << id << "]" << std::endl;
 
   auto newIndent = indent + "   ";
   for (const auto& input : expr.inputs()) {
-    printExprWithStats(*input, newIndent, out);
+    printExprWithStats(*input, newIndent, out, uniqueExprs);
   }
 }
 } // namespace
 
 std::string printExprWithStats(const exec::ExprSet& exprSet) {
   const auto& exprs = exprSet.exprs();
+  std::unordered_map<const exec::Expr*, uint32_t> uniqueExprs;
   std::stringstream out;
   for (auto i = 0; i < exprs.size(); ++i) {
     if (i > 0) {
       out << std::endl;
     }
-    printExprWithStats(*exprs[i], "", out);
+    printExprWithStats(*exprs[i], "", out, uniqueExprs);
   }
   return out.str();
 }
