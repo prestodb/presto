@@ -20,7 +20,7 @@
 using namespace facebook;
 using namespace facebook::velox;
 
-TEST(Type, Array) {
+TEST(Type, array) {
   auto arr0 = ARRAY(ARRAY(ARRAY(INTEGER())));
   EXPECT_EQ("ARRAY<ARRAY<ARRAY<INTEGER>>>", arr0->toString());
   EXPECT_EQ(arr0->size(), 1);
@@ -31,7 +31,7 @@ TEST(Type, Array) {
   EXPECT_THROW(arr0->childAt(1), VeloxUserError);
 }
 
-TEST(Type, FixedLenArray) {
+TEST(Type, fixedLenArray) {
   auto arr0 = FIXED_SIZE_ARRAY(3, INTEGER());
   EXPECT_EQ("FIXED_SIZE_ARRAY(3)<INTEGER>", arr0->toString());
   EXPECT_EQ(arr0->size(), 1);
@@ -42,7 +42,7 @@ TEST(Type, FixedLenArray) {
   EXPECT_THROW(arr0->childAt(1), VeloxUserError);
 }
 
-TEST(Type, Integer) {
+TEST(Type, integer) {
   auto int0 = INTEGER();
   EXPECT_EQ(int0->toString(), "INTEGER");
   EXPECT_EQ(int0->size(), 0);
@@ -52,7 +52,7 @@ TEST(Type, Integer) {
   EXPECT_EQ(int0->begin(), int0->end());
 }
 
-TEST(Type, Timestamp) {
+TEST(Type, timestamp) {
   auto t0 = TIMESTAMP();
   EXPECT_EQ(t0->toString(), "TIMESTAMP");
   EXPECT_EQ(t0->size(), 0);
@@ -62,7 +62,7 @@ TEST(Type, Timestamp) {
   EXPECT_EQ(t0->begin(), t0->end());
 }
 
-TEST(Type, TimestampToString) {
+TEST(Type, timestampToString) {
   Timestamp epoch(0, 0);
   EXPECT_EQ(epoch.toString(), "1970-01-01T00:00:00.000000000");
 
@@ -76,7 +76,7 @@ TEST(Type, TimestampToString) {
   EXPECT_EQ(wayBeforeEpoch.toString(), "1653-02-10T06:13:21.987654321");
 }
 
-TEST(Type, TimestampComparison) {
+TEST(Type, timestampComparison) {
   Timestamp t1(1000, 100);
   Timestamp t1Copy(1000, 100);
 
@@ -107,7 +107,7 @@ TEST(Type, TimestampComparison) {
   EXPECT_GE(t1, t1lessSeconds);
 }
 
-TEST(Type, Date) {
+TEST(Type, date) {
   auto date = DATE();
   EXPECT_EQ(date->toString(), "DATE");
   EXPECT_EQ(date->size(), 0);
@@ -117,7 +117,7 @@ TEST(Type, Date) {
   EXPECT_EQ(date->begin(), date->end());
 }
 
-TEST(Type, DateToString) {
+TEST(Type, dateToString) {
   Date epoch(0);
   EXPECT_EQ(epoch.toString(), "1970-01-01");
 
@@ -143,7 +143,7 @@ TEST(Type, DateToString) {
   EXPECT_EQ(dateOverflow.toString(), "-5079479-05-03");
 }
 
-TEST(Type, DateComparison) {
+TEST(Type, dateComparison) {
   Date epoch(0);
   Date beforeEpoch(-5);
   Date jan2020(18262);
@@ -198,7 +198,7 @@ TEST(Type, parseStringToDate) {
   EXPECT_EQ(parseDate("2135-11-09").days(), 60577);
 }
 
-TEST(Type, Map) {
+TEST(Type, map) {
   auto map0 = MAP(INTEGER(), ARRAY(BIGINT()));
   EXPECT_EQ(map0->toString(), "MAP<INTEGER,ARRAY<BIGINT>>");
   EXPECT_EQ(map0->size(), 2);
@@ -221,7 +221,7 @@ TEST(Type, Map) {
   CHECK_EQ(num, 2);
 }
 
-TEST(Type, Row) {
+TEST(Type, row) {
   auto row0 = ROW({{"a", INTEGER()}, {"b", ROW({{"a", BIGINT()}})}});
   auto rowInner = row0->childAt(1);
   EXPECT_EQ(row0->toString(), "ROW<a:INTEGER,b:ROW<a:BIGINT>>");
@@ -275,7 +275,7 @@ TEST(Type, Row) {
 class Foo {};
 class Bar {};
 
-TEST(Type, Opaque) {
+TEST(Type, opaque) {
   auto foo = OpaqueType::create<Foo>();
   auto bar = OpaqueType::create<Bar>();
   // Names currently use typeid which is not stable across platforms. We'd need
@@ -347,7 +347,7 @@ std::shared_ptr<const OpaqueType> OpaqueType::create<OpaqueWithMetadata>() {
 }
 } // namespace facebook::velox
 
-TEST(Type, OpaqueWithMetadata) {
+TEST(Type, opaqueWithMetadata) {
   auto def = OpaqueType::create<OpaqueWithMetadata>();
   auto type = std::make_shared<OpaqueWithMetadataType>(123);
   auto type2 = std::make_shared<OpaqueWithMetadataType>(123);
@@ -371,7 +371,7 @@ TEST(Type, OpaqueWithMetadata) {
       234);
 }
 
-TEST(Type, FluentCast) {
+TEST(Type, fluentCast) {
   std::shared_ptr<const Type> t = INTEGER();
   EXPECT_THROW(t->asBigint(), std::bad_cast);
   EXPECT_EQ(t->asInteger().toString(), "INTEGER");
@@ -388,14 +388,14 @@ const std::string* firstFieldNameOrNull(const Type& type) {
   }
 }
 
-TEST(Type, PatternMatching) {
+TEST(Type, patternMatching) {
   auto a = ROW({{"a", INTEGER()}});
   auto b = BIGINT();
   EXPECT_EQ(*firstFieldNameOrNull(*a), "a");
   EXPECT_EQ(firstFieldNameOrNull(*b), nullptr);
 }
 
-TEST(Type, Equality) {
+TEST(Type, equality) {
   // scalar
   EXPECT_TRUE(*INTEGER() == *INTEGER());
   EXPECT_FALSE(*INTEGER() != *INTEGER());
@@ -437,7 +437,7 @@ TEST(Type, Equality) {
   EXPECT_FALSE(ARRAY(REAL())->operator==(*ROW({{"a", REAL()}})));
 }
 
-TEST(Type, Cpp2Type) {
+TEST(Type, cpp2Type) {
   EXPECT_EQ(*CppToType<int64_t>::create(), *BIGINT());
   EXPECT_EQ(*CppToType<int32_t>::create(), *INTEGER());
   EXPECT_EQ(*CppToType<int16_t>::create(), *SMALLINT());
@@ -455,7 +455,7 @@ TEST(Type, Cpp2Type) {
   EXPECT_EQ(*type, *MAP(INTEGER(), MAP(BIGINT(), REAL())));
 }
 
-TEST(Type, KindHash) {
+TEST(Type, kindHash) {
   EXPECT_EQ(BIGINT()->hashKind(), BIGINT()->hashKind());
   EXPECT_EQ(TIMESTAMP()->hashKind(), TIMESTAMP()->hashKind());
   EXPECT_EQ(DATE()->hashKind(), DATE()->hashKind());
@@ -486,7 +486,7 @@ int32_t returnKindIntPlus(int32_t val) {
   return (int32_t)KIND + val;
 }
 
-TEST(Type, DynamicTypeDispatch) {
+TEST(Type, dynamicTypeDispatch) {
   auto val1 =
       VELOX_DYNAMIC_TYPE_DISPATCH(returnKindIntPlus, TypeKind::INTEGER, 1);
   EXPECT_EQ(val1, (int32_t)TypeKind::INTEGER + 1);
@@ -496,7 +496,7 @@ TEST(Type, DynamicTypeDispatch) {
   EXPECT_EQ(val2, (int32_t)TypeKind::BIGINT + 2);
 }
 
-TEST(Type, KindStreamOp) {
+TEST(Type, kindStreamOp) {
   std::stringbuf buf;
   std::ostream os(&buf);
   os << TypeKind::BIGINT;
