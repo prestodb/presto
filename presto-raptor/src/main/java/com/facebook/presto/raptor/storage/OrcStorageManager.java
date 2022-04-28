@@ -34,13 +34,13 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
@@ -167,7 +167,7 @@ public class OrcStorageManager
     private final ExecutorService commitExecutor;
     private final OrcDataEnvironment orcDataEnvironment;
     private final OrcFileRewriter fileRewriter;
-    private final OrcWriterStats stats = new OrcWriterStats();
+    private final NoOpOrcWriterStats stats = new NoOpOrcWriterStats();
     private final OrcFileTailSource orcFileTailSource;
     private final StripeMetadataSourceFactory stripeMetadataSourceFactory;
 

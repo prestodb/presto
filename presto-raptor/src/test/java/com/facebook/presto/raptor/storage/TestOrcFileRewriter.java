@@ -27,10 +27,10 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -714,7 +714,7 @@ public class TestOrcFileRewriter
                 new OutputStreamDataSink(new FileOutputStream(file)),
                 writeMetadata,
                 true,
-                new OrcWriterStats(),
+                new NoOpOrcWriterStats(),
                 createTestFunctionAndTypeManager(),
                 ZSTD);
     }
@@ -724,7 +724,7 @@ public class TestOrcFileRewriter
         return new OrcFileRewriter(
                 READER_ATTRIBUTES,
                 true,
-                new OrcWriterStats(),
+                new NoOpOrcWriterStats(),
                 createTestFunctionAndTypeManager(),
                 new LocalOrcDataEnvironment(),
                 ZSTD,

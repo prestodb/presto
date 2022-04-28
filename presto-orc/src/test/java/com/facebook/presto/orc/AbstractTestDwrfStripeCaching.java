@@ -203,7 +203,7 @@ public abstract class AbstractTestDwrfStripeCaching
                     HIVE_STORAGE_TIME_ZONE,
                     true,
                     BOTH,
-                    new OrcWriterStats());
+                    new NoOpOrcWriterStats());
 
             // write 4 stripes with 100 values each
             int count = 0;

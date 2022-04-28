@@ -18,11 +18,11 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.OrcFileWriter;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfWriterEncryption;
+import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriteValidation;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -77,7 +77,7 @@ public class IcebergOrcFileWriter
             DateTimeZone hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
             OrcWriteValidation.OrcWriteValidationMode validationMode,
-            OrcWriterStats stats,
+            NoOpOrcWriterStats stats,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             Optional<DwrfWriterEncryption> dwrfWriterEncryption)
     {

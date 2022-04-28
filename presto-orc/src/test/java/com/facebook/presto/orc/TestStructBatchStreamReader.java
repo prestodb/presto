@@ -243,7 +243,7 @@ public class TestStructBatchStreamReader
                 HIVE_STORAGE_TIME_ZONE,
                 true,
                 BOTH,
-                new OrcWriterStats());
+                new NoOpOrcWriterStats());
 
         // write down some data with unsorted streams
         Block[] fieldBlocks = new Block[data.size()];

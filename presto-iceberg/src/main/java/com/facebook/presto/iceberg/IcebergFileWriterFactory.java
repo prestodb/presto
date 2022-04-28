@@ -27,9 +27,9 @@ import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
+import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -78,7 +78,7 @@ public class IcebergFileWriterFactory
     private final TypeManager typeManager;
     private final FileFormatDataSourceStats readStats;
     private final NodeVersion nodeVersion;
-    private final OrcWriterStats orcWriterStats = new OrcWriterStats();
+    private final NoOpOrcWriterStats orcWriterStats = new NoOpOrcWriterStats();
     private final OrcFileWriterConfig orcFileWriterConfig;
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
 

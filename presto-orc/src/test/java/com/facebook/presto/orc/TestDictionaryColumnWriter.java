@@ -822,7 +822,7 @@ public class TestDictionaryColumnWriter
     {
         List<Type> types = ImmutableList.of(type);
         try (TempFile tempFile = new TempFile()) {
-            OrcWriter writer = createOrcWriter(tempFile.getFile(), encoding, ZSTD, Optional.empty(), types, orcWriterOptions, new OrcWriterStats());
+            OrcWriter writer = createOrcWriter(tempFile.getFile(), encoding, ZSTD, Optional.empty(), types, orcWriterOptions, new NoOpOrcWriterStats());
 
             int index = 0;
             int batchId = 0;
