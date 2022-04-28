@@ -304,7 +304,7 @@ bool MappedMemoryImpl::checkConsistency() const {
 }
 
 MappedMemory* MappedMemory::customInstance_;
-std::unique_ptr<MappedMemory> MappedMemory::instance_;
+std::shared_ptr<MappedMemory> MappedMemory::instance_;
 std::mutex MappedMemory::initMutex_;
 std::atomic<uint64_t> MappedMemory::totalSmallAllocateBytes_;
 std::atomic<uint64_t> MappedMemory::totalSizeClassAllocateBytes_;
@@ -327,8 +327,8 @@ MappedMemory* MappedMemory::getInstance() {
 }
 
 // static
-std::unique_ptr<MappedMemory> MappedMemory::createDefaultInstance() {
-  return std::make_unique<MappedMemoryImpl>();
+std::shared_ptr<MappedMemory> MappedMemory::createDefaultInstance() {
+  return std::make_shared<MappedMemoryImpl>();
 }
 
 // static

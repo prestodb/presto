@@ -50,7 +50,7 @@ using MachinePageCount = uint64_t;
 // a single source to have dynamic balancing between different
 // users. Proxy subclasses may provide context specific tracking
 // while delegating the allocation to a root allocator.
-class MappedMemory {
+class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
  public:
   static constexpr uint64_t kPageSize = 4096;
   static constexpr int32_t kMaxSizeClasses = 12;
@@ -230,7 +230,7 @@ class MappedMemory {
 
   // Creates a default MappedMemory instance but does not set this to process
   // default.
-  static std::unique_ptr<MappedMemory> createDefaultInstance();
+  static std::shared_ptr<MappedMemory> createDefaultInstance();
 
   // Overrides the process-wide default instance. The caller keeps
   // ownership and must not destroy the instance until it is
@@ -356,7 +356,7 @@ class MappedMemory {
 
  private:
   // Singleton instance.
-  static std::unique_ptr<MappedMemory> instance_;
+  static std::shared_ptr<MappedMemory> instance_;
   // Application-supplied custom implementation of MappedMemory to be returned
   // by getInstance().
   static MappedMemory* FOLLY_NULLABLE customInstance_;

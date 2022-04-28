@@ -591,11 +591,10 @@ class CacheShard {
   std::atomic<uint64_t> allocClocks_;
 };
 
-class AsyncDataCache : public memory::MappedMemory,
-                       public std::enable_shared_from_this<AsyncDataCache> {
+class AsyncDataCache : public memory::MappedMemory {
  public:
   AsyncDataCache(
-      std::unique_ptr<memory::MappedMemory> mappedMemory,
+      const std::shared_ptr<memory::MappedMemory>& mappedMemory,
       uint64_t maxBytes,
       std::unique_ptr<SsdCache> ssdCache = nullptr);
 
@@ -746,7 +745,7 @@ class AsyncDataCache : public memory::MappedMemory,
 
       std::function<bool()> allocate);
 
-  std::unique_ptr<memory::MappedMemory> mappedMemory_;
+  std::shared_ptr<memory::MappedMemory> mappedMemory_;
   std::unique_ptr<SsdCache> ssdCache_;
   std::vector<std::unique_ptr<CacheShard>> shards_;
   int32_t shardCounter_{};

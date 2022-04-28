@@ -29,8 +29,7 @@ class StreamArena {
  public:
   static constexpr int32_t kVectorStreamOwner = 1;
 
-  explicit StreamArena(memory::MappedMemory* mappedMemory)
-      : mappedMemory_(mappedMemory), allocation_(mappedMemory) {}
+  explicit StreamArena(memory::MappedMemory* mappedMemory);
 
   virtual ~StreamArena() = default;
 
@@ -49,11 +48,11 @@ class StreamArena {
   }
 
   memory::MappedMemory* mappedMemory() {
-    return mappedMemory_;
+    return mappedMemory_.get();
   }
 
  private:
-  memory::MappedMemory* mappedMemory_;
+  std::shared_ptr<memory::MappedMemory> mappedMemory_;
   // All allocations.
   std::vector<std::unique_ptr<memory::MappedMemory::Allocation>> allocations_;
   // The allocation from which pages are given out. Moved to 'allocations_' when

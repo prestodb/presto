@@ -68,7 +68,7 @@ class AsyncDataCacheTest : public testing::Test {
     }
     memory::MmapAllocatorOptions options = {maxBytes};
     cache_ = std::make_shared<AsyncDataCache>(
-        std::make_unique<memory::MmapAllocator>(options),
+        std::make_shared<memory::MmapAllocator>(options),
         maxBytes,
         std::move(ssdCache));
     for (auto i = 0; i < kNumFiles; ++i) {

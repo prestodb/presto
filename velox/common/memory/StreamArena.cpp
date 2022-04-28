@@ -17,6 +17,11 @@
 #include "velox/common/memory/ByteStream.h"
 
 namespace facebook::velox {
+
+StreamArena::StreamArena(memory::MappedMemory* mappedMemory)
+    : mappedMemory_(mappedMemory->shared_from_this()),
+      allocation_(mappedMemory) {}
+
 void StreamArena::newRange(int32_t bytes, ByteRange* range) {
   VELOX_CHECK(bytes > 0);
   memory::MachinePageCount numPages =
@@ -58,4 +63,5 @@ void StreamArena::newTinyRange(int32_t bytes, ByteRange* range) {
   range->buffer = reinterpret_cast<uint8_t*>(tinyRanges_.back().data());
   range->size = bytes;
 }
+
 } // namespace facebook::velox

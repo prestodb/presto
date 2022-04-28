@@ -41,7 +41,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
     useMmap_ = GetParam();
     if (useMmap_) {
       MmapAllocatorOptions options = {kMaxMappedMemory};
-      mmapAllocator_ = std::make_unique<MmapAllocator>(options);
+      mmapAllocator_ = std::make_shared<MmapAllocator>(options);
       MappedMemory::setDefaultInstance(mmapAllocator_.get());
     } else {
       MappedMemory::setDefaultInstance(nullptr);
@@ -269,7 +269,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
   }
 
   bool useMmap_;
-  std::unique_ptr<MmapAllocator> mmapAllocator_;
+  std::shared_ptr<MmapAllocator> mmapAllocator_;
   std::shared_ptr<MappedMemory> instancePtr_;
   MappedMemory* instance_;
   std::atomic<int32_t> sequence_ = {};

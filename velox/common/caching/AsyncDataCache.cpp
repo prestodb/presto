@@ -475,10 +475,10 @@ void CacheShard::appendSsdSaveable(std::vector<CachePin>& pins) {
 }
 
 AsyncDataCache::AsyncDataCache(
-    std::unique_ptr<MappedMemory> mappedMemory,
+    const std::shared_ptr<MappedMemory>& mappedMemory,
     uint64_t maxBytes,
     std::unique_ptr<SsdCache> ssdCache)
-    : mappedMemory_(std::move(mappedMemory)),
+    : mappedMemory_(mappedMemory),
       ssdCache_(std::move(ssdCache)),
       cachedPages_(0),
       maxBytes_(maxBytes) {

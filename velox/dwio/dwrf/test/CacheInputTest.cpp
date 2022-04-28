@@ -138,8 +138,8 @@ class CacheTest : public testing::Test {
       groupStats_ = &ssd->groupStats();
     }
     memory::MmapAllocatorOptions options = {maxBytes};
-    cache_ = std::make_unique<AsyncDataCache>(
-        std::make_unique<memory::MmapAllocator>(options),
+    cache_ = std::make_shared<AsyncDataCache>(
+        std::make_shared<memory::MmapAllocator>(options),
         maxBytes,
         std::move(ssd));
     cache_->setVerifyHook(checkEntry);
@@ -444,7 +444,7 @@ class CacheTest : public testing::Test {
   std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
   facebook::velox::dwio::common::DataCacheConfig config_;
   cache::FileGroupStats* FOLLY_NULLABLE groupStats_ = nullptr;
-  std::unique_ptr<AsyncDataCache> cache_;
+  std::shared_ptr<AsyncDataCache> cache_;
   std::shared_ptr<facebook::velox::dwio::common::IoStatistics> ioStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
   std::unique_ptr<memory::MemoryPool> pool_{

@@ -42,7 +42,7 @@ struct Block {
 
   size_t size = 0;
   char* data = nullptr;
-  std::unique_ptr<MappedMemory::Allocation> allocation;
+  std::shared_ptr<MappedMemory::Allocation> allocation;
   MmapAllocator::ContiguousAllocation contiguous;
 };
 
@@ -89,7 +89,7 @@ class FragmentationTest {
     if (memory_) {
       if (size <= 8 << 20) {
         block->allocation =
-            std::make_unique<MappedMemory::Allocation>(memory_.get());
+            std::make_shared<MappedMemory::Allocation>(memory_.get());
         if (!memory_->allocate(size / 4096, 0, *block->allocation)) {
           VELOX_FAIL("allocate() faild");
         }
@@ -144,7 +144,7 @@ class FragmentationTest {
   void initMemory(size_t sizeCap) {
     MmapAllocatorOptions options;
     options.capacity = sizeCap + (64 << 20);
-    memory_ = std::make_unique<MmapAllocator>(options);
+    memory_ = std::make_shared<MmapAllocator>(options);
   }
 
   void run(uint64_t total, size_t sizeCap, bool useMmap) {
@@ -181,7 +181,7 @@ class FragmentationTest {
   }
 
  protected:
-  std::unique_ptr<MmapAllocator> memory_;
+  std::shared_ptr<MmapAllocator> memory_;
   std::deque<std::unique_ptr<Block>> blocks_;
   std::vector<size_t> sizes_;
   std::vector<size_t> buckets_;
