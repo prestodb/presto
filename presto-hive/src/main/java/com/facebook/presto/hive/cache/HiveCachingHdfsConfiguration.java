@@ -103,7 +103,7 @@ public class HiveCachingHdfsConfiguration
         @Override
         public FileSystem createFileSystem(URI uri)
         {
-            return factory.apply(getConfig(), uri);
+            return factory.apply(this, uri);
         }
     }
 }
