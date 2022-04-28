@@ -385,19 +385,14 @@ public final class HiveUtil
                 .anyMatch(USE_RECORD_READER_FROM_INPUT_FORMAT_ANNOTATION::equals);
     }
 
-    static boolean shouldUseFileSplitsFromInputFormat(InputFormat<?, ?> inputFormat, DirectoryLister directoryLister)
+    static boolean shouldUseFileSplitsFromInputFormat(InputFormat<?, ?> inputFormat, Configuration conf, String tablePath)
     {
-        if (directoryLister instanceof HudiDirectoryLister) {
-            boolean hasUseSplitsAnnotation = Arrays.stream(inputFormat.getClass().getAnnotations())
-                    .map(Annotation::annotationType)
-                    .map(Class::getSimpleName)
-                    .anyMatch(USE_FILE_SPLITS_FROM_INPUT_FORMAT_ANNOTATION::equals);
+        boolean hasUseSplitsAnnotation = Arrays.stream(inputFormat.getClass().getAnnotations())
+                .map(Annotation::annotationType)
+                .map(Class::getSimpleName)
+                .anyMatch(USE_FILE_SPLITS_FROM_INPUT_FORMAT_ANNOTATION::equals);
 
-            return hasUseSplitsAnnotation &&
-                    (!isHudiParquetInputFormat(inputFormat) || shouldUseFileSplitsForHudi(inputFormat, ((HudiDirectoryLister) directoryLister).getMetaClient()));
-        }
-
-        return false;
+        return hasUseSplitsAnnotation && (!isHudiParquetInputFormat(inputFormat) || shouldUseFileSplitsForHudi(inputFormat, conf, tablePath));
     }
 
     static boolean isHudiParquetInputFormat(InputFormat<?, ?> inputFormat)
@@ -405,13 +400,14 @@ public final class HiveUtil
         return inputFormat instanceof HoodieParquetInputFormat;
     }
 
-    private static boolean shouldUseFileSplitsForHudi(InputFormat<?, ?> inputFormat, HoodieTableMetaClient metaClient)
+    private static boolean shouldUseFileSplitsForHudi(InputFormat<?, ?> inputFormat, Configuration conf, String tablePath)
     {
         if (inputFormat instanceof HoodieParquetRealtimeInputFormat) {
             return true;
         }
 
-        return metaClient.getTableConfig().getBootstrapBasePath().isPresent();
+        HoodieTableMetaClient hoodieTableMetaClient = HoodieTableMetaClient.builder().setConf(conf).setBasePath(tablePath).build();
+        return hoodieTableMetaClient.getTableConfig().getBootstrapBasePath().isPresent();
     }
 
     public static long parseHiveDate(String value)

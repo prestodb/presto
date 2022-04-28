@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.HiveFileIterator;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
@@ -36,13 +37,15 @@ public class HadoopDirectoryLister
             Table table,
             Path path,
             NamenodeStats namenodeStats,
+            PathFilter pathFilter,
             HiveDirectoryContext hiveDirectoryContext)
     {
         return new HiveFileIterator(
                 path,
                 p -> new HadoopFileInfoIterator(fileSystem.listLocatedStatus(p)),
                 namenodeStats,
-                hiveDirectoryContext.getNestedDirectoryPolicy());
+                hiveDirectoryContext.getNestedDirectoryPolicy(),
+                pathFilter);
     }
 
     public static class HadoopFileInfoIterator
