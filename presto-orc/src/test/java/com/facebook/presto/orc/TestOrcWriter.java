@@ -147,7 +147,7 @@ public class TestOrcWriter
                     HIVE_STORAGE_TIME_ZONE,
                     true,
                     validationMode,
-                    new OrcWriterStats());
+                    new NoOpOrcWriterStats());
 
             // write down some data with unsorted streams
             String[] data = new String[] {"a", "bbbbb", "ccc", "dd", "eeee"};
@@ -209,7 +209,7 @@ public class TestOrcWriter
                 HIVE_STORAGE_TIME_ZONE,
                 false,
                 null,
-                new OrcWriterStats());
+                new NoOpOrcWriterStats());
 
         int entries = 65536;
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);

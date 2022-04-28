@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.hive;
 
+import com.facebook.presto.orc.FlushReason;
+import com.facebook.presto.orc.WriterStats;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;

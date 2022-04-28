@@ -26,11 +26,11 @@ import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.DwrfEncryptionInfo;
 import com.facebook.presto.orc.FileOrcDataSource;
+import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcTester;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.TempFile;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -310,7 +310,7 @@ public class TestWriterBlockRawSize
 
         for (OrcEncoding encoding : OrcEncoding.values()) {
             try (TempFile tempFile = new TempFile()) {
-                OrcWriter writer = createOrcWriter(tempFile.getFile(), encoding, ZSTD, Optional.empty(), types, writerOptions, new OrcWriterStats());
+                OrcWriter writer = createOrcWriter(tempFile.getFile(), encoding, ZSTD, Optional.empty(), types, writerOptions, new NoOpOrcWriterStats());
                 for (int i = 0; i < numBlocksPerFile; i++) {
                     writer.write(new Page(blocks));
                 }

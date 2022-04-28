@@ -620,7 +620,7 @@ public class TestDecryption
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
-            writeOrcColumnsPresto(tempFile.getFile(), OrcTester.Format.DWRF, ZSTD, dwrfWriterEncryption, types, writtenValues, new OrcWriterStats());
+            writeOrcColumnsPresto(tempFile.getFile(), OrcTester.Format.DWRF, ZSTD, dwrfWriterEncryption, types, writtenValues, new NoOpOrcWriterStats());
 
             assertFileContentsPresto(
                     types,

@@ -26,7 +26,6 @@ import com.facebook.presto.orc.DwrfWriterEncryption;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.WriterEncryptionGroup;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.KeyProvider;
