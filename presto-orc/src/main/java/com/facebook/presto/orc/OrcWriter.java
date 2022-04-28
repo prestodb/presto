@@ -60,13 +60,13 @@ import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -859,13 +859,15 @@ public class OrcWriter
         if (expectedSize == 0) {
             return ImmutableList.of();
         }
-        ArrayList<T> list = new ArrayList<>(expectedSize);
-        TreeSet<Integer> sortedKeys = new TreeSet<>();
-        sortedKeys.addAll(data.keySet());
+
+        List<Integer> sortedKeys = new ArrayList<>(data.keySet());
+        Collections.sort(sortedKeys);
+
+        ImmutableList.Builder<T> denseList = ImmutableList.builderWithExpectedSize(expectedSize);
         for (Integer key : sortedKeys) {
-            list.add(data.get(key));
+            denseList.add(data.get(key));
         }
-        return ImmutableList.copyOf(list);
+        return denseList.build();
     }
 
     private static List<ColumnStatistics> toFileStats(List<List<ColumnStatistics>> stripes)

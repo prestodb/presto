@@ -44,6 +44,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -311,15 +312,11 @@ public class OrcType
             return ImmutableSet.of();
         }
 
-        ImmutableSet.Builder<Integer> nodes = ImmutableSet.builder();
         OrcType rootType = orcTypes.get(0);
-
-        for (int columnIndex = 0; columnIndex < rootType.getFieldCount(); columnIndex++) {
-            if (columnIndexes.contains(columnIndex)) {
-                int nodeIndex = rootType.getFieldTypeIndex(columnIndex);
-                nodes.add(nodeIndex);
-            }
-        }
-        return nodes.build();
+        int fieldCount = rootType.getFieldCount();
+        return columnIndexes.stream()
+                .filter(columnIndex -> columnIndex < fieldCount)
+                .map(rootType::getFieldTypeIndex)
+                .collect(toImmutableSet());
     }
 }
