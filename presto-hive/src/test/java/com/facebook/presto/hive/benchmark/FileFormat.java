@@ -42,9 +42,9 @@ import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageWriter;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
+import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -610,7 +610,7 @@ public enum FileFormat
                     hiveStorageTimeZone,
                     false,
                     BOTH,
-                    new OrcWriterStats());
+                    new NoOpOrcWriterStats());
         }
 
         @Override
@@ -649,7 +649,7 @@ public enum FileFormat
                     hiveStorageTimeZone,
                     false,
                     BOTH,
-                    new OrcWriterStats());
+                    new NoOpOrcWriterStats());
         }
 
         @Override

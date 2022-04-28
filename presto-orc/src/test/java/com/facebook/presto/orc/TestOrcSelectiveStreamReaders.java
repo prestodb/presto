@@ -80,7 +80,7 @@ public class TestOrcSelectiveStreamReaders
 
             for (CompressionKind compression : compressions) {
                 TempFile tempFile = new TempFile();
-                writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.empty(), types, values, new OrcWriterStats());
+                writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.empty(), types, values, new NoOpOrcWriterStats());
 
                 OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
                 Map<Integer, Type> includedColumns = IntStream.range(0, types.size())

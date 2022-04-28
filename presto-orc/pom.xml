@@ -48,11 +48,6 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
-            <artifactId>stats</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
@@ -74,11 +69,6 @@
         <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
         </dependency>
 
         <dependency>

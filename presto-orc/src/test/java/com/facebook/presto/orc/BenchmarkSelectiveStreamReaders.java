@@ -267,7 +267,7 @@ public class BenchmarkSelectiveStreamReaders
             }
 
             // Use writeOrcColumnsPresto so that orcType and varchar length can be written in file footer
-            writeOrcColumnsPresto(orcFile, ORC_12, NONE, Optional.empty(), Collections.nCopies(channelCount, type), values, new OrcWriterStats());
+            writeOrcColumnsPresto(orcFile, ORC_12, NONE, Optional.empty(), Collections.nCopies(channelCount, type), values, new NoOpOrcWriterStats());
         }
 
         @TearDown

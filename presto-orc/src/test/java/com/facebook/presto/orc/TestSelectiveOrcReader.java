@@ -953,7 +953,7 @@ public class TestSelectiveOrcReader
         List<String> varcharDictionaryValues = newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS));
         List<List<?>> values = ImmutableList.of(intValues, varcharDirectValues, varcharDictionaryValues);
 
-        writeOrcColumnsPresto(tempFile.getFile(), DWRF, compression, Optional.empty(), types, values, new OrcWriterStats());
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, compression, Optional.empty(), types, values, new NoOpOrcWriterStats());
 
         OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
         Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
@@ -1015,7 +1015,7 @@ public class TestSelectiveOrcReader
         List<String> varcharDirectValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
         List<List<?>> values = ImmutableList.of(varcharDirectValues, varcharDirectValues);
 
-        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, values, new OrcWriterStats());
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, values, new NoOpOrcWriterStats());
 
         OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
         Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), stringIn(true, "A", "B", "C")); //ImmutableMap.of(1, stringIn(true, "10", "11"));
@@ -1094,7 +1094,7 @@ public class TestSelectiveOrcReader
             }
         }
 
-        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, ImmutableList.of(values), new OrcWriterStats());
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, ImmutableList.of(values), new NoOpOrcWriterStats());
 
         try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(tempFile, OrcEncoding.DWRF, OrcPredicate.TRUE, type, MAX_BATCH_SIZE, false, false)) {
             assertEquals(recordReader.getFileRowCount(), rowCount);
@@ -1131,7 +1131,7 @@ public class TestSelectiveOrcReader
         List<List<?>> values = ImmutableList.of(ImmutableList.of(1L, 2L));
 
         TempFile tempFile = new TempFile();
-        writeOrcColumnsPresto(tempFile.getFile(), DWRF, ZSTD, Optional.empty(), types, values, new OrcWriterStats());
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, ZSTD, Optional.empty(), types, values, new NoOpOrcWriterStats());
 
         // Hidden columns like partition columns use negative indices (-13).
         int hiddenColumnIndex = -13;
