@@ -153,6 +153,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.orc.AbstractTestOrcReader.intsBetween;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
@@ -281,6 +282,22 @@ public class OrcTester
     private Set<Format> formats = ImmutableSet.of();
     private Set<CompressionKind> compressions = ImmutableSet.of();
     private boolean useSelectiveOrcReader;
+    private boolean flattenAllColumns;
+
+    public static OrcTester quickDwrfFlatMapTester()
+    {
+        OrcTester orcTester = new OrcTester();
+        orcTester.nullTestsEnabled = true;
+        orcTester.skipBatchTestsEnabled = true;
+        orcTester.formats = ImmutableSet.of(DWRF);
+        orcTester.compressions = ImmutableSet.of(ZLIB);
+        orcTester.dwrfEncryptionEnabled = true;
+        orcTester.flattenAllColumns = true;
+
+        // TODO: sdruzkin - enable this flag after fixing a bug with null/empty maps in the selective reader
+        // orcTester.useSelectiveOrcReader = true;
+        return orcTester;
+    }
 
     public static OrcTester quickOrcTester()
     {
@@ -619,18 +636,12 @@ public class OrcTester
         assertEquals(writeTypes.size(), readValues.size());
 
         AtomicLong totalSize = new AtomicLong(0);
-        WriterStats stats = new WriterStats() {
-            @Override
-            public void recordStripeWritten(int stripeMinBytes, int stripeMaxBytes, int dictionaryMaxMemoryBytes, FlushReason flushReason, int dictionaryBytes, StripeInformation stripeInformation)
-            {
-            }
+        WriterStats stats = new NoOpOrcWriterStats();
 
-            @Override
-            public void updateSizeInBytes(long deltaInBytes)
-            {
-                totalSize.getAndAdd(deltaInBytes);
-            }
-        };
+        Set<Integer> flattenedColumns = ImmutableSet.of();
+        if (flattenAllColumns) {
+            flattenedColumns = intsBetween(0, writeTypes.size()).stream().collect(toImmutableSet());
+        }
 
         for (Format format : formats) {
             if (!readTypes.stream().allMatch(readType -> format.supportsType(readType))) {
@@ -639,7 +650,7 @@ public class OrcTester
 
             OrcEncoding orcEncoding = format.getOrcEncoding();
             for (CompressionKind compression : compressions) {
-                boolean hiveSupported = (compression != LZ4) && (compression != ZSTD);
+                boolean hiveSupported = (compression != LZ4) && (compression != ZSTD) && (flattenedColumns.isEmpty());
 
                 // write Hive, read Presto
                 if (hiveSupported) {
@@ -651,7 +662,7 @@ public class OrcTester
 
                 // write Presto, read Hive and Presto
                 try (TempFile tempFile = new TempFile()) {
-                    writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.empty(), writeTypes, writeValues, stats);
+                    writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.empty(), writeTypes, writeValues, stats, flattenedColumns);
 
                     if (verifyWithHiveReader && hiveSupported) {
                         assertFileContentsHive(readTypes, tempFile, format, readValues);
@@ -671,7 +682,7 @@ public class OrcTester
                 if (dwrfEncryptionEnabled && format == DWRF) {
                     try (TempFile tempFile = new TempFile()) {
                         DwrfWriterEncryption dwrfWriterEncryption = generateWriterEncryption();
-                        writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.of(dwrfWriterEncryption), writeTypes, writeValues, stats);
+                        writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.of(dwrfWriterEncryption), writeTypes, writeValues, stats, flattenedColumns);
 
                         ImmutableMap.Builder<Integer, Slice> intermediateKeysBuilder = ImmutableMap.builder();
                         for (int i = 0; i < dwrfWriterEncryption.getWriterEncryptionGroups().size(); i++) {
@@ -1549,7 +1560,25 @@ public class OrcTester
     public static void writeOrcColumnsPresto(File outputFile, Format format, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, List<List<?>> values, WriterStats stats)
             throws Exception
     {
-        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, OrcWriterOptions.builder().build(), stats);
+        writeOrcColumnsPresto(outputFile, format, compression, dwrfWriterEncryption, types, values, stats, ImmutableSet.of());
+    }
+
+    public static void writeOrcColumnsPresto(
+            File outputFile,
+            Format format,
+            CompressionKind compression,
+            Optional<DwrfWriterEncryption> dwrfWriterEncryption,
+            List<Type> types,
+            List<List<?>> values,
+            WriterStats stats,
+            Set<Integer> flattenedColumns)
+            throws Exception
+    {
+        OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
+                .withFlattenedColumns(flattenedColumns)
+                .build();
+
+        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, orcWriterOptions, stats);
 
         Block[] blocks = new Block[types.size()];
         for (int i = 0; i < types.size(); i++) {
@@ -1563,12 +1592,16 @@ public class OrcTester
 
         writer.write(new Page(blocks));
         writer.close();
-        writer.validate(new FileOrcDataSource(
-                outputFile,
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                true));
+
+        // TODO: sdruzkin - fix row group stats validation for flat maps
+        if (flattenedColumns.isEmpty()) {
+            writer.validate(new FileOrcDataSource(
+                    outputFile,
+                    new DataSize(1, MEGABYTE),
+                    new DataSize(1, MEGABYTE),
+                    new DataSize(1, MEGABYTE),
+                    true));
+        }
     }
 
     public static List<StripeFooter> getStripes(File inputFile, OrcEncoding encoding)
@@ -1576,6 +1609,7 @@ public class OrcTester
     {
         return getFileMetadata(inputFile, encoding).getStripeFooters();
     }
+
     public static FileMetadata getFileMetadata(File inputFile, OrcEncoding encoding)
             throws IOException
     {
