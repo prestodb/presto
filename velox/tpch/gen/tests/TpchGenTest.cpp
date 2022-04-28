@@ -112,6 +112,53 @@ TEST(TpchGenTestNation, reproducible) {
   }
 }
 
+// Region.
+
+TEST(TpchGenTestRegion, batches) {
+  auto rowVector1 = genTpchRegion();
+
+  EXPECT_EQ(3, rowVector1->childrenSize());
+  EXPECT_EQ(5, rowVector1->size());
+
+  auto regionKey = rowVector1->childAt(0)->asFlatVector<int64_t>();
+  auto regionName = rowVector1->childAt(1)->asFlatVector<StringView>();
+
+  EXPECT_EQ(0, regionKey->valueAt(0));
+  EXPECT_EQ("AFRICA"_sv, regionName->valueAt(0));
+  LOG(INFO) << rowVector1->toString(0);
+
+  EXPECT_EQ(4, regionKey->valueAt(4));
+  EXPECT_EQ("MIDDLE EAST"_sv, regionName->valueAt(4));
+  LOG(INFO) << rowVector1->toString(4);
+}
+
+TEST(TpchGenTestRegion, lastBatch) {
+  // Ask for 100 regions but there are only 5.
+  auto rowVector = genTpchRegion(100);
+  EXPECT_EQ(5, rowVector->size());
+
+  // Scale factor doens't affect it.
+  rowVector = genTpchRegion(100, 0, 2);
+  EXPECT_EQ(5, rowVector->size());
+
+  // Zero records if we go beyond the end.
+  rowVector = genTpchRegion(1'000, 200'000);
+  EXPECT_EQ(0, rowVector->size());
+}
+
+TEST(TpchGenTestRegion, reproducible) {
+  auto rowVector1 = genTpchRegion(100);
+  auto rowVector2 = genTpchRegion(100);
+  auto rowVector3 = genTpchRegion(100);
+
+  ASSERT_EQ(5, rowVector1->size());
+
+  for (size_t i = 0; i < rowVector1->size(); ++i) {
+    ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
+    ASSERT_TRUE(rowVector1->equalValueAt(rowVector3.get(), i, i));
+  }
+}
+
 // Orders tests.
 
 TEST(TpchGenTestOrders, batches) {
@@ -320,12 +367,12 @@ TEST(TpchGenTestSupplier, batches) {
   EXPECT_EQ(1'001, suppKey->valueAt(0));
   EXPECT_EQ(17, nationKey->valueAt(0));
   EXPECT_EQ("27-918-335-1736"_sv, phone->valueAt(0));
-  LOG(INFO) << rowVector1->toString(0);
+  LOG(INFO) << rowVector2->toString(0);
 
   EXPECT_EQ(2'000, suppKey->valueAt(999));
   EXPECT_EQ(17, nationKey->valueAt(999));
   EXPECT_EQ("27-971-649-2792"_sv, phone->valueAt(999));
-  LOG(INFO) << rowVector1->toString(999);
+  LOG(INFO) << rowVector2->toString(999);
 }
 
 TEST(TpchGenTestSupplier, lastBatch) {
@@ -390,11 +437,11 @@ TEST(TpchGenTestPart, batches) {
 
   EXPECT_EQ(1'001, partKey->valueAt(0));
   EXPECT_EQ("Manufacturer#1"_sv, mfgr->valueAt(0));
-  LOG(INFO) << rowVector1->toString(0);
+  LOG(INFO) << rowVector2->toString(0);
 
   EXPECT_EQ(2'000, partKey->valueAt(999));
   EXPECT_EQ("Manufacturer#2"_sv, mfgr->valueAt(999));
-  LOG(INFO) << rowVector1->toString(999);
+  LOG(INFO) << rowVector2->toString(999);
 }
 
 TEST(TpchGenTestPart, lastBatch) {
@@ -402,7 +449,7 @@ TEST(TpchGenTestPart, lastBatch) {
   auto rowVector = genTpchPart(10'000, 199'990);
   EXPECT_EQ(10, rowVector->size());
 
-  // Ensure we get 1000 suppliers on a larger scale factor.
+  // Ensure we get 1000 parts on a larger scale factor.
   rowVector = genTpchPart(1'000, 199'990, 2);
   EXPECT_EQ(1'000, rowVector->size());
 
@@ -551,6 +598,75 @@ TEST(TpchGenTestPartSupp, reproducible) {
   auto rowVector4 = genTpchPartSupp(100, 10);
   auto rowVector5 = genTpchPartSupp(100, 10);
   EXPECT_EQ(100, rowVector4->size());
+
+  for (size_t i = 0; i < rowVector4->size(); ++i) {
+    ASSERT_TRUE(rowVector4->equalValueAt(rowVector5.get(), i, i));
+  }
+}
+
+// Customer.
+
+TEST(TpchGenTestCustomer, batches) {
+  auto rowVector1 = genTpchCustomer(1'000);
+
+  EXPECT_EQ(8, rowVector1->childrenSize());
+  EXPECT_EQ(1'000, rowVector1->size());
+
+  auto custKey = rowVector1->childAt(0)->asFlatVector<int64_t>();
+  auto mktSegment = rowVector1->childAt(6)->asFlatVector<StringView>();
+
+  EXPECT_EQ(1, custKey->valueAt(0));
+  EXPECT_EQ("BUILDING"_sv, mktSegment->valueAt(0));
+
+  EXPECT_EQ(1'000, custKey->valueAt(999));
+  EXPECT_EQ("BUILDING"_sv, mktSegment->valueAt(999));
+  LOG(INFO) << rowVector1->toString(999);
+
+  // Get second batch.
+  auto rowVector2 = genTpchCustomer(1'000, 1'000);
+
+  EXPECT_EQ(8, rowVector2->childrenSize());
+  EXPECT_EQ(1'000, rowVector2->size());
+
+  custKey = rowVector2->childAt(0)->asFlatVector<int64_t>();
+  mktSegment = rowVector2->childAt(6)->asFlatVector<StringView>();
+
+  EXPECT_EQ(1'001, custKey->valueAt(0));
+  EXPECT_EQ("BUILDING"_sv, mktSegment->valueAt(0));
+  LOG(INFO) << rowVector2->toString(0);
+
+  EXPECT_EQ(2'000, custKey->valueAt(999));
+  EXPECT_EQ("BUILDING"_sv, mktSegment->valueAt(999));
+  LOG(INFO) << rowVector2->toString(999);
+}
+
+TEST(TpchGenTestCustomer, lastBatch) {
+  // Ask for 10'000 customers but there are only 10 left.
+  auto rowVector = genTpchCustomer(10'000, 149'990);
+  EXPECT_EQ(10, rowVector->size());
+
+  // Ensure we get 1000 customers on a larger scale factor.
+  rowVector = genTpchCustomer(1'000, 149'990, 2);
+  EXPECT_EQ(1'000, rowVector->size());
+
+  // Zero records if we go beyond the end.
+  rowVector = genTpchCustomer(1'000, 200'000);
+  EXPECT_EQ(0, rowVector->size());
+}
+
+TEST(TpchGenTestCustomer, reproducible) {
+  auto rowVector1 = genTpchCustomer(100);
+  auto rowVector2 = genTpchCustomer(100);
+  auto rowVector3 = genTpchCustomer(100);
+
+  for (size_t i = 0; i < rowVector1->size(); ++i) {
+    ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
+    ASSERT_TRUE(rowVector1->equalValueAt(rowVector3.get(), i, i));
+  }
+
+  // Ensure it's also reproducible if we add an offset.
+  auto rowVector4 = genTpchCustomer(100, 10);
+  auto rowVector5 = genTpchCustomer(100, 10);
 
   for (size_t i = 0; i < rowVector4->size(); ++i) {
     ASSERT_TRUE(rowVector4->equalValueAt(rowVector5.get(), i, i));

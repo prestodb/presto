@@ -57,6 +57,13 @@ constexpr size_t getLineItemRowCount(size_t scaleFactor) {
   return 6'000'000 * scaleFactor;
 }
 
+size_t getVectorSize(size_t rowCount, size_t maxRows, size_t offset) {
+  if (offset >= rowCount) {
+    return 0;
+  }
+  return std::min(rowCount - offset, maxRows);
+}
+
 } // namespace
 
 constexpr size_t getRowCount(Table table, size_t scaleFactor) {
@@ -86,9 +93,6 @@ RowVectorPtr genTpchOrders(
     size_t offset,
     size_t scaleFactor,
     memory::MemoryPool* pool) {
-  size_t rowCount = getRowCount(Table::TBL_ORDERS, scaleFactor);
-  size_t vectorSize = std::min(rowCount - offset, maxRows);
-
   // Create schema and allocate vectors.
   static TypePtr ordersRowType = ROW(
       {
@@ -113,6 +117,10 @@ RowVectorPtr genTpchOrders(
           INTEGER(),
           VARCHAR(),
       });
+
+  size_t vectorSize = getVectorSize(
+      getRowCount(Table::TBL_ORDERS, scaleFactor), maxRows, offset);
+
   std::vector<VectorPtr> children = {
       BaseVector::create(BIGINT(), vectorSize, pool),
       BaseVector::create(BIGINT(), vectorSize, pool),
@@ -165,8 +173,8 @@ RowVectorPtr genTpchLineItem(
     memory::MemoryPool* pool) {
   // We control the buffer size based on the orders table, then allocate the
   // underlying buffer using the worst case (orderVectorSize * 7).
-  size_t orderRowCount = getRowCount(Table::TBL_ORDERS, scaleFactor);
-  size_t orderVectorSize = std::min(orderRowCount - ordersOffset, maxOrderRows);
+  size_t orderVectorSize = getVectorSize(
+      getRowCount(Table::TBL_ORDERS, scaleFactor), maxOrderRows, ordersOffset);
   size_t lineItemUpperBound = orderVectorSize * 7;
 
   // Create schema and allocate vectors.
@@ -309,9 +317,6 @@ RowVectorPtr genTpchPart(
     size_t offset,
     size_t scaleFactor,
     memory::MemoryPool* pool) {
-  size_t rowCount = getRowCount(Table::TBL_PART, scaleFactor);
-  size_t vectorSize = std::min(rowCount - offset, maxRows);
-
   // Create schema and allocate vectors.
   static TypePtr partRowType = ROW(
       {
@@ -336,6 +341,10 @@ RowVectorPtr genTpchPart(
           DOUBLE(),
           VARCHAR(),
       });
+
+  size_t vectorSize =
+      getVectorSize(getRowCount(Table::TBL_PART, scaleFactor), maxRows, offset);
+
   std::vector<VectorPtr> children = {
       BaseVector::create(BIGINT(), vectorSize, pool),
       BaseVector::create(VARCHAR(), vectorSize, pool),
@@ -385,9 +394,6 @@ RowVectorPtr genTpchSupplier(
     size_t offset,
     size_t scaleFactor,
     memory::MemoryPool* pool) {
-  size_t rowCount = getRowCount(Table::TBL_SUPPLIER, scaleFactor);
-  size_t vectorSize = std::min(rowCount - offset, maxRows);
-
   // Create schema and allocate vectors.
   static TypePtr supplierRowType = ROW(
       {
@@ -408,6 +414,9 @@ RowVectorPtr genTpchSupplier(
           DOUBLE(),
           VARCHAR(),
       });
+  size_t vectorSize = getVectorSize(
+      getRowCount(Table::TBL_SUPPLIER, scaleFactor), maxRows, offset);
+
   std::vector<VectorPtr> children = {
       BaseVector::create(BIGINT(), vectorSize, pool),
       BaseVector::create(VARCHAR(), vectorSize, pool),
@@ -455,9 +464,6 @@ RowVectorPtr genTpchPartSupp(
     size_t offset,
     size_t scaleFactor,
     memory::MemoryPool* pool) {
-  size_t rowCount = getRowCount(Table::TBL_PARTSUPP, scaleFactor);
-  size_t vectorSize = std::min(rowCount - offset, maxRows);
-
   // Create schema and allocate vectors.
   static TypePtr partSuppRowType = ROW(
       {
@@ -474,6 +480,10 @@ RowVectorPtr genTpchPartSupp(
           DOUBLE(),
           VARCHAR(),
       });
+
+  size_t vectorSize = getVectorSize(
+      getRowCount(Table::TBL_PARTSUPP, scaleFactor), maxRows, offset);
+
   std::vector<VectorPtr> children = {
       BaseVector::create(BIGINT(), vectorSize, pool),
       BaseVector::create(BIGINT(), vectorSize, pool),
@@ -529,18 +539,96 @@ RowVectorPtr genTpchPartSupp(
       std::move(children));
 }
 
+RowVectorPtr genTpchCustomer(
+    size_t maxRows,
+    size_t offset,
+    size_t scaleFactor,
+    memory::MemoryPool* pool) {
+  // Create schema and allocate vectors.
+  static TypePtr customerRowType = ROW(
+      {
+          "c_custkey",
+          "c_name",
+          "c_address",
+          "c_nationkey",
+          "c_phone",
+          "c_acctbal",
+          "c_mktsegment",
+          "c_comment",
+      },
+      {
+          BIGINT(),
+          VARCHAR(),
+          VARCHAR(),
+          BIGINT(),
+          VARCHAR(),
+          DOUBLE(),
+          VARCHAR(),
+          VARCHAR(),
+      });
+
+  size_t vectorSize = getVectorSize(
+      getRowCount(Table::TBL_CUSTOMER, scaleFactor), maxRows, offset);
+
+  std::vector<VectorPtr> children = {
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(DOUBLE(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+  };
+
+  auto custKeyVector = children[0]->asFlatVector<int64_t>();
+  auto nameVector = children[1]->asFlatVector<StringView>();
+  auto addressVector = children[2]->asFlatVector<StringView>();
+  auto nationKeyVector = children[3]->asFlatVector<int64_t>();
+  auto phoneVector = children[4]->asFlatVector<StringView>();
+  auto acctBalVector = children[5]->asFlatVector<double>();
+  auto mktSegmentVector = children[6]->asFlatVector<StringView>();
+  auto commentVector = children[7]->asFlatVector<StringView>();
+
+  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  customer_t cust;
+
+  // Dbgen generates the dataset one row at a time, so we need to transpose it
+  // into a columnar format.
+  for (size_t i = 0; i < vectorSize; ++i) {
+    dbgenIt.genCustomer(i + offset + 1, cust);
+
+    custKeyVector->set(i, cust.custkey);
+    nameVector->set(i, StringView(cust.name, strlen(cust.name)));
+    addressVector->set(i, StringView(cust.address, cust.alen));
+    nationKeyVector->set(i, cust.nation_code);
+    phoneVector->set(i, StringView(cust.phone, strlen(cust.phone)));
+    acctBalVector->set(i, cust.acctbal);
+    mktSegmentVector->set(
+        i, StringView(cust.mktsegment, strlen(cust.mktsegment)));
+    commentVector->set(i, StringView(cust.comment, cust.clen));
+  }
+  return std::make_shared<RowVector>(
+      pool,
+      customerRowType,
+      BufferPtr(nullptr),
+      vectorSize,
+      std::move(children));
+}
+
 RowVectorPtr genTpchNation(
     size_t maxRows,
     size_t offset,
     size_t scaleFactor,
     memory::MemoryPool* pool) {
-  size_t rowCount = getRowCount(Table::TBL_NATION, scaleFactor);
-  size_t vectorSize = std::min(rowCount - offset, maxRows);
-
   // Create schema and allocate vectors.
   static TypePtr nationRowType =
       ROW({"n_nationkey", "n_name", "n_regionkey", "n_comment"},
           {BIGINT(), VARCHAR(), BIGINT(), VARCHAR()});
+
+  size_t vectorSize = getVectorSize(
+      getRowCount(Table::TBL_NATION, scaleFactor), maxRows, offset);
+
   std::vector<VectorPtr> children = {
       BaseVector::create(BIGINT(), vectorSize, pool),
       BaseVector::create(VARCHAR(), vectorSize, pool),
@@ -568,6 +656,44 @@ RowVectorPtr genTpchNation(
   }
   return std::make_shared<RowVector>(
       pool, nationRowType, BufferPtr(nullptr), vectorSize, std::move(children));
+}
+
+RowVectorPtr genTpchRegion(
+    size_t maxRows,
+    size_t offset,
+    size_t scaleFactor,
+    memory::MemoryPool* pool) {
+  // Create schema and allocate vectors.
+  static TypePtr regionRowType = ROW(
+      {"r_regionkey", "r_name", "r_comment"}, {BIGINT(), VARCHAR(), VARCHAR()});
+
+  size_t vectorSize = getVectorSize(
+      getRowCount(Table::TBL_REGION, scaleFactor), maxRows, offset);
+
+  std::vector<VectorPtr> children = {
+      BaseVector::create(BIGINT(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+      BaseVector::create(VARCHAR(), vectorSize, pool),
+  };
+
+  auto regionKeyVector = children[0]->asFlatVector<int64_t>();
+  auto nameVector = children[1]->asFlatVector<StringView>();
+  auto commentVector = children[2]->asFlatVector<StringView>();
+
+  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  code_t code;
+
+  // Dbgen generates the dataset one row at a time, so we need to transpose it
+  // into a columnar format.
+  for (size_t i = 0; i < vectorSize; ++i) {
+    dbgenIt.genRegion(i + offset + 1, code);
+
+    regionKeyVector->set(i, code.code);
+    nameVector->set(i, StringView(code.text, strlen(code.text)));
+    commentVector->set(i, StringView(code.comment, code.clen));
+  }
+  return std::make_shared<RowVector>(
+      pool, regionRowType, BufferPtr(nullptr), vectorSize, std::move(children));
 }
 
 } // namespace facebook::velox::tpch

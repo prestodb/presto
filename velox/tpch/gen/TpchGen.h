@@ -169,6 +169,26 @@ RowVectorPtr genTpchPartSupp(
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
+/// Returns a row vector containing at most `maxRows` rows of the "customer"
+/// table, starting at `offset`, and given the scale factor. The row vector
+/// returned has the following schema:
+///
+///  c_custkey: BIGINT
+///  c_name: VARCHAR
+///  c_addressname: VARCHAR
+///  c_nationkey: BIGINT
+///  c_phone: VARCHAR
+///  c_acctbal: DOUBLE
+///  c_mktsegment: VARCHAR
+///  c_comment: VARCHAR
+///
+RowVectorPtr genTpchCustomer(
+    size_t maxRows = 10000,
+    size_t offset = 0,
+    size_t scaleFactor = 1,
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+
 /// Returns a row vector containing at most `maxRows` rows of the "nation"
 /// table, starting at `offset`, and given the scale factor. The row vector
 /// returned has the following schema:
@@ -179,6 +199,21 @@ RowVectorPtr genTpchPartSupp(
 ///  n_comment: VARCHAR
 ///
 RowVectorPtr genTpchNation(
+    size_t maxRows = 10000,
+    size_t offset = 0,
+    size_t scaleFactor = 1,
+    memory::MemoryPool* pool =
+        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+
+/// Returns a row vector containing at most `maxRows` rows of the "region"
+/// table, starting at `offset`, and given the scale factor. The row vector
+/// returned has the following schema:
+///
+///  r_regionkey: BIGINT
+///  r_name: VARCHAR
+///  r_comment: VARCHAR
+///
+RowVectorPtr genTpchRegion(
     size_t maxRows = 10000,
     size_t offset = 0,
     size_t scaleFactor = 1,

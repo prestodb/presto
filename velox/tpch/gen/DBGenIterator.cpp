@@ -89,6 +89,12 @@ void DBGenIterator::genNation(size_t index, code_t& code) {
   row_stop_h(NATION);
 }
 
+void DBGenIterator::genRegion(size_t index, code_t& code) {
+  row_start(REGION);
+  mk_region(index, &code);
+  row_stop_h(REGION);
+}
+
 void DBGenIterator::genOrder(size_t index, order_t& order) {
   row_start(ORDER);
   mk_order(index, &order, /*update-num=*/0);
@@ -105,6 +111,12 @@ void DBGenIterator::genPart(size_t index, part_t& part) {
   row_start(PART);
   mk_part(index, &part);
   row_stop_h(PART);
+}
+
+void DBGenIterator::genCustomer(size_t index, customer_t& customer) {
+  row_start(CUST);
+  mk_cust(index, &customer);
+  row_stop_h(CUST);
 }
 
 } // namespace facebook::velox::tpch
