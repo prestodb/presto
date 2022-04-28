@@ -314,14 +314,14 @@ uint32_t KllSketch<T, A, C>::insertPosition() {
     // Level zero might not be sorted, so we must sort it if we wish
     // to compact it.
     if (level == 0 && !isLevelZeroSorted_) {
-      std::sort(&items_[adjBeg], &items_[adjBeg + adjPop], C());
+      std::sort(items_.data() + adjBeg, items_.data() + adjBeg + adjPop, C());
     }
     if (popAbove == 0) {
-      detail::randomlyHalveUp(&items_[0], adjBeg, adjPop, randomBit_);
+      detail::randomlyHalveUp(items_.data(), adjBeg, adjPop, randomBit_);
     } else {
-      detail::randomlyHalveDown(&items_[0], adjBeg, adjPop, randomBit_);
+      detail::randomlyHalveDown(items_.data(), adjBeg, adjPop, randomBit_);
       detail::mergeOverlap(
-          &items_[0],
+          items_.data(),
           adjBeg,
           halfAdjPop,
           rawLim,
@@ -350,9 +350,9 @@ uint32_t KllSketch<T, A, C>::insertPosition() {
     if (level > 0) {
       const uint32_t amount = rawBeg - levels_[0];
       std::move_backward(
-          &items_[levels_[0]],
-          &items_[levels_[0] + amount],
-          &items_[levels_[0] + halfAdjPop + amount]);
+          items_.data() + levels_[0],
+          items_.data() + levels_[0] + amount,
+          items_.data() + levels_[0] + halfAdjPop + amount);
       for (uint8_t lvl = 0; lvl < level; lvl++) {
         levels_[lvl] += halfAdjPop;
       }
@@ -400,7 +400,7 @@ void KllSketch<T, A, C>::addEmptyTopLevelToCompletelyFullSketch() {
 template <typename T, typename A, typename C>
 void KllSketch<T, A, C>::finish() {
   if (!isLevelZeroSorted_) {
-    std::sort(&items_[levels_[0]], &items_[levels_[1]], C());
+    std::sort(items_.data() + levels_[0], items_.data() + levels_[1], C());
     isLevelZeroSorted_ = true;
   }
 }
@@ -527,7 +527,8 @@ void KllSketch<T, A, C>::mergeViews(const folly::Range<const View*>& others) {
         workLevelsSize, 0, AllocU32(allocator_));
     // Populate work arrays.
     worklevels[0] = 0;
-    std::move(&items_[levels_[0]], &items_[levels_[1]], &workbuf[0]);
+    std::move(
+        items_.data() + levels_[0], items_.data() + levels_[1], workbuf.data());
     worklevels[1] = safeLevelSize(0);
     // Merge each level, each level in all sketches are already sorted.
     for (uint8_t lvl = 1; lvl < provisionalNumLevels; ++lvl) {
@@ -540,7 +541,8 @@ void KllSketch<T, A, C>::mergeViews(const folly::Range<const View*>& others) {
       std::priority_queue<Entry, std::vector<Entry, AllocEntry>, decltype(gt)>
           pq(gt, AllocEntry(allocator_));
       if (auto sz = safeLevelSize(lvl); sz > 0) {
-        pq.emplace(&items_[levels_[lvl]], &items_[levels_[lvl] + sz]);
+        pq.emplace(
+            items_.data() + levels_[lvl], items_.data() + levels_[lvl] + sz);
       }
       for (auto& other : others) {
         if (auto sz = other.safeLevelSize(lvl); sz > 0) {
@@ -573,9 +575,9 @@ void KllSketch<T, A, C>::mergeViews(const folly::Range<const View*>& others) {
     items_.resize(result.finalCapacity);
     const auto freeSpaceAtBottom = result.finalCapacity - result.finalNumItems;
     std::move(
-        &workbuf[outlevels[0]],
-        &workbuf[outlevels[0] + result.finalNumItems],
-        &items_[freeSpaceAtBottom]);
+        workbuf.data() + outlevels[0],
+        workbuf.data() + outlevels[0] + result.finalNumItems,
+        items_.data() + freeSpaceAtBottom);
     levels_.resize(result.finalNumLevels + 1);
     const auto offset = freeSpaceAtBottom - outlevels[0];
     for (unsigned lvl = 0; lvl < levels_.size(); ++lvl) {

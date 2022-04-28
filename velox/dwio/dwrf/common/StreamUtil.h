@@ -31,7 +31,8 @@ static inline void skipBytes(
     SeekableInputStream* input,
     const char*& bufferStart,
     const char*& bufferEnd) {
-  if (bufferStart + numBytes <= bufferEnd) {
+  // bufferStart and bufferEnd may be null if we haven't started reading yet.
+  if (bufferEnd - bufferStart >= numBytes) {
     bufferStart += numBytes;
     return;
   }

@@ -251,7 +251,7 @@ void PrestoHasher::hash<TypeKind::ROW>(
     // Hash only timestamp value.
     children_[0]->hash(baseRow->childAt(0), elementRows, childHashes);
     rows.applyToSelected([&](auto row) {
-      if (!baseRow->isNullAt(row)) {
+      if (!baseRow->isNullAt(indices[row])) {
         rawHashes[row] = rowChildHashes[indices[row]];
       } else {
         rawHashes[row] = 0;

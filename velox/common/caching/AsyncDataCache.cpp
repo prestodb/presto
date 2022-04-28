@@ -729,7 +729,9 @@ CoalesceIoStats readPins(
         VELOX_CHECK_EQ(offsetInRuns, size);
       },
       [&](int32_t size, std::vector<folly::Range<char*>>& ranges) {
-        ranges.push_back(folly::Range<char*>(nullptr, size));
+        // This hack allows us to store the size of the gap in the Range,
+        // without actually allocating a buffer for it.
+        ranges.push_back(folly::Range<char*>(nullptr, (char*)(uint64_t)size));
       },
       readFunc);
 }

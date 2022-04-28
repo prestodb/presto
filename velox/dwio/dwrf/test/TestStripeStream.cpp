@@ -398,7 +398,12 @@ TEST(StripeStream, readEncryptedStreams) {
   *stripeFooter->add_encryptiongroups() = "";
 
   auto readerBase = std::make_shared<ReaderBase>(
-      pool, nullptr, std::move(ps), footer, nullptr, std::move(handler));
+      pool,
+      std::make_unique<MemoryInputStream>(nullptr, 0),
+      std::move(ps),
+      footer,
+      nullptr,
+      std::move(handler));
   auto stripeReader =
       std::make_unique<StripeReaderBase>(readerBase, stripeFooter);
   ColumnSelector selector{readerBase->getSchema(), {1, 2, 4}, true};
@@ -458,7 +463,12 @@ TEST(StripeStream, schemaMismatch) {
   pw.writeProto(*stripeFooter->add_encryptiongroups(), group, encrypter);
 
   auto readerBase = std::make_shared<ReaderBase>(
-      pool, nullptr, std::move(ps), footer, nullptr, std::move(handler));
+      pool,
+      std::make_unique<MemoryInputStream>(nullptr, 0),
+      std::move(ps),
+      footer,
+      nullptr,
+      std::move(handler));
   auto stripeReader =
       std::make_unique<StripeReaderBase>(readerBase, stripeFooter);
   // now, we read the file as if schema has changed

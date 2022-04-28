@@ -270,16 +270,19 @@ ArrayVectorPtr DeserializeArray(
       std::vector<const char*> elements(offsets[numArrays]);
       int elementCount = 0;
       for (int i = 0; i < numArrays; ++i) {
-        int64_t arrayLength = sizes[i];
-        const char* elementNulls = arrays[i] + sizeof(int64_t);
-        const char* elementPointer = elementNulls + nullSizeBytes(arrayLength);
-        for (int e = 0; e < arrayLength; ++e) {
-          elementBases[elementCount] = arrays[i];
-          elements[elementCount++] =
-              bits::isBitSet(elementNulls, e) ? nullptr : elementPointer;
-          elementPointer += sizeof(int64_t);
+        if (arrays[i]) {
+          int64_t arrayLength = sizes[i];
+          const char* elementNulls = arrays[i] + sizeof(int64_t);
+          const char* elementPointer =
+              elementNulls + nullSizeBytes(arrayLength);
+          for (int e = 0; e < arrayLength; ++e) {
+            elementBases[elementCount] = arrays[i];
+            elements[elementCount++] =
+                bits::isBitSet(elementNulls, e) ? nullptr : elementPointer;
+            elementPointer += sizeof(int64_t);
+          }
+          DCHECK_EQ(elementCount, offsets[i] + sizes[i]);
         }
-        DCHECK_EQ(elementCount, offsets[i] + sizes[i]);
       }
       elementsVector =
           DeserializeVariableLength(elementType, pool, elementBases, elements);

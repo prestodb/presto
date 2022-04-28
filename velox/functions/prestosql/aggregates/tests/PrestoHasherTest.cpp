@@ -88,7 +88,7 @@ class PrestoHasherTest : public testing::Test,
 
     for (size_t i = 0; i < vectorSize; ++i) {
       rawIndices[i] = i / 2;
-      modifiedExpected[i] = expected[i / 2];
+      modifiedExpected.push_back(expected[i / 2]);
     }
 
     dictionaryVector = BaseVector::wrapInDictionary(
@@ -98,6 +98,7 @@ class PrestoHasherTest : public testing::Test,
 
     // Subset of rows.
     auto subsetSize = vectorSize / 2;
+    modifiedExpected.resize(subsetSize);
     for (size_t i = 0; i < subsetSize; ++i) {
       rawIndices[i] = i * 2;
       modifiedExpected[i] = expected[i * 2];
