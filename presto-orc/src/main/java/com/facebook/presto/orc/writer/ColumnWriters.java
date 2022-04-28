@@ -23,15 +23,19 @@ import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.StatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.IntFunction;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.statistics.StatisticsBuilders.createFlatMapKeyStatisticsBuilderSupplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -131,6 +135,39 @@ public final class ColumnWriters
             }
 
             case MAP: {
+                if (columnWriterOptions.getFlattenedNodes().contains(nodeIndex)) {
+                    checkArgument(orcEncoding == DWRF, "%s does not support flat maps", orcEncoding);
+                    Type valueType = type.getTypeParameters().get(1);
+                    OrcType keyOrcType = orcTypes.get(orcType.getFieldTypeIndex(0));
+                    Supplier<StatisticsBuilder> keyStatisticsBuilderSupplier = createFlatMapKeyStatisticsBuilderSupplier(keyOrcType, columnWriterOptions);
+
+                    // value writers should not create their own expensive dictionaries, instead they should use shared dictionaries
+                    ColumnWriterOptions valueWriterColumnWriterOptions = columnWriterOptions.copyWithDisabledDictionaryEncoding();
+
+                    IntFunction<ColumnWriter> valueWriterSupplier = (valueSequence) -> createColumnWriter(
+                            orcType.getFieldTypeIndex(1),
+                            valueSequence,
+                            orcTypes,
+                            valueType,
+                            valueWriterColumnWriterOptions,
+                            orcEncoding,
+                            hiveStorageTimeZone,
+                            dwrfEncryptors,
+                            metadataWriter);
+
+                    return new MapFlatColumnWriter(
+                            nodeIndex,
+                            orcType.getFieldTypeIndex(0),
+                            orcType.getFieldTypeIndex(1),
+                            type.getTypeParameters().get(0),
+                            valueType,
+                            keyStatisticsBuilderSupplier,
+                            columnWriterOptions,
+                            dwrfEncryptor,
+                            metadataWriter,
+                            valueWriterSupplier);
+                }
+
                 ColumnWriter keyWriter = createColumnWriter(
                         orcType.getFieldTypeIndex(0),
                         sequence,
