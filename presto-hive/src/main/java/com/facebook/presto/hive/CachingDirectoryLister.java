@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
@@ -73,6 +74,7 @@ public class CachingDirectoryLister
             Table table,
             Path path,
             NamenodeStats namenodeStats,
+            PathFilter pathFilter,
             HiveDirectoryContext hiveDirectoryContext)
     {
         List<HiveFileInfo> files = cache.getIfPresent(path);
@@ -80,7 +82,7 @@ public class CachingDirectoryLister
             return files.iterator();
         }
 
-        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, hiveDirectoryContext);
+        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext);
         if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(table.getSchemaTableName())) {
             return cachingIterator(iterator, path);
         }

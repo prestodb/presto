@@ -49,7 +49,12 @@
 
         <dependency>
             <groupId>org.apache.hudi</groupId>
-            <artifactId>hudi-presto-bundle</artifactId>
+            <artifactId>hudi-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-hadoop-mr</artifactId>
         </dependency>
 
         <dependency>
