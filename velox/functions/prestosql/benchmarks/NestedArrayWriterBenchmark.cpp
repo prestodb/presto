@@ -104,39 +104,12 @@ struct SimpleFunctionImpl {
   }
 };
 
-template <typename T>
-struct SimpleFunctionOldImpl {
-  template <typename TOut>
-  bool call(TOut& out, const int64_t& n) {
-    int count = 0;
-    for (auto i = 0; i < n; i++) {
-      core::ArrayValWriter<int64_t> matrixRow;
-      for (auto j = 0; j < n; j++) {
-        if (WITH_NULLS && i == j) {
-          matrixRow.appendNullable();
-        } else {
-          matrixRow.append(count);
-        }
-        count++;
-      }
-      out.append(std::move(matrixRow));
-    }
-    VELOX_DCHECK(count == n * n);
-    return true;
-  }
-};
-
 class NestedArrayWriterBenchmark
     : public functions::test::FunctionBenchmarkBase {
  public:
   NestedArrayWriterBenchmark() : FunctionBenchmarkBase() {
-    registerFunction<
-        SimpleFunctionImpl,
-        ArrayWriterT<ArrayWriterT<int64_t>>,
-        int64_t>({"array_proxy"});
-
-    registerFunction<SimpleFunctionOldImpl, Array<Array<int64_t>>, int64_t>(
-        {"simple_old"});
+    registerFunction<SimpleFunctionImpl, Array<Array<int64_t>>, int64_t>(
+        {"array_proxy"});
 
     facebook::velox::exec::registerVectorFunction(
         "vector",
@@ -198,10 +171,7 @@ class NestedArrayWriterBenchmark
   void test() {
     auto input = makeInput();
     auto exprSetRef = compileExpression("vector(c0)", input->type());
-    std::vector<std::string> functions = {
-        "array_proxy",
-        "simple_old",
-    };
+    std::vector<std::string> functions = {"array_proxy"};
 
     for (const auto& name : functions) {
       auto other =
@@ -221,11 +191,6 @@ BENCHMARK_MULTI(vector) {
 BENCHMARK_MULTI(simple) {
   NestedArrayWriterBenchmark benchmark;
   return benchmark.run("simple");
-}
-
-BENCHMARK_MULTI(simple_old) {
-  NestedArrayWriterBenchmark benchmark;
-  return benchmark.run("simple_old");
 }
 
 } // namespace

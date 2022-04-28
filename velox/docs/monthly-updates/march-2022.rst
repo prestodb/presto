@@ -137,7 +137,7 @@ Now consider a function that generates Array<int64_t> as an output. The result v
 
     // Define a vector writer. ArrayWriterT is a temp holder. Eventually, Array will be used
     // once old writers are deprecated.
-    exec::VectorWriter<ArrayWriterT<int64_t>> vectorWriter;
+    exec::VectorWriter<Array<int64_t>> vectorWriter;
 
     // Initialize the writer to write to result vector.
     vectorWriter.init(*result->as<ArrayVector>());

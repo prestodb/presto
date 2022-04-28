@@ -288,7 +288,7 @@ struct MySimpleSplitFunction {
   const char splitChar{' '};
 
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<ArrayWriterT<Varchar>>& out,
+      out_type<Array<Varchar>>& out,
       const arg_type<Varchar>& input) {
     auto start = input.begin();
     auto cur = start;
@@ -307,7 +307,7 @@ void register6() {
   registerFunction<MyAsciiAwareFunction, Varchar, Varchar>(
       {"my_ascii_aware_func"});
 
-  registerFunction<MySimpleSplitFunction, ArrayWriterT<Varchar>, Varchar>(
+  registerFunction<MySimpleSplitFunction, Array<Varchar>, Varchar>(
       {"my_simple_split_func"});
 }
 
@@ -405,7 +405,7 @@ struct MyComplexTimesTwoFunction {
   // are currently implemented based on std::vector. Vector elements are
   // currently wrapped by std::optional to represent their nullability.
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<ArrayWriterT<int64_t>>& result,
+      out_type<Array<int64_t>>& result,
       const arg_type<Array<int64_t>>& inputArray) {
     result.reserve(inputArray.size());
     for (const auto& it : inputArray) {
@@ -417,7 +417,7 @@ struct MyComplexTimesTwoFunction {
   // This method takes and returns a Map. Map proxy objects are implemented
   // using std::unordered_map; values are wrapped by std::optional.
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<MapWriterT<int64_t, double>>& result,
+      out_type<Map<int64_t, double>>& result,
       const arg_type<Map<int64_t, double>>& inputMap) {
     result.reserve(inputMap.size());
     for (const auto& it : inputMap) {
@@ -430,7 +430,7 @@ struct MyComplexTimesTwoFunction {
   // Takes and returns a Row. Rows are backed by std::tuple; individual elements
   // are std::optional.
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<RowWriterT<int64_t, double>>& result,
+      out_type<Row<int64_t, double>>& result,
       const arg_type<Row<int64_t, double>>& inputRow) {
     const auto& elem0 = inputRow.template at<0>();
     const auto& elem1 = inputRow.template at<1>();
@@ -456,17 +456,15 @@ struct MyComplexTimesTwoFunction {
 };
 
 void register8() {
+  registerFunction<MyComplexTimesTwoFunction, Array<int64_t>, Array<int64_t>>(
+      {"my_array_func"});
   registerFunction<
       MyComplexTimesTwoFunction,
-      ArrayWriterT<int64_t>,
-      Array<int64_t>>({"my_array_func"});
-  registerFunction<
-      MyComplexTimesTwoFunction,
-      MapWriterT<int64_t, double>,
+      Map<int64_t, double>,
       Map<int64_t, double>>({"my_map_func"});
   registerFunction<
       MyComplexTimesTwoFunction,
-      RowWriterT<int64_t, double>,
+      Row<int64_t, double>,
       Row<int64_t, double>>({"my_row_func"});
   registerFunction<
       MyComplexTimesTwoFunction,

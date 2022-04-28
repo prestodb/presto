@@ -1343,40 +1343,8 @@ struct Array {
   Array() {}
 };
 
-// This is a temporary type to be used when ArrayWriter is requested by the user
-// to represent an Array output type in the simple function interface.
-// Eventually this will be removed and Array will be ArrayWriterT once all proxy
-// types are implemented.
 template <typename ELEMENT>
-struct ArrayWriterT {
-  using element_type = ELEMENT;
-
-  static_assert(
-      !isVariadicType<element_type>::value,
-      "Array elements cannot be Variadic");
-
- private:
-  ArrayWriterT() {}
-};
-
-// This is a temporary type to be used when the fast MapWriter is requested by
-// the user to represent a map output type in the simple function interface.
-// Eventually this will be removed and joined with Map once all writers
-// types are implemented.
-template <typename K, typename V>
-struct MapWriterT {
-  using key_type = K;
-  using value_type = V;
-
-  static_assert(
-      !isVariadicType<key_type>::value,
-      "Map keys cannot be Variadic");
-  static_assert(
-      !isVariadicType<value_type>::value,
-      "Map values cannot be Variadic");
-
-  MapWriterT() = delete;
-};
+using ArrayWriterT = Array<ELEMENT>;
 
 template <typename... T>
 struct Row {
@@ -1389,18 +1357,6 @@ struct Row {
 
  private:
   Row() {}
-};
-
-template <typename... T>
-struct RowWriterT {
-  template <size_t idx>
-  using type_at = typename std::tuple_element<idx, std::tuple<T...>>::type;
-
-  static_assert(
-      std::conjunction<std::bool_constant<!isVariadicType<T>::value>...>::value,
-      "Struct fields cannot be Variadic");
-
-  RowWriterT() = delete;
 };
 
 struct DynamicRow {
@@ -1513,13 +1469,6 @@ struct CppToType<Map<KEY, VAL>> : public TypeTraits<TypeKind::MAP> {
   }
 };
 
-template <typename KEY, typename VAL>
-struct CppToType<MapWriterT<KEY, VAL>> : public TypeTraits<TypeKind::MAP> {
-  static auto create() {
-    return MAP(CppToType<KEY>::create(), CppToType<VAL>::create());
-  }
-};
-
 template <typename ELEMENT>
 struct CppToType<Array<ELEMENT>> : public TypeTraits<TypeKind::ARRAY> {
   static auto create() {
@@ -1527,22 +1476,8 @@ struct CppToType<Array<ELEMENT>> : public TypeTraits<TypeKind::ARRAY> {
   }
 };
 
-template <typename ELEMENT>
-struct CppToType<ArrayWriterT<ELEMENT>> : public TypeTraits<TypeKind::ARRAY> {
-  static auto create() {
-    return ARRAY(CppToType<ELEMENT>::create());
-  }
-};
-
 template <typename... T>
 struct CppToType<Row<T...>> : public TypeTraits<TypeKind::ROW> {
-  static auto create() {
-    return ROW({CppToType<T>::create()...});
-  }
-};
-
-template <typename... T>
-struct CppToType<RowWriterT<T...>> : public TypeTraits<TypeKind::ROW> {
   static auto create() {
     return ROW({CppToType<T>::create()...});
   }

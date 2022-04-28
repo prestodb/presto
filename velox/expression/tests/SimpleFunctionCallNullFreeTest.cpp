@@ -71,7 +71,7 @@ struct NonDefaultBehaviorFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   bool callNullable(
-      out_type<ArrayWriterT<int32_t>>& out,
+      out_type<Array<int32_t>>& out,
       const arg_type<Array<int32_t>>* input) {
     out.push_back(kCallNullable);
 
@@ -87,7 +87,7 @@ struct NonDefaultBehaviorFunction {
   }
 
   bool callNullFree(
-      out_type<ArrayWriterT<int32_t>>& out,
+      out_type<Array<int32_t>>& out,
       const null_free_arg_type<Array<int32_t>>& input) {
     out.push_back(kCallNullFree);
 
@@ -100,10 +100,8 @@ struct NonDefaultBehaviorFunction {
 };
 
 TEST_F(SimpleFunctionCallNullFreeTest, nonDefaultBehavior) {
-  registerFunction<
-      NonDefaultBehaviorFunction,
-      ArrayWriterT<int32_t>,
-      Array<int32_t>>({"non_default_behavior"});
+  registerFunction<NonDefaultBehaviorFunction, Array<int32_t>, Array<int32_t>>(
+      {"non_default_behavior"});
 
   // Make a vector with a NULL.
   auto arrayVectorWithNull = makeVectorWithNullArrays<int32_t>(

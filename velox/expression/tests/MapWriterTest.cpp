@@ -79,7 +79,7 @@ class MapWriterTest : public functions::test::FunctionBaseTest {
 
   template <typename T>
   void testE2E(const std::string& testFunctionName) {
-    registerFunction<Func, MapWriterT<T, T>, int64_t>({testFunctionName});
+    registerFunction<Func, Map<T, T>, int64_t>({testFunctionName});
 
     auto result = evaluate(
         fmt::format("{}(c0)", testFunctionName),
@@ -119,8 +119,8 @@ class MapWriterTest : public functions::test::FunctionBaseTest {
 
   struct TestWriter {
     VectorPtr result;
-    std::unique_ptr<exec::VectorWriter<MapWriterT<int64_t, int64_t>>> writer =
-        std::make_unique<exec::VectorWriter<MapWriterT<int64_t, int64_t>>>();
+    std::unique_ptr<exec::VectorWriter<Map<int64_t, int64_t>>> writer =
+        std::make_unique<exec::VectorWriter<Map<int64_t, int64_t>>>();
   };
 
   TestWriter makeTestWriter() {
@@ -262,7 +262,7 @@ TEST_F(MapWriterTest, testTimeStamp) {
   auto result =
       prepareResult(std::make_shared<MapType>(MapType(BIGINT(), TIMESTAMP())));
 
-  exec::VectorWriter<MapWriterT<int64_t, Timestamp>> writer;
+  exec::VectorWriter<Map<int64_t, Timestamp>> writer;
   writer.init(*result->as<MapVector>());
   writer.setOffset(0);
   auto& mapWriter = writer.current();
@@ -280,7 +280,7 @@ TEST_F(MapWriterTest, testVarChar) {
   auto result =
       prepareResult(std::make_shared<MapType>(MapType(VARCHAR(), VARCHAR())));
 
-  exec::VectorWriter<MapWriterT<Varchar, Varchar>> writer;
+  exec::VectorWriter<Map<Varchar, Varchar>> writer;
   writer.init(*result->as<MapVector>());
   writer.setOffset(0);
   auto& mapWriter = writer.current();
@@ -310,7 +310,7 @@ TEST_F(MapWriterTest, testVarBinary) {
   auto result = prepareResult(
       std::make_shared<MapType>(MapType(VARBINARY(), VARBINARY())));
 
-  exec::VectorWriter<MapWriterT<Varbinary, Varbinary>> writer;
+  exec::VectorWriter<Map<Varbinary, Varbinary>> writer;
   writer.init(*result->as<MapVector>());
   writer.setOffset(0);
 
@@ -371,7 +371,7 @@ struct MakeComplexMapFunction {
 
 // Test a function that writes out map<array, map<>>.
 TEST_F(MapWriterTest, nestedMap) {
-  using out_t = MapWriterT<ArrayWriterT<int64_t>, MapWriterT<int64_t, int64_t>>;
+  using out_t = Map<Array<int64_t>, Map<int64_t, int64_t>>;
   registerFunction<MakeComplexMapFunction, out_t, int64_t>({"complex_map"});
 
   auto result = evaluate(
@@ -444,9 +444,8 @@ TEST_F(MapWriterTest, copyFrom) {
 
 // Test copy_from e2e on Map<int64_t, Array<int64_t>>
 TEST_F(MapWriterTest, copyFromE2E) {
-  registerFunction<
-      CopyFromTestFunc,
-      MapWriterT<int64_t, ArrayWriterT<int64_t>>>({"f_copy_from_e2e"});
+  registerFunction<CopyFromTestFunc, Map<int64_t, Array<int64_t>>>(
+      {"f_copy_from_e2e"});
 
   auto result = evaluate(
       "f_copy_from_e2e()", makeRowVector({makeFlatVector<int64_t>(1)}));
@@ -477,7 +476,7 @@ struct CopyFromMapViewFunc {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   bool call(
-      out_type<MapWriterT<int64_t, int64_t>>& out,
+      out_type<Map<int64_t, int64_t>>& out,
       const arg_type<Map<int64_t, int64_t>>& input) {
     out.copy_from(input);
     return true;

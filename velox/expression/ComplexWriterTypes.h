@@ -228,7 +228,7 @@ class ArrayWriter {
     }
   }
 
-  void initialize(VectorWriter<ArrayWriterT<V>, void>* writer) {
+  void initialize(VectorWriter<Array<V>, void>* writer) {
     childWriter_ = &writer->childWriter_;
     elementsVector_ = &childWriter_->vector();
     childWriter_->ensureSize(1);
@@ -424,7 +424,7 @@ class MapWriter {
     }
   }
 
-  void initialize(VectorWriter<MapWriterT<K, V>, void>* writer) {
+  void initialize(VectorWriter<Map<K, V>, void>* writer) {
     keysWriter_ = &writer->keyWriter_;
     valuesWriter_ = &writer->valWriter_;
 
@@ -557,7 +557,11 @@ class RowWriter {
 
  private:
   // Make sure user do not use those.
-  RowWriter<T...>() = default;
+  RowWriter() = default;
+
+  RowWriter(const RowWriter&) = default;
+
+  RowWriter& operator=(const RowWriter&) = default;
 
   void initialize() {
     initializeImpl(std::index_sequence_for<T...>());

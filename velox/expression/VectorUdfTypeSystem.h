@@ -57,13 +57,6 @@ template <typename K, typename V>
 struct resolver<Map<K, V>> {
   using in_type = MapView<true, K, V>;
   using null_free_in_type = MapView<false, K, V>;
-  using out_type = core::SlowMapWriter<
-      typename resolver<K>::out_type,
-      typename resolver<V>::out_type>;
-};
-
-template <typename K, typename V>
-struct resolver<MapWriterT<K, V>> {
   using out_type = MapWriter<K, V>;
 };
 
@@ -71,11 +64,6 @@ template <typename... T>
 struct resolver<Row<T...>> {
   using in_type = RowView<true, T...>;
   using null_free_in_type = RowView<false, T...>;
-  using out_type = core::RowWriter<typename resolver<T>::out_type...>;
-};
-
-template <typename... T>
-struct resolver<RowWriterT<T...>> {
   using out_type = RowWriter<T...>;
 };
 
@@ -83,11 +71,6 @@ template <typename V>
 struct resolver<Array<V>> {
   using in_type = ArrayView<true, V>;
   using null_free_in_type = ArrayView<false, V>;
-  using out_type = core::ArrayValWriter<typename resolver<V>::out_type>;
-};
-
-template <typename V>
-struct resolver<ArrayWriterT<V>> {
   using out_type = ArrayWriter<V>;
 };
 
@@ -244,90 +227,6 @@ struct VectorReader {
   void setChildrenMayHaveNulls() {}
 
   const DecodedVector& decoded_;
-};
-
-template <typename K, typename V>
-struct VectorWriter<Map<K, V>> {
-  using vector_t = typename TypeToFlatVector<Map<K, V>>::type;
-  using key_vector_t = typename TypeToFlatVector<K>::type;
-  using val_vector_t = typename TypeToFlatVector<V>::type;
-  using exec_out_t =
-      typename VectorExec::template resolver<Map<K, V>>::out_type;
-
-  void init(vector_t& vector) {
-    vector_ = &vector;
-    keyWriter_.init(static_cast<key_vector_t&>(*vector.mapKeys()));
-    valWriter_.init(static_cast<val_vector_t&>(*vector.mapValues()));
-  }
-
-  VectorWriter() {}
-
-  exec_out_t& current() {
-    // todo(youknowjack): support writing directly into a slice
-    return m_;
-  }
-
-  vector_t& vector() {
-    return *vector_;
-  }
-
-  void ensureSize(size_t size) {
-    if (size > vector_->size()) {
-      vector_->resize(size, /*setNotNull*/ false);
-      init(*vector_);
-    }
-  }
-
-  void copyCommit(const exec_out_t& data) {
-    vector_size_t childSize = keyWriter_.vector().size();
-    auto newSize = childSize + data.size();
-    keyWriter_.ensureSize(newSize);
-    valWriter_.ensureSize(newSize);
-    vector_->setOffsetAndSize(offset_, childSize, data.size());
-
-    for (auto& pair : data) {
-      keyWriter_.setOffset(childSize);
-      valWriter_.setOffset(childSize);
-      keyWriter_.copyCommit(pair.first);
-      if (pair.second.has_value()) {
-        valWriter_.copyCommit(pair.second.value());
-      } else {
-        valWriter_.commitNull();
-      }
-      ++childSize;
-    }
-    vector_->setNull(offset_, false);
-  }
-
-  void commitNull() {
-    vector_->setNull(offset_, true);
-  }
-
-  void commit(bool isSet) {
-    if (LIKELY(isSet)) {
-      copyCommit(m_);
-    } else {
-      commitNull();
-    }
-    m_.clear();
-  }
-
-  void setOffset(size_t offset) {
-    offset_ = offset;
-  }
-
-  void reset() {
-    offset_ = 0;
-    m_.clear();
-    keyWriter_.reset();
-    valWriter_.reset();
-  }
-
-  vector_t* vector_;
-  exec_out_t m_{};
-  VectorWriter<K> keyWriter_;
-  VectorWriter<V> valWriter_;
-  size_t offset_ = 0;
 };
 
 namespace detail {
@@ -516,85 +415,6 @@ template <typename V>
 struct VectorWriter<Array<V>> {
   using vector_t = typename TypeToFlatVector<Array<V>>::type;
   using child_vector_t = typename TypeToFlatVector<V>::type;
-  using exec_out_t = typename VectorExec::template resolver<Array<V>>::out_type;
-
-  void init(vector_t& vector) {
-    vector_ = &vector;
-    childWriter_.init(static_cast<child_vector_t&>(*vector.elements().get()));
-  }
-
-  VectorWriter() {}
-
-  exec_out_t& current() {
-    // todo(youknowjack): support writing directly into a slice
-    return m_;
-  }
-
-  vector_t& vector() {
-    return *vector_;
-  }
-
-  void ensureSize(size_t size) {
-    // todo(youknowjack): optimize the excessive ensureSize calls
-    if (size > vector_->size()) {
-      vector_->resize(size, /*setNotNull*/ false);
-      init(*vector_);
-    }
-  }
-
-  // TODO: deprecate this once all proxies introduced.
-  void copyCommit(const exec_out_t& data) {
-    vector_size_t childSize = childWriter_.vector().size();
-    childWriter_.ensureSize(childSize + data.size());
-    vector_->setOffsetAndSize(offset_, childSize, data.size());
-    for (auto& val : data) {
-      childWriter_.setOffset(childSize);
-      ++childSize;
-      if (val.has_value()) {
-        childWriter_.copyCommit(val.value());
-      } else {
-        childWriter_.commitNull();
-      }
-    }
-    vector_->setNull(offset_, false);
-  }
-
-  void commitNull() {
-    vector_->setNull(offset_, true);
-  }
-
-  void commit(bool isSet) {
-    if (LIKELY(isSet)) {
-      copyCommit(m_);
-    } else {
-      commitNull();
-    }
-    m_.clear();
-  }
-
-  void setOffset(int32_t offset) {
-    offset_ = offset;
-  }
-
-  void reset() {
-    offset_ = 0;
-    m_.clear();
-    childWriter_.reset();
-  }
-
-  vector_t* vector_ = nullptr;
-  exec_out_t m_{};
-
-  VectorWriter<V> childWriter_;
-  size_t offset_ = 0;
-};
-
-// A new temporary VectorWriter for the new array writer interface.
-// Will eventually replace VectorWriter<Array>>.
-template <typename V>
-struct VectorWriter<ArrayWriterT<V>> {
-  using vector_t = typename TypeToFlatVector<Array<V>>::type;
-  using child_vector_t = typename TypeToFlatVector<V>::type;
   using exec_out_t = ArrayWriter<V>;
 
   void init(vector_t& vector) {
@@ -669,10 +489,8 @@ struct VectorWriter<ArrayWriterT<V>> {
   vector_size_t offset_ = 0;
 };
 
-// A new temporary vector writer, to be used when the user wants a writer
-// interface for the map output. Will eventually replace VectorWriter<Map>>.
 template <typename K, typename V>
-struct VectorWriter<MapWriterT<K, V>> {
+struct VectorWriter<Map<K, V>> {
   using vector_t = typename TypeToFlatVector<Map<K, V>>::type;
   using key_vector_t = typename TypeToFlatVector<K>::type;
   using val_vector_t = typename TypeToFlatVector<V>::type;
@@ -833,133 +651,9 @@ struct VectorReader<Row<T...>> {
 
 template <typename... T>
 struct VectorWriter<Row<T...>> {
-  using vector_t = typename TypeToFlatVector<Row<T...>>::type;
-  using exec_out_t = typename VectorExec::resolver<Row<T...>>::out_type;
-
-  VectorWriter() {}
-
-  void init(vector_t& vector) {
-    vector_ = &vector;
-    // Ensure that children vectors are at least of same size as top row vector.
-    initVectorWritersInternal<0, T...>();
-    resizeVectorWritersInternal<0>(vector_->size());
-  }
-
-  exec_out_t& current() {
-    // todo(youknowjack): support writing directly into a slice
-    return execOut_;
-  }
-
-  vector_t& vector() {
-    return *vector_;
-  }
-
-  void ensureSize(size_t size) {
-    if (size > vector_->size()) {
-      vector_->resize(size, /*setNotNull*/ false);
-      resizeVectorWritersInternal<0>(vector_->size());
-    }
-  }
-
-  void copyCommit(const exec_out_t& data) {
-    copyCommitInternal<0>(data);
-  }
-
-  void commitNull() {
-    vector_->setNull(offset_, true);
-    commitNullInternal<0>();
-  }
-
-  void commit(bool isSet) {
-    ensureSize(offset_ + 1);
-    if (LIKELY(isSet)) {
-      copyCommit(execOut_);
-    } else {
-      commitNull();
-    }
-    execOut_.clear();
-  }
-
-  void setOffset(size_t offset) {
-    offset_ = offset;
-    setOffsetVectorWritersInternal<0>(offset);
-  }
-
-  void reset() {
-    offset_ = 0;
-    execOut_.clear();
-    resetVectorWritersInternal<0>();
-  }
-
- private:
-  template <size_t N, typename Type, typename... Types>
-  void initVectorWritersInternal() {
-    std::get<N>(writers_).init(
-        static_cast<typename TypeToFlatVector<Type>::type&>(
-            *vector_->childAt(N).get()));
-
-    if constexpr (sizeof...(Types) > 0) {
-      initVectorWritersInternal<N + 1, Types...>();
-    }
-  }
-
-  template <size_t N>
-  void resetVectorWritersInternal() {
-    std::get<N>(writers_).reset();
-    if constexpr (N + 1 < sizeof...(T)) {
-      resetVectorWritersInternal<N + 1>();
-    }
-  }
-
-  template <size_t N>
-  void resizeVectorWritersInternal(size_t size) {
-    std::get<N>(writers_).ensureSize(size);
-    if constexpr (N + 1 < sizeof...(T)) {
-      resizeVectorWritersInternal<N + 1>(size);
-    }
-  }
-
-  template <size_t N>
-  void setOffsetVectorWritersInternal(size_t offset) {
-    std::get<N>(writers_).setOffset(offset);
-    if constexpr (N + 1 < sizeof...(T)) {
-      setOffsetVectorWritersInternal<N + 1>(offset);
-    }
-  }
-
-  template <size_t N>
-  void copyCommitInternal(const exec_out_t& data) {
-    const auto& value = data.template at<N>();
-    if (value.has_value()) {
-      std::get<N>(writers_).copyCommit(value.value());
-    } else {
-      std::get<N>(writers_).commitNull();
-    }
-
-    if constexpr (N + 1 < sizeof...(T)) {
-      copyCommitInternal<N + 1>(data);
-    }
-  }
-
-  template <size_t N>
-  void commitNullInternal() {
-    std::get<N>(writers_).commitNull();
-    if constexpr (N + 1 < sizeof...(T)) {
-      commitNullInternal<N + 1>();
-    }
-  }
-
-  vector_t* vector_ = nullptr;
-  std::tuple<VectorWriter<T>...> writers_;
-  exec_out_t execOut_{};
-  size_t offset_ = 0;
-};
-
-template <typename... T>
-struct VectorWriter<RowWriterT<T...>> {
   using children_types = std::tuple<T...>;
   using vector_t = typename TypeToFlatVector<Row<T...>>::type;
-  using exec_out_t = typename VectorExec::resolver<RowWriterT<T...>>::out_type;
+  using exec_out_t = typename VectorExec::resolver<Row<T...>>::out_type;
 
   VectorWriter() {}
 
@@ -1127,12 +821,6 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
   // Used to initialize nested strings and requires a copy on write.
   /* implicit */ StringWriter(StringView value)
       : vector_(nullptr), offset_(-1), value_{value.str()} {}
-
-  // TODO: This is temporary until the new map writer interface is completed.
-  bool operator==(const StringWriter<>& rhs) const {
-    VELOX_DCHECK(!vector_ && offset_ == -1 && !initialized());
-    return (value().compare(rhs.value()) == 0);
-  }
 
   // Returns true if initialized for zero-copy write. False, otherwise.
   bool initialized() const {
@@ -1419,6 +1107,10 @@ struct VectorWriter<std::shared_ptr<T>> {
     }
   }
 
+  vector_t& vector() {
+    return *vector_;
+  }
+
   VectorWriter() {}
 
   exec_out_t& current() {
@@ -1514,13 +1206,3 @@ struct VectorReader<Generic<T>> {
 };
 
 } // namespace facebook::velox::exec
-
-namespace std {
-// TODO: This is temporary until the new map writer interface is completed.
-template <>
-struct hash<facebook::velox::exec::StringWriter<>> {
-  size_t operator()(const facebook::velox::exec::StringWriter<>& x) const {
-    return std::hash<std::string>{}(x.value());
-  }
-};
-} // namespace std

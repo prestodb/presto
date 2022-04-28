@@ -55,7 +55,7 @@ struct NonDefaultWithArrayInitFunction {
   }
 
   bool callNullable(
-      out_type<ArrayWriterT<int32_t>>& out,
+      out_type<Array<int32_t>>& out,
       const arg_type<int32_t>* first,
       const arg_type<Array<int32_t>>* /*second*/) {
     if (!first) {
@@ -83,7 +83,7 @@ struct NonDefaultWithArrayInitFunction {
 TEST_F(SimpleFunctionInitTest, initializationArray) {
   registerFunction<
       NonDefaultWithArrayInitFunction,
-      ArrayWriterT<int32_t>,
+      Array<int32_t>,
       int32_t,
       Array<int32_t>>({"non_default_behavior_with_init"});
 

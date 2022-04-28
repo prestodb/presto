@@ -133,34 +133,15 @@ struct SimpleResizeSubscript {
   }
 };
 
-template <typename T>
-struct SimpleOld {
-  template <typename OutT>
-  bool call(OutT& out, const int64_t& n) {
-    for (int i = 0; i < n; i++) {
-      if (WITH_NULLS && i % 5) {
-        out.appendNullable(i) = std::nullopt;
-      } else {
-        out.append(i) = i * 2;
-      }
-    }
-    return true;
-  }
-};
-
 class MapWriterBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   MapWriterBenchmark() : FunctionBenchmarkBase() {
-    registerFunction<
-        SimpleResizeSubscript,
-        MapWriterT<int64_t, int64_t>,
-        int64_t>({"simple_resize_subscript"});
-    registerFunction<SimpleGeneral, MapWriterT<int64_t, int64_t>, int64_t>(
+    registerFunction<SimpleResizeSubscript, Map<int64_t, int64_t>, int64_t>(
+        {"simple_resize_subscript"});
+    registerFunction<SimpleGeneral, Map<int64_t, int64_t>, int64_t>(
         {"simple_general"});
-    registerFunction<SimpleEmplace, MapWriterT<int64_t, int64_t>, int64_t>(
+    registerFunction<SimpleEmplace, Map<int64_t, int64_t>, int64_t>(
         {"simple_emplace"});
-
-    registerFunction<SimpleOld, Map<int64_t, int64_t>, int64_t>({"simple_old"});
 
     facebook::velox::exec::registerVectorFunction(
         "vector_resize_per_row",
@@ -232,7 +213,6 @@ class MapWriterBenchmark : public functions::test::FunctionBenchmarkBase {
     std::vector<std::string> functions = {
         "simple_resize_subscript",
         "simple_general",
-        "simple_old",
         "simple_emplace",
     };
 
@@ -269,11 +249,6 @@ BENCHMARK(simple_emplace, n) {
 BENCHMARK(simple_general, n) {
   MapWriterBenchmark benchmark;
   return benchmark.run("simple_general", n);
-}
-
-BENCHMARK(simple_old, n) {
-  MapWriterBenchmark benchmark;
-  return benchmark.run("simple_old", n);
 }
 
 } // namespace

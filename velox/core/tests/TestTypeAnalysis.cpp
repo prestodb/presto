@@ -181,9 +181,9 @@ TEST_F(TypeAnalysisTest, testStringType) {
       "map(array(integer), __user_T2)",
   });
 
-  testStringType<ArrayWriterT<int32_t>>({"array(integer)"});
-  testStringType<MapWriterT<int64_t, double>>({"map(bigint, double)"});
-  testStringType<RowWriterT<Any, double, Generic<T1>>>(
+  testStringType<Array<int32_t>>({"array(integer)"});
+  testStringType<Map<int64_t, double>>({"map(bigint, double)"});
+  testStringType<Row<Any, double, Generic<T1>>>(
       {"row(any, double, __user_T1)"});
 }
 
