@@ -29,6 +29,7 @@ add_library(
   HashPartitionFunction.cpp
   HashProbe.cpp
   Spill.cpp
+  Spiller.cpp
   HashTable.cpp
   JoinBridge.cpp
   Limit.cpp

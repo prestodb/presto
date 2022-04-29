@@ -361,7 +361,7 @@ class SpillState {
       int32_t partition,
       std::unique_ptr<SpillStream>&& extra);
 
-  bool hasFiles(int32_t partition) {
+  bool hasFiles(int32_t partition) const {
     return partition < files_.size() && files_[partition];
   }
 

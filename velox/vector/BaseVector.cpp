@@ -242,7 +242,7 @@ static VectorPtr createEmpty(
 }
 
 // static
-VectorPtr BaseVector::create(
+VectorPtr BaseVector::createInternal(
     const TypePtr& type,
     vector_size_t size,
     velox::memory::MemoryPool* pool) {

@@ -53,7 +53,8 @@ WriteFile& SpillFile::output() {
 }
 
 void SpillFile::startRead() {
-  constexpr uint64_t kMaxReadBufferSize = 1 << 20; // 1MB
+  constexpr uint64_t kMaxReadBufferSize =
+      (1 << 20) - AlignedBuffer::kPaddedSize; // 1MB - padding.
   VELOX_CHECK(!output_);
   VELOX_CHECK(!input_);
   auto fs = filesystems::getFileSystem(path_, nullptr);

@@ -149,8 +149,9 @@ LocalWriteFile::LocalWriteFile(std::string_view path) {
     VELOX_CHECK(
         !exists, "Failure in LocalWriteFile: path '{}' already exists.", path);
   }
-  file_ = fopen(buf.get(), "ab");
-  VELOX_CHECK(file_, "fread failure in LocalWriteFile constructor, {}.", path);
+  auto file = fopen(buf.get(), "ab");
+  VELOX_CHECK(file, "fopen failure in LocalWriteFile constructor, {}.", path);
+  file_ = file;
 }
 
 LocalWriteFile::~LocalWriteFile() {
