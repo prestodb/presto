@@ -206,10 +206,7 @@ class ValuesNode : public PlanNode {
 
 class FilterNode : public PlanNode {
  public:
-  FilterNode(
-      const PlanNodeId& id,
-      std::shared_ptr<const ITypedExpr> filter,
-      PlanNodePtr source)
+  FilterNode(const PlanNodeId& id, TypedExprPtr filter, PlanNodePtr source)
       : PlanNode(id), sources_{std::move(source)}, filter_(std::move(filter)) {
     VELOX_CHECK(
         filter_->type()->isBoolean(),
@@ -225,7 +222,7 @@ class FilterNode : public PlanNode {
     return sources_;
   }
 
-  const std::shared_ptr<const ITypedExpr>& filter() const {
+  const TypedExprPtr& filter() const {
     return filter_;
   }
 
@@ -239,7 +236,7 @@ class FilterNode : public PlanNode {
   }
 
   const std::vector<PlanNodePtr> sources_;
-  const std::shared_ptr<const ITypedExpr> filter_;
+  const TypedExprPtr filter_;
 };
 
 class ProjectNode : public PlanNode {
@@ -247,7 +244,7 @@ class ProjectNode : public PlanNode {
   ProjectNode(
       const PlanNodeId& id,
       std::vector<std::string>&& names,
-      std::vector<std::shared_ptr<const ITypedExpr>>&& projections,
+      std::vector<TypedExprPtr>&& projections,
       PlanNodePtr source)
       : PlanNode(id),
         sources_{source},
@@ -258,7 +255,7 @@ class ProjectNode : public PlanNode {
   ProjectNode(
       const PlanNodeId& id,
       const std::vector<std::string>& names,
-      const std::vector<std::shared_ptr<const ITypedExpr>>& projections,
+      const std::vector<TypedExprPtr>& projections,
       PlanNodePtr source)
       : PlanNode(id),
         sources_{source},
@@ -278,7 +275,7 @@ class ProjectNode : public PlanNode {
     return names_;
   }
 
-  const std::vector<std::shared_ptr<const ITypedExpr>>& projections() const {
+  const std::vector<TypedExprPtr>& projections() const {
     return projections_;
   }
 
@@ -291,7 +288,7 @@ class ProjectNode : public PlanNode {
 
   static RowTypePtr makeOutputType(
       const std::vector<std::string>& names,
-      const std::vector<std::shared_ptr<const ITypedExpr>>& projections) {
+      const std::vector<TypedExprPtr>& projections) {
     std::vector<std::shared_ptr<const Type>> types;
     for (auto& projection : projections) {
       types.push_back(projection->type());
@@ -303,7 +300,7 @@ class ProjectNode : public PlanNode {
 
   const std::vector<PlanNodePtr> sources_;
   const std::vector<std::string> names_;
-  const std::vector<std::shared_ptr<const ITypedExpr>> projections_;
+  const std::vector<TypedExprPtr> projections_;
   const RowTypePtr outputType_;
 };
 
@@ -903,7 +900,7 @@ class AbstractJoinNode : public PlanNode {
       JoinType joinType,
       const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& leftKeys,
       const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& rightKeys,
-      std::shared_ptr<const ITypedExpr> filter,
+      TypedExprPtr filter,
       PlanNodePtr left,
       PlanNodePtr right,
       const RowTypePtr outputType);
@@ -954,7 +951,7 @@ class AbstractJoinNode : public PlanNode {
     return rightKeys_;
   }
 
-  const std::shared_ptr<const ITypedExpr>& filter() const {
+  const TypedExprPtr& filter() const {
     return filter_;
   }
 
@@ -968,7 +965,7 @@ class AbstractJoinNode : public PlanNode {
   // join hits and if this is false, the hit turns into a miss, which
   // has a special meaning for outer joins. For inner joins, this is
   // equivalent to a Filter above the join.
-  const std::shared_ptr<const ITypedExpr> filter_;
+  const TypedExprPtr filter_;
   const std::vector<PlanNodePtr> sources_;
   const RowTypePtr outputType_;
 };
@@ -983,7 +980,7 @@ class HashJoinNode : public AbstractJoinNode {
       JoinType joinType,
       const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& leftKeys,
       const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& rightKeys,
-      std::shared_ptr<const ITypedExpr> filter,
+      TypedExprPtr filter,
       PlanNodePtr left,
       PlanNodePtr right,
       const RowTypePtr outputType)
@@ -1014,7 +1011,7 @@ class MergeJoinNode : public AbstractJoinNode {
       JoinType joinType,
       const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& leftKeys,
       const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& rightKeys,
-      std::shared_ptr<const ITypedExpr> filter,
+      TypedExprPtr filter,
       PlanNodePtr left,
       PlanNodePtr right,
       const RowTypePtr outputType)

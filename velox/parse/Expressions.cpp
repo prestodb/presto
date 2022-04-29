@@ -285,7 +285,7 @@ std::shared_ptr<const core::ITypedExpr> Expressions::inferTypes(
 
 // This method returns null if the expression doesn't depend on any input row.
 std::shared_ptr<const Type> Expressions::getInputRowType(
-    const std::shared_ptr<const ITypedExpr>& expr) {
+    const TypedExprPtr& expr) {
   if (auto inputExpr = std::dynamic_pointer_cast<const InputTypedExpr>(expr)) {
     return inputExpr->type();
   }

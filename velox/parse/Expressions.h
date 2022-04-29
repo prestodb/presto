@@ -35,13 +35,12 @@ class Expressions {
       const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs,
       const std::shared_ptr<const core::CallExpr>& expr)>;
 
-  static std::shared_ptr<const ITypedExpr> inferTypes(
+  static TypedExprPtr inferTypes(
       const std::shared_ptr<const IExpr>& expr,
       const std::shared_ptr<const Type>& input,
       memory::MemoryPool* pool);
 
-  static std::shared_ptr<const Type> getInputRowType(
-      const std::shared_ptr<const ITypedExpr>& expr);
+  static std::shared_ptr<const Type> getInputRowType(const TypedExprPtr& expr);
 
   static void setTypeResolverHook(TypeResolverHook hook) {
     resolverHook_ = hook;

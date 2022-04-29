@@ -232,7 +232,7 @@ AbstractJoinNode::AbstractJoinNode(
     JoinType joinType,
     const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& leftKeys,
     const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& rightKeys,
-    std::shared_ptr<const ITypedExpr> filter,
+    TypedExprPtr filter,
     PlanNodePtr left,
     PlanNodePtr right,
     const RowTypePtr outputType)

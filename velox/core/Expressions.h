@@ -22,8 +22,8 @@
 namespace facebook::velox::core {
 
 namespace {
-inline std::shared_ptr<const RowType> rewriteNames(
-    const std::shared_ptr<const RowType>& rowType,
+inline RowTypePtr rewriteNames(
+    const RowTypePtr& rowType,
     const std::unordered_map<std::string, std::string>& mapping) {
   std::vector<std::string> newNames;
   newNames.reserve(rowType->size());
@@ -56,7 +56,7 @@ class InputTypedExpr : public ITypedExpr {
     return kBaseHash;
   }
 
-  std::shared_ptr<const ITypedExpr> rewriteInputNames(
+  TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, std::string>& mapping)
       const override {
     if (type()->isRow()) {
@@ -114,12 +114,12 @@ class ConstantTypedExpr : public ITypedExpr {
     return valueVector_;
   }
 
-  const std::vector<std::shared_ptr<const ITypedExpr>>& inputs() const {
-    static const std::vector<std::shared_ptr<const ITypedExpr>> kEmpty{};
+  const std::vector<TypedExprPtr>& inputs() const {
+    static const std::vector<TypedExprPtr> kEmpty{};
     return kEmpty;
   }
 
-  std::shared_ptr<const ITypedExpr> rewriteInputNames(
+  TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, std::string>& /*mapping*/)
       const override {
     if (hasValueVector()) {
@@ -156,7 +156,7 @@ class CallTypedExpr : public ITypedExpr {
  public:
   CallTypedExpr(
       std::shared_ptr<const Type> type,
-      std::vector<std::shared_ptr<const ITypedExpr>> inputs,
+      std::vector<TypedExprPtr> inputs,
       std::string funcName)
       : ITypedExpr{std::move(type), std::move(inputs)},
         name_(std::move(funcName)) {}
@@ -165,7 +165,7 @@ class CallTypedExpr : public ITypedExpr {
     return name_;
   }
 
-  std::shared_ptr<const ITypedExpr> rewriteInputNames(
+  TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, std::string>& mapping)
       const override {
     return std::make_shared<CallTypedExpr>(
@@ -223,17 +223,14 @@ class FieldAccessTypedExpr : public ITypedExpr {
 
   /// Used as a dereference expression which selects a subfield in a struct by
   /// name.
-  FieldAccessTypedExpr(
-      TypePtr type,
-      std::shared_ptr<const ITypedExpr> input,
-      std::string name)
+  FieldAccessTypedExpr(TypePtr type, TypedExprPtr input, std::string name)
       : ITypedExpr{move(type), {move(input)}}, name_(std::move(name)) {}
 
   const std::string& name() const {
     return name_;
   }
 
-  std::shared_ptr<const ITypedExpr> rewriteInputNames(
+  TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, std::string>& mapping)
       const override {
     auto it = mapping.find(name_);
@@ -290,10 +287,10 @@ class ConcatTypedExpr : public ITypedExpr {
  public:
   ConcatTypedExpr(
       const std::vector<std::string>& names,
-      const std::vector<std::shared_ptr<const ITypedExpr>>& expressions)
+      const std::vector<TypedExprPtr>& expressions)
       : ITypedExpr{toType(names, expressions), expressions} {}
 
-  std::shared_ptr<const ITypedExpr> rewriteInputNames(
+  TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, std::string>& mapping)
       const override {
     return std::make_shared<ConcatTypedExpr>(
@@ -335,7 +332,7 @@ class ConcatTypedExpr : public ITypedExpr {
  private:
   static std::shared_ptr<const Type> toType(
       const std::vector<std::string>& names,
-      const std::vector<std::shared_ptr<const ITypedExpr>>& expressions) {
+      const std::vector<TypedExprPtr>& expressions) {
     std::vector<std::shared_ptr<const Type>> children{};
     std::vector<std::string> namesCopy{};
     for (size_t i = 0; i < names.size(); ++i) {
@@ -348,24 +345,22 @@ class ConcatTypedExpr : public ITypedExpr {
 
 class LambdaTypedExpr : public ITypedExpr {
  public:
-  LambdaTypedExpr(
-      std::shared_ptr<const RowType> signature,
-      std::shared_ptr<const ITypedExpr> body)
+  LambdaTypedExpr(RowTypePtr signature, TypedExprPtr body)
       : ITypedExpr(std::make_shared<FunctionType>(
             std::vector<std::shared_ptr<const Type>>(signature->children()),
             body->type())),
         signature_(signature),
         body_(body) {}
 
-  const std::shared_ptr<const RowType>& signature() const {
+  const RowTypePtr& signature() const {
     return signature_;
   }
 
-  const std::shared_ptr<const ITypedExpr>& body() const {
+  const TypedExprPtr& body() const {
     return body_;
   }
 
-  std::shared_ptr<const ITypedExpr> rewriteInputNames(
+  TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, std::string>& mapping)
       const override {
     return std::make_shared<LambdaTypedExpr>(
@@ -391,19 +386,19 @@ class LambdaTypedExpr : public ITypedExpr {
   }
 
  private:
-  const std::shared_ptr<const RowType> signature_;
-  const std::shared_ptr<const ITypedExpr> body_;
+  const RowTypePtr signature_;
+  const TypedExprPtr body_;
 };
 
 class CastTypedExpr : public ITypedExpr {
  public:
   CastTypedExpr(
       const std::shared_ptr<const Type>& type,
-      const std::vector<std::shared_ptr<const ITypedExpr>>& inputs,
+      const std::vector<TypedExprPtr>& inputs,
       bool nullOnFailure)
       : ITypedExpr{type, inputs}, nullOnFailure_(nullOnFailure) {}
 
-  std::shared_ptr<const ITypedExpr> rewriteInputNames(
+  TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, std::string>& mapping)
       const override {
     return std::make_shared<CastTypedExpr>(
