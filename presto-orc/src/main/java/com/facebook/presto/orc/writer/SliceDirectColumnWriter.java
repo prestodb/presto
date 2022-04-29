@@ -60,6 +60,7 @@ public class SliceDirectColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnWriter.class).instanceSize();
     private final int column;
+    private final int sequence;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream lengthStream;
@@ -77,6 +78,7 @@ public class SliceDirectColumnWriter
 
     public SliceDirectColumnWriter(
             int column,
+            int sequence,
             Type type,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
@@ -85,11 +87,13 @@ public class SliceDirectColumnWriter
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        checkArgument(sequence >= 0, "sequence is negative");
         checkArgument(type instanceof AbstractVariableWidthType, "type is not an AbstractVariableWidthType");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
+        this.sequence = sequence;
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
         this.lengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
@@ -216,7 +220,7 @@ public class SliceDirectColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(column, sequence, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
@@ -239,9 +243,9 @@ public class SliceDirectColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(lengthStream.getStreamDataOutput(column));
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(column, sequence).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(lengthStream.getStreamDataOutput(column, sequence));
+        outputDataStreams.add(dataStream.getStreamDataOutput(column, sequence));
         return outputDataStreams.build();
     }
 

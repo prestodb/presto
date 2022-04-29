@@ -44,6 +44,7 @@ import java.util.Set;
 
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
@@ -317,7 +318,7 @@ public class TestLongDictionaryProvider
         outputStream.close();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(streamId.getColumn());
+        StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(streamId.getColumn(), DEFAULT_SEQUENCE_ID);
         streamDataOutput.writeData(sliceOutput);
         return sliceOutput;
     }

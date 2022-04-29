@@ -158,16 +158,16 @@ public class BooleanOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
         checkState(closed);
-        return byteOutputStream.getStreamDataOutput(column);
+        return byteOutputStream.getStreamDataOutput(column, sequence);
     }
 
-    public StreamDataOutput getStreamDataOutput(int column, StreamKind streamKind)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence, StreamKind streamKind)
     {
         checkState(closed);
-        return byteOutputStream.getStreamDataOutput(column, streamKind);
+        return byteOutputStream.getStreamDataOutput(column, sequence, streamKind);
     }
 
     @Override

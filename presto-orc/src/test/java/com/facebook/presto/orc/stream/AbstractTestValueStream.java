@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -58,7 +59,7 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
             outputStream.close();
 
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33, DEFAULT_SEQUENCE_ID);
             streamDataOutput.writeData(sliceOutput);
             Stream stream = streamDataOutput.getStream();
             assertEquals(stream.getStreamKind(), getExpectedStreamKind());
