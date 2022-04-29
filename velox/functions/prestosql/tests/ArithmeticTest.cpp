@@ -572,5 +572,28 @@ TEST_F(ArithmeticTest, pi) {
   EXPECT_EQ(piValue(), M_PI);
 }
 
+TEST_F(ArithmeticTest, clamp) {
+  const auto clamp = [&](std::optional<int64_t> v,
+                         std::optional<int64_t> lo,
+                         std::optional<int64_t> hi) {
+    return evaluateOnce<int64_t>("clamp(c0, c1, c2)", v, lo, hi);
+  };
+
+  // lo < v < hi => v.
+  EXPECT_EQ(0, clamp(0, -1, 1));
+  // v < lo => lo.
+  EXPECT_EQ(-1, clamp(-2, -1, 1));
+  // v > hi => hi.
+  EXPECT_EQ(1, clamp(2, -1, 1));
+  // v == lo => v.
+  EXPECT_EQ(-1, clamp(-1, -1, 1));
+  // v == hi => v.
+  EXPECT_EQ(1, clamp(1, -1, 1));
+  // lo == hi != v => lo.
+  EXPECT_EQ(-1, clamp(2, -1, -1));
+  // lo > hi => VeloxUserError.
+  EXPECT_THROW(clamp(0, 1, -1), VeloxUserError);
+}
+
 } // namespace
 } // namespace facebook::velox

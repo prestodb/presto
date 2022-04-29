@@ -21,7 +21,7 @@ Mathematical Functions
 .. function:: clamp(x, low, high) -> [same as x]
 
     Returns ``low`` if ``x`` is less than ``low``. Returns ``high`` if ``x`` is greater than ``high``.
-    Returns ``x`` otherwise.
+    Returns ``x`` otherwise. ``low`` must be less than or equal to ``high``.
 
 .. function:: divide(x, y) -> [same as x]
 
