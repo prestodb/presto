@@ -150,14 +150,14 @@ public class ByteOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
-        return getStreamDataOutput(column, DATA);
+        return getStreamDataOutput(column, sequence, DATA);
     }
 
-    public StreamDataOutput getStreamDataOutput(int column, StreamKind streamKind)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence, StreamKind streamKind)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), false));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, streamKind, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override

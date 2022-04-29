@@ -100,7 +100,7 @@ public class PresentOutputStream
         return Optional.of(booleanOutputStream.getCheckpoints());
     }
 
-    public Optional<StreamDataOutput> getStreamDataOutput(int column)
+    public Optional<StreamDataOutput> getStreamDataOutput(int column, int sequence)
     {
         checkArgument(closed);
         if (booleanOutputStream == null) {
@@ -108,7 +108,7 @@ public class PresentOutputStream
         }
 
         // get boolean output DATA stream as PRESENT stream
-        StreamDataOutput streamDataOutput = booleanOutputStream.getStreamDataOutput(column, PRESENT);
+        StreamDataOutput streamDataOutput = booleanOutputStream.getStreamDataOutput(column, sequence, PRESENT);
         return Optional.of(streamDataOutput);
     }
 

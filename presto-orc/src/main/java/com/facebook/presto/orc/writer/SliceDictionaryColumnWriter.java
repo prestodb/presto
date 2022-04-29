@@ -66,13 +66,14 @@ public class SliceDictionaryColumnWriter
 
     public SliceDictionaryColumnWriter(
             int column,
+            int sequence,
             Type type,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             OrcEncoding orcEncoding,
             MetadataWriter metadataWriter)
     {
-        super(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
+        super(column, sequence, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
         checkArgument(type instanceof AbstractVariableWidthType, "Not an instance of AbstractVariableWidthType");
         this.type = (AbstractVariableWidthType) type;
         this.dictionaryDataStream = new ByteArrayOutputStream(columnWriterOptions, dwrfEncryptor, Stream.StreamKind.DICTIONARY_DATA);
@@ -370,7 +371,7 @@ public class SliceDictionaryColumnWriter
     protected ColumnWriter createDirectColumnWriter()
     {
         if (directColumnWriter == null) {
-            directColumnWriter = new SliceDirectColumnWriter(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, this::newStringStatisticsBuilder, metadataWriter);
+            directColumnWriter = new SliceDirectColumnWriter(column, sequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, this::newStringStatisticsBuilder, metadataWriter);
         }
         return directColumnWriter;
     }
@@ -383,8 +384,8 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    protected List<StreamDataOutput> getDictionaryStreams(int column)
+    protected List<StreamDataOutput> getDictionaryStreams(int column, int sequence)
     {
-        return ImmutableList.of(dictionaryLengthStream.getStreamDataOutput(column), dictionaryDataStream.getStreamDataOutput(column));
+        return ImmutableList.of(dictionaryLengthStream.getStreamDataOutput(column, sequence), dictionaryDataStream.getStreamDataOutput(column, sequence));
     }
 }

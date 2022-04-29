@@ -71,9 +71,9 @@ public class DoubleOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), false));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, DATA, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override

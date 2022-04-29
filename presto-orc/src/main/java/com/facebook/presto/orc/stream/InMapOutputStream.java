@@ -32,10 +32,10 @@ public class InMapOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
         // get boolean output DATA stream as IN_MAP stream
-        return super.getStreamDataOutput(column, IN_MAP);
+        return super.getStreamDataOutput(column, sequence, IN_MAP);
     }
 
     @Override

@@ -53,6 +53,7 @@ public class ByteColumnWriter
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final int column;
+    private final int sequence;
     private final Type type;
     private final boolean compressed;
     private final ByteOutputStream dataStream;
@@ -66,13 +67,15 @@ public class ByteColumnWriter
 
     private boolean closed;
 
-    public ByteColumnWriter(int column, Type type, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, MetadataWriter metadataWriter)
+    public ByteColumnWriter(int column, int sequence, Type type, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        checkArgument(sequence >= 0, "sequence is negative");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
+        this.sequence = sequence;
         this.type = requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.dataStream = new ByteOutputStream(columnWriterOptions, dwrfEncryptor);
@@ -161,7 +164,7 @@ public class ByteColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(column, sequence, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
@@ -182,8 +185,8 @@ public class ByteColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(column, sequence).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(column, sequence));
         return outputDataStreams.build();
     }
 
