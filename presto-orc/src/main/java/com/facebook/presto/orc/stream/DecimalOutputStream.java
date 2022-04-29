@@ -110,9 +110,9 @@ public class DecimalOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), true));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, DATA, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override

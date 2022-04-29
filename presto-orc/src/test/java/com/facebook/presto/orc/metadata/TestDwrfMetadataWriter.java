@@ -16,10 +16,13 @@ package com.facebook.presto.orc.metadata;
 import com.facebook.presto.orc.proto.DwrfProto;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_MAP_FLAT;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toColumnEncoding;
+import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStream;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStreamKind;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_COUNT;
@@ -30,6 +33,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestDwrfMetadataWriter
 {
@@ -88,5 +93,32 @@ public class TestDwrfMetadataWriter
         assertEquals(toStreamKind(DICTIONARY_DATA), DwrfProto.Stream.Kind.DICTIONARY_DATA);
         assertEquals(toStreamKind(DICTIONARY_COUNT), DwrfProto.Stream.Kind.DICTIONARY_COUNT);
         assertEquals(toStreamKind(ROW_INDEX), DwrfProto.Stream.Kind.ROW_INDEX);
+    }
+
+    @Test
+    public void testToStream()
+    {
+        int expectedSequence = 10;
+        int expectedLength = 15;
+        long expectedOffset = 25;
+        boolean expectedUseVints = true;
+
+        Stream stream = new Stream(COLUMN_ID, expectedSequence, DATA, expectedLength, expectedUseVints);
+        DwrfProto.Stream actual = toStream(stream);
+        assertEquals(actual.getColumn(), COLUMN_ID);
+        assertEquals(actual.getSequence(), expectedSequence);
+        assertEquals(actual.getKind(), DwrfProto.Stream.Kind.DATA);
+        assertEquals(actual.getLength(), expectedLength);
+        assertTrue(actual.getUseVInts());
+        assertFalse(actual.hasOffset());
+
+        stream = new Stream(COLUMN_ID, DATA, expectedLength, expectedUseVints, expectedSequence, Optional.of(expectedOffset));
+        actual = toStream(stream);
+        assertEquals(actual.getColumn(), COLUMN_ID);
+        assertEquals(actual.getSequence(), expectedSequence);
+        assertEquals(actual.getKind(), DwrfProto.Stream.Kind.DATA);
+        assertEquals(actual.getLength(), expectedLength);
+        assertTrue(actual.getUseVInts());
+        assertEquals(actual.getOffset(), expectedOffset);
     }
 }

@@ -50,6 +50,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -214,7 +215,7 @@ public class DecimalColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(column, DEFAULT_SEQUENCE_ID, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
@@ -237,9 +238,9 @@ public class DecimalColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
-        outputDataStreams.add(scaleStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(column, DEFAULT_SEQUENCE_ID).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(column, DEFAULT_SEQUENCE_ID));
+        outputDataStreams.add(scaleStream.getStreamDataOutput(column, DEFAULT_SEQUENCE_ID));
         return outputDataStreams.build();
     }
 

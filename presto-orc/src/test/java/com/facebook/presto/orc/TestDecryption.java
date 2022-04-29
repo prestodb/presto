@@ -213,21 +213,21 @@ public class TestDecryption
     {
         List<Stream> unencryptedStreams = ImmutableList.of(
                 new Stream(3, ROW_INDEX, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(15L)),
-                new Stream(4, ROW_INDEX, 5, true),
+                new Stream(4, DEFAULT_SEQUENCE_ID, ROW_INDEX, 5, true),
                 new Stream(3, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(45L)),
-                new Stream(4, DATA, 5, true));
+                new Stream(4, DEFAULT_SEQUENCE_ID, DATA, 5, true));
 
         List<Stream> group1Streams = ImmutableList.of(
-                new Stream(0, ROW_INDEX, 5, true),
+                new Stream(0, DEFAULT_SEQUENCE_ID, ROW_INDEX, 5, true),
                 new Stream(5, ROW_INDEX, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(25L)),
                 new Stream(0, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(30L)),
                 new Stream(5, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(55L)));
 
         List<Stream> group2Streams = ImmutableList.of(
                 new Stream(1, ROW_INDEX, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(5L)),
-                new Stream(2, ROW_INDEX, 5, true),
+                new Stream(2, DEFAULT_SEQUENCE_ID, ROW_INDEX, 5, true),
                 new Stream(1, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(35L)),
-                new Stream(2, DATA, 5, true));
+                new Stream(2, DEFAULT_SEQUENCE_ID, DATA, 5, true));
 
         Map<StreamId, DiskRange> actual = getDiskRanges(ImmutableList.of(unencryptedStreams, group1Streams, group2Streams));
 
