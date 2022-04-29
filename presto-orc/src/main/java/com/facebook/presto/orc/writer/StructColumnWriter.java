@@ -52,6 +52,7 @@ public class StructColumnWriter
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final int column;
+    private final int sequence;
     private final boolean compressed;
     private final PresentOutputStream presentStream;
     private final CompressedMetadataWriter metadataWriter;
@@ -64,11 +65,19 @@ public class StructColumnWriter
 
     private boolean closed;
 
-    public StructColumnWriter(int column, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, List<ColumnWriter> structFields, MetadataWriter metadataWriter)
+    public StructColumnWriter(
+            int column,
+            int sequence,
+            ColumnWriterOptions columnWriterOptions,
+            Optional<DwrfDataEncryptor> dwrfEncryptor,
+            List<ColumnWriter> structFields,
+            MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        checkArgument(sequence >= 0, "sequence is negative");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.column = column;
+        this.sequence = sequence;
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.structFields = ImmutableList.copyOf(requireNonNull(structFields, "structFields is null"));
         this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
@@ -196,7 +205,7 @@ public class StructColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(column, sequence, StreamKind.ROW_INDEX, slice.length(), false);
 
         ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
         indexStreams.add(new StreamDataOutput(slice, stream));
@@ -221,7 +230,7 @@ public class StructColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
+        presentStream.getStreamDataOutput(column, sequence).ifPresent(outputDataStreams::add);
         for (ColumnWriter structField : structFields) {
             outputDataStreams.addAll(structField.getDataStreams());
         }

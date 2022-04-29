@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -188,7 +189,8 @@ public class OrcType
                 .toString();
     }
 
-    private static List<OrcType> toOrcType(int nextFieldTypeIndex, Type type)
+    @VisibleForTesting
+    public static List<OrcType> toOrcType(int nextFieldTypeIndex, Type type)
     {
         if (BOOLEAN.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.BOOLEAN));

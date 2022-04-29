@@ -285,10 +285,12 @@ public class DwrfMetadataWriter
         return writeProtobufObject(output, footerProtobuf);
     }
 
-    private static DwrfProto.Stream toStream(Stream stream)
+    @VisibleForTesting
+    static DwrfProto.Stream toStream(Stream stream)
     {
         DwrfProto.Stream.Builder streamBuilder = DwrfProto.Stream.newBuilder()
                 .setColumn(stream.getColumn())
+                .setSequence(stream.getSequence())
                 .setKind(toStreamKind(stream.getStreamKind()))
                 .setLength(stream.getLength())
                 .setUseVInts(stream.isUseVInts());
