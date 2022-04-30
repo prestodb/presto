@@ -83,7 +83,9 @@ class ReaderBase {
         footer_{footer},
         cache_{std::move(cache)},
         handler_{std::move(handler)},
-        input_{std::make_unique<BufferedInput>(*stream_, pool_)},
+        input_{
+            stream_ ? std::make_unique<BufferedInput>(*stream_, pool_)
+                    : nullptr},
         schema_{
             std::dynamic_pointer_cast<const RowType>(convertType(*footer_))},
         fileLength_{0},
