@@ -95,6 +95,7 @@ public class FeaturesConfig
     private int optimizeMetadataQueriesCallThreshold = 100;
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
+    private boolean optimizeCaseExpressionPredicate;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
     private boolean exchangeChecksumEnabled;
@@ -871,6 +872,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeTopNRowNumber(boolean optimizeTopNRowNumber)
     {
         this.optimizeTopNRowNumber = optimizeTopNRowNumber;
+        return this;
+    }
+
+    public boolean isOptimizeCaseExpressionPredicate()
+    {
+        return optimizeCaseExpressionPredicate;
+    }
+
+    @Config("optimizer.optimize-case-expression-predicate")
+    public FeaturesConfig setOptimizeCaseExpressionPredicate(boolean optimizeCaseExpressionPredicate)
+    {
+        this.optimizeCaseExpressionPredicate = optimizeCaseExpressionPredicate;
         return this;
     }
 

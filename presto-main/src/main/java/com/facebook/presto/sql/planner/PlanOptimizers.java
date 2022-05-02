@@ -98,6 +98,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLa
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilter;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseExpressionPredicate;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
@@ -277,6 +278,12 @@ public class PlanOptimizers
                         .add(new PruneRedundantProjectionAssignments())
                         .build());
 
+        IterativeOptimizer caseExpressionPredicateRewriter = new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                new RewriteCaseExpressionPredicate(metadata.getFunctionAndTypeManager()).rules());
+
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser));
 
         builder.add(
@@ -405,6 +412,7 @@ public class PlanOptimizers
         // After this point, all planNodes should not contain OriginalExpression
 
         builder.add(
+                caseExpressionPredicateRewriter,
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

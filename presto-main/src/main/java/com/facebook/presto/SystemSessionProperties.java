@@ -159,6 +159,7 @@ public final class SystemSessionProperties
     public static final String PARTIAL_AGGREGATION_STRATEGY = "partial_aggregation_strategy";
     public static final String PARTIAL_AGGREGATION_BYTE_REDUCTION_THRESHOLD = "partial_aggregation_byte_reduction_threshold";
     public static final String OPTIMIZE_TOP_N_ROW_NUMBER = "optimize_top_n_row_number";
+    public static final String OPTIMIZE_CASE_EXPRESSION_PREDICATE = "optimize_case_expression_predicate";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
@@ -850,6 +851,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_TOP_N_ROW_NUMBER,
                         "Use top N row number optimization",
                         featuresConfig.isOptimizeTopNRowNumber(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_CASE_EXPRESSION_PREDICATE,
+                        "Optimize case expression predicates",
+                        featuresConfig.isOptimizeCaseExpressionPredicate(),
                         false),
                 integerProperty(
                         MAX_GROUPING_SETS,
@@ -1793,6 +1799,11 @@ public final class SystemSessionProperties
     public static boolean isOptimizeTopNRowNumber(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_TOP_N_ROW_NUMBER, Boolean.class);
+    }
+
+    public static boolean isOptimizeCaseExpressionPredicate(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CASE_EXPRESSION_PREDICATE, Boolean.class);
     }
 
     public static boolean isDistributedSortEnabled(Session session)
