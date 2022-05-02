@@ -48,6 +48,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitS
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isManifestVerificationEnabled;
+import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
@@ -113,7 +114,7 @@ public class ManifestPartitionLoader
 
         if (isManifestVerificationEnabled(session)) {
             // Verify that the file names and sizes in manifest are the same as listed by directory lister
-            validateManifest(partition, path, fileNames, fileSizes);
+            validateManifest(session, partition, path, fileNames, fileSizes);
         }
 
         ImmutableList.Builder<HiveFileInfo> fileListBuilder = ImmutableList.builder();
@@ -182,11 +183,11 @@ public class ManifestPartitionLoader
                 partition.getEncryptionInformation());
     }
 
-    private void validateManifest(HivePartitionMetadata partition, Path path, List<String> manifestFileNames, List<Long> manifestFileSizes)
+    private void validateManifest(ConnectorSession session, HivePartitionMetadata partition, Path path, List<String> manifestFileNames, List<Long> manifestFileSizes)
             throws IOException
     {
         ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
-        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, false);
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, false, buildDirectoryContextProperties(session));
 
         Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, partition.getPartition(), namenodeStats, hiveDirectoryContext);
         int fileCount = 0;
