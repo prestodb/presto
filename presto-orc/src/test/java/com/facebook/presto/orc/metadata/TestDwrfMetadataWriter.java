@@ -14,14 +14,19 @@
 package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.proto.DwrfProto;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_MAP_FLAT;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toColumnEncoding;
+import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toColumnEncodings;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStream;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStreamKind;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -32,9 +37,11 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
+import static com.facebook.presto.orc.protobuf.ByteString.copyFromUtf8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestDwrfMetadataWriter
 {
@@ -80,6 +87,74 @@ public class TestDwrfMetadataWriter
         assertEquals(actual.getKind(), DwrfProto.ColumnEncoding.Kind.MAP_FLAT);
         assertEquals(actual.getDictionarySize(), expectedDictionarySize);
         assertEquals(actual.getSequence(), 0);
+    }
+
+    @DataProvider
+    public static Object[][] sequenceKeyProvider()
+    {
+        return new Object[][] {
+                {DwrfProto.KeyInfo.newBuilder().setIntKey(1).build(), DwrfProto.KeyInfo.newBuilder().setIntKey(5).build()},
+                {DwrfProto.KeyInfo.newBuilder().setBytesKey(copyFromUtf8("key1")).build(), DwrfProto.KeyInfo.newBuilder().setBytesKey(copyFromUtf8("key2")).build()}
+        };
+    }
+
+    @Test(dataProvider = "sequenceKeyProvider")
+    public void testToColumnEncodingsWithSequence(DwrfProto.KeyInfo key1, DwrfProto.KeyInfo key2)
+    {
+        int expectedDictionarySize1 = 5;
+        int expectedSequenceId1 = 0;
+        ColumnEncoding valueEncoding1 = new ColumnEncoding(DIRECT, expectedDictionarySize1);
+        DwrfSequenceEncoding sequenceEncoding1 = new DwrfSequenceEncoding(key1, valueEncoding1);
+
+        int expectedDictionarySize2 = 10;
+        int expectedSequenceId2 = 5;
+        ColumnEncoding valueEncoding2 = new ColumnEncoding(DICTIONARY, expectedDictionarySize2);
+        DwrfSequenceEncoding sequenceEncoding2 = new DwrfSequenceEncoding(key2, valueEncoding2);
+
+        ImmutableSortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = ImmutableSortedMap.of(
+                expectedSequenceId1, sequenceEncoding1,
+                expectedSequenceId2, sequenceEncoding2);
+        ColumnEncoding columnEncoding = new ColumnEncoding(DIRECT, 0, Optional.of(additionalSequenceEncodings));
+
+        List<DwrfProto.ColumnEncoding> actual = toColumnEncodings(ImmutableMap.of(COLUMN_ID, columnEncoding));
+        assertEquals(actual.size(), 2);
+
+        DwrfProto.ColumnEncoding actualValueEncoding1 = actual.get(0);
+        assertEquals(actualValueEncoding1.getColumn(), COLUMN_ID);
+        assertEquals(actualValueEncoding1.getKind(), DwrfProto.ColumnEncoding.Kind.DIRECT);
+        assertEquals(actualValueEncoding1.getDictionarySize(), expectedDictionarySize1);
+
+        assertEquals(actualValueEncoding1.getSequence(), expectedSequenceId1);
+        assertEquals(actualValueEncoding1.getKey(), key1);
+
+        DwrfProto.ColumnEncoding actualValueEncoding2 = actual.get(1);
+        assertEquals(actualValueEncoding2.getColumn(), COLUMN_ID);
+        assertEquals(actualValueEncoding2.getKind(), DwrfProto.ColumnEncoding.Kind.DICTIONARY);
+        assertEquals(actualValueEncoding2.getDictionarySize(), expectedDictionarySize2);
+        assertEquals(actualValueEncoding2.getSequence(), expectedSequenceId2);
+        assertEquals(actualValueEncoding2.getKey(), key2);
+    }
+
+    @Test
+    public void testToColumnEncodingsWithInvalidDeeplyNestedAdditionalSequence()
+    {
+        DwrfProto.KeyInfo key1 = DwrfProto.KeyInfo.newBuilder().setIntKey(1).build();
+        DwrfProto.KeyInfo key2 = DwrfProto.KeyInfo.newBuilder().setIntKey(2).build();
+
+        // level 2
+        ColumnEncoding deeplyNestedValueEncoding = new ColumnEncoding(DIRECT, 0);
+        DwrfSequenceEncoding deeplyNestedSequenceEncoding = new DwrfSequenceEncoding(key1, deeplyNestedValueEncoding);
+        ImmutableSortedMap<Integer, DwrfSequenceEncoding> deeplyNestedSequenceEncodings = ImmutableSortedMap.of(0, deeplyNestedSequenceEncoding);
+
+        // level 1
+        ColumnEncoding nestedColumnEncoding = new ColumnEncoding(DIRECT, 0, Optional.of(deeplyNestedSequenceEncodings));
+        DwrfSequenceEncoding nestedSequenceEncoding = new DwrfSequenceEncoding(key2, nestedColumnEncoding);
+        ImmutableSortedMap<Integer, DwrfSequenceEncoding> nestedSequenceEncodings = ImmutableSortedMap.of(0, nestedSequenceEncoding);
+
+        // root
+        ColumnEncoding columnEncoding = new ColumnEncoding(DIRECT, 0, Optional.of(nestedSequenceEncodings));
+
+        expectThrows(IllegalArgumentException.class, () -> toColumnEncodings(ImmutableMap.of(COLUMN_ID, columnEncoding)));
     }
 
     @Test
