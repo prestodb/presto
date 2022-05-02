@@ -193,7 +193,7 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams()
+    public List<StreamDataOutput> getIndexStreams(Optional<List<BooleanStreamCheckpoint>> dwrfFlatMapStreamCheckpoints)
             throws IOException
     {
         checkState(closed);
@@ -208,8 +208,9 @@ public class DecimalColumnWriter
             ColumnStatistics columnStatistics = rowGroupColumnStatistics.get(groupId);
             DecimalStreamCheckpoint dataCheckpoint = dataCheckpoints.get(groupId);
             LongStreamCheckpoint scaleCheckpoint = scaleCheckpoints.get(groupId);
+            Optional<BooleanStreamCheckpoint> inMapCheckpoint = dwrfFlatMapStreamCheckpoints.map(checkpoints -> checkpoints.get(groupId));
             Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createDecimalColumnPositionList(compressed, dataCheckpoint, scaleCheckpoint, presentCheckpoint);
+            List<Integer> positions = createDecimalColumnPositionList(compressed, dataCheckpoint, scaleCheckpoint, presentCheckpoint, inMapCheckpoint);
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
@@ -222,9 +223,11 @@ public class DecimalColumnWriter
             boolean compressed,
             DecimalStreamCheckpoint dataCheckpoint,
             LongStreamCheckpoint scaleCheckpoint,
-            Optional<BooleanStreamCheckpoint> presentCheckpoint)
+            Optional<BooleanStreamCheckpoint> presentCheckpoint,
+            Optional<BooleanStreamCheckpoint> inMapCheckpoint)
     {
         ImmutableList.Builder<Integer> positionList = ImmutableList.builder();
+        inMapCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         positionList.addAll(dataCheckpoint.toPositionList(compressed));
         positionList.addAll(scaleCheckpoint.toPositionList(compressed));

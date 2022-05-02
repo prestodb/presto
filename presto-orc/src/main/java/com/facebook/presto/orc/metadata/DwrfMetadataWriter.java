@@ -348,6 +348,20 @@ public class DwrfMetadataWriter
         throw new IllegalArgumentException("Unsupported column encoding kind: " + columnEncodingKind);
     }
 
+    public static DwrfProto.KeyInfo getIntKeyInfo(long key)
+    {
+        return DwrfProto.KeyInfo.newBuilder()
+                .setIntKey(key)
+                .build();
+    }
+
+    public static DwrfProto.KeyInfo getBytesKeyInfo(ByteString key)
+    {
+        return DwrfProto.KeyInfo.newBuilder()
+                .setBytesKey(key)
+                .build();
+    }
+
     @Override
     public int writeRowIndexes(SliceOutput output, List<RowGroupIndex> rowGroupIndexes)
             throws IOException
