@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.StreamDataOutput;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface ColumnWriter
 {
@@ -48,8 +50,12 @@ public interface ColumnWriter
      * Write index streams to the output and return the streams in the
      * order in which they were written.  The ordering is critical because
      * the stream only contain a length with no offset.
+     *
+     * @param dwrfFlatMapStreamCheckpoints optional parameter when ColumnWriter is used inside a FlatMap
+     *        FlatMap encodes the values in the map as a sequence of ColumnWriters
+     *        Each column writer will need the InMap stream checkpoints to generate index streams.
      */
-    List<StreamDataOutput> getIndexStreams()
+    List<StreamDataOutput> getIndexStreams(Optional<List<BooleanStreamCheckpoint>> dwrfFlatMapStreamCheckpoints)
             throws IOException;
 
     /**
