@@ -106,8 +106,7 @@ TEST_F(LocalPartitionTest, gather) {
                 .singleAggregation({}, {"count(1)", "min(c0)", "max(c0)"})
                 .planNode();
 
-  auto task = assertQuery(
-      op, std::vector<std::shared_ptr<TempFilePath>>{}, "SELECT 300, -71, 152");
+  auto task = assertQuery(op, "SELECT 300, -71, 152");
   verifyExchangeSourceOperatorStats(task, 300);
 
   auto filePaths = writeToFiles(vectors);

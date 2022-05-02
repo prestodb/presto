@@ -18,6 +18,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/vector/tests/VectorTestBase.h"
 
 #define VELOX_ASSERT_THROW(expression, errorMessage)                  \
   try {                                                               \
@@ -30,7 +31,7 @@
 
 using namespace facebook::velox;
 
-class TaskTest : public testing::Test {
+class TaskTest : public testing::Test, public test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     functions::prestosql::registerAllScalarFunctions();
@@ -58,7 +59,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
 
   // Try to add split for a non-source node.
   auto errorMessage =
-      "Splits can be associated only with source plan nodes. Plan node ID 1 doesn't refer to a source node.";
+      "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 1 doesn't refer to such plan node.";
   VELOX_ASSERT_THROW(
       task.addSplit("1", exec::Split(folly::copy(connectorSplit))),
       errorMessage)
@@ -76,7 +77,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
 
   // Try to add split for non-existent node.
   errorMessage =
-      "Splits can be associated only with source plan nodes. Plan node ID 12 doesn't refer to a source node.";
+      "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 12 doesn't refer to such plan node.";
   VELOX_ASSERT_THROW(
       task.addSplit("12", exec::Split(folly::copy(connectorSplit))),
       errorMessage)
@@ -91,6 +92,21 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
   VELOX_ASSERT_THROW(task.noMoreSplits("12"), errorMessage)
 
   VELOX_ASSERT_THROW(task.noMoreSplitsForGroup("12", 5), errorMessage)
+
+  // Try to add split for a Values source node.
+  plan =
+      exec::test::PlanBuilder()
+          .values({makeRowVector(ROW({"a", "b"}, {INTEGER(), DOUBLE()}), 10)})
+          .project({"a * a", "b + b"})
+          .planFragment();
+
+  exec::Task valuesTask(
+      "task-2", std::move(plan), 0, core::QueryCtx::createForTest());
+  errorMessage =
+      "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 0 doesn't refer to such plan node.";
+  VELOX_ASSERT_THROW(
+      valuesTask.addSplit("0", exec::Split(folly::copy(connectorSplit))),
+      errorMessage)
 }
 
 TEST_F(TaskTest, duplicatePlanNodeIds) {

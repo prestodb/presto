@@ -580,9 +580,9 @@ class Task : public std::enable_shared_from_this<Task> {
   const int destination_;
   const std::shared_ptr<core::QueryCtx> queryCtx_;
 
-  /// A set of source plan node IDs. Used to check plan node IDs specified in
-  /// split management methods.
-  const std::unordered_set<core::PlanNodeId> sourcePlanNodeIds_;
+  /// A set of IDs of leaf plan nodes that require splits. Used to check plan
+  /// node IDs specified in split management methods.
+  const std::unordered_set<core::PlanNodeId> splitPlanNodeIds_;
 
   // True if produces output via PartitionedOutputBufferManager.
   bool hasPartitionedOutput_ = false;

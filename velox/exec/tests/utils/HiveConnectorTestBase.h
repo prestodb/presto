@@ -51,8 +51,7 @@ class HiveConnectorTestBase : public OperatorTestBase {
   std::shared_ptr<exec::Task> assertQuery(
       const std::shared_ptr<const core::PlanNode>& plan,
       const std::string& duckDbSql) {
-    return assertQuery(
-        plan, std::vector<std::shared_ptr<TempFilePath>>(), duckDbSql);
+    return OperatorTestBase::assertQuery(plan, duckDbSql);
   }
 
   std::shared_ptr<exec::Task> assertQuery(

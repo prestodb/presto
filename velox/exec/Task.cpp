@@ -68,7 +68,7 @@ bool unregisterTaskListener(const std::shared_ptr<TaskListener>& listener) {
 }
 
 namespace {
-void collectSourcePlanNodeIds(
+void collectSplitPlanNodeIds(
     const core::PlanNode* planNode,
     std::unordered_set<core::PlanNodeId>& allIds,
     std::unordered_set<core::PlanNodeId>& sourceIds) {
@@ -79,24 +79,28 @@ void collectSourcePlanNodeIds(
       planNode->id());
 
   // Check if planNode is a leaf node in the plan tree. If so, it is a source
-  // node and could use splits for processing.
+  // node and may use splits for processing.
   if (planNode->sources().empty()) {
-    sourceIds.insert(planNode->id());
+    // Not all leaf nodes require splits. ValuesNode doesn't. Check if this plan
+    // node requires splits.
+    if (planNode->requiresSplits()) {
+      sourceIds.insert(planNode->id());
+    }
     return;
   }
 
   for (const auto& child : planNode->sources()) {
-    collectSourcePlanNodeIds(child.get(), allIds, sourceIds);
+    collectSplitPlanNodeIds(child.get(), allIds, sourceIds);
   }
 }
 
-/// Returns a set of source (leaf) plan node IDs. Also, checks that plan node
-/// IDs are unique and throws if encounters duplicates.
-std::unordered_set<core::PlanNodeId> collectSourcePlanNodeIds(
+/// Returns a set IDs of source (leaf) plan nodes that require splits. Also,
+/// checks that plan node IDs are unique and throws if encounters duplicates.
+std::unordered_set<core::PlanNodeId> collectSplitPlanNodeIds(
     const std::shared_ptr<const core::PlanNode>& planNode) {
   std::unordered_set<core::PlanNodeId> allIds;
   std::unordered_set<core::PlanNodeId> sourceIds;
-  collectSourcePlanNodeIds(planNode.get(), allIds, sourceIds);
+  collectSplitPlanNodeIds(planNode.get(), allIds, sourceIds);
   return sourceIds;
 }
 
@@ -136,7 +140,7 @@ Task::Task(
       planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
-      sourcePlanNodeIds_(collectSourcePlanNodeIds(planFragment_.planNode)),
+      splitPlanNodeIds_(collectSplitPlanNodeIds(planFragment_.planNode)),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
       pool_(queryCtx_->pool()->addScopedChild("task_root")),
@@ -575,8 +579,8 @@ void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
 
 void Task::checkPlanNodeIdForSplit(const core::PlanNodeId& id) const {
   VELOX_USER_CHECK(
-      sourcePlanNodeIds_.find(id) != sourcePlanNodeIds_.end(),
-      "Splits can be associated only with source plan nodes. Plan node ID {} doesn't refer to a source node.",
+      splitPlanNodeIds_.find(id) != splitPlanNodeIds_.end(),
+      "Splits can be associated only with leaf plan nodes which require splits. Plan node ID {} doesn't refer to such plan node.",
       id);
 }
 
