@@ -179,7 +179,7 @@ public class StructColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams()
+    public List<StreamDataOutput> getIndexStreams(Optional<List<BooleanStreamCheckpoint>> dwrfFlatMapStreamCheckpoints)
             throws IOException
     {
         checkState(closed);
@@ -191,7 +191,8 @@ public class StructColumnWriter
             int groupId = i;
             ColumnStatistics columnStatistics = rowGroupColumnStatistics.get(groupId);
             Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createStructColumnPositionList(compressed, presentCheckpoint);
+            Optional<BooleanStreamCheckpoint> inMapCheckpoint = dwrfFlatMapStreamCheckpoints.map(checkpoints -> checkpoints.get(groupId));
+            List<Integer> positions = createStructColumnPositionList(compressed, presentCheckpoint, inMapCheckpoint);
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
@@ -201,16 +202,18 @@ public class StructColumnWriter
         ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
         indexStreams.add(new StreamDataOutput(slice, stream));
         for (ColumnWriter structField : structFields) {
-            indexStreams.addAll(structField.getIndexStreams());
+            indexStreams.addAll(structField.getIndexStreams(Optional.empty()));
         }
         return indexStreams.build();
     }
 
     private static List<Integer> createStructColumnPositionList(
             boolean compressed,
-            Optional<BooleanStreamCheckpoint> presentCheckpoint)
+            Optional<BooleanStreamCheckpoint> presentCheckpoint,
+            Optional<BooleanStreamCheckpoint> inMapCheckpoint)
     {
         ImmutableList.Builder<Integer> positionList = ImmutableList.builder();
+        inMapCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         return positionList.build();
     }
