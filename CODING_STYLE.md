@@ -173,7 +173,7 @@ About comment style:
     stack. Note that most types that perform large allocations already store
     their bulk memory on-heap.
 
-## Constants
+## Constants
 
 * Always use `nullptr` if you need a constant that represents a null pointer
   (`T*` for some `T`); use `0` otherwise for a zero value.
@@ -339,3 +339,22 @@ myFunc();
   * Use `using namespace anything_else;` somewhat sparingly – the whole point
     of namespaces is obliterated when the code starts doing this prolifically.
     Frequently, `using foo::bar::BazClass;` is better.
+
+## Type Aliases
+
+* For types widely used together with std::shared_ptr, consider introducing
+  aliases for std::shared_ptr<Xxx> using naming convention XxxPtr. In some
+  cases it makes sense to alias std::shared_ptr<const Xxx>. Here are some
+  examples of existing aliases: TypePtr, VectorPtr, FlatVectorPtr,
+  ArrayVectorPtr, MapVectorPtr, RowVectorPtr, TypedExprPtr, PlanNodePtr.
+
+```
+using TypePtr = std::shared_ptr<const Type>;
+```
+* Similarly, widely used template types also benefit from shorter or clearer
+  aliases.
+
+```
+using ContinueFuture = folly::SemiFuture<bool>;
+using ContinuePromise = VeloxPromise<bool>;
+```
