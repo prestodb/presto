@@ -43,6 +43,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class DwrfMetadataWriter
@@ -274,9 +275,7 @@ public class DwrfMetadataWriter
                 .addAllStreams(footer.getStreams().stream()
                         .map(DwrfMetadataWriter::toStream)
                         .collect(toImmutableList()))
-                .addAllColumns(footer.getColumnEncodings().entrySet().stream()
-                        .map(entry -> toColumnEncoding(entry.getKey(), entry.getValue()))
-                        .collect(toImmutableList()))
+                .addAllColumns(toColumnEncodings(footer.getColumnEncodings()))
                 .addAllEncryptedGroups(footer.getStripeEncryptionGroups().stream()
                         .map(group -> ByteString.copyFrom(group.getBytes()))
                         .collect(toImmutableList()))
@@ -323,17 +322,58 @@ public class DwrfMetadataWriter
         throw new IllegalArgumentException("Unsupported stream kind: " + streamKind);
     }
 
-    public static DwrfProto.ColumnEncoding toColumnEncoding(int columnId, ColumnEncoding columnEncoding)
+    public static List<DwrfProto.ColumnEncoding> toColumnEncodings(Map<Integer, ColumnEncoding> columnEncodingsByNodeId)
+    {
+        ImmutableList.Builder<DwrfProto.ColumnEncoding> columnEncodings = ImmutableList.builder();
+        for (Entry<Integer, ColumnEncoding> entry : columnEncodingsByNodeId.entrySet()) {
+            int nodeId = entry.getKey();
+            ColumnEncoding columnEncoding = entry.getValue();
+
+            if (columnEncoding.getAdditionalSequenceEncodings().isPresent()) {
+                Map<Integer, DwrfSequenceEncoding> sequences = columnEncoding.getAdditionalSequenceEncodings().get();
+                for (Entry<Integer, DwrfSequenceEncoding> sequenceEntry : sequences.entrySet()) {
+                    int sequence = sequenceEntry.getKey();
+                    DwrfSequenceEncoding sequenceEncoding = sequenceEntry.getValue();
+                    columnEncodings.add(toColumnEncoding(nodeId, sequence, sequenceEncoding));
+                }
+            }
+            else {
+                columnEncodings.add(toColumnEncoding(nodeId, columnEncoding));
+            }
+        }
+        return columnEncodings.build();
+    }
+
+    public static DwrfProto.ColumnEncoding toColumnEncoding(int nodeId, ColumnEncoding columnEncoding)
     {
         checkArgument(
                 !columnEncoding.getAdditionalSequenceEncodings().isPresent(),
-                "DWRF writer doesn't support writing columns with non-zero sequence IDs: " + columnEncoding);
+                "Non-zero sequence IDs for column encoding %s",
+                columnEncoding);
 
         return DwrfProto.ColumnEncoding.newBuilder()
                 .setKind(toColumnEncodingKind(columnEncoding.getColumnEncodingKind()))
                 .setDictionarySize(columnEncoding.getDictionarySize())
-                .setColumn(columnId)
+                .setColumn(nodeId)
                 .setSequence(0)
+                .build();
+    }
+
+    public static DwrfProto.ColumnEncoding toColumnEncoding(int nodeId, int sequence, DwrfSequenceEncoding sequenceEncoding)
+    {
+        ColumnEncoding columnEncoding = sequenceEncoding.getValueEncoding();
+        requireNonNull(sequenceEncoding, "sequenceEncoding is null");
+        checkArgument(
+                !columnEncoding.getAdditionalSequenceEncodings().isPresent(),
+                "Non-zero sequence IDs for column encoding %s",
+                columnEncoding);
+
+        return DwrfProto.ColumnEncoding.newBuilder()
+                .setKind(toColumnEncodingKind(columnEncoding.getColumnEncodingKind()))
+                .setDictionarySize(columnEncoding.getDictionarySize())
+                .setColumn(nodeId)
+                .setSequence(sequence)
+                .setKey(sequenceEncoding.getKey())
                 .build();
     }
 
