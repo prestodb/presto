@@ -83,7 +83,8 @@ public final class GlueToPrestoConverter
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
 
-        if (isIcebergTable(tableParameters) || isDeltaLakeTable(tableParameters)) {
+        StorageDescriptor sd = glueTable.getStorageDescriptor();
+        if (isIcebergTable(tableParameters) || (sd == null && isDeltaLakeTable(tableParameters))) {
             // Iceberg and Delta Lake tables do not use the StorageDescriptor field, but we need to return a Table so the caller can check that
             // the table is an Iceberg/Delta table and decide whether to redirect or fail.
             tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty(), Optional.empty())));
@@ -91,7 +92,6 @@ public final class GlueToPrestoConverter
             tableBuilder.getStorageBuilder().setLocation(sd.getLocation());
         }
         else {
-            StorageDescriptor sd = glueTable.getStorageDescriptor();
             if (sd == null) {
                 throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
             }
