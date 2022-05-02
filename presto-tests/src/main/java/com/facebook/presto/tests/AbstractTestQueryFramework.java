@@ -128,6 +128,11 @@ public abstract class AbstractTestQueryFramework
         return computeActual(sql).getOnlyValue();
     }
 
+    protected Object computeScalar(Session session, @Language("SQL") String sql)
+    {
+        return computeActual(session, sql).getOnlyValue();
+    }
+
     protected void assertQuery(@Language("SQL") String sql)
     {
         assertQuery(getSession(), sql);

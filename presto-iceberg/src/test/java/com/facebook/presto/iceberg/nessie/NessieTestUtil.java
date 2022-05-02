@@ -11,29 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.nessie;
 
-import org.apache.iceberg.hadoop.HadoopCatalog;
-import org.apache.iceberg.hive.HiveCatalog;
-import org.apache.iceberg.nessie.NessieCatalog;
+import com.google.common.collect.ImmutableMap;
 
-public enum CatalogType
+import java.util.Map;
+
+import static com.facebook.presto.iceberg.CatalogType.NESSIE;
+
+public class NessieTestUtil
 {
-    HADOOP(HadoopCatalog.class.getName()),
-    HIVE(HiveCatalog.class.getName()),
-    NESSIE(NessieCatalog.class.getName()),
-
-    /**/;
-
-    private final String catalogImpl;
-
-    CatalogType(String catalogImpl)
+    private NessieTestUtil()
     {
-        this.catalogImpl = catalogImpl;
     }
 
-    public String getCatalogImpl()
+    public static Map<String, String> nessieConnectorProperties(String serverUri)
     {
-        return catalogImpl;
+        return ImmutableMap.of("iceberg.catalog.type", NESSIE.name(), "iceberg.nessie.uri", serverUri);
     }
 }

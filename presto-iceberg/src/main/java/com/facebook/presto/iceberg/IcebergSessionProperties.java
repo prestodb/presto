@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
+import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.orc.OrcWriteValidation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -71,6 +72,8 @@ public final class IcebergSessionProperties
     private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
     private static final String CACHE_ENABLED = "cache_enabled";
     private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
+    private static final String NESSIE_REFERENCE_NAME = "nessie_reference_name";
+    private static final String NESSIE_REFERENCE_HASH = "nessie_reference_hash";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -79,7 +82,8 @@ public final class IcebergSessionProperties
             HiveClientConfig hiveClientConfig,
             ParquetFileWriterConfig parquetFileWriterConfig,
             OrcFileWriterConfig orcFileWriterConfig,
-            CacheConfig cacheConfig)
+            CacheConfig cacheConfig,
+            NessieConfig nessieConfig)
     {
         sessionProperties = ImmutableList.of(
                 new PropertyMetadata<>(
@@ -240,6 +244,16 @@ public final class IcebergSessionProperties
                         CACHE_ENABLED,
                         "Enable cache for Iceberg",
                         cacheConfig.isCachingEnabled(),
+                        false),
+                stringProperty(
+                        NESSIE_REFERENCE_NAME,
+                        "Nessie reference name to use",
+                        nessieConfig.getDefaultReferenceName(),
+                        false),
+                stringProperty(
+                        NESSIE_REFERENCE_HASH,
+                        "Nessie reference hash to use",
+                        null,
                         false));
     }
 
@@ -386,5 +400,15 @@ public final class IcebergSessionProperties
     public static NodeSelectionStrategy getNodeSelectionStrategy(ConnectorSession session)
     {
         return session.getProperty(NODE_SELECTION_STRATEGY, NodeSelectionStrategy.class);
+    }
+
+    public static String getNessieReferenceName(ConnectorSession session)
+    {
+        return session.getProperty(NESSIE_REFERENCE_NAME, String.class);
+    }
+
+    public static String getNessieReferenceHash(ConnectorSession session)
+    {
+        return session.getProperty(NESSIE_REFERENCE_HASH, String.class);
     }
 }

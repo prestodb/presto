@@ -55,7 +55,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
-import static com.facebook.presto.iceberg.IcebergUtil.getHadoopIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
@@ -75,21 +75,24 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 
-public class IcebergHadoopMetadata
+public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
 {
     private static final String INFORMATION_SCHEMA = "information_schema";
     private static final String TABLE_COMMENT = "comment";
 
     private final IcebergResourceFactory resourceFactory;
+    private final CatalogType catalogType;
 
-    public IcebergHadoopMetadata(
+    public IcebergNativeMetadata(
             IcebergResourceFactory resourceFactory,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskCodec)
+            JsonCodec<CommitTaskData> commitTaskCodec,
+            CatalogType catalogType)
     {
         super(typeManager, commitTaskCodec);
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
+        this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
 
     @Override
@@ -169,7 +172,7 @@ public class IcebergHadoopMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getHadoopIcebergTable(resourceFactory, session, table.getSchemaTableName());
+        Table icebergTable = getNativeIcebergTable(resourceFactory, session, table.getSchemaTableName());
         return getColumns(icebergTable.schema(), typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
     }
@@ -208,7 +211,7 @@ public class IcebergHadoopMetadata
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Iceberg hadoop catalog does not support rename namespace");
+        throw new PrestoException(NOT_SUPPORTED, format("Iceberg %s catalog does not support rename namespace", catalogType.name()));
     }
 
     @Override
@@ -257,7 +260,7 @@ public class IcebergHadoopMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getHadoopIcebergTable(resourceFactory, session, table.getSchemaTableName());
+        Table icebergTable = getNativeIcebergTable(resourceFactory, session, table.getSchemaTableName());
 
         return beginIcebergTableInsert(table, icebergTable);
     }
@@ -308,7 +311,7 @@ public class IcebergHadoopMetadata
     {
         Table icebergTable;
         try {
-            icebergTable = getHadoopIcebergTable(resourceFactory, session, table);
+            icebergTable = getNativeIcebergTable(resourceFactory, session, table);
         }
         catch (NoSuchTableException e) {
             throw new TableNotFoundException(table);
@@ -323,7 +326,7 @@ public class IcebergHadoopMetadata
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getHadoopIcebergTable(resourceFactory, session, handle.getSchemaTableName());
+        Table icebergTable = getNativeIcebergTable(resourceFactory, session, handle.getSchemaTableName());
         return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
     }
 }
