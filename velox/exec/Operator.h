@@ -33,12 +33,13 @@ struct IdentityProjection {
 };
 
 struct MemoryStats {
-  uint64_t userMemoryReservation = {};
-  uint64_t revocableMemoryReservation = {};
-  uint64_t systemMemoryReservation = {};
-  uint64_t peakUserMemoryReservation = {};
-  uint64_t peakSystemMemoryReservation = {};
-  uint64_t peakTotalMemoryReservation = {};
+  uint64_t userMemoryReservation{0};
+  uint64_t revocableMemoryReservation{0};
+  uint64_t systemMemoryReservation{0};
+  uint64_t peakUserMemoryReservation{0};
+  uint64_t peakSystemMemoryReservation{0};
+  uint64_t peakTotalMemoryReservation{0};
+  uint64_t numMemoryAllocations{0};
 
   void update(const std::shared_ptr<memory::MemoryUsageTracker>& tracker) {
     if (!tracker) {
@@ -49,6 +50,7 @@ struct MemoryStats {
     peakUserMemoryReservation = tracker->getPeakUserBytes();
     peakSystemMemoryReservation = tracker->getPeakSystemBytes();
     peakTotalMemoryReservation = tracker->getPeakTotalBytes();
+    numMemoryAllocations = tracker->getNumAllocs();
   }
 
   void add(const MemoryStats& other) {
@@ -61,6 +63,7 @@ struct MemoryStats {
         peakSystemMemoryReservation, other.peakSystemMemoryReservation);
     peakTotalMemoryReservation =
         std::max(peakTotalMemoryReservation, other.peakTotalMemoryReservation);
+    numMemoryAllocations += other.numMemoryAllocations;
   }
 
   void clear() {
@@ -70,6 +73,7 @@ struct MemoryStats {
     peakUserMemoryReservation = 0;
     peakSystemMemoryReservation = 0;
     peakTotalMemoryReservation = 0;
+    numMemoryAllocations = 0;
   }
 };
 

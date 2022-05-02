@@ -78,6 +78,8 @@ struct PlanNodeStats {
   /// operator instances were running concurrently.
   uint64_t peakMemoryBytes{0};
 
+  uint64_t numMemoryAllocations{0};
+
   /// Operator-specific counters.
   std::unordered_map<std::string, RuntimeMetric> customStats;
 

@@ -48,6 +48,7 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   blockedWallNanos += stats.blockedWallNanos;
 
   peakMemoryBytes += stats.memoryStats.peakTotalMemoryReservation;
+  numMemoryAllocations += stats.memoryStats.numMemoryAllocations;
 
   for (const auto& [name, runtimeStats] : stats.runtimeStats) {
     if (UNLIKELY(customStats.count(name) == 0)) {
@@ -83,7 +84,8 @@ std::string PlanNodeStats::toString(bool includeInputStats) const {
       << ")"
       << ", Cpu time: " << succinctNanos(cpuWallTiming.cpuNanos)
       << ", Blocked wall time: " << succinctNanos(blockedWallNanos)
-      << ", Peak memory: " << succinctBytes(peakMemoryBytes);
+      << ", Peak memory: " << succinctBytes(peakMemoryBytes)
+      << ", Memory allocations: " << numMemoryAllocations;
 
   if (numDrivers > 0) {
     out << ", Threads: " << numDrivers;
