@@ -62,8 +62,11 @@ public class TestIcebergSystemTables
     }
 
     @BeforeClass
-    public void setUp()
+    @Override
+    public void init()
+            throws Exception
     {
+        super.init();
         assertUpdate("CREATE SCHEMA test_schema");
         assertUpdate("CREATE TABLE test_schema.test_table (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO test_schema.test_table VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);

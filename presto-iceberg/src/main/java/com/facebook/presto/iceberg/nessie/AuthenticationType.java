@@ -11,29 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.nessie;
 
-import org.apache.iceberg.hadoop.HadoopCatalog;
-import org.apache.iceberg.hive.HiveCatalog;
-import org.apache.iceberg.nessie.NessieCatalog;
-
-public enum CatalogType
+public enum AuthenticationType
 {
-    HADOOP(HadoopCatalog.class.getName()),
-    HIVE(HiveCatalog.class.getName()),
-    NESSIE(NessieCatalog.class.getName()),
-
-    /**/;
-
-    private final String catalogImpl;
-
-    CatalogType(String catalogImpl)
-    {
-        this.catalogImpl = catalogImpl;
-    }
-
-    public String getCatalogImpl()
-    {
-        return catalogImpl;
-    }
+    BASIC,
+    BEARER
 }
