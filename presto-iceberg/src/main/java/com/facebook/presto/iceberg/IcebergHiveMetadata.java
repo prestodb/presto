@@ -80,6 +80,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_NEW_DATA_LOCATION;
 import static org.apache.iceberg.Transactions.createTableTransaction;
@@ -302,7 +303,8 @@ public class IcebergHiveMetadata
         org.apache.iceberg.Table table = getHiveIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
         if (table.properties().containsKey(OBJECT_STORE_PATH) ||
                 table.properties().containsKey(WRITE_NEW_DATA_LOCATION) ||
-                table.properties().containsKey(WRITE_METADATA_LOCATION)) {
+                table.properties().containsKey(WRITE_METADATA_LOCATION) ||
+                table.properties().containsKey(WRITE_DATA_LOCATION)) {
             throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
         }
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
