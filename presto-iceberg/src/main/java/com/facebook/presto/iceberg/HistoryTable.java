@@ -74,7 +74,7 @@ public class HistoryTable
     {
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(COLUMNS);
 
-        Set<Long> ancestorIds = ImmutableSet.copyOf(SnapshotUtil.currentAncestors(icebergTable));
+        Set<Long> ancestorIds = ImmutableSet.copyOf(SnapshotUtil.currentAncestorIds(icebergTable));
         for (HistoryEntry historyEntry : icebergTable.history()) {
             long snapshotId = historyEntry.snapshotId();
             Snapshot snapshot = icebergTable.snapshot(snapshotId);

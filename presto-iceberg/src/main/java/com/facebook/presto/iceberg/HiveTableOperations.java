@@ -384,7 +384,7 @@ public class HiveTableOperations
                 .exponentialBackoff(100, 5000, 600000, 4.0)
                 .suppressFailureWhenFinished()
                 .run(metadataLocation -> newMetadata.set(
-                        TableMetadataParser.read(this, io().newInputFile(metadataLocation))));
+                        TableMetadataParser.read(fileIO, io().newInputFile(metadataLocation))));
 
         if (newMetadata.get() == null) {
             throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing.");
