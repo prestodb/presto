@@ -35,6 +35,7 @@ import com.facebook.presto.hive.pagefile.PageInputFormat;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
@@ -150,6 +151,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_BUCKETING_IS_IGN
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.CustomSplitConversionUtils.recreateSplitWithCustomInfo;
@@ -185,6 +187,13 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 public final class HiveUtil
 {
     public static final String CUSTOM_FILE_SPLIT_CLASS_KEY = "custom_split_class";
+
+    public static final String PRESTO_QUERY_ID = "presto_query_id";
+    public static final String PRESTO_QUERY_SOURCE = "presto_query_source";
+    public static final String PRESTO_CLIENT_INFO = "presto_client_info";
+    public static final String PRESTO_USER_NAME = "presto_user_name";
+    public static final String PRESTO_METASTORE_HEADER = "presto_metastore_header";
+
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
 
     private static final String VIEW_PREFIX = "/* Presto View: ";
@@ -1252,5 +1261,16 @@ public final class HiveUtil
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public static Map<String, String> buildDirectoryContextProperties(ConnectorSession session)
+    {
+        ImmutableMap.Builder<String, String> directoryContextProperties = ImmutableMap.builder();
+        directoryContextProperties.put(PRESTO_QUERY_ID, session.getQueryId());
+        session.getSource().ifPresent(source -> directoryContextProperties.put(PRESTO_QUERY_SOURCE, source));
+        session.getClientInfo().ifPresent(clientInfo -> directoryContextProperties.put(PRESTO_CLIENT_INFO, clientInfo));
+        getMetastoreHeaders(session).ifPresent(metastoreHeaders -> directoryContextProperties.put(PRESTO_METASTORE_HEADER, metastoreHeaders));
+        directoryContextProperties.put(PRESTO_USER_NAME, session.getUser());
+        return directoryContextProperties.build();
     }
 }
