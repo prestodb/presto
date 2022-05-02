@@ -72,6 +72,8 @@ class Merge : public SourceOperator {
   /// Used to merge data from two or more sources.
   std::unique_ptr<TreeOfLosers<SourceStream>> treeOfLosers_;
 
+  RowVectorPtr output_;
+
   /// Number of rows accumulated in 'output_' so far.
   vector_size_t outputSize_{0};
 

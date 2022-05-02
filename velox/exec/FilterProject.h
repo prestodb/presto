@@ -62,12 +62,6 @@ class FilterProject : public Operator {
   // should return nullptr.
   bool allInputProcessed();
 
-  // Clears references to non-reusable vectors from 'output_' once an
-  // input is fully processed. This makes it more likely that
-  // producers will have singly referenced reusable vectors for the
-  // next batch.
-  void clearNonReusableOutput();
-
   // Evaluate filter on all rows. Return number of rows that passed the filter.
   // Populate filterEvalCtx_.selectedBits and selectedIndices with the indices
   // of the passing rows if only some rows pass the filter. If all or no rows

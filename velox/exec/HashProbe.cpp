@@ -386,6 +386,15 @@ RowVectorPtr HashProbe::getNonMatchingOutputForRightJoin() {
   return output_;
 }
 
+void HashProbe::clearIdentityProjectedOutput() {
+  if (!output_ || !output_.unique()) {
+    return;
+  }
+  for (auto& projection : identityProjections_) {
+    output_->childAt(projection.outputChannel) = nullptr;
+  }
+}
+
 RowVectorPtr HashProbe::getOutput() {
   clearIdentityProjectedOutput();
   if (!input_) {

@@ -71,16 +71,13 @@ bool AssignUniqueId::isFinished() {
 }
 
 void AssignUniqueId::generateIdColumn(vector_size_t size) {
-  // Try to re-use memory for the ID vector. This method populates results_[0],
-  // then getOutput() std::move's it into last child of output_.
-  VectorPtr result;
-  if (output_ && output_.unique()) {
-    BaseVector::prepareForReuse(output_->children().back(), size);
-    result = output_->children().back();
+  // Re-use memory for the ID vector if possible.
+  VectorPtr& result = results_[0];
+  if (result && result.unique()) {
+    BaseVector::prepareForReuse(result, size);
   } else {
     result = BaseVector::create(BIGINT(), size, pool());
   }
-  results_[0] = result;
 
   auto rawResults =
       result->asUnchecked<FlatVector<int64_t>>()->mutableRawValues();

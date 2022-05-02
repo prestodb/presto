@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <immintrin.h>
 
 #include <folly/hash/Hash.h>
 
+#include <velox/vector/BaseVector.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/vector/BuilderTypeUtils.h"
@@ -229,7 +229,11 @@ void FlatVector<T>::copyValuesAndNulls(
   }
   if (source->encoding() == VectorEncoding::Simple::FLAT) {
     auto flat = source->asUnchecked<FlatVector<T>>();
-    if (source->typeKind() != TypeKind::UNKNOWN) {
+    if (!flat->values() || flat->values()->size() == 0) {
+      // The vector must have all-null values.
+      VELOX_CHECK_EQ(
+          BaseVector::countNulls(flat->nulls(), 0, flat->size()), flat->size());
+    } else if (source->typeKind() != TypeKind::UNKNOWN) {
       if (Buffer::is_pod_like_v<T>) {
         memcpy(
             &rawValues_[targetIndex],

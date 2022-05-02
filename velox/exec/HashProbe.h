@@ -67,6 +67,14 @@ class HashProbe : public Operator {
   // Populate output columns.
   void fillOutput(vector_size_t size);
 
+  // Clears the columns of 'output_' that are projected from
+  // 'input_'. This should be done when preparing to produce a next
+  // batch of output to drop any lingering references to row
+  // number mappings or input vectors. In this way input vectors do
+  // not have to be copied and will be singly referenced by their
+  // producer.
+  void clearIdentityProjectedOutput();
+
   // Populate output columns with build-side rows that didn't match join
   // condition.
   RowVectorPtr getNonMatchingOutputForRightJoin();
@@ -187,6 +195,8 @@ class HashProbe : public Operator {
   // Keeps track of returned results between successive batches of
   // output for a batch of input.
   BaseHashTable::JoinResultIterator results_;
+
+  RowVectorPtr output_;
 
   // Input rows with no nulls in the join keys.
   SelectivityVector nonNullRows_;

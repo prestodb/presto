@@ -383,6 +383,8 @@ class MergeJoin : public Operator {
   /// A set of rows with matching keys on the right side.
   std::optional<Match> rightMatch_;
 
+  RowVectorPtr output_;
+
   /// Number of rows accumulated in the output_.
   vector_size_t outputSize_;
 

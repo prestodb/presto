@@ -186,6 +186,7 @@ class PartitionedOutput : public Operator {
   bool replicatedAny_{false};
   std::weak_ptr<exec::PartitionedOutputBufferManager> bufferManager_;
   memory::MappedMemory* FOLLY_NONNULL mappedMemory_;
+  RowVectorPtr output_;
 
   // Reusable memory.
   SelectivityVector rows_;
