@@ -48,6 +48,8 @@ public interface StandardFunctionResolution
 
     boolean isComparisonFunction(FunctionHandle functionHandle);
 
+    boolean isEqualsFunction(FunctionHandle functionHandle);
+
     FunctionHandle betweenFunction(Type valueType, Type lowerBoundType, Type upperBoundType);
 
     boolean isBetweenFunction(FunctionHandle functionHandle);
