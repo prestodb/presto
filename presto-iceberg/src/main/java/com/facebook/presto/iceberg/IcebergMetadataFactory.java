@@ -56,7 +56,8 @@ public class IcebergMetadataFactory
     {
         switch (catalogType) {
             case HADOOP:
-                return new IcebergHadoopMetadata(resourceFactory, typeManager, commitTaskCodec);
+            case NESSIE:
+                return new IcebergNativeMetadata(resourceFactory, typeManager, commitTaskCodec, catalogType);
             case HIVE:
                 return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
         }
