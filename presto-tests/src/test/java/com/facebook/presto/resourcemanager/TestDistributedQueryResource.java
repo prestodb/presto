@@ -195,7 +195,7 @@ public class TestDistributedQueryResource
         assertEquals(infos.get(3).getState(), QueryState.QUEUED);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testGetAllQueryInfoReturnsAllQueriesWithNoLimitSpecified()
             throws InterruptedException
     {
