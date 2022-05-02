@@ -17,11 +17,11 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.ColumnMapping;
 import com.facebook.presto.plugin.jdbc.ConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
-import com.facebook.presto.plugin.jdbc.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -40,12 +40,12 @@ import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.bigintReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.decimalReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.doubleReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.realReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.smallintReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varcharReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.smallIntColumnMapping;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -131,39 +131,39 @@ public class OracleClient
     }
 
     @Override
-    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
         int columnSize = typeHandle.getColumnSize();
 
         switch (typeHandle.getJdbcType()) {
             case Types.CLOB:
-                return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+                return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
             case Types.SMALLINT:
-                return Optional.of(smallintReadMapping());
+                return Optional.of(smallIntColumnMapping());
             case Types.FLOAT:
             case Types.DOUBLE:
-                return Optional.of(doubleReadMapping());
+                return Optional.of(doubleColumnMapping());
             case Types.REAL:
-                return Optional.of(realReadMapping());
+                return Optional.of(realColumnMapping());
             case Types.NUMERIC:
                 int precision = columnSize == 0 ? Decimals.MAX_PRECISION : columnSize;
                 int scale = typeHandle.getDecimalDigits();
 
                 if (scale == 0) {
-                    return Optional.of(bigintReadMapping());
+                    return Optional.of(bigintColumnMapping());
                 }
                 if (scale < 0 || scale > precision) {
-                    return Optional.of(decimalReadMapping(createDecimalType(precision, numberDefaultScale)));
+                    return Optional.of(decimalColumnMapping(createDecimalType(precision, numberDefaultScale)));
                 }
 
-                return Optional.of(decimalReadMapping(createDecimalType(precision, scale)));
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
             case Types.LONGVARCHAR:
                 if (columnSize > VarcharType.MAX_LENGTH || columnSize == 0) {
-                    return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
-                return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+                return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
             case Types.VARCHAR:
-                return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+                return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
         }
         return super.toPrestoType(session, typeHandle);
     }

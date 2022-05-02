@@ -214,9 +214,7 @@ public class QueryBuilder
                 validType.equals(BooleanType.BOOLEAN) ||
                 validType.equals(DateType.DATE) ||
                 validType.equals(TimeType.TIME) ||
-                validType.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE) ||
                 validType.equals(TimestampType.TIMESTAMP) ||
-                validType.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE) ||
                 validType instanceof VarcharType ||
                 validType instanceof CharType;
     }

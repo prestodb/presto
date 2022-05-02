@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimestampType;
@@ -271,6 +272,10 @@ public class H2QueryRunner
                 else if (DOUBLE.equals(type)) {
                     double doubleValue = resultSet.getDouble(position);
                     return resultSet.wasNull() ? null : doubleValue;
+                }
+                else if (JsonType.JSON.equals(type)) {
+                    String stringValue = resultSet.getString(position);
+                    return resultSet.wasNull() ? null : jsonParse(utf8Slice(stringValue)).toStringUtf8();
                 }
                 else if (isVarcharType(type)) {
                     String stringValue = resultSet.getString(position);

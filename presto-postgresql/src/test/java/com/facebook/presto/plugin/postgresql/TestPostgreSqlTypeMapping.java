@@ -48,6 +48,7 @@ import static com.facebook.presto.tests.datatype.DataType.dateDataType;
 import static com.facebook.presto.tests.datatype.DataType.decimalDataType;
 import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
 import static com.facebook.presto.tests.datatype.DataType.integerDataType;
+import static com.facebook.presto.tests.datatype.DataType.jsonDataType;
 import static com.facebook.presto.tests.datatype.DataType.realDataType;
 import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
 import static com.facebook.presto.tests.datatype.DataType.varbinaryDataType;
@@ -275,7 +276,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testTimestamp()
     {
-        // TODO timestamp is not correctly read (see comment in StandardReadMappings.timestampReadMapping), but testing this is hard because of #7122
+        // TODO timestamp is not correctly read (see comment in StandardColumnMappings.timestampReadMapping), but testing this is hard because of #7122
     }
 
     @Test
@@ -366,6 +367,49 @@ public class TestPostgreSqlTypeMapping
         }
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
+        }
+    }
+
+    @Test
+    public void jsonDataTypeTest()
+    {
+        DataTypeTest dataTypeTest = DataTypeTest.create()
+                .addRoundTrip(jsonDataType(), "{}")
+                .addRoundTrip(jsonDataType(), null)
+                .addRoundTrip(jsonDataType(), "null")
+                .addRoundTrip(jsonDataType(), "123.4")
+                .addRoundTrip(jsonDataType(), "\"abc\"")
+                .addRoundTrip(jsonDataType(), "\"\"")
+                .addRoundTrip(jsonDataType(), "{\"a\":1,\"b\":2}")
+                .addRoundTrip(jsonDataType(), "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
+                .addRoundTrip(jsonDataType(), "[]");
+
+        dataTypeTest.execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
+        dataTypeTest.execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json"));
+    }
+
+    @Test
+    public void testGeometry()
+    {
+        //TODO: added tests for geometry type, need to move postgresql server to docker, and add postgis image so that geometry data type is supported.
+    }
+
+    @Test
+    public void testJson()
+    {
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_json(key varchar(5), json_column json, jsonb_column jsonb)");
+        try {
+            assertQuery(
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_json'",
+                    "VALUES ('key','varchar(5)'),('json_column','json'),('jsonb_column','json')");
+            assertUpdate("INSERT INTO tpch.test_json VALUES ('1', json'{\"x\":123}',json'{\"x\": 123}' )", 1);
+            assertQuery("SELECT * FROM tpch.test_json", "SELECT '1' \"key\", '{\"x\":   123}' json_column, '{\"x\":123}' jsonb_column");
+            assertQuery("SELECT * FROM test_json WHERE json_column = json'{\"x\":123}'", "SELECT '1' \"key\", '{\"x\":   123}' json_column, '{\"x\":123}' jsonb_column");
+            assertUpdate("INSERT INTO test_json VALUES ('1', json'{\"x\":123}',json'{\"x\": 123}' )", 1);
+        }
+        finally {
+            jdbcSqlExecutor.execute("DROP TABLE tpch.test_json");
         }
     }
 

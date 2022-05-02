@@ -15,6 +15,783 @@ setup: true
 
 orbs:
   path-filtering: circleci/path-filtering@0.1.5
+  aws-cli: circleci/aws-cli@1.2.1
+  jq: circleci/jq@2.2.0
+
+executors:
+  openjdk-machine-executor:
+    machine:
+      image: ubuntu-2004:202111-02
+    working_directory: ~/prestodb
+    environment:
+      MAVEN_OPTS: "-Xmx2G -Xms1G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_SKIP_CHECKS_AND_DOCS: "-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
+      MAVEN_FAST_INSTALL: "-DskipTests -Dair.check.skip-all=true -Dmaven.javadoc.skip=true -B -q -T C1"
+
+  openjdk-s3-test:
+    machine:
+      image: ubuntu-2004:202111-02
+    working_directory: ~/prestodb
+    environment:
+      MAVEN_OPTS: "-Xmx2G -Xms1G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_SKIP_CHECKS_AND_DOCS: "-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
+      MAVEN_FAST_INSTALL: "-DskipTests -Dair.check.skip-all=true -Dmaven.javadoc.skip=true -B -q -T C1"
+      AWS_S3_BUCKET: "presto-ci-s3-tests"
+      S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
+
+  openjdk:
+    docker:
+      - image: cimg/openjdk:8.0-node
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
+    resource_class: large
+    working_directory: ~/prestodb
+    environment:
+      MAVEN_OPTS: "-Xmx2G -Xms1G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_SKIP_CHECKS_AND_DOCS: "-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
+      MAVEN_FAST_INSTALL: "-DskipTests -Dair.check.skip-all=true -Dmaven.javadoc.skip=true -B -q -T C1"
+
+commands:
+  set_java_to_8:
+    steps:
+      - run:
+          name: Set java version to 8
+          command: sudo update-java-alternatives -s java-1.8.0-openjdk-amd64
+
+  save_package_cache:
+    steps:
+      - run:
+          name: Copy maven cache
+          command: |
+            rm -rf ~/mvn_cache
+            mkdir ~/mvn_cache
+            cp -R ~/.m2/* ~/mvn_cache/
+
+      - run:
+          name: Remove project files
+          command: rm -rf ~/mvn_cache/repository/com/facebook
+
+      - save_cache:
+          paths:
+            - ~/mvn_cache/repository
+            - ~/mvn_cache/wrapper
+          key: v5-prestodb-mvn-packages-{{ checksum "pom.xml" }}
+
+  restore_package_cache:
+    steps:
+      - run: mkdir ~/mvn_cache
+
+      - restore_cache:
+          keys:
+            - v5-prestodb-mvn-packages-{{ checksum "pom.xml" }}
+            - v5-prestodb-mvn-packages-
+      - run:
+          name: Copy maven cache
+          command: |
+            mkdir -p ~/.m2
+            if [ "$(ls -A ~/mvn_cache)" ]; then cp -R ~/mvn_cache/* ~/.m2/; fi
+
+  persist_test_results:
+    steps:
+      - run:
+          name: Consolidate Results
+          command: |
+            sudo apt-get update
+            sudo apt-get install rsync
+            rsync --version
+            mkdir ~/test_artifacts
+            rsync -avW --no-compress \
+              --include='**/' \
+              --include='**/surefire-reports/**.xml' \
+              --include='**/surefire-reports/emailable-report.html' \
+              --include='**/product-tests-presto-jvm-error-file.log' \
+              --include='**/test-reports/junitreports/**.xml' \
+              --include='**/test-reports/emailable-report.html' \
+              --include='**/*-jvmRun*.dump'\
+              --include='**/*.dumpstream' \
+              --exclude='*' \
+              . ~/test_artifacts
+          when: always
+
+      - store_test_results:
+          path: ~/test_artifacts
+
+      - store_artifacts:
+          path: ~/test_artifacts
+
+  build_tag_push_docker_image:
+    parameters:
+      repo_name:
+        type: string
+      aws_region:
+        type: string
+        default: us-east-1
+      aws_ecr_account_url:
+        type: string
+      base_os:
+        type: string
+        default: centos:7
+    steps:
+      - run:
+          name: Setup qemu
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y qemu-user-static
+            sudo apt-get install -y binfmt-support
+
+      - run:
+          name: Check versions
+          command: |
+            qemu-aarch64-static --version
+            update-binfmts --version
+
+      - run:
+          name: Login to Docker
+          command: aws ecr get-login-password --region << parameters.aws_region >> --profile default | docker login --username AWS --password-stdin << parameters.aws_ecr_account_url >>
+
+      - run:
+          name: Build << parameters.repo_name >> docker image for amd64
+          command: docker build -f docker/<< parameters.repo_name >>/Dockerfile -t ahanaio/<< parameters.repo_name >>:latest-linux-amd64 --build-arg PRESTO_VERSION=$PRESTO_VERSION --build-arg BASE_OS=<< parameters.base_os >> --label "tagversion=$CIRCLE_TAG" .
+
+      - run:
+          name: Tag with version and 'latest' for amd64
+          command: |
+            docker tag ahanaio/<< parameters.repo_name >>:latest-linux-amd64 << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:latest-linux-amd64
+            docker tag ahanaio/<< parameters.repo_name >>:latest-linux-amd64 << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:$PRESTO_VERSION-linux-amd64
+
+      - run:
+          name: Push latest and version tag for amd64
+          command: |
+            docker push << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:latest-linux-amd64
+            docker push << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:$PRESTO_VERSION-linux-amd64
+
+      - run:
+          name: Create docker buildx builder
+          command: |
+            export DOCKER_CLI_EXPERIMENTAL=enabled
+            docker buildx create --name arm64-builder --use
+            docker buildx inspect --bootstrap
+
+      - run:
+          name: Build, tag and push << parameters.repo_name >> docker image for arm64
+          command: docker buildx build --push --platform linux/arm64 -f docker/<< parameters.repo_name >>/Dockerfile -t << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:latest-linux-arm64 -t << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:$PRESTO_VERSION-linux-arm64 --build-arg PRESTO_VERSION=$PRESTO_VERSION --build-arg BASE_OS=<< parameters.base_os >> --label "tagversion=$CIRCLE_TAG" .
+
+      - run:
+          name: Create and Push Manifest for latest tag
+          command: |
+            docker manifest create --amend << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:latest << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:latest-linux-amd64 << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:latest-linux-arm64
+            docker manifest inspect << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:latest
+            docker manifest push << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:latest
+
+      - run:
+          name: Create and Push Manifest for version tag
+          command: |
+            docker manifest create --amend << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:$PRESTO_VERSION << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:$PRESTO_VERSION-linux-amd64 << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:$PRESTO_VERSION-linux-arm64
+            docker manifest inspect << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:$PRESTO_VERSION
+            docker manifest push << parameters.aws_ecr_account_url >>/ahanaio/<< parameters.repo_name >>:$PRESTO_VERSION
+
+jobs:
+  build:
+    parameters:
+      persist_artifacts:
+        type: boolean
+        default: false
+    executor: openjdk
+    steps:
+      - checkout
+
+      - restore_package_cache
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Run Maven Build
+          command: ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs'
+
+      - save_package_cache
+
+      - run:
+          name: WebUI Check
+          command: presto-main/bin/check_webui.sh
+
+      - persist_test_results
+
+      - when:
+          condition: << parameters.persist_artifacts >>
+          steps:
+            - run:
+                name: Copy build artifacts
+                command: |
+                  mkdir ~/presto-dist
+                  cp -n presto-server/target/presto-server-*.tar.gz ~/presto-dist
+                  cp -n presto-server-rpm/target/presto-server-rpm-*.x86_64.rpm ~/presto-dist
+                  cp -n presto-product-tests/target/presto-product-tests-*-executable.jar ~/presto-dist
+                  cp -n presto-jdbc/target/presto-jdbc-*.jar ~/presto-dist
+                  cp -n presto-cli/target/presto-cli-*-executable.jar ~/presto-dist
+            - store_artifacts:
+                path: ~/presto-dist
+            - persist_to_workspace:
+                root: ~/presto-dist
+                paths:
+                  - presto-server-*.tar.gz
+                  - presto-server-rpm-*.x86_64.rpm
+                  - presto-product-tests-*-executable.jar
+                  - presto-jdbc-*.jar
+                  - presto-cli-*-executable.jar
+
+  test_specific_module:
+    parameters:
+      module:
+        type: string
+      test_flags:
+        type: string
+        default: ""
+      resource_class:
+        type: string
+        default: large
+      custom_mvn_opts:
+        type: string
+        default: ""
+    executor: openjdk
+    resource_class: << parameters.resource_class >>
+    steps:
+      - when:
+          condition: << parameters.custom_mvn_opts >>
+          steps:
+            - run:
+                name: Change MAVEN_OPTS to << parameters.custom_mvn_opts >>
+                command: |
+                  echo "export MAVEN_OPTS='<< parameters.custom_mvn_opts >>'" >> $BASH_ENV
+                  source $BASH_ENV
+
+      - when:
+          condition:
+            and:
+              - equal: [ large, << parameters.resource_class >> ]
+              - not: << parameters.custom_mvn_opts >>
+          steps:
+            - run:
+                name: Increase JVM heap limit to 6G
+                command: |
+                  echo "export MAVEN_OPTS='-Xmx6G -Xms1G -XX:+ExitOnOutOfMemoryError'" >> $BASH_ENV
+                  source $BASH_ENV
+
+      - when:
+          condition:
+            and:
+              - equal: [ xlarge, << parameters.resource_class >> ]
+              - not: << parameters.custom_mvn_opts >>
+          steps:
+            - run:
+                name: Increase JVM heap limit to 12G
+                command: |
+                  echo "export MAVEN_OPTS='-Xmx12G -Xms1G -XX:+ExitOnOutOfMemoryError'" >> $BASH_ENV
+                  source $BASH_ENV
+
+      - checkout
+
+      - restore_package_cache
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl << parameters.module >> -am
+
+      - run:
+          name: Execute << parameters.module >> tests <<# parameters.test_flags >> with << parameters.test_flags >> <</ parameters.test_flags >>
+          command: ./mvnw test -e -X $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl << parameters.module >> << parameters.test_flags >>
+
+      - persist_test_results
+
+  test_other_modules:
+    executor: openjdk
+    steps:
+      - checkout
+
+      - restore_package_cache
+
+      - setup_remote_docker:
+          version: 19.03.13
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+
+      - run:
+          name: Execute other tests
+          command: ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl !presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-mongodb,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing,!presto-spark-base,!presto-redis,!presto-elasticsearch,!presto-orc,!presto-thrift-connector
+
+      - persist_test_results
+
+  product_test_basic_environment:
+    executor: openjdk-machine-executor
+    resource_class: large
+    steps:
+      - checkout
+
+      - set_java_to_8
+
+      - restore_package_cache
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+
+      - run:
+          name: Test basic environment
+          command: presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql_connector,postgresql_connector,mysql,kafka,avro
+
+      - run:
+          name: Test single node, Rubix caching
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-hive-caching -g hive_caching
+
+      - persist_test_results
+
+  product_test_specific_environment:
+    executor: openjdk
+    resource_class: large
+    steps:
+      - checkout
+
+      - restore_package_cache
+
+      - setup_remote_docker:
+          version: 19.03.13
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+
+      - run:
+          name: Test single node, hdfs no impersonation
+          command: presto-product-tests/bin/run_on_docker.sh singlenode -g hdfs_no_impersonation,avro
+
+      - run:
+          name: Test single node, kerberos, hdfs no impersonation
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-no-impersonation -g hdfs_no_impersonation
+
+      - run:
+          name: Test single node, hdfs impersonation
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation
+
+      - run:
+          name: Test single node, hdfs impersonation with hive
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header
+
+      - run:
+          name: Test single node, hdfs impersonation cross realm
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation-cross-realm -g storage_formats,cli,hdfs_impersonation
+
+      # SQL server image sporadically hangs during the startup
+      # TODO: Uncomment it once issue is fixed
+      # https://github.com/Microsoft/mssql-docker/issues/76
+      # - run:
+      #     name: Test single node, sqlserver
+      #     command: presto-product-tests/bin/run_on_docker.sh singlenode-sqlserver -g sqlserver
+
+      - run:
+          name: Test multi node
+          command: presto-product-tests/bin/run_on_docker.sh multinode-tls-kerberos -g cli,group-by,join,tls
+
+      - persist_test_results
+
+  product_jdbc_tests:
+    executor: openjdk-machine-executor
+    resource_class: large
+    steps:
+      - checkout
+      - set_java_to_8
+      - restore_package_cache
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+
+      - run:
+          name: Test mysql
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-mysql -g mysql_connector,mysql
+
+      - run:
+          name: Test postgres
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-postgresql -g postgresql_connector
+
+      - persist_test_results
+
+  product_test_specific_environment_2:
+    executor: openjdk
+    resource_class: large
+    steps:
+      - checkout
+
+      - restore_package_cache
+
+      - setup_remote_docker:
+          version: 19.03.13
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+
+      - run:
+          name: Test ldap
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap -x simba_jdbc
+
+      - run:
+          name: Test multinode
+          command:  presto-product-tests/bin/run_on_docker.sh multinode-tls -g smoke,cli,group-by,join,tls
+
+      - run:
+          name: Test mysql
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-mysql -g mysql_connector,mysql
+
+      - run:
+          name: Test postgres
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-postgresql -g postgresql_connector
+
+      - run:
+          name: Test cassandra
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-cassandra -g cassandra
+
+      - run:
+          name: Test wire encryption
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation-with-wire-encryption -g storage_formats,cli,hdfs_impersonation,authorization
+
+      - run:
+          name: Test kafka
+          command: presto-product-tests/bin/run_on_docker.sh singlenode-kafka -g kafka
+
+      - persist_test_results
+
+  hive_tests:
+    executor: openjdk-machine-executor
+    resource_class: large
+    steps:
+      - checkout
+
+      - set_java_to_8
+
+      - restore_package_cache
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
+
+      - run:
+          name: Test hive
+          command: presto-hive-hadoop2/bin/run_hive_tests.sh
+
+      - persist_test_results
+
+  hive_s3_tests:
+    executor: openjdk-s3-test
+    resource_class: large
+    steps:
+      - checkout
+
+      - set_java_to_8
+
+      - restore_package_cache
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
+
+      - run:
+          name: Test hive
+          command: presto-hive-hadoop2/bin/run_hive_s3_tests.sh
+
+      - persist_test_results
+
+  hive_dockerized_tests:
+    executor: openjdk-machine-executor
+    resource_class: xlarge
+    steps:
+      - checkout
+
+      - set_java_to_8
+
+      - restore_package_cache
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive -am
+
+      - run:
+          name: Test hive dockerized tests
+          command: ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-hive -P test-hive-insert-overwrite
+
+      - persist_test_results
+
+  kudu_tests:
+    executor: openjdk
+    resource_class: large
+    steps:
+      - checkout
+
+      - restore_package_cache
+
+      - setup_remote_docker:
+          version: 19.03.13
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl presto-kudu -am
+
+      - run:
+          name: Test Kudu
+          command: |
+            presto-kudu/bin/run_kudu_tests.sh 3 null
+            presto-kudu/bin/run_kudu_tests.sh 1 ""
+            presto-kudu/bin/run_kudu_tests.sh 1 presto::
+
+      - persist_test_results
+
+  spark_integration_tests:
+    executor: openjdk
+    resource_class: large
+    steps:
+      - checkout
+
+      - restore_package_cache
+
+      - setup_remote_docker:
+          version: 19.03.13
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Install test dependencies
+          command: ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
+
+      - run:
+          name: Test Spark
+          command: ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-spark-launcher,presto-spark-package,presto-spark-testing -P test-presto-spark-integration-smoke-test
+
+  start_test_suite:
+    executor: openjdk
+    steps:
+      - run: echo "Replace this with manual approval step"
+
+  finish_test_suite:
+    executor: openjdk
+    steps:
+      - run:
+          name: finish test suite
+          command: |
+            echo "All tests passed!"
+            exit 0
+
+  tag_version:
+    executor: openjdk
+    steps:
+      - add_ssh_keys
+
+      - checkout
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Create temporary branch
+          command: git checkout -b temp
+
+      - run:
+          name: Create maven version
+          command: |
+            mvn_version=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+            latest_prestodb_version=$(echo "$mvn_version" | grep -Eo '^([0-9]+\.[0-9]+(\.[0-9]+)?)')
+            old_ahana_version=$(git describe --match "v[0-9]*.[0-9]*-AHN-[0-9]*" --tags $(git rev-list --tags --max-count=1) | sed 's|.*-||')
+            new_ahana_version=$(echo $old_ahana_version 0.1 | awk '{print $1 + $2}')
+            old_prestodb_version=$(git describe --match "v[0-9]*.[0-9]*-AHN-[0-9]*" --tags $(git rev-list --tags --max-count=1) | awk -F- '{print $1}' | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?')
+            if [[ "$old_prestodb_version" == "$latest_prestodb_version" ]]
+            then
+              TAG_VERSION=AHN-${new_ahana_version}
+            else
+              TAG_VERSION=AHN-0.1
+            fi
+            echo "export MVN_VERSION=$latest_prestodb_version-$TAG_VERSION" >> $BASH_ENV
+            source $BASH_ENV
+
+      - run:
+          name: Set version in pom.xml
+          command: |
+            echo ${MVN_VERSION}
+            ./mvnw versions:set -DnewVersion=$MVN_VERSION
+
+      - run:
+          name: Commit, tag and push version
+          command: |
+            git config --global user.email "engineering+github@ahana.io"
+            git config --global user.name "ahana-build"
+            git commit -a -m "Version $MVN_VERSION"
+            git tag v$MVN_VERSION
+            git push origin v$MVN_VERSION
+
+  tag_production:
+    executor: openjdk
+    steps:
+      - add_ssh_keys
+
+      - checkout
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Create production tag
+          command: |
+            mvn_version=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+            echo "export TAG_PRODUCTION_VERSION=$mvn_version" >> $BASH_ENV
+            source $BASH_ENV
+
+      - run:
+          name: Tag and push version
+          command: |
+            git config --global user.email "engineering+github@ahana.io"
+            git config --global user.name "ahana-build"
+            git tag p$TAG_PRODUCTION_VERSION
+            git push origin p$TAG_PRODUCTION_VERSION
+
+  deploy_prestodb_docker_image:
+    parameters:
+      aws_ecr_account_url:
+        type: string
+    executor: openjdk-machine-executor
+    resource_class: xlarge
+    steps:
+      - aws-cli/setup
+
+      - checkout
+
+      - set_java_to_8
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Get Presto Version
+          command: |
+            mvn_version=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+            echo "export PRESTO_VERSION=$mvn_version" >> $BASH_ENV
+            source $BASH_ENV
+
+      - attach_workspace:
+          at: ~/build-artifacts
+
+      - run:
+          name: Copy build artifacts
+          command: |
+            mkdir build-artifacts
+            cp ~/build-artifacts/presto-server-$PRESTO_VERSION.tar.gz ./build-artifacts
+            cp ~/build-artifacts/presto-cli-$PRESTO_VERSION-executable.jar ./build-artifacts
+
+      - build_tag_push_docker_image:
+          repo_name: prestodb
+          aws_ecr_account_url: << parameters.aws_ecr_account_url >>
+
+  deploy_prestodb_cli_docker_image:
+    parameters:
+      aws_ecr_account_url:
+        type: string
+    executor: openjdk
+    steps:
+      - aws-cli/setup
+
+      - checkout
+
+      - run:
+          name: Install Maven Wrapper
+          command: ./mvnw -v
+
+      - run:
+          name: Get Presto Version
+          command: |
+            mvn_version=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+            echo "export PRESTO_VERSION=$mvn_version" >> $BASH_ENV
+            source $BASH_ENV
+
+      - attach_workspace:
+          at: ~/build-artifacts
+
+      - run:
+          name: Copy build artifacts
+          command: |
+            mkdir build-artifacts
+            cp ~/build-artifacts/presto-cli-$PRESTO_VERSION-executable.jar ./build-artifacts
+
+      - build_tag_push_docker_image:
+          repo_name: prestodb-cli
+          aws_ecr_account_url: << parameters.aws_ecr_account_url >>
+
+  rotate_iam_credentials:
+    executor: aws-cli/default
+    parameters:
+      ahana_circleci_owner_id:
+        type: string
+        default: 98dcdd92-e223-4759-96d9-d2b8d50effb5
+      project_name:
+        type: string
+      environment:
+        type: string
+      iam_user_name:
+        type: string
+    steps:
+      - checkout
+
+      - aws-cli/setup
+
+      - jq/install
+
+      - run:
+          name: Rotate keys
+          command: |
+            bash ./.circleci/rotate_iam_keys.sh << parameters.ahana_circleci_owner_id >> << parameters.project_name >> << parameters.environment >> << parameters.iam_user_name >>
 
 workflows:
   always-run:
@@ -28,3 +805,448 @@ workflows:
             presto-docs/.* run_linux_tests false
           base-revision: master
           config-path: .circleci/continue_config.yml
+      - build:
+          context:
+            - docker_hub
+      - start_test_suite:
+          type: approval
+          requires:
+            - build
+      - test_specific_module:
+          name: test_specific_module_presto_tests_execution_memory
+          context:
+            - docker_hub
+          module: presto-tests
+          test_flags: -P presto-tests-execution-memory
+          resource_class: large
+          custom_mvn_opts: -Xmx1024M -XX:+ExitOnOutOfMemoryError
+          requires:
+            - start_test_suite
+#      - test_specific_module:
+#          name: test_specific_module_presto_tests_general
+#          context:
+#            - docker_hub
+#          module: presto-testsx
+#          test_flags: -P presto-tests-general
+#          requires:
+#            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_tests_ci_only_distributed_non_hash_gen
+          context:
+            - docker_hub
+          module: presto-tests
+          test_flags: -P ci-only-distributed-non-hash-gen
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_tests_ci_only_tpch_distributed_queries
+          context:
+            - docker_hub
+          module: presto-tests
+          test_flags: -P ci-only-tpch-distributed-queries
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_tests_ci_only_local_queries
+          context:
+            - docker_hub
+          module: presto-tests
+          test_flags: -P ci-only-local-queries
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_tests_ci_only_distributed_queries
+          context:
+            - docker_hub
+          module: presto-tests
+          test_flags: -P ci-only-distributed-queries
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_tests_ci_only_aggregation_queries
+          context:
+            - docker_hub
+          module: presto-tests
+          test_flags: -P ci-only-aggregation-queries
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_tests_ci_only_plan_determinism
+          context:
+            - docker_hub
+          module: presto-tests
+          test_flags: -P ci-only-plan-determinism
+          resource_class: medium
+          requires:
+            - start_test_suite
+#      - test_specific_module:
+#          name: test_specific_module_presto_raptor
+#          context:
+#            - docker_hub
+#          module: presto-raptor
+#          resource_class: xlarge
+#          requires:
+#            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_accumulo
+          context:
+            - docker_hub
+          module: presto-accumulo
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_cassandra
+          context:
+            - docker_hub
+          module: presto-cassandra
+          test_flags: -P test-cassandra-integration-smoke-test
+          resource_class: medium
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_delta
+          context:
+            - docker_hub
+          module: presto-delta
+          resource_class: xlarge
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive
+          context:
+            - docker_hub
+          module: presto-hive
+          resource_class: xlarge
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive_glue
+          context:
+            - docker_hub
+            - prestodb_glue_tests
+          module: presto-hive
+          test_flags: -P test-hive-glue
+          resource_class: xlarge
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive_glue_impersonation
+          context:
+            - docker_hub
+            - prestodb_glue_tests_temp
+          module: presto-hive
+          test_flags: -P test-hive-glue-impersonation
+          resource_class: xlarge
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive_materialized_queries
+          context:
+            - docker_hub
+          module: presto-hive
+          test_flags: -P test-hive-materialized-queries
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive_materialized_aggregations
+          context:
+            - docker_hub
+          module: presto-hive
+          test_flags: -P test-hive-materialized-aggregations
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive_recoverable_execution
+          context:
+            - docker_hub
+          module: presto-hive
+          test_flags: -P test-hive-recoverable-execution
+          resource_class: medium
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive_pushdown_filter_queries_basic
+          context:
+            - docker_hub
+          module: presto-hive
+          test_flags: -P test-hive-pushdown-filter-queries-basic
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive_pushdown_filter_queries_advanced
+          context:
+            - docker_hub
+          module: presto-hive
+          test_flags: -P test-hive-pushdown-filter-queries-advanced
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive_repartitioning
+          context:
+            - docker_hub
+          module: presto-hive
+          test_flags: -P test-hive-repartitioning
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_hive_parquet
+          context:
+            - docker_hub
+          module: presto-hive
+          test_flags: -P test-hive-parquet
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_main
+          context:
+            - docker_hub
+          module: presto-main
+          resource_class: xlarge
+          custom_mvn_opts: -Xmx13G -Xms1G -XX:+ExitOnOutOfMemoryError
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_mongodb
+          context:
+            - docker_hub
+          module: presto-mongodb
+          test_flags: -P test-mongo-distributed-queries
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_redis
+          context:
+            - docker_hub
+          module: presto-redis
+          test_flags: -P test-redis-integration-smoke-test
+          resource_class: medium
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_elasticsearch
+          context:
+            - docker_hub
+          module: presto-elasticsearch
+          resource_class: medium
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_orc
+          context:
+            - docker_hub
+          module: presto-orc
+          resource_class: medium
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_thrift_connector
+          context:
+            - docker_hub
+          module: presto-thrift-connector
+          requires:
+            - start_test_suite
+      - test_specific_module:
+          name: test_specific_module_presto_spark_base
+          context:
+            - docker_hub
+          module: presto-spark-base
+          requires:
+            - start_test_suite
+#      - test_other_modules:
+#          context:
+#            - docker_hub
+#          requires:
+#            - start_test_suite
+      - product_test_basic_environment:
+          context:
+            - docker_hub
+          requires:
+            - start_test_suite
+      - product_jdbc_tests:
+          context:
+            - docker_hub
+          requires:
+            - start_test_suite
+#      - product_test_specific_environment:
+#          context:
+#            - docker_hub
+#          requires:
+#            - start_test_suite
+#      - product_test_specific_environment_2:
+#          context:
+#            - docker_hub
+#          requires:
+#            - start_test_suite
+      - hive_tests:
+          context:
+            - docker_hub
+          requires:
+            - start_test_suite
+      - hive_s3_tests:
+          context:
+            - docker_hub
+            - prestodb_staging
+          requires:
+            - start_test_suite
+      - hive_dockerized_tests:
+          context:
+            - docker_hub
+          requires:
+            - start_test_suite
+      #      - kudu_tests:
+#          context:
+#            - docker_hub
+#          requires:
+#            - start_test_suite
+#      - spark_integration_tests:
+#          context:
+#            - docker_hub
+#          requires:
+#            - start_test_suite
+      - finish_test_suite:
+          requires:
+            - start_test_suite
+            - test_specific_module_presto_tests_execution_memory
+#            - test_specific_module_presto_tests_general
+            - test_specific_module_presto_tests_ci_only_distributed_non_hash_gen
+            - test_specific_module_presto_tests_ci_only_tpch_distributed_queries
+            - test_specific_module_presto_tests_ci_only_local_queries
+            - test_specific_module_presto_tests_ci_only_distributed_queries
+            - test_specific_module_presto_tests_ci_only_aggregation_queries
+            - test_specific_module_presto_tests_ci_only_plan_determinism
+            # - test_specific_module_presto_raptor
+            - test_specific_module_presto_accumulo
+            - test_specific_module_presto_cassandra
+            - test_specific_module_presto_delta
+            - test_specific_module_presto_hive
+            - test_specific_module_presto_hive_glue
+            - test_specific_module_presto_hive_glue_impersonation
+            - test_specific_module_presto_hive_materialized_queries
+            - test_specific_module_presto_hive_materialized_aggregations
+            - test_specific_module_presto_hive_recoverable_execution
+            - test_specific_module_presto_hive_pushdown_filter_queries_basic
+            - test_specific_module_presto_hive_pushdown_filter_queries_advanced
+            - test_specific_module_presto_hive_repartitioning
+            - test_specific_module_presto_hive_parquet
+            - test_specific_module_presto_main
+            - test_specific_module_presto_mongodb
+            - test_specific_module_presto_redis
+            - test_specific_module_presto_elasticsearch
+            - test_specific_module_presto_orc
+            - test_specific_module_presto_thrift_connector
+            - test_specific_module_presto_spark_base
+            # - test_other_modules
+            - product_test_basic_environment
+            - product_jdbc_tests
+            # - product_test_specific_environment
+            # - product_test_specific_environment_2
+            - hive_tests
+            - hive_s3_tests
+            - hive_dockerized_tests
+            # - kudu_tests
+            # - spark_integration_tests
+      - tag_version:
+          context:
+            - docker_hub
+          filters:
+            branches:
+              only:
+                - develop
+          requires:
+            - finish_test_suite
+
+  build_test_and_deploy:
+    jobs:
+      - build:
+          name: build_version
+          context:
+            - docker_hub
+          persist_artifacts: true
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - deploy_prestodb_docker_image:
+          name: deploy_prestodb_docker_image_staging
+          aws_ecr_account_url: 375567808433.dkr.ecr.us-east-1.amazonaws.com
+          context:
+            - prestodb_staging
+            - docker_hub
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+          requires:
+            - build_version
+      # - deploy_prestodb_cli_docker_image:
+      #     name: deploy_prestodb_cli_docker_image_staging
+      #     aws_ecr_account_url: 375567808433.dkr.ecr.us-east-1.amazonaws.com
+      #     context:
+      #        - prestodb_staging
+      #        - docker_hub
+      #     filters:
+      #       tags:
+      #         only: /^v.*/
+      #       branches:
+      #         ignore: /.*/
+      #     requires:
+      #       - build_version
+      - release_to_production:
+          type: approval
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+          requires:
+            - deploy_prestodb_docker_image_staging
+      - deploy_prestodb_docker_image:
+          name: deploy_prestodb_docker_image_production
+          aws_ecr_account_url: 119343124599.dkr.ecr.us-east-1.amazonaws.com
+          context:
+            - prestodb_production
+            - docker_hub
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+          requires:
+            - release_to_production
+      - tag_production:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+          requires:
+            - deploy_prestodb_docker_image_production
+          context:
+            - docker_hub
+
+  rotate_credentials_monthly:
+    triggers:
+      - schedule:
+          cron: '30 5 1 * *'
+          filters:
+            branches:
+              only: develop
+    jobs:
+      - rotate_iam_credentials:
+          name: rotate_prestodb_staging_credentials
+          project_name: prestodb
+          environment: staging
+          iam_user_name: AhanaPrestoDbProvisioningUser
+          context:
+            - devopsray_provisioning_setup_staging
+            - circleci_api_key
+      - rotate_iam_credentials:
+          name: rotate_prestodb_production_credentials
+          project_name: prestodb
+          environment: production
+          iam_user_name: AhanaPrestoDbProvisioningUser
+          context:
+            - devopsray_provisioning_setup_production
+            - circleci_api_key

@@ -33,7 +33,9 @@ import java.util.function.Function;
 import static com.facebook.presto.common.type.CharType.createCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
@@ -147,6 +149,18 @@ public class DataType<T>
                 "DATE",
                 DATE,
                 DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''")::format,
+                identity());
+    }
+
+    public static DataType<String> jsonDataType()
+    {
+        return dataType(
+                "json",
+                JSON,
+                value -> {
+                    checkArgument(!value.contains("'"));
+                    return format("JSON '%s'", value);
+                },
                 identity());
     }
 
