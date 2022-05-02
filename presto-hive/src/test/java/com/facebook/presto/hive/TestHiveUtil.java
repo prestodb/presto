@@ -40,10 +40,18 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
+import static com.facebook.presto.hive.HiveUtil.PRESTO_CLIENT_INFO;
+import static com.facebook.presto.hive.HiveUtil.PRESTO_METASTORE_HEADER;
+import static com.facebook.presto.hive.HiveUtil.PRESTO_QUERY_ID;
+import static com.facebook.presto.hive.HiveUtil.PRESTO_QUERY_SOURCE;
+import static com.facebook.presto.hive.HiveUtil.PRESTO_USER_NAME;
+import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionNamesAndValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_BASEPATH_KEY;
@@ -139,6 +147,17 @@ public class TestHiveUtil
                 HUDI_DELTA_FILEPATHS_KEY, "/test/.file_100.log",
                 HUDI_MAX_COMMIT_TIME_KEY, "100");
         assertTrue(shouldUseRecordReaderFromInputFormat(new Configuration(), new Storage(hudiRealtimeStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(), ImmutableMap.of()), customSplitInfo));
+    }
+
+    @Test
+    public void testBuildDirectoryContextProperties()
+    {
+        Map<String, String> additionalProperties = buildDirectoryContextProperties(SESSION);
+        assertEquals(additionalProperties.get(PRESTO_QUERY_ID), SESSION.getQueryId());
+        assertEquals(Optional.ofNullable(additionalProperties.get(PRESTO_QUERY_SOURCE)), SESSION.getSource());
+        assertEquals(Optional.ofNullable(additionalProperties.get(PRESTO_CLIENT_INFO)), SESSION.getClientInfo());
+        assertEquals(additionalProperties.get(PRESTO_USER_NAME), SESSION.getUser());
+        assertEquals(Optional.ofNullable(additionalProperties.get(PRESTO_METASTORE_HEADER)), getMetastoreHeaders(SESSION));
     }
 
     private static void assertToPartitionValues(String partitionName)
