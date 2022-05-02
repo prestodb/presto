@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -68,6 +69,11 @@ public class RowExpressionRewriteRuleSet
     public RowExpressionRewriteRuleSet(PlanRowExpressionRewriter rewriter)
     {
         this.rewriter = requireNonNull(rewriter, "rewriter is null");
+    }
+
+    public boolean isRewriterEnabled(Session session)
+    {
+        return true;
     }
 
     public Set<Rule<?>> rules()
@@ -139,6 +145,12 @@ public class RowExpressionRewriteRuleSet
             implements Rule<ProjectNode>
     {
         @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
+        @Override
         public Pattern<ProjectNode> getPattern()
         {
             return project();
@@ -167,6 +179,12 @@ public class RowExpressionRewriteRuleSet
     private final class SpatialJoinRowExpressionRewrite
             implements Rule<SpatialJoinNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<SpatialJoinNode> getPattern()
         {
@@ -199,6 +217,12 @@ public class RowExpressionRewriteRuleSet
     private final class JoinRowExpressionRewrite
             implements Rule<JoinNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<JoinNode> getPattern()
         {
@@ -237,6 +261,12 @@ public class RowExpressionRewriteRuleSet
     private final class WindowRowExpressionRewrite
             implements Rule<WindowNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<WindowNode> getPattern()
         {
@@ -289,6 +319,12 @@ public class RowExpressionRewriteRuleSet
             implements Rule<ApplyNode>
     {
         @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
+        @Override
         public Pattern<ApplyNode> getPattern()
         {
             return applyNode();
@@ -332,6 +368,12 @@ public class RowExpressionRewriteRuleSet
             implements Rule<FilterNode>
     {
         @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
+        @Override
         public Pattern<FilterNode> getPattern()
         {
             return filter();
@@ -353,6 +395,12 @@ public class RowExpressionRewriteRuleSet
     private final class ValuesRowExpressionRewrite
             implements Rule<ValuesNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<ValuesNode> getPattern()
         {
@@ -385,6 +433,12 @@ public class RowExpressionRewriteRuleSet
     private final class AggregationRowExpressionRewrite
             implements Rule<AggregationNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<AggregationNode> getPattern()
         {
@@ -426,6 +480,12 @@ public class RowExpressionRewriteRuleSet
     private final class TableFinishRowExpressionRewrite
             implements Rule<TableFinishNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<TableFinishNode> getPattern()
         {
@@ -477,6 +537,12 @@ public class RowExpressionRewriteRuleSet
     private final class TableWriterRowExpressionRewrite
             implements Rule<TableWriterNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<TableWriterNode> getPattern()
         {
