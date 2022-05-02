@@ -82,19 +82,19 @@ public final class GlueToPrestoConverter
                 .setParameters(tableParameters)
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
-        StorageDescriptor sd = glueTable.getStorageDescriptor();
-        if (sd == null) {
-            if (isIcebergTable(tableParameters) || isDeltaLakeTable(tableParameters)) {
-                // Iceberg and Delta Lake tables do not use the StorageDescriptor field, but we need to return a Table so the caller can check that
-                // the table is an Iceberg/Delta table and decide whether to redirect or fail.
-                tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty(), Optional.empty())));
-                tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
-            }
-            else {
-                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
-            }
+
+        if (isIcebergTable(tableParameters) || isDeltaLakeTable(tableParameters)) {
+            // Iceberg and Delta Lake tables do not use the StorageDescriptor field, but we need to return a Table so the caller can check that
+            // the table is an Iceberg/Delta table and decide whether to redirect or fail.
+            tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty(), Optional.empty())));
+            tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
+            tableBuilder.getStorageBuilder().setLocation(sd.getLocation());
         }
         else {
+            StorageDescriptor sd = glueTable.getStorageDescriptor();
+            if (sd == null) {
+                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
+            }
             tableBuilder.setDataColumns(convertColumns(sd.getColumns()));
             if (glueTable.getPartitionKeys() != null) {
                 tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys()));
