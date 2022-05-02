@@ -51,6 +51,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static java.lang.Math.min;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
@@ -631,6 +632,21 @@ public final class LogicalRowExpressions
         return expression instanceof CallExpression && functionResolution.isComparisonFunction(((CallExpression) expression).getFunctionHandle());
     }
 
+    public boolean isEqualsExpression(RowExpression expression)
+    {
+        return expression instanceof CallExpression && functionResolution.isEqualsFunction(((CallExpression) expression).getFunctionHandle());
+    }
+
+    public boolean isCastExpression(RowExpression expression)
+    {
+        return expression instanceof CallExpression && functionResolution.isCastFunction(((CallExpression) expression).getFunctionHandle());
+    }
+
+    public boolean isCaseExpression(RowExpression expression)
+    {
+        return expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm().equals(SWITCH);
+    }
+
     /**
      * Extract the component predicates as a list of list in which is grouped so that the outer level has same conjunctive/disjunctive joiner as original predicate and
      * inner level has opposite joiner.
@@ -771,9 +787,27 @@ public final class LogicalRowExpressions
         return Optional.empty();
     }
 
-    private RowExpression notCallExpression(RowExpression argument)
+    public RowExpression notCallExpression(RowExpression argument)
     {
         return new CallExpression(argument.getSourceLocation(), "not", functionResolution.notFunction(), BOOLEAN, singletonList(argument));
+    }
+
+    public RowExpression equalsCallExpression(RowExpression left, RowExpression right)
+    {
+        return new CallExpression(
+                EQUAL.name(),
+                functionResolution.comparisonFunction(EQUAL, left.getType(), right.getType()),
+                BOOLEAN,
+                asList(left, right));
+    }
+
+    public static RowExpression replaceArguments(CallExpression expression, RowExpression... arguments)
+    {
+        return new CallExpression(
+                expression.getDisplayName(),
+                expression.getFunctionHandle(),
+                expression.getType(),
+                asList(arguments));
     }
 
     private static OperatorType negate(OperatorType operator)

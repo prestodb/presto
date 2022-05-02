@@ -55,6 +55,7 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENA
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -5497,6 +5498,42 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT CASE x WHEN 1 THEN 1 WHEN 5 THEN 5 WHEN 3 THEN 10 ELSE -1 END FROM (SELECT ORDERKEY x FROM orders where orderkey <= 10)",
                 "SELECT CASE x WHEN 1 THEN 1 WHEN 5 THEN 5 WHEN 3 THEN 10 ELSE -1 END FROM (SELECT ORDERKEY x FROM orders where orderkey <= 10)");
+    }
+
+    @Test
+    public void testCasePredicateRewrite()
+    {
+        Session caseExpressionRewriteEnabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CASE_EXPRESSION_PREDICATE, "true")
+                .build();
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT LINENUMBER FROM LINEITEM WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'SMALL'");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT LINENUMBER FROM LINEITEM WHERE 'MEDIUM' = (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END)");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT LINENUMBER FROM LINEITEM WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'LARGE'");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END) = 2");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE 1 < (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END)");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE 2 END) = 2");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT ORDERSTATUS, ORDERPRIORITY, TOTALPRICE FROM ORDERS WHERE (CASE WHEN ORDERSTATUS='F' THEN 1 WHEN (CASE WHEN ORDERPRIORITY = '5-LOW' THEN true ELSE false END) THEN 2 WHEN ORDERSTATUS='O' THEN 3 ELSE -1 END) > 1");
     }
 
     @Test
