@@ -122,126 +122,23 @@ std::unique_ptr<SimpleVector<uint64_t>> SequenceVector<T>::hashAll() const {
 }
 
 template <typename T>
-__m256i SequenceVector<T>::loadSIMDValueBufferAt(size_t byteOffset) const {
-  auto startIndex = byteOffset / sizeof(T);
-  if (checkLoadRange(startIndex, simd::Vectors<T>::VSize)) {
-    return simd::setAll256i(valueAtFast(startIndex));
+xsimd::batch<T> SequenceVector<T>::loadSIMDValueBufferAt(
+    size_t byteOffset) const {
+  if constexpr (std::is_same<T, bool>::value) {
+    throw std::runtime_error(
+        "Sequence encoding only supports SIMD operations on integers");
+  } else {
+    constexpr int kBatchSize = xsimd::batch<T>::size;
+    auto startIndex = byteOffset / sizeof(T);
+    if (checkLoadRange(startIndex, kBatchSize)) {
+      return simd::setAll(valueAtFast(startIndex));
+    }
+    alignas(xsimd::default_arch::alignment()) T tmp[kBatchSize];
+    for (int i = 0; i < kBatchSize; ++i) {
+      tmp[i] = valueAtFast(startIndex + i);
+    }
+    return xsimd::load_aligned(tmp);
   }
-
-  if constexpr (
-      std::is_same<T, int64_t>::value || std::is_same<T, uint64_t>::value) {
-    // Note it's important to retrieve these in order for performance
-    // reasons which is why we enregister them here and reorder them below
-    auto b0 = valueAtFast(startIndex);
-    auto b1 = valueAtFast(startIndex + 1);
-    auto b2 = valueAtFast(startIndex + 2);
-    auto b3 = valueAtFast(startIndex + 3);
-    return _mm256_set_epi64x(b3, b2, b1, b0);
-  } else if constexpr (
-      std::is_same<T, int32_t>::value || std::is_same<T, uint32_t>::value) {
-    // Note it's important to retrieve these in order for performance
-    // reasons which is why we enregister them here and reorder them below
-    auto b0 = valueAtFast(startIndex);
-    auto b1 = valueAtFast(startIndex + 1);
-    auto b2 = valueAtFast(startIndex + 2);
-    auto b3 = valueAtFast(startIndex + 3);
-    auto b4 = valueAtFast(startIndex + 4);
-    auto b5 = valueAtFast(startIndex + 5);
-    auto b6 = valueAtFast(startIndex + 6);
-    auto b7 = valueAtFast(startIndex + 7);
-    return _mm256_set_epi32(b7, b6, b5, b4, b3, b2, b1, b0);
-
-  } else if constexpr (
-      std::is_same<T, int16_t>::value || std::is_same<T, uint16_t>::value) {
-    auto b0 = valueAtFast(startIndex);
-    auto b1 = valueAtFast(startIndex + 1);
-    auto b2 = valueAtFast(startIndex + 2);
-    auto b3 = valueAtFast(startIndex + 3);
-    auto b4 = valueAtFast(startIndex + 4);
-    auto b5 = valueAtFast(startIndex + 5);
-    auto b6 = valueAtFast(startIndex + 6);
-    auto b7 = valueAtFast(startIndex + 7);
-    auto b8 = valueAtFast(startIndex + 8);
-    auto b9 = valueAtFast(startIndex + 9);
-    auto b10 = valueAtFast(startIndex + 10);
-    auto b11 = valueAtFast(startIndex + 11);
-    auto b12 = valueAtFast(startIndex + 12);
-    auto b13 = valueAtFast(startIndex + 13);
-    auto b14 = valueAtFast(startIndex + 14);
-    auto b15 = valueAtFast(startIndex + 15);
-    return _mm256_set_epi16(
-        b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0);
-  } else if constexpr (
-      std::is_same<T, int8_t>::value || std::is_same<T, uint8_t>::value) {
-    auto b0 = valueAtFast(startIndex);
-    auto b1 = valueAtFast(startIndex + 1);
-    auto b2 = valueAtFast(startIndex + 2);
-    auto b3 = valueAtFast(startIndex + 3);
-    auto b4 = valueAtFast(startIndex + 4);
-    auto b5 = valueAtFast(startIndex + 5);
-    auto b6 = valueAtFast(startIndex + 6);
-    auto b7 = valueAtFast(startIndex + 7);
-    auto b8 = valueAtFast(startIndex + 8);
-    auto b9 = valueAtFast(startIndex + 9);
-    auto b10 = valueAtFast(startIndex + 10);
-    auto b11 = valueAtFast(startIndex + 11);
-    auto b12 = valueAtFast(startIndex + 12);
-    auto b13 = valueAtFast(startIndex + 13);
-    auto b14 = valueAtFast(startIndex + 14);
-    auto b15 = valueAtFast(startIndex + 15);
-    auto b16 = valueAtFast(startIndex + 16);
-    auto b17 = valueAtFast(startIndex + 17);
-    auto b18 = valueAtFast(startIndex + 18);
-    auto b19 = valueAtFast(startIndex + 19);
-    auto b20 = valueAtFast(startIndex + 20);
-    auto b21 = valueAtFast(startIndex + 21);
-    auto b22 = valueAtFast(startIndex + 22);
-    auto b23 = valueAtFast(startIndex + 23);
-    auto b24 = valueAtFast(startIndex + 24);
-    auto b25 = valueAtFast(startIndex + 25);
-    auto b26 = valueAtFast(startIndex + 26);
-    auto b27 = valueAtFast(startIndex + 27);
-    auto b28 = valueAtFast(startIndex + 28);
-    auto b29 = valueAtFast(startIndex + 29);
-    auto b30 = valueAtFast(startIndex + 30);
-    auto b31 = valueAtFast(startIndex + 31);
-
-    return _mm256_set_epi8(
-        b31,
-        b30,
-        b29,
-        b28,
-        b27,
-        b26,
-        b25,
-        b24,
-        b23,
-        b22,
-        b21,
-        b20,
-        b19,
-        b18,
-        b17,
-        b16,
-        b15,
-        b14,
-        b13,
-        b12,
-        b11,
-        b10,
-        b9,
-        b8,
-        b7,
-        b6,
-        b5,
-        b4,
-        b3,
-        b2,
-        b1,
-        b0);
-  }
-  throw std::runtime_error(
-      "Sequence encoding only supports SIMD operations on integers");
 }
 
 template <typename T>

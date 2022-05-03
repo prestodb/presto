@@ -24,23 +24,6 @@
 namespace facebook {
 namespace velox {
 
-namespace {
-template <typename T>
-static inline __m256i simdAdd(const __m256i& left, const __m256i& right) {
-  if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, size_t>) {
-    return _mm256_add_epi64(left, right);
-  } else if constexpr (std::is_same_v<T, int32_t>) {
-    return _mm256_add_epi32(left, right);
-  } else if constexpr (std::is_same_v<T, int16_t>) {
-    return _mm256_add_epi16(left, right);
-  } else if constexpr (std::is_same_v<T, int8_t>) {
-    return _mm256_add_epi8(left, right);
-  } else {
-    VELOX_UNSUPPORTED("Unsupported type");
-  }
-}
-} // namespace
-
 /*
  * NOTE - biased vector is stored solely as a standard numeric flat array in
  * 2 buffers.
@@ -79,21 +62,7 @@ BiasVector<T>::BiasVector(
           valueType_ == TypeKind::TINYINT,
       "Invalid array type for biased values");
 
-  biasBuffer_ = simd::setAll256i(bias_);
-
-  switch (valueType_) {
-    case TypeKind::INTEGER:
-      int32Ptr_ = values_->as<int32_t>();
-      break;
-    case TypeKind::SMALLINT:
-      int16Ptr_ = values_->as<int16_t>();
-      break;
-    case TypeKind::TINYINT:
-      int8Ptr_ = values_->as<int8_t>();
-      break;
-    default:
-      VELOX_UNREACHABLE("Invalid type - cannot get here");
-  }
+  biasBuffer_ = simd::setAll(bias_);
   rawValues_ = values_->as<uint8_t>();
   BaseVector::inMemoryBytes_ += values_->size();
 }
@@ -140,31 +109,31 @@ const T BiasVector<T>::valueAtFast(vector_size_t idx) const {
 }
 
 template <typename T>
-__m256i BiasVector<T>::loadSIMDValueBufferAt(size_t index) const {
+xsimd::batch<T> BiasVector<T>::loadSIMDValueBufferAt(size_t index) const {
   if constexpr (std::is_same<T, int64_t>::value) {
     switch (valueType_) {
       case TypeKind::INTEGER:
-        return simdAdd<T>(biasBuffer_, loadSIMDInternal<4>(index));
+        return biasBuffer_ + loadSIMDInternal<int32_t>(index);
       case TypeKind::SMALLINT:
-        return simdAdd<T>(biasBuffer_, loadSIMDInternal<2>(index));
+        return biasBuffer_ + loadSIMDInternal<int16_t>(index);
       case TypeKind::TINYINT:
-        return simdAdd<T>(biasBuffer_, loadSIMDInternal<1>(index));
+        return biasBuffer_ + loadSIMDInternal<int8_t>(index);
       default:
         VELOX_UNSUPPORTED("Invalid type");
     }
   } else if constexpr (std::is_same<T, int32_t>::value) {
     switch (valueType_) {
       case TypeKind::SMALLINT:
-        return simdAdd<T>(biasBuffer_, loadSIMDInternal<2>(index));
+        return biasBuffer_ + loadSIMDInternal<int16_t>(index);
       case TypeKind::TINYINT:
-        return simdAdd<T>(biasBuffer_, loadSIMDInternal<1>(index));
+        return biasBuffer_ + loadSIMDInternal<int8_t>(index);
       default:
         VELOX_UNSUPPORTED("Invalid type");
     }
   } else if constexpr (std::is_same<T, int16_t>::value) {
     switch (valueType_) {
       case TypeKind::TINYINT:
-        return simdAdd<T>(biasBuffer_, loadSIMDInternal<1>(index));
+        return biasBuffer_ + loadSIMDInternal<int8_t>(index);
       default:
         VELOX_UNSUPPORTED("Invalid type");
     }

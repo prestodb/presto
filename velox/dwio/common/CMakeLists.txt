@@ -33,6 +33,7 @@ add_library(
 
 target_link_libraries(
   velox_dwio_common
+  velox_buffer
   velox_exception
   velox_dwio_common_encryption
   velox_dwio_common_compression

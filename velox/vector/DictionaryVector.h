@@ -99,14 +99,14 @@ class DictionaryVector : public SimpleVector<T> {
   std::unique_ptr<SimpleVector<uint64_t>> hashAll() const override;
 
   /**
-   * Loads a 256bit vector of data at the virtual byteOffset given
+   * Loads a SIMD vector of data at the virtual byteOffset given
    * Note this method is implemented on each vector type, but is intentionally
    * not virtual for performance reasons
    *
    * @param index at which to start the vector load
    * @return the vector of values starting at the given index
    */
-  __m256i loadSIMDValueBufferAt(size_t index) const;
+  xsimd::batch<T> loadSIMDValueBufferAt(size_t index) const;
 
   inline TypeKind getIndexType() const {
     return indexType_;

@@ -229,8 +229,7 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
     VectorPtr* result,
     const TypePtr& type,
     bool isFinal) {
-  using V8 = simd::Vectors<int8_t>;
-  constexpr int32_t kWidth = V8::VSize;
+  constexpr int32_t kWidth = xsimd::batch<int8_t>::size;
   static_assert(kWidth == 32);
   VELOX_CHECK_EQ(valueSize_, sizeof(int8_t));
   compactScalarValues<int8_t, int8_t>(rows, isFinal);
@@ -238,10 +237,10 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
       AlignedBuffer::allocate<bool>(numValues_, &memoryPool_, false);
   auto rawBits = boolValues->asMutable<uint32_t>();
   auto rawBytes = values_->as<int8_t>();
-  auto zero = V8::setAll(0);
+  auto zero = xsimd::broadcast<int8_t>(0);
   for (auto i = 0; i < numValues_; i += kWidth) {
     rawBits[i / kWidth] =
-        ~V8::compareBitMask(V8::compareEq(zero, V8::load(rawBytes + i)));
+        ~simd::toBitMask(zero == xsimd::load_unaligned(rawBytes + i));
   }
   BufferPtr nulls = anyNulls_
       ? (returnReaderNulls_ ? nullsInReadRange_ : resultNulls_)

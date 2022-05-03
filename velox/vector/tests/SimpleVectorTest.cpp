@@ -592,29 +592,14 @@ TYPED_TEST(SimpleVectorCompareTest, compareDescNullsLast) {
 }
 
 template <typename T, int32_t offset>
-inline T simd256_extract_value(__m256i& simdValue) {
-  // hack to work around error: argument to '__builtin_ia32_vec_ext_v4di'
-  // must be a constant integer due to it being a macro expansion to a specific
-  // function
-  if constexpr (std::is_same<T, int64_t>::value && offset < 4) {
-    return _mm256_extract_epi64(simdValue, offset);
-  } else if constexpr (std::is_same<T, uint64_t>::value && offset < 4) {
-    return static_cast<uint64_t>(_mm256_extract_epi64(simdValue, offset));
-  } else if constexpr (std::is_same<T, int32_t>::value && offset < 8) {
-    return _mm256_extract_epi32(simdValue, offset);
-  } else if constexpr (std::is_same<T, uint32_t>::value && offset < 8) {
-    return static_cast<uint32_t>(_mm256_extract_epi32(simdValue, offset));
-  } else if constexpr (std::is_same<T, int16_t>::value && offset < 16) {
-    return _mm256_extract_epi16(simdValue, offset);
-  } else if constexpr (std::is_same<T, uint16_t>::value && offset < 16) {
-    return static_cast<uint16_t>(_mm256_extract_epi16(simdValue, offset));
-  } else if constexpr (std::is_same<T, int8_t>::value && offset < 32) {
-    return _mm256_extract_epi8(simdValue, offset);
-  } else if constexpr (std::is_same<T, uint8_t>::value && offset < 32) {
-    return static_cast<uint8_t>(_mm256_extract_epi8(simdValue, offset));
-  } else if constexpr (std::is_same<T, bool>::value && offset < 256) {
-    auto byte = _mm256_extract_epi8(simdValue, offset / 8);
+inline T simd256_extract_value(xsimd::batch<T> simdValue) {
+  if constexpr (std::is_same_v<T, bool>) {
+    static_assert(offset < 256);
+    auto byte = xsimd::batch<uint8_t>(simdValue).get(offset / 8);
     return byte & (1 << (offset % 8));
+  } else if constexpr (std::is_integral_v<T>) {
+    static_assert(offset < xsimd::batch<T>::size);
+    return simdValue.get(offset);
   } else {
     VELOX_UNSUPPORTED(
         "Invalid simd type - offset {} - type {}",
@@ -629,7 +614,7 @@ template <typename T, int i>
 struct AssertSimdElement {
   static void eq(
       const std::vector<std::optional<T>>& expected,
-      __m256i& simdBuffer,
+      xsimd::batch<T> simdBuffer,
       size_t base) {
     static_assert(i >= 0);
     if (base + i < expected.size()) {
@@ -665,7 +650,7 @@ struct CanSimd {
 };
 
 template <typename T>
-__m256i loadSIMDValueBufferAt(
+xsimd::batch<T> loadSIMDValueBufferAt(
     const SimpleVector<T>* outVector,
     size_t byteOffset) {
   switch (outVector->encoding()) {
@@ -745,12 +730,12 @@ class SimpleVectorSimdTypedTest : public SimpleVectorTest {
             2008 /* seed */);
 
         auto vector = maker_.encodedVector(encode, expected.data());
-        constexpr auto width = simd::Vectors<T>::VSize;
+        constexpr auto width = xsimd::batch<T>::size;
 
         // TODO T71293360: determine SIMD behavior when index + SIMD register
         // width result exceeds the vector length
         for (size_t base = 0; base + width < vector->size(); base += width) {
-          __m256i simdBuffer = loadSIMDValueBufferAt<T>(
+          auto simdBuffer = loadSIMDValueBufferAt<T>(
               static_cast<SimpleVector<T>*>(vector.get()),
               // Though sizeof(bool) = 1, while a bool only occupies 1 bit in
               // SIMD.

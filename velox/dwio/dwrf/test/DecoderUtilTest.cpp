@@ -24,12 +24,6 @@
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
 
-using V64 = simd::Vectors<int64_t>;
-using V32 = simd::Vectors<int32_t>;
-using V16 = simd::Vectors<int16_t>;
-using VD = simd::Vectors<double>;
-using VF = simd::Vectors<float>;
-
 class DecoderUtilTest : public testing::Test {
  protected:
   void SetUp() override {
@@ -146,6 +140,7 @@ class DecoderUtilTest : public testing::Test {
   folly::Random::DefaultGenerator rng_;
 };
 
+// Running for about 13 seconds.
 TEST_F(DecoderUtilTest, nonNullsFromSparse) {
   // We cover cases with different null frequencies and different density of
   // access.

@@ -69,9 +69,13 @@ Range<T> FlatVector<T>::asRange() const {
 }
 
 template <typename T>
-__m256i FlatVector<T>::loadSIMDValueBufferAt(size_t byteOffset) const {
-  return _mm256_loadu_si256(reinterpret_cast<const __m256i*>(
-      reinterpret_cast<uint8_t*>(rawValues_) + byteOffset));
+xsimd::batch<T> FlatVector<T>::loadSIMDValueBufferAt(size_t byteOffset) const {
+  auto mem = reinterpret_cast<uint8_t*>(rawValues_) + byteOffset;
+  if constexpr (std::is_same_v<T, bool>) {
+    return xsimd::batch<T>(xsimd::load_unaligned(mem));
+  } else {
+    return xsimd::load_unaligned(reinterpret_cast<T*>(mem));
+  }
 }
 
 template <typename T>
@@ -128,7 +132,7 @@ bool FlatVector<T>::useSimdEquality(size_t numCmpVals) const {
     // whether or not to pursue the SIMD path or the fallback path.
     auto fallbackCost = SET_CMP_COST * BaseVector::length_;
     auto simdCost = SIMD_CMP_COST * numCmpVals * BaseVector::length_ /
-        simd::Vectors<T>::VSize;
+        xsimd::batch<T>::size;
     return simdCost <= fallbackCost;
   }
 }

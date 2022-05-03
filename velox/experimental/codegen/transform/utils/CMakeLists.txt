@@ -13,6 +13,7 @@
 # limitations under the License.
 
 add_library(velox_transform_utils INTERFACE)
+target_link_libraries(velox_transform_utils INTERFACE velox_core)
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()

@@ -28,7 +28,6 @@
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 
-using V64 = simd::Vectors<int64_t>;
 std::vector<int64_t> sparseValues;
 std::vector<int64_t> denseValues;
 std::unique_ptr<BigintValuesUsingHashTable> filter;
@@ -42,12 +41,12 @@ int32_t run1x64(const std::vector<int64_t>& data) {
 }
 
 int32_t run4x64(const std::vector<int64_t>& data) {
-  using TV = simd::Vectors<int64_t>;
+  constexpr int kStep = xsimd::batch<int64_t>::size;
   int32_t count = 0;
-  assert(data.size() % 4 == 0);
-  for (auto i = 0; i < data.size(); i += 4) {
-    auto result = filter->test4x64(V64::load(data.data() + i));
-    count += V64::compareBitMask(result);
+  assert(data.size() % kStep == 0);
+  for (auto i = 0; i < data.size(); i += kStep) {
+    auto result = filter->testValues(xsimd::load_unaligned(data.data() + i));
+    count += __builtin_popcount(simd::toBitMask(result));
   }
   return count;
 }
@@ -87,6 +86,8 @@ int32_t main(int32_t argc, char* argv[]) {
     sparseValues[i] = (folly::Random::rand32() % 100000) * 1000;
   }
 
+  VELOX_CHECK_EQ(run1x64(denseValues), run4x64(denseValues));
+  VELOX_CHECK_EQ(run1x64(sparseValues), run4x64(sparseValues));
   folly::runBenchmarks();
   return 0;
 }

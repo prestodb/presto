@@ -124,63 +124,32 @@ class Filter {
     VELOX_UNSUPPORTED("{}: testInt64() is not supported.", toString());
   }
 
-  virtual __m256i test4x64(__m256i x) {
-    return _mm256_setr_epi64x(
-        testInt64(x[0]) ? -1LL : 0LL,
-        testInt64(x[1]) ? -1LL : 0LL,
-        testInt64(x[2]) ? -1LL : 0LL,
-        testInt64(x[3]) ? -1LL : 0LL);
-  }
-
-  __m256i test4xDouble(__m256i x) {
-    auto d = reinterpret_cast<__m256d>(x);
-    return _mm256_setr_epi64x(
-        testDouble(d[0]) ? -1LL : 0LL,
-        testDouble(d[1]) ? -1LL : 0LL,
-        testDouble(d[2]) ? -1LL : 0LL,
-        testDouble(d[3]) ? -1LL : 0LL);
-  }
-
-  virtual __m256si test8x32(__m256i x) {
-    auto as32 = reinterpret_cast<__m256si>(x);
-    return (__m256si)_mm256_setr_epi32(
-        testInt64(simd::Vectors<int32_t>::extract<0>(as32)) ? -1 : 0,
-        testInt64(simd::Vectors<int32_t>::extract<1>(as32)) ? -1 : 0,
-        testInt64(simd::Vectors<int32_t>::extract<2>(as32)) ? -1 : 0,
-        testInt64(simd::Vectors<int32_t>::extract<3>(as32)) ? -1 : 0,
-        testInt64(simd::Vectors<int32_t>::extract<4>(as32)) ? -1 : 0,
-        testInt64(simd::Vectors<int32_t>::extract<5>(as32)) ? -1 : 0,
-        testInt64(simd::Vectors<int32_t>::extract<6>(as32)) ? -1 : 0,
-        testInt64(simd::Vectors<int32_t>::extract<7>(as32)) ? -1 : 0);
-  }
-
-  __m256si test8xFloat(__m256i x) {
-    auto f = reinterpret_cast<__m256>(x);
-    return (__m256si)_mm256_setr_epi32(
-        testFloat(f[0]) ? -1 : 0,
-        testFloat(f[1]) ? -1 : 0,
-        testFloat(f[2]) ? -1 : 0,
-        testFloat(f[3]) ? -1 : 0,
-        testFloat(f[4]) ? -1 : 0,
-        testFloat(f[5]) ? -1 : 0,
-        testFloat(f[6]) ? -1 : 0,
-        testFloat(f[7]) ? -1 : 0);
-  }
-
-  virtual __m256hi test16x16(__m256i x) {
-    int16_t result[16];
-    for (auto i = 0; i < 16; ++i) {
-      result[i] = testInt64(reinterpret_cast<const int16_t*>(&x)[i]) ? -1 : 0;
-    }
-    return *reinterpret_cast<__m256hi_u*>(&result);
-  }
-
   virtual bool testDouble(double /* unused */) const {
     VELOX_UNSUPPORTED("{}: testDouble() is not supported.", toString());
   }
 
   virtual bool testFloat(float /* unused */) const {
     VELOX_UNSUPPORTED("{}: testFloat() is not supported.", toString());
+  }
+
+  virtual xsimd::batch_bool<int64_t> testValues(xsimd::batch<int64_t> x) const {
+    return genericTestValues(x, [this](int64_t x) { return testInt64(x); });
+  }
+
+  virtual xsimd::batch_bool<int32_t> testValues(xsimd::batch<int32_t> x) const {
+    return genericTestValues(x, [this](int32_t x) { return testInt64(x); });
+  }
+
+  virtual xsimd::batch_bool<int16_t> testValues(xsimd::batch<int16_t> x) const {
+    return genericTestValues(x, [this](int16_t x) { return testInt64(x); });
+  }
+
+  virtual xsimd::batch_bool<double> testValues(xsimd::batch<double> x) const {
+    return genericTestValues(x, [this](double x) { return testDouble(x); });
+  }
+
+  virtual xsimd::batch_bool<float> testValues(xsimd::batch<float> x) const {
+    return genericTestValues(x, [this](float x) { return testFloat(x); });
   }
 
   virtual bool testBool(bool /* unused */) const {
@@ -210,17 +179,11 @@ class Filter {
     VELOX_UNSUPPORTED("{}: testLength() is not supported.", toString());
   }
 
-  // Tests 8 lengths at a time.
-  virtual __m256si test8xLength(__m256si lengths) const {
-    return (__m256si)_mm256_setr_epi32(
-        testLength(simd::Vectors<int32_t>::extract<0>(lengths)) ? -1 : 0,
-        testLength(simd::Vectors<int32_t>::extract<1>(lengths)) ? -1 : 0,
-        testLength(simd::Vectors<int32_t>::extract<2>(lengths)) ? -1 : 0,
-        testLength(simd::Vectors<int32_t>::extract<3>(lengths)) ? -1 : 0,
-        testLength(simd::Vectors<int32_t>::extract<4>(lengths)) ? -1 : 0,
-        testLength(simd::Vectors<int32_t>::extract<5>(lengths)) ? -1 : 0,
-        testLength(simd::Vectors<int32_t>::extract<6>(lengths)) ? -1 : 0,
-        testLength(simd::Vectors<int32_t>::extract<7>(lengths)) ? -1 : 0);
+  // Tests multiple lengths at a time.
+  virtual xsimd::batch_bool<int32_t> testLengths(
+      xsimd::batch<int32_t> lengths) const {
+    return genericTestValues(
+        lengths, [this](int32_t x) { return testLength(x); });
   }
 
   // Returns true if at least one value in the specified range can pass the
@@ -259,6 +222,20 @@ class Filter {
  private:
   const bool deterministic_;
   const FilterKind kind_;
+
+  template <typename T, typename F>
+  xsimd::batch_bool<T> genericTestValues(xsimd::batch<T> batch, F&& testValue)
+      const {
+    constexpr int N = decltype(batch)::size;
+    constexpr int kAlign = decltype(batch)::arch_type::alignment();
+    alignas(kAlign) T data[N];
+    alignas(kAlign) T res[N];
+    batch.store_aligned(data);
+    for (int i = 0; i < N; ++i) {
+      res[i] = testValue(data[i]);
+    }
+    return xsimd::broadcast<T>(0) != xsimd::load_aligned(res);
+  }
 };
 
 /// TODO Check if this filter is needed. This should not be passed down.
@@ -576,42 +553,37 @@ class BigintRange final : public Filter {
     return value >= lower_ && value <= upper_;
   }
 
-  __m256i test4x64(__m256i values) override {
-    using TV = simd::Vectors<int64_t>;
+  xsimd::batch_bool<int64_t> testValues(
+      xsimd::batch<int64_t> values) const final {
     if (isSingleValue_) {
-      return TV::compareEq(values, TV::setAll(lower_));
+      return values == xsimd::broadcast<int64_t>(lower_);
     }
-    return (TV::compareGt(values, TV::setAll(upper_)) |
-            TV::compareGt(TV::setAll(lower_), values)) ^
-        -1;
+    return (xsimd::broadcast<int64_t>(lower_) <= values) &
+        (values <= xsimd::broadcast<int64_t>(upper_));
   }
 
-  __m256si test8x32(__m256i values) final {
-    using TV = simd::Vectors<int32_t>;
-    auto values32 = (__m256si)values;
+  xsimd::batch_bool<int32_t> testValues(
+      xsimd::batch<int32_t> values) const final {
     if (isSingleValue_) {
       if (UNLIKELY(lower32_ != lower_)) {
-        return TV::setAll(0);
+        return xsimd::batch_bool<int32_t>(false);
       }
-      return TV::compareEq(values32, TV::setAll(lower_));
+      return values == xsimd::broadcast<int32_t>(lower_);
     }
-    return (TV::compareGt(values32, TV::setAll(upper32_)) |
-            TV::compareGt(TV::setAll(lower32_), values32)) ^
-        -1;
+    return (xsimd::broadcast<int32_t>(lower32_) <= values) &
+        (values <= xsimd::broadcast<int32_t>(upper32_));
   }
 
-  __m256hi test16x16(__m256i values) final {
-    using TV = simd::Vectors<int16_t>;
-    auto values16 = (__m256hi)values;
+  xsimd::batch_bool<int16_t> testValues(
+      xsimd::batch<int16_t> values) const final {
     if (isSingleValue_) {
       if (UNLIKELY(lower16_ != lower_)) {
-        return TV::setAll(0);
+        return xsimd::batch_bool<int16_t>(false);
       }
-      return TV::compareEq(values16, TV::setAll(lower_));
+      return values == xsimd::broadcast<int16_t>(lower_);
     }
-    return (TV::compareGt(values16, TV::setAll(upper16_)) |
-            TV::compareGt(TV::setAll(lower16_), values16)) ^
-        -1;
+    return (xsimd::broadcast<int16_t>(lower16_) <= values) &
+        (values <= xsimd::broadcast<int16_t>(upper16_));
   }
 
   bool testInt64Range(int64_t min, int64_t max, bool hasNull) const final {
@@ -691,9 +663,11 @@ class BigintValuesUsingHashTable final : public Filter {
   }
 
   bool testInt64(int64_t value) const final;
-  __m256i test4x64(__m256i x) final;
-
-  __m256si test8x32(__m256i x) final;
+  xsimd::batch_bool<int64_t> testValues(xsimd::batch<int64_t>) const final;
+  xsimd::batch_bool<int32_t> testValues(xsimd::batch<int32_t>) const final;
+  xsimd::batch_bool<int16_t> testValues(xsimd::batch<int16_t> x) const final {
+    return Filter::testValues(x);
+  }
   bool testInt64Range(int64_t min, int64_t max, bool hashNull) const final;
 
   std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
@@ -905,9 +879,8 @@ class FloatingPointRange final : public AbstractRange {
     return testFloatingPoint(value);
   }
 
-  __m256i test4x64(__m256i) final;
-
-  __m256si test8x32(__m256i) final;
+  xsimd::batch_bool<double> testValues(xsimd::batch<double>) const final;
+  xsimd::batch_bool<float> testValues(xsimd::batch<float>) const final;
 
   bool testDoubleRange(double min, double max, bool hasNull) const final {
     if (hasNull && nullAllowed_) {
@@ -1009,6 +982,34 @@ class FloatingPointRange final : public AbstractRange {
     return true;
   }
 
+  xsimd::batch_bool<T> testFloatingPoints(xsimd::batch<T> values) const {
+    xsimd::batch_bool<T> result;
+    if (!lowerUnbounded_) {
+      auto allLower = xsimd::broadcast<T>(lower_);
+      if (lowerExclusive_) {
+        result = allLower < values;
+      } else {
+        result = allLower <= values;
+      }
+      if (!upperUnbounded_) {
+        auto allUpper = xsimd::broadcast<T>(upper_);
+        if (upperExclusive_) {
+          result = result & (values < allUpper);
+        } else {
+          result = result & (values <= allUpper);
+        }
+      }
+    } else {
+      auto allUpper = xsimd::broadcast<T>(upper_);
+      if (upperExclusive_) {
+        result = values < allUpper;
+      } else {
+        result = values <= allUpper;
+      }
+    }
+    return result;
+  }
+
   const T lower_;
   const T upper_;
 };
@@ -1024,73 +1025,27 @@ inline std::string FloatingPointRange<float>::toString() const {
 }
 
 template <>
-inline __m256i FloatingPointRange<double>::test4x64(__m256i x) {
-  __m256d values = reinterpret_cast<__m256d>(x);
-  __m256i result;
-  if (!lowerUnbounded_) {
-    auto allLower = simd::Vectors<double>::setAll(lower_);
-    if (!lowerExclusive_) {
-      result = (__m256i)_mm256_cmp_pd(values, allLower, _CMP_GE_OQ);
-    } else {
-      result = (__m256i)_mm256_cmp_pd(values, allLower, _CMP_GT_OQ);
-    }
-    if (!upperUnbounded_) {
-      auto allUpper = simd::Vectors<double>::setAll(upper_);
-      if (upperExclusive_) {
-        result &= (__m256i)_mm256_cmp_pd(allUpper, values, _CMP_GT_OQ);
-      } else {
-        result &= (__m256i)_mm256_cmp_pd(allUpper, values, _CMP_GE_OQ);
-      }
-    }
-  } else {
-    auto allUpper = simd::Vectors<double>::setAll(upper_);
-    if (upperExclusive_) {
-      result = (__m256i)_mm256_cmp_pd(allUpper, values, _CMP_GT_OQ);
-    } else {
-      result = (__m256i)_mm256_cmp_pd(allUpper, values, _CMP_GE_OQ);
-    }
-  }
-  return result;
+inline xsimd::batch_bool<double> FloatingPointRange<double>::testValues(
+    xsimd::batch<double> x) const {
+  return testFloatingPoints(x);
 }
 
 template <>
-inline __m256si FloatingPointRange<double>::test8x32(__m256i) {
+inline xsimd::batch_bool<float> FloatingPointRange<double>::testValues(
+    xsimd::batch<float>) const {
   VELOX_FAIL("Not defined for double filter");
 }
 
 template <>
-inline __m256i FloatingPointRange<float>::test4x64(__m256i) {
+inline xsimd::batch_bool<double> FloatingPointRange<float>::testValues(
+    xsimd::batch<double>) const {
   VELOX_FAIL("Not defined for float filter");
 }
 
 template <>
-inline __m256si FloatingPointRange<float>::test8x32(__m256i x) {
-  __m256 values = reinterpret_cast<__m256>(x);
-  __m256i result;
-  if (!lowerUnbounded_) {
-    auto allLower = simd::Vectors<float>::setAll(lower_);
-    if (!lowerExclusive_) {
-      result = (__m256i)_mm256_cmp_ps(values, allLower, _CMP_GE_OQ);
-    } else {
-      result = (__m256i)_mm256_cmp_ps(values, allLower, _CMP_GT_OQ);
-    }
-    if (!upperUnbounded_) {
-      auto allUpper = simd::Vectors<float>::setAll(upper_);
-      if (upperExclusive_) {
-        result &= (__m256i)_mm256_cmp_ps(allUpper, values, _CMP_GT_OQ);
-      } else {
-        result &= (__m256i)_mm256_cmp_ps(allUpper, values, _CMP_GE_OQ);
-      }
-    }
-  } else {
-    auto allUpper = simd::Vectors<float>::setAll(upper_);
-    if (upperExclusive_) {
-      result = (__m256i)_mm256_cmp_ps(allUpper, values, _CMP_GT_OQ);
-    } else {
-      result = (__m256i)_mm256_cmp_ps(allUpper, values, _CMP_GE_OQ);
-    }
-  }
-  return (__m256si)result;
+inline xsimd::batch_bool<float> FloatingPointRange<float>::testValues(
+    xsimd::batch<float> x) const {
+  return testFloatingPoints(x);
 }
 
 using DoubleRange = FloatingPointRange<double>;
@@ -1180,10 +1135,10 @@ class BytesRange final : public AbstractRange {
 
   std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
 
-  __m256si test8xLength(__m256si lengths) const final {
-    using V32 = simd::Vectors<int32_t>;
+  xsimd::batch_bool<int32_t> testLengths(
+      xsimd::batch<int32_t> lengths) const final {
     VELOX_DCHECK(singleValue_);
-    return V32::compareEq(lengths, V32::setAll(lower_.size()));
+    return lengths == xsimd::broadcast<int32_t>(lower_.size());
   }
 
   bool isSingleValue() const {

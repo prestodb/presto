@@ -172,8 +172,8 @@ inline bool SelectiveStringDirectColumnReader::try8Consecutive(
       return false;
     }
     result[resultIndex] = length;
-    auto first16 = *reinterpret_cast<const __m128_u*>(data);
-    *reinterpret_cast<__m128_u*>(result + resultIndex + 1) = first16;
+    auto first16 = xsimd::make_sized_batch_t<char, 16>::load_unaligned(data);
+    first16.store_unaligned(reinterpret_cast<char*>(result + resultIndex + 1));
     if (length <= 12) {
       data += length;
       *reinterpret_cast<int64_t*>(
@@ -186,7 +186,7 @@ inline bool SelectiveStringDirectColumnReader::try8Consecutive(
     }
     *reinterpret_cast<char**>(result + resultIndex + 2) =
         rawStringBuffer_ + rawUsed;
-    *reinterpret_cast<__m128_u*>(rawStringBuffer_ + rawUsed) = first16;
+    first16.store_unaligned<char>(rawStringBuffer_ + rawUsed);
     if (length > 16) {
       size_t copySize = bits::roundUp(length - 16, 16);
       VELOX_CHECK_LE(data + copySize, bufferEnd_);

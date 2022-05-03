@@ -21,14 +21,14 @@
 
 using namespace facebook::velox;
 
-using V64 = simd::Vectors<int64_t>;
-using V32 = simd::Vectors<int32_t>;
-using V16 = simd::Vectors<int16_t>;
-using VD = simd::Vectors<double>;
-using VF = simd::Vectors<float>;
+namespace {
 
 class SimdUtilTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    VLOG(1) << "Architecture: " << xsimd::default_arch::name();
+  }
+
   void SetUp() override {
     rng_.seed(1);
   }
@@ -114,22 +114,24 @@ TEST_F(SimdUtilTest, gather32) {
   int32_t indices8[8] = {7, 6, 5, 4, 3, 2, 1, 0};
   int32_t indices6[8] = {7, 6, 5, 4, 3, 2, 1 << 31, 1 << 31};
   int32_t data8[8] = {0, 11, 22, 33, 44, 55, 66, 77};
-  auto result8 = V32::gather32(&data8, V32::loadGather32Indices(&indices8[0]));
+  auto result8 = simd::gather(data8, indices8);
   int32_t result8Mem[8];
-  V32::store(&result8Mem, result8);
+  result8.store_unaligned(result8Mem);
   auto resultPtr = &result8Mem[0];
   for (auto i = 0; i < 8; ++i) {
     EXPECT_EQ(resultPtr[i], data8[indices8[i]]);
   }
-  auto result6 = V32::maskGather32(
-      V32::setAll(-1), V32::leadingMask(6), &data8, V32::load(&indices6[0]));
+  auto result6 = simd::maskGather(
+      xsimd::batch<int32_t>::broadcast(-1),
+      simd::leadingMask<int32_t>(6),
+      data8,
+      indices6);
   for (auto i = 0; i < 6; ++i) {
-    EXPECT_EQ(resultPtr[i], data8[indices8[i]]);
+    EXPECT_EQ(result6.get(i), data8[indices8[i]]);
   }
-  EXPECT_EQ(result6[6], -1);
-  EXPECT_EQ(result6[7], -1);
-
-  auto bits = V32::compareBitMask(V32::compareEq(result8, result6));
+  EXPECT_EQ(result6.get(6), -1);
+  EXPECT_EQ(result6.get(7), -1);
+  auto bits = simd::toBitMask(result8 == result6);
   // Low 6 lanes are the same.
   EXPECT_EQ(63, bits);
 }
@@ -138,23 +140,23 @@ TEST_F(SimdUtilTest, gather64) {
   int32_t indices4[4] = {3, 2, 1, 0};
   int32_t indices3[4] = {3, 2, 1, 1 << 31};
   int64_t data4[4] = {44, 55, 66, 77};
-  auto result4 = V64::gather32(&data4, V64::loadGather32Indices(&indices4[0]));
+  auto result4 = simd::gather(data4, indices4);
   int64_t result4Mem[4];
-  V64::store(&result4Mem, result4);
+  result4.store_unaligned(result4Mem);
   auto resultPtr = &result4Mem[0];
   for (auto i = 0; i < 4; ++i) {
     EXPECT_EQ(resultPtr[i], data4[indices4[i]]);
   }
-  auto result3 = V64::maskGather32(
-      V64::setAll(-1),
-      V64::leadingMask(3),
-      &data4,
-      V64::loadGather32Indices(&indices3[0]));
+  auto result3 = simd::maskGather(
+      xsimd::batch<int64_t>::broadcast(-1),
+      simd::leadingMask<int64_t>(3),
+      data4,
+      indices3);
   for (auto i = 0; i < 3; ++i) {
-    EXPECT_EQ(resultPtr[i], data4[indices4[i]]);
+    EXPECT_EQ(result3.get(i), data4[indices4[i]]);
   }
-  EXPECT_EQ(result3[3], -1);
-  auto bits = V64::compareBitMask(V64::compareEq(result4, result3));
+  EXPECT_EQ(result3.get(3), -1);
+  auto bits = simd::toBitMask(result4 == result3);
   // Low 3 lanes are the same.
   EXPECT_EQ(7, bits);
 }
@@ -166,9 +168,9 @@ TEST_F(SimdUtilTest, gather16) {
     indices[i] = 31 - i;
     data[i] = 15 + i;
   }
-  __m256hi result[2];
-  result[0] = simd::gather16x32(&data[0], &indices[0], 16);
-  result[1] = simd::gather16x32(&data[0], &indices[16], 15);
+  xsimd::batch<int16_t> result[2];
+  result[0] = simd::gather(data, indices, 16);
+  result[1] = simd::gather(data, &indices[16], 15);
   auto resultPtr = reinterpret_cast<int16_t*>(&result);
   for (auto i = 0; i < 31; ++i) {
     EXPECT_EQ(data[indices[i]], resultPtr[i]);
@@ -179,55 +181,32 @@ TEST_F(SimdUtilTest, gather16) {
 TEST_F(SimdUtilTest, gatherBits) {
   // Even bits set, odd not set.
   uint64_t data[2] = {0x5555555555555555, 0x5555555555555555};
-  __m256si indices = {11, 22, 33, 44, 55, 66, 77, 1 << 30};
+  xsimd::batch<int32_t> indices = {11, 22, 33, 44, 55, 66, 77, 1 << 30};
   uint64_t bits = simd::gather8Bits(data, indices, 7);
-  auto intIndices = reinterpret_cast<int32_t*>(&indices);
   for (auto i = 0; i < 7; ++i) {
-    EXPECT_EQ(bits::isBitSet(&bits, i), bits::isBitSet(data, intIndices[i]));
+    EXPECT_EQ(bits::isBitSet(&bits, i), bits::isBitSet(data, indices.get(i)));
   }
   EXPECT_FALSE(bits::isBitSet(&bits, 7));
 }
 
-TEST_F(SimdUtilTest, permute32) {
-  // Find elements that satisfy a condition and pack them to the left.
-  __m256si data = {12345, 23456, 111, 32000, 14123, 20000, 25000};
-  __m256si result;
-  auto bits = V32::compareBitMask(V32::compareGt(data, V32::setAll(15000)));
-  simd::storePermute(&result, data, V32::load(&simd::byteSetBits()[bits]));
+namespace {
+
+// Find elements that satisfy a condition and pack them to the left.
+template <typename T>
+void testFilter(xsimd::batch<T> data) {
+  auto result = simd::filter(data, simd::toBitMask(data > 15000));
   int32_t j = 0;
-  for (auto i = 0; i < 8; ++i) {
-    auto dataPtr = reinterpret_cast<int32_t*>(&data);
-    auto resultPtr = reinterpret_cast<int32_t*>(&result);
-    if (dataPtr[i] > 15000) {
-      EXPECT_EQ(resultPtr[j], dataPtr[i]);
-      ++j;
+  for (auto i = 0; i < xsimd::batch<T>::size; ++i) {
+    if (data.get(i) > 15000) {
+      EXPECT_EQ(result.get(j++), data.get(i));
     }
   }
 }
 
-TEST_F(SimdUtilTest, permute64) {
-  // Find elements that satisfy a condition and pack them to the left.
-  __m256i data = {12345, 23456, 111, 32000};
-  __m256i result;
-  auto bits = V64::compareBitMask(V64::compareGt(data, V64::setAll(15000)));
-  simd::storePermute(
-      &result,
-      reinterpret_cast<__m256si>(data),
-      V32::load(&V64::permuteIndices()[bits]));
-  int32_t j = 0;
-  for (auto i = 0; i < 4; ++i) {
-    auto dataPtr = reinterpret_cast<int64_t*>(&data);
-    auto resultPtr = reinterpret_cast<int64_t*>(&result);
-    if (dataPtr[i] > 15000) {
-      EXPECT_EQ(resultPtr[j], dataPtr[i]);
-      ++j;
-    }
-  }
-}
+} // namespace
 
-TEST_F(SimdUtilTest, permute16) {
-  // Find elements that satisfy a condition and pack them to the left.
-  __m256hi data = {
+TEST_F(SimdUtilTest, filter16) {
+  testFilter<int16_t>({
       12345,
       23456,
       111,
@@ -244,75 +223,31 @@ TEST_F(SimdUtilTest, permute16) {
       5000,
       22000,
       12,
-  };
-  auto bits = V16::compareBitMask(V16::compareGt(data, V16::setAll(15000)));
-  uint8_t first8 = bits & 0xff;
-  uint8_t second8 = bits >> 8;
-  int16_t result[16];
-  simd::storePermute16<0>(
-      &result,
-      reinterpret_cast<__m256i>(data),
-      V32::load(&simd::byteSetBits()[first8]));
-  simd::storePermute16<1>(
-      &result[__builtin_popcount(first8)],
-      reinterpret_cast<__m256i>(data),
-      V32::load(&simd::byteSetBits()[second8]));
-  int32_t j = 0;
-  for (auto i = 0; i < 16; ++i) {
-    auto dataPtr = reinterpret_cast<int16_t*>(&data);
-    auto resultPtr = reinterpret_cast<int16_t*>(&result);
-    if (dataPtr[i] > 15000) {
-      EXPECT_EQ(resultPtr[j], dataPtr[i]);
-      ++j;
-    }
-  }
+  });
 }
 
-TEST_F(SimdUtilTest, permuteFloat) {
-  // Find elements that satisfy a condition and pack them to the left.
-  __m256 data = {std::nanf("nan"), 23456, 111, 32000, 14123, 20000, 25000};
-  __m256si result;
-  auto bits = VF::compareBitMask(VF::compareGt(data, VF::setAll(15000)));
-  simd::storePermute(
-      &result,
-      reinterpret_cast<__m256si>(data),
-      V32::load(&simd::byteSetBits()[bits]));
-  int32_t j = 0;
-  for (auto i = 0; i < 8; ++i) {
-    auto dataPtr = reinterpret_cast<float*>(&data);
-    auto resultPtr = reinterpret_cast<float*>(&result);
-    if (dataPtr[i] > 15000) {
-      EXPECT_EQ(resultPtr[j], dataPtr[i]);
-      ++j;
-    }
-  }
+TEST_F(SimdUtilTest, filter32) {
+  testFilter<int32_t>({12345, 23456, 111, 32000, 14123, 20000, 25000, 0});
 }
 
-TEST_F(SimdUtilTest, permuteDouble) {
-  // Find elements that satisfy a condition and pack them to the left.
-  __m256d data = {std::nan("nan"), 23456, 111, 32000};
-  __m256i result;
-  auto bits = VD::compareBitMask(VD::compareGt(data, VD::setAll(15000)));
-  simd::storePermute(
-      &result,
-      reinterpret_cast<__m256si>(data),
-      V32::load(V64::permuteIndices()[bits]));
-  int32_t j = 0;
-  for (auto i = 0; i < 4; ++i) {
-    auto dataPtr = reinterpret_cast<double*>(&data);
-    auto resultPtr = reinterpret_cast<double*>(&result);
-    if (dataPtr[i] > 15000) {
-      EXPECT_EQ(resultPtr[j], dataPtr[i]);
-      ++j;
-    }
-  }
+TEST_F(SimdUtilTest, filter64) {
+  testFilter<int64_t>({12345, 23456, 111, 32000});
+}
+
+TEST_F(SimdUtilTest, filterFloat) {
+  testFilter<float>(
+      {std::nanf("nan"), 23456, 111, 32000, 14123, 20000, 25000, 0});
+}
+
+TEST_F(SimdUtilTest, filterDouble) {
+  testFilter<double>({std::nan("nan"), 23456, 111, 32000});
 }
 
 TEST_F(SimdUtilTest, misc) {
   // Widen to int64 from 4 uints
   uint32_t uints4[4] = {10000, 0, 0, 4000000000};
   int64_t longs4[4];
-  V64::store(&longs4, V64::from32u(*reinterpret_cast<__m128si_u*>(&uints4)));
+  xsimd::batch<int64_t>::load_unaligned(uints4).store_unaligned(longs4);
   for (auto i = 0; i < 4; ++i) {
     EXPECT_EQ(uints4[i], longs4[i]);
   }
@@ -320,25 +255,25 @@ TEST_F(SimdUtilTest, misc) {
   // Widen to int64 from one half of 8 uints.
   uint32_t uints8[8] = {
       1, 2, 3, 4, 1000000000, 2000000000, 3000000000, 4000000000};
-  auto last4 = V32::as4x64u<1>(V32::load(&uints8));
-  EXPECT_EQ(4000000000, V64::extract<3>(last4));
+  auto vuints8 = xsimd::batch<int32_t>::load_unaligned(uints8);
+  auto last4 = simd::getHalf<uint64_t, 1>(vuints8);
+  EXPECT_EQ(4000000000, simd::extract<3>(last4));
 
-  EXPECT_EQ(
-      static_cast<int32_t>(4000000000), V32::extract<7>(V32::load(&uints8)));
+  EXPECT_EQ(static_cast<int32_t>(4000000000), simd::extract<7>(vuints8));
 
   // Masks
-  for (auto i = 0; i < V32::VSize; ++i) {
-    auto compare = V32::compareBitMask(
-        V32::compareEq(V32::leadingMask(i), V32::mask((1 << i) - 1)));
-    EXPECT_EQ(V32::kAllTrue, compare);
-    if (i < V64::VSize) {
-      compare = V64::compareBitMask(
-          V64::compareEq(V64::leadingMask(i), V64::mask((1 << i) - 1)));
-      EXPECT_EQ(V64::kAllTrue, compare);
+  for (auto i = 0; i < xsimd::batch<int32_t>::size; ++i) {
+    auto compare = simd::toBitMask(
+        simd::leadingMask<int32_t>(i) ==
+        simd::fromBitMask<int32_t>((1 << i) - 1));
+    EXPECT_EQ(simd::allSetBitMask<int32_t>(), compare);
+    if (i < xsimd::batch<int64_t>::size) {
+      compare = simd::toBitMask(
+          simd::leadingMask<int64_t>(i) ==
+          simd::fromBitMask<int64_t>((1 << i) - 1));
+      EXPECT_EQ(simd::allSetBitMask<int64_t>(), compare);
     }
   }
-
-  EXPECT_EQ(32, simd::kPadding);
 
   int32_t ints[] = {0, 1, 2, 4};
   EXPECT_TRUE(simd::isDense(&ints[0], 3));
@@ -350,3 +285,13 @@ TEST_F(SimdUtilTest, memory) {
     testMemsetAndMemcpy(size);
   }
 }
+
+TEST_F(SimdUtilTest, crc32) {
+  uint32_t checksum = 0;
+  checksum = simd::crc32U64(0, 123456789);
+  EXPECT_EQ(checksum, 3531890030);
+  checksum = simd::crc32U64(0, 987654321);
+  EXPECT_EQ(checksum, 121285919);
+}
+
+} // namespace

@@ -16,7 +16,7 @@
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
-#include <xmmintrin.h>
+#include <xsimd/xsimd.hpp> // @manual
 #include <chrono>
 #include "boost/accumulators/accumulators.hpp"
 #include "boost/accumulators/statistics.hpp"
@@ -103,7 +103,7 @@ void printClockStatistics(const std::string& clockName, size_t iterations) {
       fmt::format("{} [] with cold cache", clockName),
       [](auto& timePoints, size_t i) -> void { timePoints[i] = Clock::now(); },
       iterations);
-
+#if XSIMD_WITH_SSE2
   testClock<Clock, true>(
       fmt::format("{} non temporal with hot cache", clockName),
       [](auto& timePoints, size_t i) -> void {
@@ -122,6 +122,7 @@ void printClockStatistics(const std::string& clockName, size_t iterations) {
             *reinterpret_cast<__m64*>(&n));
       },
       iterations);
+#endif
 }
 
 /// Compute basic statistics acros an event sequence

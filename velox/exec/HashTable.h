@@ -52,7 +52,10 @@ class BaseHashTable {
  public:
   using normalized_key_t = uint64_t;
 
-  using TagVector = __m128i;
+#if XSIMD_WITH_SSE2
+  using TagVector = xsimd::batch<uint8_t, xsimd::sse2>;
+#endif
+
   using MaskType = uint16_t;
 
   // 2M entries, i.e. 16MB is the largest array based hash table.
@@ -198,11 +201,8 @@ class BaseHashTable {
   }
 
   /// Loads a vector of tags for bulk comparison.
-  template <typename T>
-  static TagVector loadTags(T* tags, int32_t tagIndex) {
-    auto tagPtr =
-        reinterpret_cast<TagVector*>(reinterpret_cast<char*>(tags) + tagIndex);
-    return _mm_load_si128(tagPtr);
+  static TagVector loadTags(uint8_t* tags, int32_t tagIndex) {
+    return TagVector::load_unaligned(tags + tagIndex);
   }
 
   /// Loads the payload row pointer corresponding to the tag at 'index'.

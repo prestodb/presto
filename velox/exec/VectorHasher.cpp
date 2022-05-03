@@ -53,9 +53,6 @@ namespace facebook::velox::exec {
     }                                                                    \
   }()
 
-using V32 = simd::Vectors<int32_t>;
-using V64 = simd::Vectors<int64_t>;
-
 namespace {
 template <TypeKind Kind>
 uint64_t hashOne(DecodedVector& decoded, vector_size_t index) {

@@ -25,7 +25,7 @@ add_library(
   VectorStream.cpp)
 
 target_link_libraries(velox_vector velox_encode velox_memory velox_time
-                      velox_type)
+                      velox_type velox_buffer)
 
 add_subdirectory(arrow)
 add_subdirectory(fuzzer)

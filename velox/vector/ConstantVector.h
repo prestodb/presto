@@ -96,7 +96,7 @@ class ConstantVector final : public SimpleVector<T> {
     }
     // If this is not encoded integer, or string, set value buffer
     if constexpr (can_simd) {
-      valueBuffer_ = simd::setAll256i(value_);
+      valueBuffer_ = simd::setAll(value_);
     }
   }
 
@@ -213,7 +213,7 @@ class ConstantVector final : public SimpleVector<T> {
    *
    * @param byteOffset - the byte offset to laod from
    */
-  __m256i loadSIMDValueBufferAt(size_t /* byteOffset */) const {
+  xsimd::batch<T> loadSIMDValueBufferAt(size_t /* byteOffset */) const {
     VELOX_DCHECK(initialized_);
     return valueBuffer_;
   }
@@ -376,7 +376,7 @@ class ConstantVector final : public SimpleVector<T> {
     BaseVector::inMemoryBytes_ += string.size();
     value_ = velox::to<decltype(value_)>(string);
     if constexpr (can_simd) {
-      valueBuffer_ = simd::setAll256i(value_);
+      valueBuffer_ = simd::setAll(value_);
     }
   }
 
@@ -399,9 +399,11 @@ class ConstantVector final : public SimpleVector<T> {
   // Holds the memory for backing non-inlined values represented by StringView.
   BufferPtr stringBuffer_;
   T value_;
-  __m256i valueBuffer_;
   bool isNull_ = false;
   bool initialized_{false};
+
+  // This must be at end to avoid memory corruption.
+  std::conditional_t<can_simd, xsimd::batch<T>, char> valueBuffer_;
 };
 
 template <>

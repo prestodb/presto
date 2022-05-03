@@ -7,6 +7,7 @@ cpp_unittest(
         "TimerTests.cpp",
     ],
     deps = [
+        "fbsource//third-party/xsimd:xsimd",  # @manual
         "//velox/experimental/codegen/utils/timer:velox_codegen_utils_timer",
     ],
     external_deps = [

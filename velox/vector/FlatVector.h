@@ -141,13 +141,13 @@ class FlatVector final : public SimpleVector<T> {
   std::unique_ptr<SimpleVector<uint64_t>> hashAll() const override;
 
   /**
-   * Loads a 256bit vector of data at the virtual byteOffset given
+   * Loads a SIMD vector of data at the virtual byteOffset given
    * Note this method is implemented on each vector type, but is intentionally
    * not virtual for performance reasons
    *
    * @param byteOffset - the byte offset to load from
    */
-  __m256i loadSIMDValueBufferAt(size_t index) const;
+  xsimd::batch<T> loadSIMDValueBufferAt(size_t index) const;
 
   // dictionary vector makes internal use here for SIMD functions
   template <typename X>

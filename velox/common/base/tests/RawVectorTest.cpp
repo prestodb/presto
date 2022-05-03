@@ -20,8 +20,6 @@
 
 using namespace facebook::velox;
 
-using V64 = simd::Vectors<int64_t>;
-
 TEST(RawVectorTest, basic) {
   raw_vector<int32_t> ints;
   EXPECT_TRUE(ints.empty());
@@ -38,10 +36,10 @@ TEST(RawVectorTest, padding) {
   EXPECT_EQ(1000, ints.size());
   // Check padding. Write a vector right below start and right after
   // capacity. These should fit and give no error with asan.
-  V64::store(simd::addBytes(ints.data(), -simd::kPadding), V64::setAll(-1));
-  V64::store(
-      simd::addBytes(ints.data(), ints.capacity() * sizeof(int32_t)),
-      V64::setAll(-1));
+  auto v = xsimd::batch<int64_t>::broadcast(-1);
+  v.store_unaligned(simd::addBytes(ints.data(), -simd::kPadding));
+  v.store_unaligned(
+      simd::addBytes(ints.data(), ints.capacity() * sizeof(int32_t)));
 }
 
 TEST(RawVectorTest, resize) {

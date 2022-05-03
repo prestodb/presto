@@ -197,6 +197,8 @@ inline void bulkZigzagDecode(int32_t size, T* data) {
   }
 }
 
+#if XSIMD_WITH_AVX2
+
 // Stores each byte of 'bytes' as a int64_t at output[0] ... output[3]
 inline void unpack4x1(int32_t bytes, uint64_t*& output) {
   *reinterpret_cast<__m256i_u*>(output) =
@@ -232,6 +234,8 @@ inline void unpack4x2(uint64_t vints, uint64_t*& output) {
       _mm256_cvtepi16_epi64(_mm_set1_epi64(reinterpret_cast<__m64>(decoded)));
   output += 4;
 }
+
+#endif
 
 // Returns true if the next extract is part of 'rows'.
 inline bool isEnabled(
@@ -292,7 +296,7 @@ inline void clipTrailingStores(
 }
 
 template <typename T>
-__attribute__((__target__("bmi2"))) FOLLY_ALWAYS_INLINE void varintSwitch(
+FOLLY_ALWAYS_INLINE void varintSwitch(
     uint64_t word,
     uint64_t controlBits,
     const char*& pos,

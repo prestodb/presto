@@ -80,10 +80,6 @@ class ProbeState {
   // change the load factor by much in the expected uses.
   static constexpr uint8_t kTombstoneTag = 0x7f;
   static constexpr int32_t kFullMask = 0xffff;
-  static constexpr BaseHashTable::TagVector kTombstoneGroup = {
-      0x7f7f7f7f7f7f7f7fUL,
-      0x7f7f7f7f7f7f7f7fUL};
-  static constexpr BaseHashTable::TagVector kEmptyGroup = {0, 0};
 
   static inline int32_t tagsByteOffset(uint64_t hash, uint64_t sizeMask) {
     return (hash & sizeMask) & ~(sizeof(BaseHashTable::TagVector) - 1);
@@ -101,7 +97,7 @@ class ProbeState {
     tagIndex_ = tagsByteOffset(hash, sizeMask);
     tagsInTable_ = BaseHashTable::loadTags(tags, tagIndex_);
     auto tag = BaseHashTable::hashTag(hash);
-    wantedTags_ = _mm_set1_epi8(tag);
+    wantedTags_ = BaseHashTable::TagVector::broadcast(tag);
     group_ = nullptr;
     indexInTags_ = kNotSet;
   }
@@ -110,8 +106,7 @@ class ProbeState {
   // If there is a match, load corresponding data from the table
   template <Operation op = Operation::kProbe>
   inline void firstProbe(char** table, int32_t firstKey) {
-    auto tagMatches = _mm_cmpeq_epi8(tagsInTable_, wantedTags_);
-    hits_ = _mm_movemask_epi8(tagMatches);
+    hits_ = simd::toBitMask(tagsInTable_ == wantedTags_);
     if (hits_) {
       loadNextHit<op>(table, firstKey);
     }
@@ -136,16 +131,17 @@ class ProbeState {
     auto alreadyChecked = group_;
     if (extraCheck) {
       tagsInTable_ = BaseHashTable::loadTags(tags, tagIndex_);
-      auto tagMatches = _mm_cmpeq_epi8(tagsInTable_, wantedTags_);
-      hits_ = _mm_movemask_epi8(tagMatches);
+      hits_ = simd::toBitMask(tagsInTable_ == wantedTags_);
     }
 
     int32_t insertTagIndex = -1;
+    const auto kTombstoneGroup =
+        BaseHashTable::TagVector::broadcast(kTombstoneTag);
+    const auto kEmptyGroup = BaseHashTable::TagVector::broadcast(0);
     for (;;) {
       if (!hits_) {
         uint16_t empty =
-            _mm_movemask_epi8(_mm_cmpeq_epi8(tagsInTable_, kEmptyGroup)) &
-            kFullMask;
+            simd::toBitMask(tagsInTable_ == kEmptyGroup) & kFullMask;
         if (empty) {
           if (op == Operation::kProbe) {
             return nullptr;
@@ -163,8 +159,7 @@ class ProbeState {
         } else if (op == Operation::kInsert && indexInTags_ == kNotSet) {
           // We passed through a full group.
           uint16_t tombstones =
-              _mm_movemask_epi8(_mm_cmpeq_epi8(tagsInTable_, kTombstoneGroup)) &
-              kFullMask;
+              simd::toBitMask(tagsInTable_ == kTombstoneGroup) & kFullMask;
           if (tombstones) {
             insertTagIndex = tagIndex_;
             indexInTags_ = bits::getAndClearLastSetBit(tombstones);
@@ -183,8 +178,7 @@ class ProbeState {
       }
       tagIndex_ = (tagIndex_ + sizeof(BaseHashTable::TagVector)) & sizeMask;
       tagsInTable_ = BaseHashTable::loadTags(tags, tagIndex_);
-      auto tagMatches = _mm_cmpeq_epi8(tagsInTable_, wantedTags_);
-      hits_ = _mm_movemask_epi8(tagMatches) & kFullMask;
+      hits_ = simd::toBitMask(tagsInTable_ == wantedTags_) & kFullMask;
     }
   }
 
@@ -203,7 +197,8 @@ class ProbeState {
   }
 
   void eraseHit(uint8_t* tags) {
-    auto empty = _mm_movemask_epi8(_mm_cmpeq_epi8(tagsInTable_, kEmptyGroup));
+    const auto kEmptyGroup = BaseHashTable::TagVector::broadcast(0);
+    auto empty = simd::toBitMask(tagsInTable_ == kEmptyGroup);
 
     BaseHashTable::storeTag(
         tags, tagIndex_ + indexInTags_, empty ? 0 : kTombstoneTag);
@@ -419,16 +414,16 @@ void HashTable<ignoreNullKeys>::arrayGroupProbe(HashLookup& lookup) {
   auto groups = lookup.hits.data();
   int32_t i = 0;
   if (process::hasAvx2() && simd::isDense(rows, numProbes)) {
-    auto allZero = simd::Vectors<int64_t>::setAll(0);
-    constexpr int32_t kWidth = simd::Vectors<int64_t>::VSize;
+    auto allZero = xsimd::broadcast<int64_t>(0);
+    constexpr int32_t kWidth = xsimd::batch<int64_t>::size;
     auto start = rows[0];
     auto end = start + numProbes - kWidth;
     for (i = start; i <= end; i += kWidth) {
-      auto loaded = simd::Vectors<int64_t>::gather64(
-          table_, simd::Vectors<int64_t>::load(hashes + i));
-      *simd::Vectors<int64_t>::pointer(groups + i) = loaded;
-      auto misses = simd::Vectors<int64_t>::compareBitMask(
-          simd::Vectors<int64_t>::compareEq(loaded, allZero));
+      auto loaded = simd::gather(
+          reinterpret_cast<const int64_t*>(table_),
+          reinterpret_cast<const int64_t*>(hashes + i));
+      loaded.store_unaligned(reinterpret_cast<int64_t*>(groups + i));
+      auto misses = simd::toBitMask(loaded == allZero);
       if (LIKELY(!misses)) {
         continue;
       }
@@ -632,7 +627,10 @@ void HashTable<ignoreNullKeys>::insertForGroupBy(
       auto tagIndex = ProbeState::tagsByteOffset(hash, sizeMask_);
       auto tagsInTable = BaseHashTable::loadTags(tags_, tagIndex);
       for (;;) {
-        MaskType free = ~_mm_movemask_epi8(tagsInTable) & ProbeState::kFullMask;
+        MaskType free =
+            ~simd::toBitMask(
+                BaseHashTable::TagVector::batch_bool_type(tagsInTable)) &
+            ProbeState::kFullMask;
         if (free) {
           auto freeOffset = bits::getAndClearLastSetBit(free);
           storeRowPointer(tagIndex + freeOffset, hash, groups[i]);

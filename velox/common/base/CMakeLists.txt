@@ -26,7 +26,7 @@ add_library(
   velox_common_base BitUtil.cpp RandomUtil.cpp RawVector.cpp RuntimeMetrics.cpp
                     SimdUtil.cpp SuccinctPrinter.cpp)
 
-target_link_libraries(velox_common_base velox_exception velox_process)
+target_link_libraries(velox_common_base velox_exception velox_process xsimd)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

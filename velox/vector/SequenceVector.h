@@ -98,7 +98,7 @@ class SequenceVector : public SimpleVector<T> {
    *
    * @param byteOffset - the byte offset to laod from
    */
-  __m256i loadSIMDValueBufferAt(size_t index) const;
+  xsimd::batch<T> loadSIMDValueBufferAt(size_t index) const;
 
   /**
    * Returns a shared_ptr to the underlying byte buffer holding the values for

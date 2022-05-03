@@ -464,30 +464,45 @@ void ExtractToReader<TReader>::addNull(vector_size_t /*rowIndex*/) {
 
 enum FilterResult { kUnknown = 0x40, kSuccess = 0x80, kFailure = 0 };
 
-template <typename T>
-inline __m256si load8Indices(const T* /*input*/) {
-  VELOX_FAIL("Unsupported dictionary index type");
-}
+namespace detail {
 
-template <>
-inline __m256si load8Indices(const int32_t* input) {
-  using V32 = simd::Vectors<int32_t>;
-  return V32::load(input);
-}
+template <typename T, typename A>
+struct Load8Indices;
 
-template <>
-inline __m256si load8Indices(const int16_t* input) {
-  using V16 = simd::Vectors<int16_t>;
+template <typename A>
+struct Load8Indices<int32_t, A> {
+  static xsimd::batch<int32_t, A> apply(const int32_t* values, const A&) {
+    return xsimd::load_unaligned<A>(values);
+  }
+};
 
-  return V16::as8x32u(*reinterpret_cast<const __m128hi_u*>(input));
-}
+template <typename A>
+struct Load8Indices<int16_t, A> {
+#if XSIMD_WITH_AVX2
+  static xsimd::batch<int32_t, A> apply(
+      const int16_t* values,
+      const xsimd::avx2&) {
+    return _mm256_cvtepi16_epi32(
+        _mm_loadu_si128(reinterpret_cast<const __m128i*>(values)));
+  }
+#endif
+};
 
-template <>
-inline __m256si load8Indices(const int64_t* input) {
-  static const __m256si iota = {0, 1, 2, 3, 4, 5, 6, 7};
-  using V32 = simd::Vectors<int32_t>;
+template <typename A>
+struct Load8Indices<int64_t, A> {
+  static xsimd::batch<int32_t, A> apply(const int64_t* values, const A& arch) {
+    return simd::gather<int32_t, int32_t, 8>(
+        reinterpret_cast<const int32_t*>(values),
+        simd::iota<int32_t>(arch),
+        arch);
+  }
+};
 
-  return V32::gather32<8>(input, V32::load(&iota));
+} // namespace detail
+
+template <typename T, typename A = xsimd::default_arch>
+inline xsimd::batch<int32_t> load8Indices(const T* values, const A& arch = {}) {
+  return detail::Load8Indices<T, A>::apply(values, arch);
 }
 
 // Copies from 'input' to 'values' and translates  via 'dict'. Only elements
@@ -501,17 +516,17 @@ template <typename T>
 inline void storeTranslatePermute(
     const T* input,
     int32_t inputIndex,
-    __m256si /*indices*/,
-    __m256si selected,
-    __m256si dictMask,
+    xsimd::batch<int32_t> /*indices*/,
+    int selected,
+    xsimd::batch_bool<int32_t> dictMask,
     int8_t numBits,
     const T* dict,
     T* values) {
-  auto selectedAsInts = reinterpret_cast<int32_t*>(&selected);
-  auto inDict = reinterpret_cast<int32_t*>(&dictMask);
+  auto selectedIndices = simd::byteSetBits(selected);
+  auto inDict = simd::toBitMask(dictMask);
   for (auto i = 0; i < numBits; ++i) {
-    auto value = input[inputIndex + selectedAsInts[i]];
-    if (inDict[selected[i]]) {
+    auto value = input[inputIndex + selectedIndices[i]];
+    if (inDict & (1 << selectedIndices[i])) {
       value = dict[value];
     }
     values[i] = value;
@@ -522,15 +537,14 @@ template <>
 inline void storeTranslatePermute(
     const int32_t* /*input*/,
     int32_t /*inputIndex*/,
-    __m256si indices,
-    __m256si selected,
-    __m256si dictMask,
+    xsimd::batch<int32_t> indices,
+    int selected,
+    xsimd::batch_bool<int32_t> dictMask,
     int8_t /*numBits*/,
     const int32_t* dict,
     int32_t* values) {
-  using V32 = simd::Vectors<int32_t>;
-  auto translated = V32::maskGather32(indices, dictMask, dict, indices);
-  simd::storePermute(values, translated, selected);
+  auto translated = simd::maskGather(indices, dictMask, dict, indices);
+  simd::filter(translated, selected).store_unaligned(values);
 }
 
 // Stores 8 elements starting at 'input' + 'inputIndex' into
@@ -540,14 +554,14 @@ template <typename T>
 inline void storeTranslate(
     const T* input,
     int32_t inputIndex,
-    __m256si /*indices*/,
-    __m256si dictMask,
+    xsimd::batch<int32_t> /*indices*/,
+    xsimd::batch_bool<int32_t> dictMask,
     const T* dict,
     T* values) {
-  int32_t* inDict = reinterpret_cast<int32_t*>(&dictMask);
+  auto inDict = simd::toBitMask(dictMask);
   for (auto i = 0; i < 8; ++i) {
     auto value = input[inputIndex + i];
-    if (inDict[i]) {
+    if (inDict & (1 << i)) {
       value = dict[value];
     }
     values[i] = value;
@@ -558,21 +572,27 @@ template <>
 inline void storeTranslate(
     const int32_t* /*input*/,
     int32_t /*inputIndex*/,
-    __m256si indices,
-    __m256si dictMask,
+    xsimd::batch<int32_t> indices,
+    xsimd::batch_bool<int32_t> dictMask,
     const int32_t* dict,
     int32_t* values) {
-  using V32 = simd::Vectors<int32_t>;
-  V32::store(values, V32::maskGather32(indices, dictMask, dict, indices));
+  simd::maskGather(indices, dictMask, dict, indices).store_unaligned(values);
 }
+
+namespace detail {
+
+#if XSIMD_WITH_AVX2
+inline xsimd::batch<int64_t> cvtU32toI64(
+    xsimd::batch<int32_t, xsimd::sse2> values) {
+  return _mm256_cvtepu32_epi64(values);
+}
+#endif
+
+} // namespace detail
 
 template <typename T, typename TFilter, typename ExtractValues, bool isDense>
 class DictionaryColumnVisitor
     : public ColumnVisitor<T, TFilter, ExtractValues, isDense> {
-  using V64 = simd::Vectors<int64_t>;
-  using V32 = simd::Vectors<int32_t>;
-  using V16 = simd::Vectors<int16_t>;
-
   using super = ColumnVisitor<T, TFilter, ExtractValues, isDense>;
 
  public:
@@ -715,12 +735,12 @@ class DictionaryColumnVisitor
     // write  the whole register to the end of 'values'
     constexpr bool kFilterOnly =
         std::is_same<typename super::Extract, DropValues>::value;
-    constexpr int32_t kWidth = V32::VSize;
+    constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
     int32_t last = numInput & ~(kWidth - 1);
     for (auto i = 0; i < numInput; i += kWidth) {
       int8_t width = UNLIKELY(i == last) ? numInput - last : 8;
       auto indices = load8Indices(input + i);
-      __m256si dictMask;
+      xsimd::batch_bool<int32_t> dictMask;
       if (inDict()) {
         if (simd::isDense(super::rows_ + super::rowIndex_ + i, width)) {
           dictMask = load8MaskDense(
@@ -730,15 +750,19 @@ class DictionaryColumnVisitor
               inDict(), super::rows_ + super::rowIndex_ + i, width);
         }
       } else {
-        dictMask = V32::leadingMask(width);
+        dictMask = simd::leadingMask<int32_t>(width);
       }
 
       // Load 8 filter cache values. Defaults the extra to values to 0 if
       // loading less than 8.
-      V32::TV cache = V32::maskGather32<1>(
-          V32::setAll(0), dictMask, filterCache() - 3, indices);
-      auto unknowns = V32::compareBitMask((cache & (kUnknown << 24)) << 1);
-      auto passed = V32::compareBitMask(cache);
+      auto cache = simd::maskGather<int32_t, int32_t, 1>(
+          xsimd::broadcast<int32_t>(0),
+          dictMask,
+          reinterpret_cast<const int32_t*>(filterCache() - 3),
+          indices);
+      auto unknowns = simd::toBitMask(
+          xsimd::batch_bool<int32_t>((cache & (kUnknown << 24)) << 1));
+      auto passed = simd::toBitMask(xsimd::batch_bool<int32_t>(cache));
       if (UNLIKELY(unknowns)) {
         uint16_t bits = unknowns;
         // Ranges only over inputs that are in dictionary, the not in dictionary
@@ -756,9 +780,10 @@ class DictionaryColumnVisitor
       }
       // Were there values not in dictionary?
       if (inDict()) {
-        auto mask = V32::compareBitMask(dictMask);
-        if (mask != V32::kAllTrue) {
-          uint16_t bits = (V32::kAllTrue ^ mask) & bits::lowMask(kWidth);
+        auto mask = simd::toBitMask(dictMask);
+        const auto allTrue = simd::allSetBitMask<int32_t>();
+        if (mask != allTrue) {
+          uint16_t bits = (allTrue ^ mask) & bits::lowMask(kWidth);
           while (bits) {
             auto index = bits::getAndClearLastSetBit(bits);
             if (i + index >= numInput) {
@@ -773,13 +798,12 @@ class DictionaryColumnVisitor
       // We know 8 compare results. If all false, process next batch.
       if (!passed) {
         continue;
-      } else if (passed == (1 << V32::VSize) - 1) {
+      } else if (passed == (1 << xsimd::batch<int32_t>::size) - 1) {
         // All passed, no need to shuffle the indices or values, write then to
         // 'values' and 'filterHits'.
-        V32::store(
-            filterHits + numValues,
-            V32::load(
-                (scatter ? scatterRows : super::rows_) + super::rowIndex_ + i));
+        xsimd::load_unaligned(
+            (scatter ? scatterRows : super::rows_) + super::rowIndex_ + i)
+            .store_unaligned(filterHits + numValues);
         if (!kFilterOnly) {
           storeTranslate(
               input, i, indices, dictMask, dict(), values + numValues);
@@ -789,18 +813,17 @@ class DictionaryColumnVisitor
         // Some passed. Permute  the passing row numbers and values to the left
         // of the SIMD vector and store.
         int8_t numBits = __builtin_popcount(passed);
-        auto setBits = V32::load(&V32::byteSetBits()[passed]);
-        simd::storePermute(
-            filterHits + numValues,
-            V32::load(
+        simd::filter(
+            xsimd::load_unaligned(
                 (scatter ? scatterRows : super::rows_) + super::rowIndex_ + i),
-            setBits);
+            passed)
+            .store_unaligned(filterHits + numValues);
         if (!kFilterOnly) {
           storeTranslatePermute(
               input,
               i,
               indices,
-              setBits,
+              passed,
               dictMask,
               numBits,
               dict(),
@@ -823,24 +846,25 @@ class DictionaryColumnVisitor
       T* values,
       int32_t& numValues) {
     if (sizeof(T) == 8) {
-      constexpr int32_t kWidth = V64::VSize;
+      constexpr int32_t kWidth = xsimd::batch<int64_t>::size;
       for (auto i = 0; i < numRows; i += kWidth) {
-        auto numbers =
-            V64::from32u(
-                V64::loadGather32Indices(super::rows_ + super::rowIndex_ + i) -
-                currentRow) *
+        auto numbers = detail::cvtU32toI64(
+                           simd::loadGatherIndices<int64_t>(
+                               super::rows_ + super::rowIndex_ + i) -
+                           currentRow) *
                 delta +
             value;
-        V64::store(values + numValues + i, numbers);
+        numbers.store_unaligned(values + numValues + i);
       }
     } else if (sizeof(T) == 4) {
-      constexpr int32_t kWidth = V32::VSize;
+      constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
       for (auto i = 0; i < numRows; i += kWidth) {
         auto numbers =
-            (V32::load(super::rows_ + super::rowIndex_ + i) - currentRow) *
+            (xsimd::load_unaligned(super::rows_ + super::rowIndex_ + i) -
+             currentRow) *
                 static_cast<int32_t>(delta) +
             static_cast<int32_t>(value);
-        V32::store(values + numValues + i, numbers);
+        numbers.store_unaligned(values + numValues + i);
       }
     } else {
       for (auto i = 0; i < numRows; ++i) {
@@ -889,32 +913,21 @@ class DictionaryColumnVisitor
   // Returns 'numBits' bits starting at bit 'index' in 'bits' as a
   // 8x32 mask. This is used as a mask for maskGather to load selected
   // lanes from a dictionary.
-  __m256si load8MaskDense(const uint64_t* bits, int32_t index, int8_t numBits) {
+  xsimd::batch_bool<int32_t>
+  load8MaskDense(const uint64_t* bits, int32_t index, int8_t numBits) {
     uint8_t shift = index & 7;
     uint32_t byte = index >> 3;
     auto asBytes = reinterpret_cast<const uint8_t*>(bits);
     auto mask = (*reinterpret_cast<const int16_t*>(asBytes + byte) >> shift) &
         bits::lowMask(numBits);
-    return V32::mask(mask);
+    return simd::fromBitMask<int32_t>(mask);
   }
 
   // Returns 'numBits' bits at bit offsets in 'rows' from 'bits' as a
   // 8x32 mask for use in maskGather.
-  __m256si
+  xsimd::batch_bool<int32_t>
   load8MaskSparse(const uint64_t* bits, const int32_t* rows, int8_t numRows) {
-    // Computes 8 byte addresses, and 8 bit masks. The low bits of the
-    // row select the bit mask, the rest of the bits are the byte
-    // offset. There is an AND wich will be zero if the bit is not
-    // set. This is finally converted to a mask with a negated SIMD
-    // comparison with 0. The negate is a xor with -1.
-    static const __m256si byteBits = {1, 2, 4, 8, 16, 32, 64, 128};
-    auto zero = V32::setAll(0);
-    auto indicesV = V32::load(rows);
-    auto loadMask = V32::leadingMask(numRows);
-    auto maskV = (__m256si)_mm256_permutevar8x32_epi32(
-        (__m256i)byteBits, (__m256i)(indicesV & 7));
-    auto data = V32::maskGather32<1>(zero, loadMask, bits, indicesV >> 3);
-    return V32::compareEq(data & maskV, V32::setAll(0)) ^ -1;
+    return simd::fromBitMask<int32_t>(simd::gather8Bits(bits, rows, numRows));
   }
 
   void translateByDict(const T* values, int numValues, T* out) {
@@ -970,10 +983,6 @@ class StringDictionaryColumnVisitor
   using super = ColumnVisitor<int32_t, TFilter, ExtractValues, isDense>;
   using DictSuper =
       DictionaryColumnVisitor<int32_t, TFilter, ExtractValues, isDense>;
-
-  using V64 = simd::Vectors<int64_t>;
-  using V32 = simd::Vectors<int32_t>;
-  using V16 = simd::Vectors<int16_t>;
 
  public:
   StringDictionaryColumnVisitor(
@@ -1069,21 +1078,24 @@ class StringDictionaryColumnVisitor
     }
     constexpr bool filterOnly =
         std::is_same<typename super::Extract, DropValues>::value;
-    constexpr int32_t kWidth = V32::VSize;
+    constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
     for (auto i = 0; i < numInput; i += kWidth) {
-      auto indices = V32::load(input + i);
-      V32::TV cache;
+      auto indices = xsimd::load_unaligned(input + i);
+      xsimd::batch<int32_t> cache;
+      auto base =
+          reinterpret_cast<const int32_t*>(DictSuper::filterCache() - 3);
       if (i + kWidth > numInput) {
-        cache = V32::maskGather32<1>(
-            V32::setAll(0),
-            V32::leadingMask(numInput - i),
-            DictSuper::filterCache() - 3,
+        cache = simd::maskGather<int32_t, int32_t, 1>(
+            xsimd::broadcast<int32_t>(0),
+            simd::leadingMask<int32_t>(numInput - i),
+            base,
             indices);
       } else {
-        cache = V32::gather32<1>(DictSuper::filterCache() - 3, indices);
+        cache = simd::gather<int32_t, int32_t, 1>(base, indices);
       }
-      auto unknowns = V32::compareBitMask((cache & (kUnknown << 24)) << 1);
-      auto passed = V32::compareBitMask(cache);
+      auto unknowns = simd::toBitMask(
+          xsimd::batch_bool<int32_t>((cache & (kUnknown << 24)) << 1));
+      auto passed = simd::toBitMask(xsimd::batch_bool<int32_t>(cache));
       if (UNLIKELY(unknowns)) {
         uint16_t bits = unknowns;
         while (bits) {
@@ -1108,25 +1120,23 @@ class StringDictionaryColumnVisitor
       }
       if (!passed) {
         continue;
-      } else if (passed == (1 << V32::VSize) - 1) {
-        V32::store(
-            filterHits + numValues,
-            V32::load(
-                (scatter ? scatterRows : super::rows_) + super::rowIndex_ + i));
+      } else if (passed == (1 << kWidth) - 1) {
+        xsimd::load_unaligned(
+            (scatter ? scatterRows : super::rows_) + super::rowIndex_ + i)
+            .store_unaligned(filterHits + numValues);
         if (!filterOnly) {
-          V32::store(values + numValues, indices);
+          indices.store_unaligned(values + numValues);
         }
         numValues += kWidth;
       } else {
         int8_t numBits = __builtin_popcount(passed);
-        auto setBits = V32::load(&V32::byteSetBits()[passed]);
-        simd::storePermute(
-            filterHits + numValues,
-            V32::load(
+        simd::filter(
+            xsimd::load_unaligned(
                 (scatter ? scatterRows : super::rows_) + super::rowIndex_ + i),
-            setBits);
+            passed)
+            .store_unaligned(filterHits + numValues);
         if (!filterOnly) {
-          simd::storePermute(values + numValues, indices, setBits);
+          simd::filter(indices, passed).store_unaligned(values + numValues);
         }
         numValues += numBits;
       }
@@ -1149,13 +1159,13 @@ class StringDictionaryColumnVisitor
       int32_t* filterHits,
       int32_t* values,
       int32_t& numValues) {
-    constexpr int32_t kWidth = V32::VSize;
+    constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
     for (auto i = 0; i < numRows; i += kWidth) {
-      V32::store(
-          values + numValues + i,
-          (V32::load(super::rows_ + super::rowIndex_ + i) - currentRow) *
-                  delta +
-              value);
+      ((xsimd::load_unaligned(super::rows_ + super::rowIndex_ + i) -
+        currentRow) *
+           delta +
+       value)
+          .store_unaligned(values + numValues + i);
     }
 
     processRun<hasFilter, hasHook, scatter>(
@@ -1245,10 +1255,6 @@ class DirectRleColumnVisitor
     : public ColumnVisitor<T, TFilter, ExtractValues, isDense> {
   using super = ColumnVisitor<T, TFilter, ExtractValues, isDense>;
 
-  using V64 = simd::Vectors<int64_t>;
-  using V32 = simd::Vectors<int32_t>;
-  using V16 = simd::Vectors<int16_t>;
-
  public:
   DirectRleColumnVisitor(
       TFilter& filter,
@@ -1313,24 +1319,25 @@ class DirectRleColumnVisitor
       T* values,
       int32_t& numValues) {
     if (sizeof(T) == 8) {
-      constexpr int32_t kWidth = V64::VSize;
+      constexpr int32_t kWidth = xsimd::batch<int64_t>::size;
       for (auto i = 0; i < numRows; i += kWidth) {
-        auto numbers =
-            V64::from32u(
-                V64::loadGather32Indices(super::rows_ + super::rowIndex_ + i) -
-                currentRow) *
+        auto numbers = detail::cvtU32toI64(
+                           simd::loadGatherIndices<int64_t>(
+                               super::rows_ + super::rowIndex_ + i) -
+                           currentRow) *
                 delta +
             value;
-        V64::store(values + numValues + i, numbers);
+        numbers.store_unaligned(values + numValues + i);
       }
     } else if (sizeof(T) == 4) {
-      constexpr int32_t kWidth = V32::VSize;
+      constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
       for (auto i = 0; i < numRows; i += kWidth) {
         auto numbers =
-            (V32::load(super::rows_ + super::rowIndex_ + i) - currentRow) *
+            (xsimd::load_unaligned(super::rows_ + super::rowIndex_ + i) -
+             currentRow) *
                 static_cast<int32_t>(delta) +
             static_cast<int32_t>(value);
-        V32::store(values + numValues + i, numbers);
+        numbers.store_unaligned(values + numValues + i);
       }
     } else {
       for (auto i = 0; i < numRows; ++i) {
