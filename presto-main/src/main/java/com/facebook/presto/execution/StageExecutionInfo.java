@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
-import com.facebook.presto.common.RuntimeMetricName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
@@ -34,7 +33,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.RuntimeMetricName.GET_SPLITS_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricKey.DRIVER_COUNT_PER_TASK;
+import static com.facebook.presto.common.RuntimeMetricKey.GET_SPLITS_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricKey.TASK_BLOCKED_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricKey.TASK_ELAPSED_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricKey.TASK_QUEUED_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricKey.TASK_SCHEDULED_TIME_NANOS;
 import static com.facebook.presto.execution.StageExecutionState.FINISHED;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
@@ -175,11 +179,11 @@ public class StageExecutionInfo
                 }
             }
             mergedRuntimeStats.mergeWith(taskStats.getRuntimeStats());
-            mergedRuntimeStats.addMetricValue(RuntimeMetricName.DRIVER_COUNT_PER_TASK, taskStats.getTotalDrivers());
-            mergedRuntimeStats.addMetricValue(RuntimeMetricName.TASK_ELAPSED_TIME_NANOS, taskStats.getElapsedTimeInNanos());
-            mergedRuntimeStats.addMetricValueIgnoreZero(RuntimeMetricName.TASK_QUEUED_TIME_NANOS, taskStats.getQueuedTimeInNanos());
-            mergedRuntimeStats.addMetricValue(RuntimeMetricName.TASK_SCHEDULED_TIME_NANOS, taskStats.getTotalScheduledTimeInNanos());
-            mergedRuntimeStats.addMetricValueIgnoreZero(RuntimeMetricName.TASK_BLOCKED_TIME_NANOS, taskStats.getTotalBlockedTimeInNanos());
+            mergedRuntimeStats.addMetricValue(DRIVER_COUNT_PER_TASK, taskStats.getTotalDrivers());
+            mergedRuntimeStats.addMetricValue(TASK_ELAPSED_TIME_NANOS, taskStats.getElapsedTimeInNanos());
+            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_QUEUED_TIME_NANOS, taskStats.getQueuedTimeInNanos());
+            mergedRuntimeStats.addMetricValue(TASK_SCHEDULED_TIME_NANOS, taskStats.getTotalScheduledTimeInNanos());
+            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_BLOCKED_TIME_NANOS, taskStats.getTotalBlockedTimeInNanos());
         }
 
         StageExecutionStats stageExecutionStats = new StageExecutionStats(

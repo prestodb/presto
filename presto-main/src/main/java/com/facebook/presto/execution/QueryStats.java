@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.RuntimeMetricKey;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
@@ -383,9 +384,9 @@ public class QueryStats
             operatorStatsSummary.addAll(stageExecutionStats.getOperatorSummaries());
             // We prepend each metric name with the stage id to avoid merging metrics across stages.
             int stageId = stageInfo.getStageId().getId();
-            stageExecutionStats.getRuntimeStats().getMetrics().forEach((name, metric) -> {
-                String metricName = String.format("S%d-%s", stageId, name);
-                mergedRuntimeStats.mergeMetric(metricName, metric);
+            stageExecutionStats.getRuntimeStats().getMetricMap().forEach((key, metric) -> {
+                String metricName = String.format("S%d-%s", stageId, key.getName());
+                mergedRuntimeStats.mergeMetric(new RuntimeMetricKey(metricName, key.getUnit()), metric);
             });
         }
 

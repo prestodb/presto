@@ -31,8 +31,8 @@ import com.facebook.presto.sql.tree.Table;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
-import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
-import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT;
+import static com.facebook.presto.common.RuntimeMetricKey.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
+import static com.facebook.presto.common.RuntimeMetricKey.OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 
 public class MaterializedViewOptimizationRewriteUtils

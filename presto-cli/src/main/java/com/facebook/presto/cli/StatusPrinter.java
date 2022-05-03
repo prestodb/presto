@@ -230,7 +230,7 @@ Spilled: 20GB
 
             // bytesFromCache: sum=2K count=2 min=1K max=1K
             if (stats.getRuntimeStats() != null) {
-                stats.getRuntimeStats().getMetrics().values().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
+                stats.getRuntimeStats().getMetrics().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
                         metric -> reprintLine(format("%s: sum=%s count=%s min=%s max=%s",
                                 metric.getName(),
                                 autoFormatMetricValue(metric.getName(), metric.getSum()),
@@ -340,7 +340,7 @@ Spilled: 20GB
                 }
 
                 if (stats.getRuntimeStats() != null) {
-                    stats.getRuntimeStats().getMetrics().values().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
+                    stats.getRuntimeStats().getMetrics().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
                             metric -> reprintLine(format("%s: sum=%s count=%s min=%s max=%s",
                                     metric.getName(),
                                     autoFormatMetricValue(metric.getName(), metric.getSum()),

@@ -30,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class RuntimeMetric
 {
     private final String name;
+    private final RuntimeUnit unit;
     private final AtomicLong sum = new AtomicLong();
     private final AtomicLong count = new AtomicLong();
     private final AtomicLong max = new AtomicLong(Long.MIN_VALUE);
@@ -38,29 +39,49 @@ public class RuntimeMetric
     /**
      * Creates a new empty RuntimeMetric.
      *
-     * @param name Name of this metric. If used in the presto core code base, this should be a value defined in {@link RuntimeMetricName}. But connectors could use arbitrary names.
+     * @param name Name of this metric. If used in the presto core code base, this should be a value defined in {@link RuntimeMetricKey}. But connectors could use arbitrary names.
      */
-    public RuntimeMetric(String name)
+    public RuntimeMetric(String name, RuntimeUnit unit)
     {
         this.name = requireNonNull(name, "name is null");
+        this.unit = requireNonNull(unit, "unit is null");
+    }
+
+    public RuntimeMetric(RuntimeMetricKey key)
+    {
+        requireNonNull(key, "key is null");
+        this.name = requireNonNull(key.getName(), "name is null");
+        this.unit = requireNonNull(key.getUnit(), "unit is null");
     }
 
     public static RuntimeMetric copyOf(RuntimeMetric metric)
     {
         requireNonNull(metric, "metric is null");
-        return new RuntimeMetric(metric.getName(), metric.getSum(), metric.getCount(), metric.getMax(), metric.getMin());
+        return new RuntimeMetric(metric.getName(), metric.getUnit(), metric.getSum(), metric.getCount(), metric.getMax(), metric.getMin());
     }
 
     @JsonCreator
     @ThriftConstructor
     public RuntimeMetric(
             @JsonProperty("name") String name,
+            @JsonProperty("unit") RuntimeUnit unit,
             @JsonProperty("sum") long sum,
             @JsonProperty("count") long count,
             @JsonProperty("max") long max,
             @JsonProperty("min") long min)
     {
-        this(name);
+        this(name, unit);
+        set(sum, count, max, min);
+    }
+
+    public RuntimeMetric(
+            RuntimeMetricKey key,
+            long sum,
+            long count,
+            long max,
+            long min)
+    {
+        this(key);
         set(sum, count, max, min);
     }
 
@@ -83,6 +104,13 @@ public class RuntimeMetric
     public String getName()
     {
         return name;
+    }
+
+    @JsonProperty
+    @ThriftField(2)
+    public RuntimeUnit getUnit()
+    {
+        return unit;
     }
 
     public void addValue(long value)
@@ -124,30 +152,35 @@ public class RuntimeMetric
     }
 
     @JsonProperty
-    @ThriftField(2)
+    @ThriftField(3)
     public long getSum()
     {
         return sum.get();
     }
 
     @JsonProperty
-    @ThriftField(3)
+    @ThriftField(4)
     public long getCount()
     {
         return count.get();
     }
 
     @JsonProperty
-    @ThriftField(4)
+    @ThriftField(5)
     public long getMax()
     {
         return max.get();
     }
 
     @JsonProperty
-    @ThriftField(5)
+    @ThriftField(6)
     public long getMin()
     {
         return min.get();
+    }
+
+    public RuntimeMetricKey getMetricKey()
+    {
+        return new RuntimeMetricKey(name, unit);
     }
 }
