@@ -7133,7 +7133,7 @@ public:
 			throw std::runtime_error("Decode bit width too large");
 		}
 		byte_encoded_len = ((bit_width_ + 7) / 8);
-		max_val = (1 << bit_width_) - 1;
+		max_val = (uint64_t(1) << bit_width_) - 1;
 	}
 
 	template <typename T>
@@ -7185,12 +7185,12 @@ private:
 	ByteBuffer buffer_;
 
 	/// Number of bits needed to encode the value. Must be between 0 and 64.
-	int bit_width_;
+	uint32_t bit_width_;
 	uint64_t current_value_;
 	uint32_t repeat_count_;
 	uint32_t literal_count_;
 	uint8_t byte_encoded_len;
-	uint32_t max_val;
+	uint64_t max_val;
 
 	uint8_t bitpack_pos = 0;
 
@@ -7410,12 +7410,16 @@ public:
 
 	virtual void Skip(idx_t num_values);
 
-	const LogicalType &Type();
-	const SchemaElement &Schema();
+	ParquetReader &Reader();
+	const LogicalType &Type() const;
+	const SchemaElement &Schema() const;
+	idx_t FileIdx() const;
+	idx_t MaxDefine() const;
+	idx_t MaxRepeat() const;
 
 	virtual idx_t GroupRowsAvailable();
 
-	unique_ptr<BaseStatistics> Stats(const std::vector<ColumnChunk> &columns);
+	virtual unique_ptr<BaseStatistics> Stats(const std::vector<ColumnChunk> &columns);
 
 protected:
 	// readers that use the default Read() need to implement those
@@ -7574,10 +7578,17 @@ public:
 	    : ParquetReader(allocator, move(file_handle_p), vector<LogicalType>(), string()) {
 	}
 
-	ParquetReader(ClientContext &context, string file_name, const vector<LogicalType> &expected_types_p,
+	ParquetReader(ClientContext &context, string file_name, const vector<string> &names,
+	              const vector<LogicalType> &expected_types_p, const vector<column_t> &column_ids,
 	              ParquetOptions parquet_options, const string &initial_filename = string());
 	ParquetReader(ClientContext &context, string file_name, ParquetOptions parquet_options)
-	    : ParquetReader(context, move(file_name), vector<LogicalType>(), parquet_options, string()) {
+	    : ParquetReader(context, move(file_name), vector<string>(), vector<LogicalType>(), vector<column_t>(),
+	                    parquet_options, string()) {
+	}
+	ParquetReader(ClientContext &context, string file_name, const vector<LogicalType> &expected_types_p,
+	              ParquetOptions parquet_options)
+	    : ParquetReader(context, move(file_name), vector<string>(), expected_types_p, vector<column_t>(),
+	                    parquet_options, string()) {
 	}
 	~ParquetReader();
 
@@ -7604,7 +7615,8 @@ public:
 	static LogicalType DeriveLogicalType(const SchemaElement &s_ele, bool binary_as_string);
 
 private:
-	void InitializeSchema(const vector<LogicalType> &expected_types_p, const string &initial_filename_p);
+	void InitializeSchema(const vector<string> &names, const vector<LogicalType> &expected_types_p,
+	                      const vector<column_t> &column_ids, const string &initial_filename_p);
 	bool ScanInternal(ParquetReaderScanState &state, DataChunk &output);
 	unique_ptr<ColumnReader> CreateReader(const duckdb_parquet::format::FileMetaData *file_meta_data);
 
@@ -7623,6 +7635,12 @@ private:
 
 private:
 	unique_ptr<FileHandle> file_handle;
+	//! column-id map, used when reading multiple parquet files since separate parquet files might have columns at
+	//! different positions e.g. the first file might have column "a" at position 0, the second at position 1, etc
+	vector<column_t> column_id_map;
+	//! Map of column_id -> cast, used when reading multiple parquet files when parquet files have diverging types
+	//! for the same column
+	unordered_map<column_t, LogicalType> cast_map;
 };
 
 } // namespace duckdb

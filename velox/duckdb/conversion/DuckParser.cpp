@@ -74,8 +74,9 @@ std::string normalizeFuncName(std::string input) {
   return (it == kLookup.end()) ? input : it->second;
 }
 
-// Convert duckDB operator name to Velox function. Coalesce and subscript needs
-// special treatment because `ExpressionTypeToOperator` returns an empty string.
+// Convert duckDB operator name to Velox function. Some expression types such as
+// coalesce and subscript need special treatment because
+// `ExpressionTypeToOperator` returns an empty string.
 std::string duckOperatorToVelox(ExpressionType type) {
   switch (type) {
     case ExpressionType::OPERATOR_IS_NULL:
@@ -86,6 +87,8 @@ std::string duckOperatorToVelox(ExpressionType type) {
       return "subscript";
     case ExpressionType::COMPARE_IN:
       return "in";
+    case ExpressionType::OPERATOR_NOT:
+      return "not";
     default:
       return normalizeFuncName(ExpressionTypeToOperator(type));
   }

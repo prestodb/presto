@@ -28,7 +28,7 @@ seed_t DBGenGlobals::Seed[MAX_STREAM + 1] = {
     {PART, 1841581359, 0, 1},                  /* P_TYPE_SD    2 */
     {PART, 1193163244, 0, 1},                  /* P_SIZE_SD    3 */
     {PART, 727633698, 0, 1},                   /* P_CNTR_SD    4 */
-    {DBGEN_NONE, 933588178, 0, 1},                   /* text pregeneration  5 */
+    {NONE, 933588178, 0, 1},                   /* text pregeneration  5 */
     {PART, 804159733, 0, 2},                   /* P_CMNT_SD    6 */
     {PSUPP, 1671059989, 0, SUPP_PER_PART},     /* PS_QTY_SD    7 */
     {PSUPP, 1051288424, 0, SUPP_PER_PART},     /* PS_SCST_SD   8 */
@@ -75,15 +75,15 @@ seed_t DBGenGlobals::Seed[MAX_STREAM + 1] = {
 double DBGenGlobals::dM = 2147483647.0;
 tdef DBGenGlobals::tdefs[10] = {
     {"part.tbl", "part table", 200000, NULL, NULL, PSUPP, 0},
-    {"partsupp.tbl", "partsupplier table", 200000, NULL, NULL, DBGEN_NONE, 0},
-    {"supplier.tbl", "suppliers table", 10000, NULL, NULL, DBGEN_NONE, 0},
-    {"customer.tbl", "customers table", 150000, NULL, NULL, DBGEN_NONE, 0},
+    {"partsupp.tbl", "partsupplier table", 200000, NULL, NULL, NONE, 0},
+    {"supplier.tbl", "suppliers table", 10000, NULL, NULL, NONE, 0},
+    {"customer.tbl", "customers table", 150000, NULL, NULL, NONE, 0},
     {"orders.tbl", "order table", 150000, NULL, NULL, LINE, 0},
-    {"lineitem.tbl", "lineitem table", 150000, NULL, NULL, DBGEN_NONE, 0},
+    {"lineitem.tbl", "lineitem table", 150000, NULL, NULL, NONE, 0},
     {"orders.tbl", "orders/lineitem tables", 150000, NULL, NULL, LINE, 0},
     {"part.tbl", "part/partsupplier tables", 200000, NULL, NULL, PSUPP, 0},
-    {"nation.tbl", "nation table", NATIONS_MAX, NULL, NULL, DBGEN_NONE, 0},
-    {"region.tbl", "region table", NATIONS_MAX, NULL, NULL, DBGEN_NONE, 0},
+    {"nation.tbl", "nation table", NATIONS_MAX, NULL, NULL, NONE, 0},
+    {"region.tbl", "region table", NATIONS_MAX, NULL, NULL, NONE, 0},
 };
 
 static seed_t *Seed = DBGenGlobals::Seed;

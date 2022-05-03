@@ -578,8 +578,9 @@ class DuckDBFunction : public exec::VectorFunction {
     auto result = std::make_unique<DuckDBFunctionData>();
     result->inputTypes = move(inputTypes);
     std::string error;
+    bool castParameters;
     result->functionIndex = ::duckdb::Function::BindFunction(
-        set_[0].name, set_, result->inputTypes, error);
+        set_[0].name, set_, result->inputTypes, error, castParameters);
     if (result->functionIndex >= set_.size()) {
       // binding error: cannot bind this function with the provided parameters
       throw std::runtime_error(error);

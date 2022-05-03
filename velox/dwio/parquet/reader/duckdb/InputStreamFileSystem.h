@@ -110,7 +110,8 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
 
   bool ListFiles(
       const std::string& /*directory*/,
-      const std::function<void(std::string, bool)>& /*callback*/) override {
+      const std::function<void(const std::string&, bool)>& /*callback*/)
+      override {
     VELOX_NYI();
   }
 
@@ -131,7 +132,9 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
     VELOX_NYI();
   }
 
-  std::vector<std::string> Glob(const std::string& /*path*/) override {
+  std::vector<std::string> Glob(
+      const std::string& /*path*/,
+      ::duckdb::FileOpener* /*opener*/ = nullptr) override {
     VELOX_NYI();
   }
 
