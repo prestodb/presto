@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -498,6 +499,26 @@ public abstract class AbstractMapBlock
                         keyCount * HASH_MULTIPLIER);
             }
             set(hashTables);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            HashTables other = (HashTables) obj;
+            return Arrays.equals(this.hashTables, other.hashTables) &&
+                    this.expectedHashTableCount == other.expectedHashTableCount;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(Arrays.hashCode(hashTables), expectedHashTableCount);
         }
     }
 

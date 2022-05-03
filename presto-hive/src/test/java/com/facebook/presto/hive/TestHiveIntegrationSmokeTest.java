@@ -226,6 +226,31 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testArrayPredicate()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity(
+                        "hive",
+                        Optional.empty(),
+                        ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin"))),
+                        ImmutableMap.of(),
+                        ImmutableMap.of()))
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA new_schema");
+
+        assertUpdate(admin, "CREATE TABLE new_schema.test (a array<varchar>)");
+
+        assertUpdate(admin, "INSERT INTO new_schema.test (values array['hi'])", 1);
+
+        assertQuery(admin, "SELECT * FROM new_schema.test where a <> array[]", "SELECT 'hi'");
+
+        assertUpdate(admin, "DROP TABLE new_schema.test");
+
+        assertUpdate(admin, "DROP SCHEMA new_schema");
+    }
+
+    @Test
     public void testCreateTableWithInvalidProperties()
     {
         // CSV
