@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetEncoding;
@@ -83,7 +84,7 @@ public class ParquetColumnChunk
         return Util.readPageHeader(stream, headerBlockDecryptor, pageHeaderAAD);
     }
 
-    public PageReader readAllPages(InternalFileDecryptor fileDecryptor, int rowGroupOrdinal, int columnOrdinal)
+    public PageReader readAllPages(Optional<InternalFileDecryptor> fileDecryptor, int rowGroupOrdinal, int columnOrdinal)
             throws IOException
     {
         LinkedList<DataPage> pages = new LinkedList<>();
@@ -94,12 +95,12 @@ public class ParquetColumnChunk
         byte[] dataPageHeaderAAD = null;
         BlockCipher.Decryptor headerBlockDecryptor = null;
         InternalColumnDecryptionSetup columnDecryptionSetup = null;
-        if (fileDecryptor != null) {
+        if (fileDecryptor.isPresent()) {
             ColumnPath columnPath = ColumnPath.get(descriptor.getColumnDescriptor().getPath());
-            columnDecryptionSetup = fileDecryptor.getColumnSetup(columnPath);
+            columnDecryptionSetup = fileDecryptor.get().getColumnSetup(columnPath);
             headerBlockDecryptor = columnDecryptionSetup.getMetaDataDecryptor();
             if (null != headerBlockDecryptor) {
-                dataPageHeaderAAD = AesCipher.createModuleAAD(fileDecryptor.getFileAAD(), ModuleType.DataPageHeader, rowGroupOrdinal, columnOrdinal, pageOrdinal);
+                dataPageHeaderAAD = AesCipher.createModuleAAD(fileDecryptor.get().getFileAAD(), ModuleType.DataPageHeader, rowGroupOrdinal, columnOrdinal, pageOrdinal);
             }
         }
         while (hasMorePages(valueCount, dataPageCount)) {
@@ -107,7 +108,7 @@ public class ParquetColumnChunk
             if (null != headerBlockDecryptor) {
                 // Important: this verifies file integrity (makes sure dictionary page had not been removed)
                 if (null == dictionaryPage && hasDictionaryPage(descriptor.getColumnChunkMetaData())) {
-                    pageHeaderAAD = AesCipher.createModuleAAD(fileDecryptor.getFileAAD(), ModuleType.DictionaryPageHeader, rowGroupOrdinal, columnOrdinal, -1);
+                    pageHeaderAAD = AesCipher.createModuleAAD(fileDecryptor.get().getFileAAD(), ModuleType.DictionaryPageHeader, rowGroupOrdinal, columnOrdinal, -1);
                 }
                 else {
                     AesCipher.quickUpdatePageAAD(dataPageHeaderAAD, pageOrdinal);
@@ -141,8 +142,8 @@ public class ParquetColumnChunk
                     break;
             }
         }
-        byte[] fileAad = (fileDecryptor == null) ? null : fileDecryptor.getFileAAD();
-        BlockCipher.Decryptor dataDecryptor = (columnDecryptionSetup == null) ? null : columnDecryptionSetup.getDataDecryptor();
+        byte[] fileAad = (fileDecryptor.isPresent()) ? fileDecryptor.get().getFileAAD() : null;
+        Optional<BlockCipher.Decryptor> dataDecryptor = (columnDecryptionSetup == null) ? Optional.empty() : Optional.of(columnDecryptionSetup.getDataDecryptor());
         return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, offsetIndex, dataDecryptor, fileAad, rowGroupOrdinal, columnOrdinal);
     }
 

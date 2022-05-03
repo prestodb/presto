@@ -26,6 +26,7 @@ import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
 import java.util.LinkedList;
+import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetCompressionUtils.decompress;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -38,7 +39,7 @@ public class PageReader
     private final DictionaryPage compressedDictionaryPage;
     private final OffsetIndex offsetIndex;
     private int pageIndex;
-    private final BlockCipher.Decryptor blockDecryptor;
+    private final Optional<BlockCipher.Decryptor> blockDecryptor;
     private byte[] dataPageAAD;
     private byte[] dictionaryPageAAD;
 
@@ -53,14 +54,14 @@ public class PageReader
             DictionaryPage compressedDictionaryPage)
             throws IOException
     {
-        this(codec, compressedPages, compressedDictionaryPage, null, null, null, -1, -1);
+        this(codec, compressedPages, compressedDictionaryPage, null, Optional.empty(), null, -1, -1);
     }
 
     public PageReader(CompressionCodecName codec,
                       LinkedList<DataPage> compressedPages,
                       DictionaryPage compressedDictionaryPage,
                       OffsetIndex offsetIndex,
-                      BlockCipher.Decryptor blockDecryptor,
+                      Optional<BlockCipher.Decryptor> blockDecryptor,
                       byte[] fileAAD,
                       int rowGroupOrdinal,
                       int columnOrdinal)
@@ -76,7 +77,7 @@ public class PageReader
         this.offsetIndex = offsetIndex;
         this.pageIndex = 0;
         this.blockDecryptor = blockDecryptor;
-        if (null != blockDecryptor) {
+        if (blockDecryptor.isPresent()) {
             dataPageAAD = AesCipher.createModuleAAD(fileAAD, ModuleCipherFactory.ModuleType.DataPage, rowGroupOrdinal, columnOrdinal, 0);
             dictionaryPageAAD = AesCipher.createModuleAAD(fileAAD, ModuleCipherFactory.ModuleType.DictionaryPage, rowGroupOrdinal, columnOrdinal, -1);
         }
@@ -92,7 +93,7 @@ public class PageReader
         if (compressedPages.isEmpty()) {
             return null;
         }
-        if (null != blockDecryptor) {
+        if (blockDecryptor.isPresent()) {
             AesCipher.quickUpdatePageAAD(dataPageAAD, pageIndex);
         }
         DataPage compressedPage = compressedPages.remove(0);
@@ -165,10 +166,10 @@ public class PageReader
 
     private Slice decryptSliceIfNeeded(Slice slice, byte[] aad) throws IOException
     {
-        if (blockDecryptor == null) {
+        if (!blockDecryptor.isPresent()) {
             return slice;
         }
-        byte[] plainText = blockDecryptor.decrypt(slice.getBytes(), aad);
+        byte[] plainText = blockDecryptor.get().decrypt(slice.getBytes(), aad);
         return wrappedBuffer(plainText);
     }
 }

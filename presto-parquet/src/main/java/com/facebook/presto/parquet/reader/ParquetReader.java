@@ -92,7 +92,7 @@ public class ParquetReader
     private static final int MAX_VECTOR_LENGTH = 1024;
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
-    private final InternalFileDecryptor fileDecryptor;
+    private final Optional<InternalFileDecryptor> fileDecryptor;
     private final List<BlockMetaData> blocks;
     private final List<PrimitiveColumnIO> columns;
     private final AggregatedMemoryContext systemMemoryContext;
@@ -136,7 +136,7 @@ public class ParquetReader
             Predicate parquetPredicate,
             List<ColumnIndexStore> blockIndexStores,
             boolean columnIndexFilterEnabled,
-            InternalFileDecryptor fileDecryptor)
+            Optional<InternalFileDecryptor> fileDecryptor)
     {
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -395,14 +395,14 @@ public class ParquetReader
             return columnChunk.readAllPages(null, -1, -1);
         }
 
-        InternalColumnDecryptionSetup colDecSetup = fileDecryptor.getColumnSetup(ColumnPath.get(columnChunk.getDescriptor().getColumnDescriptor().getPath()));
+        InternalColumnDecryptionSetup colDecSetup = fileDecryptor.get().getColumnSetup(ColumnPath.get(columnChunk.getDescriptor().getColumnDescriptor().getPath()));
         return columnChunk.readAllPages(fileDecryptor, currentBlock, colDecSetup.getOrdinal());
     }
 
-    private boolean isEncryptedColumn(InternalFileDecryptor fileDecryptor, ColumnDescriptor columnDescriptor)
+    private boolean isEncryptedColumn(Optional<InternalFileDecryptor> fileDecryptor, ColumnDescriptor columnDescriptor)
     {
         ColumnPath columnPath = ColumnPath.get(columnDescriptor.getPath());
-        return fileDecryptor != null && !fileDecryptor.plaintextFile() && fileDecryptor.getColumnSetup(columnPath).isEncrypted();
+        return fileDecryptor.isPresent() && !fileDecryptor.get().plaintextFile() && fileDecryptor.get().getColumnSetup(columnPath).isEncrypted();
     }
 
     protected byte[] allocateBlock(long length)

@@ -219,7 +219,7 @@ public class TestEncryption
         FileSystem fileSystem = path.getFileSystem(conf);
         FSDataInputStream inputStream = fileSystem.open(path);
         long fileSize = fileSystem.getFileStatus(path).getLen();
-        InternalFileDecryptor fileDecryptor = createFileDecryptor();
+        Optional<InternalFileDecryptor> fileDecryptor = createFileDecryptor();
         //ParquetReaderOptions options = new ParquetReaderOptions();
         ParquetDataSource dataSource = new MockParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream);
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, inputFile.getFileSize(), fileDecryptor).getParquetMetadata();
@@ -230,19 +230,19 @@ public class TestEncryption
         validateFile(parquetReader, messageColumn);
     }
 
-    private InternalFileDecryptor createFileDecryptor()
+    private Optional<InternalFileDecryptor> createFileDecryptor()
             throws IOException
     {
         FileDecryptionProperties fileDecryptionProperties = EncDecPropertiesHelper.getFileDecryptionProperties();
-        InternalFileDecryptor fileDecryptor = null;
         if (fileDecryptionProperties != null) {
-            fileDecryptor = new InternalFileDecryptor(fileDecryptionProperties);
+            return Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
         }
-        return fileDecryptor;
+
+        return Optional.empty();
     }
 
     private ParquetReader createParquetReader(ParquetMetadata parquetMetadata, FileMetaData fileMetaData, MessageColumnIO messageColumn,
-                                              ParquetDataSource dataSource, InternalFileDecryptor fileDecryptor)
+                                              ParquetDataSource dataSource, Optional<InternalFileDecryptor> fileDecryptor)
             throws IOException
     {
         ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();

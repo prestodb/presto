@@ -67,6 +67,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
@@ -87,7 +88,7 @@ public final class MetadataReader
     private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
-    public static ParquetFileMetadata readFooter(ParquetDataSource parquetDataSource, long fileSize, InternalFileDecryptor fileDecryptor)
+    public static ParquetFileMetadata readFooter(ParquetDataSource parquetDataSource, long fileSize, Optional<InternalFileDecryptor> fileDecryptor)
             throws IOException
     {
         // Parquet File Layout: https://github.com/apache/parquet-format/blob/master/Encryption.md
@@ -121,10 +122,10 @@ public final class MetadataReader
         return readParquetMetadata(tailSlice.slice(tailSlice.length() - completeFooterSize, metadataLength).getInput(), metadataLength, fileDecryptor, encryptedFooterMode, parquetDataSource.getId());
     }
 
-    private static ParquetFileMetadata readParquetMetadata(BasicSliceInput input, int metadataLength, InternalFileDecryptor fileDecryptor, boolean encryptedFooterMode, ParquetDataSourceId id)
+    private static ParquetFileMetadata readParquetMetadata(BasicSliceInput input, int metadataLength, Optional<InternalFileDecryptor> fileDecryptor, boolean encryptedFooterMode, ParquetDataSourceId id)
             throws IOException
     {
-        if (encryptedFooterMode && fileDecryptor == null) {
+        if (encryptedFooterMode && !fileDecryptor.isPresent()) {
             new IllegalArgumentException("fileDecryptionProperties cannot be null when encryptedFooterMode is true");
         }
         Decryptor footerDecryptor = null;
@@ -132,13 +133,13 @@ public final class MetadataReader
 
         if (encryptedFooterMode) {
             FileCryptoMetaData fileCryptoMetaData = readFileCryptoMetaData(input);
-            fileDecryptor.setFileCryptoMetaData(fileCryptoMetaData.getEncryption_algorithm(), true, fileCryptoMetaData.getKey_metadata());
-            footerDecryptor = fileDecryptor.fetchFooterDecryptor();
-            aad = AesCipher.createFooterAAD(fileDecryptor.getFileAAD());
+            fileDecryptor.get().setFileCryptoMetaData(fileCryptoMetaData.getEncryption_algorithm(), true, fileCryptoMetaData.getKey_metadata());
+            footerDecryptor = fileDecryptor.get().fetchFooterDecryptor();
+            aad = AesCipher.createFooterAAD(fileDecryptor.get().getFileAAD());
         }
 
         FileMetaData fileMetaData = readFileMetaData(input, footerDecryptor, aad);
-        return convertToParquetMetadata(input, fileMetaData, metadataLength, fileDecryptor, encryptedFooterMode, id);
+        return convertToParquetMetadata(input, fileMetaData, metadataLength, fileDecryptor.get(), encryptedFooterMode, id);
     }
 
     private static ParquetFileMetadata convertToParquetMetadata(BasicSliceInput input, FileMetaData fileMetaData, int metadataLength, InternalFileDecryptor fileDecryptor, boolean encryptedFooter, ParquetDataSourceId id)
@@ -455,7 +456,7 @@ public final class MetadataReader
     }
 
     @Override
-    public ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable, InternalFileDecryptor fileDecryptor) throws IOException
+    public ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable, Optional<InternalFileDecryptor> fileDecryptor) throws IOException
     {
         return readFooter(parquetDataSource, fileSize, fileDecryptor);
     }

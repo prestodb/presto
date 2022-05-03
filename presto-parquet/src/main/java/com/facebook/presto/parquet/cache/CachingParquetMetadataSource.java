@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -39,7 +40,7 @@ public class CachingParquetMetadataSource
     }
 
     @Override
-    public ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable, InternalFileDecryptor fileDecryptor)
+    public ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable, Optional<InternalFileDecryptor> fileDecryptor)
             throws IOException
     {
         try {
