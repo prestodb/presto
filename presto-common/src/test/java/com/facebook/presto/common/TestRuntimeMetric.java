@@ -20,11 +20,12 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRuntimeMetric
 {
-    private static final String TEST_METRIC_NAME = "test_metric";
+    private static final RuntimeMetricKey TEST_METRIC_KEY = new RuntimeMetricKey("test_metric");
 
     private void assertRuntimeMetricEquals(RuntimeMetric m1, RuntimeMetric m2)
     {
         assertEquals(m1.getName(), m2.getName());
+        assertEquals(m1.getUnit(), m2.getUnit());
         assertEquals(m1.getSum(), m2.getSum());
         assertEquals(m1.getCount(), m2.getCount());
         assertEquals(m1.getMax(), m2.getMax());
@@ -34,63 +35,63 @@ public class TestRuntimeMetric
     @Test
     public void testAddValue()
     {
-        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME);
+        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_KEY);
         metric.addValue(101);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 101, 1, 101, 101));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_KEY, 101, 1, 101, 101));
 
         metric.addValue(99);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 200, 2, 101, 99));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_KEY, 200, 2, 101, 99));
 
         metric.addValue(201);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 401, 3, 201, 99));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_KEY, 401, 3, 201, 99));
     }
 
     @Test
     public void testCopy()
     {
-        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME, 1, 1, 1, 1);
+        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_KEY, 1, 1, 1, 1);
         RuntimeMetric metricCopy = RuntimeMetric.copyOf(metric);
 
         // Verify that updating one metric doesn't affect its copy.
         metric.addValue(2);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 3, 2, 2, 1));
-        assertRuntimeMetricEquals(metricCopy, new RuntimeMetric(TEST_METRIC_NAME, 1, 1, 1, 1));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_KEY, 3, 2, 2, 1));
+        assertRuntimeMetricEquals(metricCopy, new RuntimeMetric(TEST_METRIC_KEY, 1, 1, 1, 1));
         metricCopy.addValue(2);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 3, 2, 2, 1));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_KEY, 3, 2, 2, 1));
         assertRuntimeMetricEquals(metricCopy, metric);
     }
 
     @Test
     public void testMergeWith()
     {
-        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, 5, 2, 4, 1);
-        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_NAME, 20, 2, 11, 9);
+        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_KEY, 5, 2, 4, 1);
+        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_KEY, 20, 2, 11, 9);
         metric1.mergeWith(metric2);
-        assertRuntimeMetricEquals(metric1, new RuntimeMetric(TEST_METRIC_NAME, 25, 4, 11, 1));
+        assertRuntimeMetricEquals(metric1, new RuntimeMetric(TEST_METRIC_KEY, 25, 4, 11, 1));
 
         metric2.mergeWith(metric2);
-        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, 40, 4, 11, 9));
+        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_KEY, 40, 4, 11, 9));
 
         metric2.mergeWith(null);
-        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, 40, 4, 11, 9));
+        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_KEY, 40, 4, 11, 9));
     }
 
     @Test
     public void testMerge()
     {
-        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, 5, 2, 4, 1);
-        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_NAME, 20, 2, 11, 9);
-        assertRuntimeMetricEquals(RuntimeMetric.merge(metric1, metric2), new RuntimeMetric(TEST_METRIC_NAME, 25, 4, 11, 1));
+        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_KEY, 5, 2, 4, 1);
+        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_KEY, 20, 2, 11, 9);
+        assertRuntimeMetricEquals(RuntimeMetric.merge(metric1, metric2), new RuntimeMetric(TEST_METRIC_KEY, 25, 4, 11, 1));
 
-        assertRuntimeMetricEquals(metric1, new RuntimeMetric(TEST_METRIC_NAME, 5, 2, 4, 1));
-        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, 20, 2, 11, 9));
+        assertRuntimeMetricEquals(metric1, new RuntimeMetric(TEST_METRIC_KEY, 5, 2, 4, 1));
+        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_KEY, 20, 2, 11, 9));
     }
 
     @Test
     public void testJson()
     {
         JsonCodec<RuntimeMetric> codec = JsonCodec.jsonCodec(RuntimeMetric.class);
-        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME);
+        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_KEY);
         metric.addValue(101);
         metric.addValue(202);
 

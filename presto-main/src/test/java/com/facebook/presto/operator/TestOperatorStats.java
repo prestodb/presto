@@ -15,11 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.RuntimeMetric;
+import com.facebook.presto.common.RuntimeMetricKey;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.repartition.PartitionedOutputInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -35,9 +35,9 @@ public class TestOperatorStats
 {
     private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo("some_info");
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2, 1024);
-    private static final String TEST_METRIC_NAME = "test_metric";
-    private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_NAME, 10, 2, 9, 1);
-    private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_NAME, 5, 2, 3, 2);
+    private static final RuntimeMetricKey TEST_METRIC_KEY = new RuntimeMetricKey("test_metric");
+    private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_KEY, 10, 2, 9, 1);
+    private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_KEY, 5, 2, 3, 2);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
             0,
@@ -86,7 +86,7 @@ public class TestOperatorStats
 
             Optional.empty(),
             NON_MERGEABLE_INFO,
-            new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))));
+            new RuntimeStats(ImmutableList.of(RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))));
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
             0,
@@ -134,7 +134,7 @@ public class TestOperatorStats
             new DataSize(25, BYTE),
             Optional.empty(),
             MERGEABLE_INFO,
-            new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))));
+            new RuntimeStats(ImmutableList.of(RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))));
 
     @Test
     public void testJson()
@@ -198,7 +198,7 @@ public class TestOperatorStats
         assertEquals(actual.getSpilledDataSize(), new DataSize(25, BYTE));
         assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
         assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
-        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), TEST_RUNTIME_METRIC_1);
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_KEY), TEST_RUNTIME_METRIC_1);
     }
 
     @Test
@@ -247,7 +247,7 @@ public class TestOperatorStats
         assertNull(actual.getInfo());
         RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_1);
         expectedMetric.mergeWith(TEST_RUNTIME_METRIC_1);
-        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_KEY), expectedMetric);
     }
 
     @Test
@@ -298,6 +298,6 @@ public class TestOperatorStats
         assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
         RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_2, TEST_RUNTIME_METRIC_2);
         expectedMetric.mergeWith(TEST_RUNTIME_METRIC_2);
-        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_KEY), expectedMetric);
     }
 }

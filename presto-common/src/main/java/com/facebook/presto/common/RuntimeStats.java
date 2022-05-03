@@ -19,6 +19,7 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 @ThriftStruct
 public class RuntimeStats
 {
-    private final ConcurrentMap<String, RuntimeMetric> metrics = new ConcurrentHashMap<>();
+    private final ConcurrentMap<RuntimeMetricKey, RuntimeMetric> metricMap = new ConcurrentHashMap<>();
 
     public RuntimeStats()
     {
@@ -41,10 +42,10 @@ public class RuntimeStats
 
     @JsonCreator
     @ThriftConstructor
-    public RuntimeStats(Map<String, RuntimeMetric> metrics)
+    public RuntimeStats(Collection<RuntimeMetric> metrics)
     {
         requireNonNull(metrics, "metrics is null");
-        metrics.forEach((name, newMetric) -> this.metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(newMetric));
+        metrics.forEach((metric) -> this.metricMap.computeIfAbsent(metric.getMetricKey(), RuntimeMetric::new).mergeWith(metric));
     }
 
     public static RuntimeStats copyOf(RuntimeStats stats)
@@ -70,40 +71,50 @@ public class RuntimeStats
 
     public void reset()
     {
-        metrics.clear();
+        metricMap.clear();
     }
 
-    public RuntimeMetric getMetric(String name)
+    public RuntimeMetric getMetric(RuntimeMetricKey key)
     {
-        return metrics.get(name);
+        return metricMap.get(key);
+    }
+
+    public Map<RuntimeMetricKey, RuntimeMetric> getMetricMap()
+    {
+        return Collections.unmodifiableMap(metricMap);
     }
 
     @JsonValue
     @ThriftField(1)
-    public Map<String, RuntimeMetric> getMetrics()
+    public Collection<RuntimeMetric> getMetrics()
     {
-        return Collections.unmodifiableMap(metrics);
+        return Collections.unmodifiableCollection(metricMap.values());
     }
 
     public void addMetricValue(String name, long value)
     {
-        metrics.computeIfAbsent(name, RuntimeMetric::new).addValue(value);
+        addMetricValue(new RuntimeMetricKey(name), value);
     }
 
-    public void addMetricValueIgnoreZero(String name, long value)
+    public void addMetricValue(RuntimeMetricKey key, long value)
+    {
+        metricMap.computeIfAbsent(key, RuntimeMetric::new).addValue(value);
+    }
+
+    public void addMetricValueIgnoreZero(RuntimeMetricKey key, long value)
     {
         if (value == 0) {
             return;
         }
-        addMetricValue(name, value);
+        addMetricValue(key, value);
     }
 
     /**
-     * Merges {@code metric} into this object with name {@code name}.
+     * Merges {@code metric} into this object with key {@code key}.
      */
-    public void mergeMetric(String name, RuntimeMetric metric)
+    public void mergeMetric(RuntimeMetricKey key, RuntimeMetric metric)
     {
-        metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(metric);
+        metricMap.computeIfAbsent(key, RuntimeMetric::new).mergeWith(metric);
     }
 
     /**
@@ -114,7 +125,7 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(newMetric));
+        stats.getMetricMap().forEach((key, newMetric) -> metricMap.computeIfAbsent(key, RuntimeMetric::new).mergeWith(newMetric));
     }
 
     /**
@@ -126,14 +137,14 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, RuntimeMetric::new).set(newMetric));
+        stats.getMetricMap().forEach((key, newMetric) -> metricMap.computeIfAbsent(key, RuntimeMetric::new).set(newMetric));
     }
 
-    public <V> V profileNanos(String tag, Supplier<V> supplier)
+    public <V> V profileNanos(RuntimeMetricKey key, Supplier<V> supplier)
     {
         long startTime = System.nanoTime();
         V result = supplier.get();
-        addMetricValueIgnoreZero(tag, System.nanoTime() - startTime);
+        addMetricValueIgnoreZero(key, System.nanoTime() - startTime);
         return result;
     }
 }
