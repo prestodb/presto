@@ -287,7 +287,7 @@ struct UnsafeRowSerializer {
             simple.valueAt(i + offset), fixedDataStart + i * stride);
       }
     }
-    return UnsafeRow::alignToFieldWidth(dataSize);
+    return UnsafeRow::alignToFieldWidth(dataSize + nullLength);
   }
 
   /// Struct declaration for partial template specialization.

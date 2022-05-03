@@ -39,13 +39,15 @@ class UnsafeRowFuzzTests : public ::testing::Test {
   }
 
   void clearBuffer() {
-    std::memset(buffer_, 0, 1024);
+    std::memset(buffer_, 0, BUFFER_SIZE);
   }
 
   std::unique_ptr<memory::ScopedMemoryPool> pool_ =
       memory::getDefaultScopedMemoryPool();
-  BufferPtr bufferPtr_ = AlignedBuffer::allocate<char>(1024, pool_.get(), true);
+  BufferPtr bufferPtr_ =
+      AlignedBuffer::allocate<char>(BUFFER_SIZE, pool_.get(), true);
   char* buffer_ = bufferPtr_->asMutable<char>();
+  static constexpr uint64_t BUFFER_SIZE = 20 << 10; // 20k
 };
 
 TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
@@ -61,6 +63,7 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
        TIMESTAMP(),
        ROW({VARCHAR(), INTEGER()}),
        ARRAY(INTEGER()),
+       ARRAY(INTEGER()),
        MAP(VARCHAR(), ARRAY(INTEGER()))});
 
   VectorFuzzer::Options opts;
@@ -70,6 +73,7 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
   opts.stringLength = 20;
   // Spark uses microseconds to store timestamp
   opts.useMicrosecondPrecisionTimestamp = true;
+  opts.containerLength = 65;
 
   auto seed = folly::Random::rand32();
   LOG(INFO) << "seed: " << seed;
