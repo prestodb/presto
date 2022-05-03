@@ -21,6 +21,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
@@ -317,5 +319,36 @@ public class VariableWidthBlock
         int[] newOffsets = appendNullToOffsetsArray(offsets, arrayOffset, positionCount);
 
         return new VariableWidthBlock(arrayOffset, positionCount + 1, slice, newOffsets, newValueIsNull);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        VariableWidthBlock other = (VariableWidthBlock) obj;
+        return this.arrayOffset == other.arrayOffset &&
+                this.positionCount == other.positionCount &&
+                Objects.equals(this.slice, other.slice) &&
+                Arrays.equals(this.offsets, other.offsets) &&
+                Arrays.equals(this.valueIsNull, other.valueIsNull) &&
+                this.retainedSizeInBytes == other.retainedSizeInBytes &&
+                this.sizeInBytes == other.sizeInBytes;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(arrayOffset,
+                positionCount,
+                slice,
+                Arrays.hashCode(offsets),
+                Arrays.hashCode(valueIsNull),
+                retainedSizeInBytes,
+                sizeInBytes);
     }
 }

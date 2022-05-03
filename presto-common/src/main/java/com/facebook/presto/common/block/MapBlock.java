@@ -19,6 +19,8 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
@@ -302,5 +304,40 @@ public class MapBlock
                 hashTables.loadHashTables(hashTables.getExpectedHashTableCount(), offsets, mapIsNull, getRawKeyBlock(), keyBlockHashCode);
             }
         }
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        MapBlock other = (MapBlock) obj;
+        return this.startOffset == other.startOffset &&
+                this.positionCount == other.positionCount &&
+                Arrays.equals(this.mapIsNull, other.mapIsNull) &&
+                Arrays.equals(this.offsets, other.offsets) &&
+                Objects.equals(this.keyBlock, other.keyBlock) &&
+                Objects.equals(this.valueBlock, other.valueBlock) &&
+                Objects.equals(this.hashTables, other.hashTables) &&
+                this.retainedSizeInBytesExceptHashtable == other.retainedSizeInBytesExceptHashtable &&
+                this.sizeInBytes == other.sizeInBytes;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(startOffset,
+                positionCount,
+                Arrays.hashCode(mapIsNull),
+                Arrays.hashCode(offsets),
+                keyBlock,
+                valueBlock,
+                hashTables,
+                retainedSizeInBytesExceptHashtable,
+                sizeInBytes);
     }
 }

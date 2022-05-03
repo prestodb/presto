@@ -21,6 +21,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -670,5 +671,40 @@ public class DictionaryBlock
         }
 
         return new DictionaryBlock(idsOffset, positionCount + 1, newDictionary, newIds, isCompact(), getDictionarySourceId());
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        DictionaryBlock other = (DictionaryBlock) obj;
+        return this.positionCount == other.positionCount &&
+                Objects.equals(this.dictionary, other.dictionary) &&
+                this.idsOffset == other.idsOffset &&
+                Arrays.equals(this.ids, other.ids) &&
+                this.retainedSizeInBytes == other.retainedSizeInBytes &&
+                this.sizeInBytes == other.sizeInBytes &&
+                this.logicalSizeInBytes == other.logicalSizeInBytes &&
+                this.uniqueIds == other.uniqueIds &&
+                Objects.equals(this.dictionarySourceId, other.dictionarySourceId);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(positionCount,
+                dictionary,
+                idsOffset,
+                Arrays.hashCode(ids),
+                retainedSizeInBytes,
+                sizeInBytes,
+                logicalSizeInBytes,
+                uniqueIds,
+                dictionarySourceId);
     }
 }

@@ -16,6 +16,7 @@ package com.facebook.presto.common.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Arrays;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -119,5 +120,24 @@ public class SingleRowBlock
     public Block appendNull()
     {
         throw new UnsupportedOperationException("SingleRowBlock does not support appendNull()");
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        SingleRowBlock other = (SingleRowBlock) obj;
+        return Arrays.equals(this.fieldBlocks, other.fieldBlocks);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Arrays.hashCode(fieldBlocks);
     }
 }
