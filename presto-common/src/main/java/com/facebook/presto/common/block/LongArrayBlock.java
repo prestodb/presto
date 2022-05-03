@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
@@ -308,5 +310,32 @@ public class LongArrayBlock
         long[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1, SMALL, PRESERVE);
 
         return new LongArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        LongArrayBlock other = (LongArrayBlock) obj;
+        return this.arrayOffset == other.arrayOffset &&
+                this.positionCount == other.positionCount &&
+                Arrays.equals(this.valueIsNull, other.valueIsNull) &&
+                Arrays.equals(this.values, other.values) &&
+                this.retainedSizeInBytes == other.retainedSizeInBytes;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(arrayOffset,
+                positionCount,
+                Arrays.hashCode(valueIsNull),
+                Arrays.hashCode(values),
+                retainedSizeInBytes);
     }
 }

@@ -22,6 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -457,5 +458,30 @@ public class SingleMapBlock
         if (equalsResult == null) {
             throw new NotSupportedException("map key cannot be null or contain nulls");
         }
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        SingleMapBlock other = (SingleMapBlock) obj;
+        return this.positionInMap == other.positionInMap &&
+                this.offset == other.offset &&
+                this.positionCount == other.positionCount &&
+                Objects.equals(this.mapBlock, other.mapBlock);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(positionInMap,
+                offset,
+                positionCount,
+                mapBlock);
     }
 }

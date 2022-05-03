@@ -21,6 +21,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -426,5 +427,25 @@ public class RunLengthEncodedBlock
             ids[positionCount] = 1;
             return new DictionaryBlock(dictionary, ids);
         }
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        RunLengthEncodedBlock other = (RunLengthEncodedBlock) obj;
+        return Objects.equals(this.value, other.value) &&
+                this.positionCount == other.positionCount;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(value, positionCount);
     }
 }
