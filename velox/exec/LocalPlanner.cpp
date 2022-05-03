@@ -119,7 +119,8 @@ OperatorSupplier makeConsumerSupplier(
       return std::make_unique<CallbackSink>(operatorId, ctx, consumer);
     };
   }
-  return nullptr;
+
+  return Operator::operatorSupplierFromPlanNode(planNode);
 }
 
 void plan(

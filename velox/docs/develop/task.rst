@@ -243,11 +243,12 @@ MergeJoinSource() to read right-side data from.
 Extensibility
 -------------
 
-Velox allows applications to define custom plan nodes and operators. These
-operators can access splits and use barriers as these constructs are generic
-and not tied to any particular plan node or operator. Exchange clients, local
-exchange queues and local merge sources as well as merge join sources are not
-generic and therefore not available to custom operators.
+Velox allows applications to define custom plan nodes and operators and also
+custom join node with it's own join bridge and operators. These operators can
+access splits and use barriers as these constructs are generic and not tied to
+any particular plan node or operator. Exchange clients, local exchange queues
+and local merge sources as well as merge join sources are not generic and
+therefore not available to custom operators.
 
 Summary
 -------

@@ -371,6 +371,7 @@ void Task::createSplitGroupStateLocked(
         splitGroupId, factory->needsHashJoinBridges());
     self->addCrossJoinBridgesLocked(
         splitGroupId, factory->needsCrossJoinBridges());
+    self->addCustomJoinBridgesLocked(splitGroupId, factory->planNodes);
   }
 }
 
@@ -937,6 +938,24 @@ void Task::addHashJoinBridgesLocked(
     splitGroupState.bridges.emplace(
         planNodeId, std::make_shared<HashJoinBridge>());
   }
+}
+
+void Task::addCustomJoinBridgesLocked(
+    uint32_t splitGroupId,
+    const std::vector<core::PlanNodePtr>& planNodes) {
+  auto& splitGroupState = splitGroupStates_[splitGroupId];
+  for (const auto& planNode : planNodes) {
+    if (auto joinBridge = Operator::joinBridgeFromPlanNode(planNode)) {
+      splitGroupState.bridges.emplace(planNode->id(), std::move(joinBridge));
+      return;
+    }
+  }
+}
+
+std::shared_ptr<JoinBridge> Task::getCustomJoinBridge(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId) {
+  return getJoinBridgeInternal<JoinBridge>(splitGroupId, planNodeId);
 }
 
 void Task::addCrossJoinBridgesLocked(

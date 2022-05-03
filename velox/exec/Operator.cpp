@@ -91,11 +91,35 @@ Operator::translators() {
 std::unique_ptr<Operator> Operator::fromPlanNode(
     DriverCtx* ctx,
     int32_t id,
-    const std::shared_ptr<const core::PlanNode>& planNode) {
+    const core::PlanNodePtr& planNode) {
   for (auto& translator : translators()) {
-    auto op = translator->translate(ctx, id, planNode);
+    auto op = translator->toOperator(ctx, id, planNode);
     if (op) {
       return op;
+    }
+  }
+  return nullptr;
+}
+
+// static
+std::unique_ptr<JoinBridge> Operator::joinBridgeFromPlanNode(
+    const core::PlanNodePtr& planNode) {
+  for (auto& translator : translators()) {
+    auto joinBridge = translator->toJoinBridge(planNode);
+    if (joinBridge) {
+      return joinBridge;
+    }
+  }
+  return nullptr;
+}
+
+// static
+OperatorSupplier Operator::operatorSupplierFromPlanNode(
+    const core::PlanNodePtr& planNode) {
+  for (auto& translator : translators()) {
+    auto supplier = translator->toOperatorSupplier(planNode);
+    if (supplier) {
+      return supplier;
     }
   }
   return nullptr;
@@ -108,7 +132,7 @@ void Operator::registerOperator(
 }
 
 std::optional<uint32_t> Operator::maxDrivers(
-    const std::shared_ptr<const core::PlanNode>& planNode) {
+    const core::PlanNodePtr& planNode) {
   for (auto& translator : translators()) {
     auto current = translator->maxDrivers(planNode);
     if (current) {

@@ -344,6 +344,11 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t splitGroupId,
       const std::vector<core::PlanNodeId>& planNodeIds);
 
+  // Adds custom join bridges for all the specified plan nodes.
+  void addCustomJoinBridgesLocked(
+      uint32_t splitGroupId,
+      const std::vector<core::PlanNodePtr>& planNodes);
+
   // Returns a HashJoinBridge for 'planNodeId'. This is used for synchronizing
   // start of probe with completion of build for a join that has a
   // separate probe and build. 'id' is the PlanNodeId shared between
@@ -354,6 +359,11 @@ class Task : public std::enable_shared_from_this<Task> {
 
   // Returns a CrossJoinBridge for 'planNodeId'.
   std::shared_ptr<CrossJoinBridge> getCrossJoinBridge(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
+
+  // Returns a custom join bridge for 'planNodeId'.
+  std::shared_ptr<JoinBridge> getCustomJoinBridge(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 

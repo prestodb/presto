@@ -18,6 +18,7 @@
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Driver.h"
+#include "velox/exec/JoinBridge.h"
 #include "velox/type/Filter.h"
 
 namespace facebook::velox::exec {
@@ -193,15 +194,27 @@ class Operator {
 
     // Translates plan node to operator. Returns nullptr if the plan node cannot
     // be handled by this factory.
-    virtual std::unique_ptr<Operator> translate(
-        DriverCtx* ctx,
-        int32_t id,
-        const std::shared_ptr<const core::PlanNode>& node) = 0;
+    virtual std::unique_ptr<Operator>
+    toOperator(DriverCtx* ctx, int32_t id, const core::PlanNodePtr& node) = 0;
+
+    // Translates plan node to join bridge. Returns nullptr if the plan node
+    // cannot be handled by this factory.
+    virtual std::unique_ptr<JoinBridge> toJoinBridge(
+        const core::PlanNodePtr& /* node */) {
+      return nullptr;
+    }
+
+    // Translates plan node to operator supplier. Returns nullptr if the plan
+    // node cannot be handled by this factory.
+    virtual OperatorSupplier toOperatorSupplier(
+        const core::PlanNodePtr& /* node */) {
+      return nullptr;
+    }
 
     // Returns max driver count for the plan node. Returns std::nullopt if the
     // plan node cannot be handled by this factory.
     virtual std::optional<uint32_t> maxDrivers(
-        const std::shared_ptr<const core::PlanNode>& /* node */) {
+        const core::PlanNodePtr& /* node */) {
       return std::nullopt;
     }
   };
@@ -341,15 +354,24 @@ class Operator {
   // Calls all the registered PlanNodeTranslators on 'planNode' and
   // returns the result of the first one that returns non-nullptr
   // or nullptr if all return nullptr.
-  static std::unique_ptr<Operator> fromPlanNode(
-      DriverCtx* ctx,
-      int32_t id,
-      const std::shared_ptr<const core::PlanNode>& planNode);
+  static std::unique_ptr<Operator>
+  fromPlanNode(DriverCtx* ctx, int32_t id, const core::PlanNodePtr& planNode);
+
+  // Calls all the registered PlanNodeTranslators on 'planNode' and
+  // returns the result of the first one that returns non-nullptr
+  // or nullptr if all return nullptr.
+  static std::unique_ptr<JoinBridge> joinBridgeFromPlanNode(
+      const core::PlanNodePtr& planNode);
+
+  // Calls all the registered PlanNodeTranslators on 'planNode' and
+  // returns the result of the first one that returns non-nullptr
+  // or nullptr if all return nullptr.
+  static OperatorSupplier operatorSupplierFromPlanNode(
+      const core::PlanNodePtr& planNode);
 
   // Calls `maxDrivers` on all the registered PlanNodeTranslators and returns
   // the first one that is not std::nullopt or std::nullopt otherwise.
-  static std::optional<uint32_t> maxDrivers(
-      const std::shared_ptr<const core::PlanNode>& planNode);
+  static std::optional<uint32_t> maxDrivers(const core::PlanNodePtr& planNode);
 
  protected:
   static std::vector<std::unique_ptr<PlanNodeTranslator>>& translators();
