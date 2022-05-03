@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.RuntimeMetricName;
 import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
@@ -48,6 +47,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.RuntimeMetricKey.FRAGMENT_RESULT_CACHE_HIT;
+import static com.facebook.presto.common.RuntimeMetricKey.FRAGMENT_RESULT_CACHE_MISS;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -266,7 +267,7 @@ public class Driver
                         .getFragmentResultCacheManager()
                         .get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split);
                 sourceOperator.getOperatorContext().getRuntimeStats().addMetricValue(
-                        pages.isPresent() ? RuntimeMetricName.FRAGMENT_RESULT_CACHE_HIT : RuntimeMetricName.FRAGMENT_RESULT_CACHE_MISS, 1);
+                        pages.isPresent() ? FRAGMENT_RESULT_CACHE_HIT : FRAGMENT_RESULT_CACHE_MISS, 1);
                 this.cachedResult.set(pages);
                 this.split.set(split);
             }

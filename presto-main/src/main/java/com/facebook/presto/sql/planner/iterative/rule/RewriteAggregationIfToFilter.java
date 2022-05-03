@@ -48,7 +48,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.SystemSessionProperties.getAggregationIfToFilterRewriteStrategy;
-import static com.facebook.presto.common.RuntimeMetricName.REWRITE_AGGREGATION_IF_TO_FILTER_APPLIED;
+import static com.facebook.presto.common.RuntimeMetricKey.REWRITE_AGGREGATION_IF_TO_FILTER_APPLIED;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.or;
 import static com.facebook.presto.matching.Capture.newCapture;
