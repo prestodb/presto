@@ -25,7 +25,6 @@
 #include "velox/functions/sparksql/CompareFunctionsNullSafe.h"
 #include "velox/functions/sparksql/Hash.h"
 #include "velox/functions/sparksql/In.h"
-#include "velox/functions/sparksql/IsEmptySimple.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
 #include "velox/functions/sparksql/RegexFunctions.h"
 #include "velox/functions/sparksql/RegisterArithmetic.h"
@@ -77,21 +76,6 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "substring"});
   registerFunction<SubstrFunction, Varchar, Varchar, int32_t, int32_t>(
       {prefix + "substring"});
-  registerFunction<IsEmpty, bool, int8_t>({prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, int16_t>({prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, int32_t>({prefix + "is_empty"});
-
-  registerFunction<IsEmpty, bool, int64_t>({prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, bool>({prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, float>({prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, double>({prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, Varchar>({prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, Varbinary>({prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, Array<Generic<>>>({prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, Map<Generic<>, Generic<>>>(
-      {prefix + "is_empty"});
-  registerFunction<IsEmpty, bool, Generic<>>({prefix + "is_empty"});
-
   exec::registerStatefulVectorFunction("instr", instrSignatures(), makeInstr);
   exec::registerStatefulVectorFunction(
       "length", lengthSignatures(), makeLength);
