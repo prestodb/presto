@@ -53,6 +53,7 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
     inDictionaryReader_ =
         createBooleanRleDecoder(std::move(inDictStream), encodingKey);
   }
+  scanState_.updateRawState();
 }
 
 uint64_t SelectiveIntegerDictionaryColumnReader::skip(uint64_t numValues) {
@@ -83,11 +84,14 @@ void SelectiveIntegerDictionaryColumnReader::read(
         : end;
     detail::ensureCapacity<uint64_t>(
         scanState_.inDictionary, bits::nwords(numFlags), &memoryPool_);
+    // The in dict buffer may have changed. If no change in
+    // dictionary, the raw state will not be updated elsewhere.
+    scanState_.rawState.inDictionary = scanState_.inDictionary->as<uint64_t>();
+
     inDictionaryReader_->next(
         scanState_.inDictionary->asMutable<char>(),
         numFlags,
         isBulk ? nullptr : rawNulls);
-    scanState_.updateRawState();
   }
 
   // lazy load dictionary only when it's needed

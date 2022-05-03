@@ -84,6 +84,7 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
         strideLenVInt,
         INT_BYTE_SIZE);
   }
+  scanState_.updateRawState();
 }
 
 uint64_t SelectiveStringDictionaryColumnReader::skip(uint64_t numValues) {
@@ -145,13 +146,13 @@ void SelectiveStringDictionaryColumnReader::loadStrideDictionary() {
 
     loadDictionary(
         *strideDictStream_, *strideDictLengthDecoder_, scanState_.dictionary2);
-    scanState_.updateRawState();
   }
   lastStrideIndex_ = nextStride;
   dictionaryValues_ = nullptr;
 
   scanState_.filterCache.resize(
       scanState_.dictionary.numValues + scanState_.dictionary2.numValues);
+  scanState_.updateRawState();
   simd::memset(
       scanState_.filterCache.data() + scanState_.dictionary.numValues,
       FilterResult::kUnknown,
