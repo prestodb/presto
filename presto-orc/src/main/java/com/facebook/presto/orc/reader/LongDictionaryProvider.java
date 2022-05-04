@@ -22,14 +22,15 @@ import com.facebook.presto.orc.stream.LongInputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.OptionalInt;
 
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class LongDictionaryProvider
 {
+    private static final OptionalInt DICTIONARY_SEQUENCE = OptionalInt.of(0);
     private final InputStreamSources dictionaryStreamSources;
     private final Map<Integer, SharedDictionary> sharedDictionaries;
 
@@ -104,7 +105,7 @@ public class LongDictionaryProvider
         SharedDictionary sharedDictionary = sharedDictionaries.get(streamId);
         boolean isNewEntry = sharedDictionary == null;
         if (isNewEntry) {
-            StreamDescriptor sharedDictionaryStreamDescriptor = streamDescriptor.duplicate(DEFAULT_SEQUENCE_ID);
+            StreamDescriptor sharedDictionaryStreamDescriptor = streamDescriptor.duplicate(DICTIONARY_SEQUENCE);
             InputStreamSource<LongInputStream> sharedDictionaryDataStream = dictionaryStreamSources.getInputStreamSource(sharedDictionaryStreamDescriptor, DICTIONARY_DATA, LongInputStream.class);
             long[] dictionaryBuffer = loadDictionary(streamDescriptor, sharedDictionaryDataStream, dictionary, items).dictionaryBuffer();
             sharedDictionary = new SharedDictionary(dictionaryBuffer, items);

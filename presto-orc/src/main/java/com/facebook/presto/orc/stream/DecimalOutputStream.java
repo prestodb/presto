@@ -26,6 +26,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
@@ -110,7 +111,7 @@ public class DecimalOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column, int sequence)
+    public StreamDataOutput getStreamDataOutput(int column, OptionalInt sequence)
     {
         return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, DATA, toIntExact(buffer.getOutputDataSize()), true));
     }

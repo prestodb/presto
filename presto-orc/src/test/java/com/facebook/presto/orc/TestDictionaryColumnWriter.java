@@ -51,7 +51,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.google.common.base.Preconditions.checkState;
@@ -471,7 +471,7 @@ public class TestDictionaryColumnWriter
                 .build();
         return new SliceDictionaryColumnWriter(
                 COLUMN_ID,
-                DEFAULT_SEQUENCE_ID,
+                MISSING_SEQUENCE,
                 VARCHAR,
                 columnWriterOptions,
                 Optional.empty(),

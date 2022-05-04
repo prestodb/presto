@@ -49,7 +49,7 @@ public class TestOrcRecordReaderDwrfStripeCaching
     private static final int READ_TAIL_SIZE_IN_BYTES = 256;
 
     @Test(dataProvider = "Stripe cache for ALL stripes with mode BOTH")
-    public void testBothAllStripes(File orcFile)
+    public void xtestBothAllStripes(File orcFile)
             throws IOException
     {
         DwrfProto.Footer footer = readFileFooter(orcFile);

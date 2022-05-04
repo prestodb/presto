@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static org.testng.Assert.assertEquals;
 
@@ -66,10 +67,10 @@ public class TestStripeReader
         ColumnStatistics mapKeyColumnStatistics = new IntegerColumnStatistics(numRowsInGroup * numberOfEntries, null, integerStatistics);
         ColumnStatistics mapValueColumnStatistics = new IntegerColumnStatistics(numRowsInGroup * numberOfEntries, null, integerStatistics);
 
-        StreamId intStreamId = new StreamId(1, 0, Stream.StreamKind.ROW_INDEX);
-        StreamId mapStreamId = new StreamId(2, 0, Stream.StreamKind.ROW_INDEX);
-        StreamId mapKeyStreamId = new StreamId(3, 0, Stream.StreamKind.ROW_INDEX);
-        StreamId mapValueStreamId = new StreamId(4, 0, Stream.StreamKind.ROW_INDEX);
+        StreamId intStreamId = new StreamId(1, MISSING_SEQUENCE, Stream.StreamKind.ROW_INDEX);
+        StreamId mapStreamId = new StreamId(2, MISSING_SEQUENCE, Stream.StreamKind.ROW_INDEX);
+        StreamId mapKeyStreamId = new StreamId(3, MISSING_SEQUENCE, Stream.StreamKind.ROW_INDEX);
+        StreamId mapValueStreamId = new StreamId(4, MISSING_SEQUENCE, Stream.StreamKind.ROW_INDEX);
 
         Map<StreamId, List<RowGroupIndex>> columnIndexes = ImmutableMap.of(intStreamId, createRowGroupIndex(intColumnStatistics),
                 mapStreamId, createRowGroupIndex(mapColumnStatistics),

@@ -664,6 +664,9 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         if (stripe != null) {
             for (StreamReader column : streamReaders) {
                 if (column != null) {
+                    // Major Place #3. To resolve that issue in the Problematic Place #2 we need
+                    // to update all column readers and make them initialize StreamDescriptors
+                    // in the startStripe using the sequence from the Stripe.sequenceEncodings
                     column.startStripe(stripe);
                 }
             }

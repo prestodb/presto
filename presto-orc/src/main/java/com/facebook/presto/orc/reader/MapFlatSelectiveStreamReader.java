@@ -59,6 +59,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.SortedMap;
 
@@ -724,7 +725,7 @@ public class MapFlatSelectiveStreamReader
                 streamDescriptor.getOrcType(),
                 streamDescriptor.getOrcDataSource(),
                 streamDescriptors,
-                sequence);
+                OptionalInt.of(sequence));
     }
 
     private Block getKeysBlock(List<DwrfSequenceEncoding> sequenceEncodings)

@@ -16,6 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 public interface ValueOutputStream<C extends StreamCheckpoint>
 {
@@ -25,7 +26,7 @@ public interface ValueOutputStream<C extends StreamCheckpoint>
 
     List<C> getCheckpoints();
 
-    StreamDataOutput getStreamDataOutput(int column, int sequence);
+    StreamDataOutput getStreamDataOutput(int column, OptionalInt sequence);
 
     /**
      * This method returns the size of the flushed data plus any unflushed data.

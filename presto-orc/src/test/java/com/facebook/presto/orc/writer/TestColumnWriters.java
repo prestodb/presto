@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -43,6 +44,7 @@ import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcTester.arrayType;
 import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.OrcTester.rowType;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.facebook.presto.orc.metadata.OrcType.toOrcType;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static org.joda.time.DateTimeZone.UTC;
@@ -50,7 +52,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestColumnWriters
 {
-    private static final int SEQUENCE = 98005;
+    private static final OptionalInt VALID_SEQUENCE_ID1 = OptionalInt.of(0);
+    private static final OptionalInt VALID_SEQUENCE_ID2 = OptionalInt.of(98005);
 
     @DataProvider(name = "dataForSequenceIdTest")
     public Object[][] dataForSequenceIdTest()
@@ -86,7 +89,7 @@ public class TestColumnWriters
         rowBlockBuilder.closeEntry();
         Block rowBlock = rowBlockBuilder.build();
 
-        return new Object[][] {
+        Object[][] typesAndBlocks = new Object[][] {
                 {toOrcTypes(BOOLEAN), BOOLEAN, BOOLEAN.createFixedSizeBlockBuilder(2).appendNull().writeByte(1).build()},
                 {toOrcTypes(TINYINT), TINYINT, TINYINT.createFixedSizeBlockBuilder(2).appendNull().writeByte(1).build()},
                 {toOrcTypes(SMALLINT), SMALLINT, SMALLINT.createFixedSizeBlockBuilder(2).appendNull().writeShort(1).build()},
@@ -101,10 +104,20 @@ public class TestColumnWriters
                 {toOrcTypes(mapType), mapType, mapBlock},
                 {toOrcTypes(rowType), rowType, rowBlock},
         };
+
+        Object[][] data = new Object[typesAndBlocks.length * 3][];
+        for (int i = 0; i < typesAndBlocks.length; i++) {
+            Object[] typeAndBlock = typesAndBlocks[i];
+            data[i * 3] = new Object[] {VALID_SEQUENCE_ID1, typeAndBlock[0], typeAndBlock[1], typeAndBlock[2]};
+            data[i * 3 + 1] = new Object[] {VALID_SEQUENCE_ID2, typeAndBlock[0], typeAndBlock[1], typeAndBlock[2]};
+            data[i * 3 + 2] = new Object[] {MISSING_SEQUENCE, typeAndBlock[0], typeAndBlock[1], typeAndBlock[2]};
+        }
+
+        return data;
     }
 
     @Test(dataProvider = "dataForSequenceIdTest")
-    public void testSequenceIdPassedAllColumnWriters(List<OrcType> orcTypes, Type type, Block block)
+    public void testSequenceIdPassedAllColumnWriters(OptionalInt sequence, List<OrcType> orcTypes, Type type, Block block)
             throws IOException
     {
         ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
@@ -113,7 +126,7 @@ public class TestColumnWriters
         int nodeId = 0;
         ColumnWriter columnWriter = createColumnWriter(
                 nodeId,
-                SEQUENCE,
+                sequence,
                 orcTypes,
                 type,
                 columnWriterOptions,
@@ -133,7 +146,7 @@ public class TestColumnWriters
                 .build();
 
         for (StreamDataOutput stream : streams) {
-            assertEquals(stream.getStream().getSequence(), SEQUENCE);
+            assertEquals(stream.getStream().getSequence(), sequence);
         }
     }
 

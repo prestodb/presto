@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
@@ -53,7 +54,7 @@ public class ByteColumnWriter
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final int column;
-    private final int sequence;
+    private final OptionalInt sequence;
     private final Type type;
     private final boolean compressed;
     private final ByteOutputStream dataStream;
@@ -67,15 +68,14 @@ public class ByteColumnWriter
 
     private boolean closed;
 
-    public ByteColumnWriter(int column, int sequence, Type type, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, MetadataWriter metadataWriter)
+    public ByteColumnWriter(int column, OptionalInt sequence, Type type, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        checkArgument(sequence >= 0, "sequence is negative");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
-        this.sequence = sequence;
+        this.sequence = requireNonNull(sequence, "sequence is null");
         this.type = requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.dataStream = new ByteOutputStream(columnWriterOptions, dwrfEncryptor);

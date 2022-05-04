@@ -226,7 +226,7 @@ public class OrcWriteValidation
         int rowGroupCount = expectedRowGroupStatistics.size();
         for (Entry<StreamId, List<RowGroupIndex>> entry : actualRowGroupStatistics.entrySet()) {
             // TODO: Remove once the Presto writer supports flat map
-            if (entry.getKey().getSequence() > 0) {
+            if (entry.getKey().getSequence().isPresent()) {
                 throw new OrcCorruptionException(orcDataSourceId, "Unexpected sequence ID for column %s at offset %s", entry.getKey().getColumn(), stripeOffset);
             }
             if (entry.getValue().size() != rowGroupCount) {

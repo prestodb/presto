@@ -17,13 +17,15 @@ import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 
 import java.util.Objects;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class StreamId
 {
     private final int column;
-    private final int sequence;
+    private final OptionalInt sequence;
     private final StreamKind streamKind;
 
     public StreamId(Stream stream)
@@ -33,10 +35,10 @@ public final class StreamId
         this.streamKind = stream.getStreamKind();
     }
 
-    public StreamId(int column, int sequence, StreamKind streamKind)
+    public StreamId(int column, OptionalInt sequence, StreamKind streamKind)
     {
         this.column = column;
-        this.sequence = sequence;
+        this.sequence = requireNonNull(sequence, "sequence is null");
         this.streamKind = streamKind;
     }
 
@@ -45,7 +47,7 @@ public final class StreamId
         return column;
     }
 
-    public int getSequence()
+    public OptionalInt getSequence()
     {
         return sequence;
     }
@@ -72,7 +74,7 @@ public final class StreamId
         }
 
         StreamId other = (StreamId) obj;
-        return column == other.column && sequence == other.sequence && streamKind == other.streamKind;
+        return column == other.column && sequence.equals(other.sequence) && streamKind == other.streamKind;
     }
 
     @Override

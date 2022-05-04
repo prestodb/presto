@@ -56,7 +56,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -200,7 +200,7 @@ public class OrcMetadataReader
 
     private static Stream toStream(OrcProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), DEFAULT_SEQUENCE_ID, toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
+        return new Stream(stream.getColumn(), MISSING_SEQUENCE, toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
     }
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)

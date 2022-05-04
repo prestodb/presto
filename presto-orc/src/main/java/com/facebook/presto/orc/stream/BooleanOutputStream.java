@@ -25,6 +25,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -158,13 +159,13 @@ public class BooleanOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column, int sequence)
+    public StreamDataOutput getStreamDataOutput(int column, OptionalInt sequence)
     {
         checkState(closed);
         return byteOutputStream.getStreamDataOutput(column, sequence);
     }
 
-    public StreamDataOutput getStreamDataOutput(int column, int sequence, StreamKind streamKind)
+    public StreamDataOutput getStreamDataOutput(int column, OptionalInt sequence, StreamKind streamKind)
     {
         checkState(closed);
         return byteOutputStream.getStreamDataOutput(column, sequence, streamKind);

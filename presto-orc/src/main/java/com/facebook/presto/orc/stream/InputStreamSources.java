@@ -19,6 +19,7 @@ import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,6 +40,15 @@ public class InputStreamSources
         requireNonNull(streamType, "streamType is null");
 
         InputStreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamDescriptor.getSequence(), streamKind));
+
+        // Here is the problematic place #2. We use StreamDescriptor from the problematic place #1 and attempt to find a StreamId key
+        // in the map. The StreamDescriptor created by the AbstractOrcRecordReader.createStreamDescriptor will have missing sequence.
+        // It will work fine for files that have missing sequence, but won't for files that use 0 sequence instead of missing sequence.
+        if (streamSource == null && !streamDescriptor.getSequence().isPresent()) {
+            // this is a workaround for such file, we need to treat StreamId with missing sequence and 0 sequence as the same object.
+            streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), OptionalInt.of(0), streamKind));
+        }
+
         if (streamSource == null) {
             streamSource = missingStreamSource(streamType);
         }

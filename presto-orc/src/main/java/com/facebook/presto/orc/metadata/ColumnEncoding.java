@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.SortedMap;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -32,7 +33,7 @@ public class ColumnEncoding
         DWRF_MAP_FLAT,
     }
 
-    public static final int DEFAULT_SEQUENCE_ID = 0;
+    public static final OptionalInt MISSING_SEQUENCE = OptionalInt.empty();
 
     private final ColumnEncodingKind columnEncodingKind;
     private final int dictionarySize;
@@ -73,22 +74,22 @@ public class ColumnEncoding
         return additionalSequenceEncodings;
     }
 
-    public ColumnEncoding getColumnEncoding(int sequence)
+    public ColumnEncoding getColumnEncoding(OptionalInt sequence)
     {
-        if (sequence == 0) {
+        if (!sequence.isPresent() || sequence.getAsInt() == 0) {
             return this;
         }
 
         checkState(
                 additionalSequenceEncodings.isPresent(),
-                "Got non-zero sequence: %s, but there are no additional sequence encodings: %s", sequence, this);
+                "Got non-zero sequence: %s, but there are no additional sequence encodings: %s", sequence.getAsInt(), this);
 
-        DwrfSequenceEncoding sequenceEncoding = additionalSequenceEncodings.get().get(sequence);
+        DwrfSequenceEncoding sequenceEncoding = additionalSequenceEncodings.get().get(sequence.getAsInt());
 
         checkState(
                 sequenceEncoding != null,
                 "Non-zero sequence %s is not present in the ColumnEncoding's additional sequences: %s",
-                sequence,
+                sequence.getAsInt(),
                 additionalSequenceEncodings.get().keySet());
 
         return sequenceEncoding.getValueEncoding();

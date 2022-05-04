@@ -29,7 +29,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static org.testng.Assert.assertEquals;
 
 public class TestBooleanStream
@@ -181,7 +181,7 @@ public class TestBooleanStream
             throws OrcCorruptionException
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33, DEFAULT_SEQUENCE_ID);
+        StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33, MISSING_SEQUENCE);
         streamDataOutput.writeData(sliceOutput);
         Stream stream = streamDataOutput.getStream();
         assertEquals(stream.getStreamKind(), getExpectedStreamKind());

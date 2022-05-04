@@ -14,13 +14,16 @@
 package com.facebook.presto.orc.metadata;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class Stream
 {
-    public enum StreamArea {
+    public enum StreamArea
+    {
         INDEX,
         DATA,
     }
@@ -58,23 +61,26 @@ public class Stream
     private final StreamKind streamKind;
     private final int length;
     private final boolean useVInts;
-    private final int sequence;
-
+    private final OptionalInt sequence;
     private final Optional<Long> offset;
 
-    public Stream(int column, int sequence, StreamKind streamKind, int length, boolean useVInts)
+    public Stream(int column, OptionalInt sequence, StreamKind streamKind, int length, boolean useVInts)
     {
         this(column, streamKind, length, useVInts, sequence, Optional.empty());
     }
 
-    public Stream(int column, StreamKind streamKind, int length, boolean useVInts, int sequence, Optional<Long> offset)
+    public Stream(int column, StreamKind streamKind, int length, boolean useVInts, OptionalInt sequence, Optional<Long> offset)
     {
         this.column = column;
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
         this.length = length;
         this.useVInts = useVInts;
-        this.sequence = sequence;
+        this.sequence = requireNonNull(sequence, "sequence is null");
         this.offset = requireNonNull(offset, "offset is null");
+
+        if (sequence.isPresent()) {
+            checkArgument(sequence.getAsInt() >= 0, "sequence is negative: %s", sequence.getAsInt());
+        }
     }
 
     public int getColumn()
@@ -97,7 +103,7 @@ public class Stream
         return useVInts;
     }
 
-    public int getSequence()
+    public OptionalInt getSequence()
     {
         return sequence;
     }

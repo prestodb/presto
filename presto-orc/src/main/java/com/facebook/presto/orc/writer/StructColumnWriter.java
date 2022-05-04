@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -52,7 +53,7 @@ public class StructColumnWriter
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final int column;
-    private final int sequence;
+    private final OptionalInt sequence;
     private final boolean compressed;
     private final PresentOutputStream presentStream;
     private final CompressedMetadataWriter metadataWriter;
@@ -67,17 +68,16 @@ public class StructColumnWriter
 
     public StructColumnWriter(
             int column,
-            int sequence,
+            OptionalInt sequence,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             List<ColumnWriter> structFields,
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        checkArgument(sequence >= 0, "sequence is negative");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.column = column;
-        this.sequence = sequence;
+        this.sequence = requireNonNull(sequence, "sequence is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.structFields = ImmutableList.copyOf(requireNonNull(structFields, "structFields is null"));
         this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);

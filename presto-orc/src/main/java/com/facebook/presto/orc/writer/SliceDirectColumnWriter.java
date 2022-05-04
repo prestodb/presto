@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
@@ -60,7 +61,7 @@ public class SliceDirectColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnWriter.class).instanceSize();
     private final int column;
-    private final int sequence;
+    private final OptionalInt sequence;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream lengthStream;
@@ -78,7 +79,7 @@ public class SliceDirectColumnWriter
 
     public SliceDirectColumnWriter(
             int column,
-            int sequence,
+            OptionalInt sequence,
             Type type,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
@@ -87,13 +88,12 @@ public class SliceDirectColumnWriter
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        checkArgument(sequence >= 0, "sequence is negative");
         checkArgument(type instanceof AbstractVariableWidthType, "type is not an AbstractVariableWidthType");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
-        this.sequence = sequence;
+        this.sequence = requireNonNull(sequence, "sequence is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
         this.lengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);

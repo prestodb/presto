@@ -18,6 +18,7 @@ import com.facebook.presto.orc.DwrfDataEncryptor;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 
@@ -32,7 +33,7 @@ public class InMapOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column, int sequence)
+    public StreamDataOutput getStreamDataOutput(int column, OptionalInt sequence)
     {
         // get boolean output DATA stream as IN_MAP stream
         return super.getStreamDataOutput(column, sequence, IN_MAP);

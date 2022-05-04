@@ -590,6 +590,9 @@ public class OrcSelectiveRecordReader
             Map<Integer, List<Subfield>> requiredSubfields,
             OrcAggregatedMemoryContext systemMemoryContext)
     {
+        // This is the problematic place #1. We create readers + StreamDescriptor even before reading the file.
+        // StreamDescriptor is supposed to have the sequence from the ColumnEncoding, but it's missing by default.
+        // StreamDescriptor are used to get the right stream for a give row group from InputStreamSources.
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
         requireNonNull(filterFunctions, "filterFunctions is null");

@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -100,7 +101,7 @@ public class PresentOutputStream
         return Optional.of(booleanOutputStream.getCheckpoints());
     }
 
-    public Optional<StreamDataOutput> getStreamDataOutput(int column, int sequence)
+    public Optional<StreamDataOutput> getStreamDataOutput(int column, OptionalInt sequence)
     {
         checkArgument(closed);
         if (booleanOutputStream == null) {

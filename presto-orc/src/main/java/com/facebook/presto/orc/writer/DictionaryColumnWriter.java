@@ -64,7 +64,7 @@ public abstract class DictionaryColumnWriter
     private static final int EXPECTED_ROW_GROUP_SEGMENT_SIZE = 10_000;
 
     protected final int column;
-    protected final int sequence;
+    protected final OptionalInt sequence;
     protected final ColumnWriterOptions columnWriterOptions;
     protected final Optional<DwrfDataEncryptor> dwrfEncryptor;
     protected final OrcEncoding orcEncoding;
@@ -90,16 +90,15 @@ public abstract class DictionaryColumnWriter
 
     public DictionaryColumnWriter(
             int column,
-            int sequence,
+            OptionalInt sequence,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             OrcEncoding orcEncoding,
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        checkArgument(sequence >= 0, "sequence is negative");
         this.column = column;
-        this.sequence = sequence;
+        this.sequence = requireNonNull(sequence, "sequence is null");
         this.columnWriterOptions = requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
@@ -163,7 +162,7 @@ public abstract class DictionaryColumnWriter
 
     protected abstract void closeDictionary();
 
-    protected abstract List<StreamDataOutput> getDictionaryStreams(int column, int sequence);
+    protected abstract List<StreamDataOutput> getDictionaryStreams(int column, OptionalInt sequence);
 
     protected abstract ColumnStatistics createColumnStatistics();
 

@@ -47,7 +47,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -155,7 +155,7 @@ public class TestSliceDictionaryColumnWriter
                 .build();
         DictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
                 COLUMN_ID,
-                DEFAULT_SEQUENCE_ID,
+                MISSING_SEQUENCE,
                 VARCHAR,
                 columnWriterOptions,
                 Optional.empty(),

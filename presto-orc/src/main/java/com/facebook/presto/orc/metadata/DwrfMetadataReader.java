@@ -345,7 +345,7 @@ public class DwrfMetadataReader
                 toStreamKind(stream.getKind()),
                 toIntExact(stream.getLength()),
                 stream.getUseVInts(),
-                stream.getSequence(),
+                stream.hasSequence() ? OptionalInt.of(stream.getSequence()) : OptionalInt.empty(),
                 stream.hasOffset() ? Optional.of(stream.getOffset()) : Optional.empty());
     }
 

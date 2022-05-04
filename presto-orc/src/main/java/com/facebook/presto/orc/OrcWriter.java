@@ -78,7 +78,7 @@ import static com.facebook.presto.orc.FlushReason.CLOSED;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcReader.validateFile;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toFileStatistics;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStripeEncryptionGroup;
 import static com.facebook.presto.orc.metadata.OrcType.mapColumnToNode;
@@ -295,7 +295,7 @@ public class OrcWriter
             Type fieldType = types.get(columnIndex);
             ColumnWriter columnWriter = createColumnWriter(
                     nodeIndex,
-                    DEFAULT_SEQUENCE_ID,
+                    MISSING_SEQUENCE,
                     orcTypes,
                     fieldType,
                     columnWriterOptions,

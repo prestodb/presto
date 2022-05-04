@@ -29,9 +29,10 @@ import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -46,7 +47,7 @@ public final class ColumnWriters
      */
     public static ColumnWriter createColumnWriter(
             int nodeIndex,
-            int sequence,
+            OptionalInt sequence,
             List<OrcType> orcTypes,
             Type type,
             ColumnWriterOptions columnWriterOptions,
@@ -73,7 +74,7 @@ public final class ColumnWriters
 
             case DATE:
                 checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
-                return new LongColumnWriter(nodeIndex, DEFAULT_SEQUENCE_ID, type, columnWriterOptions, dwrfEncryptor, orcEncoding, DateStatisticsBuilder::new, metadataWriter);
+                return new LongColumnWriter(nodeIndex, MISSING_SEQUENCE, type, columnWriterOptions, dwrfEncryptor, orcEncoding, DateStatisticsBuilder::new, metadataWriter);
 
             case SHORT:
                 return new LongColumnWriter(nodeIndex, sequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);

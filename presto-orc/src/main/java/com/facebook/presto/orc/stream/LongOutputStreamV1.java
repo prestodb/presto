@@ -27,6 +27,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
 import static com.google.common.base.Preconditions.checkState;
@@ -190,7 +191,7 @@ public class LongOutputStreamV1
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column, int sequence)
+    public StreamDataOutput getStreamDataOutput(int column, OptionalInt sequence)
     {
         return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, streamKind, toIntExact(buffer.getOutputDataSize()), true));
     }

@@ -53,7 +53,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -108,10 +108,10 @@ public class BenchmarkDictionaryWriter
         ColumnWriter columnWriter;
         Type type = data.getType();
         if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDirectColumnWriter(COLUMN_INDEX, DEFAULT_SEQUENCE_ID, type, getColumnWriterOptions(), Optional.empty(), DWRF, this::newStringStatisticsBuilder, DWRF.createMetadataWriter());
+            columnWriter = new SliceDirectColumnWriter(COLUMN_INDEX, MISSING_SEQUENCE, type, getColumnWriterOptions(), Optional.empty(), DWRF, this::newStringStatisticsBuilder, DWRF.createMetadataWriter());
         }
         else {
-            columnWriter = new LongColumnWriter(COLUMN_INDEX, DEFAULT_SEQUENCE_ID, type, getColumnWriterOptions(), Optional.empty(), DWRF, IntegerStatisticsBuilder::new, DWRF.createMetadataWriter());
+            columnWriter = new LongColumnWriter(COLUMN_INDEX, MISSING_SEQUENCE, type, getColumnWriterOptions(), Optional.empty(), DWRF, IntegerStatisticsBuilder::new, DWRF.createMetadataWriter());
         }
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();
@@ -168,10 +168,10 @@ public class BenchmarkDictionaryWriter
         Type type = data.getType();
         ColumnWriterOptions columnWriterOptions = getColumnWriterOptions(sortStringDictionaryKeys);
         if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, DEFAULT_SEQUENCE_ID, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
+            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, MISSING_SEQUENCE, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
         }
         else {
-            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, DEFAULT_SEQUENCE_ID, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
+            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, MISSING_SEQUENCE, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
         }
         return columnWriter;
     }

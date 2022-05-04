@@ -18,8 +18,9 @@ import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.OptionalInt;
 
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -27,7 +28,7 @@ public final class StreamDescriptor
 {
     private final String streamName;
     private final int streamId;
-    private final int sequence;
+    private final OptionalInt sequence;
     private final OrcType orcType;
     private final String fieldName;
     private final OrcDataSource orcDataSource;
@@ -35,21 +36,21 @@ public final class StreamDescriptor
 
     public StreamDescriptor(String streamName, int streamId, String fieldName, OrcType orcType, OrcDataSource orcDataSource, List<StreamDescriptor> nestedStreams)
     {
-        this(streamName, streamId, fieldName, orcType, orcDataSource, nestedStreams, DEFAULT_SEQUENCE_ID);
+        this(streamName, streamId, fieldName, orcType, orcDataSource, nestedStreams, MISSING_SEQUENCE);
     }
 
-    public StreamDescriptor(String streamName, int streamId, String fieldName, OrcType orcType, OrcDataSource orcDataSource, List<StreamDescriptor> nestedStreams, int sequence)
+    public StreamDescriptor(String streamName, int streamId, String fieldName, OrcType orcType, OrcDataSource orcDataSource, List<StreamDescriptor> nestedStreams, OptionalInt sequence)
     {
         this.streamName = requireNonNull(streamName, "streamName is null");
         this.streamId = streamId;
-        this.sequence = sequence;
+        this.sequence = requireNonNull(sequence, "sequence is null");
         this.fieldName = requireNonNull(fieldName, "fieldName is null");
         this.orcType = requireNonNull(orcType, "orcType is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.nestedStreams = ImmutableList.copyOf(requireNonNull(nestedStreams, "nestedStreams is null"));
     }
 
-    public StreamDescriptor duplicate(int sequence)
+    public StreamDescriptor duplicate(OptionalInt sequence)
     {
         return new StreamDescriptor(streamName, streamId, fieldName, orcType, orcDataSource, nestedStreams, sequence);
     }
@@ -64,7 +65,7 @@ public final class StreamDescriptor
         return streamId;
     }
 
-    public int getSequence()
+    public OptionalInt getSequence()
     {
         return sequence;
     }

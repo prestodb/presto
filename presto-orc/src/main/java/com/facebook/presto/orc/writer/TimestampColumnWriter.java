@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -65,7 +66,7 @@ public class TimestampColumnWriter
     private static final long TIMESTAMP_RAW_SIZE = Long.BYTES + Integer.BYTES;
 
     private final int column;
-    private final int sequence;
+    private final OptionalInt sequence;
     private final Type type;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
@@ -85,7 +86,7 @@ public class TimestampColumnWriter
 
     public TimestampColumnWriter(
             int column,
-            int sequence,
+            OptionalInt sequence,
             Type type,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
@@ -94,12 +95,11 @@ public class TimestampColumnWriter
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        checkArgument(sequence >= 0, "sequence is negative");
         requireNonNull(columnWriterOptions, "compression is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
-        this.sequence = sequence;
+        this.sequence = requireNonNull(sequence, "sequence is null");
         this.type = requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         if (orcEncoding == DWRF) {

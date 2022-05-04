@@ -40,11 +40,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.MISSING_SEQUENCE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
@@ -318,7 +319,7 @@ public class TestLongDictionaryProvider
         outputStream.close();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(streamId.getColumn(), DEFAULT_SEQUENCE_ID);
+        StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(streamId.getColumn(), MISSING_SEQUENCE);
         streamDataOutput.writeData(sliceOutput);
         return sliceOutput;
     }
@@ -384,7 +385,7 @@ public class TestLongDictionaryProvider
 
         public StreamId toDictionaryDataStreamId()
         {
-            return new StreamId(node, sequence, DICTIONARY_DATA);
+            return new StreamId(node, OptionalInt.of(sequence), DICTIONARY_DATA);
         }
     }
 

@@ -30,6 +30,7 @@ import com.google.common.collect.SetMultimap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
@@ -82,7 +83,7 @@ public final class Checkpoints
                 continue;
             }
 
-            int sequence = entry.getKey().getSequence();
+            OptionalInt sequence = entry.getKey().getSequence();
             List<Integer> positionsList = entry.getValue().get(rowGroupId).getPositions();
 
             ColumnEncodingKind columnEncoding = columnEncodings.get(column).getColumnEncoding(sequence).getColumnEncodingKind();
@@ -177,7 +178,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getBooleanColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
@@ -201,7 +202,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getByteColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
@@ -225,7 +226,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getLongColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             ColumnEncodingKind encoding,
             boolean compressed,
             Set<StreamKind> availableStreams,
@@ -254,7 +255,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getFloatColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
@@ -278,7 +279,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getDoubleColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
@@ -302,7 +303,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getTimestampColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             ColumnEncodingKind encoding,
             boolean compressed,
             Set<StreamKind> availableStreams,
@@ -331,7 +332,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getSliceColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             ColumnEncodingKind encoding,
             boolean compressed,
             Set<StreamKind> availableStreams,
@@ -386,7 +387,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getListOrMapColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             ColumnEncodingKind encoding,
             boolean compressed,
             Set<StreamKind> availableStreams,
@@ -411,7 +412,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getStructColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             boolean compressed,
             Set<StreamKind> availableStreams,
             ColumnPositionsList positionsList)
@@ -431,7 +432,7 @@ public final class Checkpoints
 
     private static Map<StreamId, StreamCheckpoint> getDecimalColumnCheckpoints(
             int column,
-            int sequence,
+            OptionalInt sequence,
             ColumnEncodingKind encoding,
             boolean compressed,
             Set<StreamKind> availableStreams,
@@ -478,15 +479,15 @@ public final class Checkpoints
     public static class ColumnPositionsList
     {
         private final int column;
-        private final int sequence;
+        private final OptionalInt sequence;
         private final OrcTypeKind columnType;
         private final List<Integer> positionsList;
         private int index;
 
-        private ColumnPositionsList(int column, int sequence, OrcTypeKind columnType, List<Integer> positionsList)
+        private ColumnPositionsList(int column, OptionalInt sequence, OrcTypeKind columnType, List<Integer> positionsList)
         {
             this.column = column;
-            this.sequence = sequence;
+            this.sequence = requireNonNull(sequence, "sequence is null");
             this.columnType = requireNonNull(columnType, "columnType is null");
             this.positionsList = ImmutableList.copyOf(requireNonNull(positionsList, "positionsList is null"));
         }
@@ -517,12 +518,12 @@ public final class Checkpoints
     private static class ColumnAndSequence
     {
         private final int column;
-        private final int sequence;
+        private final OptionalInt sequence;
 
-        private ColumnAndSequence(int column, int sequence)
+        private ColumnAndSequence(int column, OptionalInt sequence)
         {
             this.column = column;
-            this.sequence = sequence;
+            this.sequence = requireNonNull(sequence, "sequence is null");
         }
 
         @Override
@@ -536,7 +537,7 @@ public final class Checkpoints
             }
             ColumnAndSequence that = (ColumnAndSequence) o;
             return column == that.column &&
-                    sequence == that.sequence;
+                    sequence.equals(that.sequence);
         }
 
         @Override

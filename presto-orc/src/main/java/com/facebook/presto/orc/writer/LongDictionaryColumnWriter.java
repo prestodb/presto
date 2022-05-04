@@ -32,6 +32,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -56,7 +57,7 @@ public class LongDictionaryColumnWriter
 
     public LongDictionaryColumnWriter(
             int column,
-            int sequence,
+            OptionalInt sequence,
             Type type,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
@@ -260,7 +261,7 @@ public class LongDictionaryColumnWriter
     }
 
     @Override
-    protected List<StreamDataOutput> getDictionaryStreams(int column, int sequence)
+    protected List<StreamDataOutput> getDictionaryStreams(int column, OptionalInt sequence)
     {
         return ImmutableList.of(dictionaryDataStream.getStreamDataOutput(column, sequence));
     }

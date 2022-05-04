@@ -49,6 +49,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.SortedMap;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
@@ -291,7 +292,7 @@ public class MapFlatBatchStreamReader
                 streamDescriptor.getOrcType(),
                 streamDescriptor.getOrcDataSource(),
                 streamDescriptors,
-                sequence);
+                OptionalInt.of(sequence));
     }
 
     private Block getKeyBlockTemplate(Collection<DwrfSequenceEncoding> sequenceEncodings)
