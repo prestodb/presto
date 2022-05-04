@@ -543,6 +543,11 @@ class AggregationAnalyzer
 
         private boolean isGroupingKey(Expression node)
         {
+            // If no column references are found, then the expression must be a constant, so return true.
+            // We can hit this case when parsing enum constants.
+            if (!columnReferences.containsKey(node)) {
+                return true;
+            }
             FieldId fieldId = checkAndGetColumnReferenceField(node, columnReferences);
 
             if (orderByScope.isPresent() && isFieldFromScope(fieldId, orderByScope.get())) {

@@ -138,6 +138,14 @@ public class TestEnums
     }
 
     @Test
+    public void testEnumInAggregation()
+    {
+        assertQueryResultUnordered(
+                "WITH tmp_table AS (SELECT TRY_CAST(1 AS test.enum.mood) AS x) SELECT (CASE x WHEN test.enum.mood.SAD THEN 1 END) AS col1 FROM tmp_table GROUP BY x",
+                singletonList(ImmutableList.of(1)));
+    }
+
+    @Test
     public void testEnumCasts()
     {
         assertSingleValue("CAST(CAST(1 AS TINYINT) AS test.enum.mood)", 1L);
