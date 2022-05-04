@@ -455,7 +455,8 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                retryExecutionStrategy);
 
         List<List<Object>> results = execution.execute();
 
@@ -511,8 +512,7 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 session.getSystemProperties(),
                 catalogSessionProperties.build(),
-                session.getTraceToken(),
-                retryExecutionStrategy);
+                session.getTraceToken());
     }
 
     @Override

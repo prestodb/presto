@@ -363,7 +363,7 @@ public class PrestoSparkModule
         binder.bind(ConnectorTypeSerdeManager.class).in(Scopes.SINGLETON);
 
         // connector metadata update handle json serde
-        binder.bind(new TypeLiteral<ConnectorTypeSerde<ConnectorMetadataUpdateHandle>>(){})
+        binder.bind(new TypeLiteral<ConnectorTypeSerde<ConnectorMetadataUpdateHandle>>() {})
                 .annotatedWith(ForJsonMetadataUpdateHandle.class)
                 .to(ConnectorMetadataUpdateHandleJsonSerde.class)
                 .in(Scopes.SINGLETON);
