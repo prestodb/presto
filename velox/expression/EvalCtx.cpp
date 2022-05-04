@@ -28,7 +28,21 @@ ContextSaver::~ContextSaver() {
 }
 
 EvalCtx::EvalCtx(core::ExecCtx* execCtx, ExprSet* exprSet, const RowVector* row)
-    : execCtx_(execCtx), exprSet_(exprSet), row_(row) {}
+    : execCtx_(execCtx), exprSet_(exprSet), row_(row) {
+  // TODO Change the API to replace raw pointers with non-const references.
+  // Sanity check inputs to prevent crashes.
+  VELOX_CHECK_NOT_NULL(execCtx);
+  VELOX_CHECK_NOT_NULL(exprSet);
+  VELOX_CHECK_NOT_NULL(row);
+  for (const auto& child : row->children()) {
+    VELOX_CHECK_NOT_NULL(child);
+  }
+}
+
+EvalCtx::EvalCtx(core::ExecCtx* execCtx)
+    : execCtx_(execCtx), exprSet_(nullptr), row_(nullptr) {
+  VELOX_CHECK_NOT_NULL(execCtx);
+}
 
 void EvalCtx::setWrapped(
     Expr* expr,

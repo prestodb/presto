@@ -172,7 +172,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
 
   std::shared_ptr<const core::ITypedExpr> parseExpression(
       const std::string& text,
-      const std::shared_ptr<const RowType>& rowType = nullptr) {
+      const RowTypePtr& rowType = nullptr) {
     auto untyped = parse::parseExpr(text);
     return core::Expressions::inferTypes(
         untyped, rowType ? rowType : testDataType_, execCtx_->pool());
@@ -405,13 +405,24 @@ class ExprTest : public testing::Test, public VectorTestBase {
     addField(testData_.bool1, fields, size);
     addField(testData_.opaquestate1, fields, size);
 
+    // Keep only non-null fields.
+    std::vector<std::string> names;
+    std::vector<TypePtr> types;
+    std::vector<VectorPtr> nonNullFields;
+    for (auto i = 0; i < fields.size(); ++i) {
+      if (fields[i]) {
+        names.push_back(testDataType_->nameOf(i));
+        types.push_back(testDataType_->childAt(i));
+        nonNullFields.push_back(fields[i]);
+      }
+    }
+
     return std::make_shared<RowVector>(
         execCtx_->pool(),
-        testDataType_,
-        BufferPtr(nullptr),
+        ROW(std::move(names), std::move(types)),
+        nullptr,
         size,
-        std::move(fields),
-        0 /*nullCount*/);
+        std::move(nonNullFields));
   }
 
   static std::string describeEncoding(const BaseVector* const vector) {
@@ -708,7 +719,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::unique_ptr<test::VectorMaker> vectorMaker_{
       std::make_unique<test::VectorMaker>(pool_.get())};
   TestData testData_;
-  std::shared_ptr<const RowType> testDataType_;
+  RowTypePtr testDataType_;
   std::unique_ptr<exec::ExprSet> exprs_;
   std::vector<std::vector<EncodingOptions>> testEncodings_;
 };
@@ -2747,4 +2758,23 @@ TEST_F(ExprTest, lambdaExceptionContext) {
       array,
       "divide(x, 0:BIGINT)",
       "filter(c0, lambda)");
+}
+
+/// Verify that null inputs result in exceptions, not crashes.
+TEST_F(ExprTest, invalidInputs) {
+  auto rowType = ROW({"a"}, {BIGINT()});
+  auto exprSet = compileExpression("a + 5", rowType);
+
+  // Try null top-level vector.
+  RowVectorPtr input;
+  ASSERT_THROW(
+      exec::EvalCtx(execCtx_.get(), exprSet.get(), input.get()),
+      VeloxRuntimeError);
+
+  // Try non-null vector with null children.
+  input = std::make_shared<RowVector>(
+      pool_.get(), rowType, nullptr, 1024, std::vector<VectorPtr>{nullptr});
+  ASSERT_THROW(
+      exec::EvalCtx(execCtx_.get(), exprSet.get(), input.get()),
+      VeloxRuntimeError);
 }

@@ -60,7 +60,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
       vectors.emplace_back(makeNullableFlatVector(vector));
     }
     SelectivityVector rows(vectors[0]->size());
-    EvalCtx ctx(&execCtx_, nullptr, nullptr);
+    EvalCtx ctx(&execCtx_);
     DecodedArgs args(rows, vectors, &ctx);
 
     size_t startIndex = additionalVectors.size();
@@ -133,7 +133,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
       vectors.emplace_back(makeNullableFlatVector(vector));
     }
     SelectivityVector rows(vectors[0]->size());
-    EvalCtx ctx(&execCtx_, nullptr, nullptr);
+    EvalCtx ctx(&execCtx_);
     DecodedArgs args(rows, vectors, &ctx);
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -160,7 +160,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
       vectors.emplace_back(makeNullableFlatVector(vector));
     }
     SelectivityVector rows(vectors[0]->size());
-    EvalCtx ctx(&execCtx_, nullptr, nullptr);
+    EvalCtx ctx(&execCtx_);
     DecodedArgs args(rows, vectors, &ctx);
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -190,7 +190,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
       vectors.emplace_back(makeNullableFlatVector(vector));
     }
     SelectivityVector rows(vectors[0]->size());
-    EvalCtx ctx(&execCtx_, nullptr, nullptr);
+    EvalCtx ctx(&execCtx_);
     DecodedArgs args(rows, vectors, &ctx);
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -219,7 +219,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
       vectors.emplace_back(makeNullableFlatVector(vector));
     }
     SelectivityVector rows(vectors[0]->size());
-    EvalCtx ctx(&execCtx_, nullptr, nullptr);
+    EvalCtx ctx(&execCtx_);
     DecodedArgs args(rows, vectors, &ctx);
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -287,7 +287,7 @@ TEST_F(NullableVariadicViewTest, notNullContainer) {
     vectors.emplace_back(makeNullableFlatVector(vector));
   }
   SelectivityVector rows(vectors[0]->size());
-  EvalCtx ctx(&execCtx_, nullptr, nullptr);
+  EvalCtx ctx(&execCtx_);
   DecodedArgs args(rows, vectors, &ctx);
 
   VectorReader<Variadic<int64_t>> reader(args, 0);

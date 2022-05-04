@@ -458,7 +458,7 @@ TEST_F(VectorReaderTest, variadicContainsNull) {
       [](vector_size_t row) { return row; },
       [](vector_size_t row) { return row % 5 == 2; });
   SelectivityVector rows(10);
-  exec::EvalCtx ctx(&execCtx_, nullptr, nullptr);
+  exec::EvalCtx ctx(&execCtx_);
   exec::DecodedArgs args(
       rows, {field1Vector, field2Vector, field3Vector}, &ctx);
   exec::VectorReader<Variadic<int32_t>> reader(args, 0);
@@ -530,7 +530,7 @@ TEST_F(VectorReaderTest, dictionaryEncodedVariadicContainsNull) {
   auto field3Vector = wrapInDictionary(field3indices, size, field3BaseVector);
 
   SelectivityVector rows(10);
-  exec::EvalCtx ctx(&execCtx_, nullptr, nullptr);
+  exec::EvalCtx ctx(&execCtx_);
   exec::DecodedArgs args(
       rows, {field1Vector, field2Vector, field3Vector}, &ctx);
   exec::VectorReader<Variadic<int32_t>> reader(args, 0);

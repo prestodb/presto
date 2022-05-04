@@ -51,7 +51,7 @@ class EvalSimplifiedTest : public FunctionBaseTest {
       const VectorFuzzer::Options& fuzzerOpts,
       folly::Random::DefaultGenerator& rng) {
     if (types == nullptr) {
-      return nullptr;
+      return makeRowVector(ROW({}, {}), 10);
     }
 
     std::vector<VectorPtr> vectors;

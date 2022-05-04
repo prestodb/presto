@@ -33,6 +33,9 @@ class EvalCtx {
  public:
   EvalCtx(core::ExecCtx* execCtx, ExprSet* exprSet, const RowVector* row);
 
+  /// For testing only.
+  explicit EvalCtx(core::ExecCtx* execCtx);
+
   const RowVector* row() const {
     return row_;
   }

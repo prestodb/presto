@@ -1476,9 +1476,6 @@ TEST_F(StringFunctionsTest, vectorAccessCheck) {
           S("hello"), std::nullopt, S("world")},
       VARCHAR());
 
-  exec::EvalCtx evalCtx(
-      &execCtx_, nullptr, makeRowVector(ROW({}, {}), 0).get());
-
   auto vectorWithNulls = flatVectorWithNulls->as<SimpleVector<StringView>>();
   SelectivityVector rows(vectorWithNulls->size());
   rows.setValid(1, false); // Dont access the middle element.

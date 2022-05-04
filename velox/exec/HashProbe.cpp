@@ -562,7 +562,7 @@ void HashProbe::ensureLoadedIfNotAtEnd(ChannelIndex channel) {
       results_.atEnd()) {
     return;
   }
-  EvalCtx evalCtx(operatorCtx_->execCtx(), nullptr, input_.get());
+
   if (!passingInputRowsInitialized_) {
     passingInputRowsInitialized_ = true;
     passingInputRows_.resize(input_->size());
@@ -580,7 +580,8 @@ void HashProbe::ensureLoadedIfNotAtEnd(ChannelIndex channel) {
     }
     passingInputRows_.updateBounds();
   }
-  evalCtx.ensureFieldLoaded(channel, passingInputRows_);
+
+  LazyVector::ensureLoadedRows(input_->childAt(channel), passingInputRows_);
 }
 
 void HashProbe::noMoreInput() {
