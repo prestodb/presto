@@ -31,6 +31,7 @@ class ExprStatsTest : public testing::Test, public VectorTestBase {
   void SetUp() override {
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
+    pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
   }
 
   static RowTypePtr asRowType(const TypePtr& type) {
@@ -257,4 +258,27 @@ TEST_F(ExprStatsTest, listener) {
     evaluate(*exprSet, data);
   }
   ASSERT_EQ(2, events.size());
+}
+
+TEST_F(ExprStatsTest, memoryAllocations) {
+  std::mt19937 rng;
+
+  vector_size_t size = 256;
+  auto data = makeRowVector({
+      makeFlatVector<float>(
+          size, [&](auto /*row*/) { return folly::Random::randDouble01(rng); }),
+  });
+
+  auto rowType = asRowType(data->type());
+  auto exprSet =
+      compileExpressions({"(c0 - 0.5::REAL) * 2.0::REAL + 0.3::REAL"}, rowType);
+
+  auto prevAllocations = pool_->getMemoryUsageTracker()->getNumAllocs();
+
+  evaluate(*exprSet, data);
+  auto currAllocations = pool_->getMemoryUsageTracker()->getNumAllocs();
+
+  // Expect a single allocation for the result. Intermediate results should
+  // reuse memory.
+  ASSERT_EQ(1, currAllocations - prevAllocations);
 }

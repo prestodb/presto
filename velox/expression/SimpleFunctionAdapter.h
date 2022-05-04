@@ -135,13 +135,51 @@ class SimpleFunctionAdapter : public VectorFunction {
     }
   }
 
+  VectorPtr* findArgToReuse(
+      std::vector<VectorPtr>& args,
+      const TypePtr& outputType) const {
+    if (args.size() > 0 && outputType->isPrimitiveType() &&
+        outputType->isFixedWidth()) {
+      for (auto& arg : args) {
+        if (arg->type()->kindEquals(outputType)) {
+          if (BaseVector::isReusableFlatVector(arg)) {
+            // Re-use arg for result. We rely on the fact that for each row
+            // we read arguments before computing and writing out the
+            // result.
+            return &arg;
+          }
+        }
+      }
+    }
+    return nullptr;
+  }
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
       EvalCtx* context,
       VectorPtr* result) const override {
-    ApplyContext applyContext{&rows, outputType, context, result};
+    auto* reusableResult = result;
+    // If result is null, check if one of the arguments can be re-used for
+    // storing the result. This is possible if all the following conditions are
+    // met:
+    // - result type is a fixed-width type,
+    // - function doesn't produce nulls,
+    // - an argument has the same type as result,
+    // - the argument has flat encoding,
+    // - the argument is singly-referenced and has singly-referenced values
+    // and nulls buffers.
+    if constexpr (
+        !FUNC::can_produce_null_output && !FUNC::udf_has_callNullFree) {
+      if (!reusableResult->get()) {
+        if (auto arg = findArgToReuse(args, outputType)) {
+          reusableResult = arg;
+        }
+      }
+    }
+
+    ApplyContext applyContext{&rows, outputType, context, reusableResult};
 
     // Enable fast all-ASCII path if all string inputs are ASCII and the
     // function provides ASCII-only path.
@@ -151,14 +189,25 @@ class SimpleFunctionAdapter : public VectorFunction {
 
     // If this UDF can take the fast path iteration, we set all active rows as
     // non-nulls in the result vector. The assumption is that the majority of
-    // rows will return non-null values (and hence won't have to touch the null
-    // buffer during iteration).
-    if constexpr (fastPathIteration) {
-      (*result)->clearNulls(rows);
+    // rows will return non-null values (and hence won't have to touch the
+    // null buffer during iteration).
+    // If this function doesn't produce nulls, then one of its arguments may be
+    // used for storing results. In this case, do not clear the nulls before
+    // processing these.
+    if constexpr (
+        fastPathIteration &&
+        (FUNC::can_produce_null_output || FUNC::udf_has_callNullFree)) {
+      (*reusableResult)->clearNulls(rows);
     }
 
     DecodedArgs decodedArgs{rows, args, context};
     unpack<0>(applyContext, true, decodedArgs);
+
+    if constexpr (
+        fastPathIteration && !FUNC::can_produce_null_output &&
+        !FUNC::udf_has_callNullFree) {
+      (*reusableResult)->clearNulls(rows);
+    }
 
     // Check if the function reuses input strings for the result, and add
     // references to input string buffers to all result vectors.
@@ -168,8 +217,10 @@ class SimpleFunctionAdapter : public VectorFunction {
       VELOX_CHECK_EQ(args[reuseStringsFromArg]->typeKind(), TypeKind::VARCHAR);
 
       tryAcquireStringBuffer(
-          result->get(), decodedArgs.at(reuseStringsFromArg)->base());
+          reusableResult->get(), decodedArgs.at(reuseStringsFromArg)->base());
     }
+
+    *result = std::move(*reusableResult);
   }
 
   // Acquire string buffer from source if vector is a string flat vector.
@@ -239,8 +290,8 @@ class SimpleFunctionAdapter : public VectorFunction {
               const DecodedArgs& packed,
               TReader&... readers) const {
     if constexpr (isVariadicType<arg_at<POSITION>>::value) {
-      // This should already be statically checked by the UDFHolder used to wrap
-      // the simple function, but checking again here just in case.
+      // This should already be statically checked by the UDFHolder used to
+      // wrap the simple function, but checking again here just in case.
       static_assert(
           POSITION == FUNC::num_args - 1,
           "Variadic args can only be used as the last argument to a function.");
@@ -314,9 +365,9 @@ class SimpleFunctionAdapter : public VectorFunction {
       auto* data = applyContext.result->mutableRawValues();
       auto writeResult = [&applyContext, &nullBuffer, &data](
                              auto row, bool notNull, auto out) INLINE_LAMBDA {
-        // For fast path iteration, all active rows were already set as non-null
-        // beforehand, so we only need to update the null buffer if the function
-        // returned null (which is not the common case).
+        // For fast path iteration, all active rows were already set as
+        // non-null beforehand, so we only need to update the null buffer if
+        // the function returned null (which is not the common case).
         if (notNull) {
           if constexpr (return_type_traits::typeKind == TypeKind::BOOLEAN) {
             bits::setBit(data, row, out);
@@ -358,10 +409,10 @@ class SimpleFunctionAdapter : public VectorFunction {
         }
       } else if (allNotNull) {
         applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
-          // Passing a stack variable have shown to be boost the performance of
-          // functions that repeatedly update the output.
-          // The opposite optimization (eliminating the temp) is easier to do
-          // by the compiler (assuming the function call is inlined).
+          // Passing a stack variable have shown to be boost the performance
+          // of functions that repeatedly update the output. The opposite
+          // optimization (eliminating the temp) is easier to do by the
+          // compiler (assuming the function call is inlined).
           typename return_type_traits::NativeType out{};
           bool notNull = doApplyNotNull<0>(row, out, readers...);
           writeResult(row, notNull, out);
@@ -477,7 +528,8 @@ class SimpleFunctionAdapter : public VectorFunction {
               T& target,
               R0& currentReader,
               const Values&... extra) const {
-    // Recurse through all the arguments to build the arg list at compile time.
+    // Recurse through all the arguments to build the arg list at compile
+    // time.
     if constexpr (std::is_reference<decltype(currentReader[idx])>::value) {
       return doApply<POSITION + 1>(
           idx,
@@ -525,10 +577,10 @@ class SimpleFunctionAdapter : public VectorFunction {
   // If we're guaranteed not to have any nulls, pass all parameters as
   // references.
   //
-  // Note that (*fn_).call() will internally dispatch the call to either call()
-  // or callNullable() (whichever is implemented by the user function). Default
-  // null behavior or not does not matter in this path since we don't have any
-  // nulls.
+  // Note that (*fn_).call() will internally dispatch the call to either
+  // call() or callNullable() (whichever is implemented by the user function).
+  // Default null behavior or not does not matter in this path since we don't
+  // have any nulls.
   template <
       size_t POSITION,
       typename R0,
