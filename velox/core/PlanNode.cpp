@@ -433,12 +433,14 @@ void PlanNode::toString(
         std::stringstream& stream)> addContext) const {
   const std::string indentation(indentationSize, ' ');
 
-  stream << indentation << "-> " << name();
+  stream << indentation << "-- " << name();
 
   if (detailed) {
     stream << "[";
     addDetails(stream);
     stream << "]";
+    stream << " -> ";
+    outputType()->printChildren(stream, ", ");
   }
   stream << std::endl;
 

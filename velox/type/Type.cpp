@@ -330,13 +330,12 @@ bool RowType::operator==(const Type& other) const {
   return true;
 }
 
-std::string RowType::toString() const {
-  std::stringstream ss;
-  ss << (TypeTraits<TypeKind::ROW>::name) << "<";
+void RowType::printChildren(std::stringstream& ss, std::string_view delimiter)
+    const {
   bool any = false;
   for (size_t i = 0; i < children_.size(); ++i) {
     if (any) {
-      ss << ',';
+      ss << delimiter;
     }
     const auto& name = names_.at(i);
     if (isColumnNameRequiringEscaping(name)) {
@@ -347,6 +346,12 @@ std::string RowType::toString() const {
     ss << ':' << children_.at(i)->toString();
     any = true;
   }
+}
+
+std::string RowType::toString() const {
+  std::stringstream ss;
+  ss << (TypeTraits<TypeKind::ROW>::name) << "<";
+  printChildren(ss);
   ss << ">";
   return ss.str();
 }
