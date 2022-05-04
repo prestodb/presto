@@ -27,8 +27,11 @@ import java.util.Optional;
 
 import static com.facebook.presto.execution.ExecutionFailureInfo.toStackTraceElement;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isRetryOnOutOfMemoryBroadcastJoinEnabled;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isRetryOnOutOfMemoryWithIncreasedMemoryEnabled;
 import static com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy.DISABLE_BROADCAST_JOIN;
+import static com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy.INCREASE_CONTAINER_SIZE;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -83,8 +86,12 @@ public class PrestoSparkFailureUtils
             return Optional.empty();
         }
 
-        if (isRetryOnOutOfMemoryBroadcastJoinEnabled(session) && errorCode == EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT.toErrorCode()) {
+        if (isRetryOnOutOfMemoryBroadcastJoinEnabled(session) && errorCode.equals(EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT.toErrorCode())) {
             return Optional.of(DISABLE_BROADCAST_JOIN);
+        }
+
+        if (isRetryOnOutOfMemoryWithIncreasedMemoryEnabled(session) && errorCode.equals(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode())) {
+            return Optional.of(INCREASE_CONTAINER_SIZE);
         }
 
         return Optional.empty();

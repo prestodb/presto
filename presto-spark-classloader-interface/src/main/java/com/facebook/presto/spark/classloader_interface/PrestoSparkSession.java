@@ -44,7 +44,6 @@ public class PrestoSparkSession
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogSessionProperties;
     private final Optional<String> traceToken;
-    private final Optional<RetryExecutionStrategy> retryExecutionStrategy;
 
     public PrestoSparkSession(
             String user,
@@ -60,8 +59,7 @@ public class PrestoSparkSession
             Optional<String> language,
             Map<String, String> systemProperties,
             Map<String, Map<String, String>> catalogSessionProperties,
-            Optional<String> traceToken,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+            Optional<String> traceToken)
 
     {
         this.user = requireNonNull(user, "user is null");
@@ -79,7 +77,6 @@ public class PrestoSparkSession
         this.catalogSessionProperties = unmodifiableMap(requireNonNull(catalogSessionProperties, "catalogSessionProperties is null").entrySet().stream()
                 .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
-        this.retryExecutionStrategy = requireNonNull(retryExecutionStrategy, "retryExecutionStrategy is null");
     }
 
     public String getUser()
@@ -150,10 +147,5 @@ public class PrestoSparkSession
     public Optional<String> getTraceToken()
     {
         return traceToken;
-    }
-
-    public Optional<RetryExecutionStrategy> getRetryExecutionStrategy()
-    {
-        return retryExecutionStrategy;
     }
 }

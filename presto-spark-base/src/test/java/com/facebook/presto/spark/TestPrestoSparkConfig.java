@@ -46,7 +46,10 @@ public class TestPrestoSparkConfig
                 .setSplitAssignmentBatchSize(1_000_000)
                 .setMemoryRevokingThreshold(0)
                 .setMemoryRevokingTarget(0)
-                .setRetryOnOutOfMemoryBroadcastJoinEnabled(false));
+                .setRetryOnOutOfMemoryBroadcastJoinEnabled(false)
+                .setRetryOnOutOfMemoryWithIncreasedMemorySettingsEnabled(false)
+                .setOutOfMemoryRetryPrestoSessionProperties("")
+                .setOutOfMemoryRetrySparkConfigs(""));
     }
 
     @Test
@@ -68,6 +71,9 @@ public class TestPrestoSparkConfig
                 .put("spark.memory-revoking-threshold", "0.5")
                 .put("spark.memory-revoking-target", "0.5")
                 .put("spark.retry-on-out-of-memory-broadcast-join-enabled", "true")
+                .put("spark.retry-on-out-of-memory-with-increased-memory-settings-enabled", "true")
+                .put("spark.retry-presto-session-properties", "query_max_memory_per_node=1MB,query_max_total_memory_per_node=1MB")
+                .put("spark.retry-spark-configs", "spark.executor.memory=1g,spark.task.cpus=5")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -84,7 +90,10 @@ public class TestPrestoSparkConfig
                 .setSplitAssignmentBatchSize(420)
                 .setMemoryRevokingThreshold(0.5)
                 .setMemoryRevokingTarget(0.5)
-                .setRetryOnOutOfMemoryBroadcastJoinEnabled(true);
+                .setRetryOnOutOfMemoryBroadcastJoinEnabled(true)
+                .setRetryOnOutOfMemoryWithIncreasedMemorySettingsEnabled(true)
+                .setOutOfMemoryRetryPrestoSessionProperties("query_max_memory_per_node=1MB,query_max_total_memory_per_node=1MB")
+                .setOutOfMemoryRetrySparkConfigs("spark.executor.memory=1g,spark.task.cpus=5");
         assertFullMapping(properties, expected);
     }
 }
