@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <folly/Random.h>
 #include "velox/exec/Operator.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 
@@ -28,7 +29,9 @@ class Destination {
       const std::string& taskId,
       int destination,
       memory::MappedMemory* FOLLY_NONNULL memory)
-      : taskId_(taskId), destination_(destination), memory_(memory) {}
+      : taskId_(taskId), destination_(destination), memory_(memory) {
+    setTargetSizePct();
+  }
 
   // Resets the destination before starting a new batch.
   void beginBatch() {
@@ -72,6 +75,19 @@ class Destination {
   void
   serialize(const RowVectorPtr& input, vector_size_t begin, vector_size_t end);
 
+  // Sets the next target size for flushing. This is called at the
+  // start of each batch of output for the destination. The effect is
+  // to make different destinations ready at slightly different times
+  // so that for an even distribution of output we avoid a bursty
+  // traffic pattern where all consumers contend for the network at
+  // the same time. This is done for each batch so that the average
+  // batch size for each converges.
+  void setTargetSizePct() {
+    // Flush at  70 to 120% of target row or byte count.
+    targetSizePct_ = 70 + (folly::Random::rand32(rng_) % 50);
+    targetNumRows_ = (10000 * targetSizePct_) / 100;
+  }
+
   const std::string taskId_;
   const int destination_;
   memory::MappedMemory* FOLLY_NONNULL const memory_;
@@ -82,6 +98,18 @@ class Destination {
   vector_size_t row_{0};
   std::unique_ptr<VectorStreamGroup> current_;
   bool finished_{false};
+
+  // Flush accumulated data to buffer manager after reaching this
+  // percentage of target bytes or rows. This will make data for
+  // different destinations ready at different times to flatten a
+  // burst of traffic.
+  int32_t targetSizePct_;
+
+  // Number of rows to accumulate before flushing.
+  int32_t targetNumRows_;
+
+  // Generator for varying target batch size. Randomly seeded at construction.
+  folly::Random::DefaultGenerator rng_;
 };
 
 // In a distributed query engine data needs to be shuffled between workers so
@@ -95,6 +123,10 @@ class Destination {
 // dropping columns from its input.
 class PartitionedOutput : public Operator {
  public:
+  // Minimum flush size for non-final flush. 60KB + overhead fits a
+  // network MTU of 64K.
+  static constexpr uint64_t kMinDestinationSize = 60 * 1024;
+
   PartitionedOutput(
       int32_t operatorId,
       DriverCtx* FOLLY_NONNULL ctx,
@@ -117,6 +149,8 @@ class PartitionedOutput : public Operator {
             planNode->outputType())),
         future_(false),
         bufferManager_(PartitionedOutputBufferManager::getInstance()),
+        maxBufferedBytes_(
+            ctx->task->queryCtx()->config().maxPartitionedOutputBufferSize()),
         mappedMemory_{operatorCtx_->mappedMemory()} {
     if (numDestinations_ == 1 || planNode->isBroadcast()) {
       VELOX_CHECK(keyChannels_.empty());
@@ -164,9 +198,6 @@ class PartitionedOutput : public Operator {
   /// Collect all rows with null keys into nullRows_.
   void collectNullRows();
 
-  static constexpr uint64_t kMaxDestinationSize = 1024 * 1024; // 1MB
-  static constexpr uint64_t kMinDestinationSize = 16 * 1024; // 16 KB
-
   const std::vector<ChannelIndex> keyChannels_;
   const int numDestinations_;
   const bool replicateNullsAndAny_;
@@ -185,6 +216,7 @@ class PartitionedOutput : public Operator {
   std::vector<std::unique_ptr<Destination>> destinations_;
   bool replicatedAny_{false};
   std::weak_ptr<exec::PartitionedOutputBufferManager> bufferManager_;
+  const int64_t maxBufferedBytes_;
   memory::MappedMemory* FOLLY_NONNULL mappedMemory_;
   RowVectorPtr output_;
 

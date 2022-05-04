@@ -30,7 +30,10 @@ BlockingReason Destination::advance(
     *atEnd = true;
     return BlockingReason::kNotBlocked;
   }
-  if (bytesInCurrent_ >= maxBytes) {
+  uint32_t adjustedMaxBytes = std::max(
+      PartitionedOutput::kMinDestinationSize,
+      (maxBytes * targetSizePct_) / 100);
+  if (bytesInCurrent_ >= adjustedMaxBytes) {
     return flush(bufferManager, future);
   }
   auto firstRow = row_;
@@ -40,7 +43,8 @@ BlockingReason Destination::advance(
     for (vector_size_t i = 0; i < rows_[row_].size; i++) {
       bytesInCurrent_ += sizes[rows_[row_].begin + i];
     }
-    if (bytesInCurrent_ >= maxBytes) {
+    if (bytesInCurrent_ >= adjustedMaxBytes ||
+        row_ - firstRow >= targetNumRows_) {
       serialize(output, firstRow, row_ + 1);
       if (row_ == rows_.size() - 1) {
         *atEnd = true;
@@ -86,6 +90,7 @@ BlockingReason Destination::flush(
   current_->flush(&stream);
   current_.reset();
   bytesInCurrent_ = 0;
+  setTargetSizePct();
 
   return bufferManager.enqueue(
       taskId_,
@@ -240,7 +245,7 @@ RowVectorPtr PartitionedOutput::getOutput() {
     for (auto& destination : destinations_) {
       bool atEnd = false;
       blockingReason_ = destination->advance(
-          kMaxDestinationSize,
+          maxBufferedBytes_ / destinations_.size(),
           rowSize_,
           output_,
           *bufferManager,
