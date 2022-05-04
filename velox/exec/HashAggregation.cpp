@@ -36,8 +36,7 @@ HashAggregation::HashAggregation(
           driverCtx->queryConfig().maxPartialAggregationMemoryUsage()),
       isPartialOutput_(isPartialOutput(aggregationNode->step())),
       isDistinct_(aggregationNode->aggregates().empty()),
-      isGlobal_(aggregationNode->groupingKeys().empty()),
-      hasPreGroupedKeys_(!aggregationNode->preGroupedKeys().empty()) {
+      isGlobal_(aggregationNode->groupingKeys().empty()) {
   auto inputType = aggregationNode->sources()[0]->outputType();
 
   auto numHashers = aggregationNode->groupingKeys().size();
@@ -145,6 +144,17 @@ void HashAggregation::addInput(RowVectorPtr input) {
   newDistincts_ = isDistinct_ && !groupingSet_->hashLookup().newGroups.empty();
 }
 
+void HashAggregation::prepareOutput(vector_size_t size) {
+  if (output_) {
+    VectorPtr output = std::move(output_);
+    BaseVector::prepareForReuse(output, size);
+    output_ = std::static_pointer_cast<RowVector>(output);
+  } else {
+    output_ = std::static_pointer_cast<RowVector>(
+        BaseVector::create(outputType_, size, pool()));
+  }
+}
+
 RowVectorPtr HashAggregation::getOutput() {
   if (finished_) {
     input_ = nullptr;
@@ -191,12 +201,11 @@ RowVectorPtr HashAggregation::getOutput() {
 
   auto batchSize = isGlobal_ ? 1 : outputBatchSize_;
 
-  // TODO Figure out how to re-use 'result' safely.
-  auto result = std::static_pointer_cast<RowVector>(
-      BaseVector::create(outputType_, batchSize, operatorCtx_->pool()));
+  // Reuse output vectors if possible.
+  prepareOutput(batchSize);
 
   bool hasData = groupingSet_->getOutput(
-      batchSize, isPartialOutput_, &resultIterator_, result);
+      batchSize, isPartialOutput_, &resultIterator_, output_);
   if (!hasData) {
     resultIterator_.reset();
 
@@ -210,7 +219,7 @@ RowVectorPtr HashAggregation::getOutput() {
     }
     return nullptr;
   }
-  return result;
+  return output_;
 }
 
 bool HashAggregation::isFinished() {

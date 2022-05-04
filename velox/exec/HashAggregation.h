@@ -52,6 +52,8 @@ class HashAggregation : public Operator {
   }
 
  private:
+  void prepareOutput(vector_size_t size);
+
   /// Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
 
@@ -60,7 +62,6 @@ class HashAggregation : public Operator {
   const bool isPartialOutput_;
   const bool isDistinct_;
   const bool isGlobal_;
-  const bool hasPreGroupedKeys_;
 
   std::unique_ptr<GroupingSet> groupingSet_;
 
@@ -70,6 +71,9 @@ class HashAggregation : public Operator {
   RowContainerIterator resultIterator_;
   bool pushdownChecked_ = false;
   bool mayPushdown_ = false;
+
+  /// Possibly reusable output vector.
+  RowVectorPtr output_;
 };
 
 } // namespace facebook::velox::exec
