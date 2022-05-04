@@ -896,6 +896,19 @@ class Allocator {
   void deallocate(T* p, size_t n) {
     pool.free(p, n * sizeof(T));
   }
+
+  template <typename T1>
+  bool operator==(const Allocator<T1>& rhs) const {
+    if constexpr (std::is_same<T, T1>::value) {
+      return &this->pool == &rhs.pool;
+    }
+    return false;
+  }
+
+  template <typename T1>
+  bool operator!=(const Allocator<T1>& rhs) const {
+    return !(*this == rhs);
+  }
 };
 } // namespace memory
 } // namespace velox
