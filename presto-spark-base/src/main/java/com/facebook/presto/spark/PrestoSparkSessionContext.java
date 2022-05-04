@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
-import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
@@ -29,21 +27,15 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy.DISABLE_BROADCAST_JOIN;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkSessionContext
         implements SessionContext
 {
-    private static final Logger log = Logger.get(PrestoSparkSessionContext.class);
-
     private final Identity identity;
     private final String catalog;
     private final String schema;
@@ -86,23 +78,9 @@ public class PrestoSparkSessionContext
                 prestoSparkSession.getClientTags(),
                 prestoSparkSession.getTimeZoneId().orElse(null),
                 prestoSparkSession.getLanguage().orElse(null),
-                getFinalSystemProperties(prestoSparkSession.getSystemProperties(), prestoSparkSession.getRetryExecutionStrategy()),
+                prestoSparkSession.getSystemProperties(),
                 prestoSparkSession.getCatalogSessionProperties(),
                 prestoSparkSession.getTraceToken());
-    }
-
-    private static Map<String, String> getFinalSystemProperties(Map<String, String> systemProperties, Optional<RetryExecutionStrategy> retryExecutionStrategy)
-    {
-        if (!retryExecutionStrategy.isPresent()) {
-            return systemProperties;
-        }
-
-        log.info("Applying retryExecutionStrategy: " + retryExecutionStrategy.get().name());
-        Map<String, String> retrySystemProperties = new HashMap<>(systemProperties);
-        if (retryExecutionStrategy.get() == DISABLE_BROADCAST_JOIN) {
-            retrySystemProperties.put(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name());
-        }
-        return retrySystemProperties;
     }
 
     public PrestoSparkSessionContext(

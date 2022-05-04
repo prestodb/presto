@@ -70,6 +70,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
+import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spark.execution.PrestoSparkDataDefinitionExecution;
@@ -174,6 +175,7 @@ import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collect
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
 import static com.facebook.presto.spark.planner.PrestoSparkRddFactory.getRDDName;
 import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSparkFailure;
+import static com.facebook.presto.spark.util.PrestoSparkRetryExecutionUtils.getRetryExecutionSettings;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
@@ -322,7 +324,8 @@ public class PrestoSparkQueryExecutionFactory
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
-            Optional<String> queryDataOutputLocation)
+            Optional<String> queryDataOutputLocation,
+            Optional<RetryExecutionStrategy> retryExecutionStrategy)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
 
@@ -377,6 +380,18 @@ public class PrestoSparkQueryExecutionFactory
 
         Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory);
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
+
+        if (retryExecutionStrategy.isPresent()) {
+            PrestoSparkRetryExecutionSettings prestoSparkRetryExecutionSettings = getRetryExecutionSettings(retryExecutionStrategy.get(), session);
+
+            // Update spark setting in SparkConf, if present
+            prestoSparkRetryExecutionSettings.getSparkSettings().forEach(sparkContext.conf()::set);
+
+            // Update presto settings in Session, if present
+            Session.SessionBuilder sessionBuilder = Session.builder(session);
+            prestoSparkRetryExecutionSettings.getPrestoSettings().forEach(sessionBuilder::setSystemProperty);
+            session = sessionBuilder.build();
+        }
 
         WarningCollector warningCollector = session.getWarningCollector();
 
