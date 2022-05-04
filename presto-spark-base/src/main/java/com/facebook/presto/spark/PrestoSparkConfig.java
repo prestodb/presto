@@ -15,18 +15,25 @@ package com.facebook.presto.spark;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotNull;
 
+import java.util.Map;
+
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class PrestoSparkConfig
 {
+    private static final Splitter.MapSplitter MAP_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings().withKeyValueSeparator('=');
+
     private boolean sparkPartitionCountAutoTuneEnabled = true;
     private int minSparkInputPartitionCountForAutoTune = 100;
     private int maxSparkInputPartitionCountForAutoTune = 1000;
@@ -42,6 +49,9 @@ public class PrestoSparkConfig
     private double memoryRevokingThreshold;
     private double memoryRevokingTarget;
     private boolean retryOnOutOfMemoryBroadcastJoinEnabled;
+    private boolean retryOnOutOfMemoryWithIncreasedMemorySettingsEnabled;
+    private Map<String, String> outOfMemoryRetryPrestoSessionProperties = ImmutableMap.of();
+    private Map<String, String> outOfMemoryRetrySparkConfigs = ImmutableMap.of();
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -237,6 +247,45 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setRetryOnOutOfMemoryBroadcastJoinEnabled(boolean retryOnOutOfMemoryBroadcastJoinEnabled)
     {
         this.retryOnOutOfMemoryBroadcastJoinEnabled = retryOnOutOfMemoryBroadcastJoinEnabled;
+        return this;
+    }
+
+    public boolean isRetryOnOutOfMemoryWithIncreasedMemorySettingsEnabled()
+    {
+        return retryOnOutOfMemoryWithIncreasedMemorySettingsEnabled;
+    }
+
+    @Config("spark.retry-on-out-of-memory-with-increased-memory-settings-enabled")
+    @ConfigDescription("Retry OOMs with increased memory settings and re-submit the query again within the same spark session")
+    public PrestoSparkConfig setRetryOnOutOfMemoryWithIncreasedMemorySettingsEnabled(boolean retryOnOutOfMemoryWithIncreasedMemorySettingsEnabled)
+    {
+        this.retryOnOutOfMemoryWithIncreasedMemorySettingsEnabled = retryOnOutOfMemoryWithIncreasedMemorySettingsEnabled;
+        return this;
+    }
+
+    public Map<String, String> getOutOfMemoryRetryPrestoSessionProperties()
+    {
+        return outOfMemoryRetryPrestoSessionProperties;
+    }
+
+    @Config("spark.retry-presto-session-properties")
+    @ConfigDescription("Presto session properties to use on OOM query retry")
+    public PrestoSparkConfig setOutOfMemoryRetryPrestoSessionProperties(String outOfMemoryRetryPrestoSessionProperties)
+    {
+        this.outOfMemoryRetryPrestoSessionProperties = MAP_SPLITTER.split(nullToEmpty(outOfMemoryRetryPrestoSessionProperties));
+        return this;
+    }
+
+    public Map<String, String> getOutOfMemoryRetrySparkConfigs()
+    {
+        return outOfMemoryRetrySparkConfigs;
+    }
+
+    @Config("spark.retry-spark-configs")
+    @ConfigDescription("Spark Configs to use on OOM query retry")
+    public PrestoSparkConfig setOutOfMemoryRetrySparkConfigs(String outOfMemoryRetrySparkConfigs)
+    {
+        this.outOfMemoryRetrySparkConfigs = MAP_SPLITTER.split(nullToEmpty(outOfMemoryRetrySparkConfigs));
         return this;
     }
 }

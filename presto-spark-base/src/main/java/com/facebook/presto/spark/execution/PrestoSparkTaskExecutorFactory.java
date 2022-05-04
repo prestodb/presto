@@ -385,8 +385,8 @@ public class PrestoSparkTaskExecutorFactory
 
         log.info(PlanPrinter.textPlanFragment(fragment, functionAndTypeManager, session, true));
 
-        DataSize maxUserMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryMemoryPerNode().toBytes(), getQueryMaxMemoryPerNode(session).toBytes()), BYTE);
-        DataSize maxTotalMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryTotalMemoryPerNode().toBytes(), getQueryMaxTotalMemoryPerNode(session).toBytes()), BYTE);
+        DataSize maxUserMemory = getQueryMaxMemoryPerNode(session);
+        DataSize maxTotalMemory = getQueryMaxTotalMemoryPerNode(session);
         DataSize maxBroadcastMemory = getSparkBroadcastJoinMaxMemoryOverride(session);
         if (maxBroadcastMemory == null) {
             maxBroadcastMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryBroadcastMemory().toBytes(), getQueryMaxBroadcastMemory(session).toBytes()), BYTE);
