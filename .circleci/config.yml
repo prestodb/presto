@@ -1,0 +1,14 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image : prestocpp/prestocpp-circleci:mikesh-20220331
+    resource_class: 2xlarge
+    environment:
+        CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
+        CXX: /opt/rh/gcc-toolset-9/root/bin/g++
+
+    steps:
+      - checkout # check out the code in the project directory
+      - run: echo "hello world" # run the `echo` command
