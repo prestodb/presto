@@ -33,6 +33,7 @@ Supported types are:
   * TIMESTAMP
   * REAL
   * DOUBLE
+  * DECIMAL
   * VARCHAR
   * VARBINARY
   * OPAQUE*

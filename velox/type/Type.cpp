@@ -59,6 +59,8 @@ const std::unordered_map<std::string, TypeKind>& getTypeStringMap() {
       {"VARBINARY", TypeKind::VARBINARY},
       {"TIMESTAMP", TypeKind::TIMESTAMP},
       {"DATE", TypeKind::DATE},
+      {"SHORT_DECIMAL", TypeKind::SHORT_DECIMAL},
+      {"LONG_DECIMAL", TypeKind::LONG_DECIMAL},
       {"ARRAY", TypeKind::ARRAY},
       {"MAP", TypeKind::MAP},
       {"ROW", TypeKind::ROW},
@@ -102,6 +104,8 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
       {TypeKind::VARBINARY, "VARBINARY"},
       {TypeKind::TIMESTAMP, "TIMESTAMP"},
       {TypeKind::DATE, "DATE"},
+      {TypeKind::SHORT_DECIMAL, "SHORT_DECIMAL"},
+      {TypeKind::LONG_DECIMAL, "LONG_DECIMAL"},
       {TypeKind::ARRAY, "ARRAY"},
       {TypeKind::MAP, "MAP"},
       {TypeKind::ROW, "ROW"},
@@ -584,6 +588,25 @@ KOSKI_DEFINE_SCALAR_ACCESSOR(DATE);
 KOSKI_DEFINE_SCALAR_ACCESSOR(UNKNOWN);
 
 #undef KOSKI_DEFINE_SCALAR_ACCESSOR
+
+std::shared_ptr<const ShortDecimalType> SHORT_DECIMAL(
+    const uint8_t precision,
+    const uint8_t scale) {
+  return std::make_shared<ShortDecimalType>(precision, scale);
+}
+
+std::shared_ptr<const LongDecimalType> LONG_DECIMAL(
+    const uint8_t precision,
+    const uint8_t scale) {
+  return std::make_shared<LongDecimalType>(precision, scale);
+}
+
+TypePtr DECIMAL(const uint8_t precision, const uint8_t scale) {
+  if (precision <= DecimalType<TypeKind::SHORT_DECIMAL>::kMaxPrecision) {
+    return SHORT_DECIMAL(precision, scale);
+  }
+  return LONG_DECIMAL(precision, scale);
+}
 
 std::shared_ptr<const Type> createScalarType(TypeKind kind) {
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(createScalarType, kind);
