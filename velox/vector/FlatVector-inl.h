@@ -153,6 +153,13 @@ void FlatVector<T>::copyValuesAndNulls(
   if (source->mayHaveNulls()) {
     rawNulls = BaseVector::mutableRawNulls();
   }
+
+  // Allocate values buffer if not allocated yet. This may happen if vector
+  // contains only null values.
+  if (!values_) {
+    mutableRawValues();
+  }
+
   if (source->encoding() == VectorEncoding::Simple::FLAT) {
     auto flat = source->asUnchecked<FlatVector<T>>();
     auto* sourceValues =
@@ -231,6 +238,13 @@ void FlatVector<T>::copyValuesAndNulls(
   if (source->mayHaveNulls()) {
     rawNulls = BaseVector::mutableRawNulls();
   }
+
+  // Allocate values buffer if not allocated yet. This may happen if vector
+  // contains only null values.
+  if (!values_) {
+    mutableRawValues();
+  }
+
   if (source->encoding() == VectorEncoding::Simple::FLAT) {
     auto flat = source->asUnchecked<FlatVector<T>>();
     if (!flat->values() || flat->values()->size() == 0) {
@@ -352,6 +366,7 @@ void FlatVector<T>::prepareForReuse() {
   // Reset otherwise.
   if (values_ && !(values_->unique() && values_->isMutable())) {
     values_ = nullptr;
+    rawValues_ = nullptr;
   }
 
   // Check string buffers. Keep at most one singly-referenced buffer if it is

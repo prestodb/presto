@@ -958,6 +958,50 @@ TEST_F(VectorTest, copyBoolAllNullFlatVector) {
   }
 }
 
+/// Test copying non-null values into an all-nulls flat vector.
+TEST_F(VectorTest, copyToAllNullsFlatVector) {
+  // Create all-nulls flat vector with values buffer unset.
+  const vector_size_t size = 1'000;
+  BufferPtr nulls =
+      AlignedBuffer::allocate<bool>(size, pool_.get(), bits::kNull);
+  auto allNulls = std::make_shared<FlatVector<int32_t>>(
+      pool_.get(),
+      nulls,
+      size,
+      nullptr /* values buffer */,
+      std::vector<BufferPtr>{});
+
+  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
+  auto source = vectorMaker->flatVector<int32_t>({0, 1, 2, 3, 4});
+
+  allNulls->copy(source.get(), 0, 0, 3);
+
+  for (auto i = 0; i < 3; ++i) {
+    ASSERT_EQ(i, allNulls->valueAt(i));
+  }
+  for (auto i = 3; i < size; ++i) {
+    ASSERT_TRUE(allNulls->isNullAt(i));
+  }
+
+  // Reset allNulls vector back to all nulls.
+  allNulls = std::make_shared<FlatVector<int32_t>>(
+      pool_.get(),
+      nulls,
+      size,
+      nullptr /* values buffer */,
+      std::vector<BufferPtr>{});
+
+  SelectivityVector rows(4);
+  allNulls->copy(source.get(), rows, nullptr);
+
+  for (auto i = 0; i < 4; ++i) {
+    ASSERT_EQ(i, allNulls->valueAt(i));
+  }
+  for (auto i = 4; i < size; ++i) {
+    ASSERT_TRUE(allNulls->isNullAt(i));
+  }
+}
+
 TEST_F(VectorTest, wrapInConstant) {
   auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
 
