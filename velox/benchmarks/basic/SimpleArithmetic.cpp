@@ -132,14 +132,14 @@ class SimpleArithmeticBenchmark
     rowVector_ = rowVector;
   }
 
-  // Runs `expression` `times` times.
+  // Runs `expression` `times` thousand times.
   size_t run(const std::string& expression, size_t times) {
     folly::BenchmarkSuspender suspender;
     auto exprSet = compileExpression(expression, inputType_);
     suspender.dismiss();
 
     size_t count = 0;
-    for (auto i = 0; i < times; i++) {
+    for (auto i = 0; i < times * 1'000; i++) {
       count += evaluate(exprSet, rowVector_)->size();
     }
     return count;
@@ -208,7 +208,7 @@ BENCHMARK_MULTI(plusChecked, n) {
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  benchmark = std::make_unique<SimpleArithmeticBenchmark>(1'000'000);
+  benchmark = std::make_unique<SimpleArithmeticBenchmark>(1'000);
   folly::runBenchmarks();
   benchmark.reset();
   return 0;
