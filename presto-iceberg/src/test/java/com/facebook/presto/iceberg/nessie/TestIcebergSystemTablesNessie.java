@@ -16,19 +16,24 @@ package com.facebook.presto.iceberg.nessie;
 import com.facebook.presto.Session;
 import com.facebook.presto.iceberg.IcebergPlugin;
 import com.facebook.presto.iceberg.TestIcebergSystemTables;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.containers.NessieContainer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergSystemTablesNessie
         extends TestIcebergSystemTables
@@ -77,5 +82,23 @@ public class TestIcebergSystemTablesNessie
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
 
         return queryRunner;
+    }
+
+    @Test
+    @Override
+    public void testPropertiesTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$properties\"",
+                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
+        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 2");
+        List<MaterializedRow> materializedRows = computeActual(getSession(),
+                "SELECT * FROM test_schema.\"test_table$properties\"").getMaterializedRows();
+
+        // nessie writes a "nessie.commit.id" to the table properties
+        assertThat(materializedRows).hasSize(2);
+        assertThat(materializedRows)
+            .anySatisfy(row -> assertThat(row)
+                .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "PARQUET")))
+            .anySatisfy(row -> assertThat(row.getField(0)).isEqualTo("nessie.commit.id"));
     }
 }
