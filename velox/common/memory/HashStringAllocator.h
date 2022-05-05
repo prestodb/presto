@@ -409,7 +409,81 @@ struct StlAllocator {
   friend bool operator==(const StlAllocator& lhs, const StlAllocator& rhs) {
     return lhs.allocator_ == rhs.allocator_;
   }
+
   friend bool operator!=(const StlAllocator& lhs, const StlAllocator& rhs) {
+    return !(lhs == rhs);
+  }
+
+ private:
+  HashStringAllocator* FOLLY_NONNULL allocator_;
+};
+
+// An allocator backed by HashStringAllocator that guaratees a configurable
+// alignment. The alignment must be a power of 2 and not be 0. This allocator
+// can be used with folly F14 containers that requires 16-bytes alignment.
+template <class T, uint8_t Alignment>
+struct AlignedStlAllocator {
+  using value_type = T;
+
+  static_assert(
+      Alignment != 0,
+      "Alignment of AlignmentStlAllocator cannot be 0.");
+  static_assert(
+      (Alignment & (Alignment - 1)) == 0,
+      "Alignment of AlignmentStlAllocator must be a power of 2.");
+
+  template <class Other>
+  struct rebind {
+    using other = AlignedStlAllocator<Other, Alignment>;
+  };
+
+  explicit AlignedStlAllocator(HashStringAllocator* FOLLY_NONNULL allocator)
+      : allocator_{allocator} {
+    VELOX_CHECK(allocator);
+  }
+
+  template <class U, uint8_t A>
+  explicit AlignedStlAllocator(const AlignedStlAllocator<U, A>& allocator)
+      : allocator_{allocator.allocator()} {
+    VELOX_CHECK(allocator_);
+  }
+
+  T* FOLLY_NONNULL allocate(std::size_t n) {
+    // Allocate extra Alignment bytes for alignment and 4 bytes to store the
+    // delta between unaligned and aligned pointers.
+    auto size = Alignment + 4 + n * sizeof(T);
+    auto ptr = reinterpret_cast<T*>(allocator_->allocate(size)->begin());
+
+    // Align 'ptr + 4'.
+    void* alignedPtr = (char*)ptr + 4;
+    size -= 4;
+    std::align(Alignment, n * sizeof(T), alignedPtr, size);
+
+    // Write alignment delta just before the aligned pointer.
+    int32_t delta = (char*)alignedPtr - (char*)ptr - 4;
+    *reinterpret_cast<int32_t*>((char*)alignedPtr - 4) = delta;
+
+    return reinterpret_cast<T*>(alignedPtr);
+  }
+
+  void deallocate(T* FOLLY_NONNULL p, std::size_t /*n*/) noexcept {
+    auto delta = *reinterpret_cast<int32_t*>((char*)p - 4);
+    allocator_->free(HashStringAllocator::headerOf((char*)p - 4 - delta));
+  }
+
+  HashStringAllocator* FOLLY_NONNULL allocator() const {
+    return allocator_;
+  }
+
+  friend bool operator==(
+      const AlignedStlAllocator& lhs,
+      const AlignedStlAllocator& rhs) {
+    return lhs.allocator_ == rhs.allocator_;
+  }
+
+  friend bool operator!=(
+      const AlignedStlAllocator& lhs,
+      const AlignedStlAllocator& rhs) {
     return !(lhs == rhs);
   }
 

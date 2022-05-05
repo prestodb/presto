@@ -17,6 +17,7 @@
 
 #include <folly/Random.h>
 
+#include <folly/container/F14Map.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
@@ -275,4 +276,42 @@ TEST_F(HashStringAllocatorTest, stlAllocatorWithSet) {
 
   // We allow for some overhead for free lists after all is freed.
   EXPECT_LE(instance_->retainedSize() - instance_->freeSpace(), 100);
+}
+
+TEST_F(HashStringAllocatorTest, alignedStlAllocatorWithF14Map) {
+  {
+    folly::F14FastMap<
+        int32_t,
+        double,
+        std::hash<int32_t>,
+        std::equal_to<int32_t>,
+        AlignedStlAllocator<std::pair<const int32_t, double>, 16>>
+        map(AlignedStlAllocator<std::pair<const int32_t, double>, 16>(
+            instance_.get()));
+
+    for (auto i = 0; i < 10'000; i++) {
+      map.try_emplace(i, i + 0.05);
+    }
+    for (auto i = 0; i < 10'000; i++) {
+      ASSERT_EQ(1, map.count(i));
+    }
+
+    map.clear();
+    for (auto i = 0; i < 10'000; i++) {
+      ASSERT_EQ(0, map.count(i));
+    }
+
+    for (auto i = 10'000; i < 20'000; i++) {
+      map.try_emplace(i, i + 0.15);
+    }
+    for (auto i = 10'000; i < 20'000; i++) {
+      ASSERT_EQ(1, map.count(i));
+    }
+  }
+
+  instance_->checkConsistency();
+
+  // We allow for some overhead for free lists after all is freed. Map tends to
+  // generate more free blocks at the end, so we loosen the upper bound a bit.
+  EXPECT_LE(instance_->retainedSize() - instance_->freeSpace(), 130);
 }
