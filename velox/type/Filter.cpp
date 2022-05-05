@@ -353,6 +353,13 @@ int compareRanges(const char* lhs, size_t length, const std::string& rhs) {
 } // namespace
 
 bool BytesRange::testBytes(const char* value, int32_t length) const {
+  if (length == 0) {
+    // Empty string. value is null. This is the smallest possible string. It
+    // passes the filter if there is no lower bound or if it is also an empty
+    // string.
+    return lowerUnbounded_ || lower_.empty();
+  }
+
   if (singleValue_) {
     if (length != lower_.size()) {
       return false;
