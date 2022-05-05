@@ -55,8 +55,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
-import static com.facebook.presto.common.RuntimeMetricKey.STORAGE_READ_DATA_BYTES;
-import static com.facebook.presto.common.RuntimeMetricKey.STORAGE_READ_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_DATA_BYTES;
+import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_TIME_NANOS;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
