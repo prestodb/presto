@@ -99,8 +99,8 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
-import static com.facebook.presto.common.RuntimeMetricKey.GET_LAYOUT_TIME_NANOS;
-import static com.facebook.presto.common.RuntimeMetricKey.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_LAYOUT_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
