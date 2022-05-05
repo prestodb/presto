@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/connectors/Connector.h"
 
 namespace facebook::velox::connector {
@@ -35,7 +36,7 @@ bool registerConnectorFactory(std::shared_ptr<ConnectorFactory> factory) {
       connectorFactories().insert({factory->connectorName(), factory}).second;
   VELOX_CHECK(
       ok,
-      "ConnectorFactory with name {} is already registered",
+      "ConnectorFactory with name '{}' is already registered",
       factory->connectorName());
   return true;
 }
@@ -45,7 +46,7 @@ std::shared_ptr<ConnectorFactory> getConnectorFactory(
   auto it = connectorFactories().find(connectorName);
   VELOX_CHECK(
       it != connectorFactories().end(),
-      "ConnectorFactory with name {} not registered",
+      "ConnectorFactory with name '{}' not registered",
       connectorName);
   return it->second;
 }
@@ -54,7 +55,7 @@ bool registerConnector(std::shared_ptr<Connector> connector) {
   bool ok = connectors().insert({connector->connectorId(), connector}).second;
   VELOX_CHECK(
       ok,
-      "Connector with ID {} is already registered",
+      "Connector with ID '{}' is already registered",
       connector->connectorId());
   return true;
 }
@@ -68,7 +69,7 @@ std::shared_ptr<Connector> getConnector(const std::string& connectorId) {
   auto it = connectors().find(connectorId);
   VELOX_CHECK(
       it != connectors().end(),
-      "Connector with ID {} not registered",
+      "Connector with ID '{}' not registered",
       connectorId);
   return it->second;
 }

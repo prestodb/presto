@@ -147,7 +147,7 @@ class PlanBuilder {
   /// assignments. Supports any connector, not just Hive connector.
   /// @param outputType List of column names and types to project out. Column
   /// names should match the keys in the 'assignments' map. The 'assignments'
-  /// map may contain more columns when 'outputType' if some columns are only
+  /// map may contain more columns then 'outputType' if some columns are only
   /// used by pushed-down filters.
   PlanBuilder& tableScan(
       const RowTypePtr& outputType,

@@ -64,6 +64,19 @@ size_t getVectorSize(size_t rowCount, size_t maxRows, size_t offset) {
   return std::min(rowCount - offset, maxRows);
 }
 
+std::vector<VectorPtr> allocateVectors(
+    const RowTypePtr& type,
+    size_t vectorSize,
+    memory::MemoryPool* pool) {
+  std::vector<VectorPtr> vectors;
+  vectors.reserve(type->size());
+
+  for (const auto& childType : type->children()) {
+    vectors.emplace_back(BaseVector::create(childType, vectorSize, pool));
+  }
+  return vectors;
+}
+
 } // namespace
 
 constexpr size_t getRowCount(Table table, size_t scaleFactor) {
@@ -88,50 +101,214 @@ constexpr size_t getRowCount(Table table, size_t scaleFactor) {
   return 0; // make gcc happy.
 }
 
+RowTypePtr getTableSchema(Table table) {
+  switch (table) {
+    case Table::TBL_PART: {
+      static RowTypePtr type = ROW(
+          {
+              "p_partkey",
+              "p_name",
+              "p_mfgr",
+              "p_brand",
+              "p_type",
+              "p_size",
+              "p_container",
+              "p_retailprice",
+              "p_comment",
+          },
+          {
+              BIGINT(),
+              VARCHAR(),
+              VARCHAR(),
+              VARCHAR(),
+              VARCHAR(),
+              INTEGER(),
+              VARCHAR(),
+              DOUBLE(),
+              VARCHAR(),
+          });
+      return type;
+    }
+
+    case Table::TBL_SUPPLIER: {
+      static RowTypePtr type = ROW(
+          {
+              "s_suppkey",
+              "s_name",
+              "s_address",
+              "s_nationkey",
+              "s_phone",
+              "s_acctbal",
+              "s_comment",
+          },
+          {
+              BIGINT(),
+              VARCHAR(),
+              VARCHAR(),
+              BIGINT(),
+              VARCHAR(),
+              DOUBLE(),
+              VARCHAR(),
+          });
+      return type;
+    }
+
+    case Table::TBL_PARTSUPP: {
+      static RowTypePtr type = ROW(
+          {
+              "ps_partkey",
+              "ps_suppkey",
+              "ps_availqty",
+              "ps_supplycost",
+              "ps_comment",
+          },
+          {
+              BIGINT(),
+              BIGINT(),
+              INTEGER(),
+              DOUBLE(),
+              VARCHAR(),
+          });
+      return type;
+    }
+
+    case Table::TBL_CUSTOMER: {
+      static RowTypePtr type = ROW(
+          {
+              "c_custkey",
+              "c_name",
+              "c_address",
+              "c_nationkey",
+              "c_phone",
+              "c_acctbal",
+              "c_mktsegment",
+              "c_comment",
+          },
+          {
+              BIGINT(),
+              VARCHAR(),
+              VARCHAR(),
+              BIGINT(),
+              VARCHAR(),
+              DOUBLE(),
+              VARCHAR(),
+              VARCHAR(),
+          });
+      return type;
+    }
+
+    case Table::TBL_ORDERS: {
+      static RowTypePtr type = ROW(
+          {
+              "o_orderkey",
+              "o_custkey",
+              "o_orderstatus",
+              "o_totalprice",
+              "o_orderdate",
+              "o_orderpriority",
+              "o_clerk",
+              "o_shippriority",
+              "o_comment",
+          },
+          {
+              BIGINT(),
+              BIGINT(),
+              VARCHAR(),
+              DOUBLE(),
+              VARCHAR(),
+              VARCHAR(),
+              VARCHAR(),
+              INTEGER(),
+              VARCHAR(),
+          });
+      return type;
+    }
+
+    case Table::TBL_LINEITEM: {
+      static RowTypePtr type = ROW(
+          {
+              "l_orderkey",
+              "l_partkey",
+              "l_suppkey",
+              "l_linenumber",
+              "l_quantity",
+              "l_extendedprice",
+              "l_discount",
+              "l_tax",
+              "l_returnflag",
+              "l_linestatus",
+              "l_shipdate",
+              "l_commitdate",
+              "l_receiptdate",
+              "l_shipinstruct",
+              "l_shipmode",
+              "l_comment",
+          },
+          {
+              BIGINT(),
+              BIGINT(),
+              BIGINT(),
+              INTEGER(),
+              DOUBLE(),
+              DOUBLE(),
+              DOUBLE(),
+              DOUBLE(),
+              VARCHAR(),
+              VARCHAR(),
+              VARCHAR(),
+              VARCHAR(),
+              VARCHAR(),
+              VARCHAR(),
+              VARCHAR(),
+              VARCHAR(),
+          });
+      return type;
+    }
+
+    case Table::TBL_NATION: {
+      static RowTypePtr type = ROW(
+          {
+              "n_nationkey",
+              "n_name",
+              "n_regionkey",
+              "n_comment",
+          },
+          {
+              BIGINT(),
+              VARCHAR(),
+              BIGINT(),
+              VARCHAR(),
+          });
+      return type;
+    }
+    case Table::TBL_REGION: {
+      static RowTypePtr type = ROW(
+          {
+              "r_regionkey",
+              "r_name",
+              "r_comment",
+          },
+          {
+              BIGINT(),
+              VARCHAR(),
+              VARCHAR(),
+          });
+      return type;
+    }
+  }
+  return nullptr; // make gcc happy.
+}
+
 RowVectorPtr genTpchOrders(
     size_t maxRows,
     size_t offset,
     size_t scaleFactor,
     memory::MemoryPool* pool) {
   // Create schema and allocate vectors.
-  static TypePtr ordersRowType = ROW(
-      {
-          "o_orderkey",
-          "o_custkey",
-          "o_orderstatus",
-          "o_totalprice",
-          "o_orderdate",
-          "o_orderpriority",
-          "o_clerk",
-          "o_shippriority",
-          "o_comment",
-      },
-      {
-          BIGINT(),
-          BIGINT(),
-          VARCHAR(),
-          DOUBLE(),
-          VARCHAR(),
-          VARCHAR(),
-          VARCHAR(),
-          INTEGER(),
-          VARCHAR(),
-      });
-
+  auto ordersRowType = getTableSchema(Table::TBL_ORDERS);
   size_t vectorSize = getVectorSize(
       getRowCount(Table::TBL_ORDERS, scaleFactor), maxRows, offset);
-
-  std::vector<VectorPtr> children = {
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(DOUBLE(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(INTEGER(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-  };
+  auto children = allocateVectors(ordersRowType, vectorSize, pool);
 
   auto orderKeyVector = children[0]->asFlatVector<int64_t>();
   auto custKeyVector = children[1]->asFlatVector<int64_t>();
@@ -178,62 +355,8 @@ RowVectorPtr genTpchLineItem(
   size_t lineItemUpperBound = orderVectorSize * 7;
 
   // Create schema and allocate vectors.
-  static TypePtr lineItemRowType = ROW(
-      {
-          "l_orderkey",
-          "l_partkey",
-          "l_suppkey",
-          "l_linenumber",
-          "l_quantity",
-          "l_extendedprice",
-          "l_discount",
-          "l_tax",
-          "l_returnflag",
-          "l_linestatus",
-          "l_shipdate",
-          "l_commitdate",
-          "l_receiptdate",
-          "l_shipinstruct",
-          "l_shipmode",
-          "l_comment",
-      },
-      {
-          BIGINT(),
-          BIGINT(),
-          BIGINT(),
-          INTEGER(),
-          DOUBLE(),
-          DOUBLE(),
-          DOUBLE(),
-          DOUBLE(),
-          VARCHAR(),
-          VARCHAR(),
-          VARCHAR(),
-          VARCHAR(),
-          VARCHAR(),
-          VARCHAR(),
-          VARCHAR(),
-          VARCHAR(),
-      });
-
-  std::vector<VectorPtr> children = {
-      BaseVector::create(BIGINT(), lineItemUpperBound, pool),
-      BaseVector::create(BIGINT(), lineItemUpperBound, pool),
-      BaseVector::create(BIGINT(), lineItemUpperBound, pool),
-      BaseVector::create(INTEGER(), lineItemUpperBound, pool),
-      BaseVector::create(DOUBLE(), lineItemUpperBound, pool),
-      BaseVector::create(DOUBLE(), lineItemUpperBound, pool),
-      BaseVector::create(DOUBLE(), lineItemUpperBound, pool),
-      BaseVector::create(DOUBLE(), lineItemUpperBound, pool),
-      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
-      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
-      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
-      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
-      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
-      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
-      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
-      BaseVector::create(VARCHAR(), lineItemUpperBound, pool),
-  };
+  auto lineItemRowType = getTableSchema(Table::TBL_LINEITEM);
+  auto children = allocateVectors(lineItemRowType, lineItemUpperBound, pool);
 
   auto orderKeyVector = children[0]->asFlatVector<int64_t>();
   auto partKeyVector = children[1]->asFlatVector<int64_t>();
@@ -318,44 +441,10 @@ RowVectorPtr genTpchPart(
     size_t scaleFactor,
     memory::MemoryPool* pool) {
   // Create schema and allocate vectors.
-  static TypePtr partRowType = ROW(
-      {
-          "p_partkey",
-          "p_name",
-          "p_mfgr",
-          "p_brand",
-          "p_type",
-          "p_size",
-          "p_container",
-          "p_retailprice",
-          "p_comment",
-      },
-      {
-          BIGINT(),
-          VARCHAR(),
-          VARCHAR(),
-          VARCHAR(),
-          VARCHAR(),
-          INTEGER(),
-          VARCHAR(),
-          DOUBLE(),
-          VARCHAR(),
-      });
-
+  auto partRowType = getTableSchema(Table::TBL_PART);
   size_t vectorSize =
       getVectorSize(getRowCount(Table::TBL_PART, scaleFactor), maxRows, offset);
-
-  std::vector<VectorPtr> children = {
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(INTEGER(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(DOUBLE(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-  };
+  auto children = allocateVectors(partRowType, vectorSize, pool);
 
   auto partKeyVector = children[0]->asFlatVector<int64_t>();
   auto nameVector = children[1]->asFlatVector<StringView>();
@@ -395,37 +484,10 @@ RowVectorPtr genTpchSupplier(
     size_t scaleFactor,
     memory::MemoryPool* pool) {
   // Create schema and allocate vectors.
-  static TypePtr supplierRowType = ROW(
-      {
-          "s_suppkey",
-          "s_name",
-          "s_address",
-          "s_nationkey",
-          "s_phone",
-          "s_acctbal",
-          "s_comment",
-      },
-      {
-          BIGINT(),
-          VARCHAR(),
-          VARCHAR(),
-          BIGINT(),
-          VARCHAR(),
-          DOUBLE(),
-          VARCHAR(),
-      });
+  auto supplierRowType = getTableSchema(Table::TBL_SUPPLIER);
   size_t vectorSize = getVectorSize(
       getRowCount(Table::TBL_SUPPLIER, scaleFactor), maxRows, offset);
-
-  std::vector<VectorPtr> children = {
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(DOUBLE(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-  };
+  auto children = allocateVectors(supplierRowType, vectorSize, pool);
 
   auto suppKeyVector = children[0]->asFlatVector<int64_t>();
   auto nameVector = children[1]->asFlatVector<StringView>();
@@ -465,32 +527,10 @@ RowVectorPtr genTpchPartSupp(
     size_t scaleFactor,
     memory::MemoryPool* pool) {
   // Create schema and allocate vectors.
-  static TypePtr partSuppRowType = ROW(
-      {
-          "ps_partkey",
-          "ps_suppkey",
-          "ps_availqty",
-          "ps_supplycost",
-          "ps_comment",
-      },
-      {
-          BIGINT(),
-          BIGINT(),
-          INTEGER(),
-          DOUBLE(),
-          VARCHAR(),
-      });
-
+  auto partSuppRowType = getTableSchema(Table::TBL_PARTSUPP);
   size_t vectorSize = getVectorSize(
       getRowCount(Table::TBL_PARTSUPP, scaleFactor), maxRows, offset);
-
-  std::vector<VectorPtr> children = {
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(INTEGER(), vectorSize, pool),
-      BaseVector::create(DOUBLE(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-  };
+  auto children = allocateVectors(partSuppRowType, vectorSize, pool);
 
   auto partKeyVector = children[0]->asFlatVector<int64_t>();
   auto suppKeyVector = children[1]->asFlatVector<int64_t>();
@@ -545,41 +585,10 @@ RowVectorPtr genTpchCustomer(
     size_t scaleFactor,
     memory::MemoryPool* pool) {
   // Create schema and allocate vectors.
-  static TypePtr customerRowType = ROW(
-      {
-          "c_custkey",
-          "c_name",
-          "c_address",
-          "c_nationkey",
-          "c_phone",
-          "c_acctbal",
-          "c_mktsegment",
-          "c_comment",
-      },
-      {
-          BIGINT(),
-          VARCHAR(),
-          VARCHAR(),
-          BIGINT(),
-          VARCHAR(),
-          DOUBLE(),
-          VARCHAR(),
-          VARCHAR(),
-      });
-
+  auto customerRowType = getTableSchema(Table::TBL_CUSTOMER);
   size_t vectorSize = getVectorSize(
       getRowCount(Table::TBL_CUSTOMER, scaleFactor), maxRows, offset);
-
-  std::vector<VectorPtr> children = {
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(DOUBLE(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-  };
+  auto children = allocateVectors(customerRowType, vectorSize, pool);
 
   auto custKeyVector = children[0]->asFlatVector<int64_t>();
   auto nameVector = children[1]->asFlatVector<StringView>();
@@ -622,19 +631,10 @@ RowVectorPtr genTpchNation(
     size_t scaleFactor,
     memory::MemoryPool* pool) {
   // Create schema and allocate vectors.
-  static TypePtr nationRowType =
-      ROW({"n_nationkey", "n_name", "n_regionkey", "n_comment"},
-          {BIGINT(), VARCHAR(), BIGINT(), VARCHAR()});
-
+  auto nationRowType = getTableSchema(Table::TBL_NATION);
   size_t vectorSize = getVectorSize(
       getRowCount(Table::TBL_NATION, scaleFactor), maxRows, offset);
-
-  std::vector<VectorPtr> children = {
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-  };
+  auto children = allocateVectors(nationRowType, vectorSize, pool);
 
   auto nationKeyVector = children[0]->asFlatVector<int64_t>();
   auto nameVector = children[1]->asFlatVector<StringView>();
@@ -664,17 +664,10 @@ RowVectorPtr genTpchRegion(
     size_t scaleFactor,
     memory::MemoryPool* pool) {
   // Create schema and allocate vectors.
-  static TypePtr regionRowType = ROW(
-      {"r_regionkey", "r_name", "r_comment"}, {BIGINT(), VARCHAR(), VARCHAR()});
-
+  auto regionRowType = getTableSchema(Table::TBL_REGION);
   size_t vectorSize = getVectorSize(
       getRowCount(Table::TBL_REGION, scaleFactor), maxRows, offset);
-
-  std::vector<VectorPtr> children = {
-      BaseVector::create(BIGINT(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-      BaseVector::create(VARCHAR(), vectorSize, pool),
-  };
+  auto children = allocateVectors(regionRowType, vectorSize, pool);
 
   auto regionKeyVector = children[0]->asFlatVector<int64_t>();
   auto nameVector = children[1]->asFlatVector<StringView>();
