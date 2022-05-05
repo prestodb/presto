@@ -623,7 +623,7 @@ void CastExpr::evalSpecialForm(
   auto toType = std::const_pointer_cast<const Type>(type_);
 
   stats_.numProcessedRows += rows.countSelected();
-  CpuWallTimer timer(stats_.timing);
+  auto timer = cpuWallTimer();
   apply(rows, input, context, fromType, toType, result);
 }
 

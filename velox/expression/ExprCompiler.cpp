@@ -173,13 +173,18 @@ std::vector<TypePtr> getTypes(const std::vector<ExprPtr>& exprs) {
 ExprPtr getSpecialForm(
     const std::string& name,
     const TypePtr& type,
-    std::vector<ExprPtr>&& compiledChildren) {
+    std::vector<ExprPtr>&& compiledChildren,
+    bool trackCpuUsage) {
   if (name == kIf || name == kSwitch) {
     return std::make_shared<SwitchExpr>(type, std::move(compiledChildren));
   }
   if (name == kCast) {
     VELOX_CHECK_EQ(compiledChildren.size(), 1);
-    return std::make_shared<CastExpr>(type, std::move(compiledChildren[0]));
+    return std::make_shared<CastExpr>(
+        type,
+        std::move(compiledChildren[0]),
+        trackCpuUsage,
+        false /* nullOnFailure */);
   }
   if (name == kAnd) {
     return std::make_shared<ConjunctExpr>(
@@ -251,7 +256,8 @@ std::shared_ptr<Expr> compileLambda(
       std::move(functionType),
       std::move(signature),
       std::move(captureReferences),
-      std::move(body));
+      std::move(body),
+      config.exprTrackCpuUsage());
 }
 
 ExprPtr tryFoldIfConstant(const ExprPtr& expr, Scope* scope) {
@@ -324,6 +330,8 @@ ExprPtr compileExpression(
     return alreadyCompiled;
   }
 
+  const bool trackCpuUsage = config.exprTrackCpuUsage();
+
   ExprPtr result;
   auto resultType = expr->type();
   auto compiledInputs =
@@ -334,14 +342,24 @@ ExprPtr compileExpression(
     auto vectorFunction = getVectorFunction("row_constructor", inputTypes, {});
     VELOX_CHECK(vectorFunction, "Vector function row_constructor is missing");
     result = std::make_shared<Expr>(
-        resultType, std::move(compiledInputs), vectorFunction, "row");
+        resultType,
+        std::move(compiledInputs),
+        vectorFunction,
+        "row",
+        trackCpuUsage);
   } else if (auto cast = dynamic_cast<const core::CastTypedExpr*>(expr.get())) {
     VELOX_CHECK(!compiledInputs.empty());
     result = std::make_shared<CastExpr>(
-        resultType, std::move(compiledInputs[0]), cast->nullOnFailure());
+        resultType,
+        std::move(compiledInputs[0]),
+        trackCpuUsage,
+        cast->nullOnFailure());
   } else if (auto call = dynamic_cast<const core::CallTypedExpr*>(expr.get())) {
     if (auto specialForm = getSpecialForm(
-            call->name(), resultType, std::move(compiledInputs))) {
+            call->name(),
+            resultType,
+            std::move(compiledInputs),
+            trackCpuUsage)) {
       result = specialForm;
     } else if (
         auto simpleFunctionEntry =
@@ -358,12 +376,20 @@ ExprPtr compileExpression(
       auto func = simpleFunctionEntry->createFunction()->createVectorFunction(
           config, getConstantInputs(compiledInputs));
       result = std::make_shared<Expr>(
-          resultType, std::move(compiledInputs), std::move(func), call->name());
+          resultType,
+          std::move(compiledInputs),
+          std::move(func),
+          call->name(),
+          trackCpuUsage);
     } else if (
         auto func = getVectorFunction(
             call->name(), inputTypes, getConstantInputs(compiledInputs))) {
       result = std::make_shared<Expr>(
-          resultType, std::move(compiledInputs), func, call->name());
+          resultType,
+          std::move(compiledInputs),
+          func,
+          call->name(),
+          trackCpuUsage);
     } else {
       VELOX_FAIL(
           "Scalar function not registered: {} ({})",

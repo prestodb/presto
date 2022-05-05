@@ -19,7 +19,11 @@
 namespace facebook::velox::exec {
 
 CoalesceExpr::CoalesceExpr(TypePtr type, std::vector<ExprPtr>&& inputs)
-    : SpecialForm(std::move(type), std::move(inputs), kCoalesce) {
+    : SpecialForm(
+          std::move(type),
+          std::move(inputs),
+          kCoalesce,
+          false /* trackCpuUsage */) {
   for (auto i = 1; i < inputs_.size(); i++) {
     VELOX_USER_CHECK_EQ(
         inputs_[0]->type()->kind(),

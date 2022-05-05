@@ -1117,7 +1117,7 @@ void Expr::applyFunction(
     EvalCtx* context,
     VectorPtr* result) {
   stats_.numProcessedRows += rows.countSelected();
-  CpuWallTimer timer(stats_.timing);
+  auto timer = cpuWallTimer();
 
   computeIsAsciiForInputs(vectorFunction_.get(), inputValues_, rows);
   auto isAscii = type()->isVarchar()

@@ -33,6 +33,7 @@ class FieldReference;
 class VectorFunction;
 
 struct ExprStats {
+  /// Requires QueryConfig.exprTrackCpuUsage() to be 'true'.
   CpuWallTiming timing;
   uint64_t numProcessedRows{0};
 
@@ -46,23 +47,27 @@ struct ExprStats {
 class Expr {
  public:
   Expr(
-      std::shared_ptr<const Type> type,
+      TypePtr type,
       std::vector<std::shared_ptr<Expr>>&& inputs,
-      std::string name)
+      std::string name,
+      bool trackCpuUsage)
       : type_(std::move(type)),
         inputs_(std::move(inputs)),
         name_(std::move(name)),
-        vectorFunction_(nullptr) {}
+        vectorFunction_(nullptr),
+        trackCpuUsage_{trackCpuUsage} {}
 
   Expr(
-      std::shared_ptr<const Type> type,
+      TypePtr type,
       std::vector<std::shared_ptr<Expr>>&& inputs,
       std::shared_ptr<VectorFunction> vectorFunction,
-      std::string name)
+      std::string name,
+      bool trackCpuUsage)
       : type_(std::move(type)),
         inputs_(std::move(inputs)),
         name_(std::move(name)),
-        vectorFunction_(std::move(vectorFunction)) {}
+        vectorFunction_(std::move(vectorFunction)),
+        trackCpuUsage_{trackCpuUsage} {}
 
   virtual ~Expr() = default;
 
@@ -291,10 +296,18 @@ class Expr {
  protected:
   void appendInputs(std::stringstream& stream) const;
 
-  const std::shared_ptr<const Type> type_;
+  /// Returns an instance of CpuWallTimer if cpu usage tracking is enabled. Null
+  /// otherwise.
+  std::unique_ptr<CpuWallTimer> cpuWallTimer() {
+    return trackCpuUsage_ ? std::make_unique<CpuWallTimer>(stats_.timing)
+                          : nullptr;
+  }
+
+  const TypePtr type_;
   const std::vector<std::shared_ptr<Expr>> inputs_;
   const std::string name_;
   const std::shared_ptr<VectorFunction> vectorFunction_;
+  const bool trackCpuUsage_;
 
   // TODO make the following metadata const, e.g. call computeMetadata in the
   // constructor

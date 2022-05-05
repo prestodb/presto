@@ -26,13 +26,15 @@ class CastExpr : public SpecialForm {
  public:
   /// @param type The target type of the cast expression
   /// @param expr The expression to cast
+  /// @param trackCpuUsage Whether to track CPU usage
   /// @param nullOnFailure Whether to throw or return null if cast is not
   /// possible
-  CastExpr(
-      std::shared_ptr<const Type> type,
-      ExprPtr&& expr,
-      bool nullOnFailure = false)
-      : SpecialForm(type, std::vector<ExprPtr>({expr}), kCast.data()),
+  CastExpr(TypePtr type, ExprPtr&& expr, bool trackCpuUsage, bool nullOnFailure)
+      : SpecialForm(
+            type,
+            std::vector<ExprPtr>({expr}),
+            kCast.data(),
+            trackCpuUsage),
         nullOnFailure_(nullOnFailure) {}
 
   void evalSpecialForm(
@@ -81,8 +83,8 @@ class CastExpr : public SpecialForm {
       const SelectivityVector& rows,
       VectorPtr& input,
       exec::EvalCtx* context,
-      const std::shared_ptr<const Type>& fromType,
-      const std::shared_ptr<const Type>& toType,
+      const TypePtr& fromType,
+      const TypePtr& toType,
       VectorPtr* result);
 
   VectorPtr applyMap(

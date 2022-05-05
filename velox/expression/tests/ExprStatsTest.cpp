@@ -31,7 +31,13 @@ class ExprStatsTest : public testing::Test, public VectorTestBase {
   void SetUp() override {
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
+
     pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
+
+    // Enable CPU usage tracking.
+    queryCtx_->setConfigOverridesUnsafe({
+        {core::QueryConfig::kExprTrackCpuUsage, "true"},
+    });
   }
 
   static RowTypePtr asRowType(const TypePtr& type) {
@@ -230,6 +236,9 @@ TEST_F(ExprStatsTest, listener) {
   ASSERT_EQ(1024 * 2, stats.at("plus").numProcessedRows);
   ASSERT_EQ(1024, stats.at("multiply").numProcessedRows);
   ASSERT_EQ(1024, stats.at("mod").numProcessedRows);
+  for (const auto& name : {"plus", "multiply", "mod"}) {
+    ASSERT_GT(stats.at(name).timing.cpuNanos, 0);
+  }
 
   // Evaluate the same expressions twice and verify that stats received by the
   // listener are "doubled".
@@ -244,6 +253,9 @@ TEST_F(ExprStatsTest, listener) {
   ASSERT_EQ(1024 * 2 * 2, stats.at("plus").numProcessedRows);
   ASSERT_EQ(1024 * 2, stats.at("multiply").numProcessedRows);
   ASSERT_EQ(1024 * 2, stats.at("mod").numProcessedRows);
+  for (const auto& name : {"plus", "multiply", "mod"}) {
+    ASSERT_GT(stats.at(name).timing.cpuNanos, 0);
+  }
 
   ASSERT_NE(events[0].uuid, events[1].uuid);
 

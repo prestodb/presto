@@ -34,10 +34,11 @@ const char* const kTry = "try";
 class SpecialForm : public Expr {
  public:
   SpecialForm(
-      std::shared_ptr<const Type> type,
+      TypePtr type,
       std::vector<ExprPtr>&& inputs,
-      const std::string& name)
-      : Expr(std::move(type), std::move(inputs), name) {}
+      const std::string& name,
+      bool trackCpuUsage)
+      : Expr(std::move(type), std::move(inputs), name, trackCpuUsage) {}
 
   bool isSpecialForm() const override {
     return true;
@@ -58,13 +59,21 @@ BooleanMix getFlatBool(
 
 class ConstantExpr : public SpecialForm {
  public:
-  ConstantExpr(std::shared_ptr<const Type> type, variant value)
-      : SpecialForm(std::move(type), std::vector<ExprPtr>(), "literal"),
+  ConstantExpr(TypePtr type, variant value)
+      : SpecialForm(
+            std::move(type),
+            std::vector<ExprPtr>(),
+            "literal",
+            false /* trackCpuUsage */),
         value_(std::move(value)),
         needToSetIsAscii_{type->isVarchar()} {}
 
   explicit ConstantExpr(VectorPtr value)
-      : SpecialForm(value->type(), std::vector<ExprPtr>(), "literal"),
+      : SpecialForm(
+            value->type(),
+            std::vector<ExprPtr>(),
+            "literal",
+            false /* trackCpuUsage */),
         needToSetIsAscii_{value->type()->isVarchar()} {
     VELOX_CHECK_EQ(value->encoding(), VectorEncoding::Simple::CONSTANT);
     sharedSubexprValues_ = std::move(value);
@@ -97,10 +106,15 @@ class ConstantExpr : public SpecialForm {
 class FieldReference : public SpecialForm {
  public:
   FieldReference(
-      std::shared_ptr<const Type> type,
+      TypePtr type,
       std::vector<ExprPtr>&& inputs,
       const std::string& field)
-      : SpecialForm(std::move(type), std::move(inputs), field), field_(field) {}
+      : SpecialForm(
+            std::move(type),
+            std::move(inputs),
+            field,
+            false /* trackCpuUsage */),
+        field_(field) {}
 
   const std::string& field() const {
     return field_;
@@ -160,8 +174,12 @@ class SwitchExpr : public SpecialForm {
  public:
   /// Inputs are concatenated conditions and results with an optional "else" at
   /// the end, e.g. {condition1, result1, condition2, result2,..else}
-  SwitchExpr(std::shared_ptr<const Type> type, std::vector<ExprPtr>&& inputs)
-      : SpecialForm(std::move(type), std::move(inputs), kSwitch),
+  SwitchExpr(TypePtr type, std::vector<ExprPtr>&& inputs)
+      : SpecialForm(
+            std::move(type),
+            std::move(inputs),
+            kSwitch,
+            false /* trackCpuUsage */),
         numCases_{inputs_.size() / 2},
         hasElseClause_{inputs_.size() % 2 == 1} {
     VELOX_CHECK_GT(numCases_, 0);
@@ -191,11 +209,12 @@ class SwitchExpr : public SpecialForm {
 
 class ConjunctExpr : public SpecialForm {
  public:
-  ConjunctExpr(
-      std::shared_ptr<const Type> type,
-      std::vector<ExprPtr>&& inputs,
-      bool isAnd)
-      : SpecialForm(std::move(type), std::move(inputs), isAnd ? kAnd : kOr),
+  ConjunctExpr(TypePtr type, std::vector<ExprPtr>&& inputs, bool isAnd)
+      : SpecialForm(
+            std::move(type),
+            std::move(inputs),
+            isAnd ? kAnd : kOr,
+            false /* trackCpuUsage */),
         isAnd_(isAnd) {
     selectivity_.resize(inputs_.size());
     inputOrder_.resize(inputs_.size());
@@ -244,14 +263,16 @@ class ConjunctExpr : public SpecialForm {
 class LambdaExpr : public SpecialForm {
  public:
   LambdaExpr(
-      std::shared_ptr<const Type> type,
+      TypePtr type,
       std::shared_ptr<const RowType>&& signature,
       std::vector<std::shared_ptr<FieldReference>>&& capture,
-      std::shared_ptr<Expr>&& body)
+      std::shared_ptr<Expr>&& body,
+      bool trackCpuUsage)
       : SpecialForm(
             std::move(type),
             std::vector<std::shared_ptr<Expr>>(),
-            "lambda"),
+            "lambda",
+            trackCpuUsage),
         signature_(std::move(signature)),
         capture_(std::move(capture)),
         body_(std::move(body)) {
@@ -283,8 +304,12 @@ class LambdaExpr : public SpecialForm {
 
 class TryExpr : public SpecialForm {
  public:
-  TryExpr(std::shared_ptr<const Type> type, ExprPtr&& input)
-      : SpecialForm(std::move(type), {std::move(input)}, kTry) {}
+  TryExpr(TypePtr type, ExprPtr&& input)
+      : SpecialForm(
+            std::move(type),
+            {std::move(input)},
+            kTry,
+            false /* trackCpuUsage */) {}
 
   void evalSpecialForm(
       const SelectivityVector& rows,
