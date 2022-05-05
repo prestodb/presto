@@ -21,9 +21,9 @@ import static org.testng.Assert.assertNull;
 
 public class TestRuntimeStats
 {
-    private static final RuntimeMetricKey TEST_METRIC_KEY_1 = new RuntimeMetricKey("test1");
-    private static final RuntimeMetricKey TEST_METRIC_KEY_2 = new RuntimeMetricKey("test2");
-    private static final RuntimeMetricKey TEST_METRIC_KEY_3 = new RuntimeMetricKey("test3");
+    private static final String TEST_METRIC_NAME_1 = "test1";
+    private static final String TEST_METRIC_NAME_2 = "test2";
+    private static final String TEST_METRIC_NAME_3 = "test3";
 
     private void assertRuntimeMetricEquals(RuntimeMetric m1, RuntimeMetric m2)
     {
@@ -38,115 +38,115 @@ public class TestRuntimeStats
     public void testAddMetricValue()
     {
         RuntimeStats stats = new RuntimeStats();
-        stats.addMetricValue(TEST_METRIC_KEY_1, 2);
-        stats.addMetricValue(TEST_METRIC_KEY_1, 3);
-        stats.addMetricValue(TEST_METRIC_KEY_1, 5);
+        stats.addMetricValue(TEST_METRIC_NAME_1, 2);
+        stats.addMetricValue(TEST_METRIC_NAME_1, 3);
+        stats.addMetricValue(TEST_METRIC_NAME_1, 5);
 
         assertRuntimeMetricEquals(
-                stats.getMetric(TEST_METRIC_KEY_1),
-                new RuntimeMetric(TEST_METRIC_KEY_1, 10, 3, 5, 2));
+                stats.getMetric(TEST_METRIC_NAME_1),
+                new RuntimeMetric(TEST_METRIC_NAME_1, 10, 3, 5, 2));
 
         stats.reset();
-        assertEquals(stats.getMetricMap().size(), 0);
+        assertEquals(stats.getMetrics().size(), 0);
     }
 
     @Test
     public void testMergeMetric()
     {
         RuntimeStats stats1 = new RuntimeStats();
-        stats1.addMetricValue(TEST_METRIC_KEY_1, 2);
-        stats1.addMetricValue(TEST_METRIC_KEY_1, 3);
+        stats1.addMetricValue(TEST_METRIC_NAME_1, 2);
+        stats1.addMetricValue(TEST_METRIC_NAME_1, 3);
 
         RuntimeStats stats2 = new RuntimeStats();
-        stats2.mergeMetric(TEST_METRIC_KEY_2, stats1.getMetric(TEST_METRIC_KEY_1));
+        stats2.mergeMetric(TEST_METRIC_NAME_2, stats1.getMetric(TEST_METRIC_NAME_1));
 
-        assertEquals(stats2.getMetricMap().size(), 1);
+        assertEquals(stats2.getMetrics().size(), 1);
         assertRuntimeMetricEquals(
-                stats2.getMetric(TEST_METRIC_KEY_2),
-                new RuntimeMetric(TEST_METRIC_KEY_2, 5, 2, 3, 2));
+                stats2.getMetric(TEST_METRIC_NAME_2),
+                new RuntimeMetric(TEST_METRIC_NAME_2, 5, 2, 3, 2));
     }
 
     @Test
     public void testMerge()
     {
         RuntimeStats stats1 = new RuntimeStats();
-        stats1.addMetricValue(TEST_METRIC_KEY_1, 2);
-        stats1.addMetricValue(TEST_METRIC_KEY_1, 3);
-        stats1.addMetricValue(TEST_METRIC_KEY_2, 1);
-        stats1.addMetricValue(TEST_METRIC_KEY_2, 2);
+        stats1.addMetricValue(TEST_METRIC_NAME_1, 2);
+        stats1.addMetricValue(TEST_METRIC_NAME_1, 3);
+        stats1.addMetricValue(TEST_METRIC_NAME_2, 1);
+        stats1.addMetricValue(TEST_METRIC_NAME_2, 2);
 
         RuntimeStats stats2 = new RuntimeStats();
-        stats2.addMetricValue(TEST_METRIC_KEY_2, 0);
-        stats2.addMetricValue(TEST_METRIC_KEY_2, 3);
-        stats2.addMetricValue(TEST_METRIC_KEY_3, 8);
+        stats2.addMetricValue(TEST_METRIC_NAME_2, 0);
+        stats2.addMetricValue(TEST_METRIC_NAME_2, 3);
+        stats2.addMetricValue(TEST_METRIC_NAME_3, 8);
 
         RuntimeStats mergedStats = RuntimeStats.merge(stats1, stats2);
         assertRuntimeMetricEquals(
-                mergedStats.getMetric(TEST_METRIC_KEY_1),
-                new RuntimeMetric(TEST_METRIC_KEY_1, 5, 2, 3, 2));
+                mergedStats.getMetric(TEST_METRIC_NAME_1),
+                new RuntimeMetric(TEST_METRIC_NAME_1, 5, 2, 3, 2));
         assertRuntimeMetricEquals(
-                mergedStats.getMetric(TEST_METRIC_KEY_2),
-                new RuntimeMetric(TEST_METRIC_KEY_2, 6, 4, 3, 0));
+                mergedStats.getMetric(TEST_METRIC_NAME_2),
+                new RuntimeMetric(TEST_METRIC_NAME_2, 6, 4, 3, 0));
         assertRuntimeMetricEquals(
-                mergedStats.getMetric(TEST_METRIC_KEY_3),
-                new RuntimeMetric(TEST_METRIC_KEY_3, 8, 1, 8, 8));
+                mergedStats.getMetric(TEST_METRIC_NAME_3),
+                new RuntimeMetric(TEST_METRIC_NAME_3, 8, 1, 8, 8));
 
         stats1.mergeWith(stats2);
-        mergedStats.getMetrics().forEach(metric -> assertRuntimeMetricEquals(metric, stats1.getMetric(metric.getMetricKey())));
-        assertEquals(mergedStats.getMetricMap().size(), stats1.getMetricMap().size());
+        mergedStats.getMetrics().values().forEach(metric -> assertRuntimeMetricEquals(metric, stats1.getMetric(metric.getName())));
+        assertEquals(mergedStats.getMetrics().size(), stats1.getMetrics().size());
     }
 
     @Test
     public void testMergeWithNull()
     {
         RuntimeStats stats = new RuntimeStats();
-        stats.addMetricValue(TEST_METRIC_KEY_1, 2);
+        stats.addMetricValue(TEST_METRIC_NAME_1, 2);
         stats.mergeWith(null);
         assertRuntimeMetricEquals(
-                stats.getMetric(TEST_METRIC_KEY_1),
-                new RuntimeMetric(TEST_METRIC_KEY_1, 2, 1, 2, 2));
+                stats.getMetric(TEST_METRIC_NAME_1),
+                new RuntimeMetric(TEST_METRIC_NAME_1, 2, 1, 2, 2));
     }
 
     @Test
     public void testUpdate()
     {
         RuntimeStats stats1 = new RuntimeStats();
-        stats1.addMetricValue(TEST_METRIC_KEY_1, 2);
+        stats1.addMetricValue(TEST_METRIC_NAME_1, 2);
         stats1.update(null);
         assertRuntimeMetricEquals(
-                stats1.getMetric(TEST_METRIC_KEY_1),
-                new RuntimeMetric(TEST_METRIC_KEY_1, 2, 1, 2, 2));
+                stats1.getMetric(TEST_METRIC_NAME_1),
+                new RuntimeMetric(TEST_METRIC_NAME_1, 2, 1, 2, 2));
 
         RuntimeStats stats2 = new RuntimeStats();
-        stats2.addMetricValue(TEST_METRIC_KEY_2, 2);
+        stats2.addMetricValue(TEST_METRIC_NAME_2, 2);
         stats1.update(stats2);
         assertRuntimeMetricEquals(
-                stats1.getMetric(TEST_METRIC_KEY_1),
-                new RuntimeMetric(TEST_METRIC_KEY_1, 2, 1, 2, 2));
+                stats1.getMetric(TEST_METRIC_NAME_1),
+                new RuntimeMetric(TEST_METRIC_NAME_1, 2, 1, 2, 2));
         assertRuntimeMetricEquals(
-                stats1.getMetric(TEST_METRIC_KEY_2),
-                stats1.getMetric(TEST_METRIC_KEY_2));
+                stats1.getMetric(TEST_METRIC_NAME_2),
+                stats1.getMetric(TEST_METRIC_NAME_2));
 
-        stats2.addMetricValue(TEST_METRIC_KEY_2, 4);
+        stats2.addMetricValue(TEST_METRIC_NAME_2, 4);
         stats1.update(stats2);
         assertRuntimeMetricEquals(
-                stats1.getMetric(TEST_METRIC_KEY_2),
-                stats1.getMetric(TEST_METRIC_KEY_2));
+                stats1.getMetric(TEST_METRIC_NAME_2),
+                stats1.getMetric(TEST_METRIC_NAME_2));
     }
 
     @Test
     public void testJson()
     {
         RuntimeStats stats = new RuntimeStats();
-        stats.addMetricValue(TEST_METRIC_KEY_1, 2);
-        stats.addMetricValue(TEST_METRIC_KEY_1, 3);
-        stats.addMetricValue(TEST_METRIC_KEY_2, 8);
+        stats.addMetricValue(TEST_METRIC_NAME_1, 2);
+        stats.addMetricValue(TEST_METRIC_NAME_1, 3);
+        stats.addMetricValue(TEST_METRIC_NAME_2, 8);
 
         JsonCodec<RuntimeStats> codec = JsonCodec.jsonCodec(RuntimeStats.class);
         String json = codec.toJson(stats);
         RuntimeStats actual = codec.fromJson(json);
 
-        actual.getMetricMap().forEach((key, metric) -> assertRuntimeMetricEquals(metric, stats.getMetric(key)));
+        actual.getMetrics().forEach((name, metric) -> assertRuntimeMetricEquals(metric, stats.getMetric(name)));
     }
 
     @Test
@@ -162,6 +162,6 @@ public class TestRuntimeStats
     public void testReturnUnmodifiedMetrics()
     {
         RuntimeStats stats = new RuntimeStats();
-        stats.getMetricMap().put(TEST_METRIC_KEY_1, new RuntimeMetric(TEST_METRIC_KEY_1));
+        stats.getMetrics().put(TEST_METRIC_NAME_1, new RuntimeMetric(TEST_METRIC_NAME_1));
     }
 }
