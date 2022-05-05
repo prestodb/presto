@@ -19,8 +19,8 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.hadoop.BootstrapBaseFileSplit;
+import org.apache.hudi.hadoop.realtime.HoodieRealtimeBootstrapBaseFileSplit;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
-import org.apache.hudi.hadoop.realtime.RealtimeBootstrapBaseFileSplit;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -48,7 +48,7 @@ public class TestCustomSplitConversionUtils
         String expectedMaxCommitTime = "max_commit_time";
 
         FileSplit baseSplit = new FileSplit(FILE_PATH, SPLIT_START_POS, SPLIT_LENGTH, SPLIT_HOSTS);
-        FileSplit hudiSplit = new HoodieRealtimeFileSplit(baseSplit, BASE_PATH, deltaLogFiles, expectedMaxCommitTime, Option.empty());
+        FileSplit hudiSplit = new HoodieRealtimeFileSplit(baseSplit, BASE_PATH, deltaLogFiles, expectedMaxCommitTime, false, Option.empty());
 
         // Test conversion of HudiSplit -> customSplitInfo
         Map<String, String> customSplitInfo = CustomSplitConversionUtils.extractCustomSplitInfo(hudiSplit);
@@ -74,7 +74,7 @@ public class TestCustomSplitConversionUtils
         String expectedMaxCommitTime = "max_commit_time";
 
         FileSplit baseSplit = new FileSplit(FILE_PATH, SPLIT_START_POS, SPLIT_LENGTH, SPLIT_HOSTS);
-        FileSplit hudiSplit = new HoodieRealtimeFileSplit(baseSplit, BASE_PATH, deltaLogFiles, expectedMaxCommitTime, Option.empty());
+        FileSplit hudiSplit = new HoodieRealtimeFileSplit(baseSplit, BASE_PATH, deltaLogFiles, expectedMaxCommitTime, false, Option.empty());
 
         // Test conversion of HudiSplit -> customSplitInfo
         Map<String, String> customSplitInfo = CustomSplitConversionUtils.extractCustomSplitInfo(hudiSplit);
@@ -135,14 +135,14 @@ public class TestCustomSplitConversionUtils
         FileSplit baseSplit = new FileSplit(FILE_PATH, SPLIT_START_POS, SPLIT_LENGTH, SPLIT_HOSTS);
         FileSplit bootstrapSourceSplit = new FileSplit(bootstrapSourceFilePath, bootstrapSourceSplitStartPos, bootstrapSourceSplitLength,
                 new String[0]);
-        FileSplit hudiSplit = new RealtimeBootstrapBaseFileSplit(baseSplit, BASE_PATH, deltaLogFiles, maxCommitTime,
-                bootstrapSourceSplit);
+        FileSplit hudiSplit = new HoodieRealtimeBootstrapBaseFileSplit(baseSplit, BASE_PATH, deltaLogFiles, maxCommitTime,
+                bootstrapSourceSplit, false, Option.empty());
 
         // Test conversion of HudiSplit -> customSplitInfo
         Map<String, String> customSplitInfo = CustomSplitConversionUtils.extractCustomSplitInfo(hudiSplit);
 
         // Test conversion of (customSplitInfo + baseSplit) -> HudiSplit
-        RealtimeBootstrapBaseFileSplit recreatedSplit = (RealtimeBootstrapBaseFileSplit) CustomSplitConversionUtils
+        HoodieRealtimeBootstrapBaseFileSplit recreatedSplit = (HoodieRealtimeBootstrapBaseFileSplit) CustomSplitConversionUtils
                 .recreateSplitWithCustomInfo(baseSplit, customSplitInfo);
 
         assertEquals(FILE_PATH, recreatedSplit.getPath());

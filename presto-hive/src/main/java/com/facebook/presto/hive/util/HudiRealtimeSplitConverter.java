@@ -73,6 +73,7 @@ public class HudiRealtimeSplitConverter
                     requireNonNull(customSplitInfo.get(HUDI_BASEPATH_KEY), "HUDI_BASEPATH_KEY is missing"),
                     deltaLogFiles,
                     requireNonNull(customSplitInfo.get(HUDI_MAX_COMMIT_TIME_KEY), "HUDI_MAX_COMMIT_TIME_KEY is missing"),
+                    false, // incremental query not supported currently
                     Option.empty()));
         }
         return Optional.empty();
