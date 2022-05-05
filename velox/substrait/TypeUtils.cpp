@@ -45,16 +45,20 @@ int64_t bytesOfType(const TypePtr& type) {
 
 TypePtr toVeloxType(const std::string& typeName) {
   auto typeKind = mapNameToTypeKind(typeName);
-  if (typeKind == TypeKind::BOOLEAN) {
-    return BOOLEAN();
+  switch (typeKind) {
+    case TypeKind::BOOLEAN:
+      return BOOLEAN();
+    case TypeKind::DOUBLE:
+      return DOUBLE();
+    case TypeKind::VARCHAR:
+      return VARCHAR();
+    case TypeKind::INTEGER:
+      return INTEGER();
+    case TypeKind::BIGINT:
+      return BIGINT();
+    default:
+      VELOX_NYI("Velox type conversion not supported for type {}.", typeName);
   }
-  if (typeKind == TypeKind::DOUBLE) {
-    return DOUBLE();
-  }
-  if (typeKind == TypeKind::VARCHAR) {
-    return VARCHAR();
-  }
-  VELOX_NYI("Velox type conversion not supported for type {}.", typeName);
 }
 
 } // namespace facebook::velox::substrait

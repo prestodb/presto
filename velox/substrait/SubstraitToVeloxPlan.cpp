@@ -33,7 +33,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
       veloxGroupingExprs;
   const auto& groupings = sAgg.groupings();
-  int inputPlanNodeId = planNodeId_ - 1;
+
   // The index of output column.
   int outIdx = 0;
   for (const auto& grouping : groupings) {
@@ -41,8 +41,8 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
     for (const auto& groupingExpr : groupingExprs) {
       // Velox's groupings are limited to be Field, so groupingExpr is
       // expected to be FieldReference.
-      auto fieldExpr = exprConverter_->toVeloxExpr(
-          groupingExpr.selection(), inputPlanNodeId);
+      auto fieldExpr =
+          exprConverter_->toVeloxExpr(groupingExpr.selection(), inputTypes);
       veloxGroupingExprs.emplace_back(fieldExpr);
       outIdx += 1;
     }
@@ -70,7 +70,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
       switch (typeCase) {
         case ::substrait::Expression::RexTypeCase::kSelection: {
           aggParams.emplace_back(
-              exprConverter_->toVeloxExpr(arg.selection(), inputPlanNodeId));
+              exprConverter_->toVeloxExpr(arg.selection(), inputTypes));
           break;
         }
         case ::substrait::Expression::RexTypeCase::kScalarFunction: {
@@ -79,7 +79,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
           // pre-projection.
           auto sFunc = arg.scalar_function();
           projectExprs.emplace_back(
-              exprConverter_->toVeloxExpr(sFunc, inputPlanNodeId));
+              exprConverter_->toVeloxExpr(sFunc, inputTypes));
           auto colOutName = subParser_->makeNodeName(planNodeId_, outIdx);
           projectOutNames.emplace_back(colOutName);
           auto outType = subParser_->parseType(sFunc.output_type());
@@ -185,10 +185,11 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
   std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
   projectNames.reserve(projectExprs.size());
   expressions.reserve(projectExprs.size());
-  auto prePlanNodeId = planNodeId_ - 1;
+
+  const auto& inputType = childNode->outputType();
   int colIdx = 0;
   for (const auto& expr : projectExprs) {
-    expressions.emplace_back(exprConverter_->toVeloxExpr(expr, prePlanNodeId));
+    expressions.emplace_back(exprConverter_->toVeloxExpr(expr, inputType));
     projectNames.emplace_back(subParser_->makeNodeName(planNodeId_, colIdx));
     colIdx += 1;
   }
@@ -203,15 +204,20 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
 
 std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::FilterRel& sFilter) {
-  // TODO: Currently Filter is skipped because Filter is Pushdowned to
-  // TableScan.
   std::shared_ptr<const core::PlanNode> childNode;
   if (sFilter.has_input()) {
     childNode = toVeloxPlan(sFilter.input());
   } else {
     VELOX_FAIL("Child Rel is expected in FilterRel.");
   }
-  return childNode;
+
+  const auto& inputType = childNode->outputType();
+  const auto& sExpr = sFilter.condition();
+
+  return std::make_shared<core::FilterNode>(
+      nextPlanNodeId(),
+      exprConverter_->toVeloxExpr(sExpr, inputType),
+      childNode);
 }
 
 std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(

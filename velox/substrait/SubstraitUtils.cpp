@@ -35,6 +35,16 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
       nullability = sType.fp64().nullability();
       break;
     }
+    case ::substrait::Type::KindCase::kI32: {
+      typeName = "INTEGER";
+      nullability = sType.i32().nullability();
+      break;
+    }
+    case ::substrait::Type::KindCase::kI64: {
+      typeName = "BIGINT";
+      nullability = sType.i64().nullability();
+      break;
+    }
     case ::substrait::Type::KindCase::kStruct: {
       // TODO: Support for Struct is not fully added.
       typeName = "STRUCT";

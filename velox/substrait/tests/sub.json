@@ -440,126 +440,21 @@
                      "args": [
                       {
                        "scalar_function": {
-                        "function_reference": 1,
+                        "function_reference": 2,
                         "args": [
                          {
-                          "scalar_function": {
-                           "function_reference": 1,
-                           "args": [
-                            {
-                             "scalar_function": {
-                              "function_reference": 1,
-                              "args": [
-                               {
-                                "scalar_function": {
-                                 "function_reference": 0,
-                                 "args": [
-                                  {
-                                   "selection": {
-                                    "direct_reference": {
-                                     "struct_field": {
-                                      "field": 3
-                                     }
-                                    }
-                                   }
-                                  }
-                                 ],
-                                 "output_type": {
-                                  "bool": {
-                                   "type_variation_reference": 0,
-                                   "nullability": "NULLABILITY_NULLABLE"
-                                  }
-                                 }
-                                }
-                               },
-                               {
-                                "scalar_function": {
-                                 "function_reference": 0,
-                                 "args": [
-                                  {
-                                   "selection": {
-                                    "direct_reference": {
-                                     "struct_field": {
-                                      "field": 2
-                                     }
-                                    }
-                                   }
-                                  }
-                                 ],
-                                 "output_type": {
-                                  "bool": {
-                                   "type_variation_reference": 0,
-                                   "nullability": "NULLABILITY_NULLABLE"
-                                  }
-                                 }
-                                }
-                               }
-                              ],
-                              "output_type": {
-                               "bool": {
-                                "type_variation_reference": 0,
-                                "nullability": "NULLABILITY_NULLABLE"
-                               }
-                              }
-                             }
-                            },
-                            {
-                             "scalar_function": {
-                              "function_reference": 0,
-                              "args": [
-                               {
-                                "selection": {
-                                 "direct_reference": {
-                                  "struct_field": {
-                                   "field": 0
-                                  }
-                                 }
-                                }
-                               }
-                              ],
-                              "output_type": {
-                               "bool": {
-                                "type_variation_reference": 0,
-                                "nullability": "NULLABILITY_NULLABLE"
-                               }
-                              }
-                             }
-                            }
-                           ],
-                           "output_type": {
-                            "bool": {
-                             "type_variation_reference": 0,
-                             "nullability": "NULLABILITY_NULLABLE"
+                          "selection": {
+                           "direct_reference": {
+                            "struct_field": {
+                             "field": 3
                             }
                            }
                           }
                          },
                          {
-                          "scalar_function": {
-                           "function_reference": 2,
-                           "args": [
-                            {
-                             "selection": {
-                              "direct_reference": {
-                               "struct_field": {
-                                "field": 3
-                               }
-                              }
-                             }
-                            },
-                            {
-                             "literal": {
-                              "nullable": false,
-                              "fp64": 8766
-                             }
-                            }
-                           ],
-                           "output_type": {
-                            "bool": {
-                             "type_variation_reference": 0,
-                             "nullability": "NULLABILITY_NULLABLE"
-                            }
-                           }
+                          "literal": {
+                           "nullable": false,
+                           "fp64": 8766
                           }
                          }
                         ],
