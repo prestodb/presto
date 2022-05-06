@@ -17,12 +17,15 @@
 #include "velox/common/caching/SsdFile.h"
 #include <folly/Executor.h>
 #include <folly/portability/SysUio.h>
+#include "velox/common/base/AsyncSource.h"
 #include "velox/common/caching/FileIds.h"
 
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <numeric>
+
+#include <fstream>
 
 DEFINE_bool(ssd_odirect, true, "Use O_DIRECT for SSD cache IO");
 DEFINE_bool(ssd_verify_write, false, "Read back data after writing to SSD");
@@ -67,8 +70,15 @@ std::string SsdPin::toString() const {
 SsdFile::SsdFile(
     const std::string& filename,
     int32_t shardId,
-    int32_t maxRegions)
-    : shardId_(shardId), maxRegions_(maxRegions), filename_(filename) {
+    int32_t maxRegions,
+    int64_t checkpointIntervalBytes,
+    folly::Executor* FOLLY_NULLABLE executor)
+    : fileName_(filename),
+      shardId_(shardId),
+      maxRegions_(maxRegions),
+      filename_(filename),
+      checkpointIntervalBytes_(checkpointIntervalBytes),
+      executor_(executor) {
   int32_t oDirect = 0;
 #ifdef linux
   oDirect = FLAGS_ssd_odirect ? O_DIRECT : 0;
@@ -94,6 +104,9 @@ SsdFile::SsdFile(
   tracker_.resize(maxRegions_);
   regionSize_.resize(maxRegions_);
   regionPins_.resize(maxRegions_);
+  if (checkpointIntervalBytes_) {
+    initializeCheckpoint();
+  }
 }
 
 void SsdFile::pinRegion(uint64_t offset) {
@@ -274,6 +287,7 @@ bool SsdFile::growOrEvictLocked() {
     suspended_ = true;
     return false;
   }
+  logEviction(candidates);
   clearRegionEntriesLocked(candidates);
   writableRegions_ = std::move(candidates);
   suspended_ = false;
@@ -357,9 +371,14 @@ void SsdFile::write(std::vector<CachePin>& pins) {
         offset += size;
         ++stats_.entriesWritten;
         stats_.bytesWritten += size;
+        bytesAfterCheckpoint_ += size;
       }
     }
     storeIndex += numWritten;
+  }
+
+  if (bytesAfterCheckpoint_ > checkpointIntervalBytes_) {
+    checkpoint();
   }
 }
 
@@ -434,6 +453,262 @@ void SsdFile::deleteFile() {
   if (rc < 0) {
     LOG(ERROR) << "Error deleting cache file " << filename_ << " rc: " << rc;
   }
+}
+
+void SsdFile::logEviction(const std::vector<int32_t>& regions) {
+  if (checkpointIntervalBytes_) {
+    int32_t rc = ::write(
+        evictLogFd_, regions.data(), regions.size() * sizeof(regions[0]));
+    if (rc != regions.size() * sizeof(regions[0])) {
+      checkpointError(rc, "Failed to log eviction");
+    }
+  }
+}
+
+void SsdFile::deleteCheckpoint(bool keepLog) {
+  if (checkpointDeleted_) {
+    return;
+  }
+  if (evictLogFd_) {
+    if (keepLog) {
+      lseek(evictLogFd_, 0, SEEK_SET);
+      ftruncate(evictLogFd_, 0);
+      fsync(evictLogFd_);
+    } else {
+      close(evictLogFd_);
+      evictLogFd_ = 0;
+    }
+  }
+  checkpointDeleted_ = true;
+  auto logPath = fileName_ + kLogExtension;
+  int32_t logRc = 0;
+  if (!keepLog) {
+    logRc = unlink(logPath.c_str());
+  }
+  auto checkpointPath = fileName_ + kCheckpointExtension;
+  auto checkpointRc = unlink(checkpointPath.c_str());
+  if (logRc || checkpointRc) {
+    LOG(ERROR) << "Error in deleting log and checkpoint. log:  " << logRc
+               << " checkpoint: " << checkpointRc;
+  }
+}
+
+void SsdFile::checkpointError(int32_t rc, const std::string& error) {
+  LOG(ERROR) << error << " with rc=" << rc
+             << " Deleting checkpoint and continuing with checkpointing off";
+  deleteCheckpoint();
+  checkpointIntervalBytes_ = 0;
+}
+
+namespace {
+template <typename T>
+inline char* asChar(T ptr) {
+  return reinterpret_cast<char*>(ptr);
+}
+
+template <typename T>
+inline const char* asChar(const T* ptr) {
+  return reinterpret_cast<const char*>(ptr);
+}
+} // namespace
+
+void SsdFile::checkpoint(bool force) {
+  std::lock_guard<std::mutex> l(mutex_);
+  if (!force && bytesAfterCheckpoint_ < checkpointIntervalBytes_) {
+    return;
+  }
+  checkpointDeleted_ = false;
+  bytesAfterCheckpoint_ = 0;
+  try {
+    // We schedule the potentially ;long fsync of the cache file on
+    // another thread of the cache write executor, if available. If
+    // there is none, we do the sync on this thread at the end.
+    auto sync = std::make_shared<AsyncSource<int>>(
+        [fd = fd_]() { return std::make_unique<int>(fsync(fd)); });
+    if (executor_) {
+      executor_->add([sync]() { sync->prepare(); });
+    }
+    std::ofstream state;
+    auto checkpointPath = fileName_ + kCheckpointExtension;
+    state.exceptions(std::ofstream::failbit);
+    state.open(checkpointPath, std::ios_base::out | std::ios_base::trunc);
+    // The checkpoint state file contains:
+    // int32_t The 4 bytes of kCheckpointMagic,
+    // int32_t maxRegions,
+    // int32_t numRegions,
+    // regionScores from the 'tracker_',
+    // {fileId, fileName} pairs,
+    // kMapMarker,
+    // {fileId, offset, SSdRun} triples,
+    // kEndMarker.
+    state.write(kCheckpointMagic, sizeof(int32_t));
+    state.write(asChar(&maxRegions_), sizeof(maxRegions_));
+    state.write(asChar(&numRegions_), sizeof(numRegions_));
+    state.write(
+        asChar(tracker_.regionScores().data()), maxRegions_ * sizeof(uint64_t));
+    std::unordered_set<uint64_t> fileNums;
+    for (auto pair : entries_) {
+      auto fileNum = pair.first.fileNum.id();
+      if (fileNums.insert(fileNum).second) {
+        state.write(asChar(&fileNum), sizeof(fileNum));
+        auto name = fileIds().string(fileNum);
+        int32_t length = name.size();
+        state.write(asChar(&length), sizeof(length));
+        state.write(name.data(), length);
+      }
+    }
+    const auto mapMarker = kCheckpointMapMarker;
+    state.write(asChar(&mapMarker), sizeof(mapMarker));
+    for (auto& pair : entries_) {
+      auto id = pair.first.fileNum.id();
+      state.write(asChar(&id), sizeof(id));
+      state.write(asChar(&pair.first.offset), sizeof(pair.first.offset));
+      auto offsetAndSize = pair.second.bits();
+      state.write(asChar(&offsetAndSize), sizeof(offsetAndSize));
+    }
+    const auto endMarker = kCheckpointEndMarker;
+    state.write(asChar(&endMarker), sizeof(endMarker));
+    auto checkRc = [&](int32_t rc, const std::string& message) {
+      if (rc < 0) {
+        throw std::runtime_error(fmt::format("{} with rc {}", message, rc));
+      }
+      return rc;
+    };
+    if (state.bad()) {
+      checkRc(-1, "Writing checkpoint file");
+    }
+    state.close();
+    ftruncate(evictLogFd_, 0);
+    checkRc(fsync(evictLogFd_), "Sync of evict log");
+    auto syncRc = sync->move();
+    checkRc(*syncRc, fmt::format("Error in cache file fsync {}", *syncRc));
+
+    // Sync checkpoint data file. ofstream does not have a sync method, so open
+    // as fd and sync that.
+    auto fd = checkRc(
+        open(checkpointPath.c_str(), O_WRONLY),
+        "Open of checkpoint file for sync");
+    if (fd > 0) {
+      checkRc(fsync(fd), "Sync checkpoint file");
+      close(fd);
+    }
+
+  } catch (const std::exception& e) {
+    try {
+      checkpointError(-1, e.what());
+    } catch (const std::exception& inner) {
+    }
+    // Ignore nested exception.
+  }
+}
+
+void SsdFile::initializeCheckpoint() {
+  if (!checkpointIntervalBytes_) {
+    return;
+  }
+  bool hasCheckpoint = true;
+  std::ifstream state(fileName_ + kCheckpointExtension);
+  if (!state.is_open()) {
+    hasCheckpoint = false;
+    LOG(INFO) << "Starting shard " << shardId_ << " without checkpoint";
+  }
+  auto logPath = fileName_ + kLogExtension;
+  evictLogFd_ = open(logPath.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+  if (evictLogFd_ < 0) {
+    // Failure to open the log at startup is a process terminating error.
+    LOG(ERROR) << "Could not open evict log " << logPath << " rc "
+               << evictLogFd_;
+    exit(1);
+  }
+
+  try {
+    if (hasCheckpoint) {
+      state.exceptions(std::ifstream::failbit);
+      readCheckpoint(state);
+    }
+  } catch (const std::exception& e) {
+    try {
+      LOG(ERROR) << "Error recovering from checkpoint " << e.what()
+                 << ": Starting without checkpoint";
+      entries_.clear();
+      deleteCheckpoint(true);
+    } catch (const std::exception& e) {
+    }
+  }
+}
+
+namespace {
+template <typename T>
+T readNumber(std::ifstream& stream) {
+  T data;
+  stream.read(asChar(&data), sizeof(T));
+  return data;
+}
+} // namespace
+
+void SsdFile::readCheckpoint(std::ifstream& state) {
+  char magic[4];
+  state.read(magic, sizeof(magic));
+  VELOX_CHECK(strncmp(magic, kCheckpointMagic, 4) == 0);
+  auto maxRegions = readNumber<int32_t>(state);
+  VELOX_CHECK_EQ(
+      maxRegions,
+      maxRegions_,
+      "Trying to start from checkpoint with a different capacity");
+  numRegions_ = readNumber<int32_t>(state);
+  std::vector<int64_t> scores(maxRegions);
+  state.read(asChar(scores.data()), maxRegions_ * sizeof(uint64_t));
+  std::unordered_map<uint64_t, StringIdLease> idMap;
+  for (;;) {
+    auto id = readNumber<uint64_t>(state);
+    if (id == kCheckpointMapMarker) {
+      break;
+    }
+    std::string name;
+    name.resize(readNumber<int32_t>(state));
+    state.read(name.data(), name.size());
+    auto lease = StringIdLease(fileIds(), name);
+    idMap[id] = std::move(lease);
+  }
+  auto logSize = lseek(evictLogFd_, 0, SEEK_END);
+  std::vector<uint32_t> evicted(logSize / sizeof(uint32_t));
+  auto rc = ::pread(evictLogFd_, evicted.data(), logSize, 0);
+  VELOX_CHECK_EQ(logSize, rc, "Failed to read eviction log");
+  std::unordered_set<uint32_t> evictedMap;
+  for (auto region : evicted) {
+    evictedMap.insert(region);
+  }
+  for (;;) {
+    uint64_t fileNum = readNumber<uint64_t>(state);
+    if (fileNum == kCheckpointEndMarker) {
+      break;
+    }
+    uint64_t offset = readNumber<uint64_t>(state);
+    auto run = SsdRun(readNumber<uint64_t>(state));
+    // Check that the recovered entry does not fall in an evicted region.
+    if (evictedMap.find(regionIndex(run.offset())) == evictedMap.end()) {
+      // The file may have a different id on restore.
+      auto it = idMap.find(fileNum);
+      VELOX_CHECK(it != idMap.end());
+      FileCacheKey key{it->second, offset};
+      entries_[std::move(key)] = run;
+    }
+  }
+  // The state is successfully read. Install the access frequency scores and
+  // evicted regions.
+  VELOX_CHECK_EQ(scores.size(), tracker_.regionScores().size());
+  // Set the writable regions by deduplicated evicted regions.
+  writableRegions_.clear();
+  for (auto region : evictedMap) {
+    writableRegions_.push_back(region);
+  }
+  tracker_.regionScores() = scores;
+  LOG(INFO) << fmt::format(
+      "Starting shard {} from checkpoint with {} entries, {} regions with {} free.",
+      shardId_,
+      entries_.size(),
+      numRegions_,
+      writableRegions_.size());
 }
 
 } // namespace facebook::velox::cache

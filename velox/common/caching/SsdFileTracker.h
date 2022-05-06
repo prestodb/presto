@@ -58,6 +58,11 @@ class SsdFileTracker {
       int32_t numRegions,
       const std::vector<int32_t>& regionPins);
 
+  // Expose the region access data. Used in checkpointing cache state.
+  std::vector<int64_t>& regionScores() {
+    return regionScores_;
+  }
+
  private:
   static constexpr int32_t kDecayInterval = 1000;
 

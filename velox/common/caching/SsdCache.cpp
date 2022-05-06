@@ -27,7 +27,8 @@ SsdCache::SsdCache(
     std::string_view filePrefix,
     uint64_t maxBytes,
     int32_t numShards,
-    folly::Executor* executor)
+    folly::Executor* executor,
+    int64_t checkpointIntervalBytes)
     : filePrefix_(filePrefix),
       numShards_(numShards),
       groupStats_(std::make_unique<FileGroupStats>()),
@@ -39,7 +40,10 @@ SsdCache::SsdCache(
   int32_t fileMaxRegions = bits::roundUp(maxBytes, sizeQuantum) / sizeQuantum;
   for (auto i = 0; i < numShards_; ++i) {
     files_.push_back(std::make_unique<SsdFile>(
-        fmt::format("{}{}", filePrefix_, i), i, fileMaxRegions));
+        fmt::format("{}{}", filePrefix_, i),
+        i,
+        fileMaxRegions,
+        checkpointIntervalBytes / numShards));
   }
 }
 
@@ -49,6 +53,9 @@ SsdFile& SsdCache::file(uint64_t fileId) {
 }
 
 bool SsdCache::startWrite() {
+  if (isShutdown_) {
+    return false;
+  }
   if (0 == writesInProgress_.fetch_add(numShards_)) {
     // No write was pending, so now all shards are counted as writing.
     return true;
@@ -134,6 +141,16 @@ std::string SsdCache::toString() const {
 void SsdCache::deleteFiles() {
   for (auto& file : files_) {
     file->deleteFile();
+  }
+}
+
+void SsdCache::shutdown() {
+  isShutdown_ = true;
+  while (writesInProgress_) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
+  }
+  for (auto& file : files_) {
+    file->checkpoint(true);
   }
 }
 

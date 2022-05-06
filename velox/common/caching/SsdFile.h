@@ -42,6 +42,8 @@ class SsdRun {
     VELOX_CHECK_LT(size - 1, 1 << kSizeBits);
   }
 
+  SsdRun(uint64_t bits) : bits_(bits) {}
+
   SsdRun(const SsdRun& other) = default;
   SsdRun(SsdRun&& other) = default;
 
@@ -58,6 +60,11 @@ class SsdRun {
 
   uint32_t size() const {
     return (bits_ & ((1 << kSizeBits) - 1)) + 1;
+  }
+
+  // Returns raw bits for serialization.
+  uint64_t bits() const {
+    return bits_;
   }
 
  private:
@@ -96,7 +103,7 @@ class SsdPin {
   bool empty() const {
     return file_ == nullptr;
   }
-  SsdFile* file() const {
+  SsdFile* FOLLY_NONNULL file() const {
     return file_;
   }
 
@@ -107,7 +114,7 @@ class SsdPin {
   std::string toString() const;
 
  private:
-  SsdFile* file_;
+  SsdFile* FOLLY_NULLABLE file_;
   SsdRun run_;
 };
 
@@ -136,7 +143,12 @@ class SsdFile {
 
   // Constructs a cache backed by filename. Discards any previous
   // contents of filename.
-  SsdFile(const std::string& filename, int32_t shardId, int32_t maxRegions);
+  SsdFile(
+      const std::string& filename,
+      int32_t shardId,
+      int32_t maxRegions,
+      int64_t checkpointInternalBytes = 0,
+      folly::Executor* FOLLY_NULLABLE executor = nullptr);
 
   // Adds entries of  'pins'  to this file. 'pins' must be in read mode and
   // those pins that are successfully added to SSD are marked as being on SSD.
@@ -195,7 +207,22 @@ class SsdFile {
   // Deletes the backing file. Used in testing.
   void deleteFile();
 
+  // Writes a checkpoint state that can be recovered from. The
+  // checkpoint is serialized on 'mutex_'. If 'force' is false,
+  // rechecks that at least 'checkpointIntervalBytes_' have been
+  // written since last checkpoint and silently returns if not.
+  void checkpoint(bool force = false);
+
  private:
+  // 4 first bytes of a checkpoint file. Allows distinguishing between format
+  // versions.
+  static constexpr const char* FOLLY_NONNULL kCheckpointMagic = "CPT1";
+  // Magic number separating file names from cache entry data in checkpoint
+  // file.
+  static constexpr int64_t kCheckpointMapMarker = 0xfffffffffffffffe;
+  // Magic number at end of completed checkpoint file.
+  static constexpr int64_t kCheckpointEndMarker = 0xcbedf11e;
+
   // Increments the pin count of the region of 'offset'. Caller must hold
   // 'mutex_'.
   void pinRegionLocked(uint64_t offset) {
@@ -225,8 +252,36 @@ class SsdFile {
   // Verifies that 'entry' has the data at 'run'.
   void verifyWrite(AsyncDataCacheEntry& entry, SsdRun run);
 
+  // Deletes checkpoint files. If 'keepLog' is true, truncates and syncs the
+  // eviction log and leaves this open.
+  void deleteCheckpoint(bool keepLog = false);
+
+  // Reads a checkpoint state file and sets 'this' accordingly if read
+  // is successful. Return true for successful read. A failed read
+  // deletes the checkpoint and leaves the log truncated open.
+  void readCheckpoint(std::ifstream& state);
+
+  // Logs an error message, deletes the checkpoint and stop making new
+  // checkpoints.
+  void checkpointError(int32_t rc, const std::string& error);
+
+  // Looks for a checkpointed state and sets the state of 'this' by
+  // the checkpointed state iif the state is complete and
+  // readable. Does not modify 'this' if the state is corrupt,
+  // e.g. there was a crash during writing the checkpoint. Initializes
+  // the files for making new checkpoints.
+  void initializeCheckpoint();
+
+  // Synchronously logs that 'regions' are no longer valid in a possibly xisting
+  // checkpoint.
+  void logEviction(const std::vector<int32_t>& regions);
+
   // Serializes access to all private data members.
   std::mutex mutex_;
+  // Name of cache file, used as prefix for checkpoint files.
+  std::string fileName_;
+  static constexpr const char* FOLLY_NONNULL kLogExtension = ".log";
+  static constexpr const char* FOLLY_NONNULL kCheckpointExtension = ".cpt";
 
   // Shard index within 'cache_'.
   int32_t shardId_;
@@ -274,6 +329,23 @@ class SsdFile {
 
   // Counters.
   SsdCacheStats stats_;
+
+  // Checkpoint after every 'checkpointIntervalBytes_' written into
+  // this file. 0 means no checkpointing. This is set to 0 if
+  // checkpointing fails.
+  int64_t checkpointIntervalBytes_{0};
+
+  // Executor for async fsync in checkpoint.
+  folly::Executor* FOLLY_NULLABLE executor_;
+
+  // Count of bytes written after last checkpoint.
+  std::atomic<uint64_t> bytesAfterCheckpoint_{0};
+
+  // fd for logging evictions.
+  int32_t evictLogFd_{0};
+
+  // True if there was an error with checkpoint and the checkpoint was deleted.
+  bool checkpointDeleted_{false};
 };
 
 } // namespace facebook::velox::cache

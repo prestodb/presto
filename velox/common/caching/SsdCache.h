@@ -28,12 +28,16 @@ class SsdCache {
   //  rounded up to the next multiple of kRegionSize *
   //  'numShards'. This means that all the shards have an equal number
   //  of regions. For 2 shards and 200MB size, the size rounds up to
-  //  256M with 2 shards each of 128M (2 regions).
+  //  256M with 2 shards each of 128M (2 regions). If
+  //  'checkpointIntervalBytes' is non-0, the cache makes a durable
+  //  checkpointed state that survives restart after each
+  //  'checkpointIntervalBytes' written.
   SsdCache(
       std::string_view filePrefix,
       uint64_t maxBytes,
       int32_t numShards,
-      folly::Executor* executor);
+      folly::Executor* executor,
+      int64_t checkpointIntervalBytes = 0);
 
   // Returns the shard corresponding to 'fileId'. 'fileId' is a
   //  file id from e.g. FileCacheKey.
@@ -75,6 +79,10 @@ class SsdCache {
   // Deletes backing files. Used in testing.
   void deleteFiles();
 
+  // Stops writing to the cache files and waits for pending writes to finish. If
+  // checkpointing is on, makes a checkpoint.
+  void shutdown();
+
   std::string toString() const;
 
  private:
@@ -88,6 +96,7 @@ class SsdCache {
   // Stats for selecting entries to save from AsyncDataCache.
   std::unique_ptr<FileGroupStats> groupStats_;
   folly::Executor* executor_;
+  std::atomic<bool> isShutdown_{false};
 };
 
 } // namespace facebook::velox::cache

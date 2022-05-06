@@ -24,6 +24,10 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 DECLARE_bool(velox_exception_stacktrace);
 
 using namespace facebook::velox;
@@ -59,21 +63,29 @@ class AsyncDataCacheTest : public testing::Test {
     if (ssdBytes) {
       // tmpfs does not support O_DIRECT, so turn this off for testing.
       FLAGS_ssd_odirect = false;
-      tempDirectory_ = exec::test::TempDirectoryPath::create();
+      // Make a new tempDirectory only if one is not already set. The
+      // second creation of cache must find the checkpoint of the
+      // previous one.
+      if (!tempDirectory_) {
+        tempDirectory_ = exec::test::TempDirectoryPath::create();
+      }
       ssdCache = std::make_unique<SsdCache>(
           fmt::format("{}/cache", tempDirectory_->path),
           ssdBytes,
-          1,
-          executor());
+          4,
+          executor(),
+          ssdBytes / 20);
     }
     memory::MmapAllocatorOptions options = {maxBytes};
     cache_ = std::make_shared<AsyncDataCache>(
         std::make_shared<memory::MmapAllocator>(options),
         maxBytes,
         std::move(ssdCache));
-    for (auto i = 0; i < kNumFiles; ++i) {
-      auto name = fmt::format("testing_file_{}", i);
-      filenames_.push_back(StringIdLease(fileIds(), name));
+    if (filenames_.empty()) {
+      for (auto i = 0; i < kNumFiles; ++i) {
+        auto name = fmt::format("testing_file_{}", i);
+        filenames_.push_back(StringIdLease(fileIds(), name));
+      }
     }
   }
 
@@ -572,6 +584,16 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
   EXPECT_EQ(4092, cache_->numAllocated());
 }
 
+namespace {
+// Cuts off the last 1/10th of file at 'path'.
+void corruptFile(const std::string& path) {
+  auto fd = open(path.c_str(), O_WRONLY);
+  auto size = lseek(fd, 0, SEEK_END);
+  auto rc = ftruncate(fd, size / 10 * 9);
+  EXPECT_EQ(0, rc);
+}
+} // namespace
+
 TEST_F(AsyncDataCacheTest, ssd) {
   constexpr uint64_t kRamBytes = 32 << 20;
   constexpr uint64_t kSsdBytes = 512UL << 20;
@@ -615,8 +637,8 @@ TEST_F(AsyncDataCacheTest, ssd) {
       16, [&](int32_t /*i*/) { loadLoop(kSsdBytes / 2, kSsdBytes * 1.5, 17); });
 
   LOG(INFO) << "Stats after third pass:" << cache_->toString();
-  // Join for possibly pending writes.
-  executor()->join();
+  // Wait for writes to finish and make a checkpoint.
+  cache_->ssdCache()->shutdown();
   auto stats2 = cache_->ssdCache()->stats();
   EXPECT_GT(stats2.bytesWritten, stats.bytesWritten);
   EXPECT_GT(stats2.bytesRead, stats.bytesRead);
@@ -627,4 +649,21 @@ TEST_F(AsyncDataCacheTest, ssd) {
   EXPECT_EQ(0, ramStats.numShared);
   EXPECT_EQ(0, ramStats.numExclusive);
   cache_->ssdCache()->clear();
+  // We cut the tail off one of the cache shards.
+  corruptFile(fmt::format("{}/cache0.cpt", tempDirectory_->path));
+  // We open the cache from checkpoint. Reading checks the data
+  // integrity, here we check that more data was read than written.
+  initializeCache(kRamBytes, kSsdBytes);
+  runThreads(16, [&](int32_t /*i*/) {
+    loadLoop(kSsdBytes / 2, kSsdBytes * 1.5, 113);
+  });
+  LOG(INFO) << "State after starting 3/4 shards from checkpoint: "
+            << cache_->toString();
+  auto ssdStats = cache_->ssdCache()->stats();
+
+  //    The exact number of hits after recovery is not deterministic due
+  // to threading. Hitting at least 1/2 of the capacity when 3/4 are
+  // available since one of the shards was deliberately corrupted, is
+  // a safe bet.
+  EXPECT_LT(kSsdBytes / 2, stats.bytesRead);
 }
