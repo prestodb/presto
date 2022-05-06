@@ -50,6 +50,8 @@ struct MmapAllocatorOptions {
 // (ContiguousAllocation).
 class MmapAllocator : public MappedMemory {
  public:
+  enum class Failure { kNone, kMadvise, kMmap };
+
   explicit MmapAllocator(const MmapAllocatorOptions& options);
 
   bool allocate(
@@ -85,6 +87,12 @@ class MmapAllocator : public MappedMemory {
 
   MachinePageCount numMapped() const override {
     return numMapped_;
+  }
+
+  // Causes 'failure' to occur in next call. This is a test-only
+  // function for validating otherwise unreachable error paths.
+  void injectFailure(Failure failure) {
+    injectedFailure_ = failure;
   }
 
   std::string toString() const override;
@@ -216,13 +224,14 @@ class MmapAllocator : public MappedMemory {
     uint64_t numAdvisedAway_ = 0;
   };
 
-  // Marks all the pages backing 'out' to be mapped if one can safely
-  // write up to 'numMappedNeeded' pages that have no backing
-  // memory. Returns true on success. Returns false if enough backed
-  // but unused pages from other size classes cannot be advised
-  // away. On failure, also frees 'out'.
-
-  bool ensureEnoughMappedPages(int32_t newMappedNeeded, Allocation& out);
+  // Ensures that there are at least 'newMappedNeeded' pages that are
+  // not backing any existing allocation. If capacity_ - numMapped_ <
+  // newMappedNeeded, advises away enough pages backing freed slots in
+  // the size classes to make sure that the new pages can be used
+  // while staying within 'capacity"'.
+  // success. Returns false if cannot advise away enough free but backed pages
+  // from the size classes.
+  bool ensureEnoughMappedPages(int32_t newMappedNeeded);
 
   // Frees 'allocation and returns the number of freed pages. Does not
   // update 'numAllocated'.
@@ -247,8 +256,11 @@ class MmapAllocator : public MappedMemory {
   std::atomic<MachinePageCount> numMapped_;
 
   // Number of pages allocated and explicitly mmap'd by the
-  // application, outside of 'sizeClasses'. These count towards 'numAllocated_'
-  // but not towards 'numMapped_'.
+  // application via allocateContiguous, outside of
+  // 'sizeClasses'. These pages are counted in 'numAllocated_' and
+  // 'numMapped_'. Allocation requests are decided against
+  // 'numAllocated_' and 'numMapped_'. This counter is informational
+  // only.
   std::atomic<MachinePageCount> numExternalMapped_{0};
   MachinePageCount capacity_ = 0;
 
@@ -258,6 +270,7 @@ class MmapAllocator : public MappedMemory {
   uint64_t numAllocations_ = 0;
   uint64_t numAllocatedPages_ = 0;
   uint64_t numAdvisedPages_ = 0;
+  Failure injectedFailure_{Failure::kNone};
 };
 
 } // namespace facebook::velox::memory
