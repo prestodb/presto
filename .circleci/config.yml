@@ -51,7 +51,7 @@ jobs:
             source /opt/rh/gcc-toolset-9/enable
             cd presto-native-execution
             cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-            ninja -C _build/debug -j 4
+            ninja -C _build/debug -j 3
             ccache -s
       - save_cache:
           name: "Save CCache cache"
