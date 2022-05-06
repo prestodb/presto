@@ -20,7 +20,7 @@ executors:
   build:
     docker:
       - image : prestocpp/prestocpp-circleci:mikesh-20220331
-    resource_class: large
+    resource_class: xlarge
     environment:
         CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
         CXX: /opt/rh/gcc-toolset-9/root/bin/g++
