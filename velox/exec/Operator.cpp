@@ -65,7 +65,7 @@ core::ExecCtx* OperatorCtx::execCtx() const {
   return execCtx_.get();
 }
 
-std::unique_ptr<connector::ConnectorQueryCtx>
+std::shared_ptr<connector::ConnectorQueryCtx>
 OperatorCtx::createConnectorQueryCtx(
     const std::string& connectorId,
     const std::string& planNodeId) const {

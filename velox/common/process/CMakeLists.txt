@@ -14,7 +14,8 @@
 
 add_library(velox_process ProcessBase.cpp StackTrace.cpp TraceContext.cpp)
 
-target_link_libraries(velox_process ${FOLLY_WITH_DEPENDENCIES} glog::glog)
+target_link_libraries(velox_process velox_flag_definitions
+                      ${FOLLY_WITH_DEPENDENCIES} glog::glog)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

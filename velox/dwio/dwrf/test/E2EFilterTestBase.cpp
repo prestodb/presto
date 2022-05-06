@@ -62,7 +62,7 @@ void E2EFilterTestBase::makeDataset(
   auto spec = filterGenerator->makeScanSpec(SubfieldFilters{});
 
   uint64_t timeWithNoFilter = 0;
-  readWithoutFilter(spec.get(), batches_, timeWithNoFilter);
+  readWithoutFilter(spec, batches_, timeWithNoFilter);
 }
 
 void E2EFilterTestBase::addRowGroupSpecificData() {
@@ -170,7 +170,7 @@ void E2EFilterTestBase::makeNotNull(int32_t firstRow) {
 }
 
 void E2EFilterTestBase::readWithoutFilter(
-    ScanSpec* spec,
+    std::shared_ptr<ScanSpec> spec,
     const std::vector<RowVectorPtr>& batches,
     uint64_t& time) {
   auto input = std::make_unique<MemoryInputStream>(
@@ -217,7 +217,7 @@ void E2EFilterTestBase::readWithoutFilter(
 }
 
 void E2EFilterTestBase::readWithFilter(
-    ScanSpec* spec,
+    std::shared_ptr<ScanSpec> spec,
     const std::vector<RowVectorPtr>& batches,
     const std::vector<uint32_t>& hitRows,
     uint64_t& time,
@@ -315,12 +315,11 @@ void E2EFilterTestBase::testFilterSpecs(
       filterGenerator->makeSubfieldFilters(filterSpecs, batches_, hitRows);
   auto spec = filterGenerator->makeScanSpec(std::move(filters));
   uint64_t timeWithFilter = 0;
-  readWithFilter(spec.get(), batches_, hitRows, timeWithFilter, false);
+  readWithFilter(spec, batches_, hitRows, timeWithFilter, false);
 
   if (FLAGS_timing_repeats) {
     for (auto i = 0; i < FLAGS_timing_repeats; ++i) {
-      readWithFilter(
-          spec.get(), batches_, hitRows, timeWithFilter, false, true);
+      readWithFilter(spec, batches_, hitRows, timeWithFilter, false, true);
     }
   }
   // Redo the test with LazyVectors for non-filtered columns.
@@ -328,9 +327,9 @@ void E2EFilterTestBase::testFilterSpecs(
   for (auto& childSpec : spec->children()) {
     childSpec->setExtractValues(false);
   }
-  readWithFilter(spec.get(), batches_, hitRows, timeWithFilter, false);
+  readWithFilter(spec, batches_, hitRows, timeWithFilter, false);
   timeWithFilter = 0;
-  readWithFilter(spec.get(), batches_, hitRows, timeWithFilter, true);
+  readWithFilter(spec, batches_, hitRows, timeWithFilter, true);
 }
 
 void E2EFilterTestBase::testRowGroupSkip(

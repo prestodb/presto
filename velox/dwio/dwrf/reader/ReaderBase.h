@@ -64,10 +64,10 @@ class ReaderBase {
   ReaderBase(
       memory::MemoryPool& pool,
       std::unique_ptr<dwio::common::InputStream> stream,
-      dwio::common::encryption::DecrypterFactory* factory = nullptr,
-      BufferedInputFactory* bufferedInputFactory =
-          BufferedInputFactory::baseFactory(),
-      dwio::common::DataCacheConfig* dataCacheConfig = nullptr);
+      std::shared_ptr<dwio::common::encryption::DecrypterFactory>
+          decryptorFactory = nullptr,
+      std::shared_ptr<BufferedInputFactory> bufferedInputFactory = nullptr,
+      std::shared_ptr<dwio::common::DataCacheConfig> dataCacheConfig = nullptr);
 
   // create reader base from metadata
   ReaderBase(
@@ -219,7 +219,7 @@ class ReaderBase {
   }
 
   dwio::common::DataCacheConfig* getDataCacheConfig() const {
-    return dataCacheConfig_;
+    return dataCacheConfig_.get();
   }
 
   google::protobuf::Arena* arena() const {
@@ -237,10 +237,11 @@ class ReaderBase {
   std::unique_ptr<proto::PostScript> postScript_;
   proto::Footer* footer_ = nullptr;
   std::unique_ptr<StripeMetadataCache> cache_;
+  // Keeps factory alive for possibly async prefetch.
+  std::shared_ptr<dwio::common::encryption::DecrypterFactory> decryptorFactory_;
   std::unique_ptr<encryption::DecryptionHandler> handler_;
-  BufferedInputFactory* bufferedInputFactory_ =
-      BufferedInputFactory::baseFactory();
-  dwio::common::DataCacheConfig* dataCacheConfig_ = nullptr;
+  std::shared_ptr<BufferedInputFactory> bufferedInputFactory_;
+  std::shared_ptr<dwio::common::DataCacheConfig> dataCacheConfig_ = nullptr;
 
   std::unique_ptr<BufferedInput> input_;
   std::shared_ptr<const RowType> schema_;

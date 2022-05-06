@@ -86,15 +86,18 @@ std::string TailKey(uint64_t filenum) {
 ReaderBase::ReaderBase(
     MemoryPool& pool,
     std::unique_ptr<InputStream> stream,
-    DecrypterFactory* factory,
-    BufferedInputFactory* bufferedInputFactory,
-    dwio::common::DataCacheConfig* dataCacheConfig)
+    std::shared_ptr<DecrypterFactory> decryptorFactory,
+    std::shared_ptr<BufferedInputFactory> bufferedInputFactory,
+    std::shared_ptr<dwio::common::DataCacheConfig> dataCacheConfig)
     : pool_{pool},
       stream_{std::move(stream)},
       arena_(std::make_unique<google::protobuf::Arena>()),
-      bufferedInputFactory_(bufferedInputFactory),
+      decryptorFactory_(decryptorFactory),
+      bufferedInputFactory_(
+          bufferedInputFactory ? bufferedInputFactory
+                               : BufferedInputFactory::baseFactoryShared()),
       dataCacheConfig_(dataCacheConfig) {
-  input_ = bufferedInputFactory_->create(*stream_, pool, dataCacheConfig);
+  input_ = bufferedInputFactory_->create(*stream_, pool, dataCacheConfig.get());
 
   // We may have cached the tail before, in which case we can skip the read.
   if (dataCacheConfig && dataCacheConfig->cache) {
@@ -124,7 +127,7 @@ ReaderBase::ReaderBase(
         cache_ = std::make_unique<StripeMetadataCache>(
             *postScript_, *footer_, std::move(cacheBuffer));
       }
-      handler_ = DecryptionHandler::create(*footer_, factory);
+      handler_ = DecryptionHandler::create(*footer_, decryptorFactory_.get());
       return;
     }
   }
@@ -226,7 +229,7 @@ ReaderBase::ReaderBase(
     }
   }
   // initialize file decrypter
-  handler_ = DecryptionHandler::create(*footer_, factory);
+  handler_ = DecryptionHandler::create(*footer_, decryptorFactory_.get());
 }
 
 std::vector<uint64_t> ReaderBase::getRowsPerStripe() const {

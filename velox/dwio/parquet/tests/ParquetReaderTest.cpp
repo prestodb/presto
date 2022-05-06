@@ -100,8 +100,8 @@ class ParquetReaderTest : public testing::Test {
     EXPECT_EQ(reader.next(1000, result), 0);
   }
 
-  std::unique_ptr<common::ScanSpec> makeScanSpec(const RowTypePtr& rowType) {
-    auto scanSpec = std::make_unique<common::ScanSpec>("");
+  std::shared_ptr<common::ScanSpec> makeScanSpec(const RowTypePtr& rowType) {
+    auto scanSpec = std::make_shared<common::ScanSpec>("");
 
     for (auto i = 0; i < rowType->size(); ++i) {
       auto child =
@@ -134,7 +134,7 @@ class ParquetReaderTest : public testing::Test {
     }
 
     auto rowReaderOpts = getReaderOpts(fileSchema);
-    rowReaderOpts.setScanSpec(scanSpec.get());
+    rowReaderOpts.setScanSpec(scanSpec);
     auto rowReader = reader.createRowReader(rowReaderOpts);
     assertReadExpected(*rowReader, expected);
   }
@@ -176,7 +176,7 @@ TEST_F(ParquetReaderTest, readSampleFull) {
 
   auto rowReaderOpts = getReaderOpts(sampleSchema());
   auto scanSpec = makeScanSpec(sampleSchema());
-  rowReaderOpts.setScanSpec(scanSpec.get());
+  rowReaderOpts.setScanSpec(scanSpec);
   auto rowReader = reader.createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(20, 1), rangeVector<double>(20, 1)});
@@ -192,7 +192,7 @@ TEST_F(ParquetReaderTest, readSampleRange1) {
 
   auto rowReaderOpts = getReaderOpts(sampleSchema());
   auto scanSpec = makeScanSpec(sampleSchema());
-  rowReaderOpts.setScanSpec(scanSpec.get());
+  rowReaderOpts.setScanSpec(scanSpec);
   rowReaderOpts.range(0, 200);
   auto rowReader = reader.createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
@@ -209,7 +209,7 @@ TEST_F(ParquetReaderTest, readSampleRange2) {
 
   auto rowReaderOpts = getReaderOpts(sampleSchema());
   auto scanSpec = makeScanSpec(sampleSchema());
-  rowReaderOpts.setScanSpec(scanSpec.get());
+  rowReaderOpts.setScanSpec(scanSpec);
   rowReaderOpts.range(200, 500);
   auto rowReader = reader.createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
@@ -226,7 +226,7 @@ TEST_F(ParquetReaderTest, readSampleEmptyRange) {
 
   auto rowReaderOpts = getReaderOpts(sampleSchema());
   auto scanSpec = makeScanSpec(sampleSchema());
-  rowReaderOpts.setScanSpec(scanSpec.get());
+  rowReaderOpts.setScanSpec(scanSpec);
   rowReaderOpts.range(300, 10);
   auto rowReader = reader.createRowReader(rowReaderOpts);
 
@@ -294,7 +294,7 @@ TEST_F(ParquetReaderTest, dateRead) {
 
   auto rowReaderOpts = getReaderOpts(dateSchema());
   auto scanSpec = makeScanSpec(dateSchema());
-  rowReaderOpts.setScanSpec(scanSpec.get());
+  rowReaderOpts.setScanSpec(scanSpec);
   auto rowReader = reader.createRowReader(rowReaderOpts);
 
   auto expected = vectorMaker_->rowVector({rangeVector<Date>(25, -5)});
@@ -335,7 +335,7 @@ TEST_F(ParquetReaderTest, intRead) {
 
   auto rowReaderOpts = getReaderOpts(intSchema());
   auto scanSpec = makeScanSpec(intSchema());
-  rowReaderOpts.setScanSpec(scanSpec.get());
+  rowReaderOpts.setScanSpec(scanSpec);
   auto rowReader = reader.createRowReader(rowReaderOpts);
 
   auto expected = vectorMaker_->rowVector(

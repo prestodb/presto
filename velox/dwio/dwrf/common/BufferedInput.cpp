@@ -211,9 +211,10 @@ std::tuple<const char*, uint64_t> BufferedInput::readInternal(
 }
 
 //  static
-BufferedInputFactory* BufferedInputFactory::baseFactory() {
-  static auto instance = std::make_unique<BufferedInputFactory>();
-  return instance.get();
+std::shared_ptr<BufferedInputFactory>
+BufferedInputFactory::baseFactoryShared() {
+  static auto instance = std::make_shared<BufferedInputFactory>();
+  return instance;
 }
 
 } // namespace facebook::velox::dwrf

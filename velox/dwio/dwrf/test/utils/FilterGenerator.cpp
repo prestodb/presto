@@ -335,9 +335,9 @@ std::vector<FilterSpec> FilterGenerator::makeRandomSpecs(
   return specs;
 }
 
-std::unique_ptr<ScanSpec> FilterGenerator::makeScanSpec(
+std::shared_ptr<ScanSpec> FilterGenerator::makeScanSpec(
     SubfieldFilters filters) {
-  auto spec = std::make_unique<ScanSpec>("root");
+  auto spec = std::make_shared<ScanSpec>("root");
   makeFieldSpecs("", 0, rowType_, spec.get());
 
   for (auto& pair : filters) {

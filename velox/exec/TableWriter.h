@@ -71,7 +71,7 @@ class TableWriter : public Operator {
   bool closed_;
   DriverCtx* driverCtx_;
   std::shared_ptr<connector::Connector> connector_;
-  std::unique_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
+  std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   std::shared_ptr<connector::DataSink> dataSink_;
   std::shared_ptr<connector::ConnectorInsertTableHandle> insertTableHandle_;
 };

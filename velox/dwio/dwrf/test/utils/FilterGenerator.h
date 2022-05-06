@@ -328,7 +328,7 @@ class FilterGenerator {
   std::vector<FilterSpec> makeRandomSpecs(
       const std::vector<std::string>& filterable,
       int32_t countX100);
-  std::unique_ptr<ScanSpec> makeScanSpec(SubfieldFilters filters);
+  std::shared_ptr<ScanSpec> makeScanSpec(SubfieldFilters filters);
 
   inline folly::Random::DefaultGenerator& rng() {
     return rng_;

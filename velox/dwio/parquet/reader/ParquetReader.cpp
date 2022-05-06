@@ -236,7 +236,8 @@ ParquetRowReader::ParquetRowReader(
     duckdbRowType_.push_back(duckDbType);
 
     if (options.getScanSpec()) {
-      auto veloxFilter = findFilter(projection[i].name, options.getScanSpec());
+      auto veloxFilter =
+          findFilter(projection[i].name, options.getScanSpec().get());
       if (veloxFilter) {
         toDuckDbFilter(i, duckDbType, veloxFilter.value(), filters_);
       }
