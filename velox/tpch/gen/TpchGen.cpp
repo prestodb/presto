@@ -79,6 +79,27 @@ std::vector<VectorPtr> allocateVectors(
 
 } // namespace
 
+std::string_view toTableName(Table table) {
+  switch (table) {
+    case Table::TBL_PART:
+      return "part";
+    case Table::TBL_SUPPLIER:
+      return "supplier";
+    case Table::TBL_PARTSUPP:
+      return "partsupp";
+    case Table::TBL_CUSTOMER:
+      return "customer";
+    case Table::TBL_ORDERS:
+      return "orders";
+    case Table::TBL_LINEITEM:
+      return "lineitem";
+    case Table::TBL_NATION:
+      return "nation";
+    case Table::TBL_REGION:
+      return "region";
+  }
+}
+
 constexpr size_t getRowCount(Table table, size_t scaleFactor) {
   switch (table) {
     case Table::TBL_PART:

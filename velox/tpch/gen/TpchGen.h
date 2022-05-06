@@ -46,6 +46,9 @@ enum class Table {
   TBL_REGION,
 };
 
+/// Returns table name as a string.
+std::string_view toTableName(Table table);
+
 /// Returns the row count for a particular TPC-H table given a scale factor, as
 /// defined in the spec available at:
 ///
