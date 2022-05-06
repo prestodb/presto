@@ -103,7 +103,15 @@ class OperatorTestBase : public testing::Test,
 
   RowVectorPtr getResults(std::shared_ptr<const core::PlanNode> planNode);
 
+  RowVectorPtr getResults(
+      std::shared_ptr<const core::PlanNode> planNode,
+      std::vector<exec::Split>&& splits);
+
   RowVectorPtr getResults(const CursorParameters& params);
+
+  RowVectorPtr getResults(
+      const CursorParameters& params,
+      std::function<void(exec::Task*)> addSplits);
 
   static std::shared_ptr<const RowType> makeRowType(
       std::vector<std::shared_ptr<const Type>>&& types) {

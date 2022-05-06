@@ -125,8 +125,33 @@ RowVectorPtr OperatorTestBase::getResults(
   return getResults(params);
 }
 
+RowVectorPtr OperatorTestBase::getResults(
+    std::shared_ptr<const core::PlanNode> planNode,
+    std::vector<exec::Split>&& splits) {
+  CursorParameters params;
+  params.planNode = std::move(planNode);
+
+  bool noMoreSplits = false;
+  return getResults(params, [&](Task* task) {
+    if (noMoreSplits) {
+      return;
+    }
+    for (auto& split : splits) {
+      task->addSplit("0", std::move(split));
+    }
+    task->noMoreSplits("0");
+    noMoreSplits = true;
+  });
+}
+
 RowVectorPtr OperatorTestBase::getResults(const CursorParameters& params) {
-  auto [cursor, results] = readCursor(params, [](auto) {});
+  return getResults(params, [](auto) {});
+}
+
+RowVectorPtr OperatorTestBase::getResults(
+    const CursorParameters& params,
+    std::function<void(exec::Task*)> addSplits) {
+  auto [cursor, results] = readCursor(params, addSplits);
 
   auto totalCount = 0;
   for (const auto& result : results) {
