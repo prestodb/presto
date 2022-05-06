@@ -352,7 +352,6 @@ class Exchange : public SourceOperator {
   std::unique_ptr<SerializedPage> currentPage_;
   std::unique_ptr<ByteStream> inputStream_;
   bool atEnd_{false};
-  size_t numSplits_{0}; // Number of splits we took to process so far.
 };
 
 } // namespace facebook::velox::exec

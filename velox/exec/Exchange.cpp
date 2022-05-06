@@ -247,12 +247,12 @@ bool Exchange::getSplits(ContinueFuture* future) {
             split.connectorSplit);
         VELOX_CHECK(remoteSplit, "Wrong type of split");
         exchangeClient_->addRemoteTaskId(remoteSplit->taskId);
-        ++numSplits_;
+        ++stats_.numSplits;
       } else {
         exchangeClient_->noMoreRemoteTasks();
         noMoreSplits_ = true;
         if (atEnd_) {
-          operatorCtx_->task()->multipleSplitsFinished(numSplits_);
+          operatorCtx_->task()->multipleSplitsFinished(stats_.numSplits);
         }
         return false;
       }
@@ -278,7 +278,7 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
   currentPage_ = exchangeClient_->next(&atEnd_, &dataFuture);
   if (currentPage_ || atEnd_) {
     if (atEnd_ && noMoreSplits_) {
-      operatorCtx_->task()->multipleSplitsFinished(numSplits_);
+      operatorCtx_->task()->multipleSplitsFinished(stats_.numSplits);
     }
     return BlockingReason::kNotBlocked;
   }
@@ -297,8 +297,8 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
     // Block until data becomes available.
     *future = std::move(dataFuture);
   }
-  return numSplits_ == 0 ? BlockingReason::kWaitForSplit
-                         : BlockingReason::kWaitForExchange;
+  return stats_.numSplits == 0 ? BlockingReason::kWaitForSplit
+                               : BlockingReason::kWaitForExchange;
 }
 
 bool Exchange::isFinished() {
