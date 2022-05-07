@@ -53,6 +53,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
@@ -61,6 +62,7 @@ import static com.facebook.presto.SystemSessionProperties.getResourceAwareSchedu
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.TTL;
+import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.CONSISTENT_HASHING;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -263,8 +265,11 @@ public class NodeScheduler
                     .map(InternalNode::getNodeIdentifier)
                     .collect(toImmutableSet());
 
-            int weight = (int) ceil(1.0 * minVirtualNodeCount / activeNodes.size());
-            ConsistentHashingNodeProvider consistentHashingNodeProvider = ConsistentHashingNodeProvider.create(activeNodes, weight);
+            Optional<ConsistentHashingNodeProvider> consistentHashingNodeProvider = Optional.empty();
+            if (nodeSelectionHashStrategy == CONSISTENT_HASHING) {
+                int weight = (int) ceil(1.0 * minVirtualNodeCount / activeNodes.size());
+                consistentHashingNodeProvider = Optional.of(ConsistentHashingNodeProvider.create(activeNodes, weight));
+            }
 
             for (InternalNode node : allNodes) {
                 if (node.getNodeStatus() == ALIVE) {
