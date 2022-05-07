@@ -98,6 +98,7 @@ std::string_view toTableName(Table table) {
     case Table::TBL_REGION:
       return "region";
   }
+  return ""; // make gcc happy.
 }
 
 constexpr size_t getRowCount(Table table, size_t scaleFactor) {
