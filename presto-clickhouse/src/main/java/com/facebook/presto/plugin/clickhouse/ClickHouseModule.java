@@ -24,8 +24,6 @@ import com.google.inject.multibindings.Multibinder;
 import ru.yandex.clickhouse.ClickHouseDriver;
 
 import java.sql.SQLException;
-import java.util.Optional;
-import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -63,19 +61,7 @@ public class ClickHouseModule
     public static ConnectionFactory connectionFactory(ClickHouseConfig clickhouseConfig)
             throws SQLException
     {
-        Properties connectionProperties = new Properties();
-        connectionProperties.setProperty("useInformationSchema", "true");
-        connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
-        connectionProperties.setProperty("useUnicode", "true");
-        connectionProperties.setProperty("characterEncoding", "utf8");
-        connectionProperties.setProperty("tinyInt1isBit", "false");
-
-        return new DriverConnectionFactory(
-                new ClickHouseDriver(),
-                clickhouseConfig.getConnectionUrl(),
-                Optional.ofNullable(clickhouseConfig.getUserCredential()),
-                Optional.ofNullable(clickhouseConfig.getPasswordCredential()),
-                connectionProperties);
+        return new DriverConnectionFactory(new ClickHouseDriver(), clickhouseConfig);
     }
 
     public static Multibinder<TablePropertiesProvider> tablePropertiesProviderBinder(Binder binder)
