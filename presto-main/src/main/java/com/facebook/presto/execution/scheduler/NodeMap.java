@@ -21,6 +21,7 @@ import com.google.common.collect.SetMultimap;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.lang.String.format;
@@ -34,7 +35,7 @@ public class NodeMap
     private final List<InternalNode> allNodes;
     private final SetMultimap<InetAddress, InternalNode> allNodesByHost;
     private final SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort;
-    private final ConsistentHashingNodeProvider consistentHashingNodeProvider;
+    private final Optional<ConsistentHashingNodeProvider> consistentHashingNodeProvider;
 
     public NodeMap(
             Map<String, InternalNode> activeNodesByNodeId,
@@ -44,7 +45,7 @@ public class NodeMap
             List<InternalNode> allNodes,
             SetMultimap<InetAddress, InternalNode> allNodesByHost,
             SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort,
-            ConsistentHashingNodeProvider consistentHashingNodeProvider)
+            Optional<ConsistentHashingNodeProvider> consistentHashingNodeProvider)
     {
         this.activeNodesByNodeId = activeNodesByNodeId;
         this.activeWorkersByNetworkPath = activeWorkersByNetworkPath;
@@ -97,7 +98,7 @@ public class NodeMap
             case MODULAR_HASHING:
                 return new ModularHashingNodeProvider(activeNodes);
             case CONSISTENT_HASHING:
-                return consistentHashingNodeProvider;
+                return consistentHashingNodeProvider.get();
             default:
                 throw new IllegalArgumentException(format("Unknown NodeSelectionHashStrategy: %s", nodeSelectionHashStrategy));
         }
