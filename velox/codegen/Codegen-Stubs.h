@@ -28,7 +28,7 @@ namespace velox {
 namespace codegen {
 
 /// Main interface/entry point with the code generation system.
-/// This is stub code useed when the codegeneration is disabled
+/// This is stub code used when the code generation is disabled.
 
 class Codegen {
  public:
