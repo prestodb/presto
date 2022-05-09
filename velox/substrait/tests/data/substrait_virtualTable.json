@@ -1,0 +1,153 @@
+{
+ "extension_uris": [],
+ "extensions": [],
+ "relations": [
+  {
+   "root": {
+    "input": {
+     "read": {
+      "common": {
+       "direct": {}
+      },
+      "base_schema": {
+       "names": [
+        "c0",
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+       ],
+       "struct": {
+        "types": [
+         {
+          "i64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         },
+         {
+          "i32": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         },
+         {
+          "fp64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         },
+         {
+          "bool": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         },
+         {
+          "i32": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_NULLABLE"
+          }
+         }
+        ],
+        "type_variation_reference": 0,
+        "nullability": "NULLABILITY_NULLABLE"
+       }
+      },
+      "virtual_table": {
+       "values": [
+        {
+         "fields": [
+          {
+           "nullable": false,
+           "i64": "2499109626526694126"
+          },
+          {
+           "nullable": false,
+           "i64": "2342493223442167775"
+          },
+          {
+           "nullable": false,
+           "i64": "4077358421272316858"
+          },
+          {
+           "nullable": false,
+           "i32": 581869302
+          },
+          {
+           "nullable": false,
+           "i32": -708632711
+          },
+          {
+           "nullable": false,
+           "i32": -133711905
+          },
+          {
+           "nullable": false,
+           "fp64": 0.90579193414549275
+          },
+          {
+           "nullable": false,
+           "fp64": 0.96886777112423139
+          },
+          {
+           "nullable": false,
+           "fp64": 0.63235925003444637
+          },
+          {
+           "nullable": false,
+           "boolean": true
+          },
+          {
+           "nullable": false,
+           "boolean": false
+          },
+          {
+           "nullable": false,
+           "boolean": false
+          },
+          {
+           "null": {
+            "i32": {
+             "type_variation_reference": 0,
+             "nullability": "NULLABILITY_NULLABLE"
+            }
+           },
+           "nullable": true
+          },
+          {
+           "null": {
+            "i32": {
+             "type_variation_reference": 0,
+             "nullability": "NULLABILITY_NULLABLE"
+            }
+           },
+           "nullable": true
+          },
+          {
+           "null": {
+            "i32": {
+             "type_variation_reference": 0,
+             "nullability": "NULLABILITY_NULLABLE"
+            }
+           },
+           "nullable": true
+          }
+         ]
+        }
+       ]
+      }
+     }
+    },
+    "names": [
+     "c0",
+     "c1",
+     "c2",
+     "c3",
+     "c4"
+    ]
+   }
+  }
+ ],
+ "expected_type_urls": []
+}

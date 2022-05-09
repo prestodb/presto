@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/core/PlanNode.h"
 #include "velox/substrait/SubstraitToVeloxExpr.h"
 
 namespace facebook::velox::substrait {
@@ -24,57 +25,70 @@ namespace facebook::velox::substrait {
 /// This class is used to convert the Substrait plan into Velox plan.
 class SubstraitVeloxPlanConverter {
  public:
-  /// Used to convert Substrait AggregateRel into Velox PlanNode.
-  std::shared_ptr<const core::PlanNode> toVeloxPlan(
-      const ::substrait::AggregateRel& sAgg);
+  /// Convert Substrait AggregateRel into Velox PlanNode.
+  core::PlanNodePtr toVeloxPlan(
+      const ::substrait::AggregateRel& aggRel,
+      memory::MemoryPool* pool);
 
-  /// Used to convert Substrait ProjectRel into Velox PlanNode.
-  std::shared_ptr<const core::PlanNode> toVeloxPlan(
-      const ::substrait::ProjectRel& sProject);
+  /// Convert Substrait ProjectRel into Velox PlanNode.
+  core::PlanNodePtr toVeloxPlan(
+      const ::substrait::ProjectRel& projectRel,
+      memory::MemoryPool* pool);
 
-  /// Used to convert Substrait FilterRel into Velox PlanNode.
-  std::shared_ptr<const core::PlanNode> toVeloxPlan(
-      const ::substrait::FilterRel& sFilter);
+  /// Convert Substrait FilterRel into Velox PlanNode.
+  core::PlanNodePtr toVeloxPlan(
+      const ::substrait::FilterRel& filterRel,
+      memory::MemoryPool* pool);
 
-  /// Used to convert Substrait ReadRel into Velox PlanNode.
+  /// Convert Substrait ReadRel into Velox PlanNode.
   /// Index: the index of the partition this item belongs to.
   /// Starts: the start positions in byte to read from the items.
   /// Lengths: the lengths in byte to read from the items.
-  std::shared_ptr<const core::PlanNode> toVeloxPlan(
-      const ::substrait::ReadRel& sRead,
+  core::PlanNodePtr toVeloxPlan(
+      const ::substrait::ReadRel& readRel,
+      memory::MemoryPool* pool,
       u_int32_t& index,
       std::vector<std::string>& paths,
       std::vector<u_int64_t>& starts,
       std::vector<u_int64_t>& lengths);
 
-  /// Used to convert Substrait Rel into Velox PlanNode.
-  std::shared_ptr<const core::PlanNode> toVeloxPlan(
-      const ::substrait::Rel& sRel);
+  /// Convert Substrait ReadRel into Velox Values Node.
+  core::PlanNodePtr toVeloxPlan(
+      const ::substrait::ReadRel& readRel,
+      memory::MemoryPool* pool,
+      const RowTypePtr& type);
 
-  /// Used to convert Substrait RelRoot into Velox PlanNode.
-  std::shared_ptr<const core::PlanNode> toVeloxPlan(
-      const ::substrait::RelRoot& sRoot);
+  /// Convert Substrait Rel into Velox PlanNode.
+  core::PlanNodePtr toVeloxPlan(
+      const ::substrait::Rel& rel,
+      memory::MemoryPool* pool);
 
-  /// Used to convert Substrait Plan into Velox PlanNode.
-  std::shared_ptr<const core::PlanNode> toVeloxPlan(
-      const ::substrait::Plan& sPlan);
+  /// Convert Substrait RelRoot into Velox PlanNode.
+  core::PlanNodePtr toVeloxPlan(
+      const ::substrait::RelRoot& root,
+      memory::MemoryPool* pool);
 
-  /// Will return the index of Partition to be scanned.
+  /// Convert Substrait Plan into Velox PlanNode.
+  core::PlanNodePtr toVeloxPlan(
+      const ::substrait::Plan& substraitPlan,
+      memory::MemoryPool* pool);
+
+  /// Return the index of Partition to be scanned.
   u_int32_t getPartitionIndex() {
     return partitionIndex_;
   }
 
-  /// Will return the paths of the files to be scanned.
+  /// Return the paths of the files to be scanned.
   const std::vector<std::string>& getPaths() {
     return paths_;
   }
 
-  /// Will return the starts of the files to be scanned.
+  /// Return the starts of the files to be scanned.
   const std::vector<u_int64_t>& getStarts() {
     return starts_;
   }
 
-  /// Will return the lengths to be scanned for each file.
+  /// Return the lengths to be scanned for each file.
   const std::vector<u_int64_t>& getLengths() {
     return lengths_;
   }

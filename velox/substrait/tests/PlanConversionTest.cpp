@@ -156,6 +156,8 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
     // Velox computing will be returned.
     std::shared_ptr<WholeComputeResultIterator> getResIter(
         const std::string& subPlanPath) {
+      std::unique_ptr<facebook::velox::memory::ScopedMemoryPool> pool_{
+          memory::getDefaultScopedMemoryPool()};
       // Read sub.json and resume the Substrait plan.
       std::ifstream subJson(subPlanPath);
       std::stringstream buffer;
@@ -167,7 +169,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
       auto planConverter = std::make_shared<
           facebook::velox::substrait::SubstraitVeloxPlanConverter>();
       // Convert to Velox PlanNode.
-      auto planNode = planConverter->toVeloxPlan(subPlan);
+      auto planNode = planConverter->toVeloxPlan(subPlan, pool_.get());
 
       // Get the information for TableScan.
       u_int32_t partitionIndex = planConverter->getPartitionIndex();
@@ -305,8 +307,8 @@ TEST_P(PlanConversionTest, queryTest) {
            VARCHAR(),
            VARCHAR(),
            VARCHAR()});
-  std::unique_ptr<facebook::velox::memory::MemoryPool> pool{
-      facebook::velox::memory::getDefaultScopedMemoryPool()};
+  std::unique_ptr<memory::MemoryPool> pool{
+      memory::getDefaultScopedMemoryPool()};
   std::vector<VectorPtr> vectors;
   // TPC-H lineitem table has 16 columns.
   int colNum = 16;
@@ -477,7 +479,7 @@ TEST_P(PlanConversionTest, queryTest) {
   }
 
   // Find and deserialize Substrait plan json file.
-  std::string subPlanPath = veloxPath + "/velox/substrait/tests/sub.json";
+  std::string subPlanPath = veloxPath + "/velox/substrait/tests/data/sub.json";
   auto veloxConverter = std::make_shared<VeloxConverter>();
 
   // Writes data into an ORC file.
