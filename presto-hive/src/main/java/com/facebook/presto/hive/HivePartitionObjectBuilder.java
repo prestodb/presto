@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveSessionProperties.getNewPartitionUserSuppliedParameter;
 
@@ -33,7 +34,8 @@ public class HivePartitionObjectBuilder
             Table table,
             PartitionUpdate partitionUpdate,
             String prestoVersion,
-            Map<String, String> extraParameters)
+            Map<String, String> extraParameters,
+            Optional<Long> partitionVersion)
     {
         ImmutableMap.Builder extraParametersBuilder = ImmutableMap.builder()
                 .put(HiveMetadata.PRESTO_VERSION_NAME, prestoVersion)

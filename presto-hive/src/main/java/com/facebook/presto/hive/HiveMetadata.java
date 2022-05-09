@@ -85,7 +85,6 @@ import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -298,6 +297,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.AVRO_SCHEMA_URL_K
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
@@ -1665,7 +1665,7 @@ public class HiveMetadata
             HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), true);
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() :
-                        Optional.of(partitionObjectBuilder.buildPartitionObject(session, table, partitionUpdate, prestoVersion, partitionEncryptionParameters));
+                        Optional.of(partitionObjectBuilder.buildPartitionObject(session, table, partitionUpdate, prestoVersion, partitionEncryptionParameters, Optional.empty()));
                 zeroRowFileCreator.createFiles(
                         session,
                         hdfsContext,
@@ -1708,7 +1708,7 @@ public class HiveMetadata
                 // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
                 partitionParameters = updatePartitionMetadataWithFileNamesAndSizes(update, partitionParameters);
             }
-            Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters);
+            Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters, Optional.empty());
             PartitionStatistics partitionStatistics = createPartitionStatistics(
                     session,
                     update.getStatistics(),
@@ -1720,7 +1720,7 @@ public class HiveMetadata
                     handle.getTableName(),
                     table.getStorage().getLocation(),
                     true,
-                    partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters),
+                    partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters, Optional.empty()),
                     update.getWritePath(),
                     partitionStatistics);
         }
@@ -1987,7 +1987,8 @@ public class HiveMetadata
                                 prestoVersion,
                                 handle.getEncryptionInformation()
                                         .map(encryptionInfo -> encryptionInfo.getDwrfEncryptionMetadata().map(DwrfEncryptionMetadata::getExtraMetadata).orElseGet(ImmutableMap::of))
-                                        .orElseGet(ImmutableMap::of)));
+                                        .orElseGet(ImmutableMap::of),
+                                Optional.empty()));
                 zeroRowFileCreator.createFiles(
                         session,
                         hdfsContext,
@@ -2006,7 +2007,7 @@ public class HiveMetadata
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
 
-        Set<String> existingPartitions = getExistingPartitionNames(session.getIdentity(), metastoreContext, handle.getSchemaName(), handle.getTableName(), partitionUpdates);
+        Map<String, Optional<Partition>> existingPartitions = getExistingPartitionsByNames(metastoreContext, handle.getSchemaName(), handle.getTableName(), partitionUpdates);
 
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             if (partitionUpdate.getName().isEmpty()) {
@@ -2062,33 +2063,37 @@ public class HiveMetadata
                 // Track the manifest blob size
                 getManifestSizeInBytes(session, partitionUpdate, extraPartitionMetadata).ifPresent(hivePartitionStats::addManifestSizeInBytes);
 
-                // insert into new partition or overwrite existing partition
-                Partition partition = partitionObjectBuilder.buildPartitionObject(
-                        session,
-                        table,
-                        partitionUpdate,
-                        prestoVersion,
-                        extraPartitionMetadata);
-                if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
-                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
-                }
-                boolean existingPartition = existingPartitions.contains(partitionUpdate.getName());
+                boolean existingPartition = existingPartitions.containsKey(partitionUpdate.getName());
+                Optional<Long> existingPartitionVersion = Optional.empty();
                 if (existingPartition) {
                     // Overwriting an existing partition
                     if (partitionUpdate.getUpdateMode() == OVERWRITE) {
+                        existingPartitionVersion = existingPartitions.get(partitionUpdate.getName()).flatMap(Partition::getPartitionVersion);
                         if (handle.getLocationHandle().getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
                             // In this writeMode, the new files will be written to the same directory. Since this is
                             // an overwrite operation, we must remove all the old files not written by current query.
                             removeNonCurrentQueryFiles(session, partitionUpdate.getTargetPath());
                         }
                         else {
-                            metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), handle.getLocationHandle().getTargetPath().toString(), partition.getValues());
+                            metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), handle.getLocationHandle().getTargetPath().toString(), extractPartitionValues(partitionUpdate.getName()));
                         }
                     }
                     else {
                         throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionUpdate.getName());
                     }
                 }
+                // insert into new partition or overwrite existing partition
+                Partition partition = partitionObjectBuilder.buildPartitionObject(
+                        session,
+                        table,
+                        partitionUpdate,
+                        prestoVersion,
+                        extraPartitionMetadata,
+                        existingPartitionVersion);
+                if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
+                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
+                }
+
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         session,
                         partitionUpdate.getStatistics(),
@@ -2200,15 +2205,15 @@ public class HiveMetadata
                 .orElse(ImmutableMap.of());
     }
 
-    private Set<String> getExistingPartitionNames(ConnectorIdentity identity, MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionUpdate> partitionUpdates)
+    private Map<String, Optional<Partition>> getExistingPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionUpdate> partitionUpdates)
     {
-        ImmutableSet.Builder<String> existingPartitions = ImmutableSet.builder();
+        ImmutableMap.Builder<String, Optional<Partition>> existingPartitions = ImmutableMap.builder();
         ImmutableSet.Builder<String> potentiallyNewPartitions = ImmutableSet.builder();
 
         for (PartitionUpdate update : partitionUpdates) {
             switch (update.getUpdateMode()) {
                 case APPEND:
-                    existingPartitions.add(update.getName());
+                    existingPartitions.put(update.getName(), Optional.empty());
                     break;
                 case NEW:
                 case OVERWRITE:
@@ -2222,9 +2227,8 @@ public class HiveMetadata
         // try to load potentially new partitions in batches to check if any of them exist
         Lists.partition(ImmutableList.copyOf(potentiallyNewPartitions.build()), maxPartitionBatchSize).stream()
                 .flatMap(partitionNames -> metastore.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames).entrySet().stream()
-                        .filter(entry -> entry.getValue().isPresent())
-                        .map(Map.Entry::getKey))
-                .forEach(existingPartitions::add);
+                        .filter(entry -> entry.getValue().isPresent()))
+                .forEach(entry -> existingPartitions.put(entry.getKey(), entry.getValue()));
 
         return existingPartitions.build();
     }

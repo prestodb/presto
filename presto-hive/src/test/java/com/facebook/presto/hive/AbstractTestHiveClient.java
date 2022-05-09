@@ -375,7 +375,7 @@ public abstract class AbstractTestHiveClient
             .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
             .build();
 
-    private static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA = new MaterializedResult(
+    protected static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA = new MaterializedResult(
             CREATE_TABLE_DATA.getMaterializedRows().stream()
                     .map(row -> new MaterializedRow(row.getPrecision(), newArrayList(concat(row.getFields(), ImmutableList.of("2015-07-0" + row.getField(0))))))
                     .collect(toList()),
@@ -4621,7 +4621,13 @@ public abstract class AbstractTestHiveClient
     /**
      * @return query id
      */
-    private String insertData(SchemaTableName tableName, MaterializedResult data)
+    protected String insertData(SchemaTableName tableName, MaterializedResult data)
+            throws Exception
+    {
+        return insertData(tableName, data, newSession());
+    }
+
+    protected String insertData(SchemaTableName tableName, MaterializedResult data, ConnectorSession session)
             throws Exception
     {
         Path writePath;
@@ -4629,7 +4635,6 @@ public abstract class AbstractTestHiveClient
         String queryId;
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
             HiveInsertTableHandle insertTableHandle = (HiveInsertTableHandle) metadata.beginInsert(session, tableHandle);
             queryId = session.getQueryId();
