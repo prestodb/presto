@@ -5052,7 +5052,7 @@ public abstract class AbstractTestHiveClient
         return handle;
     }
 
-    private MaterializedResult readTable(
+    protected MaterializedResult readTable(
             Transaction transaction,
             ConnectorTableHandle hiveTableHandle,
             List<ColumnHandle> columnHandles,
@@ -5066,7 +5066,7 @@ public abstract class AbstractTestHiveClient
         return readTable(transaction, hiveTableHandle, layoutHandle, columnHandles, session, expectedSplitCount, expectedStorageFormat);
     }
 
-    private MaterializedResult readTable(
+    protected MaterializedResult readTable(
             Transaction transaction,
             ConnectorTableHandle hiveTableHandle,
             ConnectorTableLayoutHandle hiveTableLayoutHandle,
