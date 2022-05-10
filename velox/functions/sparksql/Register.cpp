@@ -29,6 +29,7 @@
 #include "velox/functions/sparksql/RegexFunctions.h"
 #include "velox/functions/sparksql/RegisterArithmetic.h"
 #include "velox/functions/sparksql/RegisterCompare.h"
+#include "velox/functions/sparksql/Size.h"
 #include "velox/functions/sparksql/String.h"
 
 namespace facebook::velox::functions {
@@ -64,6 +65,9 @@ namespace sparksql {
 
 void registerFunctions(const std::string& prefix) {
   registerFunction<RandFunction, double>({"rand"});
+
+  // Register size functions
+  registerSize(prefix + "size");
 
   registerFunction<JsonExtractScalarFunction, Varchar, Varchar, Varchar>(
       {prefix + "get_json_object"});

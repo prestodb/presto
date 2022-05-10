@@ -22,6 +22,7 @@ add_library(
   Register.cpp
   RegisterArithmetic.cpp
   RegisterCompare.cpp
+  Size.cpp
   SplitFunctions.cpp
   String.cpp
   Subscript.cpp)

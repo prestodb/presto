@@ -21,6 +21,7 @@ add_executable(
   InTest.cpp
   LeastGreatestTest.cpp
   RegexFunctionsTest.cpp
+  SizeTest.cpp
   SortArrayTest.cpp
   SplitFunctionsTest.cpp
   StringTest.cpp
