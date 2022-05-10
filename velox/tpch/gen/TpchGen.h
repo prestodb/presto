@@ -53,7 +53,7 @@ std::string_view toTableName(Table table);
 /// defined in the spec available at:
 ///
 ///  https://www.tpc.org/tpch/
-constexpr size_t getRowCount(Table table, size_t scaleFactor);
+size_t getRowCount(Table table, size_t scaleFactor);
 
 /// Returns the schema (RowType) for a particular TPC-H table.
 RowTypePtr getTableSchema(Table table);

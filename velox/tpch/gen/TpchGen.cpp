@@ -101,7 +101,7 @@ std::string_view toTableName(Table table) {
   return ""; // make gcc happy.
 }
 
-constexpr size_t getRowCount(Table table, size_t scaleFactor) {
+size_t getRowCount(Table table, size_t scaleFactor) {
   switch (table) {
     case Table::TBL_PART:
       return 200'000 * scaleFactor;
