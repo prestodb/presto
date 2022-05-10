@@ -33,7 +33,8 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
           scanSpec,
           dataType->type,
           std::move(flatMapContext)),
-      requestedType_{requestedType} {
+      requestedType_{requestedType},
+      debugString_(getExceptionContext().message()) {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   DWIO_ENSURE_EQ(encodingKey.node, dataType->id, "working on the same node");
   auto encoding = static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());

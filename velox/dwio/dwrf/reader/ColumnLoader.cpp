@@ -50,6 +50,13 @@ void ColumnLoader::loadInternal(
   auto outputRows = structReader_->outputRows();
   raw_vector<vector_size_t> selectedRows;
   RowSet effectiveRows;
+  ExceptionContextSetter exceptionContext(
+      {[](auto* reader) {
+         return static_cast<SelectiveStructColumnReader*>(reader)
+             ->debugString();
+       },
+       this});
+
   if (rows.size() == outputRows.size()) {
     // All the rows planned at creation are accessed.
     effectiveRows = outputRows;

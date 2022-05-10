@@ -70,5 +70,8 @@ class TableScan : public SourceOperator {
   std::unordered_map<ChannelIndex, std::shared_ptr<common::Filter>>
       pendingDynamicFilters_;
   int32_t readBatchSize_{kDefaultBatchSize};
+
+  // String shown in ExceptionContext inside DataSource and LazyVector loading.
+  std::string debugString_;
 };
 } // namespace facebook::velox::exec
