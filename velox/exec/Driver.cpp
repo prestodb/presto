@@ -335,6 +335,7 @@ StopReason Driver::runInternal(
               CpuWallTimer timer(op->stats().getOutputTiming);
               result = op->getOutput();
               if (result) {
+                op->stats().outputVectors += 1;
                 op->stats().outputPositions += result->size();
                 resultBytes = result->estimateFlatSize();
                 op->stats().outputBytes += resultBytes;
@@ -343,6 +344,7 @@ StopReason Driver::runInternal(
             pushdownFilters(i);
             if (result) {
               CpuWallTimer timer(nextOp->stats().addInputTiming);
+              nextOp->stats().inputVectors += 1;
               nextOp->stats().inputPositions += result->size();
               nextOp->stats().inputBytes += resultBytes;
               nextOp->addInput(result);

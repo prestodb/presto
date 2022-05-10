@@ -79,31 +79,42 @@ struct MemoryStats {
 };
 
 struct OperatorStats {
-  // Initial ordinal position in the operator's pipeline.
+  /// Initial ordinal position in the operator's pipeline.
   int32_t operatorId = 0;
   int32_t pipelineId = 0;
   core::PlanNodeId planNodeId;
-  // Name for reporting. We use Presto compatible names set at
-  // construction of the Operator where applicable.
+
+  /// Name for reporting. We use Presto compatible names set at
+  /// construction of the Operator where applicable.
   std::string operatorType;
 
-  // Number of splits (or chunks of work). Split can be a part of data file to
-  // read.
+  /// Number of splits (or chunks of work). Split can be a part of data file to
+  /// read.
   int64_t numSplits{0};
 
-  // Bytes read from raw source, e.g. compressed file or network connection.
+  /// Bytes read from raw source, e.g. compressed file or network connection.
   uint64_t rawInputBytes = 0;
   uint64_t rawInputPositions = 0;
 
   CpuWallTiming addInputTiming;
-  // Bytes of input in terms of retained size of input vectors.
+
+  /// Bytes of input in terms of retained size of input vectors.
   uint64_t inputBytes = 0;
   uint64_t inputPositions = 0;
 
+  /// Number of input batches / vectors. Allows to compute an average batch
+  /// size.
+  uint64_t inputVectors = 0;
+
   CpuWallTiming getOutputTiming;
-  // Bytes of output in terms of retained size of vectors.
+
+  /// Bytes of output in terms of retained size of vectors.
   uint64_t outputBytes = 0;
   uint64_t outputPositions = 0;
+
+  /// Number of output batches / vectors. Allows to compute an average batch
+  /// size.
+  uint64_t outputVectors = 0;
 
   uint64_t physicalWrittenBytes = 0;
 

@@ -275,10 +275,12 @@ void OperatorStats::add(const OperatorStats& other) {
   addInputTiming.add(other.addInputTiming);
   inputBytes += other.inputBytes;
   inputPositions += other.inputPositions;
+  inputVectors += other.inputVectors;
 
   getOutputTiming.add(other.getOutputTiming);
   outputBytes += other.outputBytes;
   outputPositions += other.outputPositions;
+  outputVectors += other.outputVectors;
 
   physicalWrittenBytes += other.physicalWrittenBytes;
 
