@@ -60,6 +60,12 @@ General Aggregate Functions
 
     This is an alias for :func:`bool_and`.
 
+.. function:: histogram(x)
+
+    Returns a map containing the count of the number of times
+    each input value occurs. Supports integral, floating-point,
+    boolean, timestamp, and date input types.
+
 .. function:: max_by(x, y) -> [same as x]
 
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.

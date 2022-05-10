@@ -61,12 +61,14 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
 
   /// Same as above, but allows to specify a set of projections to apply after
   /// the aggregation.
+  template <bool UseDuckDB = true>
   void testAggregations(
       std::function<void(exec::test::PlanBuilder&)> makeSource,
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& postAggregationProjections,
-      const std::string& duckDbSql);
+      const std::string& duckDbSql,
+      const std::vector<RowVectorPtr>& expectedResult = {});
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node.
@@ -84,6 +86,25 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& postAggregationProjections,
       const std::string& duckDbSql);
+
+  /// Convenience version that allows to specify input data instead of a
+  /// function to build Values plan node, and the expected result instead of a
+  /// DuckDB SQL query to validate the result.
+  void testAggregations(
+      const std::vector<RowVectorPtr>& data,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<RowVectorPtr>& expectedResult);
+
+  /// Convenience version that allows to specify input data instead of a
+  /// function to build Values plan node, and the expected result instead of a
+  /// DuckDB SQL query to validate the result.
+  void testAggregations(
+      const std::vector<RowVectorPtr>& data,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& postAggregationProjections,
+      const std::vector<RowVectorPtr>& expectedResult);
 };
 
 } // namespace facebook::velox::aggregate::test

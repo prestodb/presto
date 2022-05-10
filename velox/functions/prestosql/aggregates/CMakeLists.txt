@@ -29,6 +29,7 @@ add_library(
   CountIfAggregate.cpp
   CovarianceAggregates.cpp
   ChecksumAggregate.cpp
+  HistogramAggregate.cpp
   MapAggAggregate.cpp
   MinMaxAggregates.cpp
   MinMaxByAggregates.cpp

@@ -29,6 +29,7 @@ add_executable(
   CountAggregationTest.cpp
   CountIfAggregationTest.cpp
   CovarianceAggregationTest.cpp
+  HistogramTest.cpp
   Main.cpp
   MinMaxByAggregationTest.cpp
   MinMaxTest.cpp

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "AggregationTestBase.h"
+#include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 
 using facebook::velox::exec::test::CursorParameters;
@@ -47,6 +47,14 @@ void AggregationTestBase::testAggregations(
     const std::vector<RowVectorPtr>& data,
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
+    const std::vector<RowVectorPtr>& expectedResult) {
+  testAggregations(data, groupingKeys, aggregates, {}, expectedResult);
+}
+
+void AggregationTestBase::testAggregations(
+    const std::vector<RowVectorPtr>& data,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
     const std::vector<std::string>& postAggregationProjections,
     const std::string& duckDbSql) {
   testAggregations(
@@ -58,6 +66,21 @@ void AggregationTestBase::testAggregations(
 }
 
 void AggregationTestBase::testAggregations(
+    const std::vector<RowVectorPtr>& data,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::vector<std::string>& postAggregationProjections,
+    const std::vector<RowVectorPtr>& expectedResult) {
+  testAggregations<false>(
+      [&](PlanBuilder& builder) { builder.values(data); },
+      groupingKeys,
+      aggregates,
+      postAggregationProjections,
+      "",
+      expectedResult);
+}
+
+void AggregationTestBase::testAggregations(
     std::function<void(PlanBuilder&)> makeSource,
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
@@ -65,12 +88,14 @@ void AggregationTestBase::testAggregations(
   testAggregations(makeSource, groupingKeys, aggregates, {}, duckDbSql);
 }
 
+template <bool UseDuckDB>
 void AggregationTestBase::testAggregations(
     std::function<void(PlanBuilder&)> makeSource,
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& postAggregationProjections,
-    const std::string& duckDbSql) {
+    const std::string& duckDbSql,
+    const std::vector<RowVectorPtr>& expectedResult) {
   // Run partial + final.
   {
     PlanBuilder builder;
@@ -79,7 +104,12 @@ void AggregationTestBase::testAggregations(
     if (!postAggregationProjections.empty()) {
       builder.project(postAggregationProjections);
     }
-    assertQuery(builder.planNode(), duckDbSql);
+
+    if constexpr (UseDuckDB) {
+      assertQuery(builder.planNode(), duckDbSql);
+    } else {
+      exec::test::assertQuery(builder.planNode(), expectedResult);
+    }
   }
 
   // Run single.
@@ -90,7 +120,12 @@ void AggregationTestBase::testAggregations(
     if (!postAggregationProjections.empty()) {
       builder.project(postAggregationProjections);
     }
-    assertQuery(builder.planNode(), duckDbSql);
+
+    if constexpr (UseDuckDB) {
+      assertQuery(builder.planNode(), duckDbSql);
+    } else {
+      exec::test::assertQuery(builder.planNode(), expectedResult);
+    }
   }
 
   // Run partial + intermediate + final.
@@ -103,7 +138,12 @@ void AggregationTestBase::testAggregations(
     if (!postAggregationProjections.empty()) {
       builder.project(postAggregationProjections);
     }
-    assertQuery(builder.planNode(), duckDbSql);
+
+    if constexpr (UseDuckDB) {
+      assertQuery(builder.planNode(), duckDbSql);
+    } else {
+      exec::test::assertQuery(builder.planNode(), expectedResult);
+    }
   }
 
   // Run partial + local exchange + final.
@@ -127,7 +167,11 @@ void AggregationTestBase::testAggregations(
     CursorParameters params;
     params.planNode = builder.planNode();
     params.maxDrivers = 2;
-    assertQuery(params, duckDbSql);
+    if constexpr (UseDuckDB) {
+      assertQuery(params, duckDbSql);
+    } else {
+      exec::test::assertQuery(params, expectedResult);
+    }
   }
 
   // Run partial + local exchange + intermediate + local exchange + final.
@@ -162,7 +206,11 @@ void AggregationTestBase::testAggregations(
     CursorParameters params;
     params.planNode = builder.planNode();
     params.maxDrivers = 2;
-    assertQuery(params, duckDbSql);
+    if constexpr (UseDuckDB) {
+      assertQuery(params, duckDbSql);
+    } else {
+      exec::test::assertQuery(params, expectedResult);
+    }
   }
 }
 

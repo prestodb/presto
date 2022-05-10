@@ -28,12 +28,14 @@ const char* const kBitwiseAnd = "bitwise_and_agg";
 const char* const kBitwiseOr = "bitwise_or_agg";
 const char* const kBoolAnd = "bool_and";
 const char* const kBoolOr = "bool_or";
+const char* const kChecksum = "checksum";
 const char* const kCorr = "corr";
 const char* const kCount = "count";
 const char* const kCountIf = "count_if";
 const char* const kCovarPop = "covar_pop";
 const char* const kCovarSamp = "covar_samp";
 const char* const kEvery = "every";
+const char* const kHistogram = "histogram";
 const char* const kMapAgg = "map_agg";
 const char* const kMax = "max";
 const char* const kMaxBy = "max_by";
@@ -47,6 +49,5 @@ const char* const kSum = "sum";
 const char* const kVariance = "variance"; // Alias for var_samp.
 const char* const kVarPop = "var_pop";
 const char* const kVarSamp = "var_samp";
-const char* const kChecksum = "checksum";
 
 } // namespace facebook::velox::aggregate
