@@ -111,11 +111,19 @@ bool avx2CpuFlag = folly::CpuId().avx2();
 } // namespace
 
 bool hasAvx2() {
+#ifdef __AVX2__
   return avx2CpuFlag && FLAGS_avx2;
+#else
+  return false;
+#endif
 }
 
 bool hasBmi2() {
+#ifdef __BMI2__
   return bmi2CpuFlag && FLAGS_bmi2;
+#else
+  return false;
+#endif
 }
 
 } // namespace process

@@ -226,13 +226,18 @@ inline void unpack4x1(int32_t bytes, int16_t*& output) {
   output += 4;
 }
 
-// Stores 4 2 byte varints at output[0] .. output[3].
-inline void unpack4x2(uint64_t vints, uint64_t*& output) {
-  uint64_t decoded =
-      (vints & 0x007f007f007f007f) | ((vints & 0x7f007f007f007f00) >> 1);
-  *reinterpret_cast<__m256i_u*>(output) =
-      _mm256_cvtepi16_epi64(_mm_set1_epi64(reinterpret_cast<__m64>(decoded)));
-  output += 4;
+#else
+
+template <typename T>
+void unpack4x1(int32_t bytes, T*& output) {
+  for (int i = 0; i < 4; ++i) {
+    if constexpr (std::is_signed_v<T>) {
+      *output++ = static_cast<int8_t>(bytes & 0xFF);
+    } else {
+      *output++ = static_cast<uint8_t>(bytes & 0xFF);
+    }
+    bytes >>= 8;
+  }
 }
 
 #endif
@@ -314,7 +319,8 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       break;
     }
     case 1ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       unpack4x1(word >> 16, output);
       carryover = 0ULL;
@@ -325,7 +331,7 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
       unpack4x1(word >> 24, output);
       clipTrailingStores(3, controlBits, pos, output);
       carryover = 0ULL;
@@ -333,7 +339,8 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       break;
     }
     case 3ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       unpack4x1(word >> 24, output);
       clipTrailingStores(3, controlBits, pos, output);
@@ -346,7 +353,7 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
-      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
       unpack4x1(word >> 32, output);
       clipTrailingStores(4, controlBits, pos, output);
       carryover = 0ULL;
@@ -354,9 +361,10 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       break;
     }
     case 5ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
       unpack4x1(word >> 32, output);
       clipTrailingStores(4, controlBits, pos, output);
       carryover = 0ULL;
@@ -367,7 +375,7 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
       unpack4x1(word >> 32, output);
       clipTrailingStores(4, controlBits, pos, output);
       carryover = 0ULL;
@@ -375,7 +383,8 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       break;
     }
     case 7ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x000000007f7f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       unpack4x1(word >> 32, output);
       clipTrailingStores(4, controlBits, pos, output);
@@ -389,17 +398,18 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
       *output++ = ((word >> 16) & 0x7f);
-      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
       *output++ = ((word >> 40) & 0x7f);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 9ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 16) & 0x7f);
-      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
       *output++ = ((word >> 40) & 0x7f);
       carryover = 0ULL;
       carryoverBits = 0;
@@ -409,17 +419,18 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
       *output++ = ((word >> 40) & 0x7f);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 11ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
       *output++ = ((word >> 40) & 0x7f);
       carryover = 0ULL;
       carryoverBits = 0;
@@ -430,16 +441,17 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
-      *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
       *output++ = ((word >> 40) & 0x7f);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 13ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
       *output++ = ((word >> 40) & 0x7f);
       carryover = 0ULL;
       carryoverBits = 0;
@@ -449,14 +461,15 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f00ULL);
       *output++ = ((word >> 40) & 0x7f);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 15ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000007f7f7f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 40) & 0x7f);
       carryover = 0ULL;
@@ -466,17 +479,18 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
     case 16ULL: {
       unpack4x1(word >> 0, output);
       applyCarryover(carryoverBits, carryover, output - 4);
-      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 17ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 16) & 0x7f);
       *output++ = ((word >> 24) & 0x7f);
-      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
@@ -485,18 +499,19 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
       *output++ = ((word >> 24) & 0x7f);
-      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 19ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 24) & 0x7f);
-      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
@@ -506,17 +521,18 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
-      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 21ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
@@ -525,16 +541,17 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
-      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 23ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x000000007f7f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
@@ -545,16 +562,17 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
       *output++ = ((word >> 16) & 0x7f);
-      *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 25ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 16) & 0x7f);
-      *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
@@ -563,16 +581,17 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-      *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 27ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
@@ -582,15 +601,16 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
-      *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 29ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
@@ -599,13 +619,14 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f00ULL);
       carryover = 0ULL;
       carryoverBits = 0;
       break;
     }
     case 31ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x00007f7f7f7f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       carryover = 0ULL;
       carryoverBits = 0;
@@ -620,7 +641,8 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       break;
     }
     case 33ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 16) & 0x7f);
       *output++ = ((word >> 24) & 0x7f);
@@ -633,7 +655,7 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
       *output++ = ((word >> 24) & 0x7f);
       *output++ = ((word >> 32) & 0x7f);
       carryover = ((word >> 40) & 0x7f);
@@ -641,7 +663,8 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       break;
     }
     case 35ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 24) & 0x7f);
       *output++ = ((word >> 32) & 0x7f);
@@ -654,16 +677,17 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
-      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
       *output++ = ((word >> 32) & 0x7f);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
       break;
     }
     case 37ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
       *output++ = ((word >> 32) & 0x7f);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
@@ -673,14 +697,15 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
       *output++ = ((word >> 32) & 0x7f);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
       break;
     }
     case 39ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x000000007f7f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 32) & 0x7f);
       carryover = ((word >> 40) & 0x7f);
@@ -693,16 +718,17 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
       *output++ = ((word >> 16) & 0x7f);
-      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
       break;
     }
     case 41ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 16) & 0x7f);
-      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
       break;
@@ -711,16 +737,17 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
       break;
     }
     case 43ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
       break;
@@ -730,15 +757,16 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
-      *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
       break;
     }
     case 45ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
       break;
@@ -747,13 +775,14 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f00ULL);
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
       break;
     }
     case 47ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000007f7f7f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       carryover = ((word >> 40) & 0x7f);
       carryoverBits = 7;
@@ -762,16 +791,17 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
     case 48ULL: {
       unpack4x1(word >> 0, output);
       applyCarryover(carryoverBits, carryover, output - 4);
-      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryoverBits = 14;
       break;
     }
     case 49ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 16) & 0x7f);
       *output++ = ((word >> 24) & 0x7f);
-      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryoverBits = 14;
       break;
     }
@@ -779,17 +809,18 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
       *output++ = ((word >> 24) & 0x7f);
-      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryoverBits = 14;
       break;
     }
     case 51ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 24) & 0x7f);
-      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryoverBits = 14;
       break;
     }
@@ -798,16 +829,17 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
-      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryoverBits = 14;
       break;
     }
     case 53ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryoverBits = 14;
       break;
     }
@@ -815,15 +847,16 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
-      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryoverBits = 14;
       break;
     }
     case 55ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x000000007f7f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
       carryoverBits = 14;
       break;
     }
@@ -833,15 +866,16 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
       *output++ = ((word >> 16) & 0x7f);
-      carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
       carryoverBits = 21;
       break;
     }
     case 57ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 16) & 0x7f);
-      carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
       carryoverBits = 21;
       break;
     }
@@ -849,15 +883,16 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-      carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+      *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
       carryoverBits = 21;
       break;
     }
     case 59ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
       carryoverBits = 21;
       break;
     }
@@ -866,14 +901,15 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
       *output++ = ((word >> 8) & 0x7f);
-      carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
       carryoverBits = 28;
       break;
     }
     case 61ULL: {
-      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      const uint64_t firstValue =
+          bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
       *output++ = (firstValue << carryoverBits) | carryover;
-      carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
       carryoverBits = 28;
       break;
     }
@@ -881,12 +917,13 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
       const uint64_t firstValue =
           static_cast<uint64_t>(static_cast<uint8_t>(word));
       *output++ = (firstValue << carryoverBits) | carryover;
-      carryover = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+      carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f00ULL);
       carryoverBits = 35;
       break;
     }
     case 63ULL: {
-      carryover |= _pext_u64(word, 0x00007f7f7f7f7f7fULL) << carryoverBits;
+      carryover |= bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f7fULL)
+          << carryoverBits;
       carryoverBits += 42;
       break;
     }
@@ -899,9 +936,7 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
 
 template <bool isSigned>
 template <typename T>
-__attribute__((__target__("bmi2"))) void IntDecoder<isSigned>::bulkRead(
-    uint64_t size,
-    T* result) {
+void IntDecoder<isSigned>::bulkRead(uint64_t size, T* result) {
   if (!useVInts) {
     bulkReadFixed(size, result);
     return;
@@ -921,7 +956,7 @@ __attribute__((__target__("bmi2"))) void IntDecoder<isSigned>::bulkRead(
     while (end >= output + 8 && bufferEnd - pos >= 8 + maskSize) {
       pos += maskSize;
       const auto word = folly::loadUnaligned<uint64_t>(pos);
-      const uint64_t controlBits = _pext_u64(word, mask);
+      const uint64_t controlBits = bits::extractBits<uint64_t>(word, mask);
       varintSwitch(word, controlBits, pos, output, carryover, carryoverBits);
     }
     if (pos) {
@@ -949,8 +984,10 @@ __attribute__((__target__("bmi2"))) void IntDecoder<isSigned>::bulkRead(
 
 template <bool isSigned>
 template <typename T>
-__attribute__((__target__("bmi2"))) void
-IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
+void IntDecoder<isSigned>::bulkReadRows(
+    RowSet rows,
+    T* result,
+    int32_t initialRow) {
   if (!useVInts) {
     bulkReadRowsFixed(rows, initialRow, result);
     return;
@@ -979,7 +1016,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
         pos += 8 - maskSize;
         continue;
       }
-      const uint64_t controlBits = _pext_u64(word, mask);
+      const uint64_t controlBits = bits::extractBits<uint64_t>(word, mask);
       int32_t numEnds = __builtin_popcount(controlBits ^ 0xff);
       if (row != nextRow) {
         if (nextRow > row + numEnds) {
@@ -1032,7 +1069,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 1ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1062,7 +1099,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 24) & 0x7f);
@@ -1080,7 +1118,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 3ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x00000000007f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1110,7 +1148,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 8) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 32) & 0x7f);
@@ -1125,13 +1164,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 5ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 32) & 0x7f);
@@ -1152,7 +1192,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 32) & 0x7f);
@@ -1167,7 +1208,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 7ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x000000007f7f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1197,7 +1238,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 16) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 40) & 0x7f);
@@ -1209,7 +1251,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 9ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1218,7 +1260,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 16) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 40) & 0x7f);
@@ -1236,10 +1279,12 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 40) & 0x7f);
@@ -1251,13 +1296,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 11ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x00000000007f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 40) & 0x7f);
@@ -1278,7 +1324,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 8) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 40) & 0x7f);
@@ -1290,13 +1337,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 13ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 40) & 0x7f);
@@ -1314,7 +1362,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 40) & 0x7f);
@@ -1326,7 +1375,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 15ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000007f7f7f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1356,7 +1405,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 24) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1365,7 +1415,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 17ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1377,7 +1427,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 24) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1392,13 +1443,15 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 24) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1407,7 +1460,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 19ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x00000000007f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1416,7 +1469,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 24) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1434,10 +1488,12 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 8) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1446,16 +1502,18 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 21ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1470,10 +1528,12 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1482,13 +1542,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 23ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x000000007f7f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1509,7 +1570,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 16) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1518,7 +1580,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 25ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1527,7 +1589,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 16) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1542,10 +1605,12 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1554,13 +1619,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 27ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x00000000007f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1578,7 +1644,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 8) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1587,13 +1654,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 29ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1608,7 +1676,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f00ULL);
             }
             carryover = 0ULL;
             carryoverBits = 0;
@@ -1617,7 +1686,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 31ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x00007f7f7f7f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1655,7 +1724,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 33ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1684,7 +1753,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 24) & 0x7f);
@@ -1701,7 +1771,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 35ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x00000000007f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1730,7 +1800,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 8) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 32) & 0x7f);
@@ -1744,13 +1815,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 37ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 32) & 0x7f);
@@ -1770,7 +1842,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 32) & 0x7f);
@@ -1784,7 +1857,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 39ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x000000007f7f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1813,7 +1886,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 16) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
             }
             if (row == nextRow) {
               carryover = ((word >> 40) & 0x7f);
@@ -1824,7 +1898,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 41ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1833,7 +1907,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 16) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
             }
             if (row == nextRow) {
               carryover = ((word >> 40) & 0x7f);
@@ -1850,10 +1925,12 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
             }
             if (row == nextRow) {
               carryover = ((word >> 40) & 0x7f);
@@ -1864,13 +1941,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 43ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x00000000007f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
             }
             if (row == nextRow) {
               carryover = ((word >> 40) & 0x7f);
@@ -1890,7 +1968,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 8) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
             }
             if (row == nextRow) {
               carryover = ((word >> 40) & 0x7f);
@@ -1901,13 +1980,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 45ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
             }
             if (row == nextRow) {
               carryover = ((word >> 40) & 0x7f);
@@ -1924,7 +2004,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f00ULL);
             }
             if (row == nextRow) {
               carryover = ((word >> 40) & 0x7f);
@@ -1935,7 +2016,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 47ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000007f7f7f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1964,7 +2045,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 24) & 0x7f);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
               carryoverBits = 14;
             }
             break;
@@ -1972,7 +2054,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 49ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -1984,7 +2066,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 24) & 0x7f);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
               carryoverBits = 14;
             }
             break;
@@ -1998,13 +2081,15 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               *output++ = ((word >> 24) & 0x7f);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
               carryoverBits = 14;
             }
             break;
@@ -2012,7 +2097,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 51ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x00000000007f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -2021,7 +2106,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 24) & 0x7f);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
               carryoverBits = 14;
             }
             break;
@@ -2038,10 +2124,12 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 8) & 0x7f);
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
               carryoverBits = 14;
             }
             break;
@@ -2049,16 +2137,18 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 53ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
               carryoverBits = 14;
             }
             break;
@@ -2072,10 +2162,12 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
               carryoverBits = 14;
             }
             break;
@@ -2083,13 +2175,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 55ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x000000007f7f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
               carryoverBits = 14;
             }
             break;
@@ -2109,7 +2202,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 16) & 0x7f);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
               carryoverBits = 21;
             }
             break;
@@ -2117,7 +2211,7 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 57ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
@@ -2126,7 +2220,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 16) & 0x7f);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
               carryoverBits = 21;
             }
             break;
@@ -2140,10 +2235,12 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
-              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+              *output++ =
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
               carryoverBits = 21;
             }
             break;
@@ -2151,13 +2248,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 59ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x00000000007f7f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
               carryoverBits = 21;
             }
             break;
@@ -2174,7 +2272,8 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               *output++ = ((word >> 8) & 0x7f);
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
               carryoverBits = 28;
             }
             break;
@@ -2182,13 +2281,14 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
           case 61ULL: {
             if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
               const uint64_t firstValue =
-                  _pext_u64(word, 0x0000000000007f7fULL);
+                  bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
               *output++ = (firstValue << carryoverBits) | carryover;
               carryover = 0;
               carryoverBits = 0;
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
               carryoverBits = 28;
             }
             break;
@@ -2202,14 +2302,16 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
               carryoverBits = 0;
             }
             if (row == nextRow) {
-              carryover = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+              carryover =
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f00ULL);
               carryoverBits = 35;
             }
             break;
           }
           case 63ULL: {
             if (row == nextRow) {
-              carryover |= _pext_u64(word, 0x00007f7f7f7f7f7fULL)
+              carryover |=
+                  bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f7fULL)
                   << carryoverBits;
               carryoverBits += 42;
             }
@@ -2249,61 +2351,61 @@ IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
   }
 }
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<true>::bulkRead(
-    uint64_t size,
-    uint64_t* result);
+template void IntDecoder<true>::bulkRead(uint64_t size, uint64_t* result);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<false>::bulkRead(
-    uint64_t size,
-    uint64_t* result);
+template void IntDecoder<false>::bulkRead(uint64_t size, uint64_t* result);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<true>::bulkRead(
-    uint64_t size,
-    int64_t* result);
+template void IntDecoder<true>::bulkRead(uint64_t size, int64_t* result);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<false>::bulkRead(
-    uint64_t size,
-    int64_t* result);
+template void IntDecoder<false>::bulkRead(uint64_t size, int64_t* result);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<true>::bulkRead(
-    uint64_t size,
-    int32_t* result);
+template void IntDecoder<true>::bulkRead(uint64_t size, int32_t* result);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<false>::bulkRead(
-    uint64_t size,
-    int32_t* result);
+template void IntDecoder<false>::bulkRead(uint64_t size, int32_t* result);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<true>::bulkRead(
-    uint64_t size,
-    int16_t* result);
+template void IntDecoder<true>::bulkRead(uint64_t size, int16_t* result);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<false>::bulkRead(
-    uint64_t size,
-    int16_t* result);
+template void IntDecoder<false>::bulkRead(uint64_t size, int16_t* result);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<
-    true>::bulkReadRows(RowSet rows, uint64_t* result, int32_t initialRow);
+template void IntDecoder<true>::bulkReadRows(
+    RowSet rows,
+    uint64_t* result,
+    int32_t initialRow);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<
-    true>::bulkReadRows(RowSet rows, int64_t* result, int32_t initialRow);
+template void IntDecoder<true>::bulkReadRows(
+    RowSet rows,
+    int64_t* result,
+    int32_t initialRow);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<
-    false>::bulkReadRows(RowSet rows, int64_t* result, int32_t initialRow);
+template void IntDecoder<false>::bulkReadRows(
+    RowSet rows,
+    int64_t* result,
+    int32_t initialRow);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<
-    false>::bulkReadRows(RowSet rows, uint64_t* result, int32_t initialRow);
+template void IntDecoder<false>::bulkReadRows(
+    RowSet rows,
+    uint64_t* result,
+    int32_t initialRow);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<
-    true>::bulkReadRows(RowSet rows, int32_t* result, int32_t initialRow);
+template void IntDecoder<true>::bulkReadRows(
+    RowSet rows,
+    int32_t* result,
+    int32_t initialRow);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<
-    false>::bulkReadRows(RowSet rows, int32_t* result, int32_t initialRow);
+template void IntDecoder<false>::bulkReadRows(
+    RowSet rows,
+    int32_t* result,
+    int32_t initialRow);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<
-    true>::bulkReadRows(RowSet rows, int16_t* result, int32_t initialRow);
+template void IntDecoder<true>::bulkReadRows(
+    RowSet rows,
+    int16_t* result,
+    int32_t initialRow);
 
-template __attribute__((__target__("bmi2"))) void IntDecoder<
-    false>::bulkReadRows(RowSet rows, int16_t* result, int32_t initialRow);
+template void IntDecoder<false>::bulkReadRows(
+    RowSet rows,
+    int16_t* result,
+    int32_t initialRow);
 
 template <bool isSigned>
 std::unique_ptr<IntDecoder<isSigned>> IntDecoder<isSigned>::createRle(
@@ -2376,7 +2478,8 @@ std::string codegenVarintMask(int end_byte, int len) {
 std::string codegenExtract(int end_byte, int len) {
   if (len > 1) {
     return fmt::format(
-        " _pext_u64(word, {})", codegenVarintMask(end_byte, len));
+        " bits::extractBits<uint64_t>(word, {})",
+        codegenVarintMask(end_byte, len));
   }
   if (len == 1 && end_byte == 0) {
     return "static_cast<uint64_t>(static_cast<uint8_t>(word))";
@@ -2487,7 +2590,7 @@ std::string codegenControlWordCase(
     s += startTrailingConditional(sparse);
     s += fmt::format(
         "\n        carryover |= "
-        "_pext_u64(word, {}) << carryoverBits;",
+        "bits::extractBits<uint64_t>(word, {}) << carryoverBits;",
         codegenVarintMask(mask_len - 1, mask_len));
     s += fmt::format("\n        carryoverBits += {};", 7 * mask_len);
     s += endConditional(sparse);

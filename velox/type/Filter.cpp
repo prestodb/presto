@@ -233,7 +233,7 @@ xsimd::batch_bool<int64_t> BigintValuesUsingHashTable::testValues(
         resultBits &= ~(1 << lane);
         break;
       }
-      index += 4;
+      index += line.size;
       if (index > sizeMask_) {
         index = 0;
       }

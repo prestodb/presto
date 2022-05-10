@@ -56,7 +56,7 @@ bool nonNullRowsFromSparse(
     raw_vector<int32_t>& outerRows,
     uint64_t* resultNulls,
     int32_t& tailSkip) {
-  constexpr int32_t kStep = 8;
+  constexpr int32_t kStep = xsimd::batch<int32_t>::size;
   bool anyNull = false;
   auto numIn = rows.size();
   innerRows.resize(numIn);
@@ -92,7 +92,16 @@ bool nonNullRowsFromSparse(
     if (isDense(rows.data() + i, width)) {
       uint16_t flags = load8Bits(nulls, rows[i]) & widthMask;
       if (outputNulls) {
-        resultNullBytes[i / 8] = flags;
+        if constexpr (kStep == 8) {
+          resultNullBytes[i / 8] = flags;
+        } else {
+          VELOX_DCHECK_EQ(kStep, 4);
+          if (i % 8 == 0) {
+            resultNullBytes[i / 8] = flags;
+          } else {
+            resultNullBytes[i / 8] |= flags << 4;
+          }
+        }
         anyNull |= flags != widthMask;
       }
       if (!flags) {
@@ -122,7 +131,16 @@ bool nonNullRowsFromSparse(
       auto next8Rows = xsimd::load_unaligned(rows.data() + i);
       uint16_t flags = simd::gather8Bits(nulls, next8Rows, width);
       if (outputNulls) {
-        resultNullBytes[i / 8] = flags;
+        if constexpr (kStep == 8) {
+          resultNullBytes[i / 8] = flags;
+        } else {
+          VELOX_DCHECK_EQ(kStep, 4);
+          if (i % 8 == 0) {
+            resultNullBytes[i / 8] = flags;
+          } else {
+            resultNullBytes[i / 8] |= flags << 4;
+          }
+        }
         anyNull |= flags != widthMask;
       }
       if (!flags) {

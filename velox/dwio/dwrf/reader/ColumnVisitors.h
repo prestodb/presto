@@ -467,17 +467,28 @@ enum FilterResult { kUnknown = 0x40, kSuccess = 0x80, kFailure = 0 };
 namespace detail {
 
 template <typename T, typename A>
-struct Load8Indices;
+struct LoadIndices;
 
 template <typename A>
-struct Load8Indices<int32_t, A> {
+struct LoadIndices<int32_t, A> {
   static xsimd::batch<int32_t, A> apply(const int32_t* values, const A&) {
     return xsimd::load_unaligned<A>(values);
   }
 };
 
 template <typename A>
-struct Load8Indices<int16_t, A> {
+struct LoadIndices<int16_t, A> {
+  static xsimd::batch<int32_t, A> apply(
+      const int16_t* values,
+      const xsimd::generic&) {
+    constexpr int N = xsimd::batch<int32_t, A>::size;
+    alignas(A::alignment()) int32_t tmp[N];
+    for (int i = 0; i < N; ++i) {
+      tmp[i] = values[i];
+    }
+    return xsimd::load_aligned(tmp);
+  }
+
 #if XSIMD_WITH_AVX2
   static xsimd::batch<int32_t, A> apply(
       const int16_t* values,
@@ -489,7 +500,7 @@ struct Load8Indices<int16_t, A> {
 };
 
 template <typename A>
-struct Load8Indices<int64_t, A> {
+struct LoadIndices<int64_t, A> {
   static xsimd::batch<int32_t, A> apply(const int64_t* values, const A& arch) {
     return simd::gather<int32_t, int32_t, 8>(
         reinterpret_cast<const int32_t*>(values),
@@ -501,8 +512,8 @@ struct Load8Indices<int64_t, A> {
 } // namespace detail
 
 template <typename T, typename A = xsimd::default_arch>
-inline xsimd::batch<int32_t> load8Indices(const T* values, const A& arch = {}) {
-  return detail::Load8Indices<T, A>::apply(values, arch);
+inline xsimd::batch<int32_t> loadIndices(const T* values, const A& arch = {}) {
+  return detail::LoadIndices<T, A>::apply(values, arch);
 }
 
 // Copies from 'input' to 'values' and translates  via 'dict'. Only elements
@@ -559,7 +570,7 @@ inline void storeTranslate(
     const T* dict,
     T* values) {
   auto inDict = simd::toBitMask(dictMask);
-  for (auto i = 0; i < 8; ++i) {
+  for (auto i = 0; i < dictMask.size; ++i) {
     auto value = input[inputIndex + i];
     if (inDict & (1 << i)) {
       value = dict[value];
@@ -585,6 +596,12 @@ namespace detail {
 inline xsimd::batch<int64_t> cvtU32toI64(
     xsimd::batch<int32_t, xsimd::sse2> values) {
   return _mm256_cvtepu32_epi64(values);
+}
+#elif XSIMD_WITH_SSE2
+inline xsimd::batch<int64_t> cvtU32toI64(simd::Batch64<int32_t> values) {
+  int64_t lo = static_cast<uint32_t>(values.data[0]);
+  int64_t hi = static_cast<uint32_t>(values.data[1]);
+  return xsimd::batch<int64_t>({lo, hi});
 }
 #endif
 
@@ -635,28 +652,29 @@ class DictionaryColumnVisitor
     }
     vector_size_t previous =
         isDense && TFilter::deterministic ? 0 : super::currentRow();
-    T valueInDictionary = dict()[value];
+    std::make_unsigned_t<T> index = value;
+    T valueInDictionary = dict()[index];
     if (std::is_same<TFilter, common::AlwaysTrue>::value) {
       super::filterPassed(valueInDictionary);
     } else {
       // check the dictionary cache
       if (TFilter::deterministic &&
-          filterCache()[value] == FilterResult::kSuccess) {
+          filterCache()[index] == FilterResult::kSuccess) {
         super::filterPassed(valueInDictionary);
       } else if (
           TFilter::deterministic &&
-          filterCache()[value] == FilterResult::kFailure) {
+          filterCache()[index] == FilterResult::kFailure) {
         super::filterFailed();
       } else {
         if (super::filter_.testInt64(valueInDictionary)) {
           super::filterPassed(valueInDictionary);
           if (TFilter::deterministic) {
-            filterCache()[value] = FilterResult::kSuccess;
+            filterCache()[index] = FilterResult::kSuccess;
           }
         } else {
           super::filterFailed();
           if (TFilter::deterministic) {
-            filterCache()[value] = FilterResult::kFailure;
+            filterCache()[index] = FilterResult::kFailure;
           }
         }
       }
@@ -738,8 +756,8 @@ class DictionaryColumnVisitor
     constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
     int32_t last = numInput & ~(kWidth - 1);
     for (auto i = 0; i < numInput; i += kWidth) {
-      int8_t width = UNLIKELY(i == last) ? numInput - last : 8;
-      auto indices = load8Indices(input + i);
+      int8_t width = UNLIKELY(i == last) ? numInput - last : kWidth;
+      auto indices = loadIndices(input + i);
       xsimd::batch_bool<int32_t> dictMask;
       if (inDict()) {
         if (simd::isDense(super::rows_ + super::rowIndex_ + i, width)) {

@@ -561,7 +561,7 @@ void MmapAllocator::SizeClass::allocateAny(
   uint64_t freeBits = ~pageAllocated_[wordIndex];
   int toAlloc = std::min(numPages, __builtin_popcountll(freeBits));
   for (int i = 0; i < toAlloc; ++i) {
-    int bit = __builtin_ia32_tzcnt_u64(freeBits);
+    int bit = __builtin_ctzll(freeBits);
     bits::setBit(&pageAllocated_[wordIndex], bit);
     if (!(pageMapped_[wordIndex] & (1UL << bit))) {
       numUnmapped += unitSize_;

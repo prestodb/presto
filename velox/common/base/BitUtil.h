@@ -20,6 +20,10 @@
 #include <cstddef>
 #include <cstdint>
 
+#ifdef __BMI2__
+#include <x86intrin.h>
+#endif
+
 namespace facebook {
 namespace velox {
 namespace bits {
@@ -816,6 +820,38 @@ void scatterBits(
     const char* source,
     const uint64_t* targetMask,
     char* target);
+
+// Extract bits from integer 'a' at the corresponding bit locations
+// specified by 'mask' to contiguous low bits in return value; the
+// remaining upper bits in return value are set to zero.
+template <typename T>
+inline T extractBits(T a, T mask);
+
+#ifdef __BMI2__
+template <>
+inline uint32_t extractBits(uint32_t a, uint32_t mask) {
+  return _pext_u32(a, mask);
+}
+template <>
+inline uint64_t extractBits(uint64_t a, uint64_t mask) {
+  return _pext_u64(a, mask);
+}
+#else
+template <typename T>
+T extractBits(T a, T mask) {
+  constexpr int kBitsCount = 8 * sizeof(T);
+  T dst = 0;
+  for (int i = 0, k = 0; i < kBitsCount; ++i) {
+    if (mask & 1) {
+      dst |= ((a & 1) << k);
+      ++k;
+    }
+    a >>= 1;
+    mask >>= 1;
+  }
+  return dst;
+}
+#endif
 
 } // namespace bits
 } // namespace velox

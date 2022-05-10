@@ -230,17 +230,25 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
     const TypePtr& type,
     bool isFinal) {
   constexpr int32_t kWidth = xsimd::batch<int8_t>::size;
-  static_assert(kWidth == 32);
   VELOX_CHECK_EQ(valueSize_, sizeof(int8_t));
   compactScalarValues<int8_t, int8_t>(rows, isFinal);
   auto boolValues =
       AlignedBuffer::allocate<bool>(numValues_, &memoryPool_, false);
-  auto rawBits = boolValues->asMutable<uint32_t>();
   auto rawBytes = values_->as<int8_t>();
   auto zero = xsimd::broadcast<int8_t>(0);
-  for (auto i = 0; i < numValues_; i += kWidth) {
-    rawBits[i / kWidth] =
-        ~simd::toBitMask(zero == xsimd::load_unaligned(rawBytes + i));
+  if constexpr (kWidth == 32) {
+    auto rawBits = boolValues->asMutable<uint32_t>();
+    for (auto i = 0; i < numValues_; i += kWidth) {
+      rawBits[i / kWidth] =
+          ~simd::toBitMask(zero == xsimd::load_unaligned(rawBytes + i));
+    }
+  } else {
+    VELOX_DCHECK_EQ(kWidth, 16);
+    auto rawBits = boolValues->asMutable<uint16_t>();
+    for (auto i = 0; i < numValues_; i += kWidth) {
+      rawBits[i / kWidth] =
+          ~simd::toBitMask(zero == xsimd::load_unaligned(rawBytes + i));
+    }
   }
   BufferPtr nulls = anyNulls_
       ? (returnReaderNulls_ ? nullsInReadRange_ : resultNulls_)

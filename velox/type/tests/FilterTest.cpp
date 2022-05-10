@@ -44,15 +44,15 @@ TEST(FilterTest, alwaysTrue) {
   EXPECT_TRUE(alwaysTrue.testInt64(1));
   EXPECT_TRUE(alwaysTrue.testNonNull());
   EXPECT_TRUE(alwaysTrue.testNull());
-  xsimd::batch<int64_t> int64s;
+  xsimd::batch<int64_t> int64s(1);
   EXPECT_EQ(
       simd::allSetBitMask<int64_t>(),
       simd::toBitMask(alwaysTrue.testValues(int64s)));
-  xsimd::batch<int32_t> int32s;
+  xsimd::batch<int32_t> int32s(2);
   EXPECT_EQ(
       simd::allSetBitMask<int32_t>(),
       simd::toBitMask(alwaysTrue.testValues(int32s)));
-  xsimd::batch<int16_t> int16s;
+  xsimd::batch<int16_t> int16s(3);
   EXPECT_EQ(
       simd::allSetBitMask<int16_t>(),
       simd::toBitMask(alwaysTrue.testValues(int16s)));
@@ -81,13 +81,11 @@ TEST(FilterTest, isNull) {
 // Applies 'filter' to all T type lanes of 'values' and compares the result to
 // the ScalarTest applied to the same.
 template <typename T, typename ScalarTest>
-void checkSimd(
-    const Filter* filter,
-    xsimd::batch<T> values,
-    ScalarTest scalarTest) {
-  auto bits = simd::toBitMask(filter->testValues(values));
-  for (auto i = 0; i < decltype(values)::size; ++i) {
-    auto expected = scalarTest(values.get(i));
+void checkSimd(const Filter* filter, const T* values, ScalarTest scalarTest) {
+  auto v = xsimd::load_unaligned(values);
+  auto bits = simd::toBitMask(filter->testValues(v));
+  for (auto i = 0; i < decltype(v)::size; ++i) {
+    auto expected = scalarTest(v.get(i));
     EXPECT_EQ(bits::isBitSet(&bits, i), expected) << "Lane " << i;
   }
 }
@@ -108,13 +106,13 @@ TEST(FilterTest, bigIntRange) {
   EXPECT_TRUE(filter->testInt64Range(-10, 10, false));
 
   {
-    xsimd::batch<int64_t> n4 = {2, 1, 1000, -1000};
-    checkSimd<int64_t>(filter.get(), n4, testInt64);
-    xsimd::batch<int32_t> n8 = {2, 1, 1000, -1000, 1, 1, 0, 1111};
-    checkSimd<int32_t>(filter.get(), n8, testInt64);
-    xsimd::batch<int16_t> n16 = {
+    int64_t n4[] = {2, 1, 1000, -1000};
+    checkSimd(filter.get(), n4, testInt64);
+    int32_t n8[] = {2, 1, 1000, -1000, 1, 1, 0, 1111};
+    checkSimd(filter.get(), n8, testInt64);
+    int16_t n16[] = {
         2, 1, 1000, -1000, 1, 1, 0, 1111, 2, 1, 1000, -1000, 1, 1, 0, 1111};
-    checkSimd<int16_t>(filter.get(), n16, testInt64);
+    checkSimd(filter.get(), n16, testInt64);
   }
 
   // x between 1 and 10
@@ -127,13 +125,13 @@ TEST(FilterTest, bigIntRange) {
   EXPECT_FALSE(filter->testInt64(11));
 
   {
-    xsimd::batch<int64_t> n4 = {2, 1, 1000, -1000};
-    checkSimd<int64_t>(filter.get(), n4, testInt64);
-    xsimd::batch<int32_t> n8 = {2, 1, 1000, -1000, 1, 1, 0, 1111};
-    checkSimd<int32_t>(filter.get(), n8, testInt64);
-    xsimd::batch<int16_t> n16 = {
+    int64_t n4[] = {2, 1, 1000, -1000};
+    checkSimd(filter.get(), n4, testInt64);
+    int32_t n8[] = {2, 1, 1000, -1000, 1, 1, 0, 1111};
+    checkSimd(filter.get(), n8, testInt64);
+    int16_t n16[] = {
         2, 1, 1000, -1000, 1, 1, 0, 1111, 2, 1, 1000, -1000, 1, 1, 0, 1111};
-    checkSimd<int16_t>(filter.get(), n16, testInt64);
+    checkSimd(filter.get(), n16, testInt64);
   }
 
   EXPECT_FALSE(filter->testInt64Range(-150, -10, false));
@@ -147,12 +145,11 @@ TEST(FilterTest, bigIntRange) {
   EXPECT_FALSE(filter->testInt64(0));
   EXPECT_TRUE(filter->testInt64(10));
   {
-    xsimd::batch<int64_t> n4 = {2, 10000000000, 1000, -1000};
-    checkSimd<int64_t>(filter.get(), n4, testInt64);
-    xsimd::batch<int32_t> n8 = {
-        2, 1, 1000, -1000, 1, 1000000000, 0, -2000000000};
-    checkSimd<int32_t>(filter.get(), n8, testInt64);
-    xsimd::batch<int16_t> n16 = {
+    int64_t n4[] = {2, 10000000000, 1000, -1000};
+    checkSimd(filter.get(), n4, testInt64);
+    int32_t n8[] = {2, 1, 1000, -1000, 1, 1000000000, 0, -2000000000};
+    checkSimd(filter.get(), n8, testInt64);
+    int16_t n16[] = {
         2,
         1,
         32000,
@@ -169,7 +166,7 @@ TEST(FilterTest, bigIntRange) {
         1,
         0,
         1111};
-    checkSimd<int16_t>(filter.get(), n16, testInt64);
+    checkSimd(filter.get(), n16, testInt64);
   }
   EXPECT_FALSE(filter->testInt64Range(-100, 0, false));
   EXPECT_TRUE(filter->testInt64Range(-100, -10, true));
@@ -229,7 +226,7 @@ void applySimdTestToVector(
         ++lanes[lane];
       }
     }
-    checkSimd<T>(&filter, xsimd::load_unaligned(lanes), verify);
+    checkSimd<T>(&filter, lanes, verify);
   }
 }
 
@@ -241,9 +238,9 @@ TEST(FilterTest, bigintValuesUsingHashTableSimd) {
   }
   auto filter = createBigintValues(numbers, false);
   ASSERT_TRUE(dynamic_cast<BigintValuesUsingHashTable*>(filter.get()));
-  xsimd::batch<int64_t> outOfRange{-100, -20000, 0x10000000, 0x20000000};
+  int64_t outOfRange[] = {-100, -20000, 0x10000000, 0x20000000};
   auto verify = [&](int64_t x) { return filter->testInt64(x); };
-  checkSimd<int64_t>(filter.get(), outOfRange, verify);
+  checkSimd(filter.get(), outOfRange, verify);
   applySimdTestToVector(numbers, *filter, verify);
   // Make a filter with reasonably distributed entries and retry.
   numbers.clear();
@@ -337,7 +334,10 @@ TEST(FilterTest, doubleRange) {
 
   EXPECT_FALSE(filter->testNull());
   EXPECT_FALSE(filter->testDouble(1.3));
-  checkSimd<double>(filter.get(), {1.0, std::nan("nan"), 1.3, 1e200}, verify);
+  {
+    double n4[] = {1.0, std::nan("nan"), 1.3, 1e200};
+    checkSimd(filter.get(), n4, verify);
+  }
 
   filter = lessThanOrEqualDouble(1.2);
   EXPECT_TRUE(filter->testDouble(1.2));
@@ -345,9 +345,10 @@ TEST(FilterTest, doubleRange) {
 
   EXPECT_FALSE(filter->testNull());
   EXPECT_FALSE(filter->testDouble(1.3));
-
-  checkSimd<double>(
-      filter.get(), {-1e100, std::nan("nan"), 1.3, 1e200}, verify);
+  {
+    double n4[] = {-1e100, std::nan("nan"), 1.3, 1e200};
+    checkSimd(filter.get(), n4, verify);
+  }
 
   filter = greaterThanDouble(1.2);
   EXPECT_TRUE(filter->testDouble(1.3));
@@ -356,8 +357,10 @@ TEST(FilterTest, doubleRange) {
   EXPECT_FALSE(filter->testNull());
   EXPECT_FALSE(filter->testDouble(1.2));
   EXPECT_FALSE(filter->testDouble(-19.267));
-  checkSimd<double>(
-      filter.get(), {-1e100, std::nan("nan"), 1.3, 1e200}, verify);
+  {
+    double n4[] = {-1e100, std::nan("nan"), 1.3, 1e200};
+    checkSimd(filter.get(), n4, verify);
+  }
 
   filter = betweenDouble(1.2, 3.4);
   EXPECT_TRUE(filter->testDouble(1.2));
@@ -369,7 +372,10 @@ TEST(FilterTest, doubleRange) {
   EXPECT_FALSE(filter->testDouble(55.6));
   EXPECT_FALSE(filter->testDouble(NAN));
 
-  checkSimd<double>(filter.get(), {3.4, 1.3, 1.1, 1e200}, verify);
+  {
+    double n4[] = {3.4, 1.3, 1.1, 1e200};
+    checkSimd(filter.get(), n4, verify);
+  }
 
   EXPECT_THROW(betweenDouble(NAN, NAN), VeloxRuntimeError)
       << "able to create a DoubleRange with NaN";
@@ -383,8 +389,8 @@ TEST(FilterTest, floatRange) {
   EXPECT_FALSE(filter->testNull());
   EXPECT_FALSE(filter->testFloat(1.1f));
   {
-    xsimd::batch<float> n8 = {1.0, std::nanf("nan"), 1.3, 1e20, -1e20, 0, 0, 0};
-    checkSimd<float>(filter.get(), n8, verify);
+    float n8[] = {1.0, std::nanf("nan"), 1.3, 1e20, -1e20, 0, 0, 0};
+    checkSimd(filter.get(), n8, verify);
   }
 
   filter = lessThanFloat(1.2);
@@ -394,9 +400,8 @@ TEST(FilterTest, floatRange) {
   EXPECT_FALSE(filter->testFloat(1.2f));
   EXPECT_FALSE(filter->testFloat(15.632f));
   {
-    xsimd::batch<float> n8 = {
-        1.0, std::nanf("nan"), 1.3, 1e20, -1e20, 0, 1.1, 1.2};
-    checkSimd<float>(filter.get(), n8, verify);
+    float n8[] = {1.0, std::nanf("nan"), 1.3, 1e20, -1e20, 0, 1.1, 1.2};
+    checkSimd(filter.get(), n8, verify);
   }
 
   filter = betweenFloat(1.2, 3.4);
@@ -409,9 +414,8 @@ TEST(FilterTest, floatRange) {
   EXPECT_FALSE(filter->testFloat(15.632f));
   EXPECT_FALSE(filter->testFloat(std::nanf("NAN")));
   {
-    xsimd::batch<float> n8 = {
-        1.0, std::nanf("nan"), 3.4, 3.1, -1e20, 0, 1.1, 1.2};
-    checkSimd<float>(filter.get(), n8, verify);
+    float n8[] = {1.0, std::nanf("nan"), 3.4, 3.1, -1e20, 0, 1.1, 1.2};
+    checkSimd(filter.get(), n8, verify);
   }
 
   EXPECT_THROW(
@@ -426,8 +430,9 @@ TEST(FilterTest, bytesRange) {
     EXPECT_FALSE(filter->testBytes("acb", 3));
     EXPECT_TRUE(filter->testLength(3));
     // The bit for lane 2 should be set.
+    int32_t lens[] = {0, 1, 3, 0, 4, 10, 11, 12};
     EXPECT_EQ(
-        4, simd::toBitMask(filter->testLengths({0, 1, 3, 0, 4, 10, 11, 12})));
+        4, simd::toBitMask(filter->testLengths(xsimd::load_unaligned(lens))));
 
     EXPECT_FALSE(filter->testNull());
     EXPECT_FALSE(filter->testBytes("apple", 5));
