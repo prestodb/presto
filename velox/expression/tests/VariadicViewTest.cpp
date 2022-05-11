@@ -61,7 +61,10 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    DecodedArgs args(rows, vectors, &ctx);
+    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    for (const auto& vector : vectors) {
+      args.emplace_back(&ctx, *vector, rows);
+    }
 
     size_t startIndex = additionalVectors.size();
     VectorReader<Variadic<int64_t>> reader(args, startIndex);
@@ -134,7 +137,10 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    DecodedArgs args(rows, vectors, &ctx);
+    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    for (const auto& vector : vectors) {
+      args.emplace_back(&ctx, *vector, rows);
+    }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
 
@@ -161,7 +167,10 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    DecodedArgs args(rows, vectors, &ctx);
+    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    for (const auto& vector : vectors) {
+      args.emplace_back(&ctx, *vector, rows);
+    }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
 
@@ -191,7 +200,10 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    DecodedArgs args(rows, vectors, &ctx);
+    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    for (const auto& vector : vectors) {
+      args.emplace_back(&ctx, *vector, rows);
+    }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
 
@@ -220,7 +232,10 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    DecodedArgs args(rows, vectors, &ctx);
+    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    for (const auto& vector : vectors) {
+      args.emplace_back(&ctx, *vector, rows);
+    }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
 
@@ -288,7 +303,10 @@ TEST_F(NullableVariadicViewTest, notNullContainer) {
   }
   SelectivityVector rows(vectors[0]->size());
   EvalCtx ctx(&execCtx_);
-  DecodedArgs args(rows, vectors, &ctx);
+  std::vector<facebook::velox::exec::LocalDecodedVector> args;
+  for (const auto& vector : vectors) {
+    args.emplace_back(&ctx, *vector, rows);
+  }
 
   VectorReader<Variadic<int64_t>> reader(args, 0);
 

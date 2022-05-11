@@ -769,6 +769,41 @@ TEST_F(SimpleFunctionTest, arrayStringReuse) {
 }
 
 template <typename T>
+struct Substr {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  void call(
+      out_type<Varchar>& out,
+      const arg_type<Varchar>& str,
+      const int32_t& start,
+      const int32_t& length) {
+    out.copy_from(StringView(str.data() + start, length));
+  }
+};
+
+TEST_F(SimpleFunctionTest, stringReuseConstant) {
+  // Test reusing the strings from an argument when that argument is in a
+  // ConstantVector.  Note that the other 2 arguments are FlatVectors to
+  // prevent constant peeling.
+  registerFunction<Substr, Varchar, Varchar, int32_t, int32_t>({"substr"});
+
+  auto constantVector = vectorMaker_.constantVector<StringView>(
+      {"super happy fun string"_sv,
+       "super happy fun string"_sv,
+       "super happy fun string"_sv});
+  auto starts = vectorMaker_.flatVector({0, 1, 2});
+  auto lengths = vectorMaker_.flatVector({1, 2, 3});
+
+  auto result = evaluate<FlatVector<StringView>>(
+      "substr(c0, c1, c2)", makeRowVector({constantVector, starts, lengths}));
+
+  auto expected = vectorMaker_.flatVector({"s"_sv, "up"_sv, "per"_sv});
+  assertEqualVectors(expected, result);
+}
+
+template <typename T>
 struct MapStringOut {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
