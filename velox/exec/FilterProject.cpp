@@ -83,7 +83,8 @@ void FilterProject::addInput(RowVectorPtr input) {
   if (!resultProjections_.empty()) {
     results_.resize(resultProjections_.back().inputChannel + 1);
     for (auto& result : results_) {
-      if (result && result.unique()) {
+      if (result && result.unique() &&
+          result->encoding() == VectorEncoding::Simple::FLAT) {
         BaseVector::prepareForReuse(result, 0);
       } else {
         result.reset();

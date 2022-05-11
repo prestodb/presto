@@ -230,5 +230,48 @@ TEST_F(ApproxPercentileTest, largeWeightsGroupBy) {
   testGroupByAgg(keys, values, weights, 0.5, -1, expectedResult);
 }
 
+/// Repro of "decodedPercentile_.isConstantMapping() Percentile argument must be
+/// constant for all input rows" error caused by (1) HashAggregation keeping a
+/// reference to input vectors when partial aggregation ran out of memory; (2)
+/// EvalCtx::moveOrCopyResult needlessly flattening constant vector result of a
+/// constant expression.
+TEST_F(ApproxPercentileTest, partialFull) {
+  // Make sure partial aggregation runs out of memory after first batch.
+  CursorParameters params;
+  params.queryCtx = core::QueryCtx::createForTest();
+  params.queryCtx->setConfigOverridesUnsafe({
+      {core::QueryConfig::kMaxPartialAggregationMemory, "300000"},
+  });
+
+  auto data = {
+      makeRowVector({
+          makeFlatVector<int32_t>(1'024, [](auto row) { return row % 117; }),
+          makeFlatVector<int32_t>(1'024, [](auto /*row*/) { return 10; }),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>(1'024, [](auto row) { return row % 5; }),
+          makeFlatVector<int32_t>(1'024, [](auto /*row*/) { return 15; }),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>(1'024, [](auto row) { return row % 7; }),
+          makeFlatVector<int32_t>(1'024, [](auto /*row*/) { return 20; }),
+      }),
+  };
+
+  params.planNode =
+      PlanBuilder()
+          .values(data)
+          .project({"c0", "c1", "1", "0.9995", "0.001"})
+          .partialAggregation({"c0"}, {"approx_percentile(c1, p2, p3, p4)"})
+          .finalAggregation()
+          .planNode();
+
+  auto expected = makeRowVector({
+      makeFlatVector<int32_t>(117, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(117, [](auto row) { return row < 7 ? 20 : 10; }),
+  });
+  exec::test::assertQuery(params, {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test
