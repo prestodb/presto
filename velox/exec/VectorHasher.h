@@ -170,6 +170,18 @@ class VectorHasher {
       bool mix,
       raw_vector<uint64_t>& result);
 
+  // Computes a hash for 'rows' using precomputedHash_ (just like from a const
+  // vector) and stores it in 'result'.
+  // If 'mix' is true, mixes the hash with existing value in 'result'.
+  void hashPrecomputed(
+      const SelectivityVector& rows,
+      bool mix,
+      raw_vector<uint64_t>& result) const;
+
+  // Precompute hash of a given single value (vector has just one row) into
+  // precomputedHash_. Used for constant partition keys.
+  void precompute(const BaseVector& value);
+
   // Computes a normalized key for 'rows' in 'values' and stores this
   // in 'result'. If this is not the first hasher with normalized
   // keys, updates the partially computed normalized key in
@@ -494,6 +506,9 @@ class VectorHasher {
 
   DecodedVector decoded_;
   raw_vector<uint64_t> cachedHashes_;
+
+  // Single precomputed hash for constant partition keys.
+  uint64_t precomputedHash_{0};
 
   // Members for fast map to int domain for array/normalized key.
   // Maximum integer mapping. If distinct count exceeds this,

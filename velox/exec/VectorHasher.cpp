@@ -461,8 +461,29 @@ void VectorHasher::hash(
     bool mix,
     raw_vector<uint64_t>& result) {
   decoded_.decode(values, rows);
-  return VELOX_DYNAMIC_TYPE_DISPATCH(
-      hashValues, typeKind_, rows, mix, result.data());
+  VELOX_DYNAMIC_TYPE_DISPATCH(hashValues, typeKind_, rows, mix, result.data());
+}
+
+void VectorHasher::hashPrecomputed(
+    const SelectivityVector& rows,
+    bool mix,
+    raw_vector<uint64_t>& result) const {
+  rows.applyToSelected([&](vector_size_t row) {
+    result[row] =
+        mix ? bits::hashMix(result[row], precomputedHash_) : precomputedHash_;
+  });
+}
+
+void VectorHasher::precompute(const BaseVector& value) {
+  if (value.isNullAt(0)) {
+    precomputedHash_ = 0;
+    return;
+  }
+
+  const SelectivityVector rows(1, true);
+  decoded_.decode(value, rows);
+  precomputedHash_ =
+      VELOX_DYNAMIC_TYPE_DISPATCH(hashOne, typeKind_, decoded_, 0);
 }
 
 void VectorHasher::analyze(
@@ -471,7 +492,7 @@ void VectorHasher::analyze(
     int32_t offset,
     int32_t nullByte,
     uint8_t nullMask) {
-  return VALUE_ID_TYPE_DISPATCH(
+  VALUE_ID_TYPE_DISPATCH(
       analyzeTyped, typeKind_, groups, numGroups, offset, nullByte, nullMask);
 }
 

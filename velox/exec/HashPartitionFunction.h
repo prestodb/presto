@@ -24,8 +24,9 @@ class HashPartitionFunction : public core::PartitionFunction {
  public:
   HashPartitionFunction(
       int numPartitions,
-      RowTypePtr inputType,
-      std::vector<ChannelIndex> keyChannels);
+      const RowTypePtr& inputType,
+      const std::vector<ChannelIndex>& keyChannels,
+      const std::vector<std::shared_ptr<BaseVector>>& constValues = {});
 
   ~HashPartitionFunction() override = default;
 
@@ -34,7 +35,6 @@ class HashPartitionFunction : public core::PartitionFunction {
 
  private:
   const int numPartitions_;
-  const std::vector<ChannelIndex> keyChannels_;
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
 
   // Reusable memory.

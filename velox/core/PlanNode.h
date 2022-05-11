@@ -747,8 +747,7 @@ class PartitionedOutputNode : public PlanNode {
  public:
   PartitionedOutputNode(
       const PlanNodeId& id,
-      const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
-          keys,
+      const std::vector<std::shared_ptr<const ITypedExpr>>& keys,
       int numPartitions,
       bool broadcast,
       bool replicateNullsAndAny,
@@ -781,7 +780,7 @@ class PartitionedOutputNode : public PlanNode {
       int numPartitions,
       RowTypePtr outputType,
       PlanNodePtr source) {
-    std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> noKeys;
+    std::vector<std::shared_ptr<const core::ITypedExpr>> noKeys;
     return std::make_shared<PartitionedOutputNode>(
         id,
         noKeys,
@@ -797,7 +796,7 @@ class PartitionedOutputNode : public PlanNode {
 
   static std::shared_ptr<PartitionedOutputNode>
   single(const PlanNodeId& id, RowTypePtr outputType, PlanNodePtr source) {
-    std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> noKeys;
+    std::vector<std::shared_ptr<const core::ITypedExpr>> noKeys;
     return std::make_shared<PartitionedOutputNode>(
         id,
         noKeys,
@@ -823,7 +822,7 @@ class PartitionedOutputNode : public PlanNode {
     return sources_[0]->outputType();
   }
 
-  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& keys() const {
+  const std::vector<std::shared_ptr<const ITypedExpr>>& keys() const {
     return keys_;
   }
 
@@ -855,7 +854,7 @@ class PartitionedOutputNode : public PlanNode {
   void addDetails(std::stringstream& stream) const override;
 
   const std::vector<PlanNodePtr> sources_;
-  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>> keys_;
+  const std::vector<std::shared_ptr<const ITypedExpr>> keys_;
   const int numPartitions_;
   const bool broadcast_;
   const bool replicateNullsAndAny_;

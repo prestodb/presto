@@ -655,6 +655,9 @@ class PlanBuilder {
   std::shared_ptr<const core::FieldAccessTypedExpr> field(
       const std::string& name);
 
+  std::vector<std::shared_ptr<const core::ITypedExpr>> exprs(
+      const std::vector<std::string>& names);
+
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields(
       const std::vector<std::string>& names);
 

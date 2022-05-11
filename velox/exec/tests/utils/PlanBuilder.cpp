@@ -945,7 +945,7 @@ PlanBuilder& PlanBuilder::partitionedOutput(
       createPartitionFunctionFactory(planNode_->outputType(), keys);
   planNode_ = std::make_shared<core::PartitionedOutputNode>(
       nextPlanNodeId(),
-      fields(keys),
+      exprs(keys),
       numPartitions,
       false,
       replicateNullsAndAny,
@@ -1185,6 +1185,18 @@ PlanBuilder::fields(const std::vector<std::string>& names) {
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
 PlanBuilder::fields(const std::vector<ChannelIndex>& indices) {
   return fields(planNode_->outputType(), indices);
+}
+
+std::vector<std::shared_ptr<const core::ITypedExpr>> PlanBuilder::exprs(
+    const std::vector<std::string>& names) {
+  auto flds = fields(planNode_->outputType(), names);
+  std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
+  expressions.reserve(flds.size());
+  for (const auto& fld : flds) {
+    expressions.emplace_back(
+        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(fld));
+  }
+  return expressions;
 }
 
 std::shared_ptr<const core::ITypedExpr> PlanBuilder::inferTypes(

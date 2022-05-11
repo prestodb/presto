@@ -105,7 +105,7 @@ AggregationNode::AggregationNode(
 }
 
 namespace {
-void addKeys(
+void addFields(
     std::stringstream& stream,
     const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& keys) {
   for (auto i = 0; i < keys.size(); ++i) {
@@ -115,6 +115,27 @@ void addKeys(
     stream << keys[i]->name();
   }
 }
+
+void addKeys(
+    std::stringstream& stream,
+    const std::vector<std::shared_ptr<const ITypedExpr>>& keys) {
+  for (auto i = 0; i < keys.size(); ++i) {
+    if (i > 0) {
+      stream << ", ";
+    }
+    if (auto field =
+            std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+                keys[i])) {
+      stream << field->name();
+    } else if (
+        auto constant =
+            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(keys[i])) {
+      stream << "<constexpr>";
+    } else {
+      stream << "<unknown>";
+    }
+  }
+}
 } // namespace
 
 void AggregationNode::addDetails(std::stringstream& stream) const {
@@ -122,7 +143,7 @@ void AggregationNode::addDetails(std::stringstream& stream) const {
 
   if (!groupingKeys_.empty()) {
     stream << "[";
-    addKeys(stream, groupingKeys_);
+    addFields(stream, groupingKeys_);
     stream << "] ";
   }
 
@@ -224,7 +245,7 @@ UnnestNode::UnnestNode(
 }
 
 void UnnestNode::addDetails(std::stringstream& stream) const {
-  addKeys(stream, unnestVariables_);
+  addFields(stream, unnestVariables_);
 }
 
 AbstractJoinNode::AbstractJoinNode(

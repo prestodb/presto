@@ -32,6 +32,9 @@ namespace facebook::velox {
 
 using ChannelIndex = uint32_t;
 
+constexpr ChannelIndex kConstantChannel =
+    std::numeric_limits<ChannelIndex>::max();
+
 class RowVector : public BaseVector {
  public:
   RowVector(

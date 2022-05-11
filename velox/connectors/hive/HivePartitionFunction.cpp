@@ -36,13 +36,8 @@ void hashTyped<TypeKind::BOOLEAN>(
     bool mix,
     std::vector<uint32_t>& hashes) {
   for (auto i = 0; i < size; ++i) {
-    uint32_t hash;
-    if (values.isNullAt(i)) {
-      hash = 0;
-    } else {
-      hash = values.valueAt<bool>(i) ? 1 : 0;
-    }
-
+    const int32_t hash =
+        (values.isNullAt(i)) ? 0 : (values.valueAt<bool>(i) ? 1 : 0);
     hashes[i] = mix ? hashes[i] * 31 + hash : hash;
   }
 }
@@ -58,13 +53,8 @@ void hashTyped<TypeKind::BIGINT>(
     bool mix,
     std::vector<uint32_t>& hashes) {
   for (auto i = 0; i < size; ++i) {
-    int32_t hash;
-    if (values.isNullAt(i)) {
-      hash = 0;
-    } else {
-      hash = hashInt64(values.valueAt<int64_t>(i));
-    }
-
+    const int32_t hash =
+        (values.isNullAt(i)) ? 0 : hashInt64(values.valueAt<int64_t>(i));
     hashes[i] = mix ? hashes[i] * 31 + hash : hash;
   }
 }
@@ -91,13 +81,8 @@ void hashTyped<TypeKind::VARCHAR>(
     bool mix,
     std::vector<uint32_t>& hashes) {
   for (auto i = 0; i < size; ++i) {
-    uint32_t hash;
-    if (values.isNullAt(i)) {
-      hash = 0;
-    } else {
-      hash = hashBytes(values.valueAt<StringView>(i), 0);
-    }
-
+    const uint32_t hash =
+        (values.isNullAt(i)) ? 0 : hashBytes(values.valueAt<StringView>(i), 0);
     hashes[i] = mix ? hashes[i] * 31 + hash : hash;
   }
 }
@@ -118,46 +103,85 @@ void hash(
 
   VELOX_DYNAMIC_TYPE_DISPATCH(hashTyped, typeKind, values, size, mix, hashes);
 }
+
+void hashPrecomputed(
+    uint32_t precomputedHash,
+    vector_size_t numRows,
+    bool mix,
+    std::vector<uint32_t>& hashes) {
+  for (auto i = 0; i < numRows; ++i) {
+    hashes[i] = mix ? hashes[i] * 31 + precomputedHash : precomputedHash;
+  }
+}
 } // namespace
 
 HivePartitionFunction::HivePartitionFunction(
     int numBuckets,
     std::vector<int> bucketToPartition,
-    std::vector<ChannelIndex> keyChannels)
+    std::vector<ChannelIndex> keyChannels,
+    const std::vector<std::shared_ptr<BaseVector>>& constValues)
     : numBuckets_{numBuckets},
       bucketToPartition_{bucketToPartition},
       keyChannels_{std::move(keyChannels)} {
   decodedVectors_.resize(keyChannels_.size());
+  precomputedHashes_.resize(keyChannels_.size());
+  size_t constChannel{0};
+  for (auto i = 0; i < keyChannels_.size(); ++i) {
+    if (keyChannels_[i] == kConstantChannel) {
+      precompute(*(constValues[constChannel++]), i);
+    }
+  }
 }
 
 void HivePartitionFunction::partition(
     const RowVector& input,
     std::vector<uint32_t>& partitions) {
-  auto size = input.size();
+  const auto numRows = input.size();
 
-  if (size > hashes_.size()) {
-    rows_.resize(size);
+  if (numRows > hashes_.size()) {
+    rows_.resize(numRows);
     rows_.setAll();
-    hashes_.resize(size);
+    hashes_.resize(numRows);
   }
 
-  partitions.resize(size);
+  partitions.resize(numRows);
   for (auto i = 0; i < keyChannels_.size(); ++i) {
-    auto keyVector = input.childAt(keyChannels_[i]);
-    decodedVectors_[i].decode(*keyVector, rows_);
-    hash(
-        decodedVectors_[i],
-        keyVector->typeKind(),
-        keyVector->size(),
-        i > 0,
-        hashes_);
+    if (keyChannels_[i] != kConstantChannel) {
+      const auto& keyVector = input.childAt(keyChannels_[i]);
+      decodedVectors_[i].decode(*keyVector, rows_);
+      hash(
+          decodedVectors_[i],
+          keyVector->typeKind(),
+          keyVector->size(),
+          i > 0,
+          hashes_);
+    } else {
+      hashPrecomputed(precomputedHashes_[i], numRows, i > 0, hashes_);
+    }
   }
 
   static const int32_t kInt32Max = std::numeric_limits<int32_t>::max();
 
-  for (auto i = 0; i < size; ++i) {
+  for (auto i = 0; i < numRows; ++i) {
     partitions[i] =
         bucketToPartition_[((hashes_[i] & kInt32Max) % numBuckets_)];
   }
 }
+
+void HivePartitionFunction::precompute(
+    const BaseVector& value,
+    size_t channelIndex) {
+  if (value.isNullAt(0)) {
+    precomputedHashes_[channelIndex] = 0;
+    return;
+  }
+
+  const SelectivityVector rows(1, true);
+  decodedVectors_[channelIndex].decode(value, rows);
+
+  std::vector<uint32_t> hashes{1};
+  hash(decodedVectors_[channelIndex], value.typeKind(), 1, false, hashes);
+  precomputedHashes_[channelIndex] = hashes[0];
+}
+
 } // namespace facebook::velox::connector::hive
