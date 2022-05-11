@@ -160,6 +160,7 @@ RowVectorPtr StreamingAggregation::createOutput(size_t numGroups) {
   auto numKeys = groupingKeys_.size();
   for (auto i = 0; i < aggregates_.size(); ++i) {
     auto& aggregate = aggregates_[i];
+    aggregate->finalize(groups_.data(), numGroups);
     auto& result = output->childAt(numKeys + i);
     if (isPartialOutput(step_)) {
       aggregate->extractAccumulators(groups_.data(), numGroups, &result);
