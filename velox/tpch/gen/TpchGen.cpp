@@ -321,6 +321,10 @@ RowTypePtr getTableSchema(Table table) {
   return nullptr; // make gcc happy.
 }
 
+TypePtr resolveTpchColumn(Table table, const std::string& columnName) {
+  return getTableSchema(table)->findChild(columnName);
+}
+
 RowVectorPtr genTpchOrders(
     size_t maxRows,
     size_t offset,

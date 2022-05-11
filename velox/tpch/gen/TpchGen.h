@@ -35,7 +35,7 @@ namespace facebook::velox::tpch {
 ///
 /// Data is always returned in a RowVector.
 
-enum class Table {
+enum class Table : uint8_t {
   TBL_PART,
   TBL_SUPPLIER,
   TBL_PARTSUPP,
@@ -57,6 +57,10 @@ size_t getRowCount(Table table, size_t scaleFactor);
 
 /// Returns the schema (RowType) for a particular TPC-H table.
 RowTypePtr getTableSchema(Table table);
+
+/// Returns the type of a particular table:column pair. Throws if `columnName`
+/// does not exist in `table`.
+TypePtr resolveTpchColumn(Table table, const std::string& columnName);
 
 /// Returns a row vector containing at most `maxRows` rows of the "orders"
 /// table, starting at `offset`, and given the scale factor. The row vector

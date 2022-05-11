@@ -17,6 +17,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/duckdb/conversion/DuckParser.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/HashPartitionFunction.h"
@@ -422,6 +423,30 @@ PlanBuilder& PlanBuilder::tableScan(
   planNode_ = std::make_shared<core::TableScanNode>(
       nextPlanNodeId(), outputType, tableHandle, assignments);
   return *this;
+}
+
+PlanBuilder& PlanBuilder::tableScan(
+    tpch::Table table,
+    std::vector<std::string>&& columnNames,
+    size_t scaleFactor) {
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      assignmentsMap;
+  std::vector<TypePtr> outputTypes;
+
+  assignmentsMap.reserve(columnNames.size());
+  outputTypes.reserve(columnNames.size());
+
+  for (const auto& columnName : columnNames) {
+    assignmentsMap.emplace(
+        columnName,
+        std::make_shared<connector::tpch::TpchColumnHandle>(columnName));
+    outputTypes.emplace_back(resolveTpchColumn(table, columnName));
+  }
+  auto rowType = ROW(std::move(columnNames), std::move(outputTypes));
+  return tableScan(
+      rowType,
+      std::make_shared<connector::tpch::TpchTableHandle>(table, scaleFactor),
+      assignmentsMap);
 }
 
 PlanBuilder& PlanBuilder::values(

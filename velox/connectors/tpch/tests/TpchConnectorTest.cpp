@@ -50,31 +50,15 @@ class TpchConnectorTest : public exec::test::OperatorTestBase {
     return exec::Split(std::make_shared<TpchConnectorSplit>(kTpchConnectorId));
   }
 
-  // Helper function to create 1:1 assignments maps based on output type.
-  auto defaultAssignments(const RowTypePtr& outputType) const {
-    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-        assignmentsMap;
-
-    for (const auto& columnName : outputType->names()) {
-      assignmentsMap.emplace(
-          columnName, std::make_shared<TpchColumnHandle>(columnName));
-    }
-    return assignmentsMap;
-  }
-
   void runScaleFactorTest(size_t scaleFactor);
 };
 
 // Simple scan of first 5 rows of "nation".
 TEST_F(TpchConnectorTest, simple) {
-  auto outputType =
-      ROW({"n_nationkey", "n_name", "n_regionkey", "n_comment"},
-          {BIGINT(), VARCHAR(), BIGINT(), VARCHAR()});
   auto plan = PlanBuilder()
                   .tableScan(
-                      outputType,
-                      std::make_shared<TpchTableHandle>(Table::TBL_NATION),
-                      defaultAssignments(outputType))
+                      Table::TBL_NATION,
+                      {"n_nationkey", "n_name", "n_regionkey", "n_comment"})
                   .limit(0, 5, false)
                   .planNode();
 
@@ -106,13 +90,7 @@ TEST_F(TpchConnectorTest, simple) {
 
 // Extract single column from "nation".
 TEST_F(TpchConnectorTest, singleColumn) {
-  auto outputType = ROW({"n_name"}, {VARCHAR()});
-  auto plan = PlanBuilder()
-                  .tableScan(
-                      outputType,
-                      std::make_shared<TpchTableHandle>(Table::TBL_NATION),
-                      defaultAssignments(outputType))
-                  .planNode();
+  auto plan = PlanBuilder().tableScan(Table::TBL_NATION, {"n_name"}).planNode();
 
   auto output = getResults(plan, {makeTpchSplit()});
   auto expected = makeRowVector({makeFlatVector<StringView>({
@@ -183,15 +161,13 @@ TEST_F(TpchConnectorTest, simpleAggregation) {
 }
 
 TEST_F(TpchConnectorTest, unknownColumn) {
-  auto outputType = ROW({"does_not_exist"}, {VARCHAR()});
-  auto plan = PlanBuilder()
-                  .tableScan(
-                      outputType,
-                      std::make_shared<TpchTableHandle>(Table::TBL_NATION),
-                      defaultAssignments(outputType))
-                  .planNode();
-
-  EXPECT_THROW(getResults(plan, {makeTpchSplit()}), VeloxRuntimeError);
+  EXPECT_THROW(
+      {
+        PlanBuilder()
+            .tableScan(Table::TBL_NATION, {"does_not_exist"})
+            .planNode();
+      },
+      VeloxUserError);
 }
 
 } // namespace
