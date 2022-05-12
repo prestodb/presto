@@ -123,7 +123,8 @@ statement
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showFunctions
-    | SHOW SESSION                                                     #showSession
+    | SHOW SESSION
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSession
     | SET SESSION qualifiedName EQ expression                          #setSession
     | RESET SESSION qualifiedName                                      #resetSession
     | START TRANSACTION (transactionMode (',' transactionMode)*)?      #startTransaction
