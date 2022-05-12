@@ -42,7 +42,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.pinot.spi.utils.TimestampUtils;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -51,13 +50,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_REQUEST_GENERATOR_FAILURE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNEXPECTED_RESPONSE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static com.facebook.presto.pinot.PinotUtils.doWithRetries;
+import static com.facebook.presto.pinot.PinotUtils.parseDouble;
+import static com.facebook.presto.pinot.PinotUtils.parseTimestamp;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Long.parseLong;
@@ -66,11 +66,6 @@ import static java.util.Objects.requireNonNull;
 public abstract class PinotBrokerPageSourceBase
         implements ConnectorPageSource
 {
-    private static final String PINOT_INFINITY = "∞";
-    private static final String PINOT_POSITIVE_INFINITY = "+" + PINOT_INFINITY;
-    private static final String PINOT_NEGATIVE_INFINITY = "-" + PINOT_INFINITY;
-    private static final Double PRESTO_INFINITY = Double.POSITIVE_INFINITY;
-    private static final Double PRESTO_NEGATIVE_INFINITY = Double.NEGATIVE_INFINITY;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     protected final PinotConfig pinotConfig;
@@ -95,23 +90,6 @@ public abstract class PinotBrokerPageSourceBase
         this.columnHandles = ImmutableList.copyOf(columnHandles);
         this.session = requireNonNull(session, "session is null");
         this.objectMapper = requireNonNull(objectMapper, "object mapper is null");
-    }
-
-    private static Double parseDouble(String value)
-    {
-        try {
-            return Double.valueOf(value);
-        }
-        catch (NumberFormatException ne) {
-            switch (value) {
-                case PINOT_INFINITY:
-                case PINOT_POSITIVE_INFINITY:
-                    return PRESTO_INFINITY;
-                case PINOT_NEGATIVE_INFINITY:
-                    return PRESTO_NEGATIVE_INFINITY;
-            }
-            throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), "Cannot decode double value from pinot " + value, ne);
-        }
     }
 
     protected void setValue(Type type, BlockBuilder blockBuilder, JsonNode value)
@@ -184,16 +162,6 @@ public abstract class PinotBrokerPageSourceBase
             Slice slice = Slices.utf8Slice(value);
             blockBuilder.writeBytes(slice, 0, slice.length()).closeEntry();
             completedBytes += slice.length();
-        }
-    }
-
-    private long parseTimestamp(String value)
-    {
-        try {
-            return parseLong(value);
-        }
-        catch (Exception e) {
-            return TimestampUtils.toMillisSinceEpoch(value);
         }
     }
 
