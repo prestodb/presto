@@ -710,5 +710,59 @@ TEST_F(ArrayWriterTest, copyFromNestedNullableArrayView) {
           {{1}}, {{3, std::nullopt, 5}}}));
 }
 
+template <typename T>
+struct AddItemsTestFunc {
+  template <typename TOut, typename TIn>
+  void call(TOut& out, const TIn& input) {
+    out.add_items(input);
+    out.add_items(input);
+    out.add_items(std::vector<int64_t>{1, 2, 3});
+  }
+
+  // Will be called when there is no nulls in the input.
+  template <typename TOut, typename TIn>
+  void callNullFree(TOut& out, const TIn& input) {
+    out.add_items(std::vector<int64_t>{1, 2, 3});
+    out.add_items(input);
+    out.add_items(input);
+  }
+};
+
+TEST_F(ArrayWriterTest, addItems) {
+  registerFunction<AddItemsTestFunc, Array<int64_t>, Array<int64_t>>(
+      {"add_items_test"});
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+
+  {
+    // callNullFree path.
+    auto result = evaluate(
+        "add_items_test(array_constructor(10, 20))",
+        makeRowVector({makeFlatVector<int64_t>(1)}));
+
+    // Test results.
+    decoded.decode(*result, rows);
+    exec::VectorReader<Array<int64_t>> reader(&decoded);
+    ASSERT_EQ(
+        reader.readNullFree(0).materialize(),
+        (std::vector<int64_t>{1, 2, 3, 10, 20, 10, 20}));
+  }
+
+  {
+    // call path.
+    auto result = evaluate(
+        "add_items_test(array_constructor(10, null))",
+        makeRowVector({makeFlatVector<int64_t>(1)}));
+
+    // Test results.
+    decoded.decode(*result, rows);
+    exec::VectorReader<Array<int64_t>> reader(&decoded);
+    ASSERT_EQ(
+        reader[0].materialize(),
+        (std::vector<std::optional<int64_t>>{
+            10, std::nullopt, 10, std::nullopt, 1, 2, 3}));
+  }
+}
+
 } // namespace
 } // namespace facebook::velox

@@ -195,16 +195,23 @@ class ArrayWriter {
   }
 
   // Any vector type with std-like optional-free interface.
+  template <typename T>
+  void copy_from(const T& data) {
+    length_ = 0;
+    add_items(data);
+  }
+
+  // Any vector type with std-like optional-free interface.
   template <typename VectorType>
-  void copy_from(const VectorType& data) {
+  void add_items(const VectorType& data) {
     if constexpr (provide_std_interface<V>) {
       // TODO: accelerate this with memcpy.
-      resize(data.size());
+      auto start = length_;
+      resize(length_ + data.size());
       for (auto i = 0; i < data.size(); i++) {
-        this->operator[](i) = data[i];
+        this->operator[](i + start) = data[i];
       }
     } else {
-      length_ = 0;
       for (const auto& item : data) {
         auto& writer = add_item();
         writer.copy_from(item);
@@ -213,31 +220,33 @@ class ArrayWriter {
   }
 
   // Copy from null-free ArrayView.
-  void copy_from(
+  void add_items(
       const typename VectorExec::template resolver<Array<V>>::null_free_in_type&
           arrayView) {
     // If the null buffer is allocated this will read every null bit.
     // TODO: create a copy version that avoids null checks (assumes not null)
     // even when null buffer is allocated.
 
-    // The copy_from above works for null-free ArrayView, but calling copy on
+    // The add_items above works for null-free ArrayView, but calling copy on
     // the vector directly uses memcpy which is more efficient.
-    resize(arrayView.size());
+    auto start = length_;
+    resize(length_ + arrayView.size());
     elementsVector_->copy(
         arrayView.elementsVector(),
-        valuesOffset_,
+        valuesOffset_ + start,
         arrayView.offset(),
         arrayView.size());
   }
 
   // Copy from nullable ArrayView.
-  void copy_from(
+  void add_items(
       const typename VectorExec::template resolver<Array<V>>::in_type&
           arrayView) {
-    resize(arrayView.size());
+    auto start = length_;
+    resize(length_ + arrayView.size());
     elementsVector_->copy(
         arrayView.elementsVector(),
-        valuesOffset_,
+        valuesOffset_ + start,
         arrayView.offset(),
         arrayView.size());
   }
