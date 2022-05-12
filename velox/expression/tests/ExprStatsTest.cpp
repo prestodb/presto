@@ -259,6 +259,18 @@ TEST_F(ExprStatsTest, listener) {
 
   ASSERT_NE(events[0].uuid, events[1].uuid);
 
+  // Evaluate an expression with CTE and verify no double accounting.
+  {
+    auto exprSet =
+        compileExpressions({"(c0 + c1) % 5", "pow(c0 + c1, 2)"}, rowType);
+    evaluate(*exprSet, data);
+  }
+  ASSERT_EQ(3, events.size());
+  stats = events.back().stats;
+  ASSERT_EQ(1024, stats.at("plus").numProcessedRows);
+  ASSERT_EQ(1024, stats.at("mod").numProcessedRows);
+  ASSERT_EQ(1024, stats.at("pow").numProcessedRows);
+
   // Unregister the listener, evaluate expressions again and verify the listener
   // wasn't invoked.
   ASSERT_TRUE(exec::unregisterExprSetListener(listener));
@@ -269,7 +281,7 @@ TEST_F(ExprStatsTest, listener) {
         compileExpressions({"(c0 + 3) * c1", "(c0 + c1) % 2 = 0"}, rowType);
     evaluate(*exprSet, data);
   }
-  ASSERT_EQ(2, events.size());
+  ASSERT_EQ(3, events.size());
 }
 
 TEST_F(ExprStatsTest, memoryAllocations) {
