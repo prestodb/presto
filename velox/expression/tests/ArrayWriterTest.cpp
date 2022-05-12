@@ -764,5 +764,30 @@ TEST_F(ArrayWriterTest, addItems) {
   }
 }
 
+// Make sure nested vectors are resized to actual size after writing.
+TEST_F(ArrayWriterTest, finishPostSize) {
+  using out_t = Array<Array<int32_t>>;
+
+  auto result = prepareResult(CppToType<out_t>::create());
+
+  exec::VectorWriter<out_t> vectorWriter;
+  vectorWriter.init(*result.get()->as<ArrayVector>());
+  vectorWriter.setOffset(0);
+
+  // Add 3 items in top level array and 10 in inner array.
+  auto& arrayWriter = vectorWriter.current();
+  arrayWriter.add_item();
+  arrayWriter.add_item();
+  auto& innerArrayWriter = arrayWriter.add_item();
+  innerArrayWriter.resize(10);
+
+  vectorWriter.commit();
+  vectorWriter.finish();
+
+  auto* arrayElements = result->as<ArrayVector>()->elements().get();
+  ASSERT_EQ(arrayElements->size(), 3);
+  ASSERT_EQ(arrayElements->as<ArrayVector>()->elements()->size(), 10);
+}
+
 } // namespace
 } // namespace facebook::velox

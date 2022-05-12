@@ -539,5 +539,33 @@ TEST_F(MapWriterTest, copyFromNullableMapView) {
           {1, 4}, {2, std::nullopt}, {3, 6}}));
 }
 
+// Make sure nested vectors are resized to actual size after writing.
+TEST_F(MapWriterTest, finishPostSize) {
+  using out_t = Map<int64_t, Map<int64_t, int64_t>>;
+  auto result = prepareResult(CppToType<out_t>::create());
+
+  exec::VectorWriter<out_t> vectorWriter;
+  vectorWriter.init(*result->as<MapVector>());
+  vectorWriter.setOffset(0);
+
+  auto& mapWriter = vectorWriter.current();
+  folly::F14FastMap<int64_t, int64_t> element = {{1, 2}, {3, 4}};
+
+  mapWriter.copy_from(
+      folly::F14FastMap<int64_t, folly::F14FastMap<int64_t, int64_t>>{
+          {1, element}, {2, element}, {3, element}});
+
+  vectorWriter.commit();
+  vectorWriter.finish();
+
+  auto* outerMap = result->as<MapVector>();
+  ASSERT_EQ(outerMap->mapKeys()->size(), 3);
+  ASSERT_EQ(outerMap->mapValues()->size(), 3);
+
+  auto* innerMap = outerMap->mapValues()->as<MapVector>();
+  ASSERT_EQ(innerMap->mapKeys()->size(), 6);
+  ASSERT_EQ(innerMap->mapValues()->size(), 6);
+}
+
 } // namespace
 } // namespace facebook::velox

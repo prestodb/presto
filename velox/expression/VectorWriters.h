@@ -42,6 +42,8 @@ struct VectorWriter {
     data_ = vector.mutableRawValues();
   }
 
+  void finish() {}
+
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
       vector_->resize(size, /*setNotNull*/ false);
@@ -105,6 +107,7 @@ struct VectorWriter<Array<V>> {
   void finish() {
     writer_.elementsVector_->resize(writer_.valuesOffset_);
     arrayVector_ = nullptr;
+    childWriter_.finish();
   }
 
   VectorWriter() = default;
@@ -187,6 +190,8 @@ struct VectorWriter<Map<K, V>> {
     writer_.keysVector_->resize(writer_.innerOffset_);
     writer_.valuesVector_->resize(writer_.innerOffset_);
     mapVector_ = nullptr;
+    keyWriter_.finish();
+    valWriter_.finish();
   }
 
   VectorWriter() = default;
@@ -263,6 +268,11 @@ struct VectorWriter<Row<T...>> {
     writer_.initialize();
   }
 
+  // This should be called once all rows are processed.
+  void finish() {
+    finishChildren(std::index_sequence_for<T...>());
+  }
+
   exec_out_t& current() {
     return writer_;
   }
@@ -302,6 +312,11 @@ struct VectorWriter<Row<T...>> {
   }
 
  private:
+  template <size_t... Is>
+  void finishChildren(std::index_sequence<Is...>) {
+    (std::get<Is>(writer_.childrenWriters_).finish(), ...);
+  }
+
   template <size_t I>
   void resizeVectorWriters(size_t size) {
     if constexpr (I == sizeof...(T)) {
@@ -341,6 +356,8 @@ struct VectorWriter<
   void init(vector_t& vector) {
     vector_ = &vector;
   }
+
+  void finish() {}
 
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
@@ -400,6 +417,8 @@ struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
     vector_ = &vector;
   }
 
+  void finish() {}
+
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
       vector_->resize(size, /*setNotNull*/ false);
@@ -451,6 +470,8 @@ struct VectorWriter<std::shared_ptr<T>> {
   void init(vector_t& vector) {
     vector_ = &vector;
   }
+
+  void finish() {}
 
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
