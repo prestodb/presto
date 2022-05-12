@@ -44,6 +44,41 @@ class HivePartitionFunctionTest : public ::testing::Test {
     }
   }
 
+  // Run one function with 3 columns (two of which have the same values in each
+  // row) and another with two constant channels replacing the last two columns.
+  // Partitions should be the same.
+  void assertPartitionsWithConstChannel(
+      const VectorPtr& vector,
+      int bucketCount) {
+    auto column2 = vm_.flatVector<int64_t>(
+        vector->size(), [](auto /*row*/) { return 13; });
+    auto column3 = vm_.flatVector<int64_t>(
+        vector->size(), [](auto /*row*/) { return 97; });
+    auto rowVector = vm_.rowVector({vector, column2, column3});
+
+    auto size = rowVector->size();
+    std::vector<VectorPtr> constValues{
+        vm_.flatVector<int64_t>({13}), vm_.flatVector<int64_t>({97})};
+
+    std::vector<int> bucketToPartition(bucketCount);
+    std::iota(bucketToPartition.begin(), bucketToPartition.end(), 0);
+
+    std::vector<ChannelIndex> keyChannelsNorm{0, 1, 2};
+    connector::hive::HivePartitionFunction partitionFunctionNorm(
+        bucketCount, bucketToPartition, keyChannelsNorm);
+
+    std::vector<ChannelIndex> keyChannelsConst{
+        0, kConstantChannel, kConstantChannel};
+    connector::hive::HivePartitionFunction partitionFunctionConst(
+        bucketCount, bucketToPartition, keyChannelsConst, constValues);
+
+    std::vector<uint32_t> partitionsNorm(size);
+    partitionFunctionNorm.partition(*rowVector, partitionsNorm);
+    std::vector<uint32_t> partitionsConst(size);
+    partitionFunctionConst.partition(*rowVector, partitionsConst);
+    EXPECT_EQ(partitionsNorm, partitionsConst);
+  }
+
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
   test::VectorMaker vm_{pool_.get()};
@@ -60,6 +95,11 @@ TEST_F(HivePartitionFunctionTest, int64) {
   assertPartitions(values, 2, {0, 1, 0, 0});
   assertPartitions(values, 500, {0, 497, 0, 0});
   assertPartitions(values, 997, {0, 852, 0, 0});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }
 
 TEST_F(HivePartitionFunctionTest, string) {
@@ -72,6 +112,11 @@ TEST_F(HivePartitionFunctionTest, string) {
   assertPartitions(vector, 2, {0, 0, 1, 0});
   assertPartitions(vector, 500, {0, 0, 211, 454});
   assertPartitions(vector, 997, {0, 0, 894, 831});
+
+  assertPartitionsWithConstChannel(vector, 1);
+  assertPartitionsWithConstChannel(vector, 2);
+  assertPartitionsWithConstChannel(vector, 500);
+  assertPartitionsWithConstChannel(vector, 997);
 }
 
 TEST_F(HivePartitionFunctionTest, bool) {
@@ -82,4 +127,9 @@ TEST_F(HivePartitionFunctionTest, bool) {
   assertPartitions(values, 2, {0, 1, 0, 0, 1});
   assertPartitions(values, 500, {0, 1, 0, 0, 1});
   assertPartitions(values, 997, {0, 1, 0, 0, 1});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }

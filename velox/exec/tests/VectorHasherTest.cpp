@@ -27,11 +27,7 @@ class VectorHasherTest : public testing::Test {
     pool_ = facebook::velox::memory::getDefaultScopedMemoryPool();
     allRows_ = SelectivityVector(100);
 
-    oddRows_ = SelectivityVector(100);
-    for (int32_t i = 0; i < 100; i += 2) {
-      oddRows_.setValid(i, false);
-    }
-    oddRows_.updateBounds();
+    oddRows_ = VectorHasherTest::makeOddRows(100);
     vectorMaker_ = std::make_unique<test::VectorMaker>(pool_.get());
   }
 
@@ -193,6 +189,31 @@ TEST_F(VectorHasherTest, flat) {
     } else {
       EXPECT_EQ(hashes[i], folly::hasher<int64_t>()(i)) << "at " << i;
     }
+  }
+
+  // Test precompute methods for single null value.
+  hasher->precompute(*vector);
+  hasher->hashPrecomputed(allRows_, false, hashes);
+  for (int32_t i = 0; i < 100; i++) {
+    EXPECT_EQ(exec::VectorHasher::kNullHash, hashes[i]);
+  }
+
+  // Test precompute methods for single value '7'.
+  flatVector->set(0, 7);
+  hasher->precompute(*vector);
+  hasher->hashPrecomputed(allRows_, false, hashes);
+  auto expected = folly::hasher<int64_t>()(7);
+  for (int32_t i = 0; i < 100; i++) {
+    EXPECT_EQ(expected, hashes[i]);
+  }
+
+  // Test precompute methods for mixed value '7' with value '55'.
+  flatVector->set(0, 55);
+  hasher->precompute(*vector);
+  hasher->hashPrecomputed(allRows_, true, hashes);
+  expected = bits::hashMix(expected, folly::hasher<int64_t>()(55));
+  for (int32_t i = 0; i < 100; i++) {
+    EXPECT_EQ(expected, hashes[i]);
   }
 }
 

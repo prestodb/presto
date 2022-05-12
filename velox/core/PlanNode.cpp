@@ -120,19 +120,19 @@ void addKeys(
     std::stringstream& stream,
     const std::vector<std::shared_ptr<const ITypedExpr>>& keys) {
   for (auto i = 0; i < keys.size(); ++i) {
+    const auto& expr = keys[i];
     if (i > 0) {
       stream << ", ";
     }
     if (auto field =
-            std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-                keys[i])) {
+            std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expr)) {
       stream << field->name();
     } else if (
         auto constant =
-            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(keys[i])) {
-      stream << "<constexpr>";
+            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr)) {
+      stream << constant->toString();
     } else {
-      stream << "<unknown>";
+      stream << expr->toString();
     }
   }
 }

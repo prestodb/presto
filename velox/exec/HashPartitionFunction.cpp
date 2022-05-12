@@ -21,7 +21,7 @@ HashPartitionFunction::HashPartitionFunction(
     int numPartitions,
     const RowTypePtr& inputType,
     const std::vector<ChannelIndex>& keyChannels,
-    const std::vector<std::shared_ptr<BaseVector>>& constValues)
+    const std::vector<VectorPtr>& constValues)
     : numPartitions_{numPartitions} {
   hashers_.reserve(keyChannels.size());
   size_t constChannel{0};

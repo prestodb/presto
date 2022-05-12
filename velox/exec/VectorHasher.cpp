@@ -476,7 +476,7 @@ void VectorHasher::hashPrecomputed(
 
 void VectorHasher::precompute(const BaseVector& value) {
   if (value.isNullAt(0)) {
-    precomputedHash_ = 0;
+    precomputedHash_ = kNullHash;
     return;
   }
 

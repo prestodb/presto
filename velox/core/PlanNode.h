@@ -854,7 +854,7 @@ class PartitionedOutputNode : public PlanNode {
   void addDetails(std::stringstream& stream) const override;
 
   const std::vector<PlanNodePtr> sources_;
-  const std::vector<std::shared_ptr<const ITypedExpr>> keys_;
+  const std::vector<TypedExprPtr> keys_;
   const int numPartitions_;
   const bool broadcast_;
   const bool replicateNullsAndAny_;
