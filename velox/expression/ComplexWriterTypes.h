@@ -22,6 +22,7 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
+#include "velox/expression/UdfTypeResolver.h"
 #include "velox/type/Type.h"
 #include "velox/vector/TypeAliases.h"
 #include "velox/vector/VectorTypeUtils.h"
@@ -193,10 +194,11 @@ class ArrayWriter {
     return PrimitiveWriter<V>{elementsVector_, valuesOffset_ + length_ - 1};
   }
 
-  // Any vector type with std like interface.
+  // Any vector type with std-like optional-free interface.
   template <typename VectorType>
   void copy_from(const VectorType& data) {
     if constexpr (provide_std_interface<V>) {
+      // TODO: accelerate this with memcpy.
       resize(data.size());
       for (auto i = 0; i < data.size(); i++) {
         this->operator[](i) = data[i];
@@ -208,6 +210,36 @@ class ArrayWriter {
         writer.copy_from(item);
       }
     }
+  }
+
+  // Copy from null-free ArrayView.
+  void copy_from(
+      const typename VectorExec::template resolver<Array<V>>::null_free_in_type&
+          arrayView) {
+    // If the null buffer is allocated this will read every null bit.
+    // TODO: create a copy version that avoids null checks (assumes not null)
+    // even when null buffer is allocated.
+
+    // The copy_from above works for null-free ArrayView, but calling copy on
+    // the vector directly uses memcpy which is more efficient.
+    resize(arrayView.size());
+    elementsVector_->copy(
+        arrayView.elementsVector(),
+        valuesOffset_,
+        arrayView.offset(),
+        arrayView.size());
+  }
+
+  // Copy from nullable ArrayView.
+  void copy_from(
+      const typename VectorExec::template resolver<Array<V>>::in_type&
+          arrayView) {
+    resize(arrayView.size());
+    elementsVector_->copy(
+        arrayView.elementsVector(),
+        valuesOffset_,
+        arrayView.offset(),
+        arrayView.size());
   }
 
  private:
@@ -324,6 +356,7 @@ class MapWriter {
   template <typename MapType>
   void copy_from(const MapType& data) {
     resize(0);
+    // TODO: acceletare this with memcpy.
     for (const auto& [key, value] : data) {
       auto [keyWriter, valueWriter] = add_item();
       // copy key
@@ -340,6 +373,32 @@ class MapWriter {
         valueWriter.copy_from(value);
       }
     }
+  }
+
+  // Copy from nullable MapView.
+  void copy_from(
+      const typename VectorExec::template resolver<Map<K, V>>::in_type&
+          mapView) {
+    resize(mapView.size());
+    // TODO: replace with a copy that avoids null checking for keys.
+    keysVector_->copy(
+        mapView.keysVector(), innerOffset_, mapView.offset(), mapView.size());
+
+    valuesVector_->copy(
+        mapView.valuesVector(), innerOffset_, mapView.offset(), mapView.size());
+  }
+
+  // Copy from null-free MapView.
+  void copy_from(const typename VectorExec::template resolver<
+                 Map<K, V>>::null_free_in_type& mapView) {
+    resize(mapView.size());
+    // TODO: replace with a copy that avoids null checking for both values and
+    // keys.
+    keysVector_->copy(
+        mapView.keysVector(), innerOffset_, mapView.offset(), mapView.size());
+
+    valuesVector_->copy(
+        mapView.valuesVector(), innerOffset_, mapView.offset(), mapView.size());
   }
 
   // 'size' is with respect to the current size of the array being written.

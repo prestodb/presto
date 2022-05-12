@@ -674,6 +674,14 @@ class ArrayView {
         "efficient to use the standard iterator interface.");
   }
 
+  const BaseVector* elementsVector() const {
+    return reader_->baseVector();
+  }
+
+  vector_size_t offset() const {
+    return offset_;
+  }
+
  private:
   const reader_t* reader_;
   vector_size_t offset_;
@@ -845,6 +853,18 @@ class MapView {
     return result;
   }
 
+  const BaseVector* keysVector() const {
+    return keyReader_->baseVector();
+  }
+
+  const BaseVector* valuesVector() const {
+    return valueReader_->baseVector();
+  }
+
+  vector_size_t offset() const {
+    return offset_;
+  }
+
  private:
   const key_reader_t* keyReader_;
   const value_reader_t* valueReader_;
@@ -863,16 +883,24 @@ class RowView {
       typename std::tuple_element<N, reader_t>::type::element_type::
           exec_null_free_in_t>::type;
 
+  vector_size_t offset() const {
+    return offset_;
+  }
+
+  vector_size_t childVectorAt() const {
+    return offset_;
+  }
+
  public:
   RowView(const reader_t* childReaders, vector_size_t offset)
       : childReaders_{childReaders}, offset_{offset} {}
 
-  template <size_t N>
-  elem_n_t<N> at() const {
+  template <size_t I>
+  elem_n_t<I> at() const {
     if constexpr (returnsOptionalValues) {
-      return elem_n_t<N>{std::get<N>(*childReaders_).get(), offset_};
+      return elem_n_t<I>{std::get<I>(*childReaders_).get(), offset_};
     } else {
-      return std::get<N>(*childReaders_)->readNullFree(offset_);
+      return std::get<I>(*childReaders_)->readNullFree(offset_);
     }
   }
 

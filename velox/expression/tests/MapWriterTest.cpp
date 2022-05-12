@@ -19,6 +19,7 @@
 #include <optional>
 #include <tuple>
 
+#include "folly/container/F14Map.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
@@ -472,16 +473,71 @@ TEST_F(MapWriterTest, copyFromE2E) {
 }
 
 template <typename T>
-struct CopyFromMapViewFunc {
+struct CopyFromNullFreeInputFunc {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  bool call(
-      out_type<Map<int64_t, int64_t>>& out,
-      const arg_type<Map<int64_t, int64_t>>& input) {
+  template <typename TOut, typename TIn>
+  void callNullFree(TOut& out, const TIn& input) {
     out.copy_from(input);
-    return true;
   }
 };
+
+TEST_F(MapWriterTest, copyFromNullFreeMapView) {
+  registerFunction<
+      CopyFromNullFreeInputFunc,
+      Map<int64_t, int64_t>,
+      Map<int64_t, int64_t>>({"copy_from_null_free_map_view"});
+
+  auto result = evaluate(
+      "copy_from_null_free_map_view(map(array_constructor(1,2,3),array_constructor(4,5,6)))",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  // Test results.
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+  decoded.decode(*result, rows);
+  exec::VectorReader<Map<int64_t, int64_t>> reader(&decoded);
+
+  auto mapView = reader.readNullFree(0);
+
+  ASSERT_EQ(
+      mapView.materialize(),
+      (folly::F14FastMap<int64_t, int64_t>{{1, 4}, {2, 5}, {3, 6}}));
+}
+
+template <typename T>
+struct CopyFromNullableInputFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename TOut, typename TIn>
+  void call(TOut& out, const TIn& input) {
+    out.copy_from(input);
+  }
+};
+
+TEST_F(MapWriterTest, copyFromNullableMapView) {
+  registerFunction<
+      CopyFromNullableInputFunc,
+      Map<int64_t, int64_t>,
+      Map<int64_t, int64_t>>({"copy_from_nullable_map_view"});
+
+  auto result = evaluate(
+      "copy_from_nullable_map_view(map(array_constructor(1,2,3),array_constructor(4,null,6)))",
+      makeRowVector({makeFlatVector<int64_t>(1)}));
+
+  // Test results.
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+  decoded.decode(*result, rows);
+  exec::VectorReader<Map<int64_t, int64_t>> reader(&decoded);
+
+  auto mapView = reader[0];
+
+  ASSERT_EQ(
+      mapView.materialize(),
+      (folly::F14FastMap<int64_t, std::optional<int64_t>>{
+          {1, 4}, {2, std::nullopt}, {3, 6}}));
+}
 
 } // namespace
 } // namespace facebook::velox

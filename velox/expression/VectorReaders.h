@@ -29,6 +29,7 @@
 #include "velox/expression/VariadicView.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Type.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -89,6 +90,10 @@ struct VectorReader {
 
   // Scalars don't have children, so this is a no-op.
   void setChildrenMayHaveNulls() {}
+
+  const BaseVector* baseVector() const {
+    return decoded_.base();
+  }
 
   const DecodedVector& decoded_;
 };
@@ -248,6 +253,10 @@ struct VectorReader<Map<K, V>> {
     valuesMayHaveNulls_ = valReader_.mayHaveNullsRecursive();
   }
 
+  const BaseVector* baseVector() const {
+    return decoded_.base();
+  }
+
   const DecodedVector& decoded_;
   const MapVector& vector_;
   DecodedVector decodedKeys_;
@@ -329,6 +338,10 @@ struct VectorReader<Array<V>> {
     valuesMayHaveNulls_ = childReader_.mayHaveNullsRecursive();
   }
 
+  const BaseVector* baseVector() const {
+    return decoded_.base();
+  }
+
   DecodedVector arrayValuesDecoder_;
   const DecodedVector& decoded_;
   const ArrayVector& vector_;
@@ -401,6 +414,10 @@ struct VectorReader<Row<T...>> {
     std::apply(
         [](auto&... reader) { (reader->setChildrenMayHaveNulls(), ...); },
         childReaders_);
+  }
+
+  const BaseVector* baseVector() const {
+    return decoded_.base();
   }
 
  private:
@@ -549,6 +566,10 @@ struct VectorReader<Generic<T>> {
     // TODO (kevinwilfong): Add support for Generics in callNullFree.
     VELOX_UNSUPPORTED(
         "Calling callNullFree with Generic arguments is not yet supported.");
+  }
+
+  const BaseVector* baseVector() const {
+    return decoded_.base();
   }
 
   const DecodedVector& decoded_;
