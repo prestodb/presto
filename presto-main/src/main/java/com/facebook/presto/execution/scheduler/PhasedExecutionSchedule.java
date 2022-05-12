@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -224,6 +225,12 @@ public class PhasedExecutionSchedule
         public Set<PlanFragmentId> visitIndexJoin(IndexJoinNode node, PlanFragmentId currentFragmentId)
         {
             return processJoin(node.getIndexSource(), node.getProbeSource(), currentFragmentId);
+        }
+
+        @Override
+        public Set<PlanFragmentId> visitMergeJoin(MergeJoinNode node, PlanFragmentId currentFragmentId)
+        {
+            return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
         }
 
         private Set<PlanFragmentId> processJoin(PlanNode build, PlanNode probe, PlanFragmentId currentFragmentId)
