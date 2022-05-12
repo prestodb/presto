@@ -124,15 +124,7 @@ class TableScanTest : public virtual HiveConnectorTestBase,
       const std::string& filePath,
       const TypePtr& partitionType,
       const std::optional<std::string>& partitionValue) {
-    std::unordered_map<std::string, std::optional<std::string>> partitionKeys =
-        {{"pkey", partitionValue}};
-    auto split = std::make_shared<HiveConnectorSplit>(
-        kHiveConnectorId,
-        filePath,
-        facebook::velox::dwio::common::FileFormat::ORC,
-        0,
-        fs::file_size(filePath),
-        partitionKeys);
+    auto split = makeHiveConnectorSplit(filePath, {{"pkey", partitionValue}});
     auto outputType =
         ROW({"pkey", "c0", "c1"}, {partitionType, BIGINT(), DOUBLE()});
     auto tableHandle = makeTableHandle(SubfieldFilters{});
