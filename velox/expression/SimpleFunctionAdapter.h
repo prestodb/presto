@@ -24,8 +24,8 @@
 #include "velox/expression/ComplexWriterTypes.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorUdfTypeSystem.h"
-#include "velox/vector/VectorTypeUtils.h"
+#include "velox/expression/VectorReaders.h"
+#include "velox/expression/VectorWriters.h"
 
 namespace facebook::velox::exec {
 

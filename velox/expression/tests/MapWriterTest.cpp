@@ -19,7 +19,7 @@
 #include <optional>
 #include <tuple>
 
-#include "velox/expression/VectorUdfTypeSystem.h"
+#include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/type/StringView.h"

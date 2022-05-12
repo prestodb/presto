@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include "velox/expression/Expr.h"
+#include "velox/expression/StringWriter.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/lib/StringEncodingUtils.h"
 #include "velox/functions/lib/string/StringImpl.h"
 #include "velox/vector/FlatVector.h"

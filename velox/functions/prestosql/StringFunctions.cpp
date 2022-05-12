@@ -16,8 +16,8 @@
 
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/StringWriter.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/lib/StringEncodingUtils.h"
 #include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/lib/string/StringImpl.h"

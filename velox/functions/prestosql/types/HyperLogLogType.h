@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/type/Type.h"
 #include "velox/vector/VectorTypeUtils.h"
 

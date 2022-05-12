@@ -21,7 +21,6 @@
 #include <re2/re2.h>
 
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/Udf.h"
 #include "velox/vector/BaseVector.h"
 

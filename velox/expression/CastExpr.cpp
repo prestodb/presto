@@ -22,7 +22,7 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
-#include "velox/expression/VectorUdfTypeSystem.h"
+#include "velox/expression/StringWriter.h"
 #include "velox/external/date/tz.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FunctionVector.h"

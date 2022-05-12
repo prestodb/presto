@@ -24,7 +24,7 @@
 #include "folly/json.h"
 
 #include "velox/common/base/Exceptions.h"
-#include "velox/expression/VectorUdfTypeSystem.h"
+#include "velox/expression/StringWriter.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/type/Type.h"
 

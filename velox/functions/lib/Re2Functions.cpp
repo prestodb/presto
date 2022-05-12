@@ -21,7 +21,6 @@
 
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
-#include "velox/expression/VectorUdfTypeSystem.h"
 #include "velox/functions/lib/ArrayBuilder.h"
 #include "velox/type/StringView.h"
 #include "velox/vector/FlatVector.h"

@@ -20,7 +20,7 @@
 
 #include "velox/common/base/CompareFlags.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/expression/VectorUdfTypeSystem.h"
+#include "velox/expression/VectorReaders.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/type/Type.h"

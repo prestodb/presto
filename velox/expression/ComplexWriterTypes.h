@@ -28,9 +28,6 @@
 
 namespace facebook::velox::exec {
 
-template <typename T>
-struct VectorReader;
-
 template <typename T, typename B>
 struct VectorWriter;
 
