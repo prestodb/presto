@@ -41,7 +41,7 @@ add_custom_command(
 add_custom_target(substrait_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
 add_dependencies(substrait_proto protobuf::libprotobuf)
 
-set(SRCS ${PROTO_SRCS} SubstraitUtils.cpp SubstraitToVeloxExpr.cpp
+set(SRCS ${PROTO_SRCS} SubstraitParser.cpp SubstraitToVeloxExpr.cpp
          SubstraitToVeloxPlan.cpp TypeUtils.cpp)
 add_library(velox_substrait_plan_converter ${SRCS})
 target_include_directories(velox_substrait_plan_converter

@@ -17,7 +17,7 @@
 #pragma once
 
 #include "velox/core/Expressions.h"
-#include "velox/substrait/SubstraitUtils.h"
+#include "velox/substrait/SubstraitParser.h"
 
 namespace facebook::velox::substrait {
 

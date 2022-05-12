@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/substrait/SubstraitUtils.h"
+#include "velox/substrait/SubstraitParser.h"
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::substrait {
@@ -86,8 +86,8 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
 
 std::vector<std::shared_ptr<SubstraitParser::SubstraitType>>
 SubstraitParser::parseNamedStruct(const ::substrait::NamedStruct& namedStruct) {
-  // Names is not used currently.
-  const auto& sNames = namedStruct.names();
+  // Nte that "names" are not used.
+
   // Parse Struct.
   const auto& sStruct = namedStruct.struct_();
   const auto& sTypes = sStruct.types();
