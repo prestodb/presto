@@ -2205,19 +2205,21 @@ public class HiveMetadata
         ImmutableSet.Builder<String> existingPartitions = ImmutableSet.builder();
         ImmutableSet.Builder<String> potentiallyNewPartitions = ImmutableSet.builder();
 
-        for (PartitionUpdate update : partitionUpdates) {
-            switch (update.getUpdateMode()) {
-                case APPEND:
-                    existingPartitions.add(update.getName());
-                    break;
-                case NEW:
-                case OVERWRITE:
-                    potentiallyNewPartitions.add(update.getName());
-                    break;
-                default:
-                    throw new IllegalArgumentException("unexpected update mode: " + update.getUpdateMode());
-            }
-        }
+        partitionUpdates.stream()
+                .filter(update -> !update.getName().isEmpty())
+                .forEach(update -> {
+                    switch (update.getUpdateMode()) {
+                        case APPEND:
+                            existingPartitions.add(update.getName());
+                            break;
+                        case NEW:
+                        case OVERWRITE:
+                            potentiallyNewPartitions.add(update.getName());
+                            break;
+                        default:
+                            throw new IllegalArgumentException("unexpected update mode: " + update.getUpdateMode());
+                    }
+                });
 
         // try to load potentially new partitions in batches to check if any of them exist
         Lists.partition(ImmutableList.copyOf(potentiallyNewPartitions.build()), maxPartitionBatchSize).stream()
