@@ -87,7 +87,7 @@ void HiveConnectorTestBase::writeToFile(
 }
 
 std::vector<RowVectorPtr> HiveConnectorTestBase::makeVectors(
-    const std::shared_ptr<const RowType>& rowType,
+    const RowTypePtr& rowType,
     int32_t numVectors,
     int32_t rowsPerVector) {
   std::vector<RowVectorPtr> vectors;
@@ -100,7 +100,7 @@ std::vector<RowVectorPtr> HiveConnectorTestBase::makeVectors(
 }
 
 std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
-    const std::shared_ptr<const core::PlanNode>& plan,
+    const core::PlanNodePtr& plan,
     const std::vector<std::shared_ptr<TempFilePath>>& filePaths,
     const std::string& duckDbSql) {
   return OperatorTestBase::assertQuery(
@@ -108,28 +108,19 @@ std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
 }
 
 std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
-    const std::shared_ptr<const core::PlanNode>& plan,
+    const core::PlanNodePtr& plan,
     const std::unordered_map<
         core::PlanNodeId,
         std::vector<std::shared_ptr<TempFilePath>>>& filePaths,
     const std::string& duckDbSql) {
-  bool noMoreSplits = false;
-  return test::assertQuery(
-      plan,
-      [&](auto* task) {
-        if (!noMoreSplits) {
-          for (const auto& entry : filePaths) {
-            auto planNodeId = entry.first;
-            for (auto file : entry.second) {
-              addSplit(task, planNodeId, makeHiveSplit(file->path));
-            }
-            task->noMoreSplits(planNodeId);
-          }
-          noMoreSplits = true;
-        }
-      },
-      duckDbSql,
-      duckDbQueryRunner_);
+  std::unordered_map<core::PlanNodeId, std::vector<Split>> splits;
+  for (const auto& [nodeId, nodePaths] : filePaths) {
+    for (const auto& path : nodePaths) {
+      splits[nodeId].emplace_back(makeHiveSplit(path->path));
+    }
+  }
+
+  return OperatorTestBase::assertQuery(plan, std::move(splits), duckDbSql);
 }
 
 std::vector<std::shared_ptr<TempFilePath>> HiveConnectorTestBase::makeFilePaths(
@@ -230,13 +221,6 @@ HiveConnectorTestBase::partitionKey(
     const TypePtr& type) {
   return std::make_shared<connector::hive::HiveColumnHandle>(
       name, connector::hive::HiveColumnHandle::ColumnType::kPartitionKey, type);
-}
-
-void HiveConnectorTestBase::addConnectorSplit(
-    Task* task,
-    const core::PlanNodeId& planNodeId,
-    const std::shared_ptr<connector::ConnectorSplit>& connectorSplit) {
-  addSplit(task, planNodeId, exec::Split(folly::copy(connectorSplit), -1));
 }
 
 void HiveConnectorTestBase::addSplit(

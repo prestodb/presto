@@ -44,23 +44,24 @@ class HiveConnectorTestBase : public OperatorTestBase {
           std::make_shared<facebook::velox::dwrf::Config>());
 
   std::vector<RowVectorPtr> makeVectors(
-      const std::shared_ptr<const RowType>& rowType,
+      const RowTypePtr& rowType,
       int32_t numVectors,
       int32_t rowsPerVector);
 
   std::shared_ptr<exec::Task> assertQuery(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const std::string& duckDbSql) {
     return OperatorTestBase::assertQuery(plan, duckDbSql);
   }
 
+  /// Assumes plan has a single TableScan node.
   std::shared_ptr<exec::Task> assertQuery(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const std::vector<std::shared_ptr<TempFilePath>>& filePaths,
       const std::string& duckDbSql);
 
   std::shared_ptr<exec::Task> assertQuery(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const std::unordered_map<
           core::PlanNodeId,
           std::vector<std::shared_ptr<TempFilePath>>>& filePaths,
@@ -123,8 +124,7 @@ class HiveConnectorTestBase : public OperatorTestBase {
       const std::string& name,
       const TypePtr& type);
 
-  static ColumnHandleMap allRegularColumns(
-      const std::shared_ptr<const RowType>& rowType) {
+  static ColumnHandleMap allRegularColumns(const RowTypePtr& rowType) {
     ColumnHandleMap assignments;
     assignments.reserve(rowType->size());
     for (uint32_t i = 0; i < rowType->size(); ++i) {
@@ -133,11 +133,6 @@ class HiveConnectorTestBase : public OperatorTestBase {
     }
     return assignments;
   }
-
-  static void addConnectorSplit(
-      Task* task,
-      const core::PlanNodeId& planNodeId,
-      const std::shared_ptr<connector::ConnectorSplit>& connectorSplit);
 
   static void
   addSplit(Task* task, const core::PlanNodeId& planNodeId, exec::Split&& split);

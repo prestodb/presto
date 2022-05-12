@@ -47,7 +47,7 @@ class OperatorTestBase : public testing::Test,
   }
 
   std::shared_ptr<Task> assertQueryOrdered(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const std::string& duckDbSql,
       const std::vector<uint32_t>& sortingKeys) {
     return test::assertQuery(plan, duckDbSql, duckDbQueryRunner_, sortingKeys);
@@ -61,8 +61,9 @@ class OperatorTestBase : public testing::Test,
         params, [&](auto*) {}, duckDbSql, duckDbQueryRunner_, sortingKeys);
   }
 
+  /// Assumes plan has a single leaf node. All splits are added to that node.
   std::shared_ptr<Task> assertQueryOrdered(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const std::vector<std::shared_ptr<connector::ConnectorSplit>>& splits,
       const std::string& duckDbSql,
       const std::vector<uint32_t>& sortingKeys) {
@@ -77,43 +78,57 @@ class OperatorTestBase : public testing::Test,
   }
 
   std::shared_ptr<Task> assertQuery(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const std::string& duckDbSql) {
     return test::assertQuery(plan, duckDbSql, duckDbQueryRunner_);
   }
 
   std::shared_ptr<Task> assertQuery(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const RowVectorPtr& expectedResults) {
     return test::assertQuery(plan, {expectedResults});
   }
 
+  /// Assumes plan has a single leaf node. All splits are added to that node.
   std::shared_ptr<Task> assertQuery(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
           connectorSplits,
       const std::string& duckDbSql,
       std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt);
 
+  /// Assumes plan has a single leaf node. All splits are added to that node.
   std::shared_ptr<Task> assertQuery(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       std::vector<exec::Split>&& splits,
       const std::string& duckDbSql,
       std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt);
 
-  RowVectorPtr getResults(std::shared_ptr<const core::PlanNode> planNode);
+  std::shared_ptr<Task> assertQuery(
+      const core::PlanNodePtr& plan,
+      std::unordered_map<core::PlanNodeId, std::vector<exec::Split>>&& splits,
+      const std::string& duckDbSql,
+      std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt);
+
+  RowVectorPtr getResults(const core::PlanNodePtr& planNode);
+
+  /// Assumes plan has a single leaf node. All splits are added to that node.
+  RowVectorPtr getResults(
+      const core::PlanNodePtr& planNode,
+      std::vector<exec::Split>&& splits);
 
   RowVectorPtr getResults(
-      std::shared_ptr<const core::PlanNode> planNode,
-      std::vector<exec::Split>&& splits);
+      const core::PlanNodePtr& planNode,
+      std::unordered_map<core::PlanNodeId, std::vector<exec::Split>>&& splits);
 
   RowVectorPtr getResults(const CursorParameters& params);
 
+  /// Assumes plan has a single leaf node. All splits are added to that node.
   RowVectorPtr getResults(
       const CursorParameters& params,
       std::function<void(exec::Task*)> addSplits);
 
-  static std::shared_ptr<const RowType> makeRowType(
+  static RowTypePtr makeRowType(
       std::vector<std::shared_ptr<const Type>>&& types) {
     return velox::test::VectorMaker::rowType(
         std::forward<std::vector<std::shared_ptr<const Type>>&&>(types));
@@ -121,11 +136,11 @@ class OperatorTestBase : public testing::Test,
 
   static std::shared_ptr<core::FieldAccessTypedExpr> toFieldExpr(
       const std::string& name,
-      const std::shared_ptr<const RowType>& rowType);
+      const RowTypePtr& rowType);
 
   std::shared_ptr<const core::ITypedExpr> parseExpr(
       const std::string& text,
-      std::shared_ptr<const RowType> rowType);
+      RowTypePtr rowType);
 
   DuckDbQueryRunner duckDbQueryRunner_;
 
