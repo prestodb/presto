@@ -62,13 +62,26 @@ export class QueryListItem extends React.Component {
             }
         }
 
+        const maxLines = 7;
+        const maxQueryLength = 300;
+        const maxWidthPerLine = 75;
+        let lineCount = 0;
         let formattedQueryText = "";
 
         for (let i = 0; i < lines.length; i++) {
             const trimmedLine = lines[i].substring(minLeadingWhitespace).replace(/\s+$/g, '');
+            lineCount += Math.ceil(trimmedLine.length / maxWidthPerLine);
 
             if (trimmedLine.length > 0) {
                 formattedQueryText += trimmedLine;
+
+                if (formattedQueryText.length > maxQueryLength) {
+                    break;
+                }
+
+                if (lineCount >= maxLines) {
+                    return formattedQueryText + "...";
+                }
 
                 if (i < (lines.length - 1)) {
                     formattedQueryText += "\n";
@@ -76,7 +89,7 @@ export class QueryListItem extends React.Component {
             }
         }
 
-        return isTruncated ? formattedQueryText + "..." : truncateString(formattedQueryText, 300);
+        return isTruncated ? formattedQueryText + "..." : truncateString(formattedQueryText, maxQueryLength);
     }
 
     renderWarning() {
@@ -162,7 +175,7 @@ export class QueryListItem extends React.Component {
                     <div className="col-xs-4">
                         <div className="row stat-row query-header query-header-queryid">
                             <div className="col-xs-9" data-placement="bottom">
-                                <a href={"query.html?" + query.queryId} target="_blank" data-toggle="tooltip" title="Query ID">{query.queryId}</a>
+                                <a href={"query.html?" + query.queryId} target="_blank" data-toggle="tooltip" data-trigger="hover" title="Query ID">{query.queryId}</a>
                                 {this.renderWarning()}
                             </div>
                             <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
