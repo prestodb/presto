@@ -114,13 +114,28 @@ public class MergeJoinOptimizer
             StreamPropertyDerivations.StreamProperties rightProperties = StreamPropertyDerivations.derivePropertiesRecursively(right, metadata, session, types, parser);
 
             List<VariableReferenceExpression> leftJoinColumns = node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft).collect(toImmutableList());
-            List<VariableReferenceExpression> buildHashVariables = node.getCriteria().stream()
+            List<VariableReferenceExpression> rightJoinColumns = node.getCriteria().stream()
                     .map(JoinNode.EquiJoinClause::getRight)
                     .collect(toImmutableList());
 
+            // Check if both the left side and right side's partitioning columns (bucketed-by columns [B]) are a subset of join columns [J]
+            // B = subset (J)
+            if (!verifyStreamProperties(leftProperties, leftJoinColumns) || !verifyStreamProperties(rightProperties, rightJoinColumns)) {
+                return false;
+            }
+
             // Check if the left side and right side are both ordered by the join columns
-            return !LocalProperties.match(rightProperties.getLocalProperties(), LocalProperties.sorted(buildHashVariables, ASC_NULLS_FIRST)).get(0).isPresent() &&
+            return !LocalProperties.match(rightProperties.getLocalProperties(), LocalProperties.sorted(rightJoinColumns, ASC_NULLS_FIRST)).get(0).isPresent() &&
                     !LocalProperties.match(leftProperties.getLocalProperties(), LocalProperties.sorted(leftJoinColumns, ASC_NULLS_FIRST)).get(0).isPresent();
+        }
+
+        private boolean verifyStreamProperties(StreamPropertyDerivations.StreamProperties streamProperties, List<VariableReferenceExpression> joinColumns)
+        {
+            if (!streamProperties.getPartitioningColumns().isPresent()) {
+                return false;
+            }
+            List<VariableReferenceExpression> partitioningColumns = streamProperties.getPartitioningColumns().get();
+            return partitioningColumns.size() <= joinColumns.size() && joinColumns.containsAll(partitioningColumns);
         }
     }
 }
