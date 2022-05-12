@@ -37,10 +37,8 @@ class VariadicView {
       vector_size_t offset)
       : readers_(readers), offset_(offset) {}
 
-  using Element = typename std::conditional<
-      returnsOptionalValues,
-      VectorOptionalValueAccessor<reader_t>,
-      element_t>::type;
+  using Element = typename std::
+      conditional<returnsOptionalValues, OptionalAccessor<T>, element_t>::type;
 
   class ElementAccessor {
    public:

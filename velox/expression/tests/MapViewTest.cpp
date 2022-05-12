@@ -333,7 +333,7 @@ class MapViewTest : public functions::test::FunctionBaseTest {
     ASSERT_NE(
         read(reader, 2).atIndex(2).first, read(reader, 1).atIndex(1).first);
 
-    // Compare LazyValueAccess with VectorOptionalValueAccessor value.
+    // Compare LazyValueAccess with OptionalAccessor value.
     ASSERT_EQ(
         read(reader, 2).atIndex(1).first,
         mapValueValue(read(reader, 1).atIndex(0).second));
@@ -347,19 +347,19 @@ class MapViewTest : public functions::test::FunctionBaseTest {
         mapValueValue(read(reader, 1).atIndex(1).second),
         read(reader, 2).atIndex(2).first);
 
-    // Compare null VectorOptionalValueAccessor with LazyValueAccess.
+    // Compare null OptionalAccessor with LazyValueAccess.
     ASSERT_NE(
         mapValueValue(read(reader, 1).atIndex(1).second),
         read(reader, 1).atIndex(2).first);
   }
 
-  void compareVectorOptionalValueAccessorTest() {
+  void compareOptionalAccessorTest() {
     auto mapVector = createTestMapVector();
     DecodedVector decoded;
     exec::VectorReader<Map<int64_t, int64_t>> reader(
         decode(decoded, *mapVector.get()));
 
-    // Compare VectorOptionalValueAccessor with std::optional.
+    // Compare OptionalAccessor with std::optional.
     const auto valueAt2_2 = read(reader, 2).atIndex(2).second;
     ASSERT_EQ(valueAt2_2, std::optional(4));
     ASSERT_EQ(valueAt2_2, std::optional(4l));
@@ -387,7 +387,7 @@ class MapViewTest : public functions::test::FunctionBaseTest {
       ASSERT_NE(read(reader, 1).atIndex(1).second, nullOpt);
     }
 
-    // Compare VectorOptionalValueAccessor<T> with T::exec_t.
+    // Compare OptionalAccessor<T> with T::exec_t.
     ASSERT_EQ(valueAt2_2, 4);
     ASSERT_EQ(valueAt2_2, 4l);
     ASSERT_EQ(valueAt2_2, 4ll);
@@ -401,15 +401,15 @@ class MapViewTest : public functions::test::FunctionBaseTest {
     ASSERT_EQ(4ll, valueAt2_2);
     ASSERT_NE(4.01F, valueAt2_2);
 
-    // VectorOptionalValueAccessor is null here.
+    // OptionalAccessor is null here.
     ASSERT_NE(4.01F, read(reader, 1).atIndex(2).second);
     ASSERT_NE(read(reader, 1).atIndex(2).second, 4);
 
-    // Compare VectorOptionalValueAccessor with VectorOptionalValueAccessor.
+    // Compare OptionalAccessor with OptionalAccessor.
     ASSERT_EQ(valueAt2_2, read(reader, 2).atIndex(3).second);
     ASSERT_NE(valueAt2_2, read(reader, 2).atIndex(0).second);
 
-    // Compare with empty VectorOptionalValueAccessor.
+    // Compare with empty OptionalAccessor.
     // One null and one not null.
     ASSERT_NE(
         read(reader, 1).atIndex(1).second, read(reader, 1).atIndex(2).second);
@@ -426,7 +426,7 @@ class MapViewTest : public functions::test::FunctionBaseTest {
     exec::VectorReader<Map<int64_t, int64_t>> reader(
         decode(decoded, *mapVector.get()));
 
-    // Compare VectorOptionalValueAccessor with constant.
+    // Compare OptionalAccessor with constant.
     ASSERT_NE(read(reader, 2).atIndex(2), read(reader, 2).atIndex(1));
     ASSERT_EQ(read(reader, 1).atIndex(0), read(reader, 2).atIndex(2));
   }
@@ -560,8 +560,8 @@ TEST_F(NullableMapViewTest, testCompareLazyValueAccess) {
   compareLazyValueAccessTest();
 }
 
-TEST_F(NullableMapViewTest, testCompareVectorOptionalValueAccessor) {
-  compareVectorOptionalValueAccessorTest();
+TEST_F(NullableMapViewTest, testCompareOptionalAccessor) {
+  compareOptionalAccessorTest();
 }
 
 TEST_F(NullableMapViewTest, testCompareMapViewElement) {
@@ -711,8 +711,8 @@ TEST_F(NullFreeMapViewTest, testCompareLazyValueAccess) {
   compareLazyValueAccessTest();
 }
 
-TEST_F(NullFreeMapViewTest, testCompareVectorOptionalValueAccessor) {
-  compareVectorOptionalValueAccessorTest();
+TEST_F(NullFreeMapViewTest, testCompareOptionalAccessor) {
+  compareOptionalAccessorTest();
 }
 
 TEST_F(NullFreeMapViewTest, testCompareMapViewElement) {

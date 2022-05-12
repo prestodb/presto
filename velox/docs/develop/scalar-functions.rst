@@ -409,9 +409,9 @@ used to represent inputs of different complex types.
 ==========  ==============================  =============================
 Velox Type  C++ Argument Type               C++ Actual Argument Type
 ==========  ==============================  =============================
-ARRAY       arg_type<Array<E>>              ArrayView<VectorOptionalValueAccessor<VectorReader<E>>>>
-MAP         arg_type<Map<K,V>>              MapView<arg_type<K>, VectorOptionalValueAccessor<VectorReader<V>>>
-ROW         arg_type<Row<T1, T2, T3,...>>   RowView<VectorOptionalValueAccessor<arg_type<T1>>...>>
+ARRAY       arg_type<Array<E>>              ArrayView<OptionalAccessor<E>>>
+MAP         arg_type<Map<K,V>>              MapView<arg_type<K>, OptionalAccessor<V>>
+ROW         arg_type<Row<T1, T2, T3,...>>   RowView<OptionalAccessor<arg_type<T1>>...>>
 ==========  ==============================  =============================
 
 The view types are designed to have interfaces similar to those of std::containers, in fact in most cases
@@ -431,11 +431,11 @@ RowView          const std::tuple<std::optional<T1>...>
 
 
 
-**1- VectorOptionalValueAccessor<VectorReader<E>>**:
+**1- OptionalAccessor<E>**:
 
-VectorOptionalValueAccessor is an *std::optional* like object that provides lazy access to the nullity and
+OptionalAccessor is an *std::optional* like object that provides lazy access to the nullity and
 value of the underlying Velox vector at a specific index. Currently, it is used to represent elements of input arrays
-and values in the input maps. Note that keys in the map are assumed to be not nullable in Velox.
+and values of input maps. Note that keys in the map are assumed to be not nullable in Velox.
 
 The object supports the following methods:
 
@@ -452,7 +452,7 @@ accessing the value does not have the overhead of checking the nullity. So is ch
 Note that, unlike std::container, function calls to value() and operator* are r-values (temporaries) and not l-values,
 they can bind to const references and l-values but not references.
 
-VectorOptionalValueAccessor<VectorReader<E>> is assignable to and comparable with std::optional<arg_type<E>>.
+OptionalAccessor<E> is assignable to and comparable with std::optional<arg_type<E>> for primitive types.
 The following expressions are valid, where array[0] is an optional accessor.
 
 .. code-block:: c++
@@ -489,7 +489,7 @@ ArrayView supports the following:
 
 - size_t size() : return the number of elements in the array.
 
-- VectorOptionalValueAccessor<arg_type<T>> operator[](size_t index) : access element at index.
+- OptionalAccessor<T> operator[](size_t index) : access element at index.
 
 - ArrayView<T>::Iterator begin() : iterator to the first element.
 
@@ -583,7 +583,7 @@ MapView<K, V>::Element is the type returned by dereferencing MapView<K, V>::Iter
 
 - first : arg_type<K>
 
-- second: VectorOptionalValueAccessor<V>.
+- second: OptionalAccessor<V>.
 
 - MapView<K, V>::Element participates in struct binding: auto [v, k] = *map.begin();
 
@@ -653,7 +653,7 @@ syntactic type, and behaves somewhat similarly to Array.
 ==========  ==============================  =============================
 Velox Type  C++ Argument Type               C++ Actual Argument Type
 ==========  ==============================  =============================
-VARIADIC    arg_type<Variadic<E>>           VariadicView<VectorOptionalValueAccessor<VectorReader<E>>>>
+VARIADIC    arg_type<Variadic<E>>           VariadicView<OptionalAccessor<E>>>
 ==========  ==============================  =============================
 
 Like the ArrayView, VariadicView has a similar interface to
@@ -663,7 +663,7 @@ VariadicView supports the following:
 
 - size_t size() : return the number of arguments that were passed as part of the "Variadic" type in the function invocation.
 
-- VectorOptionalValueAccessor<arg_type<T>> operator[](size_t index) : access the value of the argument at index.
+- OptionalAccessor<T> operator[](size_t index) : access the value of the argument at index.
 
 - VariadicView<T>::Iterator begin() : iterator to the first argument.
 
