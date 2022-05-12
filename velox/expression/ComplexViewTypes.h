@@ -830,6 +830,11 @@ class MapView {
     return at(key);
   }
 
+  // Beware!! runtime is O(N)!!
+  bool contains(const key_element_t& key) const {
+    return find(key) != end();
+  }
+
   using materialize_t = typename std::conditional<
       returnsOptionalValues,
       typename MaterializeType<Map<K, V>>::nullable_t,

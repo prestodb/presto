@@ -470,6 +470,21 @@ class MapViewTest : public functions::test::FunctionBaseTest {
     ASSERT_EQ(read(reader, 1).at(3), 3);
   }
 
+  void containsTest() {
+    auto mapVector = createTestMapVector();
+    DecodedVector decoded;
+    exec::VectorReader<Map<int64_t, int64_t>> reader(
+        decode(decoded, *mapVector.get()));
+
+    ASSERT_FALSE(read(reader, 1).contains(5));
+
+    ASSERT_FALSE(read(reader, 1).contains(10));
+
+    ASSERT_TRUE(read(reader, 1).contains(4));
+
+    ASSERT_TRUE(read(reader, 1).contains(3));
+  }
+
   void readingStructureBindingLoopTest() {
     auto mapVector = createTestMapVector();
     DecodedVector decoded;
@@ -563,6 +578,10 @@ TEST_F(NullableMapViewTest, testFind) {
 
 TEST_F(NullableMapViewTest, testAt) {
   atTest();
+}
+
+TEST_F(NullableMapViewTest, testContains) {
+  containsTest();
 }
 
 TEST_F(NullableMapViewTest, testValueOr) {
@@ -710,6 +729,10 @@ TEST_F(NullFreeMapViewTest, testFind) {
 
 TEST_F(NullFreeMapViewTest, testAt) {
   atTest();
+}
+
+TEST_F(NullFreeMapViewTest, testContains) {
+  containsTest();
 }
 
 TEST_F(NullFreeMapViewTest, testReadingStructureBindingLoop) {
