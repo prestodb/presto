@@ -2876,6 +2876,43 @@ public abstract class AbstractTestQueries
                 new MaterializedRow(1, TESTING_CATALOG + ".connector_string", "bar string", "connector default", "varchar", "connector string property"));
         assertEquals(properties.get(TESTING_CATALOG + ".connector_long"),
                 new MaterializedRow(1, TESTING_CATALOG + ".connector_long", "11", "33", "bigint", "connector long property"));
+
+        // Show session like
+        result = computeActual(session, "SHOW SESSION LIKE '%test%'");
+
+        properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
+            assertEquals(input.getFieldCount(), 5);
+            return (String) input.getField(0);
+        });
+
+        assertEquals(properties.get("test_string"), new MaterializedRow(1, "test_string", "foo string", "test default", "varchar", "test string property"));
+        assertEquals(properties.get("test_long"), new MaterializedRow(1, "test_long", "424242", "42", "bigint", "test long property"));
+
+        // Show session like with escape
+        result = computeActual(session, "SHOW SESSION LIKE '%test$_long%' ESCAPE '$'");
+
+        properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
+            assertEquals(input.getFieldCount(), 5);
+            return (String) input.getField(0);
+        });
+
+        assertEquals(properties.get("test_long"), new MaterializedRow(1, "test_long", "424242", "42", "bigint", "test long property"));
+
+        try {
+            computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE ''");
+            assertTrue(false);
+        }
+        catch (Exception e) {
+            assertEquals("Escape string must be a single character", e.getMessage());
+        }
+
+        try {
+            computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE '$$'");
+            assertTrue(false);
+        }
+        catch (Exception e) {
+            assertEquals("Escape string must be a single character", e.getMessage());
+        }
     }
 
     @Test

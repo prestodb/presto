@@ -115,7 +115,9 @@ public class TestSqlParserErrorHandling
                  "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', 'OFFSET', 'ORDER', " +
                          "'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>"},
                 {"SELECT * FROM t WHERE EXISTS (",
-                 "line 1:31: mismatched input '<EOF>'. Expecting: <query>"}};
+                 "line 1:31: mismatched input '<EOF>'. Expecting: <query>"},
+                {"SHOW SESSION LIKE '%$_%' ESCAPE",
+                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"}};
     }
 
     @Test(dataProvider = "statements")

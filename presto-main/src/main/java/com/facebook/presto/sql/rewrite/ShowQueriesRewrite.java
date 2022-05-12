@@ -141,6 +141,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.LogicalBinaryExpression.and;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
@@ -738,6 +739,15 @@ final class ShowQueriesRewrite
             // add bogus row so we can support empty sessions
             rows.add(row(new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), FALSE_LITERAL));
 
+            Expression predicate = identifier("include");
+            Optional<String> likePattern = node.getLikePattern();
+            if (likePattern.isPresent()) {
+                predicate = and(predicate, new LikePredicate(
+                        identifier("name"),
+                        new StringLiteral(likePattern.get()),
+                        node.getEscape().map(StringLiteral::new)));
+            }
+
             return simpleQuery(
                     selectList(
                             aliasedName("name", "Name"),
@@ -749,7 +759,7 @@ final class ShowQueriesRewrite
                             new Values(rows.build()),
                             "session",
                             ImmutableList.of("name", "value", "default", "type", "description", "include")),
-                    identifier("include"));
+                    predicate);
         }
 
         private Query parseView(String view, QualifiedObjectName name, Node node)
