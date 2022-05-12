@@ -20,6 +20,8 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -40,11 +42,13 @@ public class MergeJoinOptimizer
 {
     private final Metadata metadata;
     private final SqlParser parser;
+    private final NodePartitioningManager nodePartitioningManager;
 
-    public MergeJoinOptimizer(Metadata metadata, SqlParser parser)
+    public MergeJoinOptimizer(Metadata metadata, SqlParser parser, NodePartitioningManager nodePartitioningManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
+        this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
     }
 
     @Override
@@ -94,7 +98,7 @@ public class MergeJoinOptimizer
             // 2. If not, we don't optimize
 
             if (isMergeJoinEligible(node.getLeft(), node.getRight(), node)) {
-                return new MergeJoinNode(
+                PlanNode mergeJoinNode = new MergeJoinNode(
                         node.getSourceLocation(),
                         node.getId(),
                         node.getType(),
@@ -105,6 +109,10 @@ public class MergeJoinOptimizer
                         node.getFilter(),
                         node.getLeftHashVariable(),
                         node.getRightHashVariable());
+                PlanFragmenter.GroupedExecutionProperties properties = mergeJoinNode.accept(new PlanFragmenter.GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
+                if (properties.isCurrentNodeCapable()) {
+                    return mergeJoinNode;
+                }
             }
             return node;
         }

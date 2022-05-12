@@ -990,7 +990,7 @@ public class PlanFragmenter
         }
     }
 
-    private static class GroupedExecutionTagger
+    public static class GroupedExecutionTagger
             extends InternalPlanVisitor<GroupedExecutionProperties, Void>
     {
         private final Session session;
@@ -1243,7 +1243,7 @@ public class PlanFragmenter
         }
     }
 
-    private static class GroupedExecutionProperties
+    public static class GroupedExecutionProperties
     {
         // currentNodeCapable:
         //   Whether grouped execution is possible with the current node.

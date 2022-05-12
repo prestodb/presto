@@ -174,7 +174,8 @@ public class PlanOptimizers
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            PartitioningProviderManager partitioningProviderManager)
+            PartitioningProviderManager partitioningProviderManager,
+            NodePartitioningManager nodePartitioningManager)
     {
         this(metadata,
                 sqlParser,
@@ -188,7 +189,8 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 costComparator,
                 taskCountEstimator,
-                partitioningProviderManager);
+                partitioningProviderManager,
+                nodePartitioningManager);
     }
 
     @PostConstruct
@@ -218,7 +220,8 @@ public class PlanOptimizers
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            PartitioningProviderManager partitioningProviderManager)
+            PartitioningProviderManager partitioningProviderManager,
+            NodePartitioningManager nodePartitioningManager) // NodePartitioningManager
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -596,7 +599,7 @@ public class PlanOptimizers
         // MergeJoinOptimizer can avoid the local exchange for a join operation
         // Should be placed after AddExchanges, but before AddLocalExchange
         // To replace the JoinNode to MergeJoin ahead of AddLocalExchange to avoid adding extra local exchange
-        builder.add(new MergeJoinOptimizer(metadata, sqlParser));
+        builder.add(new MergeJoinOptimizer(metadata, sqlParser, nodePartitioningManager));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, sqlParser));
