@@ -35,11 +35,18 @@ class VectorFunction;
 struct ExprStats {
   /// Requires QueryConfig.exprTrackCpuUsage() to be 'true'.
   CpuWallTiming timing;
+
+  /// Number of processed rows.
   uint64_t numProcessedRows{0};
+
+  /// Number of processed vectors / batches. Allows to compute average batch
+  /// size.
+  uint64_t numProcessedVectors{0};
 
   void add(const ExprStats& other) {
     timing.add(other.timing);
     numProcessedRows += other.numProcessedRows;
+    numProcessedVectors += other.numProcessedVectors;
   }
 };
 

@@ -95,22 +95,22 @@ TEST_F(ExprStatsTest, printWithStats) {
     // Check stats before evaluation.
     ASSERT_EQ(
         exec::printExprWithStats(*exprSet),
-        "multiply [cpu time: 0ns, rows: 0] -> BIGINT [#1]\n"
-        "   plus [cpu time: 0ns, rows: 0] -> BIGINT [#2]\n"
-        "      cast(c0 as BIGINT) [cpu time: 0ns, rows: 0] -> BIGINT [#3]\n"
-        "         c0 [cpu time: 0ns, rows: 0] -> INTEGER [#4]\n"
-        "      3:BIGINT [cpu time: 0ns, rows: 0] -> BIGINT [#5]\n"
-        "   cast(c1 as BIGINT) [cpu time: 0ns, rows: 0] -> BIGINT [#6]\n"
-        "      c1 [cpu time: 0ns, rows: 0] -> INTEGER [#7]\n"
+        "multiply [cpu time: 0ns, rows: 0, batches: 0] -> BIGINT [#1]\n"
+        "   plus [cpu time: 0ns, rows: 0, batches: 0] -> BIGINT [#2]\n"
+        "      cast(c0 as BIGINT) [cpu time: 0ns, rows: 0, batches: 0] -> BIGINT [#3]\n"
+        "         c0 [cpu time: 0ns, rows: 0, batches: 0] -> INTEGER [#4]\n"
+        "      3:BIGINT [cpu time: 0ns, rows: 0, batches: 0] -> BIGINT [#5]\n"
+        "   cast(c1 as BIGINT) [cpu time: 0ns, rows: 0, batches: 0] -> BIGINT [#6]\n"
+        "      c1 [cpu time: 0ns, rows: 0, batches: 0] -> INTEGER [#7]\n"
         "\n"
-        "eq [cpu time: 0ns, rows: 0] -> BOOLEAN [#8]\n"
-        "   mod [cpu time: 0ns, rows: 0] -> BIGINT [#9]\n"
-        "      cast(plus as BIGINT) [cpu time: 0ns, rows: 0] -> BIGINT [#10]\n"
-        "         plus [cpu time: 0ns, rows: 0] -> INTEGER [#11]\n"
+        "eq [cpu time: 0ns, rows: 0, batches: 0] -> BOOLEAN [#8]\n"
+        "   mod [cpu time: 0ns, rows: 0, batches: 0] -> BIGINT [#9]\n"
+        "      cast(plus as BIGINT) [cpu time: 0ns, rows: 0, batches: 0] -> BIGINT [#10]\n"
+        "         plus [cpu time: 0ns, rows: 0, batches: 0] -> INTEGER [#11]\n"
         "            c0 -> INTEGER [CSE #4]\n"
         "            c1 -> INTEGER [CSE #7]\n"
-        "      2:BIGINT [cpu time: 0ns, rows: 0] -> BIGINT [#12]\n"
-        "   0:BIGINT [cpu time: 0ns, rows: 0] -> BIGINT [#13]\n");
+        "      2:BIGINT [cpu time: 0ns, rows: 0, batches: 0] -> BIGINT [#12]\n"
+        "   0:BIGINT [cpu time: 0ns, rows: 0, batches: 0] -> BIGINT [#13]\n");
 
     evaluate(*exprSet, data);
 
@@ -118,22 +118,22 @@ TEST_F(ExprStatsTest, printWithStats) {
     ASSERT_THAT(
         exec::printExprWithStats(*exprSet),
         ::testing::MatchesRegex(
-            "multiply .cpu time: .+, rows: 1024. -> BIGINT .#1.\n"
-            "   plus .cpu time: .+, rows: 1024. -> BIGINT .#2.\n"
-            "      cast.c0 as BIGINT. .cpu time: .+, rows: 1024. -> BIGINT .#3.\n"
-            "         c0 .cpu time: 0ns, rows: 0. -> INTEGER .#4.\n"
-            "      3:BIGINT .cpu time: 0ns, rows: 0. -> BIGINT .#5.\n"
-            "   cast.c1 as BIGINT. .cpu time: .+, rows: 1024. -> BIGINT .#6.\n"
-            "      c1 .cpu time: 0ns, rows: 0. -> INTEGER .#7.\n"
+            "multiply .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#1.\n"
+            "   plus .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#2.\n"
+            "      cast.c0 as BIGINT. .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#3.\n"
+            "         c0 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#4.\n"
+            "      3:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#5.\n"
+            "   cast.c1 as BIGINT. .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#6.\n"
+            "      c1 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#7.\n"
             "\n"
-            "eq .cpu time: .+, rows: 1024. -> BOOLEAN .#8.\n"
-            "   mod .cpu time: .+, rows: 1024. -> BIGINT .#9.\n"
-            "      cast.plus as BIGINT. .cpu time: .+, rows: 1024. -> BIGINT .#10.\n"
-            "         plus .cpu time: .+, rows: 1024. -> INTEGER .#11.\n"
+            "eq .cpu time: .+, rows: 1024, batches: 1. -> BOOLEAN .#8.\n"
+            "   mod .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#9.\n"
+            "      cast.plus as BIGINT. .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#10.\n"
+            "         plus .cpu time: .+, rows: 1024, batches: 1. -> INTEGER .#11.\n"
             "            c0 -> INTEGER .CSE #4.\n"
             "            c1 -> INTEGER .CSE #7.\n"
-            "      2:BIGINT .cpu time: 0ns, rows: 0. -> BIGINT .#12.\n"
-            "   0:BIGINT .cpu time: 0ns, rows: 0. -> BIGINT .#13.\n"));
+            "      2:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#12.\n"
+            "   0:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#13.\n"));
   }
 
   // Verify that common sub-expressions are identified properly.
@@ -144,16 +144,16 @@ TEST_F(ExprStatsTest, printWithStats) {
     ASSERT_THAT(
         exec::printExprWithStats(*exprSet),
         ::testing::MatchesRegex(
-            "mod .cpu time: .+, rows: 1024. -> BIGINT .#1.\n"
-            "   cast.plus as BIGINT. .cpu time: .+, rows: 1024. -> BIGINT .#2.\n"
-            "      plus .cpu time: .+, rows: 1024. -> INTEGER .#3.\n"
-            "         c0 .cpu time: 0ns, rows: 0. -> INTEGER .#4.\n"
-            "         c1 .cpu time: 0ns, rows: 0. -> INTEGER .#5.\n"
-            "   5:BIGINT .cpu time: 0ns, rows: 0. -> BIGINT .#6.\n"
+            "mod .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#1.\n"
+            "   cast.plus as BIGINT. .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#2.\n"
+            "      plus .cpu time: .+, rows: 1024, batches: 1. -> INTEGER .#3.\n"
+            "         c0 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#4.\n"
+            "         c1 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#5.\n"
+            "   5:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#6.\n"
             "\n"
-            "mod .cpu time: .+, rows: 1024. -> BIGINT .#7.\n"
+            "mod .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#7.\n"
             "   cast..plus.c0, c1.. as BIGINT. -> BIGINT .CSE #2.\n"
-            "   3:BIGINT .cpu time: 0ns, rows: 0. -> BIGINT .#8.\n"));
+            "   3:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#8.\n"));
   }
 
   // Use dictionary encoding to repeat each row 5 times.
@@ -171,22 +171,22 @@ TEST_F(ExprStatsTest, printWithStats) {
     ASSERT_THAT(
         exec::printExprWithStats(*exprSet),
         ::testing::MatchesRegex(
-            "multiply .cpu time: .+, rows: 205. -> BIGINT .#1.\n"
-            "   plus .cpu time: .+, rows: 205. -> BIGINT .#2.\n"
-            "      cast.c0 as BIGINT. .cpu time: .+, rows: 205. -> BIGINT .#3.\n"
-            "         c0 .cpu time: 0ns, rows: 0. -> INTEGER .#4.\n"
-            "      3:BIGINT .cpu time: 0ns, rows: 0. -> BIGINT .#5.\n"
-            "   cast.c1 as BIGINT. .cpu time: .+, rows: 205. -> BIGINT .#6.\n"
-            "      c1 .cpu time: 0ns, rows: 0. -> INTEGER .#7.\n"
+            "multiply .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#1.\n"
+            "   plus .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#2.\n"
+            "      cast.c0 as BIGINT. .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#3.\n"
+            "         c0 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#4.\n"
+            "      3:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#5.\n"
+            "   cast.c1 as BIGINT. .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#6.\n"
+            "      c1 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#7.\n"
             "\n"
-            "eq .cpu time: .+, rows: 205. -> BOOLEAN .#8.\n"
-            "   mod .cpu time: .+, rows: 205. -> BIGINT .#9.\n"
-            "      cast.plus as BIGINT. .cpu time: .+, rows: 205. -> BIGINT .#10.\n"
-            "         plus .cpu time: .+, rows: 205. -> INTEGER .#11.\n"
+            "eq .cpu time: .+, rows: 205, batches: 1. -> BOOLEAN .#8.\n"
+            "   mod .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#9.\n"
+            "      cast.plus as BIGINT. .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#10.\n"
+            "         plus .cpu time: .+, rows: 205, batches: 1. -> INTEGER .#11.\n"
             "            c0 -> INTEGER .CSE #4.\n"
             "            c1 -> INTEGER .CSE #7.\n"
-            "      2:BIGINT .cpu time: 0ns, rows: 0. -> BIGINT .#12.\n"
-            "   0:BIGINT .cpu time: 0ns, rows: 0. -> BIGINT .#13.\n"));
+            "      2:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#12.\n"
+            "   0:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#13.\n"));
   }
 }
 
@@ -233,9 +233,16 @@ TEST_F(ExprStatsTest, listener) {
   }
   ASSERT_EQ(1, events.size());
   auto stats = events.back().stats;
+
+  ASSERT_EQ(2, stats.at("plus").numProcessedVectors);
   ASSERT_EQ(1024 * 2, stats.at("plus").numProcessedRows);
+
+  ASSERT_EQ(1, stats.at("multiply").numProcessedVectors);
   ASSERT_EQ(1024, stats.at("multiply").numProcessedRows);
+
+  ASSERT_EQ(1, stats.at("mod").numProcessedVectors);
   ASSERT_EQ(1024, stats.at("mod").numProcessedRows);
+
   for (const auto& name : {"plus", "multiply", "mod"}) {
     ASSERT_GT(stats.at(name).timing.cpuNanos, 0);
   }
@@ -250,8 +257,14 @@ TEST_F(ExprStatsTest, listener) {
   }
   ASSERT_EQ(2, events.size());
   stats = events.back().stats;
+
+  ASSERT_EQ(4, stats.at("plus").numProcessedVectors);
   ASSERT_EQ(1024 * 2 * 2, stats.at("plus").numProcessedRows);
+
+  ASSERT_EQ(2, stats.at("multiply").numProcessedVectors);
   ASSERT_EQ(1024 * 2, stats.at("multiply").numProcessedRows);
+
+  ASSERT_EQ(2, stats.at("mod").numProcessedVectors);
   ASSERT_EQ(1024 * 2, stats.at("mod").numProcessedRows);
   for (const auto& name : {"plus", "multiply", "mod"}) {
     ASSERT_GT(stats.at(name).timing.cpuNanos, 0);
@@ -270,6 +283,9 @@ TEST_F(ExprStatsTest, listener) {
   ASSERT_EQ(1024, stats.at("plus").numProcessedRows);
   ASSERT_EQ(1024, stats.at("mod").numProcessedRows);
   ASSERT_EQ(1024, stats.at("pow").numProcessedRows);
+  for (const auto& name : {"plus", "mod", "pow"}) {
+    ASSERT_EQ(1, stats.at(name).numProcessedVectors);
+  }
 
   // Unregister the listener, evaluate expressions again and verify the listener
   // wasn't invoked.

@@ -1116,6 +1116,7 @@ void Expr::applyFunction(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  stats_.numProcessedVectors += 1;
   stats_.numProcessedRows += rows.countSelected();
   auto timer = cpuWallTimer();
 
@@ -1340,7 +1341,8 @@ void printExprWithStats(
   const auto& stats = expr.stats();
   out << indent << expr.toString(false)
       << " [cpu time: " << succinctNanos(stats.timing.cpuNanos)
-      << ", rows: " << stats.numProcessedRows << "] -> "
+      << ", rows: " << stats.numProcessedRows
+      << ", batches: " << stats.numProcessedVectors << "] -> "
       << expr.type()->toString() << " [#" << id << "]" << std::endl;
 
   auto newIndent = indent + "   ";
