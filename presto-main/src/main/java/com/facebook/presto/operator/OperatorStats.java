@@ -591,6 +591,7 @@ public class OperatorStats
         return info;
     }
 
+    @Nullable
     @ThriftField(39)
     public OperatorInfoUnion getInfoUnion()
     {
