@@ -78,9 +78,15 @@ class SimpleFunctionAdapter : public VectorFunction {
         const SelectivityVector* _rows,
         const TypePtr& outputType,
         EvalCtx* _context,
-        VectorPtr* _result)
+        VectorPtr* _result,
+        bool isResultReused)
         : rows{_rows}, context{_context} {
-      BaseVector::ensureWritable(*rows, outputType, context->pool(), _result);
+      // If we're reusing the input, we've already checked that the vector
+      // is unique, as is nulls.  We also know the size of the vector is
+      // at least as large as the size of rows.
+      if (!isResultReused) {
+        BaseVector::ensureWritable(*rows, outputType, context->pool(), _result);
+      }
       result = reinterpret_cast<result_vector_t*>((*_result).get());
       resultWriter.init(*result);
     }
@@ -141,25 +147,6 @@ class SimpleFunctionAdapter : public VectorFunction {
     if constexpr (FUNC::udf_has_initialize) {
       unpack<0>(config, constantInputs);
     }
-  }
-
-  VectorPtr* findArgToReuse(
-      std::vector<VectorPtr>& args,
-      const TypePtr& outputType) const {
-    if (args.size() > 0 && outputType->isPrimitiveType() &&
-        outputType->isFixedWidth()) {
-      for (auto& arg : args) {
-        if (arg->type()->kindEquals(outputType)) {
-          if (BaseVector::isReusableFlatVector(arg)) {
-            // Re-use arg for result. We rely on the fact that for each row
-            // we read arguments before computing and writing out the
-            // result.
-            return &arg;
-          }
-        }
-      }
-    }
-    return nullptr;
   }
 
   template <
@@ -231,6 +218,42 @@ class SimpleFunctionAdapter : public VectorFunction {
     // No-op base case.
   }
 
+  template <
+      int32_t POSITION,
+      typename std::enable_if_t<POSITION<FUNC::num_args, int32_t> = 0>
+          VectorPtr* findReusableArg(std::vector<VectorPtr>& args) const {
+    if constexpr (isVariadicType<arg_at<POSITION>>::value) {
+      if constexpr (
+          CppToType<typename arg_at<POSITION>::underlying_type>::typeKind ==
+          return_type_traits::typeKind) {
+        if (args.size() > POSITION) {
+          return &args[POSITION];
+        }
+      }
+      // A Variadic arg is always the last, so if we haven't found a match yet,
+      // we know for sure that we won't.
+      return nullptr;
+    } else if constexpr (
+        CppToType<arg_at<POSITION>>::typeKind == return_type_traits::typeKind) {
+      if (BaseVector::isReusableFlatVector(args[POSITION])) {
+        // Re-use arg for result. We rely on the fact that for each row
+        // we read arguments before computing and writing out the
+        // result.
+        return &args[POSITION];
+      }
+    }
+
+    return findReusableArg<POSITION + 1>(args);
+  }
+
+  template <
+      int32_t POSITION,
+      typename std::enable_if_t<POSITION == FUNC::num_args, int32_t> = 0>
+  VectorPtr* findReusableArg(std::vector<VectorPtr>& args) const {
+    // Base case: we didn't find an input vector to reuse.
+    return nullptr;
+  }
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -247,16 +270,21 @@ class SimpleFunctionAdapter : public VectorFunction {
     // - the argument has flat encoding,
     // - the argument is singly-referenced and has singly-referenced values
     // and nulls buffers.
+    bool isResultReused = false;
     if constexpr (
-        !FUNC::can_produce_null_output && !FUNC::udf_has_callNullFree) {
+        !FUNC::can_produce_null_output && !FUNC::udf_has_callNullFree &&
+        return_type_traits::isPrimitiveType &&
+        return_type_traits::isFixedWidth) {
       if (!reusableResult->get()) {
-        if (auto arg = findArgToReuse(args, outputType)) {
+        if (auto arg = findReusableArg<0>(args)) {
           reusableResult = arg;
+          isResultReused = true;
         }
       }
     }
 
-    ApplyContext applyContext{&rows, outputType, context, reusableResult};
+    ApplyContext applyContext{
+        &rows, outputType, context, reusableResult, isResultReused};
 
     // Enable fast all-ASCII path if all string inputs are ASCII and the
     // function provides ASCII-only path.
