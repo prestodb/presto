@@ -41,6 +41,7 @@ import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -229,7 +230,7 @@ public class OrcType
         if (DATE.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.DATE));
         }
-        if (TIMESTAMP.equals(type)) {
+        if (TIMESTAMP.equals(type) || TIMESTAMP_MICROSECONDS.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP));
         }
         if (type instanceof DecimalType) {

@@ -101,6 +101,7 @@ public class TestOrcMapNullKey
                     mapType,
                     INITIAL_BATCH_SIZE,
                     mapNullKeysEnabled,
+                    false,
                     false)) {
                 assertEquals(readMap(reader.getNextPage().getBlock(0).getLoadedBlock(), 0), expectedToRead);
 

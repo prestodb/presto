@@ -855,6 +855,7 @@ public class TestDictionaryColumnWriter
                     type,
                     INITIAL_BATCH_SIZE,
                     true,
+                    false,
                     false)) {
                 while (index < values.size()) {
                     Page page = reader.getNextPage();

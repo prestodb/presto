@@ -634,7 +634,8 @@ public class TestDecryption
                     requiredSubfields,
                     readerIntermediateKeys,
                     includedColumns,
-                    outputColumns);
+                    outputColumns,
+                    false);
 
             validateFileStatistics(tempFile, dwrfWriterEncryption, readerIntermediateKeys);
         }

@@ -36,6 +36,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -96,6 +97,7 @@ public class TestColumnWriters
                 {toOrcTypes(DOUBLE), DOUBLE, DOUBLE.createFixedSizeBlockBuilder(2).appendNull().writeLong(1).build()},
                 {toOrcTypes(REAL), REAL, REAL.createFixedSizeBlockBuilder(2).appendNull().writeInt(1).build()},
                 {toOrcTypes(TIMESTAMP), TIMESTAMP, TIMESTAMP.createFixedSizeBlockBuilder(2).appendNull().writeLong(1).build()},
+                {toOrcTypes(TIMESTAMP_MICROSECONDS), TIMESTAMP_MICROSECONDS, TIMESTAMP_MICROSECONDS.createFixedSizeBlockBuilder(2).appendNull().writeLong(1).build()},
                 {toOrcTypes(VARCHAR), VARCHAR, stringBlock},
                 {toOrcTypes(VARBINARY), VARBINARY, stringBlock},
                 {toOrcTypes(arrayType), arrayType, arrayBlock},

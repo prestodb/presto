@@ -75,6 +75,7 @@ import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
@@ -557,6 +558,16 @@ public class OrcWriteValidation
                 }
             }
 
+            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP_MICROSECONDS)) {
+                // A flaw in ORC encoding makes it impossible to represent timestamp
+                // between 1969-12-31 23:59:59.000000, exclusive, and 1970-01-01 00:00:00.000000, exclusive.
+                // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
+                long micros = TIMESTAMP_MICROSECONDS.getLong(block, position);
+                if (micros > -1_000_000 && micros < 0) {
+                    return AbstractLongType.hash(micros + 1_000_000);
+                }
+            }
+
             return type.hash(block, position);
         }
 
@@ -679,7 +690,7 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (TIMESTAMP.equals(type)) {
+            else if (TIMESTAMP.equals(type) || TIMESTAMP_MICROSECONDS.equals(type)) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();

@@ -157,7 +157,7 @@ public class TestOrcReaderPositions
             createSequentialFile(tempFile.getFile(), rowCount);
             List<Long> expectedValues = new ArrayList<>();
             expectedValues.addAll(LongStream.range(0, 142_000).collect(ArrayList::new, List::add, List::addAll));
-            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, false, true);
+            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, false, true, false);
             verifyAppendNumber(expectedValues, reader);
         }
     }
@@ -172,7 +172,7 @@ public class TestOrcReaderPositions
             createSequentialFile(tempFile.getFile(), rowCount);
             List<Long> expectedValues = new ArrayList<>();
             expectedValues.addAll(LongStream.range(0, 142_000).collect(ArrayList::new, List::add, List::addAll));
-            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, false, true);
+            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, false, true, false);
             verifyAppendNumber(expectedValues, reader);
         }
     }
@@ -204,7 +204,8 @@ public class TestOrcReaderPositions
                     ImmutableList.of(0),
                     false,
                     new TestingHiveOrcAggregatedMemoryContext(),
-                    true);
+                    true,
+                    false);
             verifyAppendNumber(expectedValues, reader);
         }
     }
@@ -228,7 +229,7 @@ public class TestOrcReaderPositions
             List<Long> expectedValues = new ArrayList<>();
             expectedValues.addAll(LongStream.range(50_000, 60_000).collect(ArrayList::new, List::add, List::addAll));
             expectedValues.addAll(LongStream.range(70_000, 80_000).collect(ArrayList::new, List::add, List::addAll));
-            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE, false, true);
+            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE, false, true, false);
             verifyAppendNumber(expectedValues, reader);
         }
     }
@@ -255,7 +256,7 @@ public class TestOrcReaderPositions
             expectedValues.addAll(LongStream.range(60, 80).collect(ArrayList::new, List::add, List::addAll));
 
             List<Long> actualValues = new ArrayList<>();
-            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE, false, true);
+            OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE, false, true, false);
             assertNotNull(reader);
             Page returnPage;
             while (true) {

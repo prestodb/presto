@@ -72,6 +72,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.io.DataOutput.createDataOutput;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.UNENCRYPTED;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
 import static com.facebook.presto.orc.FlushReason.CLOSED;
@@ -143,6 +144,7 @@ public class OrcWriter
     private long closedStripesRetainedBytes;
     private long previouslyRecordedSizeInBytes;
     private boolean closed;
+    private boolean enableTimestampMicroPrecision;
 
     private long numberOfRows;
     private long stripeRawSize;
@@ -304,6 +306,10 @@ public class OrcWriter
                     dwrfEncryptionInfo,
                     orcEncoding.createMetadataWriter());
             columnWriters.add(columnWriter);
+
+            if (fieldType == TIMESTAMP_MICROSECONDS) {
+                this.enableTimestampMicroPrecision = true;
+            }
 
             if (columnWriter instanceof DictionaryColumnWriter) {
                 dictionaryColumnWriters.add((DictionaryColumnWriter) columnWriter);
@@ -838,7 +844,14 @@ public class OrcWriter
                 types,
                 hiveStorageTimeZone,
                 orcEncoding,
-                new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false),
+                new OrcReaderOptions(
+                        new DataSize(1, MEGABYTE),
+                        new DataSize(8, MEGABYTE),
+                        new DataSize(16, MEGABYTE),
+                        false,
+                        false,
+                        enableTimestampMicroPrecision,
+                        false),
                 dwrfEncryptionProvider,
                 DwrfKeyProvider.of(intermediateKeyMetadata.build()));
     }

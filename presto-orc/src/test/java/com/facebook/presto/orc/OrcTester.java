@@ -147,6 +147,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -181,6 +182,8 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
@@ -644,7 +647,7 @@ public class OrcTester
                 if (hiveSupported) {
                     try (TempFile tempFile = new TempFile()) {
                         writeOrcColumnsHive(tempFile.getFile(), format, compression, writeTypes, writeValues);
-                        assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, true, useSelectiveOrcReader, settings, ImmutableMap.of());
+                        assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, true, useSelectiveOrcReader, settings, ImmutableMap.of(), false);
                     }
                 }
 
@@ -656,14 +659,14 @@ public class OrcTester
                         assertFileContentsHive(readTypes, tempFile, format, readValues);
                     }
 
-                    assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, false, useSelectiveOrcReader, settings, ImmutableMap.of());
+                    assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, false, useSelectiveOrcReader, settings, ImmutableMap.of(), false);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContentsPresto(readTypes, tempFile, readValues, true, false, orcEncoding, format, false, useSelectiveOrcReader, settings, ImmutableMap.of());
+                        assertFileContentsPresto(readTypes, tempFile, readValues, true, false, orcEncoding, format, false, useSelectiveOrcReader, settings, ImmutableMap.of(), false);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContentsPresto(readTypes, tempFile, readValues, false, true, orcEncoding, format, false, useSelectiveOrcReader, settings, ImmutableMap.of());
+                        assertFileContentsPresto(readTypes, tempFile, readValues, false, true, orcEncoding, format, false, useSelectiveOrcReader, settings, ImmutableMap.of(), false);
                     }
                 }
                 // write presto read presto
@@ -690,7 +693,8 @@ public class OrcTester
                                 false,
                                 useSelectiveOrcReader,
                                 settings,
-                                intermediateKeysMap);
+                                intermediateKeysMap,
+                                false);
 
                         if (skipBatchTestsEnabled) {
                             assertFileContentsPresto(
@@ -704,7 +708,8 @@ public class OrcTester
                                     false,
                                     useSelectiveOrcReader,
                                     settings,
-                                    intermediateKeysMap);
+                                    intermediateKeysMap,
+                                    false);
                         }
 
                         if (skipStripeTestsEnabled) {
@@ -719,7 +724,8 @@ public class OrcTester
                                     false,
                                     useSelectiveOrcReader,
                                     settings,
-                                    intermediateKeysMap);
+                                    intermediateKeysMap,
+                                    false);
                         }
                     }
                 }
@@ -880,7 +886,8 @@ public class OrcTester
                 requiredSubfields,
                 ImmutableMap.of(),
                 includedColumns,
-                outputColumns);
+                outputColumns,
+                false);
     }
 
     public static void assertFileContentsPresto(
@@ -895,7 +902,8 @@ public class OrcTester
             Map<Integer, List<Subfield>> requiredSubfields,
             Map<Integer, Slice> intermediateEncryptionKeys,
             Map<Integer, Type> includedColumns,
-            List<Integer> outputColumns)
+            List<Integer> outputColumns,
+            boolean enableTimestampMicroPrecision)
             throws IOException
     {
         try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(
@@ -914,7 +922,8 @@ public class OrcTester
                 outputColumns,
                 false,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                false)) {
+                false,
+                enableTimestampMicroPrecision)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
             assertFileContentsPresto(types, recordReader, expectedValues, outputColumns);
@@ -981,7 +990,7 @@ public class OrcTester
         throw new UnsupportedOperationException("Unsupported filter type: " + filter.getClass().getSimpleName());
     }
 
-    private static void assertFileContentsPresto(
+    public static void assertFileContentsPresto(
             List<Type> types,
             TempFile tempFile,
             List<List<?>> expectedValues,
@@ -992,7 +1001,8 @@ public class OrcTester
             boolean isHiveWriter,
             boolean useSelectiveOrcReader,
             List<OrcReaderSettings> settings,
-            Map<Integer, Slice> intermediateEncryptionKeys)
+            Map<Integer, Slice> intermediateEncryptionKeys,
+            boolean enableTimestampMicroPrecision)
             throws IOException
     {
         OrcPredicate orcPredicate = createOrcPredicate(types, expectedValues, format, isHiveWriter);
@@ -1018,7 +1028,8 @@ public class OrcTester
                     ImmutableMap.of(),
                     intermediateEncryptionKeys,
                     includedColumns,
-                    outputColumns);
+                    outputColumns,
+                    enableTimestampMicroPrecision);
             for (OrcReaderSettings entry : settings) {
                 assertTrue(entry.getFilterFunctions().isEmpty(), "Filter functions are not supported yet");
                 assertTrue(entry.getFilterFunctionInputMapping().isEmpty(), "Filter functions are not supported yet");
@@ -1200,6 +1211,10 @@ public class OrcTester
 
         if (type == TIMESTAMP) {
             return filter.testLong(((SqlTimestamp) value).getMillisUtc());
+        }
+
+        if (type == TIMESTAMP_MICROSECONDS) {
+            return filter.testLong(((SqlTimestamp) value).getMicrosUtc());
         }
 
         if (type instanceof DecimalType) {
@@ -1665,7 +1680,8 @@ public class OrcTester
             Type type,
             int initialBatchSize,
             boolean mapNullKeysEnabled,
-            boolean appendRowNumber)
+            boolean appendRowNumber,
+            boolean enableTimestampMicroPrecision)
             throws IOException
     {
         return createCustomOrcSelectiveRecordReader(
@@ -1684,7 +1700,8 @@ public class OrcTester
                 ImmutableList.of(0),
                 mapNullKeysEnabled,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                appendRowNumber);
+                appendRowNumber,
+                enableTimestampMicroPrecision);
     }
 
     public static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
@@ -1703,7 +1720,8 @@ public class OrcTester
             List<Integer> outputColumns,
             boolean mapNullKeysEnabled,
             OrcAggregatedMemoryContext systemMemoryUsage,
-            boolean appendRowNumber)
+            boolean appendRowNumber,
+            boolean enableTimestampMicroPrecision)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -1719,6 +1737,7 @@ public class OrcTester
                         .withMaxBlockSize(MAX_BLOCK_SIZE)
                         .withMapNullKeysEnabled(mapNullKeysEnabled)
                         .withAppendRowNumber(appendRowNumber)
+                        .withEnableTimestampMicroPrecision(enableTimestampMicroPrecision)
                         .build(),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
@@ -1789,6 +1808,10 @@ public class OrcTester
             else if (TIMESTAMP.equals(type)) {
                 long millis = ((SqlTimestamp) value).getMillisUtc();
                 type.writeLong(blockBuilder, millis);
+            }
+            else if (TIMESTAMP_MICROSECONDS.equals(type)) {
+                long micros = ((SqlTimestamp) value).getMicrosUtc();
+                type.writeLong(blockBuilder, micros);
             }
             else {
                 String baseType = type.getTypeSignature().getBase();
@@ -1979,7 +2002,14 @@ public class OrcTester
         }
         else if (actualValue instanceof TimestampWritable) {
             TimestampWritable timestamp = (TimestampWritable) actualValue;
-            actualValue = sqlTimestampOf((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), SESSION);
+            long seconds = timestamp.getSeconds();
+            long nanos = timestamp.getNanos();
+            if (type == TIMESTAMP_MICROSECONDS) {
+                actualValue = sqlTimestampOf((seconds * 1_000_000) + (nanos / 1000L), SESSION, MICROSECONDS);
+            }
+            else {
+                actualValue = sqlTimestampOf((seconds * 1000) + (nanos / 1_000_000L), SESSION, MILLISECONDS);
+            }
         }
         else if (actualValue instanceof OrcStruct) {
             List<Object> fields = new ArrayList<>();
@@ -2132,7 +2162,7 @@ public class OrcTester
         if (type.equals(DATE)) {
             return javaDateObjectInspector;
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP) || type.equals(TIMESTAMP_MICROSECONDS)) {
             return javaTimestampObjectInspector;
         }
         if (type instanceof DecimalType) {
@@ -2247,7 +2277,7 @@ public class OrcTester
         }
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
-                if (type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT) || type.equals(REAL) || type.equals(DATE) || type.equals(TIMESTAMP)) {
+                if (type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT) || type.equals(REAL) || type.equals(DATE) || type.equals(TIMESTAMP) || type.equals(TIMESTAMP_MICROSECONDS)) {
                     assertEquals(type.getLong(block, position), 0);
                 }
                 if (type.equals(BOOLEAN)) {
