@@ -43,7 +43,7 @@ class CacheInputStream : public SeekableInputStream {
   void BackUp(int count) override;
   bool Skip(int count) override;
   google::protobuf::int64 ByteCount() const override;
-  void seekToRowGroup(PositionProvider& position) override;
+  void seekToPosition(PositionProvider& position) override;
   std::string getName() const override;
   size_t loadIndices(const proto::RowIndex& rowIndex, size_t startIndex)
       override;

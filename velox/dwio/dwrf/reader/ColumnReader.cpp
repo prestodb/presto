@@ -1008,7 +1008,7 @@ void StringDictionaryColumnReader::loadStrideDictionary() {
     std::vector<uint64_t> pos(
         positions.begin() + positionOffset, positions.end());
     PositionProvider pp(pos);
-    strideDictStream->seekToRowGroup(pp);
+    strideDictStream->seekToPosition(pp);
     strideDictLengthDecoder->seekToRowGroup(pp);
 
     detail::ensureCapacity<int64_t>(

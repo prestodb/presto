@@ -265,13 +265,13 @@ TEST(TestDecompression, testFileSeek) {
   {
     std::vector<uint64_t> offsets(1, 100);
     PositionProvider posn(offsets);
-    stream.seekToRowGroup(posn);
+    stream.seekToPosition(posn);
   }
   EXPECT_EQ(100, stream.ByteCount());
   {
     std::vector<uint64_t> offsets(1, 5);
     PositionProvider posn(offsets);
-    stream.seekToRowGroup(posn);
+    stream.seekToPosition(posn);
   }
   EXPECT_EQ(5, stream.ByteCount());
   ASSERT_EQ(true, stream.Next(&ptr, &len));
@@ -280,7 +280,7 @@ TEST(TestDecompression, testFileSeek) {
   {
     std::vector<uint64_t> offsets(1, 201);
     PositionProvider posn(offsets);
-    EXPECT_THROW(stream.seekToRowGroup(posn), exception::LoggedException);
+    EXPECT_THROW(stream.seekToPosition(posn), exception::LoggedException);
   }
 }
 
@@ -832,7 +832,7 @@ class TestSeek : public ::testing::Test {
       auto pos = arr[i];
       std::vector<uint64_t> list{pos[0], pos[1]};
       PositionProvider pp(list);
-      stream->seekToRowGroup(pp);
+      stream->seekToPosition(pp);
       stream->Next(&data, &size);
       EXPECT_EQ(size, inputSize - pos[1]);
       EXPECT_EQ(0, memcmp(data, input[i] + pos[1], size));

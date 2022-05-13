@@ -41,7 +41,7 @@ class FloatingPointDecoder {
   }
 
   void seekToRowGroup(PositionProvider& positionProvider) {
-    input_->seekToRowGroup(positionProvider);
+    input_->seekToPosition(positionProvider);
     bufferStart_ = bufferEnd_;
   }
 

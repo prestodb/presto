@@ -92,7 +92,7 @@ google::protobuf::int64 CacheInputStream::ByteCount() const {
   return static_cast<google::protobuf::int64>(position_);
 }
 
-void CacheInputStream::seekToRowGroup(PositionProvider& seekPosition) {
+void CacheInputStream::seekToPosition(PositionProvider& seekPosition) {
   position_ = seekPosition.next();
 }
 

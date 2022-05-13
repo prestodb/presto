@@ -169,8 +169,8 @@ google::protobuf::int64 SeekableArrayInputStream::ByteCount() const {
   return static_cast<google::protobuf::int64>(position);
 }
 
-void SeekableArrayInputStream::seekToRowGroup(PositionProvider& seekPosition) {
-  position = seekPosition.next();
+void SeekableArrayInputStream::seekToPosition(PositionProvider& position) {
+  this->position = position.next();
 }
 
 std::string SeekableArrayInputStream::getName() const {
@@ -249,7 +249,7 @@ google::protobuf::int64 SeekableFileInputStream::ByteCount() const {
   return static_cast<google::protobuf::int64>(position);
 }
 
-void SeekableFileInputStream::seekToRowGroup(PositionProvider& location) {
+void SeekableFileInputStream::seekToPosition(PositionProvider& location) {
   position = location.next();
   DWIO_ENSURE_LE(position, length, "seek too far");
   pushBack = 0;

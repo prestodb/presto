@@ -349,7 +349,7 @@ void ByteRleDecoder::nextBuffer() {
 
 void ByteRleDecoder::seekToRowGroup(PositionProvider& positionProvider) {
   // move the input stream
-  inputStream->seekToRowGroup(positionProvider);
+  inputStream->seekToPosition(positionProvider);
   // force a re-read from the stream
   bufferEnd = bufferStart;
   // force reading a new header

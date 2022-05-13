@@ -220,14 +220,14 @@ void PagedInputStream::clearDecompressionState() {
   inputBufferPtrEnd_ = nullptr;
 }
 
-void PagedInputStream::seekToRowGroup(PositionProvider& positionProvider) {
+void PagedInputStream::seekToPosition(PositionProvider& positionProvider) {
   auto compressedOffset = positionProvider.next();
   auto uncompressedOffset = positionProvider.next();
 
   if (compressedOffset != lastHeaderOffset_) {
     std::vector<uint64_t> positions = {compressedOffset};
     auto provider = PositionProvider(positions);
-    input_->seekToRowGroup(provider);
+    input_->seekToPosition(provider);
 
     clearDecompressionState();
 

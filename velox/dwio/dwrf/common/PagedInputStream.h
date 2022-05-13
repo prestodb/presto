@@ -45,7 +45,7 @@ class PagedInputStream : public SeekableInputStream {
   google::protobuf::int64 ByteCount() const override {
     return bytesReturned_;
   }
-  void seekToRowGroup(PositionProvider& position) override;
+  void seekToPosition(PositionProvider& position) override;
   std::string getName() const override {
     return folly::to<std::string>(
         "PagedInputStream StreamInfo (",

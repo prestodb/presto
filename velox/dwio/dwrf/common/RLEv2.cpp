@@ -155,7 +155,7 @@ template RleDecoderV2<false>::RleDecoderV2(
 template <bool isSigned>
 void RleDecoderV2<isSigned>::seekToRowGroup(PositionProvider& location) {
   // move the input stream
-  IntDecoder<isSigned>::inputStream->seekToRowGroup(location);
+  IntDecoder<isSigned>::inputStream->seekToPosition(location);
   // clear state
   IntDecoder<isSigned>::bufferEnd = IntDecoder<isSigned>::bufferStart = 0;
   runRead = runLength = 0;

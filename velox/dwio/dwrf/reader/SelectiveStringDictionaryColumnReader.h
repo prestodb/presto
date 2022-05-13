@@ -45,7 +45,7 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
     }
 
     if (strideDictStream_) {
-      strideDictStream_->seekToRowGroup(positionsProvider);
+      strideDictStream_->seekToPosition(positionsProvider);
       strideDictLengthDecoder_->seekToRowGroup(positionsProvider);
       // skip row group dictionary size
       positionsProvider.next();

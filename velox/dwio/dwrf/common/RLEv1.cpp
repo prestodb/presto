@@ -66,7 +66,7 @@ template void RleEncoderV1<false>::writeValues();
 template <bool isSigned>
 void RleDecoderV1<isSigned>::seekToRowGroup(PositionProvider& location) {
   // move the input stream
-  IntDecoder<isSigned>::inputStream->seekToRowGroup(location);
+  IntDecoder<isSigned>::inputStream->seekToPosition(location);
   // force a re-read from the stream
   IntDecoder<isSigned>::bufferEnd = IntDecoder<isSigned>::bufferStart;
   // force reading a new header

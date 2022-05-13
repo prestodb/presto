@@ -39,7 +39,7 @@ class SelectiveStringDirectColumnReader : public SelectiveColumnReader {
       notNullDecoder_->seekToRowGroup(positionsProvider);
     }
 
-    blobStream_->seekToRowGroup(positionsProvider);
+    blobStream_->seekToPosition(positionsProvider);
     lengthDecoder_->seekToRowGroup(positionsProvider);
 
     VELOX_CHECK(!positionsProvider.hasNext());

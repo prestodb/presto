@@ -22,7 +22,7 @@ namespace facebook::velox::dwrf {
 template <bool isSigned>
 void DirectDecoder<isSigned>::seekToRowGroup(PositionProvider& location) {
   // move the input stream
-  IntDecoder<isSigned>::inputStream->seekToRowGroup(location);
+  IntDecoder<isSigned>::inputStream->seekToPosition(location);
   // force a re-read from the stream
   IntDecoder<isSigned>::bufferEnd = IntDecoder<isSigned>::bufferStart;
 }

@@ -304,7 +304,7 @@ class CacheTest : public testing::Test {
           0, region.length / 3, region.length * 2 / 3};
       dwrf::PositionProvider positions(offsets);
       for (auto i = 0; i < offsets.size(); ++i) {
-        stream.seekToRowGroup(positions);
+        stream.seekToPosition(positions);
         checkRandomRead(stripe, stream, offsets, i, region);
       }
     }

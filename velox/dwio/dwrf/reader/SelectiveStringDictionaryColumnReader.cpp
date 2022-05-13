@@ -141,7 +141,7 @@ void SelectiveStringDictionaryColumnReader::loadStrideDictionary() {
     std::vector<uint64_t> pos(
         positions.begin() + positionOffset_, positions.end());
     PositionProvider pp(pos);
-    strideDictStream_->seekToRowGroup(pp);
+    strideDictStream_->seekToPosition(pp);
     strideDictLengthDecoder_->seekToRowGroup(pp);
 
     loadDictionary(
