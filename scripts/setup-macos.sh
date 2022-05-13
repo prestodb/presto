@@ -28,9 +28,11 @@
 set -e # Exit on error.
 set -x # Print commands that are executed.
 
+SCRIPTDIR=$(dirname "$0")
+source $SCRIPTDIR/setup-helper-functions.sh
+
 FB_OS_VERSION=v2022.03.14.00
 NPROC=$(getconf _NPROCESSORS_ONLN)
-COMPILER_FLAGS="-mavx2 -mfma -mavx -mf16c -masm=intel -mlzcnt"
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_DEPS="ninja cmake ccache protobuf icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl@1.1"
 
@@ -52,47 +54,6 @@ function prompt {
       fi
     done
   ) 2> /dev/null
-}
-
-# github_checkout $REPO $VERSION clones or re-uses an existing clone of the
-# specified repo, checking out the requested version.
-function github_checkout {
-  local REPO=$1
-  local VERSION=$2
-  local DIRNAME=$(basename "$1")
-
-  cd "${DEPENDENCY_DIR}"
-  if [ -z "${DIRNAME}" ]; then
-    echo "Failed to get repo name from $1"
-    exit 1
-  fi
-  if [ -d "${DIRNAME}" ] && prompt "${DIRNAME} already exists. Delete?"; then
-    rm -rf "${DIRNAME}"
-  fi
-  if [ ! -d "${DIRNAME}" ]; then
-    git clone -q "https://github.com/${REPO}.git"
-  fi
-  cd "${DIRNAME}"
-  git fetch -q
-  git checkout "${VERSION}"
-}
-
-function cmake_install {
-  local NAME=$(basename "$(pwd)")
-  local BINARY_DIR=_build
-  if [ -d "${BINARY_DIR}" ] && prompt "Do you want to rebuild ${NAME}?"; then
-    rm -rf "${BINARY_DIR}"
-  fi
-  mkdir -p "${BINARY_DIR}"
-  cmake -Wno-dev -B"${BINARY_DIR}" \
-    -GNinja \
-    -DCMAKE_CXX_STANDARD=17 \
-    "${INSTALL_PREFIX+-DCMAKE_PREFIX_PATH=}${INSTALL_PREFIX-}" \
-    "${INSTALL_PREFIX+-DCMAKE_INSTALL_PREFIX=}${INSTALL_PREFIX-}" \
-    -DCMAKE_CXX_FLAGS="${COMPILER_FLAGS}" \
-    -DBUILD_TESTING=OFF \
-    "$@"
-  ninja -C "${BINARY_DIR}" install
 }
 
 function update_brew {
