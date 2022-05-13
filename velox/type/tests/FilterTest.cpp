@@ -436,6 +436,7 @@ TEST(FilterTest, bytesRange) {
 
     EXPECT_FALSE(filter->testNull());
     EXPECT_FALSE(filter->testBytes("apple", 5));
+    EXPECT_FALSE(filter->testBytes(nullptr, 0));
     EXPECT_FALSE(filter->testLength(4));
 
     EXPECT_TRUE(filter->testBytesRange("abc", "abc", false));
@@ -451,6 +452,11 @@ TEST(FilterTest, bytesRange) {
     EXPECT_FALSE(filter->testBytesRange("banana", std::nullopt, false));
     EXPECT_TRUE(filter->testBytesRange("abc", std::nullopt, false));
     EXPECT_TRUE(filter->testBytesRange("a", std::nullopt, false));
+
+    // = ''
+    filter = equal("");
+    EXPECT_TRUE(filter->testBytes(nullptr, 0));
+    EXPECT_FALSE(filter->testBytes("abc", 3));
   }
 
   char const* theBestOfTimes =
@@ -538,6 +544,26 @@ TEST(FilterTest, bytesRange) {
   EXPECT_FALSE(filter->testBytes("b", 1));
   EXPECT_TRUE(filter->testBytes("c", 1));
   EXPECT_FALSE(filter->testBytes(nullptr, 0));
+
+  // < ''
+  filter = lessThan("");
+  EXPECT_FALSE(filter->testBytes(nullptr, 0));
+  EXPECT_FALSE(filter->testBytes("abc", 3));
+
+  // <= ''
+  filter = lessThanOrEqual("");
+  EXPECT_TRUE(filter->testBytes(nullptr, 0));
+  EXPECT_FALSE(filter->testBytes("abc", 3));
+
+  // > ''
+  filter = greaterThan("");
+  EXPECT_FALSE(filter->testBytes(nullptr, 0));
+  EXPECT_TRUE(filter->testBytes("abc", 3));
+
+  // >= ''
+  filter = greaterThanOrEqual("");
+  EXPECT_TRUE(filter->testBytes(nullptr, 0));
+  EXPECT_TRUE(filter->testBytes("abc", 3));
 }
 
 TEST(FilterTest, bytesValues) {
@@ -610,6 +636,11 @@ TEST(FilterTest, multiRange) {
   EXPECT_FALSE(filter->testFloat(1.2f));
   EXPECT_TRUE(filter->testFloat(1.3f));
   EXPECT_FALSE(filter->testFloat(std::nanf("nan")));
+
+  // != ''
+  filter = orFilter(lessThan(""), greaterThan(""));
+  EXPECT_FALSE(filter->testBytes(nullptr, 0));
+  EXPECT_TRUE(filter->testBytes("abc", 3));
 }
 
 TEST(FilterTest, multiRangeWithNaNs) {
