@@ -28,7 +28,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     case ::substrait::Expression::FieldReference::ReferenceTypeCase::
         kDirectReference: {
       auto dRef = sField.direct_reference();
-      int32_t colIdx = subParser_->parseReferenceSegment(dRef);
+      int32_t colIdx = substraitParser_.parseReferenceSegment(dRef);
 
       const auto& inputTypes = inputType->children();
       const auto& inputNames = inputType->names();
@@ -60,9 +60,10 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     params.emplace_back(toVeloxExpr(sArg, inputType));
   }
   auto functionId = sFunc.function_reference();
-  auto veloxFunction = subParser_->findVeloxFunction(functionMap_, functionId);
-  auto subType = subParser_->parseType(sFunc.output_type());
-  auto veloxType = toVeloxType(subType->type);
+  auto veloxFunction =
+      substraitParser_.findVeloxFunction(functionMap_, functionId);
+  auto substraitType = substraitParser_.parseType(sFunc.output_type());
+  auto veloxType = toVeloxType(substraitType->type);
   return std::make_shared<const core::CallTypedExpr>(
       veloxType, std::move(params), veloxFunction);
 }
@@ -72,19 +73,17 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression::Literal& sLit) {
   auto typeCase = sLit.literal_type_case();
   switch (typeCase) {
-    case ::substrait::Expression_Literal::LiteralTypeCase::kFp64:
-      return std::make_shared<core::ConstantTypedExpr>(
-          velox::variant(sLit.fp64()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean:
       return std::make_shared<core::ConstantTypedExpr>(variant(sLit.boolean()));
+    case ::substrait::Expression_Literal::LiteralTypeCase::kI32:
+      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.i32()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kI64:
       return std::make_shared<core::ConstantTypedExpr>(variant(sLit.i64()));
-      return std::make_shared<core::ConstantTypedExpr>(sLit.boolean());
-    case ::substrait::Expression_Literal::LiteralTypeCase::kI32:
-      return std::make_shared<core::ConstantTypedExpr>(sLit.i32());
+    case ::substrait::Expression_Literal::LiteralTypeCase::kFp64:
+      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.fp64()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kNull: {
-      auto subType = subParser_->parseType(sLit.null());
-      auto veloxType = toVeloxType(subType->type);
+      auto substraitType = substraitParser_.parseType(sLit.null());
+      auto veloxType = toVeloxType(substraitType->type);
 
       return std::make_shared<core::ConstantTypedExpr>(
           veloxType, variant::null(veloxType->kind()));
@@ -99,7 +98,7 @@ std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression::Cast& castExpr,
     const RowTypePtr& inputType) {
-  auto substraitType = subParser_->parseType(castExpr.type());
+  auto substraitType = substraitParser_.parseType(castExpr.type());
   auto type = toVeloxType(substraitType->type);
   // TODO add flag in substrait after. now is set false.
   bool nullOnFailure = false;

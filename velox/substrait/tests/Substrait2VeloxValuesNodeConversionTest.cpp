@@ -42,7 +42,7 @@ class Substrait2VeloxValuesNodeConversionTest : public OperatorTestBase {
     std::string subData = buffer.str();
 
     google::protobuf::util::JsonStringToMessage(subData, subPlan);
-  };
+  }
 
   std::shared_ptr<SubstraitVeloxPlanConverter> planConverter_ =
       std::make_shared<SubstraitVeloxPlanConverter>();

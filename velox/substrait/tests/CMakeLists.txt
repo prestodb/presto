@@ -13,8 +13,9 @@
 # limitations under the License.
 
 add_executable(
-  velox_plan_conversion_test PlanConversionTest.cpp
-                             Substrait2VeloxValuesNodeConversionTest.cpp)
+  velox_plan_conversion_test
+  PlanConversionTest.cpp Substrait2VeloxValuesNodeConversionTest.cpp
+  FunctionTest.cpp JsonToProtoConverter.cpp)
 
 add_dependencies(velox_plan_conversion_test velox_substrait_plan_converter)
 

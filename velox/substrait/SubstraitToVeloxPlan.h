@@ -73,6 +73,15 @@ class SubstraitVeloxPlanConverter {
       const ::substrait::Plan& substraitPlan,
       memory::MemoryPool* pool);
 
+  /// Construct the function map between the index and the Substrait function
+  /// name.
+  void constructFunctionMap(const ::substrait::Plan& sPlan);
+
+  /// Return the function map used by this plan converter.
+  const std::unordered_map<uint64_t, std::string>& getFunctionMap() const {
+    return functionMap_;
+  }
+
   /// Return the index of Partition to be scanned.
   u_int32_t getPartitionIndex() {
     return partitionIndex_;
@@ -93,7 +102,42 @@ class SubstraitVeloxPlanConverter {
     return lengths_;
   }
 
+  /// Looks up a function by ID and returns function name if found. Throws if
+  /// function with specified ID doesn't exist. Returns a compound
+  /// function specification consisting of the function name and the input
+  /// types. The format is as follows: <function
+  /// name>:<arg_type0>_<arg_type1>_..._<arg_typeN>
+  const std::string& findFunction(uint64_t id) const;
+
  private:
+  /// A function returning current function id and adding the plan node id by
+  /// one once called.
+  std::string nextPlanNodeId();
+
+  /// Used to convert Substrait Filter into Velox SubfieldFilters which will
+  /// be used in TableScan.
+  connector::hive::SubfieldFilters toVeloxFilter(
+      const std::vector<std::string>& inputNameList,
+      const std::vector<TypePtr>& inputTypeList,
+      const ::substrait::Expression& substraitFilter);
+
+  /// Multiple conditions are connected to a binary tree structure with
+  /// the relation key words, including AND, OR, and etc. Currently, only
+  /// AND is supported. This function is used to extract all the Substrait
+  /// conditions in the binary tree structure into a vector.
+  void flattenConditions(
+      const ::substrait::Expression& substraitFilter,
+      std::vector<::substrait::Expression_ScalarFunction>& scalarFunctions);
+
+  /// The Substrait parser used to convert Substrait representations into
+  /// recognizable representations.
+  std::shared_ptr<SubstraitParser> substraitParser_{
+      std::make_shared<SubstraitParser>()};
+
+  /// The Expression converter used to convert Substrait representations into
+  /// Velox expressions.
+  std::shared_ptr<SubstraitVeloxExprConverter> exprConverter_;
+
   /// The Partition index.
   u_int32_t partitionIndex_;
 
@@ -112,34 +156,6 @@ class SubstraitVeloxPlanConverter {
   /// The map storing the relations between the function id and the function
   /// name. Will be constructed based on the Substrait representation.
   std::unordered_map<uint64_t, std::string> functionMap_;
-
-  /// The Substrait parser used to convert Substrait representations into
-  /// recognizable representations.
-  std::shared_ptr<SubstraitParser> subParser_{
-      std::make_shared<SubstraitParser>()};
-
-  /// The Expression converter used to convert Substrait representations into
-  /// Velox expressions.
-  std::shared_ptr<SubstraitVeloxExprConverter> exprConverter_;
-
-  /// A function returning current function id and adding the plan node id by
-  /// one once called.
-  std::string nextPlanNodeId();
-
-  /// Used to convert Substrait Filter into Velox SubfieldFilters which will
-  /// be used in TableScan.
-  connector::hive::SubfieldFilters toVeloxFilter(
-      const std::vector<std::string>& inputNameList,
-      const std::vector<TypePtr>& inputTypeList,
-      const ::substrait::Expression& sFilter);
-
-  /// Multiple conditions are connected to a binary tree structure with
-  /// the relation key words, including AND, OR, and etc. Currently, only
-  /// AND is supported. This function is used to extract all the Substrait
-  /// conditions in the binary tree structure into a vector.
-  void flattenConditions(
-      const ::substrait::Expression& sFilter,
-      std::vector<::substrait::Expression_ScalarFunction>& scalarFunctions);
 };
 
 } // namespace facebook::velox::substrait

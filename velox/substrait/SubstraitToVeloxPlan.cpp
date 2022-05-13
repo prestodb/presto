@@ -138,9 +138,9 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
           auto sFunc = arg.scalar_function();
           projectExprs.emplace_back(
               exprConverter_->toVeloxExpr(sFunc, inputTypes));
-          auto colOutName = subParser_->makeNodeName(planNodeId_, outIdx);
+          auto colOutName = substraitParser_->makeNodeName(planNodeId_, outIdx);
           projectOutNames.emplace_back(colOutName);
-          auto outType = subParser_->parseType(sFunc.output_type());
+          auto outType = substraitParser_->parseType(sFunc.output_type());
           auto aggInputParam =
               std::make_shared<const core::FieldAccessTypedExpr>(
                   toVeloxType(outType->type), colOutName);
@@ -153,8 +153,8 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       }
     }
     auto funcId = aggFunction.function_reference();
-    auto funcName = subParser_->findVeloxFunction(functionMap_, funcId);
-    auto aggOutType = subParser_->parseType(aggFunction.output_type());
+    auto funcName = substraitParser_->findVeloxFunction(functionMap_, funcId);
+    auto aggOutType = substraitParser_->parseType(aggFunction.output_type());
     auto aggExpr = std::make_shared<const core::CallTypedExpr>(
         toVeloxType(aggOutType->type), std::move(aggParams), funcName);
     aggExprs.emplace_back(aggExpr);
@@ -191,7 +191,8 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     std::vector<std::string> aggOutNames;
     aggOutNames.reserve(outIdx);
     for (int idx = 0; idx < outIdx; idx++) {
-      aggOutNames.emplace_back(subParser_->makeNodeName(planNodeId_, idx));
+      aggOutNames.emplace_back(
+          substraitParser_->makeNodeName(planNodeId_, idx));
     }
     return std::make_shared<core::AggregationNode>(
         nextPlanNodeId(),
@@ -213,7 +214,8 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     std::vector<std::string> aggOutNames;
     aggOutNames.reserve(outIdx);
     for (int idx = 0; idx < outIdx; idx++) {
-      aggOutNames.emplace_back(subParser_->makeNodeName(planNodeId_, idx));
+      aggOutNames.emplace_back(
+          substraitParser_->makeNodeName(planNodeId_, idx));
     }
     return std::make_shared<core::AggregationNode>(
         nextPlanNodeId(),
@@ -249,7 +251,8 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   int colIdx = 0;
   for (const auto& expr : projectExprs) {
     expressions.emplace_back(exprConverter_->toVeloxExpr(expr, inputType));
-    projectNames.emplace_back(subParser_->makeNodeName(planNodeId_, colIdx));
+    projectNames.emplace_back(
+        substraitParser_->makeNodeName(planNodeId_, colIdx));
     colIdx += 1;
   }
 
@@ -281,7 +284,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
-    const ::substrait::ReadRel& sRead,
+    const ::substrait::ReadRel& readRel,
     memory::MemoryPool* pool,
     u_int32_t& index,
     std::vector<std::string>& paths,
@@ -290,22 +293,22 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   // Get output names and types.
   std::vector<std::string> colNameList;
   std::vector<TypePtr> veloxTypeList;
-  if (sRead.has_base_schema()) {
-    const auto& baseSchema = sRead.base_schema();
+  if (readRel.has_base_schema()) {
+    const auto& baseSchema = readRel.base_schema();
     colNameList.reserve(baseSchema.names().size());
     for (const auto& name : baseSchema.names()) {
       colNameList.emplace_back(name);
     }
-    auto substraitTypeList = subParser_->parseNamedStruct(baseSchema);
+    auto substraitTypeList = substraitParser_->parseNamedStruct(baseSchema);
     veloxTypeList.reserve(substraitTypeList.size());
-    for (const auto& subType : substraitTypeList) {
-      veloxTypeList.emplace_back(toVeloxType(subType->type));
+    for (const auto& substraitType : substraitTypeList) {
+      veloxTypeList.emplace_back(toVeloxType(substraitType->type));
     }
   }
 
   // Parse local files
-  if (sRead.has_local_files()) {
-    const auto& fileList = sRead.local_files().items();
+  if (readRel.has_local_files()) {
+    const auto& fileList = readRel.local_files().items();
     paths.reserve(fileList.size());
     starts.reserve(fileList.size());
     lengths.reserve(fileList.size());
@@ -321,7 +324,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   // Velox requires Filter Pushdown must being enabled.
   bool filterPushdownEnabled = true;
   std::shared_ptr<connector::hive::HiveTableHandle> tableHandle;
-  if (!sRead.has_filter()) {
+  if (!readRel.has_filter()) {
     tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
         "hive_table",
         filterPushdownEnabled,
@@ -329,7 +332,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
         nullptr);
   } else {
     connector::hive::SubfieldFilters filters =
-        toVeloxFilter(colNameList, veloxTypeList, sRead.filter());
+        toVeloxFilter(colNameList, veloxTypeList, readRel.filter());
     tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
         "hive_table", filterPushdownEnabled, std::move(filters), nullptr);
   }
@@ -340,7 +343,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   for (int idx = 0; idx < colNameList.size(); idx++) {
-    auto outName = subParser_->makeNodeName(planNodeId_, idx);
+    auto outName = substraitParser_->makeNodeName(planNodeId_, idx);
     assignments[outName] = std::make_shared<connector::hive::HiveColumnHandle>(
         colNameList[idx],
         connector::hive::HiveColumnHandle::ColumnType::kRegular,
@@ -349,8 +352,8 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   }
   auto outputType = ROW(std::move(outNames), std::move(veloxTypeList));
 
-  if (sRead.has_virtual_table()) {
-    return toVeloxPlan(sRead, pool, outputType);
+  if (readRel.has_virtual_table()) {
+    return toVeloxPlan(readRel, pool, outputType);
 
   } else {
     auto tableScanNode = std::make_shared<core::TableScanNode>(
@@ -449,19 +452,10 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::Plan& substraitPlan,
     memory::MemoryPool* pool) {
   // Construct the function map based on the Substrait representation.
-  for (const auto& extension : substraitPlan.extensions()) {
-    if (!extension.has_extension_function()) {
-      continue;
-    }
-    const auto& functionMap = extension.extension_function();
-    auto id = functionMap.function_anchor();
-    auto name = functionMap.name();
-    functionMap_[id] = name;
-  }
+  constructFunctionMap(substraitPlan);
 
   // Construct the expression converter.
-  exprConverter_ =
-      std::make_shared<SubstraitVeloxExprConverter>(subParser_, functionMap_);
+  exprConverter_ = std::make_shared<SubstraitVeloxExprConverter>(functionMap_);
 
   // In fact, only one RelRoot or Rel is expected here.
   for (const auto& rel : substraitPlan.relations()) {
@@ -534,7 +528,7 @@ class FilterInfo {
 connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::toVeloxFilter(
     const std::vector<std::string>& inputNameList,
     const std::vector<TypePtr>& inputTypeList,
-    const ::substrait::Expression& sFilter) {
+    const ::substrait::Expression& substraitFilter) {
   connector::hive::SubfieldFilters filters;
   // A map between the column index and the FilterInfo for that column.
   std::unordered_map<int, std::shared_ptr<FilterInfo>> colInfoMap;
@@ -543,12 +537,12 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::toVeloxFilter(
   }
 
   std::vector<::substrait::Expression_ScalarFunction> scalarFunctions;
-  flattenConditions(sFilter, scalarFunctions);
+  flattenConditions(substraitFilter, scalarFunctions);
   // Construct the FilterInfo for the related column.
   for (const auto& scalarFunction : scalarFunctions) {
-    auto filterNameSpec = subParser_->findSubstraitFuncSpec(
+    auto filterNameSpec = substraitParser_->findFunctionSpec(
         functionMap_, scalarFunction.function_reference());
-    auto filterName = subParser_->getSubFunctionName(filterNameSpec);
+    auto filterName = substraitParser_->getFunctionName(filterNameSpec);
     int32_t colIdx;
     // TODO: Add different types' support here.
     double val;
@@ -559,7 +553,7 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::toVeloxFilter(
           auto sel = param.selection();
           // TODO: Only direct reference is considered here.
           auto dRef = sel.direct_reference();
-          colIdx = subParser_->parseReferenceSegment(dRef);
+          colIdx = substraitParser_->parseReferenceSegment(dRef);
           break;
         }
         case ::substrait::Expression::RexTypeCase::kLiteral: {
@@ -626,16 +620,16 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::toVeloxFilter(
 }
 
 void SubstraitVeloxPlanConverter::flattenConditions(
-    const ::substrait::Expression& sFilter,
+    const ::substrait::Expression& substraitFilter,
     std::vector<::substrait::Expression_ScalarFunction>& scalarFunctions) {
-  auto typeCase = sFilter.rex_type_case();
+  auto typeCase = substraitFilter.rex_type_case();
   switch (typeCase) {
     case ::substrait::Expression::RexTypeCase::kScalarFunction: {
-      auto sFunc = sFilter.scalar_function();
-      auto filterNameSpec = subParser_->findSubstraitFuncSpec(
+      auto sFunc = substraitFilter.scalar_function();
+      auto filterNameSpec = substraitParser_->findFunctionSpec(
           functionMap_, sFunc.function_reference());
       // TODO: Only and relation is supported here.
-      if (subParser_->getSubFunctionName(filterNameSpec) == "and") {
+      if (substraitParser_->getFunctionName(filterNameSpec) == "and") {
         for (const auto& sCondition : sFunc.args()) {
           flattenConditions(sCondition, scalarFunctions);
         }
@@ -647,6 +641,25 @@ void SubstraitVeloxPlanConverter::flattenConditions(
     default:
       VELOX_NYI("GetFlatConditions not supported for type '{}'", typeCase);
   }
+}
+
+void SubstraitVeloxPlanConverter::constructFunctionMap(
+    const ::substrait::Plan& substraitPlan) {
+  // Construct the function map based on the Substrait representation.
+  for (const auto& sExtension : substraitPlan.extensions()) {
+    if (!sExtension.has_extension_function()) {
+      continue;
+    }
+    const auto& sFmap = sExtension.extension_function();
+    auto id = sFmap.function_anchor();
+    auto name = sFmap.name();
+    functionMap_[id] = name;
+  }
+}
+
+const std::string& SubstraitVeloxPlanConverter::findFunction(
+    uint64_t id) const {
+  return substraitParser_->findFunctionSpec(functionMap_, id);
 }
 
 } // namespace facebook::velox::substrait

@@ -1,0 +1,720 @@
+{
+ "extension_uris": [],
+ "extensions": [
+  {
+   "extension_function": {
+    "extension_uri_reference": 0,
+    "function_anchor": 1,
+    "name": "lte:fp64_fp64"
+   }
+  },
+  {
+   "extension_function": {
+    "extension_uri_reference": 0,
+    "function_anchor": 6,
+    "name": "sum:opt_fp64"
+   }
+  },
+  {
+   "extension_function": {
+    "extension_uri_reference": 0,
+    "function_anchor": 3,
+    "name": "subtract:opt_fp64_fp64"
+   }
+  },
+  {
+   "extension_function": {
+    "extension_uri_reference": 0,
+    "function_anchor": 0,
+    "name": "is_not_null:fp64"
+   }
+  },
+  {
+   "extension_function": {
+    "extension_uri_reference": 0,
+    "function_anchor": 2,
+    "name": "and:bool_bool"
+   }
+  },
+  {
+   "extension_function": {
+    "extension_uri_reference": 0,
+    "function_anchor": 5,
+    "name": "add:opt_fp64_fp64"
+   }
+  },
+  {
+   "extension_function": {
+    "extension_uri_reference": 0,
+    "function_anchor": 7,
+    "name": "avg:opt_fp64"
+   }
+  },
+  {
+   "extension_function": {
+    "extension_uri_reference": 0,
+    "function_anchor": 4,
+    "name": "multiply:opt_fp64_fp64"
+   }
+  },
+  {
+   "extension_function": {
+    "extension_uri_reference": 0,
+    "function_anchor": 8,
+    "name": "count:opt_i32"
+   }
+  }
+ ],
+ "relations": [
+  {
+   "root": {
+    "input": {
+     "aggregate": {
+      "common": {
+       "direct": {}
+      },
+      "input": {
+       "project": {
+        "common": {
+         "direct": {}
+        },
+        "input": {
+         "project": {
+          "common": {
+           "direct": {}
+          },
+          "input": {
+           "read": {
+            "common": {
+             "direct": {}
+            },
+            "base_schema": {
+             "names": [
+              "l_quantity",
+              "l_extendedprice",
+              "l_discount",
+              "l_tax",
+              "l_returnflag",
+              "l_linestatus",
+              "l_shipdate"
+             ],
+             "struct": {
+              "types": [
+               {
+                "fp64": {
+                 "type_variation_reference": 0,
+                 "nullability": "NULLABILITY_NULLABLE"
+                }
+               },
+               {
+                "fp64": {
+                 "type_variation_reference": 0,
+                 "nullability": "NULLABILITY_NULLABLE"
+                }
+               },
+               {
+                "fp64": {
+                 "type_variation_reference": 0,
+                 "nullability": "NULLABILITY_NULLABLE"
+                }
+               },
+               {
+                "fp64": {
+                 "type_variation_reference": 0,
+                 "nullability": "NULLABILITY_NULLABLE"
+                }
+               },
+               {
+                "string": {
+                 "type_variation_reference": 0,
+                 "nullability": "NULLABILITY_NULLABLE"
+                }
+               },
+               {
+                "string": {
+                 "type_variation_reference": 0,
+                 "nullability": "NULLABILITY_NULLABLE"
+                }
+               },
+               {
+                "fp64": {
+                 "type_variation_reference": 0,
+                 "nullability": "NULLABILITY_NULLABLE"
+                }
+               }
+              ],
+              "type_variation_reference": 0,
+              "nullability": "NULLABILITY_UNSPECIFIED"
+             }
+            },
+            "filter": {
+             "scalar_function": {
+              "function_reference": 2,
+              "args": [
+               {
+                "scalar_function": {
+                 "function_reference": 0,
+                 "args": [
+                  {
+                   "selection": {
+                    "direct_reference": {
+                     "struct_field": {
+                      "field": 6
+                     }
+                    }
+                   }
+                  }
+                 ],
+                 "output_type": {
+                  "bool": {
+                   "type_variation_reference": 0,
+                   "nullability": "NULLABILITY_NULLABLE"
+                  }
+                 }
+                }
+               },
+               {
+                "scalar_function": {
+                 "function_reference": 1,
+                 "args": [
+                  {
+                   "selection": {
+                    "direct_reference": {
+                     "struct_field": {
+                      "field": 6
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "literal": {
+                    "nullable": false,
+                    "fp64": 10471
+                   }
+                  }
+                 ],
+                 "output_type": {
+                  "bool": {
+                   "type_variation_reference": 0,
+                   "nullability": "NULLABILITY_NULLABLE"
+                  }
+                 }
+                }
+               }
+              ],
+              "output_type": {
+               "bool": {
+                "type_variation_reference": 0,
+                "nullability": "NULLABILITY_NULLABLE"
+               }
+              }
+             }
+            },
+            "local_files": {
+             "items": [
+              {
+               "format": "FILE_FORMAT_UNSPECIFIED",
+               "partition_index": "0",
+               "start": "0",
+               "length": "3719",
+               "uri_file": "/mock_lineitem.orc"
+              }
+             ]
+            }
+           }
+          },
+          "expressions": [
+           {
+            "selection": {
+             "direct_reference": {
+              "struct_field": {
+               "field": 0
+              }
+             }
+            }
+           },
+           {
+            "selection": {
+             "direct_reference": {
+              "struct_field": {
+               "field": 1
+              }
+             }
+            }
+           },
+           {
+            "selection": {
+             "direct_reference": {
+              "struct_field": {
+               "field": 2
+              }
+             }
+            }
+           },
+           {
+            "selection": {
+             "direct_reference": {
+              "struct_field": {
+               "field": 3
+              }
+             }
+            }
+           },
+           {
+            "selection": {
+             "direct_reference": {
+              "struct_field": {
+               "field": 4
+              }
+             }
+            }
+           },
+           {
+            "selection": {
+             "direct_reference": {
+              "struct_field": {
+               "field": 5
+              }
+             }
+            }
+           }
+          ]
+         }
+        },
+        "expressions": [
+         {
+          "selection": {
+           "direct_reference": {
+            "struct_field": {
+             "field": 4
+            }
+           }
+          }
+         },
+         {
+          "selection": {
+           "direct_reference": {
+            "struct_field": {
+             "field": 5
+            }
+           }
+          }
+         },
+         {
+          "selection": {
+           "direct_reference": {
+            "struct_field": {
+             "field": 0
+            }
+           }
+          }
+         },
+         {
+          "selection": {
+           "direct_reference": {
+            "struct_field": {
+             "field": 1
+            }
+           }
+          }
+         },
+         {
+          "scalar_function": {
+           "function_reference": 4,
+           "args": [
+            {
+             "selection": {
+              "direct_reference": {
+               "struct_field": {
+                "field": 1
+               }
+              }
+             }
+            },
+            {
+             "scalar_function": {
+              "function_reference": 3,
+              "args": [
+               {
+                "literal": {
+                 "nullable": false,
+                 "fp64": 1
+                }
+               },
+               {
+                "selection": {
+                 "direct_reference": {
+                  "struct_field": {
+                   "field": 2
+                  }
+                 }
+                }
+               }
+              ],
+              "output_type": {
+               "fp64": {
+                "type_variation_reference": 0,
+                "nullability": "NULLABILITY_NULLABLE"
+               }
+              }
+             }
+            }
+           ],
+           "output_type": {
+            "fp64": {
+             "type_variation_reference": 0,
+             "nullability": "NULLABILITY_NULLABLE"
+            }
+           }
+          }
+         },
+         {
+          "scalar_function": {
+           "function_reference": 4,
+           "args": [
+            {
+             "scalar_function": {
+              "function_reference": 4,
+              "args": [
+               {
+                "selection": {
+                 "direct_reference": {
+                  "struct_field": {
+                   "field": 1
+                  }
+                 }
+                }
+               },
+               {
+                "scalar_function": {
+                 "function_reference": 3,
+                 "args": [
+                  {
+                   "literal": {
+                    "nullable": false,
+                    "fp64": 1
+                   }
+                  },
+                  {
+                   "selection": {
+                    "direct_reference": {
+                     "struct_field": {
+                      "field": 2
+                     }
+                    }
+                   }
+                  }
+                 ],
+                 "output_type": {
+                  "fp64": {
+                   "type_variation_reference": 0,
+                   "nullability": "NULLABILITY_NULLABLE"
+                  }
+                 }
+                }
+               }
+              ],
+              "output_type": {
+               "fp64": {
+                "type_variation_reference": 0,
+                "nullability": "NULLABILITY_NULLABLE"
+               }
+              }
+             }
+            },
+            {
+             "scalar_function": {
+              "function_reference": 5,
+              "args": [
+               {
+                "literal": {
+                 "nullable": false,
+                 "fp64": 1
+                }
+               },
+               {
+                "selection": {
+                 "direct_reference": {
+                  "struct_field": {
+                   "field": 3
+                  }
+                 }
+                }
+               }
+              ],
+              "output_type": {
+               "fp64": {
+                "type_variation_reference": 0,
+                "nullability": "NULLABILITY_NULLABLE"
+               }
+              }
+             }
+            }
+           ],
+           "output_type": {
+            "fp64": {
+             "type_variation_reference": 0,
+             "nullability": "NULLABILITY_NULLABLE"
+            }
+           }
+          }
+         },
+         {
+          "selection": {
+           "direct_reference": {
+            "struct_field": {
+             "field": 2
+            }
+           }
+          }
+         },
+         {
+          "literal": {
+           "nullable": false,
+           "i32": 1
+          }
+         }
+        ]
+       }
+      },
+      "groupings": [
+       {
+        "grouping_expressions": [
+         {
+          "selection": {
+           "direct_reference": {
+            "struct_field": {
+             "field": 0
+            }
+           }
+          }
+         },
+         {
+          "selection": {
+           "direct_reference": {
+            "struct_field": {
+             "field": 1
+            }
+           }
+          }
+         }
+        ]
+       }
+      ],
+      "measures": [
+       {
+        "measure": {
+         "function_reference": 6,
+         "args": [
+          {
+           "selection": {
+            "direct_reference": {
+             "struct_field": {
+              "field": 2
+             }
+            }
+           }
+          }
+         ],
+         "sorts": [],
+         "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
+         "output_type": {
+          "fp64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_NULLABLE"
+          }
+         }
+        }
+       },
+       {
+        "measure": {
+         "function_reference": 6,
+         "args": [
+          {
+           "selection": {
+            "direct_reference": {
+             "struct_field": {
+              "field": 3
+             }
+            }
+           }
+          }
+         ],
+         "sorts": [],
+         "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
+         "output_type": {
+          "fp64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_NULLABLE"
+          }
+         }
+        }
+       },
+       {
+        "measure": {
+         "function_reference": 6,
+         "args": [
+          {
+           "selection": {
+            "direct_reference": {
+             "struct_field": {
+              "field": 4
+             }
+            }
+           }
+          }
+         ],
+         "sorts": [],
+         "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
+         "output_type": {
+          "fp64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_NULLABLE"
+          }
+         }
+        }
+       },
+       {
+        "measure": {
+         "function_reference": 6,
+         "args": [
+          {
+           "selection": {
+            "direct_reference": {
+             "struct_field": {
+              "field": 5
+             }
+            }
+           }
+          }
+         ],
+         "sorts": [],
+         "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
+         "output_type": {
+          "fp64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_NULLABLE"
+          }
+         }
+        }
+       },
+       {
+        "measure": {
+         "function_reference": 7,
+         "args": [
+          {
+           "selection": {
+            "direct_reference": {
+             "struct_field": {
+              "field": 2
+             }
+            }
+           }
+          }
+         ],
+         "sorts": [],
+         "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
+         "output_type": {
+          "fp64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_NULLABLE"
+          }
+         }
+        }
+       },
+       {
+        "measure": {
+         "function_reference": 7,
+         "args": [
+          {
+           "selection": {
+            "direct_reference": {
+             "struct_field": {
+              "field": 3
+             }
+            }
+           }
+          }
+         ],
+         "sorts": [],
+         "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
+         "output_type": {
+          "fp64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_NULLABLE"
+          }
+         }
+        }
+       },
+       {
+        "measure": {
+         "function_reference": 7,
+         "args": [
+          {
+           "selection": {
+            "direct_reference": {
+             "struct_field": {
+              "field": 6
+             }
+            }
+           }
+          }
+         ],
+         "sorts": [],
+         "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
+         "output_type": {
+          "fp64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_NULLABLE"
+          }
+         }
+        }
+       },
+       {
+        "measure": {
+         "function_reference": 8,
+         "args": [
+          {
+           "selection": {
+            "direct_reference": {
+             "struct_field": {
+              "field": 7
+             }
+            }
+           }
+          }
+         ],
+         "sorts": [],
+         "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
+         "output_type": {
+          "i64": {
+           "type_variation_reference": 0,
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         }
+        }
+       }
+      ]
+     }
+    },
+    "names": [
+     "real_arrow_output",
+     "l_returnflag",
+     "l_linestatus",
+     "sum",
+     "sum",
+     "sum",
+     "sum",
+     "sum",
+     "count",
+     "sum",
+     "count",
+     "sum",
+     "count",
+     "count"
+    ]
+   }
+  }
+ ],
+ "expected_type_urls": []
+}
