@@ -125,7 +125,6 @@ import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.KeyBasedSampler;
-import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
@@ -247,6 +246,18 @@ public class PlanOptimizers
                 new PruneLimitColumns(),
                 new PruneTableScanColumns());
 
+        Set<Rule<?>> limitPushDownRules = ImmutableSet.of(
+                new PushLimitThroughOffset(),
+                new PushLimitThroughProject(),
+                new PushLimitThroughMarkDistinct(),
+                new PushLimitThroughOuterJoin(),
+                new PushLimitThroughSemiJoin(),
+                new PushLimitThroughUnion(),
+                new MergeLimits(),
+                new MergeLimitWithSort(),
+                new MergeLimitWithTopN(),
+                new MergeLimitWithDistinct());
+
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
@@ -318,26 +329,17 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
+                                .addAll(limitPushDownRules)
                                 .addAll(ImmutableSet.of(
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
                                         new PushOffsetThroughProject(),
-                                        new PushLimitThroughOffset(),
-                                        new PushLimitThroughProject(),
-                                        new MergeLimits(),
-                                        new MergeLimitWithSort(),
-                                        new MergeLimitWithTopN(),
-                                        new PushLimitThroughMarkDistinct(),
-                                        new PushLimitThroughOuterJoin(),
-                                        new PushLimitThroughSemiJoin(),
-                                        new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
                                         new ImplementBernoulliSampleAsFilter(),
-                                        new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata.getFunctionAndTypeManager()),
                                         new PruneOrderByInAggregation(metadata.getFunctionAndTypeManager()),
                                         new RewriteSpatialPartitioningAggregation(metadata)))
@@ -358,7 +360,6 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAndExceptAsUnion(metadata.getFunctionAndTypeManager()),
-                new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PruneUnreferencedOutputs(),
                 inlineProjections,
                 new IterativeOptimizer(
@@ -443,8 +444,10 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new SimplifyCountOverConstant(metadata.getFunctionAndTypeManager()))),
-                new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new SimplifyCountOverConstant(metadata.getFunctionAndTypeManager()))
+                                .addAll(limitPushDownRules)
+                                .build()),
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new IterativeOptimizer(
                         ruleStats,
