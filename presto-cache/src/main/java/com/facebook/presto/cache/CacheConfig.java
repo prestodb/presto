@@ -21,7 +21,11 @@ import io.airlift.units.DataSize;
 import javax.annotation.Nullable;
 
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 
@@ -29,22 +33,32 @@ public class CacheConfig
 {
     private boolean cachingEnabled;
     private CacheType cacheType;
-    private URI baseDirectory;
+    private List<URI> baseDirectoryList;
     private boolean validationEnabled;
     private CacheQuotaScope cacheQuotaScope = GLOBAL;
     private Optional<DataSize> defaultCacheQuota = Optional.empty();
 
     @Nullable
-    public URI getBaseDirectory()
+    public List<URI> getBaseDirectory()
     {
-        return baseDirectory;
+        return baseDirectoryList;
     }
 
     @Config("cache.base-directory")
     @ConfigDescription("Base URI to cache data")
-    public CacheConfig setBaseDirectory(URI dataURI)
+    public CacheConfig setBaseDirectory(String dataURI)
     {
-        this.baseDirectory = dataURI;
+        if (null != dataURI) {
+            this.baseDirectoryList = Arrays.stream(dataURI.split(",")).map(x -> {
+                try {
+                    return new URI(x);
+                }
+                catch (URISyntaxException e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }).collect(Collectors.toList());
+        }
         return this;
     }
 

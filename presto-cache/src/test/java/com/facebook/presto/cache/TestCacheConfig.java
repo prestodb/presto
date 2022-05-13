@@ -57,7 +57,7 @@ public class TestCacheConfig
         CacheConfig expected = new CacheConfig()
                 .setCachingEnabled(true)
                 .setCacheType(FILE_MERGE)
-                .setBaseDirectory(new URI("tcp://abc"))
+                .setBaseDirectory("tcp://abc")
                 .setValidationEnabled(true)
                 .setCacheQuotaScope(TABLE)
                 .setDefaultCacheQuota(DataSize.succinctDataSize(1, DataSize.Unit.GIGABYTE));
