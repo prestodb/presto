@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -128,7 +129,7 @@ public class TestColumnWriters
         columnWriter.close();
 
         ImmutableList<StreamDataOutput> streams = ImmutableList.<StreamDataOutput>builder()
-                .addAll(columnWriter.getIndexStreams())
+                .addAll(columnWriter.getIndexStreams(Optional.empty()))
                 .addAll(columnWriter.getDataStreams())
                 .build();
 
