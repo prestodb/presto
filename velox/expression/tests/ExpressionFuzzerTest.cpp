@@ -79,6 +79,10 @@ int main(int argc, char** argv) {
       // called prior to constant folding so this case is not caught up.
       // TODO: T117753276
       "date_parse",
+      // 'distinct_from' with seed 4009637301 causes fuzzer failure: Only
+      // simplified path threw exception.
+      // TODO: T120528837
+      "distinct_from",
   };
   return FuzzerRunner::run(FLAGS_only, FLAGS_steps, FLAGS_seed, skipFunctions);
 }

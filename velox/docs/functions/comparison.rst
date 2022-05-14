@@ -9,6 +9,15 @@ Comparison Functions
     REAL, VARCHAR, DATE types. The types of all arguments must be
     the same.
 
+.. function:: distinct_from(x, y) -> boolean
+
+    In SQL a ``NULL`` value signifies an unknown value, so any comparison
+    involving a ``NULL`` will produce NULL. The ``distinct_from`` treats
+    NULL as a known value and guarantees either a ``true`` or ``false``
+    outcome even in the presence of ``NULL`` input.
+    So ``distinct_from(NULL, NULL)`` returns ``false``, since a ``NULL``
+    value is not considered distinct from ``NULL``.
+
 .. function:: eq(x, y) -> boolean
 
     Returns true if x is equal to y. Supports all scalar types. The
@@ -32,7 +41,7 @@ Comparison Functions
 
 .. function:: is_null(x) -> boolean
 
-    Returns true is x is a null. Supports all types.
+    Returns true if x is a null. Supports all types.
 
 .. function:: least(value1, value2, ..., valueN) -> [same as input]
 

@@ -29,6 +29,7 @@ void registerComparisonFunctions() {
   registerBinaryScalar<GtFunction, bool>({"gt"});
   registerBinaryScalar<LteFunction, bool>({"lte"});
   registerBinaryScalar<GteFunction, bool>({"gte"});
+  registerBinaryScalar<DistinctFromFunction, bool>({"distinct_from"});
 
   registerFunction<BetweenFunction, bool, int8_t, int8_t, int8_t>({"between"});
   registerFunction<BetweenFunction, bool, int16_t, int16_t, int16_t>(

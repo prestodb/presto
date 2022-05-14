@@ -152,6 +152,8 @@ TEST(DuckParserTest, expressions) {
   EXPECT_EQ("gte(1,0)", parseExpr("1 >= 0")->toString());
   EXPECT_EQ("lt(1,0)", parseExpr("1 < 0")->toString());
   EXPECT_EQ("lte(1,0)", parseExpr("1 <= 0")->toString());
+  EXPECT_EQ(
+      "distinct_from(1,0)", parseExpr("1 IS DISTINCT FROM 0")->toString());
 
   // Arithmetic operators.
   EXPECT_EQ("plus(1,0)", parseExpr("1 + 0")->toString());

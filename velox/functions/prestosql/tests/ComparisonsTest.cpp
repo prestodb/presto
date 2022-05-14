@@ -17,7 +17,26 @@
 
 using namespace facebook::velox;
 
-class ComparisonsTest : public functions::test::FunctionBaseTest {};
+class ComparisonsTest : public functions::test::FunctionBaseTest {
+ protected:
+  template <typename T>
+  void testDistinctFrom(
+      const std::vector<std::optional<T>>& col1,
+      const std::vector<std::optional<T>>& col2,
+      const std::vector<bool>& expected) {
+    auto data = vectorMaker_.rowVector(
+        {vectorMaker_.flatVectorNullable<T>(col1),
+         vectorMaker_.flatVectorNullable<T>(col2)});
+
+    auto result = evaluate<SimpleVector<bool>>("c0 IS DISTINCT FROM c1", data);
+
+    ASSERT_EQ((size_t)result->size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+      ASSERT_TRUE(!result->isNullAt(i));
+      ASSERT_EQ(expected[i], result->valueAt(i));
+    }
+  }
+};
 
 TEST_F(ComparisonsTest, between) {
   std::vector<std::tuple<int32_t, bool>> testData = {
@@ -215,8 +234,25 @@ TEST_F(ComparisonsTest, eqRow) {
   test({1, 2}, {std::nullopt, 2}, std::nullopt);
 }
 
+TEST_F(ComparisonsTest, distinctFrom) {
+  testDistinctFrom(
+      std::vector<std::optional<int64_t>>{3, 1, 1, std::nullopt, std::nullopt},
+      std::vector<std::optional<int64_t>>{3, 2, std::nullopt, 2, std::nullopt},
+      {false, true, true, true, false});
+
+  const Timestamp ts1(998474645, 321000000);
+  const Timestamp ts2(998423705, 321000000);
+  const Timestamp ts3(400000000, 123000000);
+  testDistinctFrom(
+      std::vector<std::optional<Timestamp>>{
+          ts3, ts1, ts1, std::nullopt, std::nullopt},
+      std::vector<std::optional<Timestamp>>{
+          ts3, ts2, std::nullopt, ts2, std::nullopt},
+      {false, true, true, true, false});
+}
+
 TEST_F(ComparisonsTest, eqNestedComplex) {
-  // Comapre Row(Array<Array<int>>, int, Map<int, int>)
+  // Compare Row(Array<Array<int>>, int, Map<int, int>)
   using array_type = std::optional<std::vector<std::optional<int64_t>>>;
   array_type array1 = {{1, 2}};
   array_type array2 = {{}};
