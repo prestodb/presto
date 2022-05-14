@@ -533,7 +533,7 @@ public class OrcWriter
         long offset = 0;
         int previousEncryptionGroup = -1;
         for (ColumnWriter columnWriter : columnWriters) {
-            for (StreamDataOutput indexStream : columnWriter.getIndexStreams()) {
+            for (StreamDataOutput indexStream : columnWriter.getIndexStreams(Optional.empty())) {
                 // The ordering is critical because the stream only contain a length with no offset.
                 // if the previous stream was part of a different encryption group, need to specify an offset so we know the column order
                 outputData.add(indexStream);
