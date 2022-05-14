@@ -198,7 +198,11 @@ folly::Optional<std::string> jsonExtractScalar(
   auto res = jsonExtract(json, path);
   // Not a scalar value
   if (isScalarType(res)) {
-    return res->asString();
+    if (res->isBool()) {
+      return res->asBool() ? std::string{"true"} : std::string{"false"};
+    } else {
+      return res->asString();
+    }
   }
   return folly::none;
 }
@@ -206,12 +210,10 @@ folly::Optional<std::string> jsonExtractScalar(
 folly::Optional<std::string> jsonExtractScalar(
     const std::string& json,
     const std::string& path) {
-  auto res = jsonExtract(json, path);
-  // Not a scalar value
-  if (isScalarType(res)) {
-    return res->asString();
-  }
-  return folly::none;
+  folly::StringPiece jsonPiece{json};
+  folly::StringPiece pathPiece{path};
+
+  return jsonExtractScalar(jsonPiece, pathPiece);
 }
 
 } // namespace facebook::velox::functions

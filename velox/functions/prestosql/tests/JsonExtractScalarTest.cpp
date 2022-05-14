@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox::functions::prestosql {
 
@@ -27,6 +28,21 @@ class JsonExtractScalarTest : public functions::test::FunctionBaseTest {
       std::optional<std::string> path) {
     return evaluateOnce<std::string>("json_extract_scalar(c0, c1)", json, path);
   }
+
+  void evaluateWithJsonType(
+      const std::vector<std::optional<StringView>>& json,
+      const std::vector<std::optional<StringView>>& path,
+      const std::vector<std::optional<StringView>>& expected) {
+    auto jsonVector = makeNullableFlatVector<Json>(json, JSON());
+    auto pathVector = makeNullableFlatVector<StringView>(path);
+    auto expectedVector = makeNullableFlatVector<StringView>(expected);
+
+    ::facebook::velox::test::assertEqualVectors(
+        expectedVector,
+        evaluate<SimpleVector<StringView>>(
+            "json_extract_scalar(c0, c1)",
+            makeRowVector({jsonVector, pathVector})));
+  }
 };
 
 TEST_F(JsonExtractScalarTest, simple) {
@@ -36,6 +52,7 @@ TEST_F(JsonExtractScalarTest, simple) {
   EXPECT_EQ(json_extract_scalar(R"("hello")", "$"), "hello");
   EXPECT_EQ(json_extract_scalar(R"(1.1)", "$"), "1.1");
   EXPECT_EQ(json_extract_scalar(R"("")", "$"), "");
+  EXPECT_EQ(json_extract_scalar(R"(true)", "$"), "true");
 
   // Simple lists.
   EXPECT_EQ(json_extract_scalar(R"([1,2])", "$[0]"), "1");
@@ -60,6 +77,51 @@ TEST_F(JsonExtractScalarTest, simple) {
       json_extract_scalar(
           R"([{"k1":[{"k2": ["v1", "v2"]}]}])", "$[0].k1[0].k2[1]"),
       "v2");
+}
+
+TEST_F(JsonExtractScalarTest, jsonType) {
+  // Scalars.
+  evaluateWithJsonType(
+      {R"(1)"_sv,
+       R"(123456)"_sv,
+       R"("hello")"_sv,
+       R"(1.1)"_sv,
+       R"("")"_sv,
+       R"(true)"},
+      {"$"_sv, "$"_sv, "$"_sv, "$"_sv, "$"_sv, "$"_sv},
+      {"1"_sv, "123456"_sv, "hello"_sv, "1.1"_sv, ""_sv, "true"_sv});
+
+  // Simple lists.
+  evaluateWithJsonType(
+      {R"([1,2])"_sv, R"([1,2])"_sv, R"([1,2])"_sv, R"([1,2])"_sv},
+      {"$[0]"_sv, "$[1]"_sv, "$[2]"_sv, "$[999]"_sv},
+      {"1"_sv, "2"_sv, std::nullopt, std::nullopt});
+
+  // Simple maps.
+  evaluateWithJsonType(
+      {R"({"k1":"v1"})"_sv,
+       R"({"k1":"v1"})"_sv,
+       R"({"k1":"v1"})"_sv,
+       R"({"k1":[0,1,2]})"_sv,
+       R"({"k1":""})"_sv},
+      {"$.k1"_sv, "$.k2"_sv, "$.k1.k3"_sv, "$.k1"_sv, "$.k1"_sv},
+      {"v1"_sv, std::nullopt, std::nullopt, std::nullopt, ""_sv});
+
+  // Nested
+  evaluateWithJsonType(
+      {R"({"k1":{"k2": 999}})"_sv,
+       R"({"k1":[1,2,3]})"_sv,
+       R"({"k1":[1,2,3]})"_sv,
+       R"([{"k1":"v1"}, 2])"_sv,
+       R"([{"k1":"v1"}, 2])"_sv,
+       R"([{"k1":[{"k2": ["v1", "v2"]}]}])"_sv},
+      {"$.k1.k2"_sv,
+       "$.k1[0]"_sv,
+       "$.k1[2]"_sv,
+       "$[0].k1"_sv,
+       "$[1]"_sv,
+       "$[0].k1[0].k2[1]"_sv},
+      {"999"_sv, "1"_sv, "3"_sv, "v1"_sv, "2"_sv, "v2"_sv});
 }
 
 TEST_F(JsonExtractScalarTest, utf8) {
