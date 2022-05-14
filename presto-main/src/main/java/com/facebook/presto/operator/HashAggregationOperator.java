@@ -276,6 +276,7 @@ public class HashAggregationOperator
     private boolean inputProcessed;
     private boolean finishing;
     private boolean finished;
+    private Page currentPage;
 
     // for yield when memory is not available
     private Work<?> unfinishedWork;
@@ -349,11 +350,11 @@ public class HashAggregationOperator
         if (finishing || outputPages != null) {
             return false;
         }
-        else if (aggregationBuilder != null && aggregationBuilder.isFull()) {
+        else if (isAggregationBuilderFull()) {
             return false;
         }
         else {
-            return unfinishedWork == null;
+            return unfinishedWork == null && currentPage == null;
         }
     }
 
@@ -361,46 +362,13 @@ public class HashAggregationOperator
     public void addInput(Page page)
     {
         checkState(unfinishedWork == null, "Operator has unfinished work");
+        checkState(currentPage == null, "Operator has unprocessed page");
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
+        currentPage = requireNonNull(page, "page is null");
         inputProcessed = true;
 
-        if (aggregationBuilder == null) {
-            if (step.isOutputPartial() || !spillEnabled) {
-                aggregationBuilder = new InMemoryHashAggregationBuilder(
-                        accumulatorFactories,
-                        step,
-                        expectedGroups,
-                        groupByTypes,
-                        groupByChannels,
-                        hashChannel,
-                        operatorContext,
-                        maxPartialMemory,
-                        joinCompiler,
-                        true,
-                        useSystemMemory);
-            }
-            else {
-                verify(!useSystemMemory, "using system memory in spillable aggregations is not supported");
-                aggregationBuilder = new SpillableHashAggregationBuilder(
-                        accumulatorFactories,
-                        step,
-                        expectedGroups,
-                        groupByTypes,
-                        groupByChannels,
-                        hashChannel,
-                        operatorContext,
-                        memoryLimitForMerge,
-                        memoryLimitForMergeWithMemory,
-                        spillerFactory,
-                        joinCompiler);
-            }
-
-            // assume initial aggregationBuilder is not full
-        }
-        else {
-            checkState(!aggregationBuilder.isFull(), "Aggregation buffer is full");
-        }
+        initializeAggregationBuilder();
 
         // process the current page; save the unfinished work if we are waiting for memory
         unfinishedWork = aggregationBuilder.processPage(page);
@@ -458,8 +426,7 @@ public class HashAggregationOperator
                 }
             }
 
-            // only flush if we are finishing or the aggregation builder is full
-            if (!finishing && (aggregationBuilder == null || !aggregationBuilder.isFull())) {
+            if (!shouldFlush()) {
                 return null;
             }
 
@@ -490,6 +457,45 @@ public class HashAggregationOperator
         return aggregationBuilder;
     }
 
+    private void initializeAggregationBuilder()
+    {
+        if (aggregationBuilder == null) {
+            if (step.isOutputPartial() || !spillEnabled) {
+                aggregationBuilder = new InMemoryHashAggregationBuilder(
+                        accumulatorFactories,
+                        step,
+                        expectedGroups,
+                        groupByTypes,
+                        groupByChannels,
+                        hashChannel,
+                        operatorContext,
+                        maxPartialMemory,
+                        joinCompiler,
+                        true,
+                        useSystemMemory);
+            }
+            else {
+                verify(!useSystemMemory, "using system memory in spillable aggregations is not supported");
+                aggregationBuilder = new SpillableHashAggregationBuilder(
+                        accumulatorFactories,
+                        step,
+                        expectedGroups,
+                        groupByTypes,
+                        groupByChannels,
+                        hashChannel,
+                        operatorContext,
+                        memoryLimitForMerge,
+                        memoryLimitForMergeWithMemory,
+                        spillerFactory,
+                        joinCompiler);
+            }
+            // assume initial aggregationBuilder is not full
+        }
+        else {
+            checkState(!aggregationBuilder.isFull(), "Aggregation buffer is full");
+        }
+    }
+
     private void closeAggregationBuilder()
     {
         outputPages = null;
@@ -502,6 +508,19 @@ public class HashAggregationOperator
         }
         operatorContext.localUserMemoryContext().setBytes(0);
         operatorContext.localRevocableMemoryContext().setBytes(0);
+    }
+
+    // Produce results if one of the following is true:
+    // - partial aggregation reached memory limit.
+    // - received finish() signal and there is no more input remaining to process.
+    private boolean shouldFlush()
+    {
+        return isAggregationBuilderFull()
+                || (finishing && currentPage == null);
+    }
+
+    private boolean isAggregationBuilderFull() {
+        return aggregationBuilder != null && aggregationBuilder.isFull();
     }
 
     private Page getGlobalAggregationOutput()
