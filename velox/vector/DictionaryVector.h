@@ -64,10 +64,6 @@ class DictionaryVector : public SimpleVector<T> {
 
   virtual ~DictionaryVector() override = default;
 
-  inline VectorEncoding::Simple encoding() const override {
-    return VectorEncoding::Simple::DICTIONARY;
-  }
-
   bool mayHaveNulls() const override {
     VELOX_DCHECK(initialized_);
     return BaseVector::nulls() || dictionaryValues_->mayHaveNulls();

@@ -63,6 +63,7 @@ class BaseVector {
   BaseVector(
       velox::memory::MemoryPool* pool,
       std::shared_ptr<const Type> type,
+      VectorEncoding::Simple encoding,
       BufferPtr nulls,
       size_t length,
       std::optional<vector_size_t> distinctValueCount = std::nullopt,
@@ -72,7 +73,9 @@ class BaseVector {
 
   virtual ~BaseVector() = default;
 
-  virtual VectorEncoding::Simple encoding() const = 0;
+  VectorEncoding::Simple encoding() const {
+    return encoding_;
+  }
 
   inline bool isLazy() const {
     return encoding() == VectorEncoding::Simple::LAZY;
@@ -525,6 +528,17 @@ class BaseVector {
     throw std::runtime_error("Only flat vectors have a values buffer");
   }
 
+  // Returns true for flat vectors with unique values buffer and no
+  // nulls or unique nulls buffer. If true, 'this' can be cached for
+  // reuse in ExprCtx.
+  virtual bool isRecyclable() const {
+    return false;
+  }
+
+  bool isFlatNonNull() const {
+    return encoding_ == VectorEncoding::Simple::FLAT && !rawNulls_;
+  }
+
   // If 'this' is a wrapper, returns the wrap info, interpretation depends on
   // encoding.
   virtual BufferPtr wrapInfo() const {
@@ -698,6 +712,7 @@ class BaseVector {
 
   std::shared_ptr<const Type> type_;
   TypeKind typeKind_;
+  const VectorEncoding::Simple encoding_;
   BufferPtr nulls_;
   // Caches raw pointer to 'nulls->as<uint64_t>().
   const uint64_t* rawNulls_ = nullptr;

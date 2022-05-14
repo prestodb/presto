@@ -59,6 +59,7 @@ class SimpleVector : public BaseVector {
   SimpleVector(
       velox::memory::MemoryPool* pool,
       std::shared_ptr<const Type> type,
+      VectorEncoding::Simple encoding,
       BufferPtr nulls,
       size_t length,
       const SimpleVectorStats<T>& stats,
@@ -70,6 +71,7 @@ class SimpleVector : public BaseVector {
       : BaseVector(
             pool,
             std::move(type),
+            encoding,
             std::move(nulls),
             length,
             distinctValueCount,
@@ -83,6 +85,7 @@ class SimpleVector : public BaseVector {
   // Constructs SimpleVector inferring the type from T.
   SimpleVector(
       velox::memory::MemoryPool* pool,
+      VectorEncoding::Simple encoding,
       BufferPtr nulls,
       size_t length,
       const SimpleVectorStats<T>& stats,
@@ -94,6 +97,7 @@ class SimpleVector : public BaseVector {
       : SimpleVector(
             pool,
             CppToType<T>::create(),
+            encoding,
             std::move(nulls),
             length,
             stats,

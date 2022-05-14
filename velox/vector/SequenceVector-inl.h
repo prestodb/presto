@@ -36,6 +36,7 @@ SequenceVector<T>::SequenceVector(
     : SimpleVector<T>(
           pool,
           sequenceValues->type(),
+          VectorEncoding::Simple::SEQUENCE,
           BufferPtr(nullptr),
           length,
           stats,

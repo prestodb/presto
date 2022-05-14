@@ -129,12 +129,13 @@ class LazyVector : public BaseVector {
       TypePtr type,
       vector_size_t size,
       std::unique_ptr<VectorLoader>&& loader)
-      : BaseVector(pool, std::move(type), BufferPtr(nullptr), size),
+      : BaseVector(
+            pool,
+            std::move(type),
+            VectorEncoding::Simple::LAZY,
+            BufferPtr(nullptr),
+            size),
         loader_(std::move(loader)) {}
-
-  VectorEncoding::Simple encoding() const override {
-    return VectorEncoding::Simple::LAZY;
-  }
 
   void reset(std::unique_ptr<VectorLoader>&& loader, vector_size_t size) {
     BaseVector::length_ = size;

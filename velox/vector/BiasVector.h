@@ -112,10 +112,6 @@ class BiasVector : public SimpleVector<T> {
 
   ~BiasVector() override {}
 
-  inline VectorEncoding::Simple encoding() const override {
-    return VectorEncoding::Simple::BIASED;
-  }
-
   const T valueAtFast(vector_size_t idx) const;
 
   const T valueAt(vector_size_t idx) const override {

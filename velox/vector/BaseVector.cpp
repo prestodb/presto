@@ -32,6 +32,7 @@ namespace velox {
 BaseVector::BaseVector(
     velox::memory::MemoryPool* pool,
     std::shared_ptr<const Type> type,
+    VectorEncoding::Simple encoding,
     BufferPtr nulls,
     size_t length,
     std::optional<vector_size_t> distinctValueCount,
@@ -40,6 +41,7 @@ BaseVector::BaseVector(
     std::optional<ByteCount> storageByteCount)
     : type_(std::move(type)),
       typeKind_(type_->kind()),
+      encoding_(encoding),
       nulls_(std::move(nulls)),
       rawNulls_(nulls_.get() ? nulls_->as<uint64_t>() : nullptr),
       pool_(pool),

@@ -93,6 +93,7 @@ class FlatVector final : public SimpleVector<T> {
       : SimpleVector<T>(
             pool,
             type,
+            VectorEncoding::Simple::FLAT,
             std::move(nulls),
             length,
             stats,
@@ -128,10 +129,6 @@ class FlatVector final : public SimpleVector<T> {
 
   virtual ~FlatVector() override = default;
 
-  inline VectorEncoding::Simple encoding() const override {
-    return VectorEncoding::Simple::FLAT;
-  }
-
   const T valueAtFast(vector_size_t idx) const;
 
   const T valueAt(vector_size_t idx) const override {
@@ -149,7 +146,7 @@ class FlatVector final : public SimpleVector<T> {
    */
   xsimd::batch<T> loadSIMDValueBufferAt(size_t index) const;
 
-  // dictionary vector makes internal use here for SIMD functions
+  // dictionary vector makes internal usehere for SIMD functions
   template <typename X>
   friend class DictionaryVector;
 
@@ -190,6 +187,11 @@ class FlatVector final : public SimpleVector<T> {
 
   const void* valuesAsVoid() const override {
     return rawValues_;
+  }
+
+  bool isRecyclable() const final {
+    return (!BaseVector::nulls_ || BaseVector::nulls_->unique()) &&
+        (values_ && values_->unique());
   }
 
   template <typename As>

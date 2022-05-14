@@ -54,10 +54,6 @@ class SequenceVector : public SimpleVector<T> {
  public:
   ~SequenceVector() override = default;
 
-  inline VectorEncoding::Simple encoding() const override {
-    return VectorEncoding::Simple::SEQUENCE;
-  }
-
   bool mayHaveNulls() const override {
     return sequenceValues_->mayHaveNulls();
   }
