@@ -117,7 +117,9 @@ public class TestSqlParserErrorHandling
                 {"SELECT * FROM t WHERE EXISTS (",
                  "line 1:31: mismatched input '<EOF>'. Expecting: <query>"},
                 {"SHOW SESSION LIKE '%$_%' ESCAPE",
-                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"}};
+                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"},
+                {"SHOW CATALOGS LIKE '%$_%' ESCAPE",
+                        "line 1:33: mismatched input '<EOF>'. Expecting: <string>"}};
     }
 
     @Test(dataProvider = "statements")
