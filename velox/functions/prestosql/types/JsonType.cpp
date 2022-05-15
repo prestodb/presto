@@ -173,7 +173,7 @@ struct AsJson {
     // Translates the selected rows of input into the corresponding rows of the
     // base of the decoded input.
     exec::LocalSelectivityVector baseRows(
-        context->execCtx(), decoded_->base()->size());
+        *context->execCtx(), decoded_->base()->size());
     baseRows->clearAll();
     context->applyToSelectedNoThrow(rows, [&](auto row) {
       baseRows->setValid(decoded_->index(row), true);
@@ -472,7 +472,7 @@ bool JsonCastOperator::isSupportedType(const TypePtr& other) const {
 ///       +- castToJson (recursive)
 void JsonCastOperator::castTo(
     const BaseVector& input,
-    exec::EvalCtx* context,
+    exec::EvalCtx& context,
     const SelectivityVector& rows,
     bool /*nullOnFailure*/,
     BaseVector& result) const {
@@ -482,7 +482,7 @@ void JsonCastOperator::castTo(
   // Casting from VARBINARY and OPAQUE are not supported and should have been
   // rejected by isSupportedType() in the caller.
   VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
-      castToJson, input.typeKind(), input, context, rows, *flatResult);
+      castToJson, input.typeKind(), input, &context, rows, *flatResult);
 }
 
 } // namespace facebook::velox

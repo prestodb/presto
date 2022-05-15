@@ -191,7 +191,7 @@ wrap(vector_size_t size, BufferPtr mapping, const RowVectorPtr& vector) {
 }
 
 void loadColumns(const RowVectorPtr& input, core::ExecCtx& execCtx) {
-  LocalDecodedVector decodedHolder(&execCtx);
+  LocalDecodedVector decodedHolder(execCtx);
   LocalSelectivityVector baseRowsHolder(&execCtx);
   LocalSelectivityVector rowsHolder(&execCtx);
   SelectivityVector* rows = nullptr;

@@ -27,8 +27,8 @@ class CoalesceExpr : public SpecialForm {
 
   void evalSpecialForm(
       const SelectivityVector& rows,
-      EvalCtx* context,
-      VectorPtr* result) override;
+      EvalCtx& context,
+      VectorPtr& result) override;
 
   bool propagatesNulls() const override {
     return false;

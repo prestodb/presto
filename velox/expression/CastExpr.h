@@ -39,8 +39,8 @@ class CastExpr : public SpecialForm {
 
   void evalSpecialForm(
       const SelectivityVector& rows,
-      EvalCtx* context,
-      VectorPtr* result) override;
+      EvalCtx& context,
+      VectorPtr& result) override;
 
   std::string toString(bool recursive = true) const override;
 
@@ -54,7 +54,7 @@ class CastExpr : public SpecialForm {
   template <typename To, typename From>
   void applyCastWithTry(
       const SelectivityVector& rows,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       const DecodedVector& input,
       FlatVector<To>* resultFlatVector);
 
@@ -68,9 +68,9 @@ class CastExpr : public SpecialForm {
   void applyCast(
       const TypeKind fromType,
       const SelectivityVector& rows,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       const DecodedVector& input,
-      VectorPtr* result);
+      VectorPtr& result);
 
   /// Apply the cast after generating the input vectors
   /// @param rows The list of rows being processed
@@ -82,29 +82,29 @@ class CastExpr : public SpecialForm {
   void apply(
       const SelectivityVector& rows,
       VectorPtr& input,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       const TypePtr& fromType,
       const TypePtr& toType,
-      VectorPtr* result);
+      VectorPtr& result);
 
   VectorPtr applyMap(
       const SelectivityVector& rows,
       const MapVector* input,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       const MapType& fromType,
       const MapType& toType);
 
   VectorPtr applyArray(
       const SelectivityVector& rows,
       const ArrayVector* input,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       const ArrayType& fromType,
       const ArrayType& toType);
 
   VectorPtr applyRow(
       const SelectivityVector& rows,
       const RowVector* input,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       const RowType& fromType,
       const RowType& toType);
 
@@ -129,7 +129,7 @@ class CastOperator {
   /// @param result The writable output vector of the custom type
   virtual void castTo(
       const BaseVector& input,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       const SelectivityVector& rows,
       bool nullOnFailure,
       BaseVector& result) const = 0;
@@ -142,7 +142,7 @@ class CastOperator {
   /// @param result The writable output vector of the destination type
   virtual void castFrom(
       const BaseVector& input,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       const SelectivityVector& rows,
       bool nullOnFailure,
       BaseVector& result) const = 0;

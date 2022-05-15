@@ -34,8 +34,8 @@ CoalesceExpr::CoalesceExpr(TypePtr type, std::vector<ExprPtr>&& inputs)
 
 void CoalesceExpr::evalSpecialForm(
     const SelectivityVector& rows,
-    EvalCtx* context,
-    VectorPtr* result) {
+    EvalCtx& context,
+    VectorPtr& result) {
   // Make sure to include current expression in the error message in case of an
   // exception.
   ExceptionContextSetter exceptionContext(
@@ -44,17 +44,18 @@ void CoalesceExpr::evalSpecialForm(
   // Null positions to populate.
   exec::LocalSelectivityVector activeRowsHolder(context, rows.end());
   auto activeRows = activeRowsHolder.get();
+  assert(activeRows); // for lint
   *activeRows = rows;
 
   // Fix finalSelection at "rows" unless already fixed.
   VarSetter finalSelection(
-      context->mutableFinalSelection(), &rows, context->isFinalSelection());
-  VarSetter isFinalSelection(context->mutableIsFinalSelection(), false);
+      context.mutableFinalSelection(), &rows, context.isFinalSelection());
+  VarSetter isFinalSelection(context.mutableIsFinalSelection(), false);
 
   for (int i = 0; i < inputs_.size(); i++) {
     inputs_[i]->eval(*activeRows, context, result);
 
-    const uint64_t* rawNulls = (*result)->flatRawNulls(*activeRows);
+    const uint64_t* rawNulls = result->flatRawNulls(*activeRows);
     if (!rawNulls) {
       // No nulls left.
       return;

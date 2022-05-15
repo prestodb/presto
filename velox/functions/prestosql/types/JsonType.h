@@ -34,14 +34,14 @@ class JsonCastOperator : public exec::CastOperator {
 
   void castTo(
       const BaseVector& input,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       const SelectivityVector& rows,
       bool nullOnFailure,
       BaseVector& result) const override;
 
   void castFrom(
       const BaseVector& /*input*/,
-      exec::EvalCtx* /*context*/,
+      exec::EvalCtx& /*context*/,
       const SelectivityVector& /*rows*/,
       bool /*nullOnFailure*/,
       BaseVector& /*result*/) const override {

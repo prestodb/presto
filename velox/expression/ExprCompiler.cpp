@@ -277,7 +277,7 @@ ExprPtr tryFoldIfConstant(const ExprPtr& expr, Scope* scope) {
           execCtx, scope->exprSet, dynamic_cast<RowVector*>(row.get()));
       VectorPtr result;
       SelectivityVector rows(1);
-      expr->eval(rows, &context, &result);
+      expr->eval(rows, context, result);
       auto constantVector = BaseVector::wrapInConstant(1, 0, result);
 
       return std::make_shared<ConstantExpr>(constantVector);
