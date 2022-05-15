@@ -113,7 +113,8 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSchemas
-    | SHOW CATALOGS (LIKE pattern=string)?                             #showCatalogs
+    | SHOW CATALOGS
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showCatalogs
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
     | SHOW STATS FOR qualifiedName                                     #showStats
     | SHOW STATS FOR '(' querySpecification ')'                        #showStatsForQuery

@@ -2566,6 +2566,32 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowCatalogsLikeWithEscape()
+    {
+        try {
+            MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE ''");
+            assertTrue(false);
+        }
+        catch (Exception e) {
+            assertEquals("Escape string must be a single character", e.getMessage());
+        }
+
+        try {
+            MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'");
+            assertTrue(false);
+        }
+        catch (Exception e) {
+            assertEquals("Escape string must be a single character", e.getMessage());
+        }
+
+        MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE '%testing$_%' ESCAPE '$'");
+        assertEquals("[[testing_catalog]]", result.getMaterializedRows().toString());
+
+        result = computeActual(getSession(), "SHOW CATALOGS LIKE '$_%' ESCAPE '$'");
+        assertEquals("[]", result.getMaterializedRows().toString());
+    }
+
+    @Test
     public void testShowSchemas()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
