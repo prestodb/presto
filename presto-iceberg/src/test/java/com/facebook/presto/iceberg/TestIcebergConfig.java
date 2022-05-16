@@ -39,7 +39,8 @@ public class TestIcebergConfig
                 .setCatalogType(HIVE)
                 .setCatalogWarehouse(null)
                 .setCatalogCacheSize(10)
-                .setHadoopConfigResources(null));
+                .setHadoopConfigResources(null)
+                .setMaxPartitionsPerWriter(100));
     }
 
     @Test
@@ -52,6 +53,7 @@ public class TestIcebergConfig
                 .put("iceberg.catalog.warehouse", "path")
                 .put("iceberg.catalog.cached-catalog-num", "6")
                 .put("iceberg.hadoop.config.resources", "/etc/hadoop/conf/core-site.xml")
+                .put("iceberg.max-partitions-per-writer", "222")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -60,7 +62,8 @@ public class TestIcebergConfig
                 .setCatalogType(HADOOP)
                 .setCatalogWarehouse("path")
                 .setCatalogCacheSize(6)
-                .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml");
+                .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml")
+                .setMaxPartitionsPerWriter(222);
 
         assertFullMapping(properties, expected);
     }
