@@ -16,7 +16,7 @@
 # Propagate errors and improve debugging.
 set -eufx -o pipefail
 
-SCRIPTDIR=$(dirname "$0")
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 

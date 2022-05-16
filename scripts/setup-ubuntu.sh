@@ -15,7 +15,7 @@
 
 # Minimal setup for Ubuntu 20.04.
 set -eufx -o pipefail
-SCRIPTDIR=$(dirname "$0")
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
 
 # Folly must be built with the same compiler flags so that some low level types

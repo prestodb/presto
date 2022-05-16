@@ -28,7 +28,7 @@
 set -e # Exit on error.
 set -x # Print commands that are executed.
 
-SCRIPTDIR=$(dirname "$0")
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
 
 FB_OS_VERSION=v2022.03.14.00
