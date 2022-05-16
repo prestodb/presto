@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <immintrin.h>
-
 #include <folly/hash/Hash.h>
 
 #include <velox/vector/BaseVector.h>

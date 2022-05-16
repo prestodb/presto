@@ -15,7 +15,6 @@
  */
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
-#include <immintrin.h>
 #include "velox/exec/VectorHasher.h"
 #include "velox/vector/tests/VectorMaker.h"
 

@@ -15,7 +15,6 @@
  */
 
 #include "velox/common/base/BitUtil.h"
-#include <immintrin.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/process/ProcessBase.h"
 
@@ -58,7 +57,7 @@ uint64_t getBitField(const char* data, int32_t numBits, int32_t& lastBit) {
 }
 } // namespace
 
-__attribute__((__target__("bmi2"))) void scatterBits(
+void scatterBits(
     int32_t numSource,
     int32_t numTarget,
     const char* source,
@@ -68,6 +67,7 @@ __attribute__((__target__("bmi2"))) void scatterBits(
     scatterBitsSimple(numSource, numTarget, source, targetMask, target);
     return;
   }
+#ifdef __BMI2__
   int32_t highByte = numTarget / 8;
   int32_t highBit = numTarget & 7;
   int lowByte = std::max(0, highByte - 7);
@@ -108,6 +108,9 @@ __attribute__((__target__("bmi2"))) void scatterBits(
       numSource,
       0,
       "scatterBits expects to have numSource bits set in targetMask");
+#else
+  VELOX_UNREACHABLE();
+#endif
 }
 
 } // namespace facebook::velox::bits

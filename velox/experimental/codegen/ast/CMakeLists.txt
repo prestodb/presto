@@ -15,3 +15,5 @@
 add_library(
   velox_codegen_ast ASTNode.cpp BinaryExpressions.cpp UnaryExpressions.cpp
                     AST.h ConstantExpression.cpp ASTAnalysis.cpp)
+
+target_link_libraries(velox_codegen_ast velox_type ${FMT})

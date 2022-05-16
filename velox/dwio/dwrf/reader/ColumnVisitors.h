@@ -597,7 +597,7 @@ inline xsimd::batch<int64_t> cvtU32toI64(
     xsimd::batch<int32_t, xsimd::sse2> values) {
   return _mm256_cvtepu32_epi64(values);
 }
-#elif XSIMD_WITH_SSE2
+#elif XSIMD_WITH_SSE2 || XSIMD_WITH_NEON
 inline xsimd::batch<int64_t> cvtU32toI64(simd::Batch64<int32_t> values) {
   int64_t lo = static_cast<uint32_t>(values.data[0]);
   int64_t hi = static_cast<uint32_t>(values.data[1]);

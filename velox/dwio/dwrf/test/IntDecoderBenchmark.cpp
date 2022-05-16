@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <immintrin.h>
 #include <limits>
 #include "folly/Benchmark.h"
 #include "folly/CpuId.h"
@@ -23,12 +22,14 @@
 #include "folly/Varint.h"
 #include "folly/init/Init.h"
 #include "folly/lang/Bits.h"
+#include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/dwio/dwrf/common/IntCodecCommon.h"
 #include "velox/dwio/dwrf/common/IntDecoder.h"
 
 using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwrf;
+namespace bits = facebook::velox::bits;
 
 const size_t kNumElements = 1000000;
 
@@ -132,7 +133,6 @@ uint64_t readVuLong(const char* buffer, size_t& len) {
   }
 }
 
-FOLLY_TARGET_ATTRIBUTE("bmi2")
 const char* readVuLongOptimized(uint64_t n, const char* pos, uint64_t* output) {
   static bool has_bmi2 = folly::CpuId().bmi2();
   DWIO_ENSURE(has_bmi2, "bmi2 is not eabled");
@@ -150,338 +150,370 @@ const char* readVuLongOptimized(uint64_t n, const char* pos, uint64_t* output) {
   while (n >= 8) {
     pos += mask_len;
     const auto word = folly::loadUnaligned<uint64_t>(pos);
-    const uint64_t control_bits = _pext_u64(word, mask);
+    const uint64_t control_bits = bits::extractBits<uint64_t>(word, mask);
     switch (control_bits) {
       case 0ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 6;
         continue;
       }
       case 1ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 5;
         continue;
       }
       case 2ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 5;
         continue;
       }
       case 3ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x00000000007f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 4ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 5;
         continue;
       }
       case 5ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 6ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 7ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000007f7f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 8ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 5;
         continue;
       }
       case 9ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 10ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-        *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 11ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x00000000007f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 12ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 13ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 14ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 15ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000007f7f7f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 2;
         continue;
       }
       case 16ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 5;
         continue;
       }
       case 17ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 18ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 19ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x00000000007f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 20ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-        *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 21ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-        *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 22ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
-        *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 23ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000007f7f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 2;
         continue;
       }
       case 24ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 4;
         continue;
       }
       case 25ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 26ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-        *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 27ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x00000000007f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 2;
         continue;
       }
       case 28ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 3;
         continue;
       }
       case 29ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 2;
         continue;
       }
       case 30ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f00ULL);
         carryover = 0ULL;
         carryover_bits = 0;
         n -= 2;
         continue;
       }
       case 31ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x00007f7f7f7f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
         carryover = 0ULL;
         carryover_bits = 0;
@@ -489,304 +521,336 @@ const char* readVuLongOptimized(uint64_t n, const char* pos, uint64_t* output) {
         continue;
       }
       case 32ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 5;
         continue;
       }
       case 33ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 4;
         continue;
       }
       case 34ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 4;
         continue;
       }
       case 35ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x00000000007f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 3;
         continue;
       }
       case 36ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 4;
         continue;
       }
       case 37ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 3;
         continue;
       }
       case 38ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 3;
         continue;
       }
       case 39ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000007f7f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000007f00000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f00000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 2;
         continue;
       }
       case 40ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 4;
         continue;
       }
       case 41ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 3;
         continue;
       }
       case 42ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-        *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 3;
         continue;
       }
       case 43ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x00000000007f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 2;
         continue;
       }
       case 44ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 3;
         continue;
       }
       case 45ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f0000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 2;
         continue;
       }
       case 46ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f00ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 2;
         continue;
       }
       case 47ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000007f7f7f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000007f7f7f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        carryover = _pext_u64(word, 0x00007f0000000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f0000000000ULL);
         carryover_bits = 7;
         n -= 1;
         continue;
       }
       case 48ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover_bits = 14;
         n -= 4;
         continue;
       }
       case 49ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover_bits = 14;
         n -= 3;
         continue;
       }
       case 50ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover_bits = 14;
         n -= 3;
         continue;
       }
       case 51ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x00000000007f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f000000ULL);
-        carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover_bits = 14;
         n -= 2;
         continue;
       }
       case 52ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-        carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover_bits = 14;
         n -= 3;
         continue;
       }
       case 53ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
-        carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f0000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover_bits = 14;
         n -= 2;
         continue;
       }
       case 54ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
-        carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x000000007f7f7f00ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover_bits = 14;
         n -= 2;
         continue;
       }
       case 55ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000007f7f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000007f7f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f00000000ULL);
         carryover_bits = 14;
         n -= 1;
         continue;
       }
       case 56ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
         carryover_bits = 21;
         n -= 3;
         continue;
       }
       case 57ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f0000ULL);
-        carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f0000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
         carryover_bits = 21;
         n -= 2;
         continue;
       }
       case 58ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
-        carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x00000000007f7f00ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
         carryover_bits = 21;
         n -= 2;
         continue;
       }
       case 59ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x00000000007f7f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x00000000007f7f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f000000ULL);
         carryover_bits = 21;
         n -= 1;
         continue;
       }
       case 60ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        *output++ = _pext_u64(word, 0x0000000000007f00ULL);
-        carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+        *output++ = bits::extractBits<uint64_t>(word, 0x0000000000007f00ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
         carryover_bits = 28;
         n -= 2;
         continue;
       }
       case 61ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x0000000000007f7fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x0000000000007f7fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f0000ULL);
         carryover_bits = 28;
         n -= 1;
         continue;
       }
       case 62ULL: {
-        const uint64_t first_value = _pext_u64(word, 0x000000000000007fULL);
+        const uint64_t first_value =
+            bits::extractBits<uint64_t>(word, 0x000000000000007fULL);
         *output++ = (first_value << carryover_bits) | carryover;
-        carryover = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+        carryover = bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f00ULL);
         carryover_bits = 35;
         n -= 1;
         continue;
       }
       case 63ULL: {
-        carryover |= _pext_u64(word, 0x00007f7f7f7f7f7fULL) << carryover_bits;
+        carryover |= bits::extractBits<uint64_t>(word, 0x00007f7f7f7f7f7fULL)
+            << carryover_bits;
         carryover_bits += 42;
         continue;
       }

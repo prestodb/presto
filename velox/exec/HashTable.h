@@ -54,6 +54,8 @@ class BaseHashTable {
 
 #if XSIMD_WITH_SSE2
   using TagVector = xsimd::batch<uint8_t, xsimd::sse2>;
+#elif XSIMD_WITH_NEON
+  using TagVector = xsimd::batch<uint8_t, xsimd::neon>;
 #endif
 
   using MaskType = uint16_t;

@@ -172,7 +172,7 @@ inline bool SelectiveStringDirectColumnReader::try8Consecutive(
       return false;
     }
     result[resultIndex] = length;
-    auto first16 = xsimd::make_sized_batch_t<char, 16>::load_unaligned(data);
+    auto first16 = xsimd::make_sized_batch_t<int8_t, 16>::load_unaligned(data);
     first16.store_unaligned(reinterpret_cast<char*>(result + resultIndex + 1));
     if (length <= 12) {
       data += length;

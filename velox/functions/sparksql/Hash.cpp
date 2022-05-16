@@ -16,10 +16,10 @@
 #include "velox/functions/sparksql/Hash.h"
 
 #include <stdint.h>
-#include <x86intrin.h>
 
 #include <folly/CPortability.h>
 
+#include "velox/common/base/BitUtil.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::functions::sparksql {
@@ -37,14 +37,14 @@ namespace {
 
 uint32_t mixK1(uint32_t k1) {
   k1 *= 0xcc9e2d51;
-  k1 = _rotl(k1, 15);
+  k1 = bits::rotateLeft(k1, 15);
   k1 *= 0x1b873593;
   return k1;
 }
 
 uint32_t mixH1(uint32_t h1, uint32_t k1) {
   h1 ^= k1;
-  h1 = _rotl(h1, 13);
+  h1 = bits::rotateLeft(h1, 13);
   h1 = h1 * 5 + 0xe6546b64;
   return h1;
 }

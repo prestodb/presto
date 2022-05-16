@@ -16,9 +16,30 @@
 
 #include <numeric>
 
+#if XSIMD_WITH_NEON
+namespace xsimd::types {
+XSIMD_DECLARE_SIMD_REGISTER(
+    bool,
+    neon,
+    detail::neon_vector_type<unsigned char>);
+} // namespace xsimd::types
+#endif
+
 namespace facebook::velox::simd {
 
 namespace detail {
+
+template <typename T, typename A>
+int genericToBitMask(xsimd::batch_bool<T, A> mask) {
+  static_assert(mask.size <= 32);
+  alignas(A::alignment()) bool tmp[mask.size];
+  mask.store_aligned(tmp);
+  int ans = 0;
+  for (int i = 0; i < mask.size; ++i) {
+    ans |= tmp[i] << i;
+  }
+  return ans;
+}
 
 template <typename T, typename A>
 xsimd::batch_bool<T, A> fromBitMaskImpl(int mask) {
@@ -53,6 +74,16 @@ struct BitMask<T, A, 1> {
     return _mm_movemask_epi8(mask);
   }
 #endif
+
+#if XSIMD_WITH_NEON
+  static int toBitMask(xsimd::batch_bool<T, A> mask, const xsimd::neon&) {
+    alignas(A::alignment()) static const int8_t kShift[] = {
+        -7, -6, -5, -4, -3, -2, -1, 0, -7, -6, -5, -4, -3, -2, -1, 0};
+    int8x16_t vshift = vld1q_s8(kShift);
+    uint8x16_t vmask = vshlq_u8(vandq_u8(mask, vdupq_n_u8(0x80)), vshift);
+    return (vaddv_u8(vget_high_u8(vmask)) << 8) | vaddv_u8(vget_low_u8(vmask));
+  }
+#endif
 };
 
 template <typename T, typename A>
@@ -75,6 +106,10 @@ struct BitMask<T, A, 2> {
     return bits::extractBits<uint32_t>(_mm_movemask_epi8(mask), 0xAAAA);
   }
 #endif
+
+  static int toBitMask(xsimd::batch_bool<T, A> mask, const xsimd::generic&) {
+    return genericToBitMask(mask);
+  }
 };
 
 template <typename T, typename A>
@@ -92,6 +127,10 @@ struct BitMask<T, A, 4> {
     return _mm_movemask_ps(reinterpret_cast<__m128>(mask.data));
   }
 #endif
+
+  static int toBitMask(xsimd::batch_bool<T, A> mask, const xsimd::generic&) {
+    return genericToBitMask(mask);
+  }
 
   static xsimd::batch_bool<T, A> fromBitMask(int mask, const A&) {
     return UNLIKELY(mask == kAllSet) ? xsimd::batch_bool<T, A>(true)
@@ -114,6 +153,10 @@ struct BitMask<T, A, 8> {
     return _mm_movemask_pd(reinterpret_cast<__m128d>(mask.data));
   }
 #endif
+
+  static int toBitMask(xsimd::batch_bool<T, A> mask, const xsimd::generic&) {
+    return genericToBitMask(mask);
+  }
 
   static xsimd::batch_bool<T, A> fromBitMask(int mask, const A&) {
     return UNLIKELY(mask == kAllSet) ? xsimd::batch_bool<T, A>(true)
@@ -376,17 +419,9 @@ template <typename T, typename A>
 struct Gather<T, int32_t, A, 4> {
   using VIndexType = xsimd::batch<int32_t, A>;
 
-#if XSIMD_WITH_AVX
-  static VIndexType loadIndices(const int32_t* indices, const xsimd::avx&) {
-    return _mm256_loadu_si256(reinterpret_cast<const __m256i*>(indices));
+  static VIndexType loadIndices(const int32_t* indices, const xsimd::generic&) {
+    return xsimd::load_unaligned<A>(indices);
   }
-#endif
-
-#if XSIMD_WITH_SSE2
-  static VIndexType loadIndices(const int32_t* indices, const xsimd::sse2&) {
-    return _mm_loadu_si128(reinterpret_cast<const __m128i*>(indices));
-  }
-#endif
 
   template <int kScale>
   static xsimd::batch<T, A>
@@ -485,6 +520,12 @@ struct Gather<T, int32_t, A, 8> {
     return Batch64<int32_t>::load_unaligned(indices);
   }
 
+  static Batch64<int32_t> loadIndices(
+      const int32_t* indices,
+      const xsimd::neon&) {
+    return Batch64<int32_t>::load_unaligned(indices);
+  }
+
 #if XSIMD_WITH_AVX2
   template <int kScale>
   static xsimd::batch<T, A>
@@ -517,7 +558,7 @@ struct Gather<T, int32_t, A, 8> {
       xsimd::batch_bool<T, A> mask,
       const T* base,
       const int32_t* indices,
-      const xsimd::sse2&) {
+      const xsimd::generic&) {
     return genericMaskGather<T, A, kScale>(src, mask, base, indices);
   }
 
@@ -556,17 +597,9 @@ template <typename T, typename A>
 struct Gather<T, int64_t, A, 8> {
   using VIndexType = xsimd::batch<int64_t, A>;
 
-#if XSIMD_WITH_AVX
-  static VIndexType loadIndices(const int64_t* indices, const xsimd::avx&) {
-    return _mm256_loadu_si256(reinterpret_cast<const __m256i*>(indices));
+  static VIndexType loadIndices(const int64_t* indices, const xsimd::generic&) {
+    return xsimd::load_unaligned<A>(indices);
   }
-#endif
-
-#if XSIMD_WITH_SSE2
-  static VIndexType loadIndices(const int64_t* indices, const xsimd::sse2&) {
-    return _mm_loadu_si128(reinterpret_cast<const __m128i*>(indices));
-  }
-#endif
 
 #if XSIMD_WITH_AVX2
   template <int kScale>
@@ -648,6 +681,16 @@ xsimd::batch<int16_t, A> pack32(
     xsimd::batch<int32_t, A> y,
     const xsimd::sse4_1&) {
   return _mm_packus_epi32(x & 0xFFFF, y & 0xFFFF);
+}
+#endif
+
+#if XSIMD_WITH_NEON
+template <typename A>
+xsimd::batch<int16_t, A> pack32(
+    xsimd::batch<int32_t, A> x,
+    xsimd::batch<int32_t, A> y,
+    const xsimd::neon&) {
+  return vcombine_s16(vmovn_s32(x), vmovn_s32(y));
 }
 #endif
 
@@ -840,6 +883,21 @@ struct GetHalf<int64_t, int32_t, A> {
         _mm_set_epi64x(0, _mm_extract_epi64(data, kSecond)));
   }
 #endif
+
+#if XSIMD_WITH_NEON
+  template <bool kSecond>
+  static xsimd::batch<int64_t, A> apply(
+      xsimd::batch<int32_t, A> data,
+      const xsimd::neon&) {
+    int32x2_t half;
+    if constexpr (!kSecond) {
+      half = vget_low_s32(data);
+    } else {
+      half = vget_high_s32(data);
+    }
+    return vmovl_s32(half);
+  }
+#endif
 };
 
 template <typename A>
@@ -860,6 +918,21 @@ struct GetHalf<uint64_t, int32_t, A> {
       const xsimd::sse4_1&) {
     return _mm_cvtepu32_epi64(
         _mm_set_epi64x(0, _mm_extract_epi64(data, kSecond)));
+  }
+#endif
+
+#if XSIMD_WITH_NEON
+  template <bool kSecond>
+  static xsimd::batch<uint64_t, A> apply(
+      xsimd::batch<int32_t, A> data,
+      const xsimd::neon&) {
+    int32x2_t half;
+    if constexpr (!kSecond) {
+      half = vget_low_s32(data);
+    } else {
+      half = vget_high_s32(data);
+    }
+    return vmovl_u32(vreinterpret_u32_s32(half));
   }
 #endif
 };
@@ -954,6 +1027,15 @@ struct Crc32<uint64_t, A> {
     return apply(checksum, value, xsimd::sse4_2{});
   }
 #endif
+
+#if XSIMD_WITH_NEON
+  static uint32_t apply(uint32_t checksum, uint64_t value, const xsimd::neon&) {
+    __asm__("crc32cx %w[c], %w[c], %x[v]"
+            : [c] "+r"(checksum)
+            : [v] "r"(value));
+    return checksum;
+  }
+#endif
 };
 
 } // namespace detail
@@ -983,7 +1065,9 @@ template <typename T, typename A>
 struct HalfBatchImpl<
     T,
     A,
-    std::enable_if_t<std::is_base_of<xsimd::sse2, A>::value>> {
+    std::enable_if_t<
+        std::is_base_of<xsimd::sse2, A>::value ||
+        std::is_base_of<xsimd::neon, A>::value>> {
   using Type = Batch64<T>;
 };
 
