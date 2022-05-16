@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
@@ -435,10 +436,10 @@ TEST_F(MergeJoinTest, numDrivers) {
               core::JoinType::kInner)
           .planNode();
 
-  CursorParameters params;
-  params.planNode = plan;
-  params.maxDrivers = 5;
-  auto task = assertQuery(params, "SELECT 2, 2");
+  auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
+                  .maxDrivers(5)
+                  .assertResults("SELECT 2, 2");
+
   // We have two pipelines in the task and each must have 1 driver.
   EXPECT_EQ(2, task->numTotalDrivers());
   EXPECT_EQ(2, task->numFinishedDrivers());
@@ -492,8 +493,9 @@ TEST_F(MergeJoinTest, lazyVectors) {
                     {"c0", "rc0", "c1", "rc1", "c2", "c3"})
                 .planNode();
 
-  HiveConnectorTestBase::assertQuery(
-      op,
-      {{rightScanId, {rightFile}}, {leftScanId, {leftFile}}},
-      "SELECT c0, rc0, c1, rc1, c2, c3  FROM t, u WHERE t.c0 = u.rc0 and c1 + rc1 < 30");
+  AssertQueryBuilder(op, duckDbQueryRunner_)
+      .split(rightScanId, makeHiveSplit(rightFile->path))
+      .split(leftScanId, makeHiveSplit(leftFile->path))
+      .assertResults(
+          "SELECT c0, rc0, c1, rc1, c2, c3  FROM t, u WHERE t.c0 = u.rc0 and c1 + rc1 < 30");
 }

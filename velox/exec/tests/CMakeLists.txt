@@ -15,6 +15,7 @@ add_subdirectory(utils)
 
 add_executable(
   velox_exec_test
+  AssertQueryBuilderTest.cpp
   CrossJoinTest.cpp
   CustomJoinTest.cpp
   DriverTest.cpp

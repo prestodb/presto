@@ -16,6 +16,7 @@
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/expression/FunctionSignature.h"
@@ -588,30 +589,26 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
 
   // Set an artificially low limit on the amount of data to accumulate in
   // the partial aggregation.
-  CursorParameters params;
-  params.queryCtx = core::QueryCtx::createForTest();
-
-  params.queryCtx->setConfigOverridesUnsafe({
-      {core::QueryConfig::kMaxPartialAggregationMemory, "100"},
-  });
 
   // Distinct aggregation.
-  params.planNode = PlanBuilder()
-                        .values(vectors)
-                        .partialAggregation({"c0"}, {})
-                        .finalAggregation()
-                        .planNode();
-
-  assertQuery(params, "SELECT distinct c0 FROM tmp");
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .config(core::QueryConfig::kMaxPartialAggregationMemory, "100")
+      .plan(PlanBuilder()
+                .values(vectors)
+                .partialAggregation({"c0"}, {})
+                .finalAggregation()
+                .planNode())
+      .assertResults("SELECT distinct c0 FROM tmp");
 
   // Count aggregation.
-  params.planNode = PlanBuilder()
-                        .values(vectors)
-                        .partialAggregation({"c0"}, {"count(1)"})
-                        .finalAggregation()
-                        .planNode();
-
-  assertQuery(params, "SELECT c0, count(1) FROM tmp GROUP BY 1");
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .config(core::QueryConfig::kMaxPartialAggregationMemory, "100")
+      .plan(PlanBuilder()
+                .values(vectors)
+                .partialAggregation({"c0"}, {"count(1)"})
+                .finalAggregation()
+                .planNode())
+      .assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
 }
 
 /// Verify number of memory allocations in the HashAggregation operator.

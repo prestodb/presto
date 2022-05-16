@@ -45,10 +45,6 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     HiveConnectorTestBase::SetUpTestCase();
   }
 
-  static RowTypePtr asRowType(const TypePtr& type) {
-    return std::dynamic_pointer_cast<const RowType>(type);
-  }
-
   std::vector<RowVectorPtr> makeVectors(
       int32_t count,
       int32_t rowsPerVector,
@@ -59,7 +55,7 @@ class TableScanTest : public virtual HiveConnectorTestBase,
 
   std::shared_ptr<Task> assertQuery(
       const std::shared_ptr<const core::PlanNode>& plan,
-      const std::shared_ptr<HiveConnectorSplit>& hiveSplit,
+      const std::shared_ptr<connector::ConnectorSplit>& hiveSplit,
       const std::string& duckDbSql) {
     return OperatorTestBase::assertQuery(plan, {hiveSplit}, duckDbSql);
   }
@@ -377,7 +373,7 @@ TEST_P(TableScanTest, count) {
 
   auto cursor = std::make_unique<TaskCursor>(params);
 
-  addSplit(cursor->task().get(), "0", makeHiveSplit(filePath->path));
+  cursor->task()->addSplit("0", makeHiveSplit(filePath->path));
   cursor->task()->noMoreSplits("0");
 
   int32_t numRead = 0;
@@ -464,8 +460,8 @@ TEST_P(TableScanTest, splitDoubleRead) {
     auto cursor = std::make_unique<TaskCursor>(params);
 
     // Add the same split twice - we should read twice the size.
-    addSplit(cursor->task().get(), "0", makeHiveSplit(filePath->path));
-    addSplit(cursor->task().get(), "0", makeHiveSplit(filePath->path));
+    cursor->task()->addSplit("0", makeHiveSplit(filePath->path));
+    cursor->task()->addSplit("0", makeHiveSplit(filePath->path));
     cursor->task()->noMoreSplits("0");
 
     int32_t numRead = 0;
@@ -503,7 +499,7 @@ TEST_P(TableScanTest, waitForSplit) {
       tableScanNode(),
       [&](Task* task) {
         if (fileIndex < filePaths.size()) {
-          addSplit(task, "0", makeHiveSplit(filePaths[fileIndex++]->path));
+          task->addSplit("0", makeHiveSplit(filePaths[fileIndex++]->path));
         }
         if (fileIndex == filePaths.size()) {
           task->noMoreSplits("0");

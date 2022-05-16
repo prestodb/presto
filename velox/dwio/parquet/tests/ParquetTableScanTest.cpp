@@ -112,9 +112,8 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
 
   std::shared_ptr<connector::hive::HiveConnectorSplit> makeSplit(
       const std::string& filePath) {
-    auto split = makeHiveConnectorSplit(filePath);
-    split->fileFormat = dwio::common::FileFormat::PARQUET;
-    return split;
+    return makeHiveConnectorSplits(
+        filePath, 1, dwio::common::FileFormat::PARQUET)[0];
   }
 
  private:

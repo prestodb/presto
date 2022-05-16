@@ -473,7 +473,7 @@ TEST_F(MultiFragmentTest, limit) {
   auto leafTask = makeTask(leafTaskId, leafPlan, 0);
   Task::start(leafTask, 1);
 
-  addSplit(leafTask.get(), "0", makeHiveSplit(file->path));
+  leafTask.get()->addSplit("0", makeHiveSplit(file->path));
 
   // Make final task: Exchange -> FinalLimit(1).
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();

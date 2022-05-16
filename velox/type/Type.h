@@ -805,6 +805,10 @@ class RowType : public TypeBase<TypeKind::ROW> {
 
 using RowTypePtr = std::shared_ptr<const RowType>;
 
+inline RowTypePtr asRowType(const TypePtr& type) {
+  return std::dynamic_pointer_cast<const RowType>(type);
+}
+
 // Represents a lambda function. The children are the argument types
 // followed by the return value type.
 class FunctionType : public TypeBase<TypeKind::FUNCTION> {

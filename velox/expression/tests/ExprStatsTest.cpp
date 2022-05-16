@@ -40,10 +40,6 @@ class ExprStatsTest : public testing::Test, public VectorTestBase {
     });
   }
 
-  static RowTypePtr asRowType(const TypePtr& type) {
-    return std::dynamic_pointer_cast<const RowType>(type);
-  }
-
   std::shared_ptr<const core::ITypedExpr> parseExpression(
       const std::string& text,
       const RowTypePtr& rowType) {

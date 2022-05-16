@@ -18,8 +18,13 @@ target_link_libraries(velox_temp_path velox_exception)
 
 add_library(
   velox_exec_test_util
-  Cursor.cpp HiveConnectorTestBase.cpp OperatorTestBase.cpp PlanBuilder.cpp
-  QueryAssertions.cpp TpchQueryBuilder.cpp)
+  AssertQueryBuilder.cpp
+  Cursor.cpp
+  HiveConnectorTestBase.cpp
+  OperatorTestBase.cpp
+  PlanBuilder.cpp
+  QueryAssertions.cpp
+  TpchQueryBuilder.cpp)
 
 target_link_libraries(
   velox_exec_test_util

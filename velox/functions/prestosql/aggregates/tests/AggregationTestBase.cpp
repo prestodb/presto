@@ -16,7 +16,9 @@
 
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 
+using facebook::velox::exec::test::AssertQueryBuilder;
 using facebook::velox::exec::test::CursorParameters;
 using facebook::velox::exec::test::PlanBuilder;
 
@@ -122,9 +124,10 @@ void AggregationTestBase::testAggregations(
     }
 
     if constexpr (UseDuckDB) {
-      assertQuery(builder.planNode(), duckDbSql);
+      AssertQueryBuilder(builder.planNode(), duckDbQueryRunner_)
+          .assertResults(duckDbSql);
     } else {
-      exec::test::assertQuery(builder.planNode(), expectedResult);
+      AssertQueryBuilder(builder.planNode()).assertResults(expectedResult);
     }
   }
 
@@ -140,9 +143,10 @@ void AggregationTestBase::testAggregations(
     }
 
     if constexpr (UseDuckDB) {
-      assertQuery(builder.planNode(), duckDbSql);
+      AssertQueryBuilder(builder.planNode(), duckDbQueryRunner_)
+          .assertResults(duckDbSql);
     } else {
-      exec::test::assertQuery(builder.planNode(), expectedResult);
+      AssertQueryBuilder(builder.planNode()).assertResults(expectedResult);
     }
   }
 
@@ -164,13 +168,14 @@ void AggregationTestBase::testAggregations(
       builder.project(postAggregationProjections);
     }
 
-    CursorParameters params;
-    params.planNode = builder.planNode();
-    params.maxDrivers = 2;
     if constexpr (UseDuckDB) {
-      assertQuery(params, duckDbSql);
+      AssertQueryBuilder(builder.planNode(), duckDbQueryRunner_)
+          .maxDrivers(2)
+          .assertResults(duckDbSql);
     } else {
-      exec::test::assertQuery(params, expectedResult);
+      AssertQueryBuilder(builder.planNode())
+          .maxDrivers(2)
+          .assertResults(expectedResult);
     }
   }
 
@@ -203,13 +208,14 @@ void AggregationTestBase::testAggregations(
       builder.project(postAggregationProjections);
     }
 
-    CursorParameters params;
-    params.planNode = builder.planNode();
-    params.maxDrivers = 2;
     if constexpr (UseDuckDB) {
-      assertQuery(params, duckDbSql);
+      AssertQueryBuilder(builder.planNode(), duckDbQueryRunner_)
+          .maxDrivers(2)
+          .assertResults(duckDbSql);
     } else {
-      exec::test::assertQuery(params, expectedResult);
+      AssertQueryBuilder(builder.planNode())
+          .maxDrivers(2)
+          .assertResults(expectedResult);
     }
   }
 }

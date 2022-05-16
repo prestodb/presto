@@ -24,10 +24,6 @@ class StreamingAggregationTest : public OperatorTestBase {
   static CursorParameters makeCursorParameters(
       const std::shared_ptr<const core::PlanNode>& planNode,
       uint32_t preferredOutputBatchSize) {
-    auto queryCtx = core::QueryCtx::createForTest();
-    queryCtx->setConfigOverridesUnsafe(
-        {{core::QueryConfig::kCreateEmptyFiles, "true"}});
-
     CursorParameters params;
     params.planNode = planNode;
     params.queryCtx = core::QueryCtx::createForTest();
