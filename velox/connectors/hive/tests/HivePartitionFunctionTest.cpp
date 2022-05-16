@@ -103,20 +103,21 @@ TEST_F(HivePartitionFunctionTest, bigint) {
 }
 
 TEST_F(HivePartitionFunctionTest, varchar) {
-  // TODO Fix flatVectorNullable to set stringBuffers.
-  std::vector<std::optional<std::string>> values = {
-      std::nullopt, "", "test string", "\u5f3a\u5927\u7684Presto\u5f15\u64ce"};
-  auto vector = vm_.flatVectorNullable(values);
+  auto values = vm_.flatVectorNullable<std::string>(
+      {std::nullopt,
+       "",
+       "test string",
+       "\u5f3a\u5927\u7684Presto\u5f15\u64ce"});
 
-  assertPartitions(vector, 1, {0, 0, 0, 0});
-  assertPartitions(vector, 2, {0, 0, 1, 0});
-  assertPartitions(vector, 500, {0, 0, 211, 454});
-  assertPartitions(vector, 997, {0, 0, 894, 831});
+  assertPartitions(values, 1, {0, 0, 0, 0});
+  assertPartitions(values, 2, {0, 0, 1, 0});
+  assertPartitions(values, 500, {0, 0, 211, 454});
+  assertPartitions(values, 997, {0, 0, 894, 831});
 
-  assertPartitionsWithConstChannel(vector, 1);
-  assertPartitionsWithConstChannel(vector, 2);
-  assertPartitionsWithConstChannel(vector, 500);
-  assertPartitionsWithConstChannel(vector, 997);
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }
 
 TEST_F(HivePartitionFunctionTest, boolean) {
@@ -145,6 +146,11 @@ TEST_F(HivePartitionFunctionTest, tinyint) {
   assertPartitions(values, 2, {0, 0, 0, 1});
   assertPartitions(values, 500, {0, 64, 20, 127});
   assertPartitions(values, 997, {0, 64, 355, 127});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }
 
 TEST_F(HivePartitionFunctionTest, smallint) {
@@ -158,6 +164,11 @@ TEST_F(HivePartitionFunctionTest, smallint) {
   assertPartitions(values, 2, {0, 0, 0, 1});
   assertPartitions(values, 500, {0, 0, 380, 267});
   assertPartitions(values, 997, {0, 90, 616, 863});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }
 
 TEST_F(HivePartitionFunctionTest, integer) {
@@ -171,6 +182,11 @@ TEST_F(HivePartitionFunctionTest, integer) {
   assertPartitions(values, 2, {0, 0, 0, 1});
   assertPartitions(values, 500, {0, 0, 0, 147});
   assertPartitions(values, 997, {0, 54, 0, 482});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }
 
 TEST_F(HivePartitionFunctionTest, real) {
@@ -184,6 +200,11 @@ TEST_F(HivePartitionFunctionTest, real) {
   assertPartitions(values, 2, {0, 0, 1, 1});
   assertPartitions(values, 500, {0, 348, 39, 39});
   assertPartitions(values, 997, {0, 544, 632, 632});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }
 
 TEST_F(HivePartitionFunctionTest, double) {
@@ -197,26 +218,33 @@ TEST_F(HivePartitionFunctionTest, double) {
   assertPartitions(values, 2, {0, 1, 0, 0});
   assertPartitions(values, 500, {0, 349, 76, 76});
   assertPartitions(values, 997, {0, 63, 729, 729});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }
 
 TEST_F(HivePartitionFunctionTest, timestamp) {
-  // TODO Fix flatVectorNullable to set Timestamp.
-  std::vector<std::optional<Timestamp>> values = {
-      std::nullopt,
-      Timestamp(100'000, 900'000),
-      Timestamp(
-          std::numeric_limits<int64_t>::min(),
-          std::numeric_limits<uint64_t>::min()),
-      Timestamp(
-          std::numeric_limits<int64_t>::max(),
-          std::numeric_limits<uint64_t>::max()),
-  };
-  auto vector = vm_.flatVectorNullable(values);
+  auto values = vm_.flatVectorNullable<Timestamp>(
+      {std::nullopt,
+       Timestamp(100'000, 900'000),
+       Timestamp(
+           std::numeric_limits<int64_t>::min(),
+           std::numeric_limits<uint64_t>::min()),
+       Timestamp(
+           std::numeric_limits<int64_t>::max(),
+           std::numeric_limits<uint64_t>::max())});
 
-  assertPartitions(vector, 1, {0, 0, 0, 0});
-  assertPartitions(vector, 2, {0, 0, 0, 0});
-  assertPartitions(vector, 500, {0, 284, 0, 0});
-  assertPartitions(vector, 997, {0, 514, 0, 0});
+  assertPartitions(values, 1, {0, 0, 0, 0});
+  assertPartitions(values, 2, {0, 0, 0, 0});
+  assertPartitions(values, 500, {0, 284, 0, 0});
+  assertPartitions(values, 997, {0, 514, 0, 0});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }
 
 TEST_F(HivePartitionFunctionTest, date) {
@@ -230,4 +258,9 @@ TEST_F(HivePartitionFunctionTest, date) {
   assertPartitions(values, 2, {0, 0, 0, 1});
   assertPartitions(values, 500, {0, 0, 0, 147});
   assertPartitions(values, 997, {0, 54, 0, 482});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
 }
