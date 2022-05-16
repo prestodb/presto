@@ -36,6 +36,7 @@ public class IcebergConfig
     private CatalogType catalogType = HIVE;
     private String catalogWarehouse;
     private int catalogCacheSize = 10;
+    private int maxPartitionsPerWriter = 100;
     private List<String> hadoopConfigResources = ImmutableList.of();
 
     @NotNull
@@ -117,6 +118,20 @@ public class IcebergConfig
         if (files != null) {
             this.hadoopConfigResources = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
         }
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPartitionsPerWriter()
+    {
+        return maxPartitionsPerWriter;
+    }
+
+    @Config("iceberg.max-partitions-per-writer")
+    @ConfigDescription("Maximum number of partitions per writer")
+    public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
+    {
+        this.maxPartitionsPerWriter = maxPartitionsPerWriter;
         return this;
     }
 }
