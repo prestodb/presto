@@ -29,9 +29,9 @@ Configuration Properties
 
 The following configuration properties are available:
 
-====================================== ===================================================
+====================================== ====================================================
 Property Name                          Description
-====================================== ===================================================
+====================================== ====================================================
 ``hive.metastore.uri``                 The URI(s) of the Hive metastore.
 
 ``iceberg.file-format``                The storage file format for Iceberg tables.
@@ -45,7 +45,9 @@ Property Name                          Description
 ``iceberg.catalog.cached-catalog-num`` The number of Iceberg catalogs to cache.
 
 ``iceberg.hadoop.config.resources``    The path(s) for Hadoop configuration resources.
-====================================== ===================================================
+
+``iceberg.max-partitions-per-writer``  The maximum number of partitions handled per writer.
+====================================== ====================================================
 
 ``hive.metastore.uri``
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -104,6 +106,13 @@ The path(s) for Hadoop configuration resources. Example:
 
 This property is required if the ``iceberg.catalog.type`` is ``hadoop``.
 Otherwise, it will be ignored.
+
+``iceberg.max-partitions-per-writer``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Maximum number of partitions handled per writer.
+
+The default is 100.
 
 Schema Evolution
 ------------------------
