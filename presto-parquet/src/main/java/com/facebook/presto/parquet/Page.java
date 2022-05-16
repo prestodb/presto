@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.parquet;
 
-import io.airlift.slice.Slice;
-
 public abstract class Page
 {
     protected final int compressedSize;
@@ -35,6 +33,4 @@ public abstract class Page
     {
         return uncompressedSize;
     }
-
-    public abstract Slice getSlice();
 }

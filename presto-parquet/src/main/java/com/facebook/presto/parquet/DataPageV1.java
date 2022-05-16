@@ -46,7 +46,6 @@ public class DataPageV1
         this.valuesEncoding = valuesEncoding;
     }
 
-    @Override
     public Slice getSlice()
     {
         return slice;
