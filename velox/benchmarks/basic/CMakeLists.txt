@@ -47,3 +47,7 @@ target_link_libraries(velox_benchmark_basic_selectivity_vector
 add_executable(velox_benchmark_basic_vector_compare VectorCompare.cpp)
 target_link_libraries(velox_benchmark_basic_vector_compare
                       ${velox_benchmark_deps} velox_vector_test_lib)
+
+add_executable(velox_benchmark_feature_normalization FeatureNormalization.cpp)
+target_link_libraries(velox_benchmark_feature_normalization
+                      ${velox_benchmark_deps} velox_functions_prestosql)
