@@ -567,7 +567,7 @@ public class OrcWriter
                     .mapToLong(StreamDataOutput::size)
                     .sum();
         }
-        streamLayout.reorder(dataStreams);
+        streamLayout.reorder(dataStreams, ImmutableMap.of(), ImmutableMap.of());
 
         // add data streams
         for (StreamDataOutput dataStream : dataStreams) {
