@@ -186,7 +186,13 @@ void Expr::evalSimplified(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  LocalSelectivityVector nonNullHolder(context);
+  if (!rows.hasSelections()) {
+    // empty input, return an empty vector of the right type
+    result = BaseVector::createNullConstant(type(), 0, context.pool());
+    return;
+  }
+
+  LocalSelectivityVector nonNullHolder(&context);
 
   // First we try to update the initial selectivity vector, setting null for
   // every null on input fields (if default null behavior).
@@ -208,12 +214,6 @@ void Expr::evalSimplifiedImpl(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  if (!rows.hasSelections()) {
-    // empty input, return an empty vector of the right type
-    result = BaseVector::createNullConstant(type(), 0, context.pool());
-    return;
-  }
-
   // Handle special form expressions.
   if (isSpecialForm()) {
     evalSpecialFormSimplified(rows, context, result);
@@ -226,7 +226,7 @@ void Expr::evalSimplifiedImpl(
 
   for (int32_t i = 0; i < inputs_.size(); ++i) {
     auto& inputValue = inputValues_[i];
-    inputs_[i]->evalSimplifiedImpl(remainingRows, context, inputValue);
+    inputs_[i]->evalSimplified(remainingRows, context, inputValue);
 
     BaseVector::flattenVector(&inputValue, rows.end());
     VELOX_CHECK_EQ(VectorEncoding::Simple::FLAT, inputValue->encoding());
