@@ -101,6 +101,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
 import static com.facebook.presto.common.RuntimeMetricName.GET_LAYOUT_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
@@ -395,7 +396,7 @@ public class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
         List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
-        session.getRuntimeStats().addMetricValue(GET_LAYOUT_TIME_NANOS, System.nanoTime() - startTime);
+        session.getRuntimeStats().addMetricValue(GET_LAYOUT_TIME_NANOS, NONE, System.nanoTime() - startTime);
 
         if (layouts.size() != 1) {
             throw new PrestoException(NOT_SUPPORTED, "Connector returned multiple layouts for table " + table);

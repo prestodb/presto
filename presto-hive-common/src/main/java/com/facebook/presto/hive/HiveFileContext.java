@@ -17,6 +17,7 @@ import com.facebook.presto.common.RuntimeStats;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static java.util.Objects.requireNonNull;
 
@@ -82,7 +83,7 @@ public class HiveFileContext
     public void incrementCounter(String name, long value)
     {
         if (verboseRuntimeStatsEnabled) {
-            stats.addMetricValue(name, value);
+            stats.addMetricValue(name, NONE, value);
         }
     }
 

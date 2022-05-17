@@ -36,6 +36,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -130,13 +131,13 @@ public class CachingStripeMetadataSource
         if (rowGroupIndexCache.isPresent()) {
             List<RowGroupIndex> rowGroupIndices = rowGroupIndexCache.get().getIfPresent(new StripeStreamId(stripId, streamId));
             if (rowGroupIndices != null) {
-                runtimeStats.addMetricValue("OrcRowGroupIndexCacheHit", 1);
-                runtimeStats.addMetricValue("OrcRowGroupIndexInMemoryBytesRead", rowGroupIndices.stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum());
+                runtimeStats.addMetricValue("OrcRowGroupIndexCacheHit", NONE, 1);
+                runtimeStats.addMetricValue("OrcRowGroupIndexInMemoryBytesRead", NONE, rowGroupIndices.stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum());
                 return rowGroupIndices;
             }
             else {
-                runtimeStats.addMetricValue("OrcRowGroupIndexCacheHit", 0);
-                runtimeStats.addMetricValue("OrcRowGroupIndexStorageBytesRead", inputStream.getRetainedSizeInBytes());
+                runtimeStats.addMetricValue("OrcRowGroupIndexCacheHit", NONE, 0);
+                runtimeStats.addMetricValue("OrcRowGroupIndexStorageBytesRead", NONE, inputStream.getRetainedSizeInBytes());
             }
         }
         List<RowGroupIndex> rowGroupIndices = delegate.getRowIndexes(metadataReader, hiveWriterVersion, stripId, streamId, inputStream, bloomFilters, runtimeStats);

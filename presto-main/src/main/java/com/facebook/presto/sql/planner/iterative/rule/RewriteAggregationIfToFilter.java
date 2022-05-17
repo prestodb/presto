@@ -49,6 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.SystemSessionProperties.getAggregationIfToFilterRewriteStrategy;
 import static com.facebook.presto.common.RuntimeMetricName.REWRITE_AGGREGATION_IF_TO_FILTER_APPLIED;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.or;
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -127,7 +128,7 @@ public class RewriteAggregationIfToFilter
             return Result.empty();
         }
 
-        context.getSession().getRuntimeStats().addMetricValue(REWRITE_AGGREGATION_IF_TO_FILTER_APPLIED, 1);
+        context.getSession().getRuntimeStats().addMetricValue(REWRITE_AGGREGATION_IF_TO_FILTER_APPLIED, NONE, 1);
         // Get the corresponding assignments in the input project.
         // The aggregationReferences only has the aggregations to rewrite, thus the sourceAssignments only has IF/CAST(IF) expressions with NULL false results.
         // Multiple aggregations may reference the same input. We use a map to dedup them based on the VariableReferenceExpression, so that we only do the rewrite once per input
