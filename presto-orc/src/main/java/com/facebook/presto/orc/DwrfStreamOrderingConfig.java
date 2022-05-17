@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.proto.DwrfProto;
+import com.facebook.presto.orc.proto.DwrfProto.KeyInfo;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,16 +27,20 @@ public class DwrfStreamOrderingConfig
 {
     // column is the logical columns index for a table with n columns
     // This index range from 0 to n - 1
-    private final ImmutableMap<Integer, List<DwrfProto.KeyInfo>> columnIdToFlatMapKeyIds;
+    private final ImmutableMap<Integer, Set<KeyInfo>> columnToKeySet;
 
-    public DwrfStreamOrderingConfig(Map<Integer, List<DwrfProto.KeyInfo>> columnIdToFlatMapKeyIds)
+    public DwrfStreamOrderingConfig(Map<Integer, List<KeyInfo>> columnToKeys)
     {
-        requireNonNull(columnIdToFlatMapKeyIds, "columnIdToFlatMapKeyIds cannot be null");
-        this.columnIdToFlatMapKeyIds = ImmutableMap.copyOf(columnIdToFlatMapKeyIds);
+        requireNonNull(columnToKeys, "columnToKeys cannot be null");
+        ImmutableMap.Builder<Integer, Set<KeyInfo>> columnToKeySetBuilder = new ImmutableMap.Builder<>();
+        for (Map.Entry<Integer, List<KeyInfo>> entry : columnToKeys.entrySet()) {
+            columnToKeySetBuilder.put(entry.getKey(), ImmutableSet.copyOf(entry.getValue()));
+        }
+        columnToKeySet = columnToKeySetBuilder.build();
     }
 
-    public Map<Integer, List<DwrfProto.KeyInfo>> getStreamOrdering()
+    public Map<Integer, Set<KeyInfo>> getStreamOrdering()
     {
-        return columnIdToFlatMapKeyIds;
+        return columnToKeySet;
     }
 }

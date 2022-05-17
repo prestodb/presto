@@ -14,12 +14,14 @@
 
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.proto.DwrfProto;
+import com.facebook.presto.orc.proto.DwrfProto.KeyInfo;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static org.testng.Assert.assertEquals;
 
@@ -28,12 +30,19 @@ public class TestDwrfStreamOrdering
     @Test
     public void testDwrfStreamOrder()
     {
-        ImmutableMap<Integer, List<DwrfProto.KeyInfo>> columnIdToFlatMapKeyIds =
+        ImmutableMap<Integer, List<KeyInfo>> columnIdToFlatMapKeyIds =
                 ImmutableMap.of(
-                        1, Collections.singletonList(DwrfProto.KeyInfo.newBuilder().setIntKey(1).build()),
-                        2, Collections.singletonList(DwrfProto.KeyInfo.newBuilder().setIntKey(1).build()),
-                        3, Collections.singletonList(DwrfProto.KeyInfo.newBuilder().setIntKey(1).build()));
+                        1, ImmutableList.of(KeyInfo.newBuilder().setIntKey(1).build(), KeyInfo.newBuilder().setIntKey(2).build()),
+                        2, ImmutableList.of(KeyInfo.newBuilder().setIntKey(3).build()),
+                        3, ImmutableList.of(KeyInfo.newBuilder().setIntKey(5).build(), KeyInfo.newBuilder().setIntKey(4).build()));
+
+        ImmutableMap<Integer, Set<KeyInfo>> expectedResult =
+                ImmutableMap.of(
+                        1, ImmutableSet.of(KeyInfo.newBuilder().setIntKey(1).build(), KeyInfo.newBuilder().setIntKey(2).build()),
+                        2, ImmutableSet.of(KeyInfo.newBuilder().setIntKey(3).build()),
+                        3, ImmutableSet.of(KeyInfo.newBuilder().setIntKey(5).build(), KeyInfo.newBuilder().setIntKey(4).build()));
+
         DwrfStreamOrderingConfig config = new DwrfStreamOrderingConfig(columnIdToFlatMapKeyIds);
-        assertEquals(config.getStreamOrdering(), columnIdToFlatMapKeyIds);
+        assertEquals(expectedResult, config.getStreamOrdering());
     }
 }
