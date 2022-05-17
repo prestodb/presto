@@ -243,19 +243,6 @@ const VectorPtr& EvalCtx::getField(int32_t index) const {
   return *field;
 }
 
-BaseVector* EvalCtx::getRawField(int32_t index) const {
-  BaseVector* field;
-  if (!peeledFields_.empty()) {
-    field = peeledFields_[index].get();
-  } else {
-    field = row_->childAt(index).get();
-  }
-  if (field->isLazy() && field->asUnchecked<LazyVector>()->isLoaded()) {
-    return field->loadedVector();
-  }
-  return field;
-}
-
 void EvalCtx::ensureFieldLoaded(int32_t index, const SelectivityVector& rows) {
   auto field = getField(index);
   if (isLazyNotLoaded(*field)) {
