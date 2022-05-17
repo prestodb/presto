@@ -55,7 +55,7 @@ void ColumnLoader::loadInternal(
          return static_cast<SelectiveStructColumnReader*>(reader)
              ->debugString();
        },
-       this});
+       structReader_});
 
   if (rows.size() == outputRows.size()) {
     // All the rows planned at creation are accessed.
