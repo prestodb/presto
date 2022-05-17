@@ -150,7 +150,7 @@ class SsdFileTest : public testing::Test {
     int32_t lastRegion = -1;
     for (auto& entry : entries) {
       if (entry.ssdOffset / SsdFile::kRegionSize != lastRegion) {
-        lastRegion = entry.key.offset / SsdFile::kRegionSize;
+        lastRegion = entry.ssdOffset / SsdFile::kRegionSize;
         pins.push_back(
             ssdFile_->find(RawFileCacheKey{fileName_.id(), entry.key.offset}));
         EXPECT_FALSE(pins.back().empty());
@@ -193,6 +193,11 @@ class SsdFileTest : public testing::Test {
       }
     }
     EXPECT_LT(numWritten, pins.size());
+    // vector::clear() does not guarantee the release order; we need to clear
+    // the pins in the correct order explicitly.
+    for (auto& pin : ssdPins) {
+      pin.clear();
+    }
     ssdPins.clear();
 
     // The pins were cleared and the file is no longer suspended. Check that the
