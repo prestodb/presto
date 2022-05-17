@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -41,8 +42,8 @@ import static org.testng.Assert.assertEquals;
 public class TestQueryStats
 {
     private static final String TEST_METRIC_NAME = "test_metric";
-    private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_NAME, 10, 2, 9, 1);
-    private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_NAME, 5, 2, 3, 2);
+    private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 10, 2, 9, 1);
+    private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 3, 2);
 
     private static final List<OperatorStats> OPERATOR_SUMMARIES = ImmutableList.of(
             new OperatorStats(
@@ -332,6 +333,7 @@ public class TestQueryStats
     private static void assertRuntimeMetricEquals(RuntimeMetric m1, RuntimeMetric m2)
     {
         assertEquals(m1.getName(), m2.getName());
+        assertEquals(m1.getUnit(), m2.getUnit());
         assertEquals(m1.getSum(), m2.getSum());
         assertEquals(m1.getCount(), m2.getCount());
         assertEquals(m1.getMax(), m2.getMax());

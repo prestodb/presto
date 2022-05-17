@@ -16,6 +16,9 @@ package com.facebook.presto.common;
 import com.facebook.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.RuntimeUnit.BYTE;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static org.testng.Assert.assertEquals;
 
 public class TestRuntimeMetric
@@ -25,6 +28,7 @@ public class TestRuntimeMetric
     private void assertRuntimeMetricEquals(RuntimeMetric m1, RuntimeMetric m2)
     {
         assertEquals(m1.getName(), m2.getName());
+        assertEquals(m1.getUnit(), m2.getUnit());
         assertEquals(m1.getSum(), m2.getSum());
         assertEquals(m1.getCount(), m2.getCount());
         assertEquals(m1.getMax(), m2.getMax());
@@ -34,63 +38,82 @@ public class TestRuntimeMetric
     @Test
     public void testAddValue()
     {
-        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME);
+        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME, NONE);
         metric.addValue(101);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 101, 1, 101, 101));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, NONE, 101, 1, 101, 101));
 
         metric.addValue(99);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 200, 2, 101, 99));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, NONE, 200, 2, 101, 99));
 
         metric.addValue(201);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 401, 3, 201, 99));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, NONE, 401, 3, 201, 99));
+
+        metric.addValue(202);
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, NONE, 603, 4, 202, 99));
     }
 
     @Test
     public void testCopy()
     {
-        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME, 1, 1, 1, 1);
+        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME, NONE, 1, 1, 1, 1);
         RuntimeMetric metricCopy = RuntimeMetric.copyOf(metric);
 
         // Verify that updating one metric doesn't affect its copy.
         metric.addValue(2);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 3, 2, 2, 1));
-        assertRuntimeMetricEquals(metricCopy, new RuntimeMetric(TEST_METRIC_NAME, 1, 1, 1, 1));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, NONE, 3, 2, 2, 1));
+        assertRuntimeMetricEquals(metricCopy, new RuntimeMetric(TEST_METRIC_NAME, NONE, 1, 1, 1, 1));
         metricCopy.addValue(2);
-        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, 3, 2, 2, 1));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, NONE, 3, 2, 2, 1));
         assertRuntimeMetricEquals(metricCopy, metric);
     }
 
     @Test
     public void testMergeWith()
     {
-        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, 5, 2, 4, 1);
-        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_NAME, 20, 2, 11, 9);
+        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 4, 1);
+        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 20, 2, 11, 9);
         metric1.mergeWith(metric2);
-        assertRuntimeMetricEquals(metric1, new RuntimeMetric(TEST_METRIC_NAME, 25, 4, 11, 1));
+        assertRuntimeMetricEquals(metric1, new RuntimeMetric(TEST_METRIC_NAME, NONE, 25, 4, 11, 1));
 
         metric2.mergeWith(metric2);
-        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, 40, 4, 11, 9));
+        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, NONE, 40, 4, 11, 9));
 
         metric2.mergeWith(null);
-        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, 40, 4, 11, 9));
+        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, NONE, 40, 4, 11, 9));
+    }
+
+    @Test(expectedExceptions = {IllegalStateException.class})
+    public void testMergeWithWithConflictUnits()
+    {
+        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, NANO, 5, 2, 4, 1);
+        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_NAME, BYTE, 20, 2, 11, 9);
+        metric1.mergeWith(metric2);
     }
 
     @Test
     public void testMerge()
     {
-        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, 5, 2, 4, 1);
-        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_NAME, 20, 2, 11, 9);
-        assertRuntimeMetricEquals(RuntimeMetric.merge(metric1, metric2), new RuntimeMetric(TEST_METRIC_NAME, 25, 4, 11, 1));
+        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 4, 1);
+        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 20, 2, 11, 9);
+        assertRuntimeMetricEquals(RuntimeMetric.merge(metric1, metric2), new RuntimeMetric(TEST_METRIC_NAME, NONE, 25, 4, 11, 1));
 
-        assertRuntimeMetricEquals(metric1, new RuntimeMetric(TEST_METRIC_NAME, 5, 2, 4, 1));
-        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, 20, 2, 11, 9));
+        assertRuntimeMetricEquals(metric1, new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 4, 1));
+        assertRuntimeMetricEquals(metric2, new RuntimeMetric(TEST_METRIC_NAME, NONE, 20, 2, 11, 9));
+    }
+
+    @Test(expectedExceptions = {IllegalStateException.class})
+    public void testMergeWithConflictUnits()
+    {
+        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, NANO, 5, 2, 4, 1);
+        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_NAME, BYTE, 20, 2, 11, 9);
+        RuntimeMetric.merge(metric1, metric2);
     }
 
     @Test
     public void testJson()
     {
         JsonCodec<RuntimeMetric> codec = JsonCodec.jsonCodec(RuntimeMetric.class);
-        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME);
+        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME, NANO);
         metric.addValue(101);
         metric.addValue(202);
 

@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -44,7 +45,7 @@ public class RuntimeStats
     public RuntimeStats(Map<String, RuntimeMetric> metrics)
     {
         requireNonNull(metrics, "metrics is null");
-        metrics.forEach((name, newMetric) -> this.metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(newMetric));
+        metrics.forEach((name, newMetric) -> this.metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).mergeWith(newMetric));
     }
 
     public static RuntimeStats copyOf(RuntimeStats stats)
@@ -85,17 +86,17 @@ public class RuntimeStats
         return Collections.unmodifiableMap(metrics);
     }
 
-    public void addMetricValue(String name, long value)
+    public void addMetricValue(String name, RuntimeUnit unit, long value)
     {
-        metrics.computeIfAbsent(name, RuntimeMetric::new).addValue(value);
+        metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, unit)).addValue(value);
     }
 
-    public void addMetricValueIgnoreZero(String name, long value)
+    public void addMetricValueIgnoreZero(String name, RuntimeUnit unit, long value)
     {
         if (value == 0) {
             return;
         }
-        addMetricValue(name, value);
+        addMetricValue(name, unit, value);
     }
 
     /**
@@ -103,7 +104,7 @@ public class RuntimeStats
      */
     public void mergeMetric(String name, RuntimeMetric metric)
     {
-        metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(metric);
+        metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, metric.getUnit())).mergeWith(metric);
     }
 
     /**
@@ -114,7 +115,7 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(newMetric));
+        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).mergeWith(newMetric));
     }
 
     /**
@@ -126,14 +127,14 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, RuntimeMetric::new).set(newMetric));
+        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).set(newMetric));
     }
 
     public <V> V profileNanos(String tag, Supplier<V> supplier)
     {
         long startTime = System.nanoTime();
         V result = supplier.get();
-        addMetricValueIgnoreZero(tag, System.nanoTime() - startTime);
+        addMetricValueIgnoreZero(tag, NANO, System.nanoTime() - startTime);
         return result;
     }
 }

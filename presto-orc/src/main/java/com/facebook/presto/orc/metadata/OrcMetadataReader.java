@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcDataSource;
@@ -97,7 +98,7 @@ public class OrcMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
         OrcProto.PostScript postScript = OrcProto.PostScript.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadPostScriptTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadPostScriptTimeNanos", RuntimeUnit.NONE, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         return new PostScript(
                 postScript.getVersionList(),
@@ -126,7 +127,7 @@ public class OrcMetadataReader
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Metadata metadata = OrcProto.Metadata.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadMetadataTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadMetadataTimeNanos", RuntimeUnit.NONE, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
     }
 
@@ -155,7 +156,7 @@ public class OrcMetadataReader
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Footer footer = OrcProto.Footer.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadFooterTimeNanos", RuntimeUnit.NONE, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
@@ -194,7 +195,7 @@ public class OrcMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadStripeFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadStripeFooterTimeNanos", RuntimeUnit.NONE, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()), ImmutableList.of());
     }
 
@@ -229,7 +230,7 @@ public class OrcMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadRowIndexesTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadRowIndexesTimeNanos", RuntimeUnit.NONE, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return IntStream.range(0, rowIndex.getEntryCount())
                 .mapToObj(i -> toRowGroupIndex(hiveWriterVersion, rowIndex.getEntry(i), bloomFilters == null || bloomFilters.isEmpty() ? null : bloomFilters.get(i)))
                 .collect(toImmutableList());
