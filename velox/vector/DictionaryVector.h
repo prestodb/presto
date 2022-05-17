@@ -108,15 +108,6 @@ class DictionaryVector : public SimpleVector<T> {
     return indexType_;
   }
 
-  /**
-   * @return stats for the internal dictionary value vector. They
-   * hold the min and max value in the dictionary.
-   */
-  // TODO (T61713241): Remove this later.
-  inline const SimpleVectorStats<T>& getDictionaryStats() const {
-    return dictionaryStats_;
-  }
-
   inline const BufferPtr& indices() const {
     return indices_;
   }
@@ -227,9 +218,6 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   void setInternalState();
-
-  // stats over the contained vector data
-  SimpleVectorStats<T> dictionaryStats_;
 
   // the dictionary indices of the vector can be variable types depending on the
   // size of the dictionary - kept as original and typed
