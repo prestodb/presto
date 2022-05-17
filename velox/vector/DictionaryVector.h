@@ -161,11 +161,7 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   BaseVector* loadedVector() override {
-    auto loaded = BaseVector::loadedVectorShared(dictionaryValues_);
-    if (loaded == dictionaryValues_) {
-      return this;
-    }
-    dictionaryValues_ = loaded;
+    dictionaryValues_ = BaseVector::loadedVectorShared(dictionaryValues_);
     setInternalState();
     return this;
   }

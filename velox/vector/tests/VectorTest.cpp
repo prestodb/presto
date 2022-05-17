@@ -97,6 +97,20 @@ class VectorTest : public testing::Test {
     }
   }
 
+  BufferPtr makeIndices(
+      vector_size_t size,
+      std::function<vector_size_t(vector_size_t)> indexAt) {
+    BufferPtr indices =
+        AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+    auto rawIndices = indices->asMutable<vector_size_t>();
+
+    for (vector_size_t i = 0; i < size; i++) {
+      rawIndices[i] = indexAt(i);
+    }
+
+    return indices;
+  }
+
   template <typename T>
   T testValue(int32_t i, BufferPtr& space) {
     if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
@@ -1573,4 +1587,28 @@ TEST_F(VectorTest, constantSetNull) {
   auto vector = vectorMaker->constantVector<int64_t>({{0}});
 
   EXPECT_THROW(vector->setNull(0, true), VeloxRuntimeError);
+}
+
+/// Test lazy vector wrapped in multiple layers of dictionaries.
+TEST_F(VectorTest, multipleDictionariesOverLazy) {
+  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
+
+  vector_size_t size = 10;
+  auto indices = makeIndices(size, [&](auto row) { return size - row - 1; });
+  auto lazy = std::make_shared<LazyVector>(
+      pool_.get(),
+      INTEGER(),
+      size,
+      std::make_unique<TestingLoader>(vectorMaker->flatVector<int32_t>(
+          size, [](auto row) { return row; })));
+
+  auto dict = BaseVector::wrapInDictionary(
+      nullptr,
+      indices,
+      size,
+      BaseVector::wrapInDictionary(nullptr, indices, size, lazy));
+  dict->loadedVector();
+  for (auto i = 0; i < size; i++) {
+    ASSERT_EQ(i, dict->as<SimpleVector<int32_t>>()->valueAt(i));
+  }
 }
