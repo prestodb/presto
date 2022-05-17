@@ -110,8 +110,8 @@ class SubstraitVeloxPlanConverter {
   const std::string& findFunction(uint64_t id) const;
 
  private:
-  /// A function returning current function id and adding the plan node id by
-  /// one once called.
+  /// Returns unique ID to use for plan node. Produces sequential numbers
+  /// starting from zero.
   std::string nextPlanNodeId();
 
   /// Used to convert Substrait Filter into Velox SubfieldFilters which will

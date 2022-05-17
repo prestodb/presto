@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#include <google/protobuf/util/json_util.h>
-#include <fstream>
-#include <sstream>
-
 #include "velox/substrait/tests/JsonToProtoConverter.h"
 
 #include "velox/common/base/tests/Fs.h"

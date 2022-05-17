@@ -70,22 +70,22 @@ class SubstraitParser {
       const std::unordered_map<uint64_t, std::string>& functionMap,
       uint64_t id) const;
 
-  /// This function is used to get the function name from the compound name.
+  /// Extracts the function name for a function from specified compound name.
   /// When the input is a simple name, it will be returned.
   std::string getFunctionName(const std::string& subFuncSpec) const;
 
-  /// This function is used get the types from the compound name.
+  /// Extracts argument types for a function from specified compound name.
   void getFunctionTypes(
       const std::string& subFuncSpec,
       std::vector<std::string>& types) const;
 
-  /// Used to find the Velox function name according to the function id
+  /// Find the Velox function name according to the function id
   /// from a pre-constructed function map.
   std::string findVeloxFunction(
       const std::unordered_map<uint64_t, std::string>& functionMap,
       uint64_t id) const;
 
-  /// Used to map the Substrait function key word into Velox function key word.
+  /// Map the Substrait function key word into Velox function key word.
   std::string mapToVeloxFunction(const std::string& subFunc) const;
 
  private:
