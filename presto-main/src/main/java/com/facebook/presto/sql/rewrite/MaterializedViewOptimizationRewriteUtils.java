@@ -33,6 +33,7 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 
 public class MaterializedViewOptimizationRewriteUtils
@@ -60,15 +61,15 @@ public class MaterializedViewOptimizationRewriteUtils
                     //TODO: We should be able to leverage this information in the StatementAnalyzer as well.
                     MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, candidate);
                     if (materializedViewStatus.isFullyMaterialized() || materializedViewStatus.isPartiallyMaterialized()) {
-                        session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT, 1);
+                        session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT, NONE, 1);
                         return optimizedQuery;
                     }
                     else {
-                        session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, 1);
+                        session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, NONE, 1);
                     }
                 }
                 else {
-                    session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT, 1);
+                    session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT, NONE, 1);
                     return optimizedQuery;
                 }
             }
