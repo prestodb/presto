@@ -326,4 +326,25 @@ public class OrcType
                 .map(rootType::getFieldTypeIndex)
                 .collect(toImmutableSet());
     }
+
+    public static Map<Integer, Integer> createNodeIdToColumnMap(List<OrcType> orcTypes)
+    {
+        requireNonNull(orcTypes, "orcTypes cannot be null");
+        int totalNodeCount = orcTypes.size();
+        int column = 0;
+        List<Integer> fieldTypeIndexes = orcTypes.get(0).getFieldTypeIndexes();
+        ImmutableMap.Builder<Integer, Integer> nodeIdToColumnBuilder = ImmutableMap.builder();
+        // create nodeId to colId mapping for all the columns except for the last one
+        for (int nodeIndex = 0; nodeIndex < fieldTypeIndexes.size(); nodeIndex++) {
+            boolean isLastNode = nodeIndex == fieldTypeIndexes.size() - 1;
+            int currentNodeId = fieldTypeIndexes.get(nodeIndex);
+            int nextNodeId = isLastNode ? totalNodeCount : fieldTypeIndexes.get(nodeIndex + 1);
+            int numberOfNodesPerColumn = nextNodeId - currentNodeId;
+            for (int i = 0; i < numberOfNodesPerColumn; i++) {
+                nodeIdToColumnBuilder.put(currentNodeId++, column);
+            }
+            column++;
+        }
+        return nodeIdToColumnBuilder.build();
+    }
 }

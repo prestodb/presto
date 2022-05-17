@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 
@@ -30,7 +31,10 @@ import static java.util.Objects.requireNonNull;
  */
 public interface StreamLayout
 {
-    void reorder(List<StreamDataOutput> dataStreams);
+    void reorder(
+            List<StreamDataOutput> dataStreams,
+            Map<Integer, Integer> nodeIdToColumn,
+            Map<Integer, ColumnEncoding> nodeIdToColumnEncodings);
 
     /**
      * Streams are ordered by the Stream Size. There is no ordering between
@@ -42,10 +46,15 @@ public interface StreamLayout
     class ByStreamSize
             implements StreamLayout
     {
-        @Override
         public void reorder(List<StreamDataOutput> dataStreams)
         {
             Collections.sort(requireNonNull(dataStreams, "dataStreams is null"));
+        }
+
+        @Override
+        public void reorder(List<StreamDataOutput> dataStreams, Map<Integer, Integer> nodeIdToColumn, Map<Integer, ColumnEncoding> nodeIdToColumnEncodings)
+        {
+            reorder(dataStreams);
         }
 
         @Override
@@ -64,7 +73,6 @@ public interface StreamLayout
     class ByColumnSize
             implements StreamLayout
     {
-        @Override
         public void reorder(List<StreamDataOutput> dataStreams)
         {
             requireNonNull(dataStreams, "dataStreams is null");
@@ -99,6 +107,12 @@ public interface StreamLayout
 
                 return leftStream.getStreamKind().compareTo(rightStream.getStreamKind());
             });
+        }
+
+        @Override
+        public void reorder(List<StreamDataOutput> dataStreams, Map<Integer, Integer> nodeIdToColumn, Map<Integer, ColumnEncoding> nodeIdToColumnEncodings)
+        {
+            reorder(dataStreams);
         }
 
         @Override
