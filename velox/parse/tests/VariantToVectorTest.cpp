@@ -19,8 +19,6 @@
 #include <gtest/gtest.h>
 #include "velox/parse/VariantToVector.h"
 #include "velox/type/Variant.h"
-#include "velox/vector/ComplexVector.h"
-#include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/SimpleVector.h"
 
@@ -119,6 +117,15 @@ TEST_F(VariantToVectorTest, varchar) {
       variant::create<TypeKind::VARCHAR>("hello"),
       variant::create<TypeKind::VARCHAR>("world"),
       variant::create<TypeKind::VARCHAR>(
+          "Some longer string that doesn't get inlined..."),
+  });
+}
+
+TEST_F(VariantToVectorTest, varbinary) {
+  testCreateVector<TypeKind::VARBINARY>({
+      variant::create<TypeKind::VARBINARY>("hello"),
+      variant::create<TypeKind::VARBINARY>("world"),
+      variant::create<TypeKind::VARBINARY>(
           "Some longer string that doesn't get inlined..."),
   });
 }

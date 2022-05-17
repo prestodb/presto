@@ -41,7 +41,7 @@ ArrayVectorPtr variantArrayToVectorImpl(
   // Create array elements internal flat vector.
   auto arrayElements = std::make_shared<FlatVector<T>>(
       pool,
-      CppToType<T>::create(),
+      Type::create<KIND>(),
       nulls,
       variantArraySize,
       std::move(arrayElementsBuffer),
