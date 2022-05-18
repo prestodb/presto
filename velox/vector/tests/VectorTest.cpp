@@ -16,7 +16,6 @@
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
-#include <stdio.h>
 #include "velox/common/memory/ByteStream.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/BaseVector.h"
@@ -215,36 +214,6 @@ class VectorTest : public testing::Test {
         numRows,
         std::move(parentFields),
         BaseVector::countNulls(nulls, numRows));
-  }
-
-  // Sets the position corresponding to a null to kNullIndex in
-  // 'offsets' and 0 in 'sizes'. 'sizes' can be nullptr in the case of
-  // a RowVector or DictionaryVector. Returns true if any null was found.
-  static bool setOffsetsAndSizesByNulls(
-      vector_size_t size,
-      BufferPtr* nulls,
-      BufferPtr* offsets,
-      BufferPtr* sizes) {
-    VELOX_CHECK(*offsets);
-    VELOX_CHECK((*offsets)->capacity() >= size * sizeof(vector_size_t));
-    VELOX_CHECK(!sizes || (*sizes)->capacity() >= size * sizeof(vector_size_t));
-    bool hasNulls = false;
-    auto rawOffsets = (*offsets)->asMutable<vector_size_t>();
-    auto rawSizes = sizes ? (*sizes)->asMutable<vector_size_t>() : nullptr;
-    if (*nulls) {
-      bits::forEachUnsetBit(
-          (*nulls)->as<uint64_t>(),
-          0,
-          size,
-          [rawOffsets, rawSizes, &hasNulls](int32_t row) {
-            rawOffsets[row] = 0;
-            if (rawSizes) {
-              rawSizes[row] = 0;
-            }
-            hasNulls = true;
-          });
-    }
-    return hasNulls;
   }
 
   int32_t createRepeated(
@@ -619,7 +588,6 @@ class VectorTest : public testing::Test {
       BaseVector* source,
       std::vector<vector_size_t>& sizes,
       std::string& string) {
-    int32_t size = string.size();
     int32_t total = 0;
     for (auto size : sizes) {
       total += size;
@@ -646,6 +614,7 @@ class VectorTest : public testing::Test {
         break;
     }
     if (total > 1024) {
+      int32_t size = string.size();
       EXPECT_GE(total, size * (1 - tolerance));
       EXPECT_LE(total, size * (1 + tolerance));
     }
@@ -822,7 +791,7 @@ VectorPtr VectorTest::createMap(int32_t numRows, bool withNulls) {
       indices->asMutable<vector_size_t>()[offset++] = index;
     }
   }
-  VELOX_CHECK(offset == elements->size());
+  VELOX_CHECK_EQ(offset, elements->size());
   auto keys = BaseVector::wrapInDictionary(
       BufferPtr(nullptr),
       std::move(indices),
