@@ -43,7 +43,7 @@ class SsdCache {
   //  file id from e.g. FileCacheKey.
   SsdFile& file(uint64_t fileId);
 
-  // Returnss the maximum capacity, rounded up from the capacity passed to the
+  // Returns the maximum capacity, rounded up from the capacity passed to the
   // constructor.
   uint64_t maxBytes() const {
     return files_[0]->maxRegions() * files_.size() * SsdFile::kRegionSize;

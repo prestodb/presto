@@ -543,8 +543,8 @@ TEST(TestWriterFlush, MemoryBasedFlushRandom) {
       // {30227679, 20 * kSizeMB, 30},
       {10237629, 10 * kSizeMB, 15},
       {30227679, 10 * kSizeMB, 15},
-      {10237629, 60 * kSizeMB, 84},
-      {30227679, 60 * kSizeMB, 85}};
+      {10237629, 49 * kSizeMB, 69},
+      {30227679, 70 * kSizeMB, 98}};
 
   for (auto& testCase : testCases) {
     WriterFlushTestHelper::testRandomSequence(
