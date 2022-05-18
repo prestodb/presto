@@ -28,5 +28,5 @@ public interface PartitionObjectBuilder
             PartitionUpdate partitionUpdate,
             String prestoVersion,
             Map<String, String> extraParameters,
-            Optional<Long> partitionVersion);
+            Optional<Partition> previousPartition);
 }

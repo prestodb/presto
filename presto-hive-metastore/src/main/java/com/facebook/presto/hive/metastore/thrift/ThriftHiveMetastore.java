@@ -116,6 +116,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.DEFAULT_METASTORE_USER;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRecursively;
@@ -162,7 +163,6 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
 public class ThriftHiveMetastore
         implements HiveMetastore
 {
-    private static final String DEFAULT_METASTORE_USER = "presto";
     private static final HdfsContext hdfsContext = new HdfsContext(new ConnectorIdentity(DEFAULT_METASTORE_USER, Optional.empty(), Optional.empty()));
 
     private final ThriftHiveMetastoreStats stats;
