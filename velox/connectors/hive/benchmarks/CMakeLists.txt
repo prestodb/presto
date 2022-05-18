@@ -11,19 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+add_executable(velox_hive_partition_function_benchmark
+               HivePartitionFunctionBenchmark.cpp)
 
-add_library(velox_hive_connector OBJECT HiveConnector.cpp FileHandle.cpp)
-
-target_link_libraries(velox_hive_connector velox_connector
-                      velox_dwio_dwrf_reader velox_dwio_dwrf_writer velox_file)
-
-add_library(velox_hive_partition_function HivePartitionFunction.cpp)
-
-target_link_libraries(velox_hive_partition_function velox_core)
-
-add_subdirectory(storage_adapters)
-
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-  add_subdirectory(benchmarks)
-endif()
+target_link_libraries(
+  velox_hive_partition_function_benchmark
+  velox_type
+  velox_vector
+  velox_vector_test_lib
+  velox_vector_fuzzer
+  velox_expression
+  velox_parse_parser
+  velox_parse_utils
+  velox_parse_expression
+  velox_exec
+  velox_exec_test_util
+  velox_hive_connector
+  velox_hive_partition_function
+  velox_memory
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${FOLLY_BENCHMARK}
+  ${FMT})
