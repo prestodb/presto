@@ -54,15 +54,11 @@ class FlatVector;
  */
 class BaseVector {
  public:
-  static constexpr SelectivityVector* kPreserveAll = nullptr;
-
   static constexpr uint64_t kNullHash = 1;
-
-  enum SerializeOp { kWrite, kRead, kCompare };
 
   BaseVector(
       velox::memory::MemoryPool* pool,
-      std::shared_ptr<const Type> type,
+      TypePtr type,
       VectorEncoding::Simple encoding,
       BufferPtr nulls,
       size_t length,
@@ -163,7 +159,7 @@ class BaseVector {
     nullCount_ = newNullCount;
   }
 
-  const std::shared_ptr<const Type>& type() const {
+  const TypePtr& type() const {
     return type_;
   }
 
@@ -663,7 +659,7 @@ class BaseVector {
 
   virtual std::string toString(vector_size_t index) const;
 
-  std::string toString(vector_size_t from, vector_size_t to);
+  std::string toString(vector_size_t from, vector_size_t to) const;
 
   void setCodegenOutput() {
     isCodegenOutput_ = true;
@@ -710,8 +706,8 @@ class BaseVector {
     nullCount_ = std::nullopt;
   }
 
-  std::shared_ptr<const Type> type_;
-  TypeKind typeKind_;
+  const TypePtr type_;
+  const TypeKind typeKind_;
   const VectorEncoding::Simple encoding_;
   BufferPtr nulls_;
   // Caches raw pointer to 'nulls->as<uint64_t>().

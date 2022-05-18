@@ -449,7 +449,7 @@ std::string BaseVector::toString(vector_size_t index) const {
   return out.str();
 }
 
-std::string BaseVector::toString(vector_size_t from, vector_size_t to) {
+std::string BaseVector::toString(vector_size_t from, vector_size_t to) const {
   std::stringstream out;
   for (auto i = std::min<int32_t>(from, length_);
        i < std::min<int32_t>(to, length_);
