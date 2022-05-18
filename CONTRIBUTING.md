@@ -58,7 +58,7 @@ format-fix`. This command will apply formatting changes to modified lines in
 the current commit.
 
 Header issues found on the changed files in the current commit can be displayed
-using `make header-show`. These issues can be fixed by using `make header-fix`.
+using `make header-check`. These issues can be fixed by using `make header-fix`.
 This will apply license header updates to files in the current commit.
 
 An entire directory tree of files can be formatted and have license headers
