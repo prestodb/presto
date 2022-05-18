@@ -21,6 +21,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -83,6 +84,7 @@ public class DriverContext
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final Lifespan lifespan;
+    private final Optional<ConnectorPartitionHandle> connectorPartitionHandle;
     private final Optional<FragmentResultCacheContext> fragmentResultCacheContext;
     private final long splitWeight;
 
@@ -92,6 +94,7 @@ public class DriverContext
             ScheduledExecutorService yieldExecutor,
             MemoryTrackingContext driverMemoryContext,
             Lifespan lifespan,
+            Optional<ConnectorPartitionHandle> connectorPartitionHandle,
             Optional<FragmentResultCacheContext> fragmentResultCacheContext,
             long splitWeight)
     {
@@ -100,6 +103,7 @@ public class DriverContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "scheduler is null");
         this.driverMemoryContext = requireNonNull(driverMemoryContext, "driverMemoryContext is null");
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
+        this.connectorPartitionHandle = requireNonNull(connectorPartitionHandle, "connectorPartitionHandle is null");
         this.fragmentResultCacheContext = requireNonNull(fragmentResultCacheContext, "fragmentResultCacheContext is null");
         this.yieldSignal = new DriverYieldSignal();
         this.splitWeight = splitWeight;

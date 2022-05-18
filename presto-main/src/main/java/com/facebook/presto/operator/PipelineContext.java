@@ -22,6 +22,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -150,6 +151,23 @@ public class PipelineContext
                 yieldExecutor,
                 pipelineMemoryContext.newMemoryTrackingContext(),
                 lifespan,
+                Optional.empty(),
+                fragmentResultCacheContext,
+                splitWeight);
+        drivers.add(driverContext);
+        return driverContext;
+    }
+
+    public DriverContext addDriverContext(long splitWeight, Lifespan lifespan, Optional<ConnectorPartitionHandle> connectorPartitionHandle, Optional<FragmentResultCacheContext> fragmentResultCacheContext)
+    {
+        checkArgument(partitioned || splitWeight == 0, "Only partitioned splits should have weights");
+        DriverContext driverContext = new DriverContext(
+                this,
+                notificationExecutor,
+                yieldExecutor,
+                pipelineMemoryContext.newMemoryTrackingContext(),
+                lifespan,
+                connectorPartitionHandle,
                 fragmentResultCacheContext,
                 splitWeight);
         drivers.add(driverContext);

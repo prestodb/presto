@@ -29,6 +29,7 @@ import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.SplitWeight;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.google.common.collect.AbstractIterator;
@@ -936,7 +937,8 @@ public class SqlTaskExecution
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
             long splitWeight = partitionedSplit == null ? 0 : partitionedSplit.getSplit().getSplitWeight().getRawValue();
-            DriverContext driverContext = pipelineContext.addDriverContext(splitWeight, lifespan, driverFactory.getFragmentResultCacheContext());
+            Optional<ConnectorPartitionHandle> connectorPartitionHandle = partitionedSplit == null ? Optional.empty() : partitionedSplit.getSplit().getConnectorPartitionHandle();
+            DriverContext driverContext = pipelineContext.addDriverContext(splitWeight, lifespan, connectorPartitionHandle, driverFactory.getFragmentResultCacheContext());
             return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan);
         }
 
