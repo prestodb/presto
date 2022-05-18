@@ -1956,6 +1956,49 @@ TEST_P(TableScanTest, addSplitsToFailedTask) {
   cursor->task()->setMaxSplitSequenceId(scanNodeId, 20L);
 }
 
+TEST_P(TableScanTest, errorInLoadLazy) {
+  // We need verify hook from async cache to trigger the failure
+  if (!useAsyncCache_) {
+    GTEST_SKIP();
+  }
+
+  auto cache =
+      dynamic_cast<cache::AsyncDataCache*>(memory::MappedMemory::getInstance());
+  VELOX_CHECK_NOT_NULL(cache);
+
+  auto vectors = makeVectors(10, 1'000);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vectors);
+
+  int32_t counter = 0;
+  cache->setVerifyHook([&](const cache::AsyncDataCacheEntry&) {
+    if (++counter >= 7) {
+      VELOX_FAIL("Testing error");
+    }
+  });
+
+  class HookCleaner {
+   public:
+    explicit HookCleaner(cache::AsyncDataCache* cache) : cache_(cache) {}
+    ~HookCleaner() {
+      cache_->setVerifyHook(nullptr);
+    }
+    cache::AsyncDataCache* cache_;
+  } hookCleaner(cache);
+
+  auto planNode = exec::test::PlanBuilder()
+                      .tableScan(ROW({"c0"}, {INTEGER()}))
+                      .project({"c0"})
+                      .planNode();
+
+  try {
+    assertQuery(planNode, {filePath}, "");
+    FAIL() << "Excepted exception";
+  } catch (VeloxException& ex) {
+    EXPECT_TRUE(ex.context().find(filePath->path, 0) != std::string::npos);
+  }
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableScanTests,
     TableScanTest,
