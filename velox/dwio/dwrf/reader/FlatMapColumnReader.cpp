@@ -144,7 +144,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
         // if this branch (sequence) is not in the node list yet
         if (processed.count(sequence) == 0) {
           EncodingKey seqEk(dataValueType->id, sequence);
-          auto keyInfo = stripe.getEncoding(seqEk).key();
+          const auto& keyInfo = stripe.getEncoding(seqEk).key();
           auto key = extractKey<T>(keyInfo);
           // check if we have key filter passed through read schema
           if (keyPredicate(key)) {
