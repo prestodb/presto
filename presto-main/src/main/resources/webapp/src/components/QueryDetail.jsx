@@ -1073,9 +1073,14 @@ export class QueryDetail extends React.Component {
         }
     }
 
-    renderMetricValue(name, value) {
-      if (name.includes("Nanos")) return formatDuration(parseDuration(value+ "ns"));
-      return formatCount(value);
+    renderMetricValue(unit, value) {
+      if (unit === "NANO") {
+          return formatDuration(parseDuration(value+ "ns"));
+      }
+      if (unit === "BYTE") {
+          return formatDataSize(value);
+      }
+      return formatCount(value); // NONE
     }
 
     renderRuntimeStats() {
@@ -1103,10 +1108,10 @@ export class QueryDetail extends React.Component {
                              .map((metric) =>
                                  <tr>
                                      <td className="info-text">{metric.name}</td>
-                                     <td className="info-text">{this.renderMetricValue(metric.name, metric.sum)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.sum)}</td>
                                      <td className="info-text">{formatCount(metric.count)}</td>
-                                     <td className="info-text">{this.renderMetricValue(metric.name, metric.min)}</td>
-                                     <td className="info-text">{this.renderMetricValue(metric.name, metric.max)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.min)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.max)}</td>
                                  </tr>
                              )
                          }

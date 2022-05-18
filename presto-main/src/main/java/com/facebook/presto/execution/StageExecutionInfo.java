@@ -39,6 +39,7 @@ import static com.facebook.presto.common.RuntimeMetricName.TASK_BLOCKED_TIME_NAN
 import static com.facebook.presto.common.RuntimeMetricName.TASK_ELAPSED_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_QUEUED_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_SCHEDULED_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.StageExecutionState.FINISHED;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -114,7 +115,7 @@ public class StageExecutionInfo
 
         Map<String, OperatorStats> operatorToStats = new HashMap<>();
         RuntimeStats mergedRuntimeStats = new RuntimeStats();
-        mergedRuntimeStats.addMetricValueIgnoreZero(GET_SPLITS_TIME_NANOS, NONE, (long) getSplitDistribution.getTotal());
+        mergedRuntimeStats.addMetricValueIgnoreZero(GET_SPLITS_TIME_NANOS, NANO, (long) getSplitDistribution.getTotal());
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
@@ -181,10 +182,10 @@ public class StageExecutionInfo
             }
             mergedRuntimeStats.mergeWith(taskStats.getRuntimeStats());
             mergedRuntimeStats.addMetricValue(DRIVER_COUNT_PER_TASK, NONE, taskStats.getTotalDrivers());
-            mergedRuntimeStats.addMetricValue(TASK_ELAPSED_TIME_NANOS, NONE, taskStats.getElapsedTimeInNanos());
-            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_QUEUED_TIME_NANOS, NONE, taskStats.getQueuedTimeInNanos());
-            mergedRuntimeStats.addMetricValue(TASK_SCHEDULED_TIME_NANOS, NONE, taskStats.getTotalScheduledTimeInNanos());
-            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_BLOCKED_TIME_NANOS, NONE, taskStats.getTotalBlockedTimeInNanos());
+            mergedRuntimeStats.addMetricValue(TASK_ELAPSED_TIME_NANOS, NANO, taskStats.getElapsedTimeInNanos());
+            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_QUEUED_TIME_NANOS, NANO, taskStats.getQueuedTimeInNanos());
+            mergedRuntimeStats.addMetricValue(TASK_SCHEDULED_TIME_NANOS, NANO, taskStats.getTotalScheduledTimeInNanos());
+            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_BLOCKED_TIME_NANOS, NANO, taskStats.getTotalBlockedTimeInNanos());
         }
 
         StageExecutionStats stageExecutionStats = new StageExecutionStats(

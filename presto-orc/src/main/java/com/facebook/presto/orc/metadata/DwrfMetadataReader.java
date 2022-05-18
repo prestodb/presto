@@ -108,7 +108,7 @@ public class DwrfMetadataReader
             stripeCacheLength = OptionalInt.of(postScript.getCacheSize());
             stripeCacheMode = Optional.of(toStripeCacheMode(postScript.getCacheMode()));
         }
-        runtimeStats.addMetricValue("DwrfReadPostScriptTimeNanos", RuntimeUnit.NONE, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("DwrfReadPostScriptTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         return new PostScript(
                 ImmutableList.of(),
@@ -150,7 +150,7 @@ public class DwrfMetadataReader
             EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(encryption.get().getKeyProvider());
             fileStats = decryptAndCombineFileStatistics(hiveWriterVersion, encryption.get(), encryptionLibrary, fileStats, fileStripes, keys, orcDataSource, decompressor);
         }
-        runtimeStats.addMetricValue("DwrfReadFooterTimeNanos", RuntimeUnit.NONE, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("DwrfReadFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         OptionalLong rawSize = footer.hasRawDataSize() ? OptionalLong.of(footer.getRawDataSize()) : OptionalLong.empty();
         return new Footer(
@@ -320,7 +320,7 @@ public class DwrfMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeFooter stripeFooter = DwrfProto.StripeFooter.parseFrom(input);
-        runtimeStats.addMetricValue("DwrfReadStripeFooterTimeNanos", RuntimeUnit.NONE, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("DwrfReadStripeFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new StripeFooter(
                 toStream(orcDataSourceId, stripeFooter.getStreamsList()),
                 toColumnEncoding(types, stripeFooter.getColumnsList()),
@@ -426,7 +426,7 @@ public class DwrfMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.RowIndex rowIndex = DwrfProto.RowIndex.parseFrom(input);
-        runtimeStats.addMetricValue("DwrfReadRowIndexesTimeNanos", RuntimeUnit.NONE, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("DwrfReadRowIndexesTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return IntStream.range(0, rowIndex.getEntryCount())
                 .mapToObj(i -> toRowGroupIndex(hiveWriterVersion, rowIndex.getEntry(i), bloomFilters == null || bloomFilters.isEmpty() ? null : bloomFilters.get(i)))
                 .collect(toImmutableList());
