@@ -489,7 +489,7 @@ TEST_P(PlanConversionTest, queryTest) {
     auto size = rv->size();
     ASSERT_EQ(size, 1);
     std::string res = rv->toString(0);
-    ASSERT_EQ(res, "{ [child at 0]: 13613.1921}");
+    ASSERT_EQ(res, "{13613.1921}");
   }
 }
 

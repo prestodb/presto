@@ -449,12 +449,23 @@ std::string BaseVector::toString(vector_size_t index) const {
   return out.str();
 }
 
-std::string BaseVector::toString(vector_size_t from, vector_size_t to) const {
+std::string BaseVector::toString(
+    vector_size_t from,
+    vector_size_t to,
+    const std::string& delimiter,
+    bool includeRowNumbers) const {
+  const auto start = std::max(0, std::min<int32_t>(from, length_));
+  const auto end = std::max(0, std::min<int32_t>(to, length_));
+
   std::stringstream out;
-  for (auto i = std::min<int32_t>(from, length_);
-       i < std::min<int32_t>(to, length_);
-       ++i) {
-    out << i << ": " << toString(i) << std::endl;
+  for (auto i = start; i < end; ++i) {
+    if (i > start) {
+      out << delimiter;
+    }
+    if (includeRowNumbers) {
+      out << i << ": ";
+    }
+    out << toString(i);
   }
   return out.str();
 }

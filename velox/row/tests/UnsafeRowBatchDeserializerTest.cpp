@@ -519,7 +519,7 @@ TEST_F(UnsafeRowBatchDeserializerTest, NestedMap) {
   ASSERT_EQ(1, outerMapVectorPtr->size());
   EXPECT_EQ(
       outerMapVectorPtr->toString(0),
-      "2 elements starting at 0 {1 = 2 elements starting at 0 {2 = 3,\n 4 = null},\n 6 = 1 elements starting at 2 {7 = 8}}");
+      "2 elements starting at 0 {1 => 2 elements starting at 0 {2 => 3, 4 => null}, 6 => 1 elements starting at 2 {7 => 8}}");
   ASSERT_TRUE(checkVectorMetadata(
       outerMapVectorPtr,
       outerMapSize,
@@ -629,11 +629,11 @@ TEST_F(UnsafeRowBatchDeserializerTest, RowVector) {
 
   EXPECT_EQ(
       rowVectorPtr->toString(0),
-      "{ [child at 0]: 72340172838076673, null, 11259375, 1234, null, \
+      "{72340172838076673, null, 11259375, 1234, null, \
 Make time for civilization, for civilization wont make time.}");
   EXPECT_EQ(
       rowVectorPtr->toString(1),
-      "{ [child at 1]: 72340172838076673, null, 11259375, 1234, null, \
+      "{72340172838076673, null, 11259375, 1234, null, \
 Im a string with 30 characters}");
 }
 

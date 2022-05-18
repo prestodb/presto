@@ -172,6 +172,8 @@ class SimpleVector : public BaseVector {
     return false;
   }
 
+  using BaseVector::toString;
+
   std::string toString(vector_size_t index) const override {
     std::stringstream out;
     if (isNullAt(index)) {

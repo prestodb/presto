@@ -659,7 +659,11 @@ class BaseVector {
 
   virtual std::string toString(vector_size_t index) const;
 
-  std::string toString(vector_size_t from, vector_size_t to) const;
+  std::string toString(
+      vector_size_t from,
+      vector_size_t to,
+      const std::string& delimiter = "\n",
+      bool includeRowNumbers = true) const;
 
   void setCodegenOutput() {
     isCodegenOutput_ = true;

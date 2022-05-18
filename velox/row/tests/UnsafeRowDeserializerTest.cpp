@@ -888,11 +888,11 @@ TYPED_TEST(UnsafeRowVectorDeserializerTest, RowVector) {
 
   EXPECT_EQ(
       rowVectorPtr->toString(0),
-      "{ [child at 0]: 72340172838076673, null, 11259375, 1234, null, \
+      "{72340172838076673, null, 11259375, 1234, null, \
 Make time for civilization, for civilization wont make time.}");
   EXPECT_EQ(
       rowVectorPtr->toString(1),
-      "{ [child at 1]: 72340172838076673, null, 11259375, 1234, null, \
+      "{72340172838076673, null, 11259375, 1234, null, \
 Im a string with 30 characters}");
 }
 
