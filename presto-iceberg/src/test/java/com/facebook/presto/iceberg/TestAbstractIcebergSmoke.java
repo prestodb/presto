@@ -707,4 +707,32 @@ public class TestAbstractIcebergSmoke
         assertUpdate("DROP TABLE test_read_empty");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_create_original"));
     }
+
+    @Test
+    public void testBasicTableStatistics()
+    {
+        Session session = getSession();
+        String tableName = "test_basic_table_statistics";
+        assertUpdate(format("CREATE TABLE %s (col REAL)", tableName));
+
+        assertQuery(session, "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "  ('col', null, null, null, NULL, NULL, NULL), " +
+                        "  (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES -10", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 100", 1);
+
+        assertQuery(session, "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "  ('col', 96.0, NULL, 0.0, NULL, '-10.0', '100.0'), " +
+                        "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 200", 1);
+        assertQuery(session, "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "  ('col', 144.0, NULL, 0.0, NULL, '-10.0', '200.0'), " +
+                        "  (NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
+
+        dropTable(session, tableName);
+    }
 }

@@ -73,7 +73,9 @@ public class TableStatisticsMaker
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint)
     {
         if (!tableHandle.getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
-            return TableStatistics.empty();
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(0))
+                    .build();
         }
 
         TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
@@ -81,7 +83,9 @@ public class TableStatisticsMaker
                 .intersect(tableHandle.getPredicate());
 
         if (intersection.isNone()) {
-            return TableStatistics.empty();
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(0))
+                    .build();
         }
 
         List<Types.NestedField> columns = icebergTable.schema().columns();
@@ -163,7 +167,9 @@ public class TableStatisticsMaker
         }
 
         if (summary == null) {
-            return TableStatistics.empty();
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(0))
+                    .build();
         }
 
         double recordCount = summary.getRecordCount();
