@@ -35,7 +35,7 @@ public class HivePartitionObjectBuilder
             PartitionUpdate partitionUpdate,
             String prestoVersion,
             Map<String, String> extraParameters,
-            Optional<Long> partitionVersion)
+            Optional<Partition> previousPartition)
     {
         ImmutableMap.Builder extraParametersBuilder = ImmutableMap.builder()
                 .put(HiveMetadata.PRESTO_VERSION_NAME, prestoVersion)
