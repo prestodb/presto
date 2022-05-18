@@ -14,6 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
@@ -24,11 +26,13 @@ public class HivePartitionHandle
 {
     private final int bucket;
 
-    public HivePartitionHandle(int bucket)
+    @JsonCreator
+    public HivePartitionHandle(@JsonProperty("bucket") int bucket)
     {
         this.bucket = bucket;
     }
 
+    @JsonProperty
     public int getBucket()
     {
         return bucket;

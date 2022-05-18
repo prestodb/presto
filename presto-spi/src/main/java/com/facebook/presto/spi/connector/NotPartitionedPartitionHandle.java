@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+
 public final class NotPartitionedPartitionHandle
         extends ConnectorPartitionHandle
 {
     public static final ConnectorPartitionHandle NOT_PARTITIONED = new NotPartitionedPartitionHandle();
 
-    private NotPartitionedPartitionHandle() {}
+    @JsonCreator
+    public NotPartitionedPartitionHandle() {}
 
     @SuppressWarnings({"EqualsWhichDoesntCheckParameterClass", "ObjectEquality"})
     @Override

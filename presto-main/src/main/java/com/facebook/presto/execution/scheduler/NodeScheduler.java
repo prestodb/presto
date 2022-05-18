@@ -407,7 +407,7 @@ public class NodeScheduler
             // if node is full, don't schedule now, which will push back on the scheduling of splits
             if (canAssignSplitToDistributionNode(assignmentStats, node, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splitWeight)) {
                 if (isCacheable) {
-                    split = new Split(split.getConnectorId(), split.getTransactionHandle(), split.getConnectorSplit(), split.getLifespan(), new SplitContext(true));
+                    split = new Split(split.getConnectorId(), split.getTransactionHandle(), split.getConnectorSplit(), split.getLifespan(), new SplitContext(true), split.getConnectorPartitionHandle());
                     nodeSelectionStats.incrementBucketedPreferredNodeSelectedCount();
                 }
                 else {

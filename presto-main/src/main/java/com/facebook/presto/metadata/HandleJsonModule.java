@@ -35,6 +35,7 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(TransactionHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(PartitioningHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(PartitionHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(FunctionHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(MetadataUpdateJacksonModule.class);
 

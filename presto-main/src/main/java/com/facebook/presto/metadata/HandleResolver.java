@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -119,6 +120,11 @@ public class HandleResolver
         return getId(partitioningHandle, MaterializedHandleResolver::getPartitioningHandleClass);
     }
 
+    public String getId(ConnectorPartitionHandle partitionHandle)
+    {
+        return getId(partitionHandle, MaterializedHandleResolver::getPartitionHandleClass);
+    }
+
     public String getId(ConnectorTransactionHandle transactionHandle)
     {
         return getId(transactionHandle, MaterializedHandleResolver::getTransactionHandleClass);
@@ -172,6 +178,11 @@ public class HandleResolver
     public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass(String id)
     {
         return resolverFor(id).getPartitioningHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
+    public Class<? extends ConnectorPartitionHandle> getPartitionHandleClass(String id)
+    {
+        return resolverFor(id).getPartitionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
     public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass(String id)
@@ -241,6 +252,7 @@ public class HandleResolver
         private final Optional<Class<? extends ConnectorOutputTableHandle>> outputTableHandle;
         private final Optional<Class<? extends ConnectorInsertTableHandle>> insertTableHandle;
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
+        private final Optional<Class<? extends ConnectorPartitionHandle>> partitionHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
         private final Optional<Class<? extends ConnectorMetadataUpdateHandle>> metadataUpdateHandle;
 
@@ -254,6 +266,7 @@ public class HandleResolver
             outputTableHandle = getHandleClass(resolver::getOutputTableHandleClass);
             insertTableHandle = getHandleClass(resolver::getInsertTableHandleClass);
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
+            partitionHandle = getHandleClass(resolver::getPartitionHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
             metadataUpdateHandle = getHandleClass(resolver::getMetadataUpdateHandleClass);
         }
@@ -306,6 +319,11 @@ public class HandleResolver
         public Optional<Class<? extends ConnectorPartitioningHandle>> getPartitioningHandleClass()
         {
             return partitioningHandle;
+        }
+
+        public Optional<Class<? extends ConnectorPartitionHandle>> getPartitionHandleClass()
+        {
+            return partitionHandle;
         }
 
         public Optional<Class<? extends ConnectorTransactionHandle>> getTransactionHandleClass()

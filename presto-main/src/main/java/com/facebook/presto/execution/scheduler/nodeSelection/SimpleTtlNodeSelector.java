@@ -212,7 +212,8 @@ public class SimpleTtlNodeSelector
                         split.getTransactionHandle(),
                         split.getConnectorSplit(),
                         split.getLifespan(),
-                        new SplitContext(chosenNodeInfo.get().isCacheable()));
+                        new SplitContext(chosenNodeInfo.get().isCacheable()),
+                        split.getConnectorPartitionHandle());
 
                 InternalNode chosenNode = chosenNodeInfo.get().getInternalNode();
                 assignment.put(chosenNode, split);

@@ -39,6 +39,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
@@ -243,7 +244,8 @@ public class SourcePartitionedScheduler
                                     splitSource.getTransactionHandle(),
                                     new EmptySplit(splitSource.getConnectorId()),
                                     lifespan,
-                                    NON_CACHEABLE));
+                                    NON_CACHEABLE,
+                                    Optional.of(scheduleGroup.partitionHandle)));
                         }
                         scheduleGroup.state = ScheduleGroupState.NO_MORE_SPLITS;
                     }

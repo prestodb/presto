@@ -72,7 +72,8 @@ public class PageSourceManager
                     split.getTransactionHandle(),
                     split.getConnectorSplit(),
                     split.getLifespan(),
-                    new SplitContext(split.getSplitContext().isCacheable(), dynamicFilter.get().get()));
+                    new SplitContext(split.getSplitContext().isCacheable(), dynamicFilter.get().get()),
+                    split.getConnectorPartitionHandle());
         }
 
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
