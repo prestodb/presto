@@ -57,7 +57,8 @@ import java.util.function.Supplier;
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_DATA_BYTES;
 import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_TIME_NANOS;
-import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static com.facebook.presto.common.RuntimeUnit.BYTE;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -362,8 +363,8 @@ public class ScanFilterAndProjectOperator
         operatorContext.recordRawInputWithTiming(inputBytes, positionCount, inputBytesReadTime);
         RuntimeStats runtimeStats = pageSource.getRuntimeStats();
         if (runtimeStats != null) {
-            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_TIME_NANOS, NONE, inputBytesReadTime);
-            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_DATA_BYTES, NONE, inputBytes);
+            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_TIME_NANOS, NANO, inputBytesReadTime);
+            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_DATA_BYTES, BYTE, inputBytes);
             operatorContext.updateStats(runtimeStats);
         }
         completedBytes = endCompletedBytes;

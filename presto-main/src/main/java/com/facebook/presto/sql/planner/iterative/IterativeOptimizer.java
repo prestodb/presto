@@ -40,7 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -175,7 +175,7 @@ public class IterativeOptimizer
         }
         stats.record(rule, duration, !result.isEmpty());
         if (SystemSessionProperties.isVerboseRuntimeStatsEnabled(context.session)) {
-            context.session.getRuntimeStats().addMetricValue(String.format("rule%sTimeNanos", rule.getClass().getSimpleName()), NONE, duration);
+            context.session.getRuntimeStats().addMetricValue(String.format("rule%sTimeNanos", rule.getClass().getSimpleName()), NANO, duration);
         }
 
         return result;
