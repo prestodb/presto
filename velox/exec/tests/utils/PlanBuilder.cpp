@@ -949,6 +949,19 @@ RowTypePtr extract(
   }
   return ROW(std::move(names), std::move(types));
 }
+
+// Rename columns in the given row type.
+RowTypePtr rename(
+    const RowTypePtr& type,
+    const std::vector<std::string>& newNames) {
+  VELOX_CHECK_EQ(
+      type->size(),
+      newNames.size(),
+      "Number of types and new type names should be the same");
+  std::vector<std::string> names{newNames};
+  std::vector<TypePtr> types{type->children()};
+  return ROW(std::move(names), std::move(types));
+}
 } // namespace
 
 PlanBuilder& PlanBuilder::partitionedOutput(
@@ -993,11 +1006,20 @@ PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
 PlanBuilder& PlanBuilder::localPartition(
     const std::vector<std::string>& keys,
     const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
-    const std::vector<std::string>& outputLayout) {
+    const std::vector<std::string>& outputLayout,
+    const std::vector<std::string>& outputRenamedLayout) {
   VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
   auto inputType = sources[0]->outputType();
-  auto outputType = outputLayout.empty() ? sources[0]->outputType()
-                                         : extract(inputType, outputLayout);
+  // Build the type we expect as input from the source(s). The layout can
+  // actually differ from the source's output layout, but the names should
+  // match.
+  auto inputTypeFromSource =
+      outputLayout.empty() ? inputType : extract(inputType, outputLayout);
+  // If specified, rename the output columns.
+  auto outputType = outputRenamedLayout.empty()
+      ? inputTypeFromSource
+      : rename(inputTypeFromSource, outputRenamedLayout);
+
   auto partitionFunctionFactory =
       createPartitionFunctionFactory(inputType, keys);
   planNode_ = std::make_shared<core::LocalPartitionNode>(
@@ -1006,17 +1028,27 @@ PlanBuilder& PlanBuilder::localPartition(
                    : core::LocalPartitionNode::Type::kRepartition,
       partitionFunctionFactory,
       outputType,
-      sources);
+      sources,
+      inputTypeFromSource);
   return *this;
 }
 
 PlanBuilder& PlanBuilder::localPartitionRoundRobin(
     const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
-    const std::vector<std::string>& outputLayout) {
+    const std::vector<std::string>& outputLayout,
+    const std::vector<std::string>& outputRenamedLayout) {
   VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
   auto inputType = sources[0]->outputType();
-  auto outputType = outputLayout.empty() ? sources[0]->outputType()
-                                         : extract(inputType, outputLayout);
+  // Build the type we expect as input from the source(s). The layout can
+  // actually differ from the source's output layout, but the names should
+  // match.
+  auto inputTypeFromSource =
+      outputLayout.empty() ? inputType : extract(inputType, outputLayout);
+  // If specified, rename the output columns.
+  auto outputType = outputRenamedLayout.empty()
+      ? inputTypeFromSource
+      : rename(inputTypeFromSource, outputRenamedLayout);
+
   auto partitionFunctionFactory = [](auto numPartitions) {
     return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
         numPartitions);
@@ -1026,7 +1058,8 @@ PlanBuilder& PlanBuilder::localPartitionRoundRobin(
       core::LocalPartitionNode::Type::kRepartition,
       partitionFunctionFactory,
       outputType,
-      sources);
+      sources,
+      inputTypeFromSource);
   return *this;
 }
 

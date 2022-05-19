@@ -684,12 +684,14 @@ class LocalPartitionNode : public PlanNode {
       Type type,
       PartitionFunctionFactory partitionFunctionFactory,
       RowTypePtr outputType,
-      std::vector<PlanNodePtr> sources)
+      std::vector<PlanNodePtr> sources,
+      RowTypePtr inputTypeFromSource)
       : PlanNode(id),
         type_{type},
         sources_{std::move(sources)},
         partitionFunctionFactory_{std::move(partitionFunctionFactory)},
-        outputType_{std::move(outputType)} {
+        outputType_{std::move(outputType)},
+        inputTypeFromSource_{std::move(inputTypeFromSource)} {
     VELOX_CHECK_GT(
         sources_.size(),
         0,
@@ -699,7 +701,8 @@ class LocalPartitionNode : public PlanNode {
   static std::shared_ptr<LocalPartitionNode> gather(
       const PlanNodeId& id,
       RowTypePtr outputType,
-      std::vector<PlanNodePtr> sources) {
+      std::vector<PlanNodePtr> sources,
+      RowTypePtr inputTypeFromSource) {
     return std::make_shared<LocalPartitionNode>(
         id,
         Type::kGather,
@@ -707,7 +710,8 @@ class LocalPartitionNode : public PlanNode {
           VELOX_UNREACHABLE();
         },
         std::move(outputType),
-        std::move(sources));
+        std::move(sources),
+        std::move(inputTypeFromSource));
   }
 
   Type type() const {
@@ -722,8 +726,8 @@ class LocalPartitionNode : public PlanNode {
     return sources_;
   }
 
-  const RowTypePtr& inputType() const {
-    return sources_[0]->outputType();
+  const RowTypePtr& inputTypeFromSource() const {
+    return inputTypeFromSource_;
   }
 
   const PartitionFunctionFactory& partitionFunctionFactory() const {
@@ -741,6 +745,12 @@ class LocalPartitionNode : public PlanNode {
   const std::vector<PlanNodePtr> sources_;
   const PartitionFunctionFactory partitionFunctionFactory_;
   const RowTypePtr outputType_;
+  /// Input layout from source, describing how data should be fed to our node.
+  /// For all sources the layout should be the same, so we store only one (we
+  /// use the 1st source for that).
+  /// This layout and the output layout for the 1st source would be used to
+  /// created the column mapping in the operator.
+  const RowTypePtr inputTypeFromSource_;
 };
 
 class PartitionedOutputNode : public PlanNode {

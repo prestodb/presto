@@ -600,3 +600,33 @@ TEST_F(LocalPartitionTest, producerError) {
   // blocked forever.
   assertTaskReferenceCount(task, 1);
 }
+
+TEST_F(LocalPartitionTest, unionAll) {
+  auto data1 = makeRowVector(
+      {"d0", "d1"},
+      {makeFlatVector<int32_t>({10, 11}),
+       makeFlatVector<StringView>({"x", "y"})});
+  auto data2 = makeRowVector(
+      {"e0", "e1"},
+      {makeFlatVector<int32_t>({20, 21}),
+       makeFlatVector<StringView>({"z", "w"})});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  // For the partition node, use the 1st source's names to define the output
+  // layout and rename the output columns to be different from the sources'.
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .localPartition(
+              {},
+              {PlanBuilder(planNodeIdGenerator).values({data1}).planNode(),
+               PlanBuilder(planNodeIdGenerator).values({data2}).planNode()},
+              {"d0", "d1"},
+              {"c0", "c1"})
+          .planNode();
+
+  assertQuery(
+      plan,
+      "WITH T1 AS (VALUES (10, 'x'), (11, 'y')), "
+      "T2 AS (VALUES (20, 'z'), (21, 'w')) "
+      "SELECT * FROM T1 UNION ALL SELECT * FROM T2; ");
+}
