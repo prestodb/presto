@@ -17,7 +17,10 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
+
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface ConnectorSplit
 {
@@ -63,5 +66,10 @@ public interface ConnectorSplit
     default SplitWeight getSplitWeight()
     {
         return SplitWeight.standard();
+    }
+
+    default OptionalInt getSplitBucket()
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support bucketing");
     }
 }

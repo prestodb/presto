@@ -297,6 +297,12 @@ public class HiveSplit
     }
 
     @Override
+    public OptionalInt getSplitBucket()
+    {
+        return readBucketNumber;
+    }
+
+    @Override
     public Object getInfo()
     {
         return ImmutableMap.builder()
