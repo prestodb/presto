@@ -14,14 +14,17 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class GroupReference
@@ -64,5 +67,18 @@ public class GroupReference
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public GroupReference deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return new GroupReference(
+                getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                getGroupId(),
+                getOutputVariables());
     }
 }

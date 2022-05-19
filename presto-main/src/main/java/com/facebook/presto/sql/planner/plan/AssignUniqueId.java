@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -84,5 +87,20 @@ public class AssignUniqueId
     {
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
         return new AssignUniqueId(newChildren.get(0).getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), idVariable);
+    }
+
+    @Override
+    public AssignUniqueId deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        variableMappings.put(getIdVariable(), variableAllocator.newVariable(getIdVariable().getSourceLocation(), getIdVariable().getName(), getIdVariable().getType()));
+        PlanNode sourceDeepCopy = getSource().deepCopy(planNodeIdAllocator, variableAllocator, variableMappings);
+        return new AssignUniqueId(
+                getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                sourceDeepCopy,
+                variableMappings.get(getIdVariable()));
     }
 }

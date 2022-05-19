@@ -14,9 +14,12 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
@@ -28,7 +31,9 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
@@ -315,5 +320,43 @@ public class ExchangeNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new ExchangeNode(getSourceLocation(), getId(), type, scope, partitioningScheme, newChildren, inputs, ensureSourceOrdering, orderingScheme);
+    }
+
+    @Override
+    public ExchangeNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        getOutputVariables().stream().forEach(v -> variableMappings.put(v, variableAllocator.newVariable(v.getSourceLocation(), v.getName(), v.getType())));
+        List<PlanNode> sourcesDeepCopy = getSources().stream()
+                .map(planNode -> planNode.deepCopy(planNodeIdAllocator, variableAllocator, variableMappings))
+                .collect(Collectors.toList());
+        List<List<VariableReferenceExpression>> inputsDeepCopy = getInputs()
+                .stream()
+                .map(variables -> variables.stream()
+                        .map(variableMappings::get)
+                        .collect(Collectors.toList()))
+                .collect(Collectors.toList());
+        return new ExchangeNode(
+                getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                getType(),
+                getScope(),
+                new PartitioningScheme(
+                        Partitioning.create(
+                                partitioningScheme.getPartitioning().getHandle(),
+                                partitioningScheme.getPartitioning().getArguments()
+                                        .stream()
+                                        .map(argument -> argument.deepCopy(variableMappings)).collect(Collectors.toList())),
+                        partitioningScheme.getOutputLayout().stream().map(variableMappings::get).collect(Collectors.toList())),
+                sourcesDeepCopy,
+                inputsDeepCopy,
+                isEnsureSourceOrdering(),
+                getOrderingScheme().isPresent() ?
+                        Optional.of(new OrderingScheme(getOrderingScheme().get().getOrderBy().stream()
+                                .map(ordering -> new Ordering(variableMappings.get(ordering.getVariable()), ordering.getSortOrder()))
+                                .collect(Collectors.toList()))) :
+                        Optional.empty());
     }
 }

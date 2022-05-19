@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -96,5 +97,10 @@ public final class VariableReferenceExpression
             return nameComparison;
         }
         return type.getTypeSignature().toString().compareTo(o.type.getTypeSignature().toString());
+    }
+
+    public VariableReferenceExpression deepCopy(Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return variableMappings.get(this);
     }
 }

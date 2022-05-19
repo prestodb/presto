@@ -23,6 +23,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -123,5 +124,15 @@ public final class CallExpression
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitCall(this, context);
+    }
+
+    @Override
+    public CallExpression deepCopy(Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return new CallExpression(
+                getDisplayName(),
+                getFunctionHandle(),
+                getType(),
+                arguments.stream().map(argument -> argument.deepCopy(variableMappings)).collect(Collectors.toList()));
     }
 }

@@ -106,6 +106,12 @@ public final class LambdaDefinitionExpression
     }
 
     @Override
+    public LambdaDefinitionExpression deepCopy(Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return new LambdaDefinitionExpression(getSourceLocation(), getArgumentTypes(), getArguments(), getBody().deepCopy(variableMappings));
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(argumentTypes, canonicalizedBody);

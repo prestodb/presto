@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -23,13 +24,14 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @Immutable
 public final class ValuesNode
@@ -47,7 +49,7 @@ public final class ValuesNode
     {
         super(sourceLocation, id);
         this.outputVariables = immutableListCopyOf(outputVariables);
-        this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(Collectors.toList()));
+        this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(toList()));
 
         for (List<RowExpression> row : rows) {
             if (!(row.size() == outputVariables.size() || row.isEmpty())) {
@@ -93,5 +95,28 @@ public final class ValuesNode
     private static <T> List<T> immutableListCopyOf(List<T> list)
     {
         return unmodifiableList(new ArrayList<>(requireNonNull(list, "list is null")));
+    }
+
+    public ValuesNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        List<VariableReferenceExpression> outputVariablesCopy = new ArrayList<>();
+        for (VariableReferenceExpression variable : getOutputVariables()) {
+            variableMappings.put(variable, variableAllocator.newVariable(variable.getSourceLocation(), variable.getName(), variable.getType()));
+            outputVariablesCopy.add(variableMappings.get(variable));
+        }
+
+        List<List<RowExpression>> rowsCopy = new ArrayList<>();
+        for (List<RowExpression> columns : getRows()) {
+            List<RowExpression> columnsCopy = new ArrayList<>();
+            for (RowExpression item : columns) {
+                columnsCopy.add(item.deepCopy(variableMappings));
+            }
+            rowsCopy.add(unmodifiableList(new ArrayList<>(columnsCopy)));
+        }
+
+        return new ValuesNode(getSourceLocation(), planNodeIdAllocator.getNextId(), unmodifiableList(outputVariablesCopy), unmodifiableList(rowsCopy));
     }
 }

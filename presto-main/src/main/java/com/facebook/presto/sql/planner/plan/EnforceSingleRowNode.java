@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,6 +27,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -74,5 +77,16 @@ public class EnforceSingleRowNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new EnforceSingleRowNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren));
+    }
+
+    public EnforceSingleRowNode deepCopy(
+            PlanNodeIdAllocator planNodeIdAllocator,
+            VariableAllocator variableAllocator,
+            Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return new EnforceSingleRowNode(
+                getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                getSource().deepCopy(planNodeIdAllocator, variableAllocator, variableMappings));
     }
 }

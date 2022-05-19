@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -113,5 +114,11 @@ public final class ConstantExpression
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitConstant(this, context);
+    }
+
+    @Override
+    public ConstantExpression deepCopy(Map<VariableReferenceExpression, VariableReferenceExpression> variableMappings)
+    {
+        return new ConstantExpression(getSourceLocation(), getValue(), getType());
     }
 }
