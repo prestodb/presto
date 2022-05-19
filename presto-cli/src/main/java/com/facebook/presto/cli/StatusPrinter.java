@@ -19,6 +19,7 @@ import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.RuntimeMetric;
+import com.facebook.presto.common.RuntimeUnit;
 import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
@@ -150,14 +151,15 @@ Spilled: 20GB
         printQueryInfo(client.currentStatusInfo(), warningsPrinter);
     }
 
-    private String autoFormatMetricValue(String name, long value)
+    private String autoFormatMetricValue(RuntimeUnit unit, long value)
     {
-        // TODO: The current implementation of detecting metric type is hacky. An better solution is to add an enum to RuntimeMetric to track its type. But since there are no
-        // other use cases, it is too heavy to implement. We can revisit this when there are new use cases.
-        if (name.contains("Nanos")) {
+        if (unit == RuntimeUnit.NANO) {
             return formatTime(Duration.succinctNanos(value));
         }
-        return formatCount(value);
+        if (unit == RuntimeUnit.BYTE) {
+            return formatDataSize(bytes(value), true);
+        }
+        return formatCount(value); // NONE
     }
 
     public void printFinalInfo()
@@ -233,10 +235,10 @@ Spilled: 20GB
                 stats.getRuntimeStats().getMetrics().values().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
                         metric -> reprintLine(format("%s: sum=%s count=%s min=%s max=%s",
                                 metric.getName(),
-                                autoFormatMetricValue(metric.getName(), metric.getSum()),
+                                autoFormatMetricValue(metric.getUnit(), metric.getSum()),
                                 formatCount(metric.getCount()),
-                                autoFormatMetricValue(metric.getName(), metric.getMin()),
-                                autoFormatMetricValue(metric.getName(), metric.getMax()))));
+                                autoFormatMetricValue(metric.getUnit(), metric.getMin()),
+                                autoFormatMetricValue(metric.getUnit(), metric.getMax()))));
             }
         }
 
@@ -343,10 +345,10 @@ Spilled: 20GB
                     stats.getRuntimeStats().getMetrics().values().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
                             metric -> reprintLine(format("%s: sum=%s count=%s min=%s max=%s",
                                     metric.getName(),
-                                    autoFormatMetricValue(metric.getName(), metric.getSum()),
+                                    autoFormatMetricValue(metric.getUnit(), metric.getSum()),
                                     formatCount(metric.getCount()),
-                                    autoFormatMetricValue(metric.getName(), metric.getMin()),
-                                    autoFormatMetricValue(metric.getName(), metric.getMax()))));
+                                    autoFormatMetricValue(metric.getUnit(), metric.getMin()),
+                                    autoFormatMetricValue(metric.getUnit(), metric.getMax()))));
                 }
             }
 

@@ -75,6 +75,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.RuntimeUnit.BYTE;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.CHAR;
@@ -283,14 +285,14 @@ public class ParquetPageSourceFactory
                     blocks.add(block);
                     blockStarts.add(nextStart);
                     blockIndexStores.add(columnIndexStore.orElse(null));
-                    hiveFileContext.incrementCounter("parquet.blocksRead", 1);
-                    hiveFileContext.incrementCounter("parquet.rowsRead", block.getRowCount());
-                    hiveFileContext.incrementCounter("parquet.totalBytesRead", block.getTotalByteSize());
+                    hiveFileContext.incrementCounter("parquet.blocksRead", NONE, 1);
+                    hiveFileContext.incrementCounter("parquet.rowsRead", NONE, block.getRowCount());
+                    hiveFileContext.incrementCounter("parquet.totalBytesRead", BYTE, block.getTotalByteSize());
                 }
                 else {
-                    hiveFileContext.incrementCounter("parquet.blocksSkipped", 1);
-                    hiveFileContext.incrementCounter("parquet.rowsSkipped", block.getRowCount());
-                    hiveFileContext.incrementCounter("parquet.totalBytesSkipped", block.getTotalByteSize());
+                    hiveFileContext.incrementCounter("parquet.blocksSkipped", NONE, 1);
+                    hiveFileContext.incrementCounter("parquet.rowsSkipped", NONE, block.getRowCount());
+                    hiveFileContext.incrementCounter("parquet.totalBytesSkipped", BYTE, block.getTotalByteSize());
                 }
                 nextStart += block.getRowCount();
             }
