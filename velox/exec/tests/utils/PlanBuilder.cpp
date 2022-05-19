@@ -400,6 +400,12 @@ PlanBuilder& PlanBuilder::tableScan(
       subfield = common::Subfield(it->second);
     }
 
+    VELOX_CHECK_EQ(
+        filters.count(subfield),
+        0,
+        "Duplicate subfield: {}",
+        subfield.toString());
+
     filters[std::move(subfield)] = std::move(subfieldFilter);
   }
 

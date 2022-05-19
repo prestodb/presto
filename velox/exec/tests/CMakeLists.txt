@@ -44,6 +44,7 @@ add_executable(
   MergeTest.cpp
   MergeJoinTest.cpp
   HashJoinTest.cpp
+  PlanBuilderTest.cpp
   PlanNodeToStringTest.cpp
   FunctionSignatureBuilderTest.cpp
   SimpleFunctionResolutionTest.cpp
