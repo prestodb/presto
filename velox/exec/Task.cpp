@@ -1090,6 +1090,7 @@ ContinueFuture Task::terminate(TaskState terminalState) {
 
   std::vector<ContinuePromise> splitPromises;
   std::vector<std::shared_ptr<JoinBridge>> oldBridges;
+  std::vector<SplitGroupState> splitGroupStates;
   {
     std::lock_guard<std::mutex> l(mutex_);
     // Collect all the join bridges to clear them.
@@ -1097,7 +1098,7 @@ ContinueFuture Task::terminate(TaskState terminalState) {
       for (auto& pair : splitGroupState.second.bridges) {
         oldBridges.emplace_back(std::move(pair.second));
       }
-      splitGroupState.second.clear();
+      splitGroupStates.push_back(std::move(splitGroupState.second));
     }
 
     // Collect all outstanding split promises from all splits state structures.
@@ -1106,6 +1107,10 @@ ContinueFuture Task::terminate(TaskState terminalState) {
         movePromisesOut(it.second.splitPromises, splitPromises);
       }
     }
+  }
+
+  for (auto& splitGroupState : splitGroupStates) {
+    splitGroupState.clear();
   }
 
   for (auto& promise : splitPromises) {
