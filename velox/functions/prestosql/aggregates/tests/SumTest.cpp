@@ -197,6 +197,27 @@ TEST_F(SumTest, emptyValues) {
   assertQuery(agg, "SELECT 1 LIMIT 0");
 }
 
+/// Test aggregating over lots of null values.
+TEST_F(SumTest, nulls) {
+  vector_size_t size = 10'000;
+  auto data = {makeRowVector(
+      {"a", "b"},
+      {
+          makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+          makeFlatVector<int32_t>(
+              size, [](auto row) { return row; }, nullEvery(3)),
+      })};
+  createDuckDbTable(data);
+
+  auto plan = PlanBuilder()
+                  .values(data)
+                  .partialAggregation({"a"}, {"sum(b) AS sum_b"})
+                  .finalAggregation()
+                  .planNode();
+
+  assertQuery(plan, "SELECT a, sum(b) as sum_b FROM tmp GROUP BY 1");
+}
+
 struct SumRow {
   char nulls;
   int64_t sum;

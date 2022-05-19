@@ -263,7 +263,7 @@ class Aggregate {
 
   static void clearNull(uint64_t* rawNulls, vector_size_t index) {
     if (rawNulls) {
-      bits::clearBit(rawNulls, index);
+      bits::clearNull(rawNulls, index);
     }
   }
 
