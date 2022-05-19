@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include "velox/type/Type.h"
-#include <gtest/gtest.h>
 #include <sstream>
+#include "velox/common/base/tests/GTestUtils.h"
 
 using namespace facebook;
 using namespace facebook::velox;
@@ -272,7 +272,8 @@ TEST(TypeTest, row) {
   EXPECT_THROW(row0->nameOf(4), std::out_of_range);
   EXPECT_THROW(row0->findChild("not_exist"), VeloxUserError);
   // todo: expected case behavior?:
-  EXPECT_THROW(row0->findChild("A"), VeloxUserError);
+  VELOX_ASSERT_THROW(
+      row0->findChild("A"), "Field not found: A. Available fields are: a, b.");
   EXPECT_EQ(row0->childAt(1)->toString(), "ROW<a:BIGINT>");
   EXPECT_EQ(row0->findChild("b")->toString(), "ROW<a:BIGINT>");
   EXPECT_EQ(row0->findChild("b")->asRow().findChild("a")->toString(), "BIGINT");

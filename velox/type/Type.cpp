@@ -281,6 +281,24 @@ const std::shared_ptr<const Type>& RowType::childAt(uint32_t idx) const {
   return children_.at(idx);
 }
 
+namespace {
+template <typename T>
+std::string makeFieldNotFoundErrorMessage(
+    const T& name,
+    const std::vector<std::string>& availableNames) {
+  std::stringstream errorMessage;
+  errorMessage << "Field not found: " << name << ". Available fields are: ";
+  for (auto i = 0; i < availableNames.size(); ++i) {
+    if (i > 0) {
+      errorMessage << ", ";
+    }
+    errorMessage << availableNames[i];
+  }
+  errorMessage << ".";
+  return errorMessage.str();
+}
+} // namespace
+
 const std::shared_ptr<const Type>& RowType::findChild(
     folly::StringPiece name) const {
   for (uint32_t i = 0; i < names_.size(); ++i) {
@@ -288,7 +306,7 @@ const std::shared_ptr<const Type>& RowType::findChild(
       return children_.at(i);
     }
   }
-  VELOX_USER_FAIL("Field not found: {}", name);
+  VELOX_USER_FAIL(makeFieldNotFoundErrorMessage(name, names_));
 }
 
 bool RowType::containsChild(std::string_view name) const {
@@ -297,7 +315,9 @@ bool RowType::containsChild(std::string_view name) const {
 
 uint32_t RowType::getChildIdx(const std::string& name) const {
   auto index = getChildIdxIfExists(name);
-  VELOX_USER_CHECK(index.has_value(), "Field not found: {}", name);
+  if (!index.has_value()) {
+    VELOX_USER_FAIL(makeFieldNotFoundErrorMessage(name, names_));
+  }
   return index.value();
 }
 

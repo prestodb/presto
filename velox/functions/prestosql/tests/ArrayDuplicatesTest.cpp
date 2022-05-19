@@ -184,18 +184,18 @@ TEST_F(ArrayDuplicatesTest, invalidTypes) {
       testExpr(expected, "array_duplicates(1)", {array}),
       std::invalid_argument);
   EXPECT_THROW(
-      testExpr(expected, "array_duplicates(C0, CO)", {array, array}),
+      testExpr(expected, "array_duplicates(c0, c0)", {array, array}),
       std::invalid_argument);
   EXPECT_THROW(
       testExpr(expected, "array_duplicates(ARRAY[1], 1)", {array}),
       std::invalid_argument);
   EXPECT_THROW(
       testExpr(expected, "array_duplicates(ARRAY[ARRAY[1]])", {array}),
-      facebook::velox::VeloxUserError);
+      VeloxUserError);
   EXPECT_THROW(
       testExpr(expected, "array_duplicates()", {array}), std::invalid_argument);
 
-  EXPECT_NO_THROW(testExpr(expected, "array_duplicates(C0)", {array}));
+  EXPECT_NO_THROW(testExpr(expected, "array_duplicates(c0)", {array}));
 }
 
 TEST_F(ArrayDuplicatesTest, invalidBooleanElementType) {

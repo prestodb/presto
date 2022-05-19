@@ -34,8 +34,7 @@ Expressions::lambdaRegistry() {
 }
 
 namespace {
-std::vector<TypePtr> getTypes(
-    const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs) {
+std::vector<TypePtr> getTypes(const std::vector<TypedExprPtr>& inputs) {
   std::vector<std::shared_ptr<const Type>> types{};
   for (auto& i : inputs) {
     types.push_back(i->type());
@@ -45,7 +44,7 @@ std::vector<TypePtr> getTypes(
 
 // Determine output type based on input types.
 std::shared_ptr<const Type> resolveTypeImpl(
-    std::vector<std::shared_ptr<const core::ITypedExpr>> inputs,
+    std::vector<TypedExprPtr> inputs,
     const std::shared_ptr<const CallExpr>& expr) {
   // Check expressions which aren't simple functions, e.g. vector functions,
   // and/or, try, etc.
@@ -65,7 +64,7 @@ std::shared_ptr<const Type> resolveTypeImpl(
 namespace {
 std::shared_ptr<const core::CastTypedExpr> makeTypedCast(
     const TypePtr& type,
-    const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs) {
+    const std::vector<TypedExprPtr>& inputs) {
   return std::make_shared<const core::CastTypedExpr>(type, inputs, false);
 }
 
@@ -110,11 +109,10 @@ std::vector<TypePtr> implicitCastTargets(const TypePtr& type) {
 // All acceptable implicit casts on this expression.
 // TODO: If we get this to be recursive somehow, we can save on cast function
 // signatures that need to be compiled and registered.
-std::vector<std::shared_ptr<const core::ITypedExpr>> genImplicitCasts(
-    const std::shared_ptr<const core::ITypedExpr>& typedExpr) {
+std::vector<TypedExprPtr> genImplicitCasts(const TypedExprPtr& typedExpr) {
   auto targetTypes = implicitCastTargets(typedExpr->type());
 
-  std::vector<std::shared_ptr<const core::ITypedExpr>> implicitCasts;
+  std::vector<TypedExprPtr> implicitCasts;
   implicitCasts.reserve(targetTypes.size());
   for (auto targetType : targetTypes) {
     implicitCasts.emplace_back(makeTypedCast(targetType, {typedExpr}));
@@ -123,8 +121,8 @@ std::vector<std::shared_ptr<const core::ITypedExpr>> genImplicitCasts(
 }
 
 // TODO: Arguably all of this could be done with just Types.
-std::shared_ptr<const core::ITypedExpr> adjustLastNArguments(
-    std::vector<std::shared_ptr<const core::ITypedExpr>> inputs,
+TypedExprPtr adjustLastNArguments(
+    std::vector<TypedExprPtr> inputs,
     const std::shared_ptr<const CallExpr>& expr,
     size_t n) {
   auto type = resolveTypeImpl(inputs, expr);
@@ -139,8 +137,7 @@ std::shared_ptr<const core::ITypedExpr> adjustLastNArguments(
 
   size_t firstOfLastN = inputs.size() - n;
   // use it
-  std::vector<std::shared_ptr<const core::ITypedExpr>> viableExprs{
-      inputs[firstOfLastN]};
+  std::vector<TypedExprPtr> viableExprs{inputs[firstOfLastN]};
   // or lose it
   auto&& implicitCasts = genImplicitCasts(inputs[firstOfLastN]);
   std::move(
@@ -161,7 +158,7 @@ std::shared_ptr<const core::ITypedExpr> adjustLastNArguments(
 
 std::string toString(
     const std::shared_ptr<const core::CallExpr>& expr,
-    const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs) {
+    const std::vector<TypedExprPtr>& inputs) {
   std::ostringstream signature;
   signature << expr->getFunctionName() << "(";
   for (auto i = 0; i < inputs.size(); i++) {
@@ -174,9 +171,9 @@ std::string toString(
   return signature.str();
 }
 
-std::shared_ptr<const core::ITypedExpr> createWithImplicitCast(
+TypedExprPtr createWithImplicitCast(
     std::shared_ptr<const core::CallExpr> expr,
-    std::vector<std::shared_ptr<const core::ITypedExpr>> inputs) {
+    std::vector<TypedExprPtr> inputs) {
   auto adjusted = adjustLastNArguments(inputs, expr, inputs.size());
   if (adjusted) {
     return adjusted;
@@ -211,7 +208,7 @@ std::shared_ptr<const LambdaTypedExpr> Expressions::lookupLambdaExpr(
   return nullptr;
 }
 
-std::shared_ptr<const core::ITypedExpr> Expressions::inferTypes(
+TypedExprPtr Expressions::inferTypes(
     const std::shared_ptr<const core::IExpr>& expr,
     const std::shared_ptr<const Type>& inputRow,
     memory::MemoryPool* pool) {
@@ -219,46 +216,30 @@ std::shared_ptr<const core::ITypedExpr> Expressions::inferTypes(
   if (auto lambdaExpr = lookupLambdaExpr(expr)) {
     return lambdaExpr;
   }
-  std::vector<std::shared_ptr<const core::ITypedExpr>> children{};
+  std::vector<TypedExprPtr> children;
   for (auto& child : expr->getInputs()) {
     children.push_back(inferTypes(child, inputRow, pool));
   }
   if (auto fae = std::dynamic_pointer_cast<const FieldAccessExpr>(expr)) {
-    if (fae->getFieldName() == "") {
-      throw std::invalid_argument{"Cannot refer to anonymous columns"};
-    }
-    if (children.size() != 1) {
-      throw std::invalid_argument{"unwanted children"};
-    }
+    VELOX_CHECK(
+        !fae->getFieldName().empty(), "Anonymous columns are not supported");
+    VELOX_CHECK_EQ(
+        children.size(), 1, "Unexpected number of children in FieldAccessExpr");
     auto input = children.at(0)->type();
-    bool found = false;
-    size_t foundIndex;
     auto& row = input->asRow();
-    for (size_t idx = 0; idx < input->size(); ++idx) {
-      if (row.nameOf(idx) == fae->getFieldName()) {
-        if (found) {
-          throw std::invalid_argument{
-              "duplicate field: " + fae->getFieldName()};
-        } else {
-          found = true;
-          foundIndex = idx;
-        }
-      }
-    }
-    if (!found) {
-      throw std::invalid_argument{
-          "couldn't find field: " + fae->getFieldName()};
-    }
+    auto childIndex = row.getChildIdx(fae->getFieldName());
     return std::make_shared<FieldAccessTypedExpr>(
-        input->childAt(foundIndex),
+        input->childAt(childIndex),
         children.at(0),
         std::string{fae->getFieldName()});
-  } else if (auto fun = std::dynamic_pointer_cast<const CallExpr>(expr)) {
+  }
+  if (auto fun = std::dynamic_pointer_cast<const CallExpr>(expr)) {
     return createWithImplicitCast(move(fun), move(children));
-  } else if (auto input = std::dynamic_pointer_cast<const InputExpr>(expr)) {
+  }
+  if (auto input = std::dynamic_pointer_cast<const InputExpr>(expr)) {
     return std::make_shared<const InputTypedExpr>(inputRow);
-  } else if (
-      auto constant = std::dynamic_pointer_cast<const ConstantExpr>(expr)) {
+  }
+  if (auto constant = std::dynamic_pointer_cast<const ConstantExpr>(expr)) {
     if (constant->type()->kind() == TypeKind::ARRAY) {
       // Transform variant vector into an ArrayVector, then wrap it into a
       // ConstantVector<ComplexType>.
@@ -271,16 +252,16 @@ std::shared_ptr<const core::ITypedExpr> Expressions::inferTypes(
       return std::make_shared<const ConstantTypedExpr>(constantVector);
     }
     return std::make_shared<const ConstantTypedExpr>(constant->value());
-  } else if (auto cast = std::dynamic_pointer_cast<const CastExpr>(expr)) {
+  }
+  if (auto cast = std::dynamic_pointer_cast<const CastExpr>(expr)) {
     return std::make_shared<const CastTypedExpr>(
         cast->type(), move(children), cast->nullOnFailure());
-  } else if (
-      auto alreadyTyped = std::dynamic_pointer_cast<const ITypedExpr>(expr)) {
+  }
+  if (auto alreadyTyped = std::dynamic_pointer_cast<const ITypedExpr>(expr)) {
     return alreadyTyped;
   }
-  std::string s{"unknown expression type: "};
-  s.append(typeid(expr).name());
-  throw std::invalid_argument{s};
+
+  VELOX_FAIL("Unknown expression type: {}", expr->toString());
 }
 
 // This method returns null if the expression doesn't depend on any input row.

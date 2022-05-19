@@ -14,20 +14,11 @@
  * limitations under the License.
  */
 #include "velox/exec/Task.h"
-#include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/vector/tests/VectorTestBase.h"
-
-#define VELOX_ASSERT_THROW(expression, errorMessage)                  \
-  try {                                                               \
-    (expression);                                                     \
-    VELOX_FAIL("Expected an exception");                              \
-  } catch (const VeloxException& e) {                                 \
-    ASSERT_TRUE(e.isUserError());                                     \
-    ASSERT_TRUE(e.message().find(errorMessage) != std::string::npos); \
-  }
 
 using namespace facebook::velox;
 

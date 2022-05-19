@@ -314,16 +314,16 @@ TEST_F(ArrayDistinctTest, invalidTypes) {
   EXPECT_THROW(
       testExpr(expected, "array_distinct(1)", {array}), std::invalid_argument);
   EXPECT_THROW(
-      testExpr(expected, "array_distinct(C0, CO)", {array, array}),
+      testExpr(expected, "array_distinct(c0, c0)", {array, array}),
       std::invalid_argument);
   EXPECT_THROW(
       testExpr(expected, "array_distinct(ARRAY[1], 1)", {array}),
       std::invalid_argument);
   EXPECT_THROW(
       testExpr(expected, "array_distinct(ARRAY[ARRAY[1]])", {array}),
-      facebook::velox::VeloxUserError);
+      VeloxUserError);
   EXPECT_THROW(
       testExpr(expected, "array_distinct()", {array}), std::invalid_argument);
 
-  EXPECT_NO_THROW(testExpr(expected, "array_distinct(C0)", {array}));
+  EXPECT_NO_THROW(testExpr(expected, "array_distinct(c0)", {array}));
 }

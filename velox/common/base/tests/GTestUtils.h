@@ -31,3 +31,13 @@
 #else
 #define VELOX_INSTANTIATE_TEST_SUITE_P INSTANTIATE_TEST_CASE_P
 #endif
+
+#define VELOX_ASSERT_THROW(expression, errorMessage)                 \
+  try {                                                              \
+    (expression);                                                    \
+    FAIL() << "Expected an exception";                               \
+  } catch (const VeloxException& e) {                                \
+    ASSERT_TRUE(e.message().find(errorMessage) != std::string::npos) \
+        << "Expected error message to contain '" << errorMessage     \
+        << "', but received '" << e.message() << "'.";               \
+  }
