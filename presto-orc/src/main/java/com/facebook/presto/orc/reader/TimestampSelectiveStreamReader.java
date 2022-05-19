@@ -95,7 +95,7 @@ public class TimestampSelectiveStreamReader
             OrcLocalMemoryContext systemMemoryContext,
             OrcRecordReaderOptions options)
     {
-        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, options.enableTimestampMicroPrecision());
+        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, false);
         requireNonNull(filter, "filter is null");
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
