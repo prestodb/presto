@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DecodeTimestampOptions;
 import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -70,10 +69,10 @@ public class TimestampBatchStreamReader
     private boolean rowGroupOpen;
     private final DecodeTimestampOptions decodeTimestampOptions;
 
-    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcRecordReaderOptions decodeTimestampOptions)
+    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
             throws OrcCorruptionException
     {
-        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, decodeTimestampOptions.enableTimestampMicroPrecision());
+        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, false);
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, TimestampType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");

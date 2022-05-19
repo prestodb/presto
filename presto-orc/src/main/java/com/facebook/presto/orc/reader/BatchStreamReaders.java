@@ -49,7 +49,7 @@ public final class BatchStreamReaders
             case CHAR:
                 return new SliceBatchStreamReader(type, streamDescriptor, systemMemoryContext);
             case TIMESTAMP:
-                return new TimestampBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, options);
+                return new TimestampBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone);
             case LIST:
                 return new ListBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
             case STRUCT:
