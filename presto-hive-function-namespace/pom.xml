@@ -4,7 +4,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.273-SNAPSHOT</version>
+        <version>0.273</version>
     </parent>
 
     <artifactId>presto-hive-function-namespace</artifactId>
