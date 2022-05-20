@@ -542,14 +542,12 @@ class PlanBuilder {
   /// @param outputLayout Optional output layout in case it is different then
   /// the input. Output columns may appear in different order from the input,
   /// some input columns may be missing in the output, some columns may be
-  /// duplicated in the output.
-  /// @param outputRenamedLayout Optional output layout used to change the
-  /// column names in the node's output.
+  /// duplicated in the output. Supports "col AS alias" syntax to change the
+  /// names for the input columns.
   PlanBuilder& localPartition(
       const std::vector<std::string>& keys,
       const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
-      const std::vector<std::string>& outputLayout = {},
-      const std::vector<std::string>& outputRenamedLayout = {});
+      const std::vector<std::string>& outputLayout = {});
 
   /// Add a LocalPartitionNode to partition the input using row-wise
   /// round-robin. Number of partitions is determined at runtime based on
@@ -559,13 +557,11 @@ class PlanBuilder {
   /// @param outputLayout Optional output layout in case it is different then
   /// the input. Output columns may appear in different order from the input,
   /// some input columns may be missing in the output, some columns may be
-  /// duplicated in the output.
-  /// @param outputRenamedLayout Optional output layout used to change the
-  /// column names in the node's output.
+  /// duplicated in the output. Supports "col AS alias" syntax to change the
+  /// names for the input columns.
   PlanBuilder& localPartitionRoundRobin(
       const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
-      const std::vector<std::string>& outputLayout = {},
-      const std::vector<std::string>& outputRenamedLayout = {});
+      const std::vector<std::string>& outputLayout = {});
 
   /// Add a HashJoinNode to join two inputs using one or more join keys and an
   /// optional filter.

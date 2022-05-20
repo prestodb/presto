@@ -624,8 +624,7 @@ TEST_F(LocalPartitionTest, unionAll) {
               {},
               {PlanBuilder(planNodeIdGenerator).values({data1}).planNode(),
                PlanBuilder(planNodeIdGenerator).values({data2}).planNode()},
-              {"d0", "d1"},
-              {"c0", "c1"})
+              {"d0 as c0", "d1 as c1"})
           .planNode();
 
   assertQuery(
