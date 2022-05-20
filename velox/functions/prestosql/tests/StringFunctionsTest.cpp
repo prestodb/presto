@@ -1186,6 +1186,30 @@ TEST_F(StringFunctionsTest, replace) {
   }
 }
 
+TEST_F(StringFunctionsTest, replaceWithReusableInputButNoInplace) {
+  auto c0 = ({
+    auto values = makeFlatVector<std::string>({"foo"});
+    auto indices = allocateIndices(100, execCtx_.pool());
+    wrapInDictionary(indices, 100, values);
+  });
+  auto c1 =
+      makeFlatVector<int64_t>(100, [](vector_size_t) { return 2033475965; });
+  auto c2 = makeFlatVector<int64_t>(
+      100,
+      [](vector_size_t) { return 2851588633; },
+      [](auto row) { return row >= 50; });
+  auto result = evaluateSimplified<FlatVector<StringView>>(
+      "substr(replace('bar', rtrim(c0)), c1, c2)", makeRowVector({c0, c1, c2}));
+  ASSERT_EQ(result->size(), 100);
+  for (int i = 0; i < 50; ++i) {
+    EXPECT_FALSE(result->isNullAt(i));
+    EXPECT_EQ(result->valueAt(i), "");
+  }
+  for (int i = 50; i < 100; ++i) {
+    EXPECT_TRUE(result->isNullAt(i));
+  }
+}
+
 TEST_F(StringFunctionsTest, controlExprEncodingPropagation) {
   std::vector<std::string> dataASCII({"ali", "ali", "ali"});
   std::vector<std::string> dataUTF8({"àáâãäåæçè", "àáâãäåæçè", "àáâãäå"});

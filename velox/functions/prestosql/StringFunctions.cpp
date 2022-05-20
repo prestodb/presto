@@ -421,17 +421,15 @@ class Replace : public exec::VectorFunction {
         (searchArgValue.value().size() >= replaceArgValue.value().size()) &&
         (args.at(0)->encoding() == VectorEncoding::Simple::FLAT);
 
-    bool inputVectorMoved =
-        prepareFlatResultsVector(result, rows, context, args.at(0));
-
-    bool inPlace = tryInplace && inputVectorMoved;
-
-    if (inPlace) {
-      auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
-      applyInPlace(
-          stringReader, searchReader, replaceReader, rows, resultFlatVector);
-      return;
+    if (tryInplace) {
+      if (prepareFlatResultsVector(result, rows, context, args.at(0))) {
+        auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
+        applyInPlace(
+            stringReader, searchReader, replaceReader, rows, resultFlatVector);
+        return;
+      }
     }
+
     // Not in place path
     VectorPtr emptyVectorPtr;
     prepareFlatResultsVector(result, rows, context, emptyVectorPtr);
