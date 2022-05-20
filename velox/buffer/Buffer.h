@@ -147,15 +147,6 @@ class Buffer {
     mutable_ = isMutable;
   }
 
-  // Checks the magic number at capacity() to detect overrun. No-op
-  // for a BufferView. An overrun is qualitatively a
-  // process-terminating memory corruption. We do not kill the process
-  // here though but rather throw an error so that the the message and
-  // stack propagate to the library user. This may also happen in a
-  // ~AlignedBuffer, which will leak the memory but since the process
-  // is anyway already compromized this is not an issue.
-  virtual void checkEndGuard() const {}
-
   friend std::ostream& operator<<(std::ostream& os, const Buffer& buffer) {
     std::ios_base::fmtflags f(os.flags());
 
@@ -186,8 +177,32 @@ class Buffer {
   }
 
  protected:
-  // Writes a magic word at 'capacity_'. No-op for a BufferView.
-  virtual void setEndGuard() {}
+  // Writes a magic word at 'capacity_'. No-op for a BufferView. The actual
+  // logic is inside a separate virtual function, allowing override by derived
+  // classes. Because of the virtual function dispatch, it's unlikely the
+  // compiler can inline it, so we make it only called in the debug build.
+  void setEndGuard() {
+#ifndef NDEBUG
+    setEndGuardImpl();
+#endif
+  }
+
+  virtual void setEndGuardImpl() {}
+
+  void checkEndGuard() const {
+#ifndef NDEBUG
+    checkEndGuardImpl();
+#endif
+  }
+
+  // Checks the magic number at capacity() to detect overrun. No-op
+  // for a BufferView. An overrun is qualitatively a
+  // process-terminating memory corruption. We do not kill the process
+  // here though but rather throw an error so that the the message and
+  // stack propagate to the library user. This may also happen in a
+  // ~AlignedBuffer, which will leak the memory but since the process
+  // is anyway already compromized this is not an issue.
+  virtual void checkEndGuardImpl() const {}
 
   void setCapacity(size_t capacity) {
     capacity_ = capacity;
@@ -476,15 +491,15 @@ class AlignedBuffer : public Buffer {
     }
   }
 
-  void checkEndGuard() const override {
+ protected:
+  void setEndGuardImpl() override {
+    *reinterpret_cast<uint64_t*>(data_ + capacity_) = kEndGuard;
+  }
+
+  void checkEndGuardImpl() const override {
     if (*reinterpret_cast<uint64_t*>(data_ + capacity_) != kEndGuard) {
       VELOX_FAIL("Write past Buffer capacity() {}", capacity_);
     }
-  }
-
- protected:
-  void setEndGuard() override {
-    *reinterpret_cast<uint64_t*>(data_ + capacity_) = kEndGuard;
   }
 
   void freeToPool() override {
