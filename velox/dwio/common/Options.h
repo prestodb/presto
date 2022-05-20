@@ -19,7 +19,6 @@
 #include <limits>
 #include <unordered_set>
 
-#include "velox/common/caching/DataCache.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/ErrorTolerance.h"
@@ -288,18 +287,6 @@ enum class PrefetchMode {
 };
 
 /**
- * Configuration options for external data caching. Basically if you set this
- * the RowReader will look into the provided |cache| before scheduling any
- * PReads of a byte range corresponding to a stream, and will insert any issued
- * PReads into the same |cache|.
- */
-struct DataCacheConfig {
-  velox::DataCache* cache{nullptr};
-  // We identify the file the data belongs to by an id from StringIdMap.
-  uint64_t filenum;
-};
-
-/**
  * Options for creating a Reader.
  */
 class ReaderOptions {
@@ -307,13 +294,13 @@ class ReaderOptions {
   uint64_t tailLocation;
   velox::memory::MemoryPool* memoryPool;
   FileFormat fileFormat;
-  std::shared_ptr<const velox::RowType> fileSchema;
+  RowTypePtr fileSchema;
   uint64_t autoPreloadLength;
   PrefetchMode prefetchMode;
   int32_t loadQuantum_{kDefaultLoadQuantum};
   int32_t maxCoalesceDistance_{kDefaultCoalesceDistance};
   SerDeOptions serDeOptions;
-  std::shared_ptr<DataCacheConfig> dataCacheConfig_;
+  uint64_t fileNum;
   std::shared_ptr<encryption::DecrypterFactory> decrypterFactory_;
   std::shared_ptr<velox::dwrf::BufferedInputFactory> bufferedInputFactory_;
 
@@ -345,7 +332,7 @@ class ReaderOptions {
     autoPreloadLength = other.autoPreloadLength;
     prefetchMode = other.prefetchMode;
     serDeOptions = other.serDeOptions;
-    dataCacheConfig_ = other.dataCacheConfig_;
+    fileNum = other.fileNum;
     decrypterFactory_ = other.decrypterFactory_;
     bufferedInputFactory_ = other.bufferedInputFactory_;
     return *this;
@@ -353,15 +340,6 @@ class ReaderOptions {
 
   ReaderOptions(const ReaderOptions& other) {
     *this = other;
-  }
-
-  /**
-   * Set the data cache config.
-   */
-  ReaderOptions& setDataCacheConfig(
-      std::shared_ptr<DataCacheConfig> dataCacheConfig) {
-    dataCacheConfig_ = std::move(dataCacheConfig);
-    return *this;
   }
 
   /**
@@ -378,6 +356,11 @@ class ReaderOptions {
    */
   ReaderOptions& setFileFormat(FileFormat format) {
     fileFormat = format;
+    return *this;
+  }
+
+  ReaderOptions& setFileNum(uint64_t num) {
+    fileNum = num;
     return *this;
   }
 
@@ -457,13 +440,6 @@ class ReaderOptions {
   }
 
   /**
-   * Get the data cache config.
-   */
-  const std::shared_ptr<DataCacheConfig>& getDataCacheConfig() const {
-    return dataCacheConfig_;
-  }
-
-  /**
    * Get the desired tail location.
    * @return if not set, return the maximum long.
    */
@@ -476,6 +452,10 @@ class ReaderOptions {
    */
   velox::memory::MemoryPool& getMemoryPool() const {
     return *memoryPool;
+  }
+
+  uint64_t getFileNum() const {
+    return fileNum;
   }
 
   /**

@@ -117,7 +117,6 @@ class TpchConnector final : public Connector {
   TpchConnector(
       const std::string& id,
       std::shared_ptr<const Config> properties,
-      std::unique_ptr<DataCache> /*dataCache*/,
       folly::Executor* FOLLY_NULLABLE /*executor*/)
       : Connector(id, properties) {}
 
@@ -156,10 +155,8 @@ class TpchConnectorFactory : public ConnectorFactory {
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
       std::shared_ptr<const Config> properties,
-      std::unique_ptr<DataCache> dataCache = nullptr,
       folly::Executor* FOLLY_NULLABLE executor = nullptr) override {
-    return std::make_shared<TpchConnector>(
-        id, properties, std::move(dataCache), executor);
+    return std::make_shared<TpchConnector>(id, properties, executor);
   }
 };
 

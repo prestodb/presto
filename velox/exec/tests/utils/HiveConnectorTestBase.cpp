@@ -31,21 +31,12 @@ HiveConnectorTestBase::HiveConnectorTestBase() {
 
 void HiveConnectorTestBase::SetUp() {
   OperatorTestBase::SetUp();
-  if (useAsyncCache_) {
-    executor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(kHiveConnectorId, nullptr, nullptr, executor_.get());
-    connector::registerConnector(hiveConnector);
-  } else {
-    auto dataCache = std::make_unique<SimpleLRUDataCache>(1UL << 30);
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(kHiveConnectorId, nullptr, std::move(dataCache));
-    connector::registerConnector(hiveConnector);
-  }
+  executor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
+  auto hiveConnector =
+      connector::getConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)
+          ->newConnector(kHiveConnectorId, nullptr, executor_.get());
+  connector::registerConnector(hiveConnector);
   dwrf::registerDwrfReaderFactory();
 }
 

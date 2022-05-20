@@ -39,11 +39,9 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::common::test;
 using namespace facebook::velox::exec::test;
 
-class PlanConversionTest : public virtual HiveConnectorTestBase,
-                           public testing::WithParamInterface<bool> {
+class PlanConversionTest : public virtual HiveConnectorTestBase {
  protected:
   void SetUp() override {
-    useAsyncCache_ = GetParam();
     HiveConnectorTestBase::SetUp();
   }
 
@@ -268,7 +266,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
 //  Aggregate
 //  Output: the Velox computed Aggregation result
 
-TEST_P(PlanConversionTest, queryTest) {
+TEST_F(PlanConversionTest, queryTest) {
   // Generate the used ORC file.
   auto type =
       ROW({"l_orderkey",
@@ -492,8 +490,3 @@ TEST_P(PlanConversionTest, queryTest) {
     ASSERT_EQ(res, "{13613.1921}");
   }
 }
-
-VELOX_INSTANTIATE_TEST_SUITE_P(
-    PlanConversionTests,
-    PlanConversionTest,
-    testing::Values(true, false));

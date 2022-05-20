@@ -144,11 +144,7 @@ class OperatorTestBase : public testing::Test,
 
   DuckDbQueryRunner duckDbQueryRunner_;
 
-  // Parametrized subclasses set this to choose the cache code path.
-  bool useAsyncCache_{true};
-
-  // Used as default MappedMemory if 'useAsyncCache_' is true. Created on first
-  // use.
+  // Used as default MappedMemory. Created on first use.
   static std::shared_ptr<cache::AsyncDataCache> asyncDataCache_;
 };
 } // namespace facebook::velox::exec::test

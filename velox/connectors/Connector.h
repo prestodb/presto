@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/common/base/RuntimeMetrics.h"
-#include "velox/common/caching/DataCache.h"
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/core/Context.h"
 #include "velox/vector/ComplexVector.h"
@@ -271,7 +270,6 @@ class ConnectorFactory {
   virtual std::shared_ptr<Connector> newConnector(
       const std::string& id,
       std::shared_ptr<const Config> properties,
-      std::unique_ptr<DataCache> dataCache = nullptr,
       folly::Executor* executor = nullptr) = 0;
 
  private:

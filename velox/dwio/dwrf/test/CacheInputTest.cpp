@@ -236,11 +236,10 @@ class CacheTest : public testing::Test {
       int64_t offset,
       const IoStatisticsPtr& ioStats) {
     auto data = std::make_unique<StripeData>();
-    facebook::velox::dwio::common::DataCacheConfig config{nullptr, fileId};
     data->input = std::make_unique<dwrf::CachedBufferedInput>(
         *inputStream,
         *pool_,
-        &config,
+        fileId,
         cache_.get(),
         tracker,
         groupId,
@@ -442,7 +441,6 @@ class CacheTest : public testing::Test {
       std::shared_ptr<facebook::velox::dwio::common::InputStream>>
       pathToInput_;
   std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
-  facebook::velox::dwio::common::DataCacheConfig config_;
   cache::FileGroupStats* FOLLY_NULLABLE groupStats_ = nullptr;
   std::shared_ptr<AsyncDataCache> cache_;
   std::shared_ptr<facebook::velox::dwio::common::IoStatistics> ioStats_;

@@ -26,11 +26,8 @@ namespace facebook::velox::dwrf {
 class BufferedInput {
  public:
   constexpr static uint64_t kMaxMergeDistance = 1024 * 1024 * 1.25;
-  BufferedInput(
-      dwio::common::InputStream& input,
-      memory::MemoryPool& pool,
-      dwio::common::DataCacheConfig* FOLLY_NULLABLE dataCacheConfig = nullptr)
-      : input_{input}, pool_{pool}, dataCacheConfig_(dataCacheConfig) {}
+  BufferedInput(dwio::common::InputStream& input, memory::MemoryPool& pool)
+      : input_{input}, pool_{pool} {}
 
   BufferedInput(BufferedInput&&) = default;
   virtual ~BufferedInput() = default;
@@ -95,7 +92,6 @@ class BufferedInput {
 
  private:
   memory::MemoryPool& pool_;
-  dwio::common::DataCacheConfig* FOLLY_NULLABLE dataCacheConfig_;
   std::vector<uint64_t> offsets_;
   std::vector<dwio::common::DataBuffer<char>> buffers_;
   std::vector<dwio::common::Region> regions_;
@@ -143,9 +139,8 @@ class BufferedInputFactory {
   virtual std::unique_ptr<BufferedInput> create(
       dwio::common::InputStream& input,
       velox::memory::MemoryPool& pool,
-      dwio::common::DataCacheConfig* FOLLY_NULLABLE dataCacheConfig =
-          nullptr) const {
-    return std::make_unique<BufferedInput>(input, pool, dataCacheConfig);
+      uint64_t /*fileNum*/) const {
+    return std::make_unique<BufferedInput>(input, pool);
   }
 
   // Returns an executor for parallelizing IO. The executor is

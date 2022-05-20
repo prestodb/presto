@@ -45,20 +45,13 @@ OperatorTestBase::~OperatorTestBase() {
 }
 
 void OperatorTestBase::SetUp() {
-  // Sets the process MappedMemory according to 'useAsyncCache_'.
-  using namespace memory;
-  if (useAsyncCache_) {
-    // Sets the process default MappedMemory to an async cache of up
-    // to 4GB backed by a default MappedMemory
-    if (!asyncDataCache_) {
-      asyncDataCache_ = std::make_shared<cache::AsyncDataCache>(
-          MappedMemory::createDefaultInstance(), 4UL << 30);
-    }
-    MappedMemory::setDefaultInstance(asyncDataCache_.get());
-  } else {
-    // Revert to initial process-wide default.
-    MappedMemory::setDefaultInstance(nullptr);
+  // Sets the process default MappedMemory to an async cache of up
+  // to 4GB backed by a default MappedMemory
+  if (!asyncDataCache_) {
+    asyncDataCache_ = std::make_shared<cache::AsyncDataCache>(
+        memory::MappedMemory::createDefaultInstance(), 4UL << 30);
   }
+  memory::MappedMemory::setDefaultInstance(asyncDataCache_.get());
 }
 
 void OperatorTestBase::SetUpTestCase() {

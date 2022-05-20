@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include "velox/common/caching/DataCache.h"
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/ScanSpec.h"
@@ -137,7 +136,6 @@ class HiveDataSource : public DataSource {
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
       FileHandleFactory* FOLLY_NONNULL fileHandleFactory,
       velox::memory::MemoryPool* FOLLY_NONNULL pool,
-      DataCache* FOLLY_NULLABLE dataCache,
       ExpressionEvaluator* FOLLY_NONNULL expressionEvaluator,
       memory::MappedMemory* FOLLY_NONNULL mappedMemory,
       const std::string& scanId,
@@ -209,7 +207,6 @@ class HiveDataSource : public DataSource {
 
   VectorPtr output_;
   FileHandleCachedPtr fileHandle_;
-  DataCache* FOLLY_NULLABLE dataCache_;
   ExpressionEvaluator* FOLLY_NONNULL expressionEvaluator_;
   uint64_t completedRows_ = 0;
 
@@ -228,7 +225,6 @@ class HiveConnector final : public Connector {
   explicit HiveConnector(
       const std::string& id,
       std::shared_ptr<const Config> properties,
-      std::unique_ptr<DataCache> dataCache,
       folly::Executor* FOLLY_NULLABLE executor);
 
   std::shared_ptr<DataSource> createDataSource(
@@ -244,11 +240,6 @@ class HiveConnector final : public Connector {
         columnHandles,
         &fileHandleFactory_,
         connectorQueryCtx->memoryPool(),
-        connectorQueryCtx->config()->get<std::string>(
-            kNodeSelectionStrategy, kNodeSelectionStrategyNoPreference) ==
-                kNodeSelectionStrategySoftAffinity
-            ? dataCache_.get()
-            : nullptr,
         connectorQueryCtx->expressionEvaluator(),
         connectorQueryCtx->mappedMemory(),
         connectorQueryCtx->scanId(),
@@ -275,7 +266,6 @@ class HiveConnector final : public Connector {
   }
 
  private:
-  std::unique_ptr<DataCache> dataCache_;
   FileHandleFactory fileHandleFactory_;
   folly::Executor* FOLLY_NULLABLE executor_;
 
@@ -305,10 +295,8 @@ class HiveConnectorFactory : public ConnectorFactory {
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
       std::shared_ptr<const Config> properties,
-      std::unique_ptr<DataCache> dataCache = nullptr,
       folly::Executor* FOLLY_NULLABLE executor = nullptr) override {
-    return std::make_shared<HiveConnector>(
-        id, properties, std::move(dataCache), executor);
+    return std::make_shared<HiveConnector>(id, properties, executor);
   }
 };
 

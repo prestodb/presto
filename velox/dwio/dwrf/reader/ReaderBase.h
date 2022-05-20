@@ -67,7 +67,7 @@ class ReaderBase {
       std::shared_ptr<dwio::common::encryption::DecrypterFactory>
           decryptorFactory = nullptr,
       std::shared_ptr<BufferedInputFactory> bufferedInputFactory = nullptr,
-      std::shared_ptr<dwio::common::DataCacheConfig> dataCacheConfig = nullptr);
+      uint64_t fileNum = -1);
 
   // create reader base from metadata
   ReaderBase(
@@ -108,6 +108,10 @@ class ReaderBase {
 
   dwio::common::InputStream& getStream() const {
     return *stream_;
+  }
+
+  uint64_t getFileNum() const {
+    return fileNum_;
   }
 
   const proto::PostScript& getPostScript() const {
@@ -218,10 +222,6 @@ class ReaderBase {
         std::move(compressed), "Protobuf Metadata", decrypter));
   }
 
-  dwio::common::DataCacheConfig* getDataCacheConfig() const {
-    return dataCacheConfig_.get();
-  }
-
   google::protobuf::Arena* arena() const {
     return arena_.get();
   }
@@ -236,15 +236,15 @@ class ReaderBase {
   std::unique_ptr<google::protobuf::Arena> arena_;
   std::unique_ptr<proto::PostScript> postScript_;
   proto::Footer* footer_ = nullptr;
+  uint64_t fileNum_;
   std::unique_ptr<StripeMetadataCache> cache_;
   // Keeps factory alive for possibly async prefetch.
   std::shared_ptr<dwio::common::encryption::DecrypterFactory> decryptorFactory_;
   std::unique_ptr<encryption::DecryptionHandler> handler_;
   std::shared_ptr<BufferedInputFactory> bufferedInputFactory_;
-  std::shared_ptr<dwio::common::DataCacheConfig> dataCacheConfig_ = nullptr;
 
   std::unique_ptr<BufferedInput> input_;
-  std::shared_ptr<const RowType> schema_;
+  RowTypePtr schema_;
   // Lazily populated
   mutable std::shared_ptr<const dwio::common::TypeWithId> schemaWithId_;
   uint64_t fileLength_;

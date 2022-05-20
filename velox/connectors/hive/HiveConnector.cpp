@@ -192,7 +192,6 @@ HiveDataSource::HiveDataSource(
         std::shared_ptr<connector::ColumnHandle>>& columnHandles,
     FileHandleFactory* fileHandleFactory,
     velox::memory::MemoryPool* pool,
-    DataCache* dataCache,
     ExpressionEvaluator* expressionEvaluator,
     memory::MappedMemory* mappedMemory,
     const std::string& scanId,
@@ -201,7 +200,6 @@ HiveDataSource::HiveDataSource(
       fileHandleFactory_(fileHandleFactory),
       pool_(pool),
       readerOpts_(pool),
-      dataCache_(dataCache),
       expressionEvaluator_(expressionEvaluator),
       mappedMemory_(mappedMemory),
       scanId_(scanId),
@@ -388,15 +386,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   // Decide between AsyncDataCache, legacy DataCache and no cache. All
   // three are supported to enable comparison.
   if (asyncCache) {
-    VELOX_CHECK(
-        !dataCache_,
-        "DataCache should not be present if the MappedMemory is AsyncDataCache");
-    // Make DataCacheConfig to pass the filenum and a null DataCache.
-    if (!readerOpts_.getDataCacheConfig()) {
-      auto dataCacheConfig = std::make_shared<dwio::common::DataCacheConfig>();
-      readerOpts_.setDataCacheConfig(std::move(dataCacheConfig));
-    }
-    readerOpts_.getDataCacheConfig()->filenum = fileHandle_->uuid.id();
+    readerOpts_.setFileNum(fileHandle_->uuid.id());
     bufferedInputFactory_ = std::make_unique<dwrf::CachedBufferedInputFactory>(
         (asyncCache),
         Connector::getTracker(scanId_, readerOpts_.loadQuantum()),
@@ -408,12 +398,8 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
         executor_,
         readerOpts_);
     readerOpts_.setBufferedInputFactory(bufferedInputFactory_);
-  } else if (dataCache_) {
-    auto dataCacheConfig = std::make_shared<dwio::common::DataCacheConfig>();
-    dataCacheConfig->cache = dataCache_;
-    dataCacheConfig->filenum = fileHandle_->uuid.id();
-    readerOpts_.setDataCacheConfig(std::move(dataCacheConfig));
   }
+
   if (readerOpts_.getFileFormat() != dwio::common::FileFormat::UNKNOWN) {
     VELOX_CHECK(
         readerOpts_.getFileFormat() == split_->fileFormat,
@@ -653,10 +639,8 @@ int64_t HiveDataSource::estimatedRowSize() {
 HiveConnector::HiveConnector(
     const std::string& id,
     std::shared_ptr<const Config> properties,
-    std::unique_ptr<DataCache> dataCache,
     folly::Executor* FOLLY_NULLABLE executor)
     : Connector(id, properties),
-      dataCache_(std::move(dataCache)),
       fileHandleFactory_(
           std::make_unique<SimpleLRUCache<std::string, FileHandle>>(
               FLAGS_file_handle_cache_mb << 20),

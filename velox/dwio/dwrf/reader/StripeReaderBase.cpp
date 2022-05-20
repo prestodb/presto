@@ -37,9 +37,7 @@ const proto::StripeInformation& StripeReaderBase::loadStripe(
     preload = true;
   } else {
     stripeInput_ = reader_->bufferedInputFactory().create(
-        reader_->getStream(),
-        reader_->getMemoryPool(),
-        reader_->getDataCacheConfig());
+        reader_->getStream(), reader_->getMemoryPool(), reader_->getFileNum());
 
     if (preload) {
       // If metadata cache exists, adjust read position to avoid re-reading
@@ -66,18 +64,10 @@ const proto::StripeInformation& StripeReaderBase::loadStripe(
   }
 
   if (!stream) {
-    if (reader_->getDataCacheConfig()) {
-      stream = getStripeInput().enqueue(
-          {stripe.offset() + stripe.indexlength() + stripe.datalength(),
-           stripe.footerlength()});
-      // It will not load anything if we hit the cache while enqueuing
-      getStripeInput().load(LogType::STRIPE_FOOTER);
-    } else {
-      stream = getStripeInput().read(
-          stripe.offset() + stripe.indexlength() + stripe.datalength(),
-          stripe.footerlength(),
-          LogType::STRIPE_FOOTER);
-    }
+    stream = getStripeInput().read(
+        stripe.offset() + stripe.indexlength() + stripe.datalength(),
+        stripe.footerlength(),
+        LogType::STRIPE_FOOTER);
   }
 
   // Reuse footer_'s memory to avoid expensive destruction

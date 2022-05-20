@@ -74,7 +74,7 @@ class CachedBufferedInput : public BufferedInput {
   CachedBufferedInput(
       dwio::common::InputStream& input,
       memory::MemoryPool& pool,
-      dwio::common::DataCacheConfig* FOLLY_NONNULL dataCacheConfig,
+      uint64_t fileNum,
       cache::AsyncDataCache* FOLLY_NONNULL cache,
       std::shared_ptr<cache::ScanTracker> tracker,
       uint64_t groupId,
@@ -83,9 +83,9 @@ class CachedBufferedInput : public BufferedInput {
       folly::Executor* FOLLY_NULLABLE executor,
       int32_t loadQuantum,
       int32_t maxCoalesceDistance)
-      : BufferedInput(input, pool, dataCacheConfig),
+      : BufferedInput(input, pool),
         cache_(cache),
-        fileNum_(dataCacheConfig->filenum),
+        fileNum_(fileNum),
         tracker_(std::move(tracker)),
         groupId_(groupId),
         streamSource_(streamSource),
@@ -201,12 +201,11 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
   std::unique_ptr<BufferedInput> create(
       dwio::common::InputStream& input,
       velox::memory::MemoryPool& pool,
-      dwio::common::DataCacheConfig* FOLLY_NULLABLE dataCacheConfig =
-          nullptr) const override {
+      uint64_t fileNum) const override {
     return std::make_unique<CachedBufferedInput>(
         input,
         pool,
-        dataCacheConfig,
+        fileNum,
         cache_,
         tracker_,
         groupId_,

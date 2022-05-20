@@ -72,15 +72,6 @@ void BufferedInput::load(const LogType logType) {
         });
   }
 
-  if (dataCacheConfig_) {
-    for (auto& region : regions_) {
-      const std::string cacheKey = CacheKey(dataCacheConfig_->filenum, region);
-      auto buffer = readInternal(region.offset, region.length);
-      const std::string_view cacheValue(std::get<0>(buffer), region.length);
-      dataCacheConfig_->cache->put(cacheKey, cacheValue);
-    }
-  }
-
   // clear the loaded regions
   regions_.clear();
 }
@@ -97,20 +88,6 @@ std::unique_ptr<SeekableInputStream> BufferedInput::enqueue(
   auto ret = readBuffer(region.offset, region.length);
   if (ret) {
     return ret;
-  }
-
-  // If we have a DataCache we may be able to load the region from there.
-  if (dataCacheConfig_) {
-    // TODO: if these allocations show up on a profile, add a 'canGet'
-    // method to the DataCache.
-    std::unique_ptr<char[]> cachedStream(new char[region.length]);
-    const std::string cacheKey = CacheKey(dataCacheConfig_->filenum, region);
-    if (dataCacheConfig_->cache->get(
-            cacheKey, region.length, cachedStream.get())) {
-      auto result = std::make_unique<SeekableArrayInputStream>(
-          std::move(cachedStream), region.length);
-      return result;
-    }
   }
 
   // push to region pool and give the caller the callback

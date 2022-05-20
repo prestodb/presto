@@ -19,7 +19,6 @@
 #include "folly/Random.h"
 #include "folly/lang/Assume.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/caching/DataCache.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/dwrf/common/Common.h"
