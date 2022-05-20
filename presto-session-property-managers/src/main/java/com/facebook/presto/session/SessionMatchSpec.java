@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.session;
 
+import com.facebook.presto.common.PrestoVersion;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -39,6 +40,8 @@ public class SessionMatchSpec
     private final Optional<Pattern> resourceGroupRegex;
     private final Optional<Boolean> overrideSessionProperties;
     private final Map<String, String> sessionProperties;
+    private final Optional<PrestoVersion> minVersion;
+    private final Optional<PrestoVersion> maxVersion;
 
     @JsonCreator
     public SessionMatchSpec(
@@ -49,10 +52,16 @@ public class SessionMatchSpec
             @JsonProperty("group") Optional<Pattern> resourceGroupRegex,
             @JsonProperty("clientInfo") Optional<Pattern> clientInfoRegex,
             @JsonProperty("overrideSessionProperties") Optional<Boolean> overrideSessionProperties,
-            @JsonProperty("sessionProperties") Map<String, String> sessionProperties)
+            @JsonProperty("sessionProperties") Map<String, String> sessionProperties,
+            @JsonProperty("minVersion") Optional<String> minVersion,
+            @JsonProperty("maxVersion") Optional<String> maxVersion)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
+        requireNonNull(minVersion, "Min version is null");
+        requireNonNull(maxVersion, "Max version is null");
+        this.minVersion = minVersion.map(PrestoVersion::new);
+        this.maxVersion = maxVersion.map(PrestoVersion::new);
         requireNonNull(clientTags, "clientTags is null");
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
         this.queryType = requireNonNull(queryType, "queryType is null");
@@ -63,7 +72,7 @@ public class SessionMatchSpec
         this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
     }
 
-    public Map<String, String> match(SessionConfigurationContext context)
+    public Map<String, String> match(SessionConfigurationContext context, PrestoVersion coordinatorVersion)
     {
         if (userRegex.isPresent() && !userRegex.get().matcher(context.getUser()).matches()) {
             return ImmutableMap.of();
@@ -99,6 +108,18 @@ public class SessionMatchSpec
             }
         }
 
+        if (maxVersion.isPresent() || minVersion.isPresent()) {
+            boolean validVersion = true;
+            if (maxVersion.isPresent()) {
+                validVersion = coordinatorVersion.lessThanOrEqualTo(maxVersion.get());
+            }
+            if (minVersion.isPresent()) {
+                validVersion = validVersion && coordinatorVersion.greaterThanOrEqualTo(minVersion.get());
+            }
+            if (!validVersion) {
+                return ImmutableMap.of();
+            }
+        }
         return sessionProperties;
     }
 
