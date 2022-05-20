@@ -31,6 +31,9 @@ import javax.ws.rs.core.Response;
 
 import java.util.Optional;
 
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_BINARY;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_COMPACT;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_FB_COMPACT;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
@@ -68,7 +71,7 @@ public class ServerInfoResource
     }
 
     @GET
-    @Produces(APPLICATION_JSON)
+    @Produces({APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public ServerInfo getInfo()
     {
         boolean starting = resourceManager ? true : !catalogStore.areCatalogsLoaded();
@@ -108,7 +111,7 @@ public class ServerInfoResource
 
     @GET
     @Path("state")
-    @Produces(APPLICATION_JSON)
+    @Produces({APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     @RolesAllowed(ADMIN)
     public NodeState getServerState()
     {
