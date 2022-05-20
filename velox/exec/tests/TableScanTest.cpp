@@ -53,6 +53,14 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     return HiveConnectorTestBase::makeVectors(inputs, count, rowsPerVector);
   }
 
+  exec::Split makeHiveSplitWithGroup(std::string path, int32_t group) {
+    return exec::Split(makeHiveConnectorSplit(std::move(path)), group);
+  }
+
+  exec::Split makeHiveSplit(std::string path) {
+    return exec::Split(makeHiveConnectorSplit(std::move(path)));
+  }
+
   std::shared_ptr<Task> assertQuery(
       const std::shared_ptr<const core::PlanNode>& plan,
       const std::shared_ptr<connector::ConnectorSplit>& hiveSplit,
@@ -120,10 +128,12 @@ class TableScanTest : public virtual HiveConnectorTestBase,
       const std::string& filePath,
       const TypePtr& partitionType,
       const std::optional<std::string>& partitionValue) {
-    auto split = makeHiveConnectorSplit(filePath, {{"pkey", partitionValue}});
+    auto split = HiveConnectorSplitBuilder(filePath)
+                     .partitionKey("pkey", partitionValue)
+                     .build();
     auto outputType =
         ROW({"pkey", "c0", "c1"}, {partitionType, BIGINT(), DOUBLE()});
-    auto tableHandle = makeTableHandle(SubfieldFilters{});
+    auto tableHandle = makeTableHandle();
     ColumnHandleMap assignments = {
         {"pkey", partitionKey("pkey", partitionType)},
         {"c0", regularColumn("c0", BIGINT())},
@@ -237,12 +247,13 @@ TEST_P(TableScanTest, partitionKeyAlias) {
       {"a", regularColumn("c0", BIGINT())},
       {"ds_alias", partitionKey("ds", VARCHAR())}};
 
-  auto split = makeHiveConnectorSplit(filePath->path, {{"ds", "2021-12-02"}});
+  auto split = HiveConnectorSplitBuilder(filePath->path)
+                   .partitionKey("ds", "2021-12-02")
+                   .build();
 
   auto outputType = ROW({"a", "ds_alias"}, {BIGINT(), VARCHAR()});
   auto op = PlanBuilder()
-                .tableScan(
-                    outputType, makeTableHandle(SubfieldFilters{}), assignments)
+                .tableScan(outputType, makeTableHandle(), assignments)
                 .planNode();
 
   assertQuery(op, split, "SELECT c0, '2021-12-02' FROM tmp");
@@ -313,7 +324,7 @@ TEST_P(TableScanTest, missingColumns) {
   assignments["a"] = regularColumn("c0", BIGINT());
   assignments["b"] = regularColumn("c1", DOUBLE());
 
-  auto tableHandle = makeTableHandle(SubfieldFilters{});
+  auto tableHandle = makeTableHandle();
 
   op = PlanBuilder().tableScan(outputType, tableHandle, assignments).planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp");
@@ -517,12 +528,13 @@ TEST_P(TableScanTest, splitOffsetAndLength) {
 
   assertQuery(
       tableScanNode(),
-      makeHiveSplit(filePath->path, 0, fs::file_size(filePath->path) / 2),
+      makeHiveConnectorSplit(
+          filePath->path, 0, fs::file_size(filePath->path) / 2),
       "SELECT * FROM tmp");
 
   assertQuery(
       tableScanNode(),
-      makeHiveSplit(filePath->path, fs::file_size(filePath->path) / 2),
+      makeHiveConnectorSplit(filePath->path, fs::file_size(filePath->path) / 2),
       "SELECT * FROM tmp LIMIT 0");
 }
 
@@ -531,7 +543,7 @@ TEST_P(TableScanTest, fileNotFound) {
   params.planNode = tableScanNode();
 
   auto cursor = std::make_unique<TaskCursor>(params);
-  cursor->task()->addSplit("0", makeHiveSplit("file:/path/to/nowhere.orc"));
+  cursor->task()->addSplit("0", makeHiveSplit("/path/to/nowhere.orc"));
   EXPECT_THROW(cursor->moveNext(), VeloxRuntimeError);
 }
 
@@ -541,12 +553,10 @@ TEST_P(TableScanTest, validFileNoData) {
 
   auto filePath = facebook::velox::test::getDataFilePath(
       "velox/exec/tests", "data/emptyPresto.dwrf");
-  auto split = std::make_shared<HiveConnectorSplit>(
-      kHiveConnectorId,
-      "file:" + filePath,
-      facebook::velox::dwio::common::FileFormat::ORC,
-      0,
-      fs::file_size(filePath) / 2);
+  auto split = HiveConnectorSplitBuilder(filePath)
+                   .start(0)
+                   .length(fs::file_size(filePath) / 2)
+                   .build();
 
   auto op = tableScanNode(rowType);
   assertQuery(op, split, "");
@@ -558,7 +568,9 @@ TEST_P(TableScanTest, emptyFile) {
 
   try {
     assertQuery(
-        tableScanNode(), makeHiveSplit(filePath->path), "SELECT * FROM tmp");
+        tableScanNode(),
+        makeHiveConnectorSplit(filePath->path),
+        "SELECT * FROM tmp");
     ASSERT_FALSE(true) << "Function should throw.";
   } catch (const VeloxException& e) {
     EXPECT_EQ("ORC file is empty", e.message());
@@ -1347,7 +1359,7 @@ TEST_P(TableScanTest, path) {
   auto assignments = allRegularColumns(rowType);
   assignments[kPath] = synthesizedColumn(kPath, VARCHAR());
 
-  auto tableHandle = makeTableHandle(SubfieldFilters{}, nullptr);
+  auto tableHandle = makeTableHandle();
 
   auto pathValue = fmt::format("file:{}", filePath->path);
   auto typeWithPath = ROW({kPath, "a"}, {VARCHAR(), BIGINT()});
@@ -1396,14 +1408,9 @@ TEST_P(TableScanTest, bucket) {
     writeToFile(filePaths[i]->path, rowVector);
     rowVectors.emplace_back(rowVector);
 
-    splits.emplace_back(std::make_shared<HiveConnectorSplit>(
-        kHiveConnectorId,
-        filePaths[i]->path,
-        facebook::velox::dwio::common::FileFormat::ORC,
-        0,
-        fs::file_size(filePaths[i]->path),
-        std::unordered_map<std::string, std::optional<std::string>>(),
-        bucket));
+    splits.emplace_back(HiveConnectorSplitBuilder(filePaths[i]->path)
+                            .tableBucketNumber(bucket)
+                            .build());
   }
 
   createDuckDbTable(rowVectors);
@@ -1417,7 +1424,7 @@ TEST_P(TableScanTest, bucket) {
   // Query that spans on all buckets
   auto typeWithBucket =
       ROW({kBucket, "c0", "c1"}, {INTEGER(), INTEGER(), BIGINT()});
-  auto tableHandle = makeTableHandle(SubfieldFilters{});
+  auto tableHandle = makeTableHandle();
   auto op = PlanBuilder()
                 .tableScan(typeWithBucket, tableHandle, assignments)
                 .planNode();
@@ -1427,7 +1434,7 @@ TEST_P(TableScanTest, bucket) {
     int bucketValue = buckets[i];
     auto connectorSplit = splits[i];
     auto hsplit = std::dynamic_pointer_cast<HiveConnectorSplit>(connectorSplit);
-    tableHandle = makeTableHandle(SubfieldFilters{});
+    tableHandle = makeTableHandle();
 
     // Filter on bucket and filter on first column should produce
     // identical result for each split

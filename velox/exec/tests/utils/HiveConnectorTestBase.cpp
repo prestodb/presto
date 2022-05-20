@@ -104,7 +104,7 @@ std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
     const std::vector<std::shared_ptr<TempFilePath>>& filePaths,
     const std::string& duckDbSql) {
   return OperatorTestBase::assertQuery(
-      plan, makeHiveSplits(filePaths), duckDbSql);
+      plan, makeHiveConnectorSplits(filePaths), duckDbSql);
 }
 
 std::vector<std::shared_ptr<TempFilePath>> HiveConnectorTestBase::makeFilePaths(
@@ -130,15 +130,18 @@ HiveConnectorTestBase::makeHiveConnectorSplits(
 
   // Add all the splits.
   for (int i = 0; i < splitCount; i++) {
-    auto split = std::make_shared<connector::hive::HiveConnectorSplit>(
-        kHiveConnectorId, "file:" + filePath, format, i * splitSize, splitSize);
+    auto split = HiveConnectorSplitBuilder(filePath)
+                     .fileFormat(format)
+                     .start(i * splitSize)
+                     .length(splitSize)
+                     .build();
     splits.push_back(std::move(split));
   }
   return splits;
 }
 
 std::vector<std::shared_ptr<connector::ConnectorSplit>>
-HiveConnectorTestBase::makeHiveSplits(
+HiveConnectorTestBase::makeHiveConnectorSplits(
     const std::vector<std::shared_ptr<TempFilePath>>& filePaths) {
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
   for (auto filePath : filePaths) {
@@ -150,37 +153,12 @@ HiveConnectorTestBase::makeHiveSplits(
 std::shared_ptr<connector::ConnectorSplit>
 HiveConnectorTestBase::makeHiveConnectorSplit(
     const std::string& filePath,
-    const std::unordered_map<std::string, std::optional<std::string>>&
-        partitionKeys,
     uint64_t start,
     uint64_t length) {
-  return std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId,
-      "file:" + filePath,
-      dwio::common::FileFormat::ORC,
-      start,
-      length,
-      partitionKeys);
-}
-
-exec::Split HiveConnectorTestBase::makeHiveSplit(
-    const std::string& filePath,
-    uint64_t start,
-    uint64_t length) {
-  return exec::Split(std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId,
-      "file:" + filePath,
-      dwio::common::FileFormat::ORC,
-      start,
-      length));
-}
-
-exec::Split HiveConnectorTestBase::makeHiveSplitWithGroup(
-    const std::string& filePath,
-    int32_t groupId) {
-  auto split = HiveConnectorTestBase::makeHiveSplit(filePath);
-  split.groupId = groupId;
-  return split;
+  return HiveConnectorSplitBuilder(filePath)
+      .start(start)
+      .length(length)
+      .build();
 }
 
 std::shared_ptr<connector::hive::HiveColumnHandle>

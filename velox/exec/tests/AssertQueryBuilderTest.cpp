@@ -74,7 +74,7 @@ TEST_F(AssertQueryBuilderTest, hiveSplits) {
   AssertQueryBuilder(
       PlanBuilder().tableScan(asRowType(data->type())).planNode(),
       duckDbQueryRunner_)
-      .split(makeHiveSplit(file->path))
+      .split(makeHiveConnectorSplit(file->path))
       .assertResults("VALUES (1), (2), (3)");
 
   // Split with partition key.
@@ -90,7 +90,9 @@ TEST_F(AssertQueryBuilderTest, hiveSplits) {
               assignments)
           .planNode(),
       duckDbQueryRunner_)
-      .split(makeHiveConnectorSplit(file->path, {{"ds", "2022-05-10"}}))
+      .split(HiveConnectorSplitBuilder(file->path)
+                 .partitionKey("ds", "2022-05-10")
+                 .build())
       .assertResults(
           "VALUES (1, '2022-05-10'), (2, '2022-05-10'), (3, '2022-05-10')");
 
@@ -119,8 +121,8 @@ TEST_F(AssertQueryBuilderTest, hiveSplits) {
                       .planNode();
 
   AssertQueryBuilder(joinPlan, duckDbQueryRunner_)
-      .split(probeScanId, makeHiveSplit(file->path))
-      .split(buildScanId, makeHiveSplit(buildFile->path))
+      .split(probeScanId, makeHiveConnectorSplit(file->path))
+      .split(buildScanId, makeHiveConnectorSplit(buildFile->path))
       .assertResults("SELECT 2");
 }
 } // namespace facebook::velox::exec::test

@@ -494,8 +494,8 @@ TEST_F(MergeJoinTest, lazyVectors) {
                 .planNode();
 
   AssertQueryBuilder(op, duckDbQueryRunner_)
-      .split(rightScanId, makeHiveSplit(rightFile->path))
-      .split(leftScanId, makeHiveSplit(leftFile->path))
+      .split(rightScanId, makeHiveConnectorSplit(rightFile->path))
+      .split(leftScanId, makeHiveConnectorSplit(leftFile->path))
       .assertResults(
           "SELECT c0, rc0, c1, rc1, c2, c3  FROM t, u WHERE t.c0 = u.rc0 and c1 + rc1 < 30");
 }

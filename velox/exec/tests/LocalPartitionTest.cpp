@@ -135,7 +135,8 @@ TEST_F(LocalPartitionTest, gather) {
 
   AssertQueryBuilder queryBuilder(op, duckDbQueryRunner_);
   for (auto i = 0; i < filePaths.size(); ++i) {
-    queryBuilder.split(scanNodeIds[i], makeHiveSplit(filePaths[i]->path));
+    queryBuilder.split(
+        scanNodeIds[i], makeHiveConnectorSplit(filePaths[i]->path));
   }
 
   task = queryBuilder.assertResults("SELECT 300, -71, 152");
@@ -180,7 +181,8 @@ TEST_F(LocalPartitionTest, partition) {
   AssertQueryBuilder queryBuilder(op, duckDbQueryRunner_);
   queryBuilder.maxDrivers(2);
   for (auto i = 0; i < filePaths.size(); ++i) {
-    queryBuilder.split(scanNodeIds[i], makeHiveSplit(filePaths[i]->path));
+    queryBuilder.split(
+        scanNodeIds[i], makeHiveConnectorSplit(filePaths[i]->path));
   }
 
   auto task =
@@ -259,7 +261,8 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
   AssertQueryBuilder queryBuilder(op, duckDbQueryRunner_);
   queryBuilder.maxDrivers(2);
   for (auto i = 0; i < filePaths.size(); ++i) {
-    queryBuilder.split(scanNodeIds[i % 3], makeHiveSplit(filePaths[i]->path));
+    queryBuilder.split(
+        scanNodeIds[i % 3], makeHiveConnectorSplit(filePaths[i]->path));
   }
 
   // Set an artificially low buffer size limit to trigger blocking behavior.
@@ -481,7 +484,8 @@ TEST_F(LocalPartitionTest, multipleExchanges) {
 
   AssertQueryBuilder queryBuilder(op, duckDbQueryRunner_);
   for (auto i = 0; i < filePaths.size(); ++i) {
-    queryBuilder.split(scanNodeIds[i], makeHiveSplit(filePaths[i]->path));
+    queryBuilder.split(
+        scanNodeIds[i], makeHiveConnectorSplit(filePaths[i]->path));
   }
 
   queryBuilder.maxDrivers(2).assertResults(

@@ -366,8 +366,8 @@ TEST_F(HashJoinTest, lazyVectors) {
                 .planNode();
 
   AssertQueryBuilder(op, duckDbQueryRunner_)
-      .split(rightScanId, makeHiveSplit(rightFile->path))
-      .split(leftScanId, makeHiveSplit(leftFile->path))
+      .split(rightScanId, makeHiveConnectorSplit(rightFile->path))
+      .split(leftScanId, makeHiveConnectorSplit(leftFile->path))
       .assertResults("SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
 
   planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
@@ -391,8 +391,8 @@ TEST_F(HashJoinTest, lazyVectors) {
            .planNode();
 
   AssertQueryBuilder(op, duckDbQueryRunner_)
-      .split(rightScanId, makeHiveSplit(rightFile->path))
-      .split(leftScanId, makeHiveSplit(leftFile->path))
+      .split(rightScanId, makeHiveConnectorSplit(rightFile->path))
+      .split(leftScanId, makeHiveConnectorSplit(leftFile->path))
       .assertResults(
           "SELECT t.c1 + 1, U.c1, length(t.c3) FROM t, u "
           "WHERE t.c0 = u.c0 and t.c2 < 29 and (t.c1 + u.c1) % 33 < 27");
@@ -669,7 +669,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     auto task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(leftScanId, makeHiveSplits(leftFiles))
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults(
                 "SELECT t.c0, t.c1 + 1, t.c1 + u.c1 FROM t, u WHERE t.c0 = u.c0");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
@@ -693,7 +693,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(leftScanId, makeHiveSplits(leftFiles))
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults(
                 "SELECT t.c0, t.c1 + 1 FROM t WHERE t.c0 IN (SELECT c0 FROM u)");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
@@ -724,7 +724,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     auto task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(leftScanId, makeHiveSplits(leftFiles))
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults(
                 "SELECT t.c0, t.c1 + 1, t.c1 + u.c1 FROM t, u WHERE t.c0 = u.c0");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
@@ -745,7 +745,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     auto task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(leftScanId, makeHiveSplits(leftFiles))
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults(
                 "SELECT t.c1 + u.c1 FROM t, u WHERE t.c0 = u.c0 AND t.c0 < 500");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
@@ -767,7 +767,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     auto task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(leftScanId, makeHiveSplits(leftFiles))
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults("SELECT t.c0, t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
@@ -787,7 +787,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     auto task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(probeScanId, makeHiveSplits(leftFiles))
+            .splits(probeScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults("SELECT t.c0 FROM t JOIN u ON (t.c0 = u.c0)");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
@@ -807,7 +807,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     auto task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(leftScanId, makeHiveSplits(leftFiles))
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults(
                 "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0 AND t.c0 < 500");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
@@ -831,7 +831,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     auto task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(leftScanId, makeHiveSplits(leftFiles))
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults(
                 "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0 AND t.c0 < 200");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
@@ -850,7 +850,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(leftScanId, makeHiveSplits(leftFiles))
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults(
                 "SELECT t.c1 + 1 FROM t WHERE t.c0 IN (SELECT c0 FROM u) AND t.c0 < 200");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
@@ -887,7 +887,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
     auto task =
         AssertQueryBuilder(op, duckDbQueryRunner_)
-            .splits(leftScanId, makeHiveSplits(leftFiles))
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
             .assertResults("SELECT t.c1 + 1 FROM t, u WHERE (t.c0 + 1) = u.c0");
     EXPECT_EQ(0, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(0, getFiltersAccepted(task, 0).sum);
