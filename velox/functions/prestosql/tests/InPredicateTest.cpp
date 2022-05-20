@@ -300,3 +300,14 @@ TEST_F(InPredicateTest, varcharConstant) {
       "c1 IN ('apple', 'pear', 'banana')", rowVector);
   assertEqualVectors(constNull, result);
 }
+
+TEST_F(InPredicateTest, varbinary) {
+  auto input = makeRowVector({
+      makeNullableFlatVector<std::string>({"apple", "banana"}, VARBINARY()),
+  });
+
+  std::string predicate =
+      "c0 IN (CAST('apple' as VARBINARY), CAST('banana' as VARBINARY))";
+  auto result = evaluate<SimpleVector<bool>>(predicate, input);
+  assertEqualVectors(makeConstant(true, input->size()), result);
+}
