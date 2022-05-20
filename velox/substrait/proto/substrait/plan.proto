@@ -5,6 +5,7 @@ package substrait;
 import "velox/substrait/proto/substrait/algebra.proto";
 import "velox/substrait/proto/substrait/extensions/extensions.proto";
 
+option  cc_enable_arenas= true;
 option java_multiple_files = true;
 option java_package = "io.substrait.proto";
 option csharp_namespace = "Substrait.Protobuf";

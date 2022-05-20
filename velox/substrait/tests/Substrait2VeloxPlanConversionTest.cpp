@@ -20,7 +20,6 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/dwio/common/Options.h"
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/tests/utils/Cursor.h"
@@ -29,33 +28,15 @@
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/substrait/SubstraitToVeloxPlan.h"
 #include "velox/type/Type.h"
-#include "velox/type/tests/FilterBuilder.h"
-#include "velox/type/tests/SubfieldFiltersBuilder.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::exec;
-using namespace facebook::velox::common::test;
-using namespace facebook::velox::exec::test;
 
-class PlanConversionTest : public virtual HiveConnectorTestBase {
+class Substrait2VeloxPlanConversionTest
+    : public exec::test::HiveConnectorTestBase {
  protected:
-  void SetUp() override {
-    HiveConnectorTestBase::SetUp();
-  }
-
-  static void SetUpTestCase() {
-    HiveConnectorTestBase::SetUpTestCase();
-  }
-
-  std::vector<RowVectorPtr> makeVectors(
-      int32_t count,
-      int32_t rowsPerVector,
-      const std::shared_ptr<const RowType>& rowType) {
-    return HiveConnectorTestBase::makeVectors(rowType, count, rowsPerVector);
-  }
-
   class VeloxConverter {
    public:
     // This class is an iterator for Velox computing.
@@ -63,12 +44,10 @@ class PlanConversionTest : public virtual HiveConnectorTestBase {
      public:
       WholeComputeResultIterator(
           const std::shared_ptr<const core::PlanNode>& planNode,
-          u_int32_t index,
           const std::vector<std::string>& paths,
           const std::vector<u_int64_t>& starts,
           const std::vector<u_int64_t>& lengths)
           : planNode_(planNode),
-            index_(index),
             paths_(paths),
             starts_(starts),
             lengths_(lengths) {
@@ -80,14 +59,8 @@ class PlanConversionTest : public virtual HiveConnectorTestBase {
           auto path = paths[idx];
           auto start = starts[idx];
           auto length = lengths[idx];
-          auto split = std::make_shared<
-              facebook::velox::connector::hive::HiveConnectorSplit>(
-              facebook::velox::exec::test::kHiveConnectorId,
-              path,
-              facebook::velox::dwio::common::FileFormat::ORC,
-              start,
-              length);
-          connectorSplits.emplace_back(split);
+          connectorSplits.emplace_back(
+              makeHiveConnectorSplit(path, start, length));
         }
         splits_.reserve(connectorSplits.size());
         for (const auto& connectorSplit : connectorSplits) {
@@ -139,7 +112,6 @@ class PlanConversionTest : public virtual HiveConnectorTestBase {
       std::vector<exec::Split> splits_;
       bool noMoreSplits_ = false;
       std::function<void(exec::Task*)> addSplits_;
-      u_int32_t index_;
       std::vector<std::string> paths_;
       std::vector<u_int64_t> starts_;
       std::vector<u_int64_t> lengths_;
@@ -153,7 +125,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase {
     // Velox computing will be returned.
     std::shared_ptr<WholeComputeResultIterator> getResIter(
         const std::string& planPath) {
-      std::unique_ptr<facebook::velox::memory::ScopedMemoryPool> pool_{
+      std::unique_ptr<memory::ScopedMemoryPool> pool_{
           memory::getDefaultScopedMemoryPool()};
 
       // Read sub.json and resume the Substrait plan.
@@ -166,8 +138,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase {
       auto planNode = planConverter->toVeloxPlan(substraitPlan, pool_.get());
 
       // Get the information for TableScan.
-      u_int32_t partitionIndex = planConverter->getPartitionIndex();
-      std::vector<std::string> paths = planConverter->getPaths();
+      auto paths = planConverter->getPaths();
 
       // In test, need to get the absolute path of the generated ORC file.
       auto tempPath = getTmpDirPath();
@@ -175,15 +146,14 @@ class PlanConversionTest : public virtual HiveConnectorTestBase {
       absolutePaths.reserve(paths.size());
 
       for (const auto& path : paths) {
-        absolutePaths.emplace_back(fmt::format("file://{}{}", tempPath, path));
+        absolutePaths.emplace_back(fmt::format("{}{}", tempPath, path));
       }
 
       std::vector<u_int64_t> starts = planConverter->getStarts();
       std::vector<u_int64_t> lengths = planConverter->getLengths();
       // Construct the result iterator.
-      auto resIter = std::make_shared<WholeComputeResultIterator>(
-          planNode, partitionIndex, absolutePaths, starts, lengths);
-      return resIter;
+      return std::make_shared<WholeComputeResultIterator>(
+          planNode, absolutePaths, starts, lengths);
     }
 
     std::string getTmpDirPath() const {
@@ -193,65 +163,6 @@ class PlanConversionTest : public virtual HiveConnectorTestBase {
     std::shared_ptr<exec::test::TempDirectoryPath> tmpDir_{
         exec::test::TempDirectoryPath::create()};
   };
-
-  // This method can be used to create a Fixed-width type of Vector without Null
-  // values.
-  template <typename T>
-  VectorPtr createSpecificScalar(
-      size_t size,
-      std::vector<T> vals,
-      facebook::velox::memory::MemoryPool& pool) {
-    facebook::velox::BufferPtr values = AlignedBuffer::allocate<T>(size, &pool);
-    auto valuesPtr = values->asMutableRange<T>();
-    facebook::velox::BufferPtr nulls = nullptr;
-    for (size_t i = 0; i < size; ++i) {
-      valuesPtr[i] = vals[i];
-    }
-    return std::make_shared<facebook::velox::FlatVector<T>>(
-        &pool, nulls, size, values, std::vector<BufferPtr>{});
-  }
-
-  // This method can be used to create a String type of Vector without Null
-  // values.
-  VectorPtr createSpecificStringVector(
-      size_t size,
-      std::vector<std::string> vals,
-      facebook::velox::memory::MemoryPool& pool) {
-    auto vector = BaseVector::create(VARCHAR(), size, &pool);
-    auto flatVector = vector->asFlatVector<StringView>();
-
-    size_t childSize = 0;
-    std::vector<int64_t> lengths(size);
-    size_t nullCount = 0;
-    for (size_t i = 0; i < size; ++i) {
-      auto notNull = true;
-      vector->setNull(i, !notNull);
-      auto len = vals[i].size();
-      lengths[i] = len;
-      childSize += len;
-    }
-    vector->setNullCount(0);
-
-    BufferPtr buf = AlignedBuffer::allocate<char>(childSize, &pool);
-    char* bufPtr = buf->asMutable<char>();
-    char* dest = bufPtr;
-    for (size_t i = 0; i < size; ++i) {
-      std::string str = vals[i];
-      const char* chr = str.c_str();
-      auto length = str.size();
-      memcpy(dest, chr, length);
-      dest = dest + length;
-    }
-    size_t offset = 0;
-    for (size_t i = 0; i < size; ++i) {
-      if (!vector->isNullAt(i)) {
-        flatVector->set(
-            i, facebook::velox::StringView(bufPtr + offset, lengths[i]));
-        offset += lengths[i];
-      }
-    }
-    return vector;
-  }
 };
 
 // This test will firstly generate mock TPC-H lineitem ORC file. Then, Velox's
@@ -266,7 +177,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase {
 //  Aggregate
 //  Output: the Velox computed Aggregation result
 
-TEST_F(PlanConversionTest, queryTest) {
+TEST_F(Substrait2VeloxPlanConversionTest, queryTest) {
   // Generate the used ORC file.
   auto type =
       ROW({"l_orderkey",
@@ -318,7 +229,7 @@ TEST_F(PlanConversionTest, queryTest) {
       2142695974,
       6354246853,
       4141748419};
-  vectors.emplace_back(createSpecificScalar<int64_t>(10, lOrderkeyData, *pool));
+  vectors.emplace_back(makeFlatVector<int64_t>(lOrderkeyData));
   std::vector<int64_t> lPartkeyData = {
       263222018,
       255918298,
@@ -330,7 +241,7 @@ TEST_F(PlanConversionTest, queryTest) {
       273511608,
       112999357,
       299103530};
-  vectors.emplace_back(createSpecificScalar<int64_t>(10, lPartkeyData, *pool));
+  vectors.emplace_back(makeFlatVector<int64_t>(lPartkeyData));
   std::vector<int64_t> lSuppkeyData = {
       2102019,
       13998315,
@@ -342,13 +253,12 @@ TEST_F(PlanConversionTest, queryTest) {
       871626,
       1639379,
       3423588};
-  vectors.emplace_back(createSpecificScalar<int64_t>(10, lSuppkeyData, *pool));
+  vectors.emplace_back(makeFlatVector<int64_t>(lSuppkeyData));
   std::vector<int32_t> lLinenumberData = {4, 6, 1, 5, 1, 2, 1, 5, 2, 6};
-  vectors.emplace_back(
-      createSpecificScalar<int32_t>(10, lLinenumberData, *pool));
+  vectors.emplace_back(makeFlatVector<int32_t>(lLinenumberData));
   std::vector<double> lQuantityData = {
       6.0, 1.0, 19.0, 4.0, 6.0, 12.0, 23.0, 11.0, 16.0, 19.0};
-  vectors.emplace_back(createSpecificScalar<double>(10, lQuantityData, *pool));
+  vectors.emplace_back(makeFlatVector<double>(lQuantityData));
   std::vector<double> lExtendedpriceData = {
       30586.05,
       7821.0,
@@ -360,20 +270,19 @@ TEST_F(PlanConversionTest, queryTest) {
       41754.18,
       8704.26,
       63780.36};
-  vectors.emplace_back(
-      createSpecificScalar<double>(10, lExtendedpriceData, *pool));
+  vectors.emplace_back(makeFlatVector<double>(lExtendedpriceData));
   std::vector<double> lDiscountData = {
       0.05, 0.06, 0.01, 0.07, 0.05, 0.06, 0.07, 0.05, 0.06, 0.07};
-  vectors.emplace_back(createSpecificScalar<double>(10, lDiscountData, *pool));
+  vectors.emplace_back(makeFlatVector<double>(lDiscountData));
   std::vector<double> lTaxData = {
       0.02, 0.03, 0.01, 0.0, 0.01, 0.01, 0.03, 0.07, 0.01, 0.04};
-  vectors.emplace_back(createSpecificScalar<double>(10, lTaxData, *pool));
+  vectors.emplace_back(makeFlatVector<double>(lTaxData));
   std::vector<std::string> lReturnflagData = {
       "N", "A", "A", "R", "A", "N", "A", "A", "N", "R"};
-  vectors.emplace_back(createSpecificStringVector(10, lReturnflagData, *pool));
+  vectors.emplace_back(makeFlatVector<std::string>(lReturnflagData));
   std::vector<std::string> lLinestatusData = {
       "O", "F", "F", "F", "F", "O", "F", "F", "O", "F"};
-  vectors.emplace_back(createSpecificStringVector(10, lLinestatusData, *pool));
+  vectors.emplace_back(makeFlatVector<std::string>(lLinestatusData));
   std::vector<double> lShipdateNewData = {
       8953.666666666666,
       8773.666666666666,
@@ -385,8 +294,7 @@ TEST_F(PlanConversionTest, queryTest) {
       8778.666666666666,
       9013.666666666666,
       8832.666666666666};
-  vectors.emplace_back(
-      createSpecificScalar<double>(10, lShipdateNewData, *pool));
+  vectors.emplace_back(makeFlatVector<double>(lShipdateNewData));
   std::vector<double> lCommitdateNewData = {
       10447.666666666666,
       8953.666666666666,
@@ -398,8 +306,7 @@ TEST_F(PlanConversionTest, queryTest) {
       8666.666666666666,
       9519.666666666666,
       9138.666666666666};
-  vectors.emplace_back(
-      createSpecificScalar<double>(10, lCommitdateNewData, *pool));
+  vectors.emplace_back(makeFlatVector<double>(lCommitdateNewData));
   std::vector<double> lReceiptdateNewData = {
       10456.666666666666,
       8979.666666666666,
@@ -411,8 +318,7 @@ TEST_F(PlanConversionTest, queryTest) {
       8726.666666666666,
       9593.666666666666,
       9178.666666666666};
-  vectors.emplace_back(
-      createSpecificScalar<double>(10, lReceiptdateNewData, *pool));
+  vectors.emplace_back(makeFlatVector<double>(lReceiptdateNewData));
   std::vector<std::string> lShipinstructData = {
       "COLLECT COD",
       "NONE",
@@ -424,8 +330,7 @@ TEST_F(PlanConversionTest, queryTest) {
       "DELIVER IN PERSON",
       "TAKE BACK RETURN",
       "NONE"};
-  vectors.emplace_back(
-      createSpecificStringVector(10, lShipinstructData, *pool));
+  vectors.emplace_back(makeFlatVector<std::string>(lShipinstructData));
   std::vector<std::string> lShipmodeData = {
       "FOB",
       "REG AIR",
@@ -437,7 +342,7 @@ TEST_F(PlanConversionTest, queryTest) {
       "REG AIR",
       "TRUCK",
       "AIR"};
-  vectors.emplace_back(createSpecificStringVector(10, lShipmodeData, *pool));
+  vectors.emplace_back(makeFlatVector<std::string>(lShipmodeData));
   std::vector<std::string> lCommentData = {
       " the furiously final foxes. quickly final p",
       "thely ironic",
@@ -449,12 +354,10 @@ TEST_F(PlanConversionTest, queryTest) {
       "lyly regular excuses affi",
       "lly unusual theodolites grow slyly above",
       " the quickly ironic pains lose car"};
-  vectors.emplace_back(createSpecificStringVector(10, lCommentData, *pool));
+  vectors.emplace_back(makeFlatVector<std::string>(lCommentData));
 
   // Batches has only one RowVector here.
-  uint64_t nullCount = 0;
-  std::vector<RowVectorPtr> batches{std::make_shared<RowVector>(
-      pool.get(), type, nullptr, 10, vectors, nullCount)};
+  auto batches = {makeRowVector(type->names(), vectors)};
 
   // Find and deserialize Substrait plan json file.
   std::string planPath =
@@ -462,24 +365,7 @@ TEST_F(PlanConversionTest, queryTest) {
   auto veloxConverter = std::make_shared<VeloxConverter>();
 
   // Writes data into an ORC file.
-  auto sink = std::make_unique<facebook::velox::dwio::common::FileSink>(
-      veloxConverter->getTmpDirPath() + "/mock_lineitem.orc");
-  auto config = std::make_shared<facebook::velox::dwrf::Config>();
-  const int64_t writerMemoryCap = std::numeric_limits<int64_t>::max();
-  facebook::velox::dwrf::WriterOptions options;
-  options.config = config;
-  options.schema = type;
-  options.memoryBudget = writerMemoryCap;
-  options.flushPolicyFactory = nullptr;
-  options.layoutPlannerFactory = nullptr;
-  auto writer = std::make_unique<facebook::velox::dwrf::Writer>(
-      options,
-      std::move(sink),
-      facebook::velox::memory::getProcessDefaultMemoryManager().getRoot());
-  for (size_t i = 0; i < batches.size(); ++i) {
-    writer->write(batches[i]);
-  }
-  writer->close();
+  writeToFile(veloxConverter->getTmpDirPath() + "/mock_lineitem.orc", batches);
 
   auto resIter = veloxConverter->getResIter(planPath);
   while (resIter->HasNext()) {
