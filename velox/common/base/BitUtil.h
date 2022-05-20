@@ -89,7 +89,7 @@ inline void negate(char* bits, int32_t size) {
 }
 
 template <typename T, typename U>
-inline T roundUp(T value, U factor) {
+constexpr inline T roundUp(T value, U factor) {
   return (value + (factor - 1)) / factor * factor;
 }
 
@@ -101,11 +101,11 @@ constexpr inline uint64_t highMask(int32_t bits) {
   return lowMask(bits) << (64 - bits);
 }
 
-inline uint64_t nbytes(int32_t bits) {
+constexpr inline uint64_t nbytes(int32_t bits) {
   return roundUp(bits, 8) / 8;
 }
 
-inline uint64_t nwords(int32_t bits) {
+constexpr inline uint64_t nwords(int32_t bits) {
   return roundUp(bits, 64) / 64;
 }
 
