@@ -433,7 +433,7 @@ public class ExpressionAnalyzer
 
             // If we found a direct column reference, and we will put it in tableColumnReferencesWithSubFields
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent() && isTopMostReference(node, context)) {
-                tableColumnAndSubfieldReferences.put(field.getOriginTable().get(), new Subfield(field.getOriginColumnName().get()));
+                tableColumnAndSubfieldReferences.put(field.getOriginTable().get(), new Subfield(field.getOriginColumnName().get(), ImmutableList.of()));
             }
 
             FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);

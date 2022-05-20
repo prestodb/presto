@@ -585,7 +585,7 @@ class StatementAnalyzer
                     accessControl,
                     session.getIdentity(),
                     ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
-                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet().stream().map(Subfield::new).collect(toImmutableSet()))
+                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
                             .build());
             try {
                 accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
@@ -1861,13 +1861,13 @@ class StatementAnalyzer
                     analysis.addTableColumnAndSubfieldReferences(
                             accessControl,
                             session.getIdentity(),
-                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), new Subfield(leftField.get().getField().getOriginColumnName().get())));
+                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), new Subfield(leftField.get().getField().getOriginColumnName().get(), ImmutableList.of())));
                 }
                 if (rightField.get().getField().getOriginTable().isPresent() && rightField.get().getField().getOriginColumnName().isPresent()) {
                     analysis.addTableColumnAndSubfieldReferences(
                             accessControl,
                             session.getIdentity(),
-                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get())));
+                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get(), ImmutableList.of())));
                 }
             }
 
