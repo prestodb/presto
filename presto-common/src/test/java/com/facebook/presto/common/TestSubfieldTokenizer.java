@@ -73,6 +73,7 @@ public class TestSubfieldTokenizer
     @Test
     public void testColumnNames()
     {
+        assertPath(new Subfield("#bucket", ImmutableList.of()));
         assertPath(new Subfield("$bucket", ImmutableList.of()));
         assertPath(new Subfield("apollo-11", ImmutableList.of()));
         assertPath(new Subfield("a/b/c:12", ImmutableList.of()));
