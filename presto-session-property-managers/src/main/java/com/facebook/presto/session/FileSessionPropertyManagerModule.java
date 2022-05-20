@@ -13,19 +13,25 @@
  */
 package com.facebook.presto.session;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.server.ServerConfig;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 
 public class FileSessionPropertyManagerModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         configBinder(binder).bindConfig(FileSessionPropertyManagerConfig.class);
         binder.bind(FileSessionPropertyManager.class).in(Scopes.SINGLETON);
+
+        ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
+        NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
+        binder.bind(NodeVersion.class).toInstance(nodeVersion);
     }
 }
