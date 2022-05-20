@@ -155,6 +155,27 @@ std::shared_ptr<Task> AssertQueryBuilder::assertResults(
   return cursor->task();
 }
 
+RowVectorPtr AssertQueryBuilder::copyResults(memory::MemoryPool* pool) {
+  auto [cursor, results] = readCursor();
+
+  VELOX_CHECK(!results.empty());
+
+  auto totalCount = 0;
+  for (const auto& result : results) {
+    totalCount += result->size();
+  }
+
+  auto copy = std::dynamic_pointer_cast<RowVector>(
+      BaseVector::create(results[0]->type(), totalCount, pool));
+  auto copyCount = 0;
+  for (const auto& result : results) {
+    copy->copy(result.get(), 0, copyCount, result->size());
+    copyCount += result->size();
+  }
+
+  return copy;
+}
+
 std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>>
 AssertQueryBuilder::readCursor() {
   VELOX_CHECK_NOT_NULL(params_.planNode);

@@ -710,12 +710,15 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
     std::function<void(exec::Task*)> addSplits) {
   std::vector<RowVectorPtr> result;
   auto cursor = std::make_unique<TaskCursor>(params);
-  addSplits(cursor->task().get());
+  auto* task = cursor->task().get();
+  addSplits(task);
 
   while (cursor->moveNext()) {
     result.push_back(cursor->current());
-    addSplits(cursor->task().get());
+    addSplits(task);
   }
+
+  EXPECT_TRUE(waitForTaskCompletion(task));
   return {std::move(cursor), std::move(result)};
 }
 

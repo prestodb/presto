@@ -110,28 +110,9 @@ class OperatorTestBase : public testing::Test,
       const std::string& duckDbSql,
       std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt);
 
-  RowVectorPtr getResults(const core::PlanNodePtr& planNode);
-
-  /// Assumes plan has a single leaf node. All splits are added to that node.
-  RowVectorPtr getResults(
-      const core::PlanNodePtr& planNode,
-      std::vector<exec::Split>&& splits);
-
-  RowVectorPtr getResults(
-      const core::PlanNodePtr& planNode,
-      std::unordered_map<core::PlanNodeId, std::vector<exec::Split>>&& splits);
-
-  RowVectorPtr getResults(const CursorParameters& params);
-
-  /// Assumes plan has a single leaf node. All splits are added to that node.
-  RowVectorPtr getResults(
-      const CursorParameters& params,
-      std::function<void(exec::Task*)> addSplits);
-
-  static RowTypePtr makeRowType(
-      std::vector<std::shared_ptr<const Type>>&& types) {
+  static RowTypePtr makeRowType(std::vector<TypePtr>&& types) {
     return velox::test::VectorMaker::rowType(
-        std::forward<std::vector<std::shared_ptr<const Type>>&&>(types));
+        std::forward<std::vector<TypePtr>&&>(types));
   }
 
   static std::shared_ptr<core::FieldAccessTypedExpr> toFieldExpr(

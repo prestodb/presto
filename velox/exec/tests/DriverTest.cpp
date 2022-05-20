@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 #include <folly/init/Init.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -31,12 +33,10 @@ using facebook::velox::test::BatchMaker;
 // pauses and resumes other Tasks.
 class TestingPauserNode : public core::PlanNode {
  public:
-  explicit TestingPauserNode(std::shared_ptr<const core::PlanNode> input)
+  explicit TestingPauserNode(core::PlanNodePtr input)
       : PlanNode("Pauser"), sources_{input} {}
 
-  TestingPauserNode(
-      const core::PlanNodeId& id,
-      std::shared_ptr<const core::PlanNode> input)
+  TestingPauserNode(const core::PlanNodeId& id, core::PlanNodePtr input)
       : PlanNode(id), sources_{input} {}
 
   const std::shared_ptr<const RowType>& outputType() const override {
@@ -54,7 +54,7 @@ class TestingPauserNode : public core::PlanNode {
  private:
   void addDetails(std::stringstream& /* stream */) const override {}
 
-  std::vector<std::shared_ptr<const core::PlanNode>> sources_;
+  std::vector<core::PlanNodePtr> sources_;
 };
 
 class DriverTest : public OperatorTestBase {
@@ -91,7 +91,7 @@ class DriverTest : public OperatorTestBase {
     OperatorTestBase::TearDown();
   }
 
-  std::shared_ptr<const core::PlanNode> makeValuesFilterProject(
+  core::PlanNodePtr makeValuesFilterProject(
       const std::shared_ptr<const RowType>& rowType,
       const std::string& filter,
       const std::string& project,
@@ -133,10 +133,9 @@ class DriverTest : public OperatorTestBase {
       planBuilder.project(expressions);
     }
     if (addTestingPauser) {
-      planBuilder.addNode(
-          [](std::string id, std::shared_ptr<const core::PlanNode> input) {
-            return std::make_shared<TestingPauserNode>(id, input);
-          });
+      planBuilder.addNode([](std::string id, core::PlanNodePtr input) {
+        return std::make_shared<TestingPauserNode>(id, input);
+      });
     }
 
     return planBuilder.planNode();
@@ -624,8 +623,7 @@ class PauserNodeFactory : public Operator::PlanNodeTranslator {
     return nullptr;
   }
 
-  std::optional<uint32_t> maxDrivers(
-      const std::shared_ptr<const core::PlanNode>& node) override {
+  std::optional<uint32_t> maxDrivers(const core::PlanNodePtr& node) override {
     if (auto pauser =
             std::dynamic_pointer_cast<const TestingPauserNode>(node)) {
       return maxDrivers_;
@@ -700,9 +698,7 @@ namespace {
 // Custom node for the custom factory.
 class ThrowNode : public core::PlanNode {
  public:
-  ThrowNode(
-      const core::PlanNodeId& id,
-      std::shared_ptr<const core::PlanNode> input)
+  ThrowNode(const core::PlanNodeId& id, core::PlanNodePtr input)
       : PlanNode(id), sources_{input} {}
 
   const std::shared_ptr<const RowType>& outputType() const override {
@@ -720,16 +716,13 @@ class ThrowNode : public core::PlanNode {
  private:
   void addDetails(std::stringstream& /* stream */) const override {}
 
-  std::vector<std::shared_ptr<const core::PlanNode>> sources_;
+  std::vector<core::PlanNodePtr> sources_;
 };
 
 // Custom operator for the custom factory.
 class ThrowOperator : public Operator {
  public:
-  ThrowOperator(
-      DriverCtx* ctx,
-      int32_t id,
-      std::shared_ptr<const core::PlanNode> node)
+  ThrowOperator(DriverCtx* ctx, int32_t id, core::PlanNodePtr node)
       : Operator(ctx, node->outputType(), id, node->id(), "Throw") {}
 
   bool needsInput() const override {
@@ -774,8 +767,7 @@ class ThrowNodeFactory : public Operator::PlanNodeTranslator {
     return nullptr;
   }
 
-  std::optional<uint32_t> maxDrivers(
-      const std::shared_ptr<const core::PlanNode>& node) override {
+  std::optional<uint32_t> maxDrivers(const core::PlanNodePtr& node) override {
     if (std::dynamic_pointer_cast<const ThrowNode>(node)) {
       return 5;
     }
@@ -800,24 +792,15 @@ TEST_F(DriverTest, driverCreationThrow) {
 
   auto plan = PlanBuilder(planNodeIdGenerator)
                   .values({rows}, true)
-                  .addNode([](std::string id,
-                              std::shared_ptr<const core::PlanNode> input) {
+                  .addNode([](std::string id, core::PlanNodePtr input) {
                     return std::make_shared<ThrowNode>(id, input);
                   })
                   .planNode();
 
   // Ensure execution threw correct error.
-  try {
-    CursorParameters params;
-    params.planNode = std::move(plan);
-    params.maxDrivers = 5;
-    getResults(params);
-    FAIL() << "Expected exception.";
-  } catch (const VeloxException& ex) {
-    EXPECT_NE(
-        std::string::npos,
-        ex.message().find("Can only create 1 'throw driver'."));
-  }
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).maxDrivers(5).copyResults(pool()),
+      "Can only create 1 'throw driver'.");
 }
 
 int main(int argc, char** argv) {

@@ -17,6 +17,7 @@
 #include "velox/connectors/tpch/TpchConnector.h"
 #include <folly/init/Init.h>
 #include "gtest/gtest.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
@@ -48,6 +49,14 @@ class TpchConnectorTest : public exec::test::OperatorTestBase {
 
   exec::Split makeTpchSplit() const {
     return exec::Split(std::make_shared<TpchConnectorSplit>(kTpchConnectorId));
+  }
+
+  RowVectorPtr getResults(
+      const core::PlanNodePtr& planNode,
+      std::vector<exec::Split>&& splits) {
+    return exec::test::AssertQueryBuilder(planNode)
+        .splits(std::move(splits))
+        .copyResults(pool());
   }
 
   void runScaleFactorTest(size_t scaleFactor);
@@ -169,7 +178,6 @@ TEST_F(TpchConnectorTest, unknownColumn) {
       },
       VeloxUserError);
 }
-
 } // namespace
 
 int main(int argc, char** argv) {

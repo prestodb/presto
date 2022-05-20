@@ -94,6 +94,10 @@ class AssertQueryBuilder {
   std::shared_ptr<Task> assertResults(
       const std::vector<RowVectorPtr>& expected);
 
+  /// Run the query and collect all results into a single vector. Throws if
+  /// query returns empty result.
+  RowVectorPtr copyResults(memory::MemoryPool* pool);
+
  private:
   std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>>
   readCursor();
