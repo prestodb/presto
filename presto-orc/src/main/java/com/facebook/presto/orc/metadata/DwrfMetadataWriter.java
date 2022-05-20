@@ -467,10 +467,7 @@ public class DwrfMetadataWriter
                 .addAllStreams(stripeEncryptionGroup.getStreams().stream()
                         .map(DwrfMetadataWriter::toStream)
                         .collect(toImmutableList()))
-                .addAllEncoding(stripeEncryptionGroup.getColumnEncodings().entrySet()
-                        .stream()
-                        .map(entry -> toColumnEncoding(entry.getKey(), entry.getValue()))
-                        .collect(toImmutableList()))
+                .addAllEncoding(toColumnEncodings(stripeEncryptionGroup.getColumnEncodings()))
                 .build();
     }
 
