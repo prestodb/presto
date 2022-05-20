@@ -808,7 +808,7 @@ public class Analysis
                             Map.Entry::getKey,
                             accessControlEntry -> accessControlEntry.getValue().entrySet().stream().collect(toImmutableMap(
                                     Map.Entry::getKey,
-                                    tableEntry -> tableEntry.getValue().stream().map(Subfield::new).collect(toImmutableSet())))));
+                                    tableEntry -> tableEntry.getValue().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet())))));
         }
         else if (!isCheckAccessControlOnUtilizedColumnsOnly(session)) {
             references = tableColumnAndSubfieldReferences;
