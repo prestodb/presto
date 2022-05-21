@@ -79,6 +79,30 @@ public class TestBinaryStatisticsBuilder
     }
 
     @Test
+    public void testAddValueByPosition()
+    {
+        String alphabet = "abcdefghijklmnopqrstuvwxyz";
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, alphabet.length(), alphabet.length());
+        Slice slice = utf8Slice(alphabet);
+        for (int i = 0; i < slice.length(); i++) {
+            VARBINARY.writeSlice(blockBuilder, slice, i, 1);
+        }
+        blockBuilder.appendNull();
+
+        BinaryStatisticsBuilder statisticsBuilder = new BinaryStatisticsBuilder();
+        int positionCount = blockBuilder.getPositionCount();
+        for (int position = 0; position < positionCount; position++) {
+            statisticsBuilder.addValue(VARBINARY, blockBuilder, position);
+        }
+
+        ColumnStatistics columnStatistics = statisticsBuilder.buildColumnStatistics();
+        assertEquals(columnStatistics.getNumberOfValues(), positionCount - 1);
+
+        BinaryStatistics binaryStatistics = columnStatistics.getBinaryStatistics();
+        assertEquals(binaryStatistics.getSum(), slice.length());
+    }
+
+    @Test
     public void testMerge()
     {
         List<ColumnStatistics> statisticsList = new ArrayList<>();

@@ -31,6 +31,7 @@ import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.BooleanStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.CountStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
@@ -743,28 +744,6 @@ public class OrcWriteValidation
         {
             output.add(statisticsBuilder.buildColumnStatistics());
             fieldBuilders.forEach(fieldBuilders -> fieldBuilders.build(output));
-        }
-    }
-
-    private static class CountStatisticsBuilder
-            implements StatisticsBuilder
-    {
-        private long rowCount;
-
-        @Override
-        public void addBlock(Type type, Block block)
-        {
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                if (!block.isNull(position)) {
-                    rowCount++;
-                }
-            }
-        }
-
-        @Override
-        public ColumnStatistics buildColumnStatistics()
-        {
-            return new ColumnStatistics(rowCount, null);
         }
     }
 

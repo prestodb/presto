@@ -278,6 +278,32 @@ public class TestStringStatisticsBuilder
         assertEquals(stringStatistics.getSum(), slice.length());
     }
 
+    @Test
+    public void testAddValueByPosition()
+    {
+        String alphabet = "abcdefghijklmnopqrstuvwxyz";
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, alphabet.length(), alphabet.length());
+        Slice slice = utf8Slice(alphabet);
+        for (int i = 0; i < slice.length(); i++) {
+            VARCHAR.writeSlice(blockBuilder, slice, i, 1);
+        }
+        blockBuilder.appendNull();
+
+        StringStatisticsBuilder stringStatisticsBuilder = new StringStatisticsBuilder(1000);
+        int positionCount = blockBuilder.getPositionCount();
+        for (int position = 0; position < positionCount; position++) {
+            stringStatisticsBuilder.addValue(VARCHAR, blockBuilder, position);
+        }
+
+        ColumnStatistics columnStatistics = stringStatisticsBuilder.buildColumnStatistics();
+        assertEquals(columnStatistics.getNumberOfValues(), positionCount - 1);
+
+        StringStatistics stringStatistics = columnStatistics.getStringStatistics();
+        assertEquals(stringStatistics.getMin(), slice.slice(0, 1));
+        assertEquals(stringStatistics.getMax(), slice.slice(slice.length() - 1, 1));
+        assertEquals(stringStatistics.getSum(), slice.length());
+    }
+
     private void assertMergedStringStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, int expectedSum)
     {
         assertStringStatistics(mergeColumnStatistics(statisticsList), expectedNumberOfValues, expectedSum);
