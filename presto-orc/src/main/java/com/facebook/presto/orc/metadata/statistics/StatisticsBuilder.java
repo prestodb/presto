@@ -20,5 +20,10 @@ public interface StatisticsBuilder
 {
     void addBlock(Type type, Block block);
 
+    default void addValue(Type type, Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     ColumnStatistics buildColumnStatistics();
 }
