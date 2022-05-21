@@ -16,26 +16,37 @@ package com.facebook.presto.orc.metadata.statistics;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 
-public interface LongValueStatisticsBuilder
-        extends StatisticsBuilder
+public class CountStatisticsBuilder
+        implements StatisticsBuilder
 {
+    private long nonNullValueCount;
+
     @Override
-    default void addBlock(Type type, Block block)
+    public void addBlock(Type type, Block block)
     {
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                addValue(type.getLong(block, position));
+                nonNullValueCount++;
             }
         }
     }
 
     @Override
-    default void addValue(Type type, Block block, int position)
+    public void addValue(Type type, Block block, int position)
     {
         if (!block.isNull(position)) {
-            addValue(type.getLong(block, position));
+            nonNullValueCount++;
         }
     }
 
-    void addValue(long value);
+    public void addValue()
+    {
+        nonNullValueCount++;
+    }
+
+    @Override
+    public ColumnStatistics buildColumnStatistics()
+    {
+        return new ColumnStatistics(nonNullValueCount, null);
+    }
 }
