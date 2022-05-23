@@ -45,15 +45,18 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multiset;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
@@ -139,6 +142,9 @@ public class Analysis
     private final Map<NodeRef<SampledRelation>, Double> sampleRatios = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<GroupingOperation>> groupingOperations = new LinkedHashMap<>();
+
+    private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
+    private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
 
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
@@ -884,6 +890,33 @@ public class Analysis
         return redundantOrderBy.contains(NodeRef.of(orderBy));
     }
 
+    public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
+    {
+        return columnMaskScopes.contains(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity)
+    {
+        columnMaskScopes.add(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void unregisterTableForColumnMasking(QualifiedObjectName table, String column, String identity)
+    {
+        columnMaskScopes.remove(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void addColumnMask(Table table, String column, Expression mask)
+    {
+        Map<String, List<Expression>> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
+        masks.computeIfAbsent(column, name -> new ArrayList<>())
+                .add(mask);
+    }
+
+    public Map<String, List<Expression>> getColumnMasks(Table table)
+    {
+        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
+    }
+
     public void setExpandedQuery(String expandedQuery)
     {
         this.expandedQuery = Optional.of(expandedQuery);
@@ -1111,6 +1144,41 @@ public class Analysis
         public String toString()
         {
             return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
+        }
+    }
+
+    private static class ColumnMaskScopeEntry
+    {
+        private final QualifiedObjectName table;
+        private final String column;
+        private final String identity;
+
+        public ColumnMaskScopeEntry(QualifiedObjectName table, String column, String identity)
+        {
+            this.table = requireNonNull(table, "table is null");
+            this.column = requireNonNull(column, "column is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnMaskScopeEntry that = (ColumnMaskScopeEntry) o;
+            return table.equals(that.table) &&
+                    column.equals(that.column) &&
+                    identity.equals(that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(table, column, identity);
         }
     }
 }

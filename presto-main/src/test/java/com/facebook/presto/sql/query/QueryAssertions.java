@@ -32,6 +32,7 @@ import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -56,6 +57,11 @@ class QueryAssertions
     public QueryRunner getQueryRunner()
     {
         return runner;
+    }
+
+    public QueryAssertions(QueryRunner runner)
+    {
+        this.runner = requireNonNull(runner, "runner is null");
     }
 
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
@@ -125,5 +131,16 @@ class QueryAssertions
     public void close()
     {
         runner.close();
+    }
+
+    protected void executeExclusively(Runnable executionBlock)
+    {
+        runner.getExclusiveLock().lock();
+        try {
+            executionBlock.run();
+        }
+        finally {
+            runner.getExclusiveLock().unlock();
+        }
     }
 }

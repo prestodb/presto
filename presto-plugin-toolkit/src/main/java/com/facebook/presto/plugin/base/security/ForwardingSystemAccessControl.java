@@ -21,6 +21,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
+import com.facebook.presto.spi.security.ViewExpression;
 
 import java.security.Principal;
 import java.util.Optional;
@@ -213,5 +214,11 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanRevokeTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
         delegate().checkCanRevokeTablePrivilege(identity, context, privilege, table, revokee, grantOptionFor);
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName)
+    {
+        return Optional.empty();
     }
 }
