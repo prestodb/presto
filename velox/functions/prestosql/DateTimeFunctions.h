@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <velox/type/Timestamp.h>
 #include "velox/core/QueryConfig.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/Macros.h"
@@ -121,7 +122,7 @@ struct TimestampWithTimezoneSupport {
   Timestamp toTimestamp(
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     const auto milliseconds = *timestampWithTimezone.template at<0>();
-    Timestamp timestamp{milliseconds / kMillisecondsInSecond, 0UL};
+    Timestamp timestamp = Timestamp::fromMillis(milliseconds);
     timestamp.toTimezone(*timestampWithTimezone.template at<1>());
 
     return timestamp;
@@ -337,56 +338,72 @@ struct HourFunction : public InitSessionTimezone<T> {
 };
 
 template <typename T>
-struct MinuteFunction : public InitSessionTimezone<T> {
+struct MinuteFunction : public InitSessionTimezone<T>,
+                        public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
     result = getDateTime(timestamp, this->timeZone_).tm_min;
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
     result = getDateTime(date).tm_min;
-    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = getDateTime(timestamp, nullptr).tm_min;
   }
 };
 
 template <typename T>
-struct SecondFunction {
+struct SecondFunction : public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
     result = getDateTime(timestamp, nullptr).tm_sec;
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
     result = getDateTime(date).tm_sec;
-    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = getDateTime(timestamp, nullptr).tm_sec;
   }
 };
 
 template <typename T>
-struct MillisecondFunction {
+struct MillisecondFunction : public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
     result = timestamp.getNanos() / kNanosecondsInMillisecond;
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Date>& /*date*/) {
     // Dates do not have millisecond granularity.
     result = 0;
-    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = timestamp.getNanos() / kNanosecondsInMillisecond;
   }
 };
 

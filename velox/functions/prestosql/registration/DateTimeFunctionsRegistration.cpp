@@ -55,10 +55,14 @@ void registerSimpleFunctions() {
   registerFunction<HourFunction, int64_t, TimestampWithTimezone>({"hour"});
   registerFunction<MinuteFunction, int64_t, Timestamp>({"minute"});
   registerFunction<MinuteFunction, int64_t, Date>({"minute"});
+  registerFunction<MinuteFunction, int64_t, TimestampWithTimezone>({"minute"});
   registerFunction<SecondFunction, int64_t, Timestamp>({"second"});
   registerFunction<SecondFunction, int64_t, Date>({"second"});
+  registerFunction<SecondFunction, int64_t, TimestampWithTimezone>({"second"});
   registerFunction<MillisecondFunction, int64_t, Timestamp>({"millisecond"});
   registerFunction<MillisecondFunction, int64_t, Date>({"millisecond"});
+  registerFunction<MillisecondFunction, int64_t, TimestampWithTimezone>(
+      {"millisecond"});
   registerFunction<DateTruncFunction, Timestamp, Varchar, Timestamp>(
       {"date_trunc"});
   registerFunction<DateTruncFunction, Date, Varchar, Date>({"date_trunc"});

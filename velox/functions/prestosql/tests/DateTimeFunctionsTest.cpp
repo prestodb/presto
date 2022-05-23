@@ -730,6 +730,46 @@ TEST_F(DateTimeFunctionsTest, minuteDate) {
   EXPECT_EQ(0, minute(Date(-18262)));
 }
 
+TEST_F(DateTimeFunctionsTest, minuteTimestampWithTimezone) {
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "minute(c0)", std::nullopt, std::nullopt));
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "minute(c0)", std::nullopt, "Asia/Kolkata"));
+  EXPECT_EQ(
+      0, evaluateWithTimestampWithTimezone<int64_t>("minute(c0)", 0, "+00:00"));
+  EXPECT_EQ(
+      30,
+      evaluateWithTimestampWithTimezone<int64_t>("minute(c0)", 0, "+05:30"));
+  EXPECT_EQ(
+      6,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "minute(c0)", 4000000000000, "+00:00"));
+  EXPECT_EQ(
+      36,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "minute(c0)", 4000000000000, "+05:30"));
+  EXPECT_EQ(
+      4,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "minute(c0)", 998474645000, "+00:00"));
+  EXPECT_EQ(
+      34,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "minute(c0)", 998474645000, "+05:30"));
+  EXPECT_EQ(
+      59,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "minute(c0)", -1000, "+00:00"));
+  EXPECT_EQ(
+      29,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "minute(c0)", -1000, "+05:30"));
+}
+
 TEST_F(DateTimeFunctionsTest, second) {
   const auto second = [&](std::optional<Timestamp> timestamp) {
     return evaluateOnce<int64_t>("second(c0)", timestamp);
@@ -754,6 +794,37 @@ TEST_F(DateTimeFunctionsTest, secondDate) {
   EXPECT_EQ(0, second(Date(-18262)));
 }
 
+TEST_F(DateTimeFunctionsTest, secondTimestampWithTimezone) {
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "second(c0)", std::nullopt, std::nullopt));
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "second(c0)", std::nullopt, "+05:30"));
+  EXPECT_EQ(
+      0, evaluateWithTimestampWithTimezone<int64_t>("second(c0)", 0, "+00:00"));
+  EXPECT_EQ(
+      0, evaluateWithTimestampWithTimezone<int64_t>("second(c0)", 0, "+05:30"));
+  EXPECT_EQ(
+      40,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "second(c0)", 4000000000000, "+00:00"));
+  EXPECT_EQ(
+      40,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "second(c0)", 4000000000000, "+05:30"));
+  EXPECT_EQ(
+      59,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "second(c0)", -1000, "+00:00"));
+  EXPECT_EQ(
+      59,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "second(c0)", -1000, "+05:30"));
+}
+
 TEST_F(DateTimeFunctionsTest, millisecond) {
   const auto millisecond = [&](std::optional<Timestamp> timestamp) {
     return evaluateOnce<int64_t>("millisecond(c0)", timestamp);
@@ -776,6 +847,41 @@ TEST_F(DateTimeFunctionsTest, millisecondDate) {
   EXPECT_EQ(0, millisecond(Date(40)));
   EXPECT_EQ(0, millisecond(Date(18262)));
   EXPECT_EQ(0, millisecond(Date(-18262)));
+}
+
+TEST_F(DateTimeFunctionsTest, millisecondTimestampWithTimezone) {
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "millisecond(c0)", std::nullopt, std::nullopt));
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "millisecond(c0)", std::nullopt, "+05:30"));
+  EXPECT_EQ(
+      0,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "millisecond(c0)", 0, "+00:00"));
+  EXPECT_EQ(
+      0,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "millisecond(c0)", 0, "+05:30"));
+  EXPECT_EQ(
+      123,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "millisecond(c0)", 4000000000123, "+00:00"));
+  EXPECT_EQ(
+      123,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "millisecond(c0)", 4000000000123, "+05:30"));
+  EXPECT_EQ(
+      20,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "millisecond(c0)", -980, "+00:00"));
+  EXPECT_EQ(
+      20,
+      evaluateWithTimestampWithTimezone<int64_t>(
+          "millisecond(c0)", -980, "+05:30"));
 }
 
 TEST_F(DateTimeFunctionsTest, dateTrunc) {
