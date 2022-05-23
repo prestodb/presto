@@ -255,7 +255,11 @@ void EvalCtx::ensureFieldLoaded(int32_t index, const SelectivityVector& rows) {
     auto rawField = field.get();
     LazyVector::ensureLoadedRows(field, rowsToLoad, *decoded, *baseRows);
     if (rawField != field.get()) {
-      const_cast<RowVector*>(row_)->childAt(index) = field;
+      if (peeledFields_.empty()) {
+        const_cast<RowVector*>(row_)->childAt(index) = field;
+      } else {
+        peeledFields_[index] = field;
+      }
     }
   } else {
     // This is needed in any case because wrappers must be initialized also if

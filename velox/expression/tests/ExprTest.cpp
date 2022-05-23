@@ -358,21 +358,17 @@ class ExprTest : public testing::Test, public VectorTestBase {
       auto nullRow = nullIndices ? nullIndices[row] : row;
       if (value.has_value()) {
         if (nulls && bits::isBitNull(nulls, nullRow)) {
-          EXPECT_TRUE(false) << errorPrefix << ": expected non-null at " << row;
-          return false;
+          FAIL() << errorPrefix << ": expected non-null at " << row;
+          return;
         }
         if (value != base->valueAt(baseRow)) {
           EXPECT_EQ(value.value(), base->valueAt(baseRow))
               << errorPrefix << ": at " << row;
-          return false;
         }
       } else if (!(nulls && bits::isBitNull(nulls, nullRow))) {
-        EXPECT_TRUE(false) << errorPrefix
-                           << ": reference is null and tests is not null at "
-                           << row;
-        return false;
+        FAIL() << errorPrefix << ": reference is null and tests is not null at "
+               << row;
       }
-      return true;
     });
   }
 
@@ -495,6 +491,10 @@ class ExprTest : public testing::Test, public VectorTestBase {
     exec::EvalCtx context(execCtx_.get(), exprs_.get(), row.get());
     auto size = row->size();
 
+    SelectivityVector allRows(size);
+    *context.mutableIsFinalSelection() = false;
+    *context.mutableFinalSelection() = &allRows;
+
     vector_size_t begin = 0;
     vector_size_t end = size / 3 * 2;
     {
@@ -550,7 +550,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
   }
 
   static bool isAllNulls(const VectorPtr& vector) {
-    if (!vector->mayHaveNulls()) {
+    if (!vector->loadedVector()->mayHaveNulls()) {
       return false;
     }
     for (auto i = 0; i < vector->size(); ++i) {
@@ -752,6 +752,7 @@ TEST_F(ExprTest, encodings) {
           },
           &testData_.bigint2);
       ++counter;
+
       run<int64_t>("2 * bigint1 + 3 * bigint2", [&](int32_t row) {
         if (IS_BIGINT1 && IS_BIGINT2) {
           return INT64V(2 * BIGINT1 + 3 * BIGINT2);
@@ -838,6 +839,7 @@ TEST_F(ExprTest, encodingsOverLazy) {
           &testData_.bigint2,
           true);
       ++counter;
+
       run<int64_t>("2 * bigint1 + 3 * bigint2", [&](int32_t row) {
         if (IS_BIGINT1 && IS_BIGINT2) {
           return INT64V(2 * BIGINT1 + 3 * BIGINT2);

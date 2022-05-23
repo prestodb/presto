@@ -29,7 +29,6 @@ TEST_F(LazyVectorTest, lazyInDictionary) {
   // vector are properly translated and deduplicated.
   static constexpr int32_t kInnerSize = 100;
   static constexpr int32_t kOuterSize = 1000;
-  auto base = makeFlatVector<int32_t>(kInnerSize, [](auto row) { return row; });
   std::vector<vector_size_t> loadedRows;
   auto lazy = std::make_shared<LazyVector>(
       pool_.get(),
@@ -39,7 +38,8 @@ TEST_F(LazyVectorTest, lazyInDictionary) {
         for (auto row : rows) {
           loadedRows.push_back(row);
         }
-        return base;
+        return makeFlatVector<int32_t>(
+            rows.back() + 1, [](auto row) { return row; });
       }));
   auto wrapped = BaseVector::wrapInDictionary(
       nullptr,
@@ -60,6 +60,7 @@ TEST_F(LazyVectorTest, lazyInDictionary) {
   EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::DICTIONARY);
   EXPECT_EQ(wrapped->valueVector()->encoding(), VectorEncoding::Simple::FLAT);
   EXPECT_EQ(loadedRows, (std::vector<vector_size_t>{0, 5}));
+  assertCopyableVector(wrapped);
 }
 
 TEST_F(LazyVectorTest, lazyInCostant) {
@@ -105,32 +106,67 @@ TEST_F(LazyVectorTest, lazyInDoubleDictionary) {
   // referring to uninitialized/nonexistent positions.
   static constexpr int32_t kInnerSize = 100;
   static constexpr int32_t kOuterSize = 1000;
-  auto base = makeFlatVector<int32_t>(kInnerSize, [](auto row) { return row; });
+
+  VectorPtr lazy;
   vector_size_t loadEnd = 0;
-  auto lazy = std::make_shared<LazyVector>(
-      pool_.get(),
-      INTEGER(),
-      kInnerSize,
-      std::make_unique<test::SimpleVectorLoader>([&](auto rows) {
-        loadEnd = rows.back() + 1;
-        return base;
-      }));
-  auto wrapped = BaseVector::wrapInDictionary(
-      nullptr,
-      makeIndices(kInnerSize, [](auto row) { return row; }),
-      kInnerSize,
-      BaseVector::wrapInDictionary(
-          nullptr,
-          makeIndices(kOuterSize, [](auto row) { return row; }),
-          kOuterSize,
-          lazy));
+
+  auto makeWrapped = [&](BufferPtr nulls) {
+    loadEnd = 0;
+    lazy = std::make_shared<LazyVector>(
+        pool_.get(),
+        INTEGER(),
+        kInnerSize,
+        std::make_unique<test::SimpleVectorLoader>([&](auto rows) {
+          loadEnd = rows.back() + 1;
+          return makeFlatVector<int32_t>(loadEnd, [](auto row) { return row; });
+        }));
+
+    return BaseVector::wrapInDictionary(
+        std::move(nulls),
+        makeIndices(kInnerSize, [](auto row) { return row; }),
+        kInnerSize,
+        BaseVector::wrapInDictionary(
+            nullptr,
+            makeIndices(kOuterSize, [](auto row) { return row; }),
+            kOuterSize,
+            lazy));
+  };
 
   // We expect a single level of dictionary and rows loaded for kInnerSize first
   // elements of 'lazy'.
+
+  // No nulls.
+  auto wrapped = makeWrapped(nullptr);
+
   SelectivityVector rows(kInnerSize);
   LazyVector::ensureLoadedRows(wrapped, rows);
   EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::DICTIONARY);
   EXPECT_EQ(wrapped->valueVector()->encoding(), VectorEncoding::Simple::FLAT);
   EXPECT_EQ(kInnerSize, loadEnd);
-  assertEqualVectors(wrapped, base);
+
+  auto expected =
+      makeFlatVector<int32_t>(kInnerSize, [](auto row) { return row; });
+  assertEqualVectors(wrapped, expected);
+
+  // With nulls.
+  wrapped = makeWrapped(makeNulls(kInnerSize, nullEvery(7)));
+  LazyVector::ensureLoadedRows(wrapped, rows);
+  EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::DICTIONARY);
+  EXPECT_EQ(wrapped->valueVector()->encoding(), VectorEncoding::Simple::FLAT);
+  EXPECT_EQ(kInnerSize, loadEnd);
+
+  expected = makeFlatVector<int32_t>(
+      kInnerSize, [](auto row) { return row; }, nullEvery(7));
+  assertEqualVectors(wrapped, expected);
+
+  // With nulls at the end.
+  wrapped = makeWrapped(makeNulls(kInnerSize, nullEvery(3)));
+  LazyVector::ensureLoadedRows(wrapped, rows);
+  EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::DICTIONARY);
+  EXPECT_EQ(wrapped->valueVector()->encoding(), VectorEncoding::Simple::FLAT);
+  EXPECT_EQ(kInnerSize - 1, loadEnd);
+
+  expected = makeFlatVector<int32_t>(
+      kInnerSize, [](auto row) { return row; }, nullEvery(3));
+  assertEqualVectors(wrapped, expected);
 }

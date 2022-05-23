@@ -31,6 +31,9 @@ void assertEqualVectors(
     const VectorPtr& actual,
     const std::string& additionalContext = "");
 
+/// Verify that 'vector' is copyable, by copying all rows.
+void assertCopyableVector(const VectorPtr& vector);
+
 class VectorTestBase {
  protected:
   template <typename T>
@@ -495,6 +498,10 @@ class VectorTestBase {
   BufferPtr makeIndicesInReverse(vector_size_t size) {
     return ::facebook::velox::test::makeIndicesInReverse(size, pool());
   }
+
+  BufferPtr makeNulls(
+      vector_size_t size,
+      std::function<bool(vector_size_t /*row*/)> isNullAt);
 
   static VectorPtr
   wrapInDictionary(BufferPtr indices, vector_size_t size, VectorPtr vector);

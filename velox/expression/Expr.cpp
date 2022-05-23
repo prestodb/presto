@@ -470,6 +470,7 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
         continue;
       }
       if (numLevels == 0 && leaf->isConstant(rows)) {
+        context.ensureFieldLoaded(fieldIndex, rows);
         setPeeled(leaf, fieldIndex, context, maybePeeled);
         constantFields.resize(numFields);
         constantFields.at(fieldIndex) = true;

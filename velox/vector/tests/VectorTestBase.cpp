@@ -58,6 +58,17 @@ BufferPtr VectorTestBase::makeIndices(
   return indices;
 }
 
+BufferPtr VectorTestBase::makeNulls(
+    vector_size_t size,
+    std::function<bool(vector_size_t /*row*/)> isNullAt) {
+  auto nulls = AlignedBuffer::allocate<bool>(size, pool());
+  auto rawNulls = nulls->asMutable<uint64_t>();
+  for (auto i = 0; i < size; i++) {
+    bits::setNull(rawNulls, i, isNullAt(i));
+  }
+  return nulls;
+}
+
 void assertEqualVectors(
     const VectorPtr& expected,
     const VectorPtr& actual,
@@ -69,6 +80,12 @@ void assertEqualVectors(
         << "at " << i << ": expected " << expected->toString(i) << ", but got "
         << actual->toString(i) << additionalContext;
   }
+}
+
+void assertCopyableVector(const VectorPtr& vector) {
+  auto copy =
+      BaseVector::create(vector->type(), vector->size(), vector->pool());
+  copy->copy(vector.get(), 0, 0, vector->size());
 }
 
 } // namespace facebook::velox::test

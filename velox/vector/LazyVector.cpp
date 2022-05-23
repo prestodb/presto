@@ -146,26 +146,32 @@ void LazyVector::ensureLoadedRows(
 
     rowSet = RowSet(rowNumbers);
 
-    // If we have a mapping that is not a single level of dictionary, we
-    // collapse this to a single level of dictionary. The reason is
-    // that the inner levels of dictionary will reference rows that
-    // are not loaded, since the load was done for only the rows that
-    // are reachable from 'vector'.
-    if (vector->encoding() != VectorEncoding::Simple::DICTIONARY ||
-        lazyVector != vector->valueVector().get()) {
-      lazyVector->load(rowSet, nullptr);
-      BufferPtr indices = allocateIndices(vector->size(), vector->pool());
+    lazyVector->load(rowSet, nullptr);
+
+    // The loaded base vector may have fewer rows than the original. Make sure
+    // there are no indices referring to rows past the end of the base vector.
+
+    BufferPtr indices = allocateIndices(vector->size(), vector->pool());
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    auto decodedIndices = decoded.indices();
+    rows.applyToSelected(
+        [&](auto row) { rawIndices[row] = decodedIndices[row]; });
+
+    BufferPtr nulls = nullptr;
+    if (decoded.nulls()) {
+      nulls = AlignedBuffer::allocate<bool>(vector->size(), vector->pool());
       std::memcpy(
-          indices->asMutable<vector_size_t>(),
-          decoded.indices(),
-          sizeof(vector_size_t) * vector->size());
-      vector = BaseVector::wrapInDictionary(
-          BufferPtr(nullptr),
-          std::move(indices),
-          vector->size(),
-          lazyVector->loadedVectorShared());
-      return;
+          nulls->asMutable<uint64_t>(),
+          decoded.nulls(),
+          bits::nbytes(vector->size()));
     }
+
+    vector = BaseVector::wrapInDictionary(
+        std::move(nulls),
+        std::move(indices),
+        vector->size(),
+        lazyVector->loadedVectorShared());
+    return;
   }
   lazyVector->load(rowSet, nullptr);
   // An explicit call to loadedVector() is necessary to allow for proper
