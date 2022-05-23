@@ -663,7 +663,7 @@ class RowWriter {
 
   template <std::size_t... Is>
   void assignImpl(const std::tuple<T...>& inputs, std::index_sequence<Is...>) {
-    ((exec::get<Is>(*this) = std::get<Is>(inputs)), ...);
+    ((std::get<Is>(childrenVectors_)->set(offset_, std::get<Is>(inputs))), ...);
   }
 
   template <std::size_t... Is>
@@ -679,12 +679,16 @@ class RowWriter {
 
   template <std::size_t... Is>
   void finalizeImpl(std::index_sequence<Is...>) {
+    using children_types = std::tuple<T...>;
     (
         [&]() {
-          if (std::get<Is>(needCommit_)) {
-            // Commit not null.
-            std::get<Is>(childrenWriters_).commit(true);
-            std::get<Is>(needCommit_) = false;
+          if constexpr (requires_commit<
+                            std::tuple_element_t<Is, children_types>>) {
+            if (std::get<Is>(needCommit_)) {
+              // Commit not null.
+              std::get<Is>(childrenWriters_).commit(true);
+              std::get<Is>(needCommit_) = false;
+            }
           }
         }(),
         ...);
