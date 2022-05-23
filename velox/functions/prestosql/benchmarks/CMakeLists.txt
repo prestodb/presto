@@ -119,3 +119,8 @@ target_link_libraries(velox_benchmark_map_writer_no_nulls
                       ${BENCHMARK_DEPENDENCIES_NO_FUNC})
 target_compile_definitions(velox_benchmark_map_writer_no_nulls
                            PUBLIC WITH_NULLS=false)
+
+add_executable(velox_functions_benchmarks_row_writer_no_nulls
+               RowWriterBenchmark.cpp)
+target_link_libraries(velox_functions_benchmarks_row_writer_no_nulls
+                      ${BENCHMARK_DEPENDENCIES_NO_FUNC})
