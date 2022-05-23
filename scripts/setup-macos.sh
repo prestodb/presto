@@ -33,11 +33,7 @@ source $SCRIPTDIR/setup-helper-functions.sh
 
 FB_OS_VERSION=v2022.03.14.00
 NPROC=$(getconf _NPROCESSORS_ONLN)
-COMPILER_FLAGS="-mavx2 -mfma -mavx -mf16c -masm=intel -mlzcnt"
-
-if [ `uname -m` = "arm64" ]; then
-  COMPILER_FLAGS="-mcpu=apple-m1+crc"
-fi
+COMPILER_FLAGS=$(get_cxx_flags $CPU_TARGET)
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_DEPS="ninja cmake ccache protobuf icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl@1.1"

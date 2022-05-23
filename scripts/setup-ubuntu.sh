@@ -20,7 +20,7 @@ source $SCRIPTDIR/setup-helper-functions.sh
 
 # Folly must be built with the same compiler flags so that some low level types
 # are the same size.
-export COMPILER_FLAGS="-mavx2 -mfma -mavx -mf16c -mlzcnt"
+export COMPILER_FLAGS=$(get_cxx_flags $CPU_TARGET)
 FB_OS_VERSION=v2022.03.14.00
 NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}

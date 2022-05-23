@@ -151,12 +151,15 @@ set(POSITION_INDEPENDENT_CODE True)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=apple-m1+crc")
-else()
-  set(CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -mavx2 -mfma -mavx -mf16c -mbmi2 -mbmi")
-endif()
+
+execute_process(
+  COMMAND
+    bash -c
+    "( source ./scripts/setup-helper-functions.sh; echo -n $(get_cxx_flags))"
+  OUTPUT_VARIABLE SCRIPT_CXX_FLAGS)
+message("Setting CMAKE_CXX_FLAGS=${SCRIPT_CXX_FLAGS}")
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D USE_VELOX_COMMON_BASE")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D HAS_UNCAUGHT_EXCEPTIONS")

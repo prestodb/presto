@@ -57,6 +57,7 @@ endif
 endif
 
 NUM_THREADS ?= $(shell getconf _NPROCESSORS_CONF 2>/dev/null || echo 1)
+CPU_TARGET ?= "avx"
 
 all: release			#: Build the release version
 
@@ -130,9 +131,9 @@ velox-torcharrow-container:
 linux-container:
 	rm -rf /tmp/docker && \
 	mkdir -p /tmp/docker && \
-	cp scripts/setup-$(CONTAINER_NAME).sh scripts/$(CONTAINER_NAME)-container.dockfile /tmp/docker && \
+	cp scripts/setup-helper-functions.sh scripts/setup-$(CONTAINER_NAME).sh scripts/$(CONTAINER_NAME)-container.dockfile /tmp/docker && \
 	cd /tmp/docker && \
-	docker build --tag "prestocpp/velox-$(CONTAINER_NAME):${USER}-$(shell date +%Y%m%d)" -f $(CONTAINER_NAME)-container.dockfile .
+	docker build --build-arg cpu_target=$(CPU_TARGET) --tag "prestocpp/velox-$(CPU_TARGET)-$(CONTAINER_NAME):${USER}-$(shell date +%Y%m%d)" -f $(CONTAINER_NAME)-container.dockfile .
 
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \

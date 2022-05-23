@@ -12,5 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 FROM ubuntu:hirsute
+ARG cpu_target
 COPY setup-check.sh /root
-RUN bash /root/setup-check.sh
+COPY setup-helper-functions.sh /
+RUN CPU_TARGET="$cpu_target" bash /root/setup-check.sh

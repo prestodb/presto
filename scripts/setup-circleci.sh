@@ -16,7 +16,10 @@
 set -efx -o pipefail
 # Some of the packages must be build with the same compiler flags
 # so that some low level types are the same size. Also, disable warnings.
-export CFLAGS="-mavx2 -mfma -mavx -mf16c  -mlzcnt -w -std=c++17"  # Used by LZO.
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
+source $SCRIPTDIR/setup-helper-functions.sh
+
+export CFLAGS=$(get_cxx_flags $CPU_TARGET)  # Used by LZO.
 export CXXFLAGS=$CFLAGS  # Used by boost.
 export CPPFLAGS=$CFLAGS  # Used by LZO.
 

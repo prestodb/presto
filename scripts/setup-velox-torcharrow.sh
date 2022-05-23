@@ -14,15 +14,19 @@
 # limitations under the License.
 
 set -efx -o pipefail
+
 # Some of the packages must be build with the same compiler flags
 # so that some low level types are the same size. Also, disable warnings.
-export CFLAGS="-mavx2 -mfma -mavx -mf16c -masm=intel -mlzcnt -std=c++17"
+
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
+source $SCRIPTDIR/setup-helper-functions.sh
+
+export CFLAGS=$(get_cxx_flags $CPU_TARGET)
 export CXXFLAGS=$CFLAGS  # Used by boost.
 
 yum -y install ccache
 yum -y install ninja-build
 yum -y install git
-yum -y install openssl-devel
 yum -y install double-conversion-devel
 yum -y install glog-devel
 yum -y install bzip2-devel
@@ -81,4 +85,4 @@ wait
 
 # Folly fails to build in release-mode due
 # AtomicUtil-inl.h:202: Error: operand type mismatch for `bts'
-cmake_install folly -DCMAKE_BUILD_TYPE=Debug
+cmake_install folly
