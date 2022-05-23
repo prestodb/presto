@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -33,6 +34,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -44,6 +46,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -219,6 +222,9 @@ public class IcebergPageSource
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
                 return utf8Slice(valueString);
+            }
+            if (type.equals(UuidType.UUID)) {
+                return javaUuidToPrestoUuid(UUID.fromString(valueString));
             }
             if (isShortDecimal(type) || isLongDecimal(type)) {
                 DecimalType decimalType = (DecimalType) type;

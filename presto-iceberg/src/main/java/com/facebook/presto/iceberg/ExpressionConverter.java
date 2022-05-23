@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.VerifyException;
@@ -44,6 +45,7 @@ import java.util.Map;
 import static com.facebook.presto.common.predicate.Marker.Bound.ABOVE;
 import static com.facebook.presto.common.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
+import static com.facebook.presto.common.type.UuidType.prestoUuidToJavaUuid;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
@@ -192,6 +194,10 @@ public final class ExpressionConverter
 
         if (type instanceof VarbinaryType) {
             return ByteBuffer.wrap(((Slice) marker.getValue()).getBytes());
+        }
+
+        if (type instanceof UuidType) {
+            return prestoUuidToJavaUuid(((Slice) marker.getValue()));
         }
 
         if (type instanceof DecimalType) {

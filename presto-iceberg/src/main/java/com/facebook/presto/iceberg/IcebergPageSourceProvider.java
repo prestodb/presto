@@ -95,6 +95,8 @@ import java.util.OptionalLong;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.UuidType.UUID;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
@@ -115,6 +117,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcStreamB
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.iceberg.TypeConverter.ICEBERG_BINARY_TYPE;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -534,11 +537,23 @@ public class IcebergPageSourceProvider
                 }
 
                 if (icebergOrcColumn != null) {
+                    Type readType;
+                    if (column.getType() == UUID) {
+                        if (!"UUID".equals(icebergOrcColumn.getAttributes().get(ICEBERG_BINARY_TYPE))) {
+                            throw new PrestoException(ICEBERG_BAD_DATA, format("Expected ORC column for UUID data to be annotated with %s=UUID: %s", ICEBERG_BINARY_TYPE, icebergOrcColumn));
+                        }
+                        // ORC spec doesn't have UUID
+                        // TODO read into Int128ArrayBlock for better performance when operating on read values
+                        readType = VARBINARY;
+                    }
+                    else {
+                        readType = column.getType();
+                    }
                     HiveColumnHandle columnHandle = new HiveColumnHandle(
                             // Todo: using orc file column name
                             column.getName(),
-                            toHiveType(column.getType()),
-                            column.getType().getTypeSignature(),
+                            toHiveType(readType),
+                            readType.getTypeSignature(),
                             icebergOrcColumn.getOrcColumnId(),
                             icebergOrcColumn.getColumnType(),
                             Optional.empty(),

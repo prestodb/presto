@@ -72,6 +72,7 @@ import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIM
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -198,6 +199,9 @@ public class TestingPrestoClient
         }
         else if (REAL.equals(type)) {
             return ((Number) value).floatValue();
+        }
+        if (UUID.equals(type)) {
+            return java.util.UUID.fromString((String) value);
         }
         else if (type instanceof VarcharType) {
             return value;

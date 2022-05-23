@@ -77,6 +77,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.operator.scalar.JsonFunctions.jsonParse;
@@ -297,6 +298,10 @@ public class H2QueryRunner
                     // H2 supports TIMESTAMP WITH TIME ZONE via org.h2.api.TimestampWithTimeZone, but it represent only a fixed-offset TZ (not named)
                     // This means H2 is unsuitable for testing TIMESTAMP WITH TIME ZONE-bearing queries. Those need to be tested manually.
                     throw new UnsupportedOperationException();
+                }
+                else if (UUID.equals(type)) {
+                    java.util.UUID value = (java.util.UUID) resultSet.getObject(position);
+                    return value;
                 }
                 else if (UNKNOWN.equals(type)) {
                     Object objectValue = resultSet.getObject(position);

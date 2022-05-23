@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.PrestoException;
@@ -137,6 +138,10 @@ public class ParquetSchemaConverter
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.BINARY, repetition).named(name);
+        }
+        if (type instanceof UuidType) {
+            return Types.optional(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(16).named(name);
+            // return Types.primitive(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY, OPTIONAL).length(16).named(name);
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported primitive type: %s", type));
     }

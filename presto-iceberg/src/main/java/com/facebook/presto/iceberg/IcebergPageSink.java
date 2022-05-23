@@ -26,6 +26,7 @@ import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HdfsContext;
@@ -57,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
+import static com.facebook.presto.common.type.UuidType.prestoUuidToJavaUuid;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.iceberg.PartitionTransforms.getColumnTransform;
@@ -361,6 +363,9 @@ public class IcebergPageSink
         }
         if (type instanceof VarcharType) {
             return type.getSlice(block, position).toStringUtf8();
+        }
+        if (type instanceof UuidType) {
+            return prestoUuidToJavaUuid(type.getSlice(block, position));
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }

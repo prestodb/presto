@@ -19,8 +19,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.type.UuidOperators.castFromVarcharToUuid;
-import static com.facebook.presto.type.UuidType.UUID;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 

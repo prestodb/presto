@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -19,9 +19,6 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.Int128ArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.AbstractPrimitiveType;
-import com.facebook.presto.common.type.FixedWidthType;
-import com.facebook.presto.common.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 

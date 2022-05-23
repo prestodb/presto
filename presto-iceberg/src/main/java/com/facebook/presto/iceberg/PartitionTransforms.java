@@ -38,6 +38,7 @@ import static com.facebook.presto.common.type.Decimals.isLongDecimal;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
@@ -84,6 +85,9 @@ public final class PartitionTransforms
             }
             if (type.equals(VARBINARY)) {
                 return new ColumnTransform(INTEGER, block -> bucketVarbinary(block, count));
+            }
+            if (type.equals(UUID)) {
+                return new ColumnTransform(INTEGER, block -> bucketUuid(block, count));
             }
             throw new UnsupportedOperationException("Unsupported type for 'bucket': " + field);
         }
@@ -158,6 +162,11 @@ public final class PartitionTransforms
     private static Block bucketVarbinary(Block block, int count)
     {
         return bucketBlock(block, count, position -> bucketHash(VARCHAR.getSlice(block, position)));
+    }
+
+    private static Block bucketUuid(Block block, int count)
+    {
+        return bucketBlock(block, count, position -> bucketHash(UUID.getSlice(block, position)));
     }
 
     private static Block bucketBlock(Block block, int count, IntUnaryOperator hasher)
