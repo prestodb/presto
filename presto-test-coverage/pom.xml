@@ -14,7 +14,6 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
 
-        <maven.deploy.skip>true</maven.deploy.skip>
         <air.check.skip-enforcer>true</air.check.skip-enforcer>
         <air.check.skip-enforcer>true</air.check.skip-enforcer>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
