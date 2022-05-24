@@ -45,13 +45,20 @@ public class TestPinotExpressionConverters
     public void testProjectExpressionConverter(SessionHolder sessionHolder)
     {
         testProject("secondssinceepoch", "\"secondsSinceEpoch\"", sessionHolder);
-        // functions
+        testProject("secondssinceepoch > 1559978258", "(\"secondsSinceEpoch\" > 1559978258)", sessionHolder);
+        testProject("secondssinceepoch != 0", "(\"secondsSinceEpoch\" <> 0)", sessionHolder);
+        testProject("secondssinceepoch <> 0", "(\"secondsSinceEpoch\" <> 0)", sessionHolder);
+        testProject(
+                "CASE WHEN secondssinceepoch > 0 THEN distinctCountDim ELSE fare END",
+                "CASE true WHEN (\"secondsSinceEpoch\" > 0) THEN \"distinctCountDim\" ELSE \"fare\" END",
+                sessionHolder);
         testAggregationProject(
                 "date_trunc('hour', from_unixtime(secondssinceepoch))",
                 "dateTimeConvert(\"secondsSinceEpoch\", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')",
                 sessionHolder);
 
         // arithmetic
+        testProject("-secondssinceepoch", "-\"secondsSinceEpoch\"", sessionHolder);
         testAggregationProject("regionid + 1", "ADD(\"regionId\", 1)", sessionHolder);
         testAggregationProject("regionid - 1", "SUB(\"regionId\", 1)", sessionHolder);
         testAggregationProject("1 * regionid", "MULT(1, \"regionId\")", sessionHolder);
@@ -68,13 +75,21 @@ public class TestPinotExpressionConverters
                 "date_trunc('hour', from_unixtime(secondssinceepoch + 2))",
                 "dateTimeConvert(ADD(\"secondsSinceEpoch\", 2), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')",
                 sessionHolder);
+        testAggregationProject(
+                "CASE WHEN false THEN distinctCountDim ELSE fare END",
+                "CASE true WHEN false THEN \"distinctCountDim\" ELSE \"fare\" END",
+                sessionHolder);
     }
 
     private void testProject(String sqlExpression, String expectedPinotExpression, SessionHolder sessionHolder)
     {
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
         String actualPinotExpression = pushDownExpression.accept(
-                new PinotProjectExpressionConverter(functionAndTypeManager, standardFunctionResolution),
+                new PinotProjectExpressionConverter(
+                        functionAndTypeManager,
+                        functionAndTypeManager,
+                        standardFunctionResolution,
+                        sessionHolder.getConnectorSession()),
                 testInput).getDefinition();
         assertEquals(actualPinotExpression, expectedPinotExpression);
     }
@@ -159,6 +174,8 @@ public class TestPinotExpressionConverters
         // combinations
         testFilter("totalfare between 20 and 30 AND regionid > 20 OR city = 'Campbell'",
                 "((((\"fare\" + \"trip\") BETWEEN 20 AND 30) AND (\"regionId\" > 20)) OR (\"city\" = 'Campbell'))", sessionHolder);
+        testFilter("CASE WHEN regionid IS NOT NULL THEN regionid WHEN city IS NOT NULL THEN 300 ELSE secondssinceepoch END",
+                "CASE true WHEN (\"regionId\" IS NOT NULL) THEN \"regionId\" WHEN (\"city\" IS NOT NULL) THEN 300 ELSE \"secondsSinceEpoch\" END", sessionHolder);
 
         testFilter("secondssinceepoch > 1559978258", "(\"secondsSinceEpoch\" > 1559978258)", sessionHolder);
         testFilter("DATE '2019-11-15'", "18215", sessionHolder);

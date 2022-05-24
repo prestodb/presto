@@ -41,6 +41,7 @@ public class PinotSessionProperties
     public static final String USE_PINOT_SQL_FOR_BROKER_QUERIES = "use_pinot_sql_for_broker_queries";
     public static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
     public static final String PUSHDOWN_TOPN_BROKER_QUERIES = "pushdown_topn_broker_queries";
+    public static final String PUSHDOWN_PROJECT_EXPRESSIONS = "pushdown_project_expressions";
     public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
     public static final String NUM_SEGMENTS_PER_SPLIT = "num_segments_per_split";
     public static final String TOPN_LARGE = "topn_large";
@@ -103,6 +104,11 @@ public class PinotSessionProperties
     public static boolean getPushdownTopnBrokerQueries(ConnectorSession session)
     {
         return session.getProperty(PUSHDOWN_TOPN_BROKER_QUERIES, Boolean.class);
+    }
+
+    public static boolean getPushdownProjectExpressions(ConnectorSession session)
+    {
+        return session.getProperty(PUSHDOWN_PROJECT_EXPRESSIONS, Boolean.class);
     }
 
     public static int getTopNLarge(ConnectorSession session)
@@ -183,6 +189,11 @@ public class PinotSessionProperties
                         PUSHDOWN_TOPN_BROKER_QUERIES,
                         "Push down order by to pinot broker for top queries",
                         pinotConfig.isPushdownTopNBrokerQueries(),
+                        false),
+                booleanProperty(
+                        PUSHDOWN_PROJECT_EXPRESSIONS,
+                        "Push down expressions in projection to Pinot broker",
+                        pinotConfig.isPushdownProjectExpressions(),
                         false),
                 new PropertyMetadata<>(
                         CONNECTION_TIMEOUT,

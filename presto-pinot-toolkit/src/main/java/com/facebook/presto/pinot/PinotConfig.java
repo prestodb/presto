@@ -105,6 +105,7 @@ public class PinotConfig
     private boolean useDateTrunc;
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
     private boolean pushdownTopNBrokerQueries = true;
+    private boolean pushdownProjectExpressions = true;
     private String grpcHost;
     private int grpcPort = DEFAULT_PROXY_GRPC_PORT;
     private boolean useProxy;
@@ -512,6 +513,18 @@ public class PinotConfig
     public PinotConfig setPushdownTopNBrokerQueries(boolean pushdownTopNBrokerQueries)
     {
         this.pushdownTopNBrokerQueries = pushdownTopNBrokerQueries;
+        return this;
+    }
+
+    public boolean isPushdownProjectExpressions()
+    {
+        return pushdownProjectExpressions;
+    }
+
+    @Config("pinot.pushdown-project-expressions")
+    public PinotConfig setPushdownProjectExpressions(boolean pushdownProjectExpressions)
+    {
+        this.pushdownProjectExpressions = pushdownProjectExpressions;
         return this;
     }
 
