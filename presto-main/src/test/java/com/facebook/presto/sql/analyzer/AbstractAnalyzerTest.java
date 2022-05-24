@@ -260,6 +260,14 @@ public class AbstractAnalyzerTest
                                         new ArrayType(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("y"), BIGINT))))))))))),
                 false));
 
+        // table with columns containing special characters
+        SchemaTableName table12 = new SchemaTableName("s1", "t12");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table12, ImmutableList.of(
+                        new ColumnMetadata("a.x", BIGINT),
+                        new ColumnMetadata("a&^[x", BIGINT))),
+                false));
+
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(

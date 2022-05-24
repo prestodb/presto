@@ -91,6 +91,14 @@ public class TestColumnAndSubfieldAnalyzer
     }
 
     @Test
+    public void testSelectSpecialCharacter()
+    {
+        assertTableColumns(
+                "SELECT * FROM tpch.s1.t12",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t12"), ImmutableSet.of("a.x", "a&^[x")));
+    }
+
+    @Test
     public void testSelectWithAlias()
     {
         assertTableColumns(
@@ -148,8 +156,9 @@ public class TestColumnAndSubfieldAnalyzer
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyze(statement);
                     assertEquals(
-                            analysis.getTableColumnAndSubfieldReferencesForAccessControl(session).values().stream().findFirst().get(),
-                            expected.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().stream().map(Subfield::new).collect(toImmutableSet()))));
+                            analysis.getTableColumnAndSubfieldReferencesForAccessControl(session).values().stream().findFirst().get().entrySet().stream()
+                                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().stream().map(Subfield::toString).collect(toImmutableSet()))),
+                            expected);
                 });
     }
 

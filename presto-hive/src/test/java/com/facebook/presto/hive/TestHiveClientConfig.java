@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -39,6 +40,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class TestHiveClientConfig
 {
@@ -164,7 +166,9 @@ public class TestHiveClientConfig
                 .setUserDefinedTypeEncodingEnabled(false)
                 .setUseRecordPageSourceForCustomSplit(true)
                 .setFileSplittable(true)
-                .setHudiMetadataEnabled(false));
+                .setHudiMetadataEnabled(false)
+                .setThriftProtocol(Protocol.BINARY)
+                .setThriftBufferSize(new DataSize(128, BYTE)));
     }
 
     @Test
@@ -290,6 +294,8 @@ public class TestHiveClientConfig
                 .put("hive.use-record-page-source-for-custom-split", "false")
                 .put("hive.file-splittable", "false")
                 .put("hive.hudi-metadata-enabled", "true")
+                .put("hive.internal-communication.thrift-transport-protocol", "COMPACT")
+                .put("hive.internal-communication.thrift-transport-buffer-size", "256B")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -410,7 +416,9 @@ public class TestHiveClientConfig
                 .setUserDefinedTypeEncodingEnabled(true)
                 .setUseRecordPageSourceForCustomSplit(false)
                 .setFileSplittable(false)
-                .setHudiMetadataEnabled(true);
+                .setHudiMetadataEnabled(true)
+                .setThriftProtocol(Protocol.COMPACT)
+                .setThriftBufferSize(new DataSize(256, BYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

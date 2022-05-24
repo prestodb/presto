@@ -29,6 +29,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -69,6 +70,7 @@ public class HiveConnector
     private final ClassLoader classLoader;
     private final ConnectorPlanOptimizerProvider planOptimizerProvider;
     private final ConnectorMetadataUpdaterProvider metadataUpdaterProvider;
+    private final ConnectorTypeSerdeProvider connectorTypeSerdeProvider;
 
     private final HiveTransactionManager transactionManager;
 
@@ -89,6 +91,7 @@ public class HiveConnector
             ConnectorAccessControl accessControl,
             ConnectorPlanOptimizerProvider planOptimizerProvider,
             ConnectorMetadataUpdaterProvider metadataUpdaterProvider,
+            ConnectorTypeSerdeProvider connectorTypeSerdeProvider,
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -108,6 +111,7 @@ public class HiveConnector
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
         this.metadataUpdaterProvider = requireNonNull(metadataUpdaterProvider, "metadataUpdaterProvider is null");
+        this.connectorTypeSerdeProvider = requireNonNull(connectorTypeSerdeProvider, "connectorTypeSerdeProvider is null");
     }
 
     @Override
@@ -152,6 +156,12 @@ public class HiveConnector
     public ConnectorMetadataUpdaterProvider getConnectorMetadataUpdaterProvider()
     {
         return metadataUpdaterProvider;
+    }
+
+    @Override
+    public ConnectorTypeSerdeProvider getConnectorTypeSerdeProvider()
+    {
+        return connectorTypeSerdeProvider;
     }
 
     @Override

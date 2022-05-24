@@ -25,12 +25,20 @@ public interface SliceColumnStatisticsBuilder
     @Override
     default void addBlock(Type type, Block block)
     {
-        checkArgument(type instanceof AbstractVariableWidthType, "type is not a AbstractVariableWidthType");
-        AbstractVariableWidthType variableWidthType = (AbstractVariableWidthType) type;
+        checkArgument(type instanceof AbstractVariableWidthType, "type is not an AbstractVariableWidthType: %s", type);
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 addValue(block, position);
             }
+        }
+    }
+
+    @Override
+    default void addValue(Type type, Block block, int position)
+    {
+        checkArgument(type instanceof AbstractVariableWidthType, "type is not an AbstractVariableWidthType: %s", type);
+        if (!block.isNull(position)) {
+            addValue(block, position);
         }
     }
 

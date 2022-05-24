@@ -13,10 +13,16 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -145,6 +151,33 @@ public class TestIntegerStatisticsBuilder
 
         statisticsList.add(singleValueIntegerStatistics(1));
         assertMergedIntegerStatistics(statisticsList, 2, null);
+    }
+
+    @DataProvider
+    public static Object[][] addValueByPositionDataProvider()
+    {
+        return new Object[][] {
+                {SmallintType.SMALLINT, SmallintType.SMALLINT.createBlockBuilder(null, 3).writeShort(3).appendNull().writeShort(10).build()},
+                {IntegerType.INTEGER, IntegerType.INTEGER.createBlockBuilder(null, 3).writeInt(3).appendNull().writeInt(10).build()},
+                {BigintType.BIGINT, BigintType.BIGINT.createBlockBuilder(null, 3).writeLong(3L).appendNull().writeLong(10L).build()}
+        };
+    }
+
+    @Test(dataProvider = "addValueByPositionDataProvider")
+    public void testAddValueByPosition(Type type, Block block)
+    {
+        IntegerStatisticsBuilder statisticsBuilder = new IntegerStatisticsBuilder();
+        statisticsBuilder.addValue(type, block, 0);
+        statisticsBuilder.addValue(type, block, 1);
+        statisticsBuilder.addValue(type, block, 2);
+
+        ColumnStatistics columnStatistics = statisticsBuilder.buildColumnStatistics();
+        assertEquals(columnStatistics.getNumberOfValues(), 2);
+
+        IntegerStatistics integerStatistics = columnStatistics.getIntegerStatistics();
+        assertEquals((long) integerStatistics.getMin(), 3L);
+        assertEquals((long) integerStatistics.getMax(), 10L);
+        assertEquals((long) integerStatistics.getSum(), 13L);
     }
 
     private static ColumnStatistics singleValueIntegerStatistics(long value)
