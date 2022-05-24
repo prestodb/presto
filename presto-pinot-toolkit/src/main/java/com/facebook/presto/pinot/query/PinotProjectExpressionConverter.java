@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.pinot.query;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.pinot.PinotException;
+import com.facebook.presto.pinot.PinotSessionProperties;
 import com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Selection;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -28,30 +33,48 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_EXPRESSION;
+import static com.facebook.presto.pinot.PinotPushdownUtils.getLiteralAsString;
+import static com.facebook.presto.pinot.query.PinotExpression.derived;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class PinotProjectExpressionConverter
         implements RowExpressionVisitor<PinotExpression, Map<VariableReferenceExpression, Selection>>
 {
+    private static final Set<String> LOGICAL_BINARY_OPS_FILTER = ImmutableSet.of("=", "<", "<=", ">", ">=", "<>");
+    // Pinot does not support modulus yet
+    private static final Map<String, String> PRESTO_TO_PINOT_OPERATORS = ImmutableMap.of(
+            "-", "SUB",
+            "+", "ADD",
+            "*", "MULT",
+            "/", "DIV");
     private static final Set<String> TIME_EQUIVALENT_TYPES = ImmutableSet.of(StandardTypes.BIGINT, StandardTypes.INTEGER, StandardTypes.TINYINT, StandardTypes.SMALLINT);
 
     protected final TypeManager typeManager;
+    protected final FunctionMetadataManager functionMetadataManager;
     protected final StandardFunctionResolution standardFunctionResolution;
+    protected final ConnectorSession session;
 
     public PinotProjectExpressionConverter(
             TypeManager typeManager,
-            StandardFunctionResolution standardFunctionResolution)
+            FunctionMetadataManager functionMetadataManager,
+            StandardFunctionResolution standardFunctionResolution,
+            ConnectorSession session)
     {
         this.typeManager = requireNonNull(typeManager, "type manager");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager");
         this.standardFunctionResolution = requireNonNull(standardFunctionResolution, "standardFunctionResolution is null");
+        this.session = requireNonNull(session, "session is null");
     }
 
     @Override
@@ -78,8 +101,26 @@ class PinotProjectExpressionConverter
         }
         return resultType.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP) && TIME_EQUIVALENT_TYPES.contains(inputType.getTypeSignature().getBase());
     }
+    protected PinotExpression handleArithmeticExpression(
+            CallExpression expression,
+            OperatorType operatorType,
+            Map<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> context)
+    {
+        List<RowExpression> arguments = expression.getArguments();
+        if (arguments.size() == 2) {
+            PinotExpression left = arguments.get(0).accept(this, context);
+            PinotExpression right = arguments.get(1).accept(this, context);
+            String prestoOperator = operatorType.getOperator();
+            String pinotOperator = PRESTO_TO_PINOT_OPERATORS.get(prestoOperator);
+            if (pinotOperator == null) {
+                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Unsupported binary expression " + prestoOperator);
+            }
+            return derived(format("%s(%s, %s)", pinotOperator, left.getDefinition(), right.getDefinition()));
+        }
+        throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("Don't know how to interpret %s as an arithmetic expression", expression));
+    }
 
-    private PinotExpression handleCast(
+    protected PinotExpression handleCast(
             CallExpression cast,
             Map<VariableReferenceExpression, Selection> context)
     {
@@ -95,16 +136,35 @@ class PinotProjectExpressionConverter
         throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("This type of CAST operator not supported. Received: %s", cast));
     }
 
-    protected Optional<PinotExpression> basicCallHandling(CallExpression call, Map<VariableReferenceExpression, Selection> context)
+    // Borrowed from filter expr; doesn't handle date/time column and constant comparison
+    private PinotExpression handleLogicalBinary(
+            CallExpression call,
+            String operator,
+            Map<VariableReferenceExpression, Selection> context)
     {
-        FunctionHandle functionHandle = call.getFunctionHandle();
-        if (standardFunctionResolution.isNotFunction(functionHandle) || standardFunctionResolution.isBetweenFunction(functionHandle)) {
-            throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Unsupported function in pinot aggregation: " + functionHandle);
+        if (!LOGICAL_BINARY_OPS_FILTER.contains(operator)) {
+            throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("'%s' is not supported in filter", operator));
         }
-        if (standardFunctionResolution.isCastFunction(functionHandle)) {
-            return Optional.of(handleCast(call, context));
+        List<RowExpression> arguments = call.getArguments();
+        if (arguments.size() == 2) {
+            return derived(format(
+                    "(%s %s %s)",
+                    getExpressionOrConstantString(arguments.get(0), context),
+                    operator,
+                    getExpressionOrConstantString(arguments.get(1), context)));
         }
-        return Optional.empty();
+        throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("Unknown logical binary: '%s'", call));
+    }
+
+    protected String getExpressionOrConstantString(
+            RowExpression expression,
+            Map<VariableReferenceExpression, Selection> context)
+    {
+        if (expression instanceof ConstantExpression) {
+            return new PinotExpression(getLiteralAsString((ConstantExpression) expression),
+                    PinotQueryGeneratorContext.Origin.LITERAL).getDefinition();
+        }
+        return expression.accept(this, context).getDefinition();
     }
 
     @Override
@@ -112,7 +172,7 @@ class PinotProjectExpressionConverter
             InputReferenceExpression reference,
             Map<VariableReferenceExpression, Selection> context)
     {
-        throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Input reference not supported: " + reference);
+        throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Pinot does not support struct dereferencing: " + reference);
     }
 
     @Override
@@ -120,13 +180,66 @@ class PinotProjectExpressionConverter
             SpecialFormExpression specialForm,
             Map<VariableReferenceExpression, Selection> context)
     {
-        throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Special form not supported: " + specialForm);
+        if (!PinotSessionProperties.getPushdownProjectExpressions(session)) {
+            throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Special form not supported: " + specialForm);
+        }
+        switch (specialForm.getForm()) {
+            // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
+            // Presto generates "simple" CASE expressions from the "searched" form with true as pattern to match
+            case SWITCH:
+                int numArguments = specialForm.getArguments().size();
+                String searchExpression = getExpressionOrConstantString(specialForm.getArguments().get(0), context);
+
+                return derived(format(
+                        "CASE %s %s ELSE %s END",
+                        searchExpression,
+                        specialForm.getArguments().subList(1, numArguments - 1).stream()
+                                .map(argument -> argument.accept(this, context).getDefinition())
+                                .collect(Collectors.joining(" ")),
+                        getExpressionOrConstantString(specialForm.getArguments().get(numArguments - 1), context)));
+            case WHEN:
+                return derived(format(
+                        "%s %s THEN %s",
+                        specialForm.getForm().toString(),
+                        getExpressionOrConstantString(specialForm.getArguments().get(0), context),
+                        getExpressionOrConstantString(specialForm.getArguments().get(1), context)));
+            case IF:
+            case NULL_IF:
+            case DEREFERENCE:
+            case ROW_CONSTRUCTOR:
+            case BIND:
+                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Pinot does not support the special form" + specialForm);
+            case IN:
+            case AND:
+            case OR:
+                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Special form not supported: " + specialForm);
+            default:
+                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Unexpected special form: " + specialForm);
+        }
     }
 
     @Override
     public PinotExpression visitCall(CallExpression call, Map<VariableReferenceExpression, Selection> context)
     {
-        return basicCallHandling(call, context).orElseThrow(() -> new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Call not supported: " + call));
+        FunctionHandle functionHandle = call.getFunctionHandle();
+        if (standardFunctionResolution.isCastFunction(functionHandle)) {
+            return handleCast(call, context);
+        }
+        if (!PinotSessionProperties.getPushdownProjectExpressions(session)) {
+            throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Call not supported: " + call);
+        }
+        FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(call.getFunctionHandle());
+        Optional<OperatorType> operatorType = functionMetadata.getOperatorType();
+        if (standardFunctionResolution.isComparisonFunction(functionHandle) && operatorType.isPresent()) {
+            return handleLogicalBinary(call, operatorType.get().getOperator(), context);
+        }
+        if (standardFunctionResolution.isArithmeticFunction(functionHandle) && operatorType.isPresent()) {
+            return handleArithmeticExpression(call, operatorType.get(), context);
+        }
+        if (standardFunctionResolution.isNegateFunction(functionHandle)) {
+            return derived('-' + call.getArguments().get(0).accept(this, context).getDefinition());
+        }
+        throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Call not supported: " + call);
     }
 
     @Override
