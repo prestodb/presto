@@ -212,14 +212,15 @@ struct UnsafeRowStructBatchIterator : UnsafeRowDataBatchIterator {
         idx_ * UnsafeRow::kFieldWidthBytes;
 
     for (int32_t i = 0; i < numRows_; ++i) {
-      const char* rawData = data_[i]->data();
-      const char* fieldData = rawData + fieldOffset;
-
       // if null
-      if (bits::isBitSet(rawData, idx_)) {
+      if (!data_[i] || bits::isBitSet(data_[i].value().data(), idx_)) {
         columnData_[i] = std::nullopt;
         continue;
       }
+
+      const char* rawData = data_[i]->data();
+      const char* fieldData = rawData + fieldOffset;
+
       // Fixed length field
       if (cppSizeInBytes) {
         columnData_[i] = std::string_view(fieldData, cppSizeInBytes);

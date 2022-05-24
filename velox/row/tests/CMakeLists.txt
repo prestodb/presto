@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_row_test UnsafeRowSerializerTest.cpp
-                              UnsafeRowDeserializerTest.cpp)
+add_executable(
+  velox_row_test UnsafeRowSerializerTest.cpp UnsafeRowDeserializerTest.cpp
+                 UnsafeRowFuzzTests.cpp)
 
 add_test(velox_row_test velox_row_test)
 
