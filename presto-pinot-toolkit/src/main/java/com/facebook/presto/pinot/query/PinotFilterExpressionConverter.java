@@ -252,7 +252,7 @@ public class PinotFilterExpressionConverter
             RowExpression input = not.getArguments().get(0);
             if (input instanceof SpecialFormExpression) {
                 SpecialFormExpression specialFormExpression = (SpecialFormExpression) input;
-                // NOT operator is only supported on top of the IN expression
+                // NOT operator is supported on top of IN and IS_NULL
                 if (specialFormExpression.getForm() == SpecialFormExpression.Form.IN) {
                     return handleIn(specialFormExpression, false, context);
                 }
@@ -262,7 +262,7 @@ public class PinotFilterExpressionConverter
             }
         }
 
-        throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("NOT operator is supported only on top of IN operator. Received: %s", not));
+        throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("NOT operator is supported only on top of IN and IS_NULL operator. Received: %s", not));
     }
 
     private PinotExpression handleCast(CallExpression cast, Function<VariableReferenceExpression, Selection> context)
@@ -313,16 +313,14 @@ public class PinotFilterExpressionConverter
         if (standardFunctionResolution.isBetweenFunction(functionHandle)) {
             return handleBetween(call, context);
         }
+        if (standardFunctionResolution.isArithmeticFunction(functionHandle)) {
+            throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Arithmetic expressions are not supported in filter: " + call);
+        }
+
         FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(call.getFunctionHandle());
-        Optional<OperatorType> operatorTypeOptional = functionMetadata.getOperatorType();
-        if (operatorTypeOptional.isPresent()) {
-            OperatorType operatorType = operatorTypeOptional.get();
-            if (operatorType.isArithmeticOperator()) {
-                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Arithmetic expressions are not supported in filter: " + call);
-            }
-            if (operatorType.isComparisonOperator()) {
-                return handleLogicalBinary(operatorType.getOperator(), call, context);
-            }
+        Optional<OperatorType> operatorType = functionMetadata.getOperatorType();
+        if (standardFunctionResolution.isComparisonFunction(functionHandle) && operatorType.isPresent()) {
+            return handleLogicalBinary(operatorType.get().getOperator(), call, context);
         }
         if ("contains".equals(functionMetadata.getName().getObjectName())) {
             return handleContains(call, context);
@@ -330,7 +328,7 @@ public class PinotFilterExpressionConverter
         // Handle queries like `eventTimestamp < 1391126400000`.
         // Otherwise TypeManager.canCoerce(...) will return false and directly fail this query.
         if (functionMetadata.getName().getObjectName().equalsIgnoreCase("$literal$timestamp") ||
-                    functionMetadata.getName().getObjectName().equalsIgnoreCase("$literal$date")) {
+                functionMetadata.getName().getObjectName().equalsIgnoreCase("$literal$date")) {
             return handleDateAndTimestampMagicLiteralFunction(call, context);
         }
         throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("function %s not supported in filter", call));
@@ -374,19 +372,44 @@ public class PinotFilterExpressionConverter
         return new PinotExpression(input.getDefinition(), input.getOrigin());
     }
 
+    private String getExpressionOrConstantString(RowExpression expression, Function<VariableReferenceExpression, Selection> context)
+    {
+        if (expression instanceof ConstantExpression) {
+            return new PinotExpression(
+                    getLiteralAsString((ConstantExpression) expression),
+                    PinotQueryGeneratorContext.Origin.LITERAL
+            ).getDefinition();
+        }
+        return expression.accept(this, context).getDefinition();
+    }
+
     @Override
     public PinotExpression visitSpecialForm(SpecialFormExpression specialForm, Function<VariableReferenceExpression, Selection> context)
     {
         switch (specialForm.getForm()) {
             case IF:
             case NULL_IF:
-            case SWITCH:
-            case WHEN:
             case COALESCE:
             case DEREFERENCE:
             case ROW_CONSTRUCTOR:
             case BIND:
                 throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Pinot does not support the special form " + specialForm);
+            case SWITCH:
+                int numArguments = specialForm.getArguments().size();
+                String searchExpression = getExpressionOrConstantString(specialForm.getArguments().get(0), context);
+                return derived(format(
+                        "CASE %s %s ELSE %s END",
+                        searchExpression,
+                        specialForm.getArguments().subList(1, numArguments - 1).stream()
+                                .map(argument -> argument.accept(this, context).getDefinition())
+                                .collect(Collectors.joining(" ")),
+                        getExpressionOrConstantString(specialForm.getArguments().get(numArguments - 1), context)));
+            case WHEN:
+                return derived(format(
+                        "%s %s THEN %s",
+                        specialForm.getForm().toString(),
+                        getExpressionOrConstantString(specialForm.getArguments().get(0), context),
+                        getExpressionOrConstantString(specialForm.getArguments().get(1), context)));
             case IN:
                 return handleIn(specialForm, true, context);
             case AND:
