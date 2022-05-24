@@ -136,4 +136,22 @@ public final class TDigestFunctions
         blockBuilder.closeEntry();
         return TDIGEST_CENTROIDS_ROW_TYPE.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
     }
+
+    @ScalarFunction(value = "structure_tdigest", visibility = EXPERIMENTAL)
+    @Description("Return a serialized TDigest, given the raw representation.")
+    @SqlType("varbinary")
+    public static Block structureTDigest(@SqlType("row(centroid_means array(double), centroid_weights array(integer), compression double, min double, max double, sum double, count bigint)") TDIGEST_CENTROIDS_ROW_TYPE input)
+    {
+        TDigest tDigest = createTDigest(input.compression);
+
+        tDigest.setMinMax(input.min, input.max);
+        tDigest.setSum(input.sum);
+        tDigest.totalWeight = input.sum; // TODO: what should totalWeight be?
+        tDigest.activeCentroids = input.count;
+        tDigest.weight = input.centroid_weights;
+        tDigest.mean = input.centroid_means;
+
+        SqlVarbinary result = new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " ");
+        return result;
+    }
 }
