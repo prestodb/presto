@@ -26,14 +26,38 @@ class StringWriter;
 template <bool nullable, typename V>
 class ArrayView;
 
+template <typename T>
+using NullFreeArrayView = ArrayView<false, T>;
+
+template <typename T>
+using NullableArrayView = ArrayView<true, T>;
+
 template <bool nullable, typename K, typename V>
 class MapView;
+
+template <typename K, typename V>
+using NullFreeMapView = MapView<false, K, V>;
+
+template <typename K, typename V>
+using NullableMapView = MapView<true, K, V>;
 
 template <bool nullable, typename... T>
 class RowView;
 
+template <typename... T>
+using NullFreeRowView = RowView<false, T...>;
+
+template <typename... T>
+using NullableRowView = RowView<true, T...>;
+
 template <bool nullable, typename T>
 class VariadicView;
+
+template <typename T>
+using NullFreeVariadicView = VariadicView<false, T>;
+
+template <typename T>
+using NullableVariadicView = VariadicView<true, T>;
 
 template <typename V>
 class ArrayWriter;
@@ -55,22 +79,22 @@ struct resolver {
 
 template <typename K, typename V>
 struct resolver<Map<K, V>> {
-  using in_type = MapView<true, K, V>;
-  using null_free_in_type = MapView<false, K, V>;
+  using in_type = NullableMapView<K, V>;
+  using null_free_in_type = NullFreeMapView<K, V>;
   using out_type = MapWriter<K, V>;
 };
 
 template <typename... T>
 struct resolver<Row<T...>> {
-  using in_type = RowView<true, T...>;
-  using null_free_in_type = RowView<false, T...>;
+  using in_type = NullableRowView<T...>;
+  using null_free_in_type = NullFreeRowView<T...>;
   using out_type = RowWriter<T...>;
 };
 
 template <typename V>
 struct resolver<Array<V>> {
-  using in_type = ArrayView<true, V>;
-  using null_free_in_type = ArrayView<false, V>;
+  using in_type = NullableArrayView<V>;
+  using null_free_in_type = NullFreeArrayView<V>;
   using out_type = ArrayWriter<V>;
 };
 
@@ -94,8 +118,8 @@ struct resolver<std::shared_ptr<T>> {
 
 template <typename T>
 struct resolver<Variadic<T>> {
-  using in_type = VariadicView<true, T>;
-  using null_free_in_type = VariadicView<false, T>;
+  using in_type = NullableVariadicView<T>;
+  using null_free_in_type = NullFreeVariadicView<T>;
   // Variadic cannot be used as an out_type
 };
 
