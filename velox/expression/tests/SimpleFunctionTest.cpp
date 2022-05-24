@@ -135,7 +135,7 @@ struct ArrayOfStringsWriterFunction {
       const arg_type<int64_t>& input) {
     const size_t size = stringArrayData[input].size();
     out.reserve(size);
-    for (const auto value : stringArrayData[input]) {
+    for (const auto& value : stringArrayData[input]) {
       out.add_item().copy_from(value);
     }
   }
