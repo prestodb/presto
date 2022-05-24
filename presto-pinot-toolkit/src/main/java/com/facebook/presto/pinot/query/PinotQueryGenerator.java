@@ -96,7 +96,6 @@ public class PinotQueryGenerator
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution standardFunctionResolution;
     private final PinotFilterExpressionConverter pinotFilterExpressionConverter;
-    private final PinotProjectExpressionConverter pinotProjectExpressionConverter;
 
     @Inject
     public PinotQueryGenerator(
@@ -110,7 +109,6 @@ public class PinotQueryGenerator
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "function metadata manager is null");
         this.standardFunctionResolution = requireNonNull(standardFunctionResolution, "standardFunctionResolution is null");
         this.pinotFilterExpressionConverter = new PinotFilterExpressionConverter(this.typeManager, this.functionMetadataManager, standardFunctionResolution);
-        this.pinotProjectExpressionConverter = new PinotProjectExpressionConverter(typeManager, standardFunctionResolution);
     }
 
     public static class PinotQueryGeneratorResult
@@ -297,6 +295,7 @@ public class PinotQueryGenerator
             requireNonNull(context, "context is null");
             Map<VariableReferenceExpression, Selection> newSelections = new HashMap<>();
             LinkedHashSet<VariableReferenceExpression> newOutputs = new LinkedHashSet<>();
+            PinotProjectExpressionConverter pinotProjectExpressionConverter = new PinotProjectExpressionConverter(typeManager, functionMetadataManager, standardFunctionResolution, session);
             node.getOutputVariables().forEach(variable -> {
                 RowExpression expression = node.getAssignments().get(variable);
                 PinotExpression pinotExpression = expression.accept(
@@ -577,7 +576,7 @@ public class PinotQueryGenerator
         @Override
         public PinotQueryGeneratorContext visitLimit(LimitNode node, PinotQueryGeneratorContext context)
         {
-            checkSupported(!node.isPartial(), String.format("pinot query generator cannot handle partial limit"));
+            checkSupported(!node.isPartial(), "pinot query generator cannot handle partial limit");
             checkSupported(!forbidBrokerQueries, "Cannot push limit in segment mode");
             context = node.getSource().accept(this, context);
             requireNonNull(context, "context is null");
