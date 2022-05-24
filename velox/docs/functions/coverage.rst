@@ -16,6 +16,7 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(2) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(3) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(4) td:nth-child(2) {background-color: #6BA81E;}
@@ -91,6 +92,7 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(28) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(29) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(29) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(30) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(31) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(33) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(33) td:nth-child(3) {background-color: #6BA81E;}
@@ -185,7 +187,7 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     ================================================================================================================================================================================================================  ==  ========================================
     :func:`abs`                               :func:`date_diff`                         is_json_scalar                            render                                    st_points                                     :func:`approx_distinct`
     :func:`acos`                              :func:`date_format`                       :func:`is_nan`                            repeat                                    st_polygon                                    approx_most_frequent
-    all_match                                 date_parse                                is_subnet_of                              :func:`replace`                           st_relate                                     :func:`approx_percentile`
+    all_match                                 :func:`date_parse`                        is_subnet_of                              :func:`replace`                           st_relate                                     :func:`approx_percentile`
     any_match                                 :func:`date_trunc`                        jaccard_index                             :func:`reverse`                           st_startpoint                                 :func:`approx_set`
     array_average                             :func:`day`                               json_array_contains                       rgb                                       st_symdifference                              :func:`arbitrary`
     :func:`array_distinct`                    :func:`day_of_month`                      json_array_get                            :func:`round`                             st_touches                                    :func:`array_agg`
@@ -212,7 +214,7 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     bing_tile                                 format_datetime                           :func:`map_concat`                        :func:`sqrt`                              to_geometry                                   :func:`every`
     bing_tile_at                              :func:`from_base`                         :func:`map_entries`                       st_area                                   :func:`to_hex`                                geometric_mean
     bing_tile_children                        :func:`from_base64`                       :func:`map_filter`                        st_asbinary                               to_ieee754_32                                 geometry_union_agg
-    bing_tile_coordinates                     from_base64url                            map_from_entries                          st_astext                                 to_ieee754_64                                 histogram
+    bing_tile_coordinates                     from_base64url                            map_from_entries                          st_astext                                 to_ieee754_64                                 :func:`histogram`
     bing_tile_parent                          from_big_endian_32                        :func:`map_keys`                          st_boundary                               to_iso8601                                    khyperloglog_agg
     bing_tile_polygon                         from_big_endian_64                        map_normalize                             st_buffer                                 to_milliseconds                               kurtosis
     bing_tile_quadkey                         :func:`from_hex`                          :func:`map_values`                        st_centroid                               to_spherical_geography                        learn_classifier
