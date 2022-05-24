@@ -155,8 +155,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 execute_process(
   COMMAND
     bash -c
-    "( source ./scripts/setup-helper-functions.sh; echo -n $(get_cxx_flags))"
-  OUTPUT_VARIABLE SCRIPT_CXX_FLAGS)
+    "( source ${CMAKE_CURRENT_SOURCE_DIR}/scripts/setup-helper-functions.sh && echo -n $(get_cxx_flags $ENV{CPU_TARGET}))"
+  OUTPUT_VARIABLE SCRIPT_CXX_FLAGS
+  RESULT_VARIABLE COMMAND_STATUS)
+
+if(COMMAND_STATUS EQUAL "1")
+  message(FATAL_ERROR "Unable to determine compiler flags!")
+endif()
 message("Setting CMAKE_CXX_FLAGS=${SCRIPT_CXX_FLAGS}")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")

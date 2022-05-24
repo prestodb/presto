@@ -105,7 +105,7 @@ function get_cxx_flags {
     ;;
 
     "sse")
-      echo -n "-mf16c -masm=intel -mlzcnt -msse"
+      echo -n "-msse4.2 -std=c++17"
     ;;
 
     "aarch64")
