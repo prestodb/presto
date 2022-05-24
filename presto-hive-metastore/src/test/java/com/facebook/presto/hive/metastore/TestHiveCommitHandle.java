@@ -42,8 +42,8 @@ public class TestHiveCommitHandle
     public void testGetSerializedCommitOutput()
     {
         HiveCommitHandle commitHandle = new HiveCommitHandle(testData);
-        assertEquals(commitHandle.getSerializedCommitOutput(new SchemaTableName("s1", "t1")), "[ 1, 2 ]");
-        assertEquals(commitHandle.getSerializedCommitOutput(new SchemaTableName("s2", "t2")), "[ 3, 4 ]");
-        assertEquals(commitHandle.getSerializedCommitOutput(new SchemaTableName("s3", "t3")), "[ ]");
+        assertEquals(commitHandle.getSerializedCommitOutput(new SchemaTableName("s1", "t1")), "1,2");
+        assertEquals(commitHandle.getSerializedCommitOutput(new SchemaTableName("s2", "t2")), "3,4");
+        assertEquals(commitHandle.getSerializedCommitOutput(new SchemaTableName("s3", "t3")), "");
     }
 }
