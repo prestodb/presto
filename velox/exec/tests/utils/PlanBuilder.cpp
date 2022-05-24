@@ -33,6 +33,10 @@ namespace facebook::velox::exec::test {
 
 namespace {
 
+// TODO Avoid duplication.
+static const std::string kHiveConnectorId = "test-hive";
+static const std::string kTpchConnectorId = "test-tpch";
+
 std::shared_ptr<const core::ITypedExpr> parseExpr(
     const std::string& text,
     const RowTypePtr& rowType,
@@ -416,7 +420,11 @@ PlanBuilder& PlanBuilder::tableScan(
   }
 
   auto tableHandle = std::make_shared<HiveTableHandle>(
-      tableName, true, std::move(filters), remainingFilterExpr);
+      kHiveConnectorId,
+      tableName,
+      true,
+      std::move(filters),
+      remainingFilterExpr);
   return tableScan(outputType, tableHandle, assignments);
 }
 
@@ -451,7 +459,8 @@ PlanBuilder& PlanBuilder::tableScan(
   auto rowType = ROW(std::move(columnNames), std::move(outputTypes));
   return tableScan(
       rowType,
-      std::make_shared<connector::tpch::TpchTableHandle>(table, scaleFactor),
+      std::make_shared<connector::tpch::TpchTableHandle>(
+          kTpchConnectorId, table, scaleFactor),
       assignmentsMap);
 }
 

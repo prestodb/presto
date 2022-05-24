@@ -40,8 +40,13 @@ class TpchColumnHandle : public ColumnHandle {
 // TPC-H table handle uses the underlying enum to describe the target table.
 class TpchTableHandle : public ConnectorTableHandle {
  public:
-  explicit TpchTableHandle(velox::tpch::Table table, size_t scaleFactor = 1)
-      : table_(table), scaleFactor_(scaleFactor) {}
+  explicit TpchTableHandle(
+      std::string connectorId,
+      velox::tpch::Table table,
+      size_t scaleFactor = 1)
+      : ConnectorTableHandle(std::move(connectorId)),
+        table_(table),
+        scaleFactor_(scaleFactor) {}
 
   ~TpchTableHandle() override {}
 

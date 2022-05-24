@@ -62,10 +62,11 @@ using SubfieldFilters =
 class HiveTableHandle : public ConnectorTableHandle {
  public:
   HiveTableHandle(
+      std::string connectorId,
       const std::string& tableName,
       bool filterPushdownEnabled,
       SubfieldFilters subfieldFilters,
-      const std::shared_ptr<const core::ITypedExpr>& remainingFilter);
+      const core::TypedExprPtr& remainingFilter);
 
   ~HiveTableHandle() override;
 
@@ -77,7 +78,7 @@ class HiveTableHandle : public ConnectorTableHandle {
     return subfieldFilters_;
   }
 
-  const std::shared_ptr<const core::ITypedExpr>& remainingFilter() const {
+  const core::TypedExprPtr& remainingFilter() const {
     return remainingFilter_;
   }
 
@@ -87,7 +88,7 @@ class HiveTableHandle : public ConnectorTableHandle {
   const std::string tableName_;
   const bool filterPushdownEnabled_;
   const SubfieldFilters subfieldFilters_;
-  const std::shared_ptr<const core::ITypedExpr> remainingFilter_;
+  const core::TypedExprPtr remainingFilter_;
 };
 
 /**
@@ -226,6 +227,10 @@ class HiveConnector final : public Connector {
       const std::string& id,
       std::shared_ptr<const Config> properties,
       folly::Executor* FOLLY_NULLABLE executor);
+
+  bool canAddDynamicFilter() const override {
+    return true;
+  }
 
   std::shared_ptr<DataSource> createDataSource(
       const std::shared_ptr<const RowType>& outputType,

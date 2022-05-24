@@ -33,7 +33,9 @@ TableScan::TableScan(
       tableHandle_(tableScanNode->tableHandle()),
       columnHandles_(tableScanNode->assignments()),
       driverCtx_(driverCtx),
-      blockingFuture_(false) {}
+      blockingFuture_(false) {
+  connector_ = connector::getConnector(tableHandle_->connectorId());
+}
 
 RowVectorPtr TableScan::getOutput() {
   if (noMoreSplits_) {
@@ -70,8 +72,11 @@ RowVectorPtr TableScan::getOutput() {
       const auto& connectorSplit = split.connectorSplit;
       needNewSplit_ = false;
 
-      if (!connector_) {
-        connector_ = connector::getConnector(connectorSplit->connectorId);
+      VELOX_CHECK(
+          connector_->connectorId() == connectorSplit->connectorId,
+          "Got splits with different connector IDs");
+
+      if (!dataSource_) {
         connectorQueryCtx_ = operatorCtx_->createConnectorQueryCtx(
             connectorSplit->connectorId, planNodeId());
         dataSource_ = connector_->createDataSource(
@@ -83,10 +88,6 @@ RowVectorPtr TableScan::getOutput() {
           dataSource_->addDynamicFilter(entry.first, entry.second);
         }
         pendingDynamicFilters_.clear();
-      } else {
-        VELOX_CHECK(
-            connector_->connectorId() == connectorSplit->connectorId,
-            "Got splits with different connector IDs");
       }
 
       debugString_ = fmt::format(

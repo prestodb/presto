@@ -321,11 +321,15 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     }
   }
 
+  // Do not hard-code connector ID and allow for connectors other than Hive.
+  static const std::string kHiveConnectorId = "test-hive";
+
   // Velox requires Filter Pushdown must being enabled.
   bool filterPushdownEnabled = true;
   std::shared_ptr<connector::hive::HiveTableHandle> tableHandle;
   if (!readRel.has_filter()) {
     tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
+        kHiveConnectorId,
         "hive_table",
         filterPushdownEnabled,
         connector::hive::SubfieldFilters{},
@@ -334,7 +338,11 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     connector::hive::SubfieldFilters filters =
         toVeloxFilter(colNameList, veloxTypeList, readRel.filter());
     tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
-        "hive_table", filterPushdownEnabled, std::move(filters), nullptr);
+        kHiveConnectorId,
+        "hive_table",
+        filterPushdownEnabled,
+        std::move(filters),
+        nullptr);
   }
 
   // Get assignments and out names.

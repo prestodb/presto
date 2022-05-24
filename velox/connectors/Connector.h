@@ -59,8 +59,19 @@ class ColumnHandle {
 
 class ConnectorTableHandle {
  public:
+  explicit ConnectorTableHandle(std::string connectorId)
+      : connectorId_(std::move(connectorId)) {}
+
   virtual ~ConnectorTableHandle() = default;
+
   virtual std::string toString() const = 0;
+
+  const std::string& connectorId() const {
+    return connectorId_;
+  }
+
+ private:
+  const std::string connectorId_;
 };
 
 /**
@@ -217,6 +228,12 @@ class Connector {
 
   const std::shared_ptr<const Config>& connectorProperties() const {
     return properties_;
+  }
+
+  // Returns true if this connector would accept a filter dynamically generated
+  // during query execution.
+  virtual bool canAddDynamicFilter() const {
+    return false;
   }
 
   // TODO Generalize to specify TableHandle/Layout and ColumnHandles.

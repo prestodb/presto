@@ -41,11 +41,13 @@ static const char* kBucket = "$bucket";
 } // namespace
 
 HiveTableHandle::HiveTableHandle(
+    std::string connectorId,
     const std::string& tableName,
     bool filterPushdownEnabled,
     SubfieldFilters subfieldFilters,
-    const std::shared_ptr<const core::ITypedExpr>& remainingFilter)
-    : tableName_(tableName),
+    const core::TypedExprPtr& remainingFilter)
+    : ConnectorTableHandle(std::move(connectorId)),
+      tableName_(tableName),
       filterPushdownEnabled_(filterPushdownEnabled),
       subfieldFilters_(std::move(subfieldFilters)),
       remainingFilter_(remainingFilter) {}

@@ -40,9 +40,7 @@ class TableScan : public SourceOperator {
   bool isFinished() override;
 
   bool canAddDynamicFilter() const override {
-    // TODO Consult with the connector. Return true only if connector can accept
-    // dynamic filters.
-    return true;
+    return connector_->canAddDynamicFilter();
   }
 
   void addDynamicFilter(

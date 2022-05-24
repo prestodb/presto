@@ -124,7 +124,8 @@ TEST_F(TpchConnectorTest, singleColumnWithAlias) {
       PlanBuilder()
           .tableScan(
               outputType,
-              std::make_shared<TpchTableHandle>(Table::TBL_NATION),
+              std::make_shared<TpchTableHandle>(
+                  kTpchConnectorId, Table::TBL_NATION),
               {
                   {aliasedName, std::make_shared<TpchColumnHandle>("n_name")},
                   {"other_name", std::make_shared<TpchColumnHandle>("n_name")},
@@ -149,7 +150,7 @@ void TpchConnectorTest::runScaleFactorTest(size_t scaleFactor) {
                   .tableScan(
                       ROW({}, {}),
                       std::make_shared<TpchTableHandle>(
-                          Table::TBL_SUPPLIER, scaleFactor),
+                          kTpchConnectorId, Table::TBL_SUPPLIER, scaleFactor),
                       {})
                   .singleAggregation({}, {"count(1)"})
                   .planNode();
@@ -178,6 +179,47 @@ TEST_F(TpchConnectorTest, unknownColumn) {
       },
       VeloxUserError);
 }
+
+// Join nation and region.
+TEST_F(TpchConnectorTest, join) {
+  auto planNodeIdGenerator =
+      std::make_shared<exec::test::PlanNodeIdGenerator>();
+  core::PlanNodeId nationScanId;
+  core::PlanNodeId regionScanId;
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(
+              tpch::Table::TBL_NATION, {"n_regionkey"}, 1 /*scaleFactor*/)
+          .capturePlanNodeId(nationScanId)
+          .hashJoin(
+              {"n_regionkey"},
+              {"r_regionkey"},
+              PlanBuilder(planNodeIdGenerator)
+                  .tableScan(
+                      tpch::Table::TBL_REGION,
+                      {"r_regionkey", "r_name"},
+                      1 /*scaleFactor*/)
+                  .capturePlanNodeId(regionScanId)
+                  .planNode(),
+              "", // extra filter
+              {"r_name"})
+          .singleAggregation({"r_name"}, {"count(1) as nation_cnt"})
+          .orderBy({"r_name"}, false)
+          .planNode();
+
+  auto output = exec::test::AssertQueryBuilder(plan)
+                    .split(nationScanId, makeTpchSplit())
+                    .split(regionScanId, makeTpchSplit())
+                    .copyResults(pool());
+
+  auto expected = makeRowVector({
+      makeFlatVector<StringView>(
+          {"AFRICA", "AMERICA", "ASIA", "EUROPE", "MIDDLE EAST"}),
+      makeConstant<int64_t>(5, 5),
+  });
+  test::assertEqualVectors(expected, output);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
