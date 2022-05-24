@@ -49,7 +49,7 @@ add_executable(
   FunctionSignatureBuilderTest.cpp
   SimpleFunctionResolutionTest.cpp
   SpillTest.cpp
-  "SpillerTest.cpp"
+  SpillerTest.cpp
   UnnestTest.cpp
   AssignUniqueIdTest.cpp)
 
@@ -91,3 +91,16 @@ target_link_libraries(
   glog::glog
   ${FMT}
   ${FILESYSTEM})
+
+add_executable(velox_in_10_min_demo VeloxIn10MinDemo.cpp)
+
+target_link_libraries(
+  velox_in_10_min_demo
+  velox_aggregates
+  velox_type
+  velox_vector
+  velox_vector_test_lib
+  velox_exec
+  velox_exec_test_util
+  velox_tpch_connector
+  velox_memory)

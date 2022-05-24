@@ -1192,6 +1192,41 @@ void Expr::applySingleConstArgVectorFunction(
   }
 }
 
+namespace {
+void printExprTree(
+    const exec::Expr& expr,
+    const std::string& indent,
+    bool withStats,
+    std::stringstream& out,
+    std::unordered_map<const exec::Expr*, uint32_t>& uniqueExprs) {
+  auto it = uniqueExprs.find(&expr);
+  if (it != uniqueExprs.end()) {
+    // Common sub-expression. Print the full expression, but skip the stats. Add
+    // ID of the expression it duplicates.
+    out << indent << expr.toString(true) << " -> " << expr.type()->toString();
+    out << " [CSE #" << it->second << "]" << std::endl;
+    return;
+  }
+
+  uint32_t id = uniqueExprs.size() + 1;
+  uniqueExprs.insert({&expr, id});
+
+  const auto& stats = expr.stats();
+  out << indent << expr.toString(false);
+  if (withStats) {
+    out << " [cpu time: " << succinctNanos(stats.timing.cpuNanos)
+        << ", rows: " << stats.numProcessedRows
+        << ", batches: " << stats.numProcessedVectors << "]";
+  }
+  out << " -> " << expr.type()->toString() << " [#" << id << "]" << std::endl;
+
+  auto newIndent = indent + "   ";
+  for (const auto& input : expr.inputs()) {
+    printExprTree(*input, newIndent, withStats, out, uniqueExprs);
+  }
+}
+} // namespace
+
 std::string Expr::toString(bool recursive) const {
   if (recursive) {
     std::stringstream out;
@@ -1270,6 +1305,22 @@ ExprSet::~ExprSet() {
   });
 }
 
+std::string ExprSet::toString(bool compact) const {
+  std::unordered_map<const exec::Expr*, uint32_t> uniqueExprs;
+  std::stringstream out;
+  for (auto i = 0; i < exprs_.size(); ++i) {
+    if (i > 0) {
+      out << std::endl;
+    }
+    if (compact) {
+      out << exprs_[i]->toString(true /*recursive*/);
+    } else {
+      printExprTree(*exprs_[i], "", false /*withStats*/, out, uniqueExprs);
+    }
+  }
+  return out.str();
+}
+
 void ExprSet::eval(
     int32_t begin,
     int32_t end,
@@ -1325,38 +1376,6 @@ std::unique_ptr<ExprSet> makeExprSetFromFlag(
   return std::make_unique<ExprSet>(std::move(source), execCtx);
 }
 
-namespace {
-void printExprWithStats(
-    const exec::Expr& expr,
-    const std::string& indent,
-    std::stringstream& out,
-    std::unordered_map<const exec::Expr*, uint32_t>& uniqueExprs) {
-  auto it = uniqueExprs.find(&expr);
-  if (it != uniqueExprs.end()) {
-    // Common sub-expression. Print the full expression, but skip the stats. Add
-    // ID of the expression it duplicates.
-    out << indent << expr.toString(true) << " -> " << expr.type()->toString();
-    out << " [CSE #" << it->second << "]" << std::endl;
-    return;
-  }
-
-  uint32_t id = uniqueExprs.size() + 1;
-  uniqueExprs.insert({&expr, id});
-
-  const auto& stats = expr.stats();
-  out << indent << expr.toString(false)
-      << " [cpu time: " << succinctNanos(stats.timing.cpuNanos)
-      << ", rows: " << stats.numProcessedRows
-      << ", batches: " << stats.numProcessedVectors << "] -> "
-      << expr.type()->toString() << " [#" << id << "]" << std::endl;
-
-  auto newIndent = indent + "   ";
-  for (const auto& input : expr.inputs()) {
-    printExprWithStats(*input, newIndent, out, uniqueExprs);
-  }
-}
-} // namespace
-
 std::string printExprWithStats(const exec::ExprSet& exprSet) {
   const auto& exprs = exprSet.exprs();
   std::unordered_map<const exec::Expr*, uint32_t> uniqueExprs;
@@ -1365,7 +1384,7 @@ std::string printExprWithStats(const exec::ExprSet& exprSet) {
     if (i > 0) {
       out << std::endl;
     }
-    printExprWithStats(*exprs[i], "", out, uniqueExprs);
+    printExprTree(*exprs[i], "", true /*withStats*/, out, uniqueExprs);
   }
   return out.str();
 }

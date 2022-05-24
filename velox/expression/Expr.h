@@ -421,6 +421,11 @@ class ExprSet {
     memoizingExprs_.insert(expr);
   }
 
+  /// Returns text representation of the expression set.
+  /// @param compact If true, uses one-line representation for each expression.
+  /// Otherwise, prints a tree of expressions one node per line.
+  std::string toString(bool compact = true) const;
+
  protected:
   void clearSharedSubexprs();
 
