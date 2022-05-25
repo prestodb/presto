@@ -25,6 +25,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
+import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -68,6 +69,8 @@ public final class ValueStreams
                 case INT:
                 case LONG:
                 case DATE:
+                case TIMESTAMP:
+                case TIMESTAMP_MICROSECONDS:
                     return createLongStream(inputStream, encoding, type, true, usesVInt);
                 case FLOAT:
                     return new FloatInputStream(inputStream);
@@ -78,8 +81,6 @@ public final class ValueStreams
                 case CHAR:
                 case BINARY:
                     return new ByteArrayInputStream(inputStream);
-                case TIMESTAMP:
-                    return createLongStream(inputStream, encoding, type, true, usesVInt);
                 case DECIMAL:
                     return new DecimalInputStream(inputStream);
             }
@@ -126,7 +127,7 @@ public final class ValueStreams
         }
 
         // length (nanos) of a timestamp column
-        if (type == TIMESTAMP && streamId.getStreamKind() == SECONDARY) {
+        if ((type == TIMESTAMP || type == TIMESTAMP_MICROSECONDS) && streamId.getStreamKind() == SECONDARY) {
             return createLongStream(inputStream, encoding, type, false, usesVInt);
         }
 

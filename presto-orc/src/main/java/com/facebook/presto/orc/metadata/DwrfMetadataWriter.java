@@ -194,6 +194,7 @@ public class DwrfMetadataWriter
             case BINARY:
                 return Type.Kind.BINARY;
             case TIMESTAMP:
+            case TIMESTAMP_MICROSECONDS:
                 return Type.Kind.TIMESTAMP;
             case LIST:
                 return Type.Kind.LIST;

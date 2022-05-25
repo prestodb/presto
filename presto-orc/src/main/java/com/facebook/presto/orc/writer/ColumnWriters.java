@@ -90,6 +90,7 @@ public final class ColumnWriters
                 return new DecimalColumnWriter(nodeIndex, type, columnWriterOptions, orcEncoding, metadataWriter);
 
             case TIMESTAMP:
+            case TIMESTAMP_MICROSECONDS:
                 return new TimestampColumnWriter(nodeIndex, sequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, hiveStorageTimeZone, metadataWriter);
 
             case BINARY:
