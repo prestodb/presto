@@ -124,7 +124,7 @@ void FieldReference::evalSpecialForm(
   }
   // If we refer to a column of the context row, this may have been
   // peeled due to peeling off encoding, hence access it via
-  // 'context'.  Chekc if the child is unique before taking the second
+  // 'context'.  Check if the child is unique before taking the second
   // reference. Unique constant vectors can be resized in place, non-unique
   // must be copied to set the size.
   bool isUniqueChild = inputs_.empty() ? context.getField(index_).unique()
