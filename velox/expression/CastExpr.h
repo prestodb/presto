@@ -22,6 +22,42 @@ namespace facebook::velox::exec {
 
 constexpr folly::StringPiece kCast = "cast";
 
+/// Custom operator for casts from and to custom types.
+class CastOperator {
+ public:
+  virtual ~CastOperator() = default;
+
+  /// Determines whether the cast operator supports casting the custom type to
+  /// the other type or vice versa.
+  virtual bool isSupportedType(const TypePtr& other) const = 0;
+
+  /// Casts an input vector to the custom type.
+  /// @param input The flat or constant input vector
+  /// @param context The context
+  /// @param rows Non-null rows of input
+  /// @param nullOnFailure Whether this is a cast or try_cast operation
+  /// @param result The writable output vector of the custom type
+  virtual void castTo(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      bool nullOnFailure,
+      BaseVector& result) const = 0;
+
+  /// Casts a vector of the custom type to another type.
+  /// @param input The flat or constant input vector
+  /// @param context The context
+  /// @param rows Non-null rows of input
+  /// @param nullOnFailure Whether this is a cast or try_cast operation
+  /// @param result The writable output vector of the destination type
+  virtual void castFrom(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      bool nullOnFailure,
+      BaseVector& result) const = 0;
+};
+
 class CastExpr : public SpecialForm {
  public:
   /// @param type The target type of the cast expression
@@ -35,7 +71,20 @@ class CastExpr : public SpecialForm {
             std::vector<ExprPtr>({expr}),
             kCast.data(),
             trackCpuUsage),
-        nullOnFailure_(nullOnFailure) {}
+        nullOnFailure_(nullOnFailure) {
+    auto fromType = inputs_[0]->type();
+    castFromOperator_ = getCastOperator(fromType->toString());
+    if (castFromOperator_ && !castFromOperator_->isSupportedType(type)) {
+      VELOX_FAIL(
+          "Cannot cast {} to {}.", fromType->toString(), type->toString());
+    }
+
+    castToOperator_ = getCastOperator(type->toString());
+    if (castToOperator_ && !castToOperator_->isSupportedType(fromType)) {
+      VELOX_FAIL(
+          "Cannot cast {} to {}.", fromType->toString(), type->toString());
+    }
+  }
 
   void evalSpecialForm(
       const SelectivityVector& rows,
@@ -110,42 +159,14 @@ class CastExpr : public SpecialForm {
 
   // When enabled the error in casting leads to null being returned.
   const bool nullOnFailure_;
-};
 
-/// Custom operator for casts from and to custom types.
-class CastOperator {
- public:
-  virtual ~CastOperator() = default;
+  // Custom cast operator for the from-type. Nullptr if the type is native or
+  // doesn't support cast-from.
+  CastOperatorPtr castFromOperator_;
 
-  /// Determines whether the cast operator supports casting the custom type to
-  /// the other type or vice versa.
-  virtual bool isSupportedType(const TypePtr& other) const = 0;
-
-  /// Casts an input vector to the custom type.
-  /// @param input The flat or constant input vector
-  /// @param context The context
-  /// @param rows Non-null rows of input
-  /// @param nullOnFailure Whether this is a cast or try_cast operation
-  /// @param result The writable output vector of the custom type
-  virtual void castTo(
-      const BaseVector& input,
-      exec::EvalCtx& context,
-      const SelectivityVector& rows,
-      bool nullOnFailure,
-      BaseVector& result) const = 0;
-
-  /// Casts a vector of the custom type to another type.
-  /// @param input The flat or constant input vector
-  /// @param context The context
-  /// @param rows Non-null rows of input
-  /// @param nullOnFailure Whether this is a cast or try_cast operation
-  /// @param result The writable output vector of the destination type
-  virtual void castFrom(
-      const BaseVector& input,
-      exec::EvalCtx& context,
-      const SelectivityVector& rows,
-      bool nullOnFailure,
-      BaseVector& result) const = 0;
+  // Custom cast operator for the to-type. Nullptr if the type is native or
+  // doesn't support cast-to.
+  CastOperatorPtr castToOperator_;
 };
 
 } // namespace facebook::velox::exec
