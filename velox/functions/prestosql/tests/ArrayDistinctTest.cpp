@@ -305,25 +305,3 @@ TEST_F(ArrayDistinctTest, nonContiguousRows) {
       makeRowVector({c0, c1, c2}));
   assertEqualVectors(expected, result);
 }
-
-// Test for invalid signature and types.
-TEST_F(ArrayDistinctTest, invalidTypes) {
-  auto array = makeNullableArrayVector<int32_t>({{1}});
-  auto expected = makeNullableArrayVector<int32_t>({{1}});
-
-  EXPECT_THROW(
-      testExpr(expected, "array_distinct(1)", {array}), std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "array_distinct(c0, c0)", {array, array}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "array_distinct(ARRAY[1], 1)", {array}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "array_distinct(ARRAY[ARRAY[1]])", {array}),
-      VeloxUserError);
-  EXPECT_THROW(
-      testExpr(expected, "array_distinct()", {array}), std::invalid_argument);
-
-  EXPECT_NO_THROW(testExpr(expected, "array_distinct(c0)", {array}));
-}

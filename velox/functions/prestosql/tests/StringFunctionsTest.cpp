@@ -632,35 +632,6 @@ TEST_F(StringFunctionsTest, substrWithConditionalSingleBuffer) {
   }
 }
 
-/**
- * The test for user exception checking
- */
-TEST_F(StringFunctionsTest, substrArgumentExceptionCheck) {
-  vector_size_t size = 100;
-
-  std::vector<std::string> strings(size);
-  std::generate(strings.begin(), strings.end(), [i = -1]() mutable {
-    i++;
-    return std::to_string(i) + "_MYSTR_" + std::to_string(i * 100);
-  });
-
-  auto stringVector = makeStrings(size, strings);
-
-  auto row = makeRowVector({stringVector});
-
-  EXPECT_THROW(
-      evaluate<FlatVector<StringView>>("substr('my string here', 'A')", row),
-      std::invalid_argument);
-
-  EXPECT_THROW(
-      evaluate<FlatVector<StringView>>("substr('my string here', 1.0)", row),
-      std::invalid_argument);
-
-  EXPECT_THROW(
-      evaluate<FlatVector<StringView>>("substr('my string here')", row),
-      std::invalid_argument);
-}
-
 namespace {
 std::vector<std::tuple<std::string, std::string>> getUpperAsciiTestData() {
   return {

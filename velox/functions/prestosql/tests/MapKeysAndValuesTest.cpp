@@ -133,29 +133,6 @@ class MapKeysAndValuesTest : public FunctionBaseTest {
     }
   }
 
-  void testInvalidInput(std::string functionName) {
-    auto sizeAt = [](vector_size_t row) { return 1 + row % 7; };
-    const vector_size_t size = 10;
-
-    auto mapArg = makeMapVector<int32_t, int64_t>(size, sizeAt, keyAt, valueAt);
-    auto dummyArg = BaseVector::create(BIGINT(), size, execCtx_.pool());
-
-    EXPECT_THROW(
-        evaluate<SimpleVector<int64_t>>(
-            functionName + "(C0)", makeRowVector({dummyArg})),
-        std::invalid_argument);
-
-    EXPECT_THROW(
-        evaluate<SimpleVector<int64_t>>(
-            functionName + "(C0, C1)", makeRowVector({dummyArg, dummyArg})),
-        std::invalid_argument);
-
-    EXPECT_THROW(
-        evaluate<SimpleVector<int64_t>>(
-            functionName + "(C0, C1)", makeRowVector({mapArg, dummyArg})),
-        std::invalid_argument);
-  }
-
   static inline int32_t keyAt(vector_size_t idx) {
     return idx;
   }
@@ -255,10 +232,6 @@ TEST_F(MapKeysTest, partiallyPopulatedSomeNulls) {
   testMapKeysPartiallyPopulated(sizeAt, nullEvery(5));
 }
 
-TEST_F(MapKeysTest, invalidInput) {
-  testInvalidInput("map_keys");
-}
-
 TEST_F(MapValuesTest, noNulls) {
   auto sizeAt = [](vector_size_t row) { return row % 7; };
   testMapValues(sizeAt, nullptr);
@@ -282,8 +255,4 @@ TEST_F(MapValuesTest, partiallyPopulatedNoNulls) {
 TEST_F(MapValuesTest, partiallyPopulatedSomeNulls) {
   auto sizeAt = [](vector_size_t /* row */) { return 1; };
   testMapValuesPartiallyPopulated(sizeAt, nullEvery(5));
-}
-
-TEST_F(MapValuesTest, invalidInput) {
-  testInvalidInput("map_values");
 }

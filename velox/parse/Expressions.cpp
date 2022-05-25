@@ -35,7 +35,7 @@ Expressions::lambdaRegistry() {
 
 namespace {
 std::vector<TypePtr> getTypes(const std::vector<TypedExprPtr>& inputs) {
-  std::vector<std::shared_ptr<const Type>> types{};
+  std::vector<TypePtr> types{};
   for (auto& i : inputs) {
     types.push_back(i->type());
   }
@@ -43,22 +43,12 @@ std::vector<TypePtr> getTypes(const std::vector<TypedExprPtr>& inputs) {
 }
 
 // Determine output type based on input types.
-std::shared_ptr<const Type> resolveTypeImpl(
+TypePtr resolveTypeImpl(
     std::vector<TypedExprPtr> inputs,
-    const std::shared_ptr<const CallExpr>& expr) {
-  // Check expressions which aren't simple functions, e.g. vector functions,
-  // and/or, try, etc.
-  if (Expressions::getResolverHook()) {
-    auto type = Expressions::getResolverHook()(inputs, expr);
-    if (type) {
-      return type;
-    }
-  }
-
-  // Check simple functions.
-  auto fun = exec::SimpleFunctions().resolveFunction(
-      expr->getFunctionName(), getTypes(inputs));
-  return fun == nullptr ? nullptr : fun->getMetadata()->returnType();
+    const std::shared_ptr<const CallExpr>& expr,
+    bool nullOnFailure) {
+  VELOX_CHECK_NOT_NULL(Expressions::getResolverHook());
+  return Expressions::getResolverHook()(inputs, expr, nullOnFailure);
 }
 
 namespace {
@@ -125,7 +115,7 @@ TypedExprPtr adjustLastNArguments(
     std::vector<TypedExprPtr> inputs,
     const std::shared_ptr<const CallExpr>& expr,
     size_t n) {
-  auto type = resolveTypeImpl(inputs, expr);
+  auto type = resolveTypeImpl(inputs, expr, true /*nullOnFailure*/);
   if (type != nullptr) {
     return std::make_unique<CallTypedExpr>(
         type, inputs, std::string{expr->getFunctionName()});
@@ -178,11 +168,7 @@ TypedExprPtr createWithImplicitCast(
   if (adjusted) {
     return adjusted;
   }
-  auto type = resolveTypeImpl(inputs, expr);
-  if (!type) {
-    throw std::invalid_argument{
-        "Cannot resolve function call: " + toString(expr, inputs)};
-  }
+  auto type = resolveTypeImpl(inputs, expr, false /*nullOnFailure*/);
   return std::make_shared<CallTypedExpr>(
       type, move(inputs), std::string{expr->getFunctionName()});
 }
@@ -210,7 +196,7 @@ std::shared_ptr<const LambdaTypedExpr> Expressions::lookupLambdaExpr(
 
 TypedExprPtr Expressions::inferTypes(
     const std::shared_ptr<const core::IExpr>& expr,
-    const std::shared_ptr<const Type>& inputRow,
+    const TypePtr& inputRow,
     memory::MemoryPool* pool) {
   VELOX_CHECK_NOT_NULL(expr);
   if (auto lambdaExpr = lookupLambdaExpr(expr)) {
@@ -265,12 +251,11 @@ TypedExprPtr Expressions::inferTypes(
 }
 
 // This method returns null if the expression doesn't depend on any input row.
-std::shared_ptr<const Type> Expressions::getInputRowType(
-    const TypedExprPtr& expr) {
+TypePtr Expressions::getInputRowType(const TypedExprPtr& expr) {
   if (auto inputExpr = std::dynamic_pointer_cast<const InputTypedExpr>(expr)) {
     return inputExpr->type();
   }
-  std::shared_ptr<const Type> inputRowType;
+  TypePtr inputRowType;
   for (auto& input : expr->inputs()) {
     auto childRowType = getInputRowType(input);
     if (childRowType) {

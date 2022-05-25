@@ -31,16 +31,17 @@ class CallExpr;
 
 class Expressions {
  public:
-  using TypeResolverHook = std::function<std::shared_ptr<const Type>(
-      const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs,
-      const std::shared_ptr<const core::CallExpr>& expr)>;
+  using TypeResolverHook = std::function<TypePtr(
+      const std::vector<core::TypedExprPtr>& inputs,
+      const std::shared_ptr<const core::CallExpr>& expr,
+      bool nullOnFailure)>;
 
   static TypedExprPtr inferTypes(
       const std::shared_ptr<const IExpr>& expr,
-      const std::shared_ptr<const Type>& input,
+      const TypePtr& input,
       memory::MemoryPool* pool);
 
-  static std::shared_ptr<const Type> getInputRowType(const TypedExprPtr& expr);
+  static TypePtr getInputRowType(const TypedExprPtr& expr);
 
   static void setTypeResolverHook(TypeResolverHook hook) {
     resolverHook_ = hook;
@@ -348,7 +349,7 @@ class CallExpr : public core::IExpr {
 class ConstantExpr : public IExpr,
                      public std::enable_shared_from_this<ConstantExpr> {
  private:
-  std::shared_ptr<const Type> type_;
+  TypePtr type_;
   const variant value_;
 
  public:
@@ -398,14 +399,14 @@ class ConstantExpr : public IExpr,
 
 class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
  private:
-  const std::shared_ptr<const Type> type_;
+  const TypePtr type_;
   const std::shared_ptr<const IExpr> expr_;
   const std::vector<std::shared_ptr<const IExpr>> inputs_;
   bool nullOnFailure_;
 
  public:
   explicit CastExpr(
-      const std::shared_ptr<const Type>& type,
+      const TypePtr& type,
       const std::shared_ptr<const IExpr>& expr,
       bool nullOnFailure,
       std::optional<std::string> alias)
@@ -438,7 +439,7 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
     return obj;
   }
 
-  const std::shared_ptr<const Type>& type() const {
+  const TypePtr& type() const {
     return type_;
   }
 

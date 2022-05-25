@@ -16,18 +16,45 @@
 
 #include "velox/parse/TypeResolver.h"
 #include "velox/core/ITypedExpr.h"
-#include "velox/expression/Expr.h"
 #include "velox/expression/SignatureBinder.h"
-#include "velox/expression/VectorFunction.h"
+#include "velox/functions/FunctionRegistry.h"
 #include "velox/parse/Expressions.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::parse {
 namespace {
 
-std::shared_ptr<const Type> resolveType(
+std::string toString(
+    const std::shared_ptr<const core::CallExpr>& expr,
+    const std::vector<core::TypedExprPtr>& inputs) {
+  std::ostringstream signature;
+  signature << expr->getFunctionName() << "(";
+  for (auto i = 0; i < inputs.size(); i++) {
+    if (i > 0) {
+      signature << ", ";
+    }
+    signature << inputs[i]->type()->toString();
+  }
+  signature << ")";
+  return signature.str();
+}
+
+std::string toString(
+    const std::vector<const exec::FunctionSignature*>& signatures) {
+  std::stringstream out;
+  for (auto i = 0; i < signatures.size(); ++i) {
+    if (i > 0) {
+      out << ", ";
+    }
+    out << signatures[i]->toString();
+  }
+  return out.str();
+}
+
+TypePtr resolveType(
     const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs,
-    const std::shared_ptr<const core::CallExpr>& expr) {
+    const std::shared_ptr<const core::CallExpr>& expr,
+    bool nullOnFailure) {
   if (expr->getFunctionName() == "if") {
     return !inputs[1]->type()->containsUnknown() ? inputs[1]->type()
                                                  : inputs[2]->type();
@@ -67,23 +94,33 @@ std::shared_ptr<const Type> resolveType(
     return ROW(std::move(names), std::move(types));
   }
 
-  auto signatures = exec::getVectorFunctionSignatures(expr->getFunctionName());
-  if (signatures.has_value()) {
-    std::vector<TypePtr> inputTypes;
-    inputTypes.reserve(inputs.size());
-    for (auto& input : inputs) {
-      inputTypes.emplace_back(input->type());
-    }
-
-    for (const auto& signature : signatures.value()) {
-      exec::SignatureBinder binder(*signature, inputTypes);
-      if (binder.tryBind()) {
-        return binder.tryResolveReturnType();
-      }
-    }
+  std::vector<TypePtr> inputTypes;
+  inputTypes.reserve(inputs.size());
+  for (auto& input : inputs) {
+    inputTypes.emplace_back(input->type());
   }
 
-  return nullptr;
+  auto returnType = resolveFunction(expr->getFunctionName(), inputTypes);
+  if (returnType) {
+    return returnType;
+  }
+
+  if (nullOnFailure) {
+    return nullptr;
+  }
+
+  auto allSignatures = getFunctionSignatures();
+  auto it = allSignatures.find(expr->getFunctionName());
+  if (it == allSignatures.end()) {
+    VELOX_USER_FAIL(
+        "Scalar function doesn't exist: {}.", expr->getFunctionName());
+  } else {
+    const auto& functionSignatures = it->second;
+    VELOX_USER_FAIL(
+        "Scalar function signature is not supported: {}. Supported signatures: {}.",
+        toString(expr, inputs),
+        toString(functionSignatures));
+  }
 }
 
 } // namespace

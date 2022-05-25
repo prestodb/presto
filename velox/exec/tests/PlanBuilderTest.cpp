@@ -40,4 +40,36 @@ TEST_F(PlanBuilderTest, duplicateSubfield) {
           .planNode(),
       "Duplicate subfield: a");
 }
+
+TEST_F(PlanBuilderTest, invalidScalarFunctionCall) {
+  VELOX_ASSERT_THROW(
+      PlanBuilder()
+          .tableScan(ROW({"a", "b"}, {BIGINT(), BIGINT()}))
+          .project({"to_unixtime(a)"})
+          .planNode(),
+      "Scalar function signature is not supported: to_unixtime(BIGINT).");
+
+  VELOX_ASSERT_THROW(
+      PlanBuilder()
+          .tableScan(ROW({"a", "b"}, {BIGINT(), BIGINT()}))
+          .project({"to_unitime(a)"})
+          .planNode(),
+      "Scalar function doesn't exist: to_unitime.");
+}
+
+TEST_F(PlanBuilderTest, invalidAggregateFunctionCall) {
+  VELOX_ASSERT_THROW(
+      PlanBuilder()
+          .tableScan(ROW({"a", "b"}, {VARCHAR(), BIGINT()}))
+          .partialAggregation({}, {"sum(a)"})
+          .planNode(),
+      "Aggregate function signature is not supported: sum(VARCHAR).");
+
+  VELOX_ASSERT_THROW(
+      PlanBuilder()
+          .tableScan(ROW({"a", "b"}, {VARCHAR(), BIGINT()}))
+          .partialAggregation({}, {"maxx(a)"})
+          .planNode(),
+      "Aggregate function doesn't exist: maxx.");
+}
 } // namespace facebook::velox::exec::test

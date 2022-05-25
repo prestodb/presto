@@ -331,34 +331,6 @@ TEST_F(SliceTest, errorStatesArray) {
             expectedArrayVector);
       },
       "SQL array indices start at 1");
-
-  EXPECT_THROW(
-      testSlice(
-          "slice(C0, 1.1, 1)",
-          {arrayVector, startsVector, lengthsVector},
-          expectedArrayVector),
-      std::invalid_argument);
-
-  EXPECT_THROW(
-      testSlice(
-          "slice(C0, 'bla', 1)",
-          {arrayVector, startsVector, lengthsVector},
-          expectedArrayVector),
-      std::invalid_argument);
-
-  EXPECT_THROW(
-      testSlice(
-          "slice(C0, 1, 1.1)",
-          {arrayVector, startsVector, lengthsVector},
-          expectedArrayVector),
-      std::invalid_argument);
-
-  EXPECT_THROW(
-      testSlice(
-          "slice(C0, 1, 'bla')",
-          {arrayVector, startsVector, lengthsVector},
-          expectedArrayVector),
-      std::invalid_argument);
 }
 
 TEST_F(SliceTest, zeroSliceLength) {

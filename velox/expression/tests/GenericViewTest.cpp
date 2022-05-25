@@ -15,11 +15,10 @@
  */
 
 #include <glog/logging.h>
-#include <gtest/gtest.h>
 #include <optional>
-
 #include "velox/common/base/CompareFlags.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/VectorReaders.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
@@ -247,10 +246,10 @@ TEST_F(GenericViewTest, e2eHashAddSameType) {
   }
 
   // All arguments expected to be of the same type.
-  ASSERT_THROW(
+  VELOX_ASSERT_THROW(
       evaluate<FlatVector<int64_t>>(
           "add_hash_same_type(c0, c1)", makeRowVector({vector1, vectorDouble})),
-      std::invalid_argument);
+      "Scalar function signature is not supported: add_hash_same_type(BIGINT, DOUBLE). Supported signatures: (__user_T1,__user_T1) -> bigint.");
 }
 
 TEST_F(GenericViewTest, e2eHashDifferentTypes) {
@@ -308,11 +307,11 @@ TEST_F(GenericViewTest, e2eHashVariadicSameType) {
   }
 
   // All arguments expected to be of the same type.
-  ASSERT_THROW(
+  VELOX_ASSERT_THROW(
       evaluate<FlatVector<int64_t>>(
           "hash_all_args(c0, c1, c2)",
           makeRowVector({vectorInt1, vectorInt2, vectorDouble})),
-      std::invalid_argument);
+      "Scalar function signature is not supported: hash_all_args(BIGINT, BIGINT, DOUBLE). Supported signatures: (__user_T1...) -> bigint.");
 }
 
 TEST_F(GenericViewTest, e2eHashVariadicAnyType) {

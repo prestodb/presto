@@ -18,6 +18,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -26,6 +27,7 @@ class TaskTest : public testing::Test, public test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     functions::prestosql::registerAllScalarFunctions();
+    parse::registerTypeResolver();
   }
 };
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/duckdb/conversion/DuckParser.h"
-#include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/PlanNode.h"
 #include "velox/parse/Expressions.h"
 
@@ -327,4 +327,10 @@ TEST(DuckParserTest, orderBy) {
   EXPECT_EQ("\"c1\" ASC NULLS LAST", parse("c1 ASC NULLS LAST"));
   EXPECT_EQ("\"c1\" DESC NULLS FIRST", parse("c1 DESC NULLS FIRST"));
   EXPECT_EQ("\"c1\" DESC NULLS LAST", parse("c1 DESC NULLS LAST"));
+}
+
+TEST(DuckParserTest, invalidExpression) {
+  VELOX_ASSERT_THROW(
+      parseExpr("func(a b)"),
+      "Cannot parse expression: func(a b). Parser Error: syntax error at or near \"b\"");
 }

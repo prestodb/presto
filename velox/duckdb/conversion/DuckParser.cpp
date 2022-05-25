@@ -402,12 +402,21 @@ std::shared_ptr<const core::IExpr> parseExpr(ParsedExpression& expr) {
   }
 }
 
+std::vector<std::unique_ptr<::duckdb::ParsedExpression>> parseExpression(
+    const std::string& exprString) {
+  ParserOptions options;
+  options.preserve_identifier_case = false;
+
+  try {
+    return Parser::ParseExpressionList(exprString, options);
+  } catch (const std::exception& e) {
+    VELOX_FAIL("Cannot parse expression: {}. {}", exprString, e.what());
+  }
+}
 } // namespace
 
 std::shared_ptr<const core::IExpr> parseExpr(const std::string& exprString) {
-  ParserOptions options;
-  options.preserve_identifier_case = false;
-  auto parsedExpressions = Parser::ParseExpressionList(exprString, options);
+  auto parsedExpressions = parseExpression(exprString);
   if (parsedExpressions.size() != 1) {
     throw std::invalid_argument(folly::sformat(
         "Expecting exactly one input expression, found {}.",

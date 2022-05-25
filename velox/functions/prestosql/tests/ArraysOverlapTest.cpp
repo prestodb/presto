@@ -213,26 +213,3 @@ TEST_F(ArraysOverlapTest, constant) {
   testExpr(expected, "arrays_overlap(C0, ARRAY[1,NULL,4])", {array1});
   testExpr(expected, "arrays_overlap(ARRAY[1,NULL,4], C0)", {array1});
 }
-
-TEST_F(ArraysOverlapTest, wrongTypes) {
-  auto expected = makeNullableFlatVector<bool>({true});
-  auto array1 = makeNullableArrayVector<int32_t>({{1}});
-
-  EXPECT_THROW(
-      testExpr(expected, "arrays_overlap(1, 1)", {array1}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "arrays_overlap(C0, 1)", {array1}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "arrays_overlap(ARRAY[1], 1)", {array1}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "arrays_overlap(C0)", {array1}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "arrays_overlap(C0, C0, C0)", {array1}),
-      std::invalid_argument);
-
-  EXPECT_NO_THROW(testExpr(expected, "arrays_overlap(C0, C0)", {array1}));
-}

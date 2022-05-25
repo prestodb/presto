@@ -284,9 +284,7 @@ TEST_F(SplitTest, split) {
   }
 }
 
-/**
- * Test split vector function with errors.
- */
+/// Test split vector function with errors.
 TEST_F(SplitTest, splitError) {
   const std::string delim = ",";
   const std::vector<std::string> inputStrings{{"I,he,she,they"}};
@@ -303,13 +301,4 @@ TEST_F(SplitTest, splitError) {
 
   // Limit should be positive.
   EXPECT_THROW(RUN("split(C0, C1, C2)", 0), std::invalid_argument);
-
-  // The 1st two arguments should be strings and the 3rd should be integer.
-  EXPECT_THROW(RUN("split(C2, C1)", 1), std::invalid_argument);
-  EXPECT_THROW(RUN("split(C0, C2)", 1), std::invalid_argument);
-  EXPECT_THROW(RUN("split(C0, C1, C0)", 1), std::invalid_argument);
-
-  // Number of arguments.
-  EXPECT_THROW(RUN("split(C0)", 0), std::invalid_argument);
-  EXPECT_THROW(RUN("split(C0, C1, C2, C0)", 1), std::invalid_argument);
 }

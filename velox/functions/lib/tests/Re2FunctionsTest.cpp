@@ -200,14 +200,6 @@ TEST_F(Re2FunctionsTest, regexMatch) {
       });
 }
 
-TEST_F(Re2FunctionsTest, regexMatchBadArgs) {
-  const std::optional<std::string> null_string{};
-  // Can't provide multiple template arguments inline in the EXPECT macro.
-  EXPECT_THROW(
-      evaluateOnce<bool>("re2_match(c0, '', '')", null_string),
-      std::invalid_argument);
-}
-
 TEST_F(Re2FunctionsTest, regexMatchBatch) {
   VectorFunctionTester<bool, std::string, std::string> re2Match(
       "re2_match(c0, c1)");

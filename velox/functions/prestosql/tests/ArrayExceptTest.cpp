@@ -291,25 +291,3 @@ TEST_F(ArrayExceptTest, constant) {
   });
   testExpr(expected, "array_except(ARRAY[1,NULL,4], C0)", {array1});
 }
-
-TEST_F(ArrayExceptTest, wrongTypes) {
-  auto expected = makeNullableArrayVector<int32_t>({{}});
-  auto array1 = makeNullableArrayVector<int32_t>({{1}});
-
-  EXPECT_THROW(
-      testExpr(expected, "array_except(1, 1)", {array1}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "array_except(C0, 1)", {array1}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "array_except(ARRAY[1], 1)", {array1}),
-      std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "array_exvcept(C0)", {array1}), std::invalid_argument);
-  EXPECT_THROW(
-      testExpr(expected, "array_except(C0, C0, C0)", {array1}),
-      std::invalid_argument);
-
-  EXPECT_NO_THROW(testExpr(expected, "array_except(C0, C0)", {array1}));
-}
