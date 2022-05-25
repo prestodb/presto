@@ -160,13 +160,6 @@ VectorPtr wrapChild(
     return child;
   }
 
-  if (child->encoding() == VectorEncoding::Simple::CONSTANT && !nulls) {
-    if (size == child->size()) {
-      return child;
-    }
-    return BaseVector::wrapInConstant(size, 0, child);
-  }
-
   return BaseVector::wrapInDictionary(nulls, mapping, size, child);
 }
 

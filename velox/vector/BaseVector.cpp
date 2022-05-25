@@ -129,6 +129,15 @@ VectorPtr BaseVector::wrapInDictionary(
     BufferPtr indices,
     vector_size_t size,
     VectorPtr vector) {
+  // Dictionary that doesn't add nulls over constant is same as constant. Just
+  // make sure to adjust the size.
+  if (vector->encoding() == VectorEncoding::Simple::CONSTANT && !nulls) {
+    if (size == vector->size()) {
+      return vector;
+    }
+    return BaseVector::wrapInConstant(size, 0, vector);
+  }
+
   auto kind = vector->typeKind();
   return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       addDictionary, kind, nulls, indices, size, std::move(vector));
