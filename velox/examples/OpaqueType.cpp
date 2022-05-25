@@ -130,7 +130,7 @@ class MapResolverVectorFunction : public exec::VectorFunction {
     // because valueAt() will end up copying the shared_ptrs, and that's a
     // little expensive.
     const std::shared_ptr<UserDefinedMap>* opaqueRawVector =
-        opaqueVector->values<std::shared_ptr<UserDefinedMap>>();
+        opaqueVector->data<std::shared_ptr<UserDefinedMap>>();
 
     // Ensure we have an output vector where we can write the output opaqued
     // values.

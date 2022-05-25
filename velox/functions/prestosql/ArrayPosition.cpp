@@ -43,9 +43,9 @@ void applyTypedFirstMatch(
       searchDecoded.isConstantMapping()) {
     // Fast path for array vector of boolean.
     if constexpr (std::is_same_v<bool, T>) {
-      auto rawElements = elementsDecoded.values<uint64_t>();
+      auto rawElements = elementsDecoded.data<uint64_t>();
 
-      auto search = bits::isBitSet(searchDecoded.values<uint64_t>(), 0);
+      auto search = bits::isBitSet(searchDecoded.data<uint64_t>(), 0);
 
       rows.applyToSelected([&](auto row) {
         auto size = rawSizes[indices[row]];
@@ -66,7 +66,7 @@ void applyTypedFirstMatch(
     }
 
     // Fast path for array vector of types other than boolean.
-    auto rawElements = elementsDecoded.values<T>();
+    auto rawElements = elementsDecoded.data<T>();
 
     auto search = searchDecoded.valueAt<T>(0);
 
@@ -198,9 +198,9 @@ void applyTypedWithInstance(
 
     // Fast path for array vector of boolean.
     if constexpr (std::is_same_v<bool, T>) {
-      auto rawElements = elementsDecoded.values<uint64_t>();
+      auto rawElements = elementsDecoded.data<uint64_t>();
 
-      auto search = bits::isBitSet(searchDecoded.values<uint64_t>(), 0);
+      auto search = bits::isBitSet(searchDecoded.data<uint64_t>(), 0);
 
       rows.applyToSelected([&](auto row) {
         auto offset = rawOffsets[indices[row]];
@@ -225,7 +225,7 @@ void applyTypedWithInstance(
     }
 
     // Fast path for array vector of types other than boolean.
-    auto rawElements = elementsDecoded.values<T>();
+    auto rawElements = elementsDecoded.data<T>();
 
     auto search = searchDecoded.valueAt<T>(0);
 

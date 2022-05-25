@@ -41,7 +41,7 @@ VectorPtr applyTyped(
 
   if (elementsDecoded.isIdentityMapping() && !elementsDecoded.mayHaveNulls()) {
     if constexpr (std::is_same_v<bool, T>) {
-      auto rawElements = elementsDecoded.values<uint64_t>();
+      auto rawElements = elementsDecoded.data<uint64_t>();
       rows.applyToSelected([&](auto row) {
         auto size = rawSizes[row];
         if (size == 0) {
@@ -60,7 +60,7 @@ VectorPtr applyTyped(
         }
       });
     } else {
-      auto rawElements = elementsDecoded.values<T>();
+      auto rawElements = elementsDecoded.data<T>();
       rows.applyToSelected([&](auto row) {
         auto size = rawSizes[row];
         if (size == 0) {

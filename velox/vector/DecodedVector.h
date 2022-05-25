@@ -141,11 +141,6 @@ class DecodedVector {
     return size_;
   }
 
-  template <typename T>
-  const T* values() const {
-    return reinterpret_cast<const T*>(data_);
-  }
-
   const BaseVector* base() const {
     return baseVector_;
   }

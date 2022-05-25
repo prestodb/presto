@@ -37,7 +37,7 @@ void applyTyped(
 
   if (!isBoolType && elementsDecoded.isIdentityMapping() &&
       !elementsDecoded.mayHaveNulls() && searchDecoded.isConstantMapping()) {
-    auto rawElements = elementsDecoded.values<T>();
+    auto rawElements = elementsDecoded.data<T>();
     auto search = searchDecoded.valueAt<T>(0);
 
     rows.applyToSelected([&](auto row) {
