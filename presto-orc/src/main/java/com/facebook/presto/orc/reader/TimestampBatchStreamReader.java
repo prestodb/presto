@@ -69,10 +69,10 @@ public class TimestampBatchStreamReader
     private boolean rowGroupOpen;
     private final DecodeTimestampOptions decodeTimestampOptions;
 
-    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, boolean enableMicroPrecision)
             throws OrcCorruptionException
     {
-        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, false);
+        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, enableMicroPrecision);
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, TimestampType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");

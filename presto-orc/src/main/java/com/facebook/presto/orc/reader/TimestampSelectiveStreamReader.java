@@ -21,7 +21,6 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.orc.DecodeTimestampOptions;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
-import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -93,9 +92,9 @@ public class TimestampSelectiveStreamReader
             DateTimeZone hiveStorageTimeZone,
             boolean outputRequired,
             OrcLocalMemoryContext systemMemoryContext,
-            OrcRecordReaderOptions options)
+            boolean enableMicroPrecision)
     {
-        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, false);
+        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, enableMicroPrecision);
         requireNonNull(filter, "filter is null");
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");

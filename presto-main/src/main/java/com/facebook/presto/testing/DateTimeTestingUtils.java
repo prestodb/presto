@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
@@ -106,6 +107,18 @@ public final class DateTimeTestingUtils
         }
         else {
             return new SqlTimestamp(millis, MILLISECONDS);
+        }
+    }
+
+    public static SqlTimestamp sqlTimestampOf(long value, ConnectorSession session, TimeUnit timeUnit)
+    {
+        SqlFunctionProperties properties = session.getSqlFunctionProperties();
+
+        if (properties.isLegacyTimestamp()) {
+            return new SqlTimestamp(value, properties.getTimeZoneKey(), timeUnit);
+        }
+        else {
+            return new SqlTimestamp(value, timeUnit);
         }
     }
 

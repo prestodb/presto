@@ -20,6 +20,8 @@ import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import org.joda.time.DateTimeZone;
 
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+
 public final class BatchStreamReaders
 {
     private BatchStreamReaders()
@@ -49,7 +51,9 @@ public final class BatchStreamReaders
             case CHAR:
                 return new SliceBatchStreamReader(type, streamDescriptor, systemMemoryContext);
             case TIMESTAMP:
-                return new TimestampBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone);
+            case TIMESTAMP_MICROSECONDS:
+                boolean enableMicroPrecision = type == TIMESTAMP_MICROSECONDS;
+                return new TimestampBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, enableMicroPrecision);
             case LIST:
                 return new ListBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
             case STRUCT:
