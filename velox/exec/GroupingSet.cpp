@@ -195,6 +195,12 @@ void GroupingSet::addInputForActiveRows(
   masks_.addInput(input, activeRows_);
   for (auto i = 0; i < aggregates_.size(); ++i) {
     const auto& rows = getSelectivityVector(i);
+
+    // Check is mask is false for all rows.
+    if (!rows.hasSelections()) {
+      continue;
+    }
+
     populateTempVectors(i, input);
     // TODO(spershin): We disable the pushdown at the moment if selectivity
     // vector has changed after groups generation, we might want to revisit
@@ -286,8 +292,14 @@ void GroupingSet::addGlobalAggregationInput(
 
   masks_.addInput(input, activeRows_);
   for (auto i = 0; i < aggregates_.size(); ++i) {
-    populateTempVectors(i, input);
     const auto& rows = getSelectivityVector(i);
+
+    // Check is mask is false for all rows.
+    if (!rows.hasSelections()) {
+      continue;
+    }
+
+    populateTempVectors(i, input);
     const bool canPushdown =
         mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
     if (isRawInput_) {

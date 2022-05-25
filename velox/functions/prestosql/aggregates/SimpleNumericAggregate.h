@@ -80,7 +80,6 @@ class SimpleNumericAggregate : public exec::Aggregate {
       bool mayPushdown) {
     DecodedVector decoded(*arg, rows, !mayPushdown);
     auto encoding = decoded.base()->encoding();
-    auto indices = decoded.indices();
     if (encoding == VectorEncoding::Simple::LAZY) {
       SimpleCallableHook<TInput, TData, UpdateSingleValue> hook(
           exec::Aggregate::offset_,
@@ -89,6 +88,8 @@ class SimpleNumericAggregate : public exec::Aggregate {
           groups,
           &this->exec::Aggregate::numNulls_,
           updateSingleValue);
+
+      auto indices = decoded.indices();
       decoded.base()->as<const LazyVector>()->load(
           RowSet(indices, arg->size()), &hook);
       return;
