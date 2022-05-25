@@ -420,10 +420,47 @@ void DecodedVector::setBaseDataForBias(
   }
 }
 
-static inline bool isWrapper(VectorEncoding::Simple encoding) {
+namespace {
+bool isWrapper(VectorEncoding::Simple encoding) {
   return encoding == VectorEncoding::Simple::SEQUENCE ||
       encoding == VectorEncoding::Simple::DICTIONARY;
 }
+
+/// Returns true if 'wrapper' is a dictionary vector wrapping non-dictionary
+/// vector.
+bool isOneLevelDictionary(const BaseVector& wrapper) {
+  return wrapper.encoding() == VectorEncoding::Simple::DICTIONARY &&
+      !isWrapper(wrapper.valueVector()->encoding());
+}
+
+/// Copies 'size' entries from 'indices' into a newly allocated buffer.
+BufferPtr copyIndicesBuffer(
+    const vector_size_t* indices,
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  BufferPtr copy = AlignedBuffer::allocate<vector_size_t>(size, pool);
+  memcpy(
+      copy->asMutable<vector_size_t>(),
+      indices,
+      BaseVector::byteSize<vector_size_t>(size));
+  return copy;
+}
+
+/// Copies 'size' bits from 'nulls' into a newly allocated buffer. Returns
+/// nullptr if 'nulls' is null.
+BufferPtr copyNullsBuffer(
+    const uint64_t* nulls,
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  if (!nulls) {
+    return nullptr;
+  }
+
+  BufferPtr copy = AlignedBuffer::allocate<bool>(size, pool);
+  memcpy(copy->asMutable<uint64_t>(), nulls, BaseVector::byteSize<bool>(size));
+  return copy;
+}
+} // namespace
 
 VectorPtr DecodedVector::wrap(
     VectorPtr data,
@@ -440,33 +477,19 @@ VectorPtr DecodedVector::wrap(
     return BaseVector::wrapInConstant(
         rows.end(), wrapper.wrappedIndex(0), data);
   }
-  VELOX_CHECK(size_ >= rows.end());
-  // If 'wrapper' is one level of dictionary we use the indices and nulls array
-  // as is.
-  auto wrapEncoding = wrapper.encoding();
-  VELOX_CHECK(isWrapper(wrapEncoding));
-  auto valueEncoding = wrapper.valueVector()->encoding();
-  if (!isWrapper(valueEncoding) &&
-      wrapEncoding == VectorEncoding::Simple::DICTIONARY) {
+
+  VELOX_CHECK_LE(rows.end(), size_);
+
+  if (isOneLevelDictionary(wrapper)) {
+    // Re-use indices and nulls buffers.
     return BaseVector::wrapInDictionary(
         wrapper.nulls(), wrapper.wrapInfo(), rows.end(), std::move(data));
+  } else {
+    // Make a copy of the indices and nulls buffers.
+    BufferPtr indices = copyIndicesBuffer(indices_, rows.end(), data->pool());
+    BufferPtr nulls = copyNullsBuffer(nulls_, rows.end(), data->pool());
+    return BaseVector::wrapInDictionary(
+        std::move(nulls), std::move(indices), rows.end(), std::move(data));
   }
-  // Make a dictionary wrapper by copying 'indices' and 'nulls'.
-  BufferPtr indices =
-      AlignedBuffer::allocate<vector_size_t>(rows.end(), data->pool());
-  memcpy(
-      indices->asMutable<vector_size_t>(),
-      indices_,
-      sizeof(vector_size_t) * rows.end());
-  BufferPtr nulls(nullptr);
-  if (nulls_ != nullptr) {
-    nulls = AlignedBuffer::allocate<bool>(rows.end(), data->pool());
-    memcpy( // NOLINT
-        nulls->asMutable<uint64_t>(),
-        nulls_,
-        bits::nbytes(rows.end()));
-  }
-  return BaseVector::wrapInDictionary(
-      std::move(nulls), std::move(indices), rows.end(), std::move(data));
 }
 } // namespace facebook::velox
