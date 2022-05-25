@@ -380,7 +380,7 @@ TEST_F(CastExprTest, truncateVsRound) {
   EXPECT_THROW(
       (testCast<int32_t, int8_t>(
           "tinyint", {1111111, 2, 3, 1000, -100101}, {71, 2, 3, -24, -5})),
-      folly::ConversionError);
+      VeloxUserError);
 }
 
 TEST_F(CastExprTest, nullInputs) {

@@ -697,17 +697,19 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return indicesBuffer;
   }
 
-  void assertErrorContext(
+  void assertError(
       const std::string& expression,
       const VectorPtr& input,
       const std::string& context,
-      const std::string& topLevelContext) {
+      const std::string& topLevelContext,
+      const std::string& message) {
     try {
       evaluate(expression, makeRowVector({input}));
       ASSERT_TRUE(false) << "Expected an error";
     } catch (VeloxException& e) {
       ASSERT_EQ(context, e.context());
       ASSERT_EQ(topLevelContext, e.topLevelContext());
+      ASSERT_EQ(message, e.message());
     }
   }
 
@@ -2711,19 +2713,28 @@ TEST_F(ExprTest, tryWithConstantFailure) {
 }
 
 TEST_F(ExprTest, castExceptionContext) {
-  assertErrorContext(
+  assertError(
       "cast(c0 as bigint)",
-      makeFlatVector({"a"}),
+      makeFlatVector({"1a"}),
       "cast((c0) as BIGINT)",
-      "Same as context.");
+      "Same as context.",
+      "Failed to cast from VARCHAR to BIGINT: 1a. Non-whitespace character found after end of conversion: \"a\"");
+
+  assertError(
+      "cast(c0 as timestamp)",
+      makeFlatVector<int8_t>({1}),
+      "cast((c0) as TIMESTAMP)",
+      "Same as context.",
+      "Failed to cast from TINYINT to TIMESTAMP: 1. ");
 }
 
 TEST_F(ExprTest, switchExceptionContext) {
-  assertErrorContext(
+  assertError(
       "case c0 when 7 then c0 / 0 else 0 end",
       makeFlatVector<int64_t>({7}),
       "divide(c0, 0:BIGINT)",
-      "switch(eq(c0, 7:BIGINT), divide(c0, 0:BIGINT), 0:BIGINT)");
+      "switch(eq(c0, 7:BIGINT), divide(c0, 0:BIGINT), 0:BIGINT)",
+      "division by zero");
 }
 
 TEST_F(ExprTest, conjunctExceptionContext) {
@@ -2742,6 +2753,7 @@ TEST_F(ExprTest, conjunctExceptionContext) {
     ASSERT_EQ(
         "switch(and(lt(mod(bigint1, 409:BIGINT), 300:BIGINT), lt(divide(bigint1, 0:BIGINT), 30:BIGINT)), 1:BIGINT, 2:BIGINT)",
         e.topLevelContext());
+    ASSERT_EQ("division by zero", e.message());
   }
 }
 
@@ -2755,11 +2767,12 @@ TEST_F(ExprTest, lambdaExceptionContext) {
       parse::parseExpr("x / 0 > 1"),
       execCtx_->pool());
 
-  assertErrorContext(
+  assertError(
       "filter(c0, function('lambda'))",
       array,
       "divide(x, 0:BIGINT)",
-      "filter(c0, lambda)");
+      "filter(c0, lambda)",
+      "division by zero");
 }
 
 /// Verify that null inputs result in exceptions, not crashes.

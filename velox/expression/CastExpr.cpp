@@ -20,6 +20,7 @@
 
 #include <fmt/format.h>
 
+#include <velox/common/base/VeloxException.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/expression/StringWriter.h"
@@ -89,14 +90,12 @@ void populateNestedRows(
 std::string makeErrorMessage(
     const DecodedVector& input,
     vector_size_t row,
-    const TypePtr& toType,
-    const std::string& castExpr) {
+    const TypePtr& toType) {
   return fmt::format(
-      "Failed to cast from {} to {}: {}. Cast expression: {}.",
+      "Failed to cast from {} to {}: {}.",
       input.base()->type()->toString(),
       toType->toString(),
-      input.base()->toString(input.index(row)),
-      castExpr);
+      input.base()->toString(input.index(row)));
 }
 
 } // namespace
@@ -113,22 +112,50 @@ void CastExpr::applyCastWithTry(
   if (!nullOnFailure_) {
     if (!isCastIntByTruncate) {
       context.applyToSelectedNoThrow(rows, [&](int row) {
-        // Passing a false truncate flag
-        bool nullOutput = false;
-        applyCastKernel<To, From, false>(
-            row, input, resultFlatVector, nullOutput);
-        if (nullOutput) {
-          VELOX_USER_FAIL("Cast failure.");
+        try {
+          // Passing a false truncate flag
+          bool nullOutput = false;
+          applyCastKernel<To, From, false>(
+              row, input, resultFlatVector, nullOutput);
+          if (nullOutput) {
+            throw std::invalid_argument("");
+          }
+        } catch (const VeloxRuntimeError& re) {
+          VELOX_FAIL(
+              makeErrorMessage(input, row, resultFlatVector->type()) + " " +
+              re.message());
+        } catch (const VeloxUserError& ue) {
+          VELOX_USER_FAIL(
+              makeErrorMessage(input, row, resultFlatVector->type()) + " " +
+              ue.message());
+        } catch (const std::exception& e) {
+          VELOX_USER_FAIL(
+              makeErrorMessage(input, row, resultFlatVector->type()) + " " +
+              e.what());
         }
       });
     } else {
       context.applyToSelectedNoThrow(rows, [&](int row) {
-        // Passing a true truncate flag
-        bool nullOutput = false;
-        applyCastKernel<To, From, true>(
-            row, input, resultFlatVector, nullOutput);
-        if (nullOutput) {
-          VELOX_USER_FAIL("Cast failure.");
+        try {
+          // Passing a true truncate flag
+          bool nullOutput = false;
+          applyCastKernel<To, From, true>(
+              row, input, resultFlatVector, nullOutput);
+          if (nullOutput) {
+            throw std::invalid_argument("");
+          }
+        } catch (const VeloxRuntimeError& re) {
+          VELOX_FAIL(
+              makeErrorMessage(input, row, resultFlatVector->type()) + " " +
+              re.message());
+        } catch (const VeloxUserError& ue) {
+          VELOX_USER_FAIL(
+              makeErrorMessage(input, row, resultFlatVector->type()) + " " +
+              ue.message());
+        } catch (const std::exception& e) {
+          VELOX_USER_FAIL(
+              makeErrorMessage(input, row, resultFlatVector->type()) + " " +
+              e.what());
         }
       });
     }

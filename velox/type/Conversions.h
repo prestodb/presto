@@ -217,7 +217,7 @@ struct Converter<
       return LimitType::cast(v);
     } else {
       if (std::isnan(v)) {
-        throw std::invalid_argument("Cannot cast NaN to an integral value.");
+        VELOX_USER_FAIL("Cannot cast NaN to an integral value.");
       }
       return folly::to<T>(std::round(v));
     }
@@ -237,7 +237,7 @@ struct Converter<
       return LimitType::cast(v);
     } else {
       if (std::isnan(v)) {
-        throw std::invalid_argument("Cannot cast NaN to an integral value.");
+        VELOX_USER_FAIL("Cannot cast NaN to an integral value.");
       }
       return folly::to<T>(std::round(v));
     }
