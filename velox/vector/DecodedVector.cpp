@@ -115,7 +115,7 @@ void DecodedVector::reset(vector_size_t size) {
 
 void DecodedVector::copyNulls(vector_size_t size) {
   auto numWords = bits::nwords(size);
-  copiedNulls_.resize(numWords);
+  copiedNulls_.resize(numWords > 0 ? numWords : 1);
   if (nulls_) {
     std::copy(nulls_, nulls_ + numWords, copiedNulls_.data());
   } else {
@@ -290,7 +290,7 @@ void DecodedVector::fillInIndices() {
 
 void DecodedVector::makeIndicesMutable() {
   if (indicesNotCopied()) {
-    copiedIndices_.resize(size_);
+    copiedIndices_.resize(size_ > 0 ? size_ : 1);
     memcpy(
         &copiedIndices_[0],
         indices_,

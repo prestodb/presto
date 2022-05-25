@@ -25,12 +25,12 @@
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/SelectivityVector.h"
 #include "velox/vector/TypeAliases.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/VectorTestBase.h"
 #include "velox/vector/tests/VectorTestUtils.h"
 
 namespace facebook::velox::test {
 
-class DecodedVectorTest : public testing::Test {
+class DecodedVectorTest : public testing::Test, public VectorTestBase {
  protected:
   DecodedVectorTest() : allSelected_(10010), halfSelected_(10010) {
     allSelected_.setAll();
@@ -89,7 +89,7 @@ class DecodedVectorTest : public testing::Test {
     const auto& data = cardData.data();
     EXPECT_EQ(cardinality, data.size());
 
-    auto flatVector = vectorMaker_->flatVectorNullable(data);
+    auto flatVector = makeNullableFlatVector(data);
     assertDecodedVector(data, flatVector.get(), false);
   }
 
@@ -177,7 +177,7 @@ class DecodedVectorTest : public testing::Test {
     BufferPtr nulls = evenNulls(size);
 
     // Every even element is null. Every odd element is a constant.
-    BufferPtr indices = evenIndices(size);
+    BufferPtr indices = makeEvenIndices(size);
     auto dictionarySize = size / 2;
     auto dictionaryVector = BaseVector::wrapInDictionary(
         nulls, indices, dictionarySize, constantVector);
@@ -214,7 +214,7 @@ class DecodedVectorTest : public testing::Test {
     BufferPtr nulls = evenNulls(size);
 
     // Every even element is null. Every odd element is a constant.
-    BufferPtr indices = evenIndices(size);
+    BufferPtr indices = makeEvenIndices(size);
     auto dictionarySize = size / 2;
     auto dictionaryVector = BaseVector::wrapInDictionary(
         nulls, indices, dictionarySize, constantVector);
@@ -240,7 +240,7 @@ class DecodedVectorTest : public testing::Test {
     // Add more nulls via dictionary. Make every 2-nd element a null.
     BufferPtr nulls = evenNulls(size);
 
-    BufferPtr indices = evenIndices(size);
+    BufferPtr indices = makeEvenIndices(size);
     auto dictionarySize = size / 2;
     auto dictionaryVector = BaseVector::wrapInDictionary(
         nulls, indices, dictionarySize, constantNullVector);
@@ -254,47 +254,8 @@ class DecodedVectorTest : public testing::Test {
     }
   }
 
-  BufferPtr indicesBuffer(
-      vector_size_t size,
-      std::function<vector_size_t(vector_size_t /*row*/)> indexAt) {
-    BufferPtr indices =
-        AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
-    auto rawIndices = indices->asMutable<vector_size_t>();
-    for (int i = 0; i < size; i++) {
-      rawIndices[i] = indexAt(i);
-    }
-    return indices;
-  }
-
-  BufferPtr nullsBuffer(
-      vector_size_t size,
-      std::function<bool(vector_size_t /*row*/)> isNullAt) {
-    BufferPtr nulls =
-        AlignedBuffer::allocate<uint64_t>(bits::nwords(size), pool_.get());
-    for (auto i = 0; i < size; i++) {
-      bits::setNull(nulls->asMutable<uint64_t>(), i, isNullAt(i));
-    }
-    return nulls;
-  }
-
-  BufferPtr evenIndices(vector_size_t size) {
-    return indicesBuffer(size, [](auto row) { return row * 2; });
-  }
-
   BufferPtr evenNulls(vector_size_t size) {
-    return nullsBuffer(size, VectorMaker::nullEvery(2));
-  }
-
-  template <typename T>
-  FlatVectorPtr<T> makeFlatVector(
-      vector_size_t size,
-      std::function<T(vector_size_t /*index*/)> valueAt) {
-    auto vector = std::dynamic_pointer_cast<FlatVector<T>>(
-        BaseVector::create(CppToType<T>::create(), size, pool_.get()));
-    for (int32_t i = 0; i < size; ++i) {
-      vector->set(i, valueAt(i));
-    }
-    return vector;
+    return makeNulls(size, VectorMaker::nullEvery(2));
   }
 
   template <typename T>
@@ -302,7 +263,7 @@ class DecodedVectorTest : public testing::Test {
       vector_size_t size,
       std::function<T(vector_size_t /*index*/)> valueAt) {
     auto flatVector = makeFlatVector<T>(size, valueAt);
-    BufferPtr indices = evenIndices(size);
+    BufferPtr indices = makeEvenIndices(size);
 
     auto dictionarySize = size / 2;
 
@@ -323,10 +284,6 @@ class DecodedVectorTest : public testing::Test {
 
   SelectivityVector allSelected_;
   SelectivityVector halfSelected_;
-  std::unique_ptr<velox::memory::ScopedMemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
-  std::unique_ptr<test::VectorMaker> vectorMaker_{
-      std::make_unique<test::VectorMaker>(pool_.get())};
 };
 
 template <>
@@ -413,7 +370,7 @@ TEST_F(DecodedVectorTest, constantNull) {
 }
 
 TEST_F(DecodedVectorTest, constantComplexType) {
-  auto arrayVector = vectorMaker_->arrayVector<int64_t>(
+  auto arrayVector = makeArrayVector<int64_t>(
       10,
       [](auto /*row*/) { return 5; },
       [](auto row, auto index) { return row + index; },
@@ -422,7 +379,7 @@ TEST_F(DecodedVectorTest, constantComplexType) {
   testConstant(arrayVector, 3);
   testConstant(arrayVector, 5); // null
 
-  auto mapVector = vectorMaker_->mapVector<int64_t, double>(
+  auto mapVector = vectorMaker_.mapVector<int64_t, double>(
       10,
       [](auto /*row*/) { return 5; },
       [](auto row, auto index) { return row + index; },
@@ -447,10 +404,10 @@ TEST_F(DecodedVectorTest, boolDictionary) {
 
 TEST_F(DecodedVectorTest, dictionaryOverLazy) {
   constexpr vector_size_t size = 1000;
-  auto lazyVector = vectorMaker_->lazyFlatVector<int32_t>(
+  auto lazyVector = vectorMaker_.lazyFlatVector<int32_t>(
       size, [](vector_size_t i) { return i % 5; });
 
-  BufferPtr indices = evenIndices(size);
+  BufferPtr indices = makeEvenIndices(size);
   auto dictionarySize = size / 2;
   auto dictionaryVector = BaseVector::wrapInDictionary(
       BufferPtr(nullptr), indices, dictionarySize, lazyVector);
@@ -474,7 +431,7 @@ TEST_F(DecodedVectorTest, dictionaryOverConstant) {
 
   testDictionaryOverNullConstant();
 
-  auto arrayVector = vectorMaker_->arrayVector<int64_t>(
+  auto arrayVector = makeArrayVector<int64_t>(
       10,
       [](auto /*row*/) { return 5; },
       [](auto row, auto index) { return row + index; },
@@ -486,14 +443,13 @@ TEST_F(DecodedVectorTest, dictionaryOverConstant) {
 
 TEST_F(DecodedVectorTest, wrapOnDictionaryEncoding) {
   const int kSize = 12;
-  auto intVector =
-      vectorMaker_->flatVector<int32_t>(kSize, [](auto row) { return row; });
-  auto rowVector = vectorMaker_->rowVector({intVector});
+  auto intVector = makeFlatVector<int32_t>(kSize, [](auto row) { return row; });
+  auto rowVector = makeRowVector({intVector});
 
   // Test dictionary with depth one
   auto indicesOne =
-      indicesBuffer(kSize, [](auto row) { return kSize - row - 1; });
-  auto nullsOne = nullsBuffer(kSize, [](auto row) { return row < 2; });
+      makeIndices(kSize, [](auto row) { return kSize - row - 1; });
+  auto nullsOne = makeNulls(kSize, [](auto row) { return row < 2; });
   auto dictionaryVector =
       BaseVector::wrapInDictionary(nullsOne, indicesOne, kSize, rowVector);
   SelectivityVector allRows(kSize);
@@ -510,8 +466,8 @@ TEST_F(DecodedVectorTest, wrapOnDictionaryEncoding) {
 
   // Test dictionary with depth two
   auto nullsTwo =
-      nullsBuffer(kSize, [](auto row) { return row >= 2 && row < 4; });
-  auto indicesTwo = indicesBuffer(kSize, [](vector_size_t i) { return i; });
+      makeNulls(kSize, [](auto row) { return row >= 2 && row < 4; });
+  auto indicesTwo = makeIndices(kSize, [](vector_size_t i) { return i; });
   auto dictionaryOverDictionaryVector = BaseVector::wrapInDictionary(
       nullsTwo, indicesTwo, kSize, dictionaryVector);
   decoded.decode(*dictionaryOverDictionaryVector, allRows);
@@ -544,9 +500,8 @@ TEST_F(DecodedVectorTest, wrapOnDictionaryEncoding) {
 TEST_F(DecodedVectorTest, wrapOnConstantEncoding) {
   const int kSize = 12;
   // non-null
-  auto intVector =
-      vectorMaker_->flatVector<int32_t>(kSize, [](auto row) { return row; });
-  auto rowVector = vectorMaker_->rowVector({intVector});
+  auto intVector = makeFlatVector<int32_t>(kSize, [](auto row) { return row; });
+  auto rowVector = makeRowVector({intVector});
   auto constantVector = BaseVector::wrapInConstant(kSize, 1, rowVector);
   SelectivityVector allRows(kSize);
   DecodedVector decoded(*constantVector, allRows);
@@ -557,12 +512,11 @@ TEST_F(DecodedVectorTest, wrapOnConstantEncoding) {
   }
 
   // null with empty size children
-  intVector = vectorMaker_->flatVector<int32_t>(
-      0 /*size*/, [](auto row) { return row; });
+  intVector = makeFlatVector<int32_t>(0 /*size*/, [](auto row) { return row; });
   rowVector = std::make_shared<RowVector>(
       pool_.get(),
       rowVector->type(),
-      nullsBuffer(kSize, VectorMaker::nullEvery(1)),
+      makeNulls(kSize, VectorMaker::nullEvery(1)),
       kSize,
       std::vector<VectorPtr>{intVector});
   constantVector = BaseVector::wrapInConstant(kSize, 1, rowVector);
@@ -590,6 +544,19 @@ TEST_F(DecodedVectorTest, noValues) {
   decoded.decode(*vector, rows);
   EXPECT_EQ(nullptr, decoded.data<int32_t>());
   EXPECT_TRUE(decoded.isNullAt(kSize - 1));
+}
+
+/// Test decoding Dict(Const) + nulls for empty rows.
+TEST_F(DecodedVectorTest, emptyRows) {
+  auto nulls = makeNulls(3, [](auto /* row */) { return true; });
+  auto indices = makeIndices(3, [](auto /* row */) { return 2; });
+  auto dict = BaseVector::wrapInDictionary(
+      nulls, indices, 3, BaseVector::createConstant(1, 3, pool()));
+
+  SelectivityVector rows(3, false);
+  DecodedVector d(*dict, rows, false);
+  VELOX_CHECK_EQ(d.size(), 0);
+  VELOX_CHECK_NOT_NULL(d.indices());
 }
 
 } // namespace facebook::velox::test
