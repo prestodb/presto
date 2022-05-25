@@ -36,9 +36,8 @@ void ConstantExpr::evalSpecialForm(
   if (needToSetIsAscii_) {
     auto* vector =
         sharedSubexprValues_->asUnchecked<SimpleVector<StringView>>();
-    LocalSelectivityVector singleRow(context, 1);
-    singleRow.get()->setAll();
-    bool isAscii = vector->computeAndSetIsAscii(*singleRow.get());
+    LocalSelectivityVector singleRow(context);
+    bool isAscii = vector->computeAndSetIsAscii(*singleRow.get(1, true));
     vector->setAllIsAscii(isAscii);
     needToSetIsAscii_ = false;
   }
@@ -173,10 +172,9 @@ void SwitchExpr::evalSpecialForm(
   ExceptionContextSetter exceptionContext(
       {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
 
-  LocalSelectivityVector remainingRows(context, rows.end());
-  *remainingRows.get() = rows;
+  LocalSelectivityVector remainingRows(context, rows);
 
-  LocalSelectivityVector thenRows(context, rows.end());
+  LocalSelectivityVector thenRows(context);
 
   VectorPtr condition;
   const uint64_t* values;
@@ -214,7 +212,7 @@ void SwitchExpr::evalSpecialForm(
         continue;
       default: {
         bits::andBits(
-            thenRows.get()->asMutableRange().bits(),
+            thenRows.get(rows.end(), false)->asMutableRange().bits(),
             remainingRows.get()->asRange().bits(),
             values,
             0,
@@ -308,7 +306,7 @@ uint64_t* rowsWithError(
   uint64_t* errorMask = nullptr;
   SelectivityVector* errorRows = errorRowsHolder.get();
   if (!errorRows) {
-    errorRows = errorRowsHolder.get(rows.end());
+    errorRows = errorRowsHolder.get(rows.end(), false);
   }
   errorMask = errorRows->asMutableRange().bits();
   std::fill(errorMask, errorMask + bits::nwords(rows.end()), 0);
@@ -398,10 +396,9 @@ void ConjunctExpr::evalSpecialForm(
 
   bool handleErrors = false;
   LocalSelectivityVector errorRows(context);
-  LocalSelectivityVector activeRowsHolder(context, rows.end());
+  LocalSelectivityVector activeRowsHolder(context, rows);
   auto activeRows = activeRowsHolder.get();
   assert(activeRows); // lint
-  *activeRows = rows;
   int32_t numActive = activeRows->countSelected();
   for (int32_t i = 0; i < inputs_.size(); ++i) {
     VectorPtr inputResult;

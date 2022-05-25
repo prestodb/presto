@@ -388,8 +388,7 @@ SelectivityVector* translateToInnerRows(
   // null-propagating Exprs.
   auto flatNulls = decoded.nullIndices() != indices ? decoded.nulls() : nullptr;
 
-  auto* newRows = newRowsHolder.get(baseSize);
-  newRows->clearAll();
+  auto* newRows = newRowsHolder.get(baseSize, false);
   rows.applyToSelected([&](vector_size_t row) {
     if (!flatNulls || !bits::isBitNull(flatNulls, row)) {
       newRows->setValid(indices[row], true);
@@ -410,9 +409,7 @@ BufferPtr newBuffer(const U* data, size_t size, memory::MemoryPool* pool) {
 SelectivityVector* singleRow(
     LocalSelectivityVector& holder,
     vector_size_t row) {
-  holder.allocate(row + 1);
-  auto rows = holder.get();
-  rows->clearAll();
+  auto rows = holder.get(row + 1, false);
   rows->setValid(row, true);
   rows->updateBounds();
   return rows;
@@ -643,8 +640,7 @@ bool Expr::removeSureNulls(
       auto nulls = values->flatRawNulls(rows);
       if (nulls) {
         if (!result) {
-          result = nullHolder.get(rows.size());
-          *result = rows;
+          result = nullHolder.get(rows);
         }
         auto bits = result->asMutableRange().bits();
         bits::andBits(bits, nulls, rows.begin(), rows.end());

@@ -40,10 +40,11 @@ class SelectivityVector {
   SelectivityVector() {}
 
   explicit SelectivityVector(vector_size_t length, bool allSelected = true) {
-    resize(length);
-    if (!allSelected) {
-      clearAll();
-    }
+    bits_.resize(bits::nwords(length), allSelected ? ~0ULL : 0);
+    size_ = length;
+    begin_ = 0;
+    end_ = allSelected ? size_ : 0;
+    allSelected_ = allSelected;
   }
 
   // Returns a statically allocated reference to an empty selectivity vector
@@ -77,6 +78,17 @@ class SelectivityVector {
     updateBounds();
   }
 
+  /// Resizes the vector to new size and sets all bits to `value`.
+  void resizeFill(int32_t size, bool value = true) {
+    auto numWords = bits::nwords(size);
+    bits_.resize(numWords);
+    std::fill(bits_.begin(), bits_.end(), value ? ~0LL : 0);
+    size_ = size;
+    begin_ = 0;
+    end_ = value ? size_ : 0;
+    allSelected_ = value;
+  }
+
   /**
    * Set whether given index is selected. updateBounds() need to be called
    * explicitly after setValid() call, it can be called only once after multiple
@@ -85,6 +97,7 @@ class SelectivityVector {
   void setValid(vector_size_t idx, bool valid) {
     VELOX_DCHECK_LT(idx, bits_.size() * sizeof(bits_[0]) * 8);
     bits::setBit(bits_.data(), idx, valid);
+    allSelected_.reset();
   }
 
   /**
@@ -95,6 +108,7 @@ class SelectivityVector {
   void setValidRange(vector_size_t begin, vector_size_t end, bool valid) {
     VELOX_DCHECK_LE(end, bits_.size() * sizeof(bits_[0]) * 8);
     bits::fillBits(bits_.data(), begin, end, valid);
+    allSelected_.reset();
   }
 
   /**
@@ -145,7 +159,7 @@ class SelectivityVector {
     bits::fillBits(bits_.data(), 0, size_, false);
     begin_ = 0;
     end_ = 0;
-    allSelected_.reset();
+    allSelected_ = false;
   }
 
   /**
@@ -273,7 +287,16 @@ class SelectivityVector {
   }
 
   bool operator==(const SelectivityVector& other) const {
-    return bits_ == other.bits_ && begin_ == other.begin_ && end_ == other.end_;
+    return begin_ == other.begin_ && end_ == other.end_ &&
+        bits::testWords(
+               begin_,
+               end_,
+               [&](int32_t index, uint64_t mask) {
+                 return (bits_[index] & mask) == (other.bits_[index] & mask);
+               },
+               [&](int32_t index) {
+                 return bits_[index] == other.bits_[index];
+               });
   }
   bool operator!=(const SelectivityVector& other) const {
     return !(*this == other);

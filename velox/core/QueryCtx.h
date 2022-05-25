@@ -178,9 +178,9 @@ class ExecCtx : public Context {
     return queryCtx_;
   }
 
-  /// Returns a SelectivityVector from a pool. Allocates new one if none is
-  /// available. Make sure to call 'releaseSelectivityVector' when done using
-  /// the vector to allow for reuse.
+  /// Returns an uninitialized  SelectivityVector from a pool. Allocates new one
+  /// if none is available. Make sure to call 'releaseSelectivityVector' when
+  /// done using the vector to allow for reuse.
   ///
   /// Prefer using LocalSelectivityVector which takes care of returning the
   /// vector to the pool on destruction.
@@ -191,6 +191,18 @@ class ExecCtx : public Context {
     auto vector = std::move(selectivityVectorPool_.back());
     selectivityVectorPool_.pop_back();
     vector->resize(size);
+    return vector;
+  }
+
+  // Returns an arbitrary SelectivityVector with undefined
+  // content. The caller is responsible for setting the size and
+  // assigning the contents.
+  std::unique_ptr<SelectivityVector> getSelectivityVector() {
+    if (selectivityVectorPool_.empty()) {
+      return std::make_unique<SelectivityVector>();
+    }
+    auto vector = std::move(selectivityVectorPool_.back());
+    selectivityVectorPool_.pop_back();
     return vector;
   }
 

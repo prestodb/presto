@@ -15,6 +15,7 @@
 add_executable(
   velox_expression_test
   ExprTest.cpp
+  EvalCtxTest.cpp
   ExprStatsTest.cpp
   CastExprTest.cpp
   CoalesceTest.cpp

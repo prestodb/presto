@@ -410,6 +410,26 @@ TEST(SelectivityVectorTest, resize) {
   ASSERT_TRUE(larger.isAllSelected());
 }
 
+TEST(SelectivityVectorTest, fillAndCompare) {
+  SelectivityVector first(100, true);
+  SelectivityVector second(100, false);
+  first.resize(10);
+  second.resize(10);
+  second.setAll();
+  // The significant 10 bits are equal, the rest are not. Expect == to be true.
+  EXPECT_TRUE(first == second);
+  first.resizeFill(200, false);
+  second.resizeFill(300, false);
+  EXPECT_FALSE(second.isAllSelected());
+  // Vectors with nothing selected are equal even if their max size differs.
+  EXPECT_FALSE(first != second);
+  first.resizeFill(100, true);
+  EXPECT_TRUE(first.isAllSelected());
+  second.resize(100);
+  second.setAll();
+  EXPECT_TRUE(first == second);
+}
+
 TEST(SelectivityVectorTest, select) {
   SelectivityVector first(64);
   SelectivityVector other(32, false);

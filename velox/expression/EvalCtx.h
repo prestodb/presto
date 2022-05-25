@@ -290,8 +290,7 @@ class LocalSelectivityVector {
   // Grab an instance of a SelectivityVector from the pool and initialize it to
   // the specified value.
   LocalSelectivityVector(EvalCtx& context, const SelectivityVector& value)
-      : context_(*context.execCtx()),
-        vector_(context_.getSelectivityVector(value.size())) {
+      : context_(*context.execCtx()), vector_(context_.getSelectivityVector()) {
     *vector_ = value;
   }
 
@@ -320,6 +319,24 @@ class LocalSelectivityVector {
     if (!vector_) {
       vector_ = context_.getSelectivityVector(size);
     }
+    return vector_.get();
+  }
+
+  // Returns a recycled SelectivityVector with 'size' bits set to 'value'.
+  SelectivityVector* FOLLY_NONNULL get(vector_size_t size, bool value) {
+    if (!vector_) {
+      vector_ = context_.getSelectivityVector();
+    }
+    vector_->resizeFill(size, value);
+    return vector_.get();
+  }
+
+  // Returns a recycled SelectivityVector initialized from 'other'.
+  SelectivityVector* FOLLY_NONNULL get(const SelectivityVector& other) {
+    if (!vector_) {
+      vector_ = context_.getSelectivityVector();
+    }
+    *vector_ = other;
     return vector_.get();
   }
 
