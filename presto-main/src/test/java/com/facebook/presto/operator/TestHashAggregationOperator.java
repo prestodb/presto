@@ -59,6 +59,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -405,9 +406,9 @@ public class TestHashAggregationOperator
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
         GroupByHashYieldResult result;
-        result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, this::getHashCapacity, 1_400_000);
-        assertGreaterThan(result.getYieldCount(), 5);
-        assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
+        result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, this::getHashCapacity, 450_000);
+        assertGreaterThanOrEqual(result.getYieldCount(), 5);
+        assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 20);
 
         int count = 0;
         for (Page page : result.getOutput()) {

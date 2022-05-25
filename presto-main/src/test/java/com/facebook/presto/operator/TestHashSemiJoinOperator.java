@@ -37,7 +37,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -240,10 +239,10 @@ public class TestHashSemiJoinOperator
                 type,
                 setBuilderOperatorFactory,
                 operator -> ((SetBuilderOperator) operator).getCapacity(),
-                1_400_000);
+                450_000);
 
-        assertGreaterThanOrEqual(result.getYieldCount(), 5);
-        assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
+        assertGreaterThanOrEqual(result.getYieldCount(), 4);
+        assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 19);
         assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 0);
     }
 
