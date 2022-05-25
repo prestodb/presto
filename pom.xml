@@ -183,6 +183,7 @@
         <module>presto-grpc-testing-udf-server</module>
         <module>presto-lark-sheets</module>
         <module>presto-test-coverage</module>
+        <module>presto-hudi</module>
     </modules>
 
     <dependencyManagement>
