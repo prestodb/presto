@@ -24,30 +24,40 @@
 
 namespace facebook::velox {
 
-// Canonicalizes an arbitrary vector to its base array (or vector, if
-// complex type) and a list of indices into this, so that the indices
-// cover the positions in a SelectivityVector. Nulls are represented
-// via the null bitmap of the leaf vector.
+/// Takes a flat, constant or dictionary vector with possibly many layers of
+/// dictionary wrappings and converts it into a flat or constant base vector +
+/// at most one wrapping. Combines multiple layers of indices and nulls into
+/// one.
 class DecodedVector {
  public:
+  /// Default constructor. The caller must call decode() or makeIndices() next.
   DecodedVector() = default;
+
+  /// Disable copy constructor and assignment.
   DecodedVector(const DecodedVector& other) = delete;
   DecodedVector& operator=(const DecodedVector& other) = delete;
 
-  // DecodedVector is used in VectorExec and needs to be move-constructed.
+  /// Allow std::move.
   DecodedVector(DecodedVector&& other) = default;
 
-  // Loads the underlying lazy vector if not already loaded unless loadLazy is
-  // false.
-  //
-  // loadLazy = false is used in HashAggregation to implement push-down of
-  // aggregation into table scan. In this case, DecodedVector is used to combine
-  // possibly multiple levels of wrappings into just one and then load
-  // LazyVector only for the necessary rows using ValueHook which adds values to
-  // aggregation accumulators directly.
-  //
-  // Limitations: Decoding constant vector wrapping a lazy vector that has not
-  // been loaded yet with loadLazy = false is currently not supported.
+  /// Decodes 'vector' for 'rows'.
+  ///
+  /// Decoding is trivial if vector is flat, constant or single-level
+  /// dictionary. If a vector is a multi-level dictionary, the indices from all
+  /// the dictionaries are combined. The result of decoding is a flat or
+  /// constant base vector and an optional array of indices.
+  ///
+  /// Loads the underlying lazy vector if not already loaded before decoding
+  /// unless loadLazy is false.
+  ///
+  /// loadLazy = false is used in HashAggregation to implement pushdown of
+  /// aggregation into table scan. In this case, DecodedVector is used to
+  /// combine possibly multiple levels of wrappings into just one and then load
+  /// LazyVector only for the necessary rows. This uses ValueHook which adds
+  /// values to aggregation accumulators without intermediate materialization.
+  ///
+  /// Limitations: Decoding a constant vector wrapping a lazy vector that has
+  /// not been loaded yet with is not supported loadLazy = false.
   DecodedVector(
       const BaseVector& vector,
       const SelectivityVector& rows,
@@ -55,25 +65,45 @@ class DecodedVector {
     decode(vector, rows, loadLazy);
   }
 
+  /// Resets the internal state and decodes 'vector' for 'rows'. See
+  /// constructor.
   void decode(
       const BaseVector& vector,
       const SelectivityVector& rows,
       bool loadLazy = true);
 
+  /// Given a dictionary vector with at least 'numLevel' levels of dictionary
+  /// wrapping, combines 'numLevel' wrappings into one.
   void makeIndices(
       const BaseVector& vector,
       const SelectivityVector& rows,
       int32_t numLevels);
 
+  /// Returns the values buffer for the base vector. Assumes the vector is of
+  /// scalar type and has been already decoded. Use indices() to access
+  /// individual values, i.e. data()[indices[i]] returns the value at the
+  /// top-level row 'i' given that 'i' is one of the rows specified for
+  /// decoding.
   template <typename T>
   const T* data() const {
     return reinterpret_cast<const T*>(data_);
   }
 
+  /// Returns the raw nulls buffer for the base vector combined with nulls found
+  /// in dictionary wrappings. May return nullptr if there are no nulls. Use
+  /// nullIndices() to access individual null flags, e.g.
+  ///
+  ///  nulls() ? bits::isBitNull(nulls(), nullIndices() ? nullIndices[i] : i) :
+  ///  false
+  ///
+  /// returns the null flag for top-level row 'i' given that 'i' is one of the
+  /// rows specified for decoding.
   const uint64_t* nulls() const {
     return nulls_;
   }
 
+  /// Returns the mapping from top-level rows to rows in the base vector or
+  /// data() buffer.
   const vector_size_t* indices() {
     if (!indices_) {
       fillInIndices();
@@ -81,9 +111,8 @@ class DecodedVector {
     return &indices_[0];
   }
 
-  // Returns nullptr if nulls() has a bit per top-level row. Otherwise,
-  // returns a set of indices that gives the bit position in
-  // nulls() for each top level decoded row.
+  /// Returns the mapping from top-level rows to entries in nulls() buffer.
+  /// Returns nullptr if mapping is identity.
   const vector_size_t* nullIndices() {
     if (hasExtraNulls_) {
       return nullptr;
@@ -91,10 +120,14 @@ class DecodedVector {
     return indices_;
   }
 
+  /// Returns true if dictionary wrappings contained nulls. In this case the
+  /// mapping from top-level rows to entries in nulls() buffer is identity.
   bool hasExtraNulls() const {
     return hasExtraNulls_;
   }
 
+  /// Given a top-level row returns corresponding index in the base vector or
+  /// data().
   vector_size_t index(vector_size_t idx) const {
     if (isIdentityMapping_) {
       return idx;
@@ -106,6 +139,8 @@ class DecodedVector {
     return indices_[idx];
   }
 
+  /// Given a top-level row returns corresponding bit position in the nulls()
+  /// buffer.
   vector_size_t nullIndex(vector_size_t idx) const {
     if (isIdentityMapping_ || hasExtraNulls_) {
       return idx;
@@ -117,11 +152,14 @@ class DecodedVector {
     return indices_[idx];
   }
 
+  /// Returns a scalar value for the top-level row 'idx'.
   template <typename T>
   T valueAt(vector_size_t idx) const {
     return reinterpret_cast<const T*>(data_)[index(idx)];
   }
 
+  /// If false, there are no nulls. Otherwise, there is a possibility that there
+  /// are some nulls, but no certainty.
   bool mayHaveNulls() const {
     return mayHaveNulls_;
   }
@@ -130,6 +168,7 @@ class DecodedVector {
     return mayHaveNulls_ || baseVector_->mayHaveNullsRecursive();
   }
 
+  /// Return null flag for the top-level row.
   bool isNullAt(vector_size_t idx) const {
     if (!nulls_) {
       return false;
@@ -137,35 +176,39 @@ class DecodedVector {
     return bits::isBitNull(nulls_, nullIndex(idx));
   }
 
+  /// Returns the largest decoded row number + 1, i.e. rows.end().
   vector_size_t size() const {
     return size_;
   }
 
+  /// Returns the flat or constant base vector.
   const BaseVector* base() const {
     return baseVector_;
   }
 
+  /// Returns true if the decoded vector was flat.
   bool isIdentityMapping() const {
     return isIdentityMapping_;
   }
 
+  /// Returns true if the decoded vector was constant.
   bool isConstantMapping() const {
     return isConstantMapping_;
   }
 
-  // Wraps a vector with the same wrapping as another. 'wrapper' must
-  // have been previously decoded by 'this'. This is used when 'data'
-  // is a component of the base vector of 'wrapper' and must be used
-  // in the same context, thus with the same indirections.
+  /// Wraps a vector with the same wrapping as another. 'wrapper' must
+  /// have been previously decoded by 'this'. This is used when 'data'
+  /// is a component of the base vector of 'wrapper' and must be used
+  /// in the same context, thus with the same indirections.
   VectorPtr wrap(
       VectorPtr data,
       const BaseVector& wrapper,
       const SelectivityVector& rows);
 
-  // Pre-allocated vector of 0, 1, 2,
+  /// Pre-allocated vector of 0, 1, 2,..
   static const std::vector<vector_size_t>& consecutiveIndices();
 
-  // Pre-allocated vector of all zeros.
+  /// Pre-allocated vector of all zeros.
   static const std::vector<vector_size_t>& zeroIndices();
 
   bool indicesNotCopied() const {
