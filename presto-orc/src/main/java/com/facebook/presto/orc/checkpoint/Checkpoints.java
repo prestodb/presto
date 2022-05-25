@@ -110,6 +110,7 @@ public final class Checkpoints
                     checkpoints.putAll(getDoubleColumnCheckpoints(column, sequence, compressed, availableStreams, columnPositionsList));
                     break;
                 case TIMESTAMP:
+                case TIMESTAMP_MICROSECONDS:
                     checkpoints.putAll(getTimestampColumnCheckpoints(column, sequence, columnEncoding, compressed, availableStreams, columnPositionsList));
                     break;
                 case BINARY:

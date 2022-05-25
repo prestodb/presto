@@ -73,6 +73,19 @@ public final class SqlTimestamp
         return precision.toMillis(value);
     }
 
+    public long getMicros()
+    {
+        checkState(!isLegacyTimestamp(), "getMicros() can be called in new timestamp semantics only");
+        return precision.toMicros(value);
+    }
+
+    @Deprecated
+    public long getMicrosUtc()
+    {
+        checkState(isLegacyTimestamp(), "getMicrosUtc() can be called in legacy timestamp semantics only");
+        return precision.toMicros(value);
+    }
+
     @Deprecated
     public Optional<TimeZoneKey> getSessionTimeZoneKey()
     {

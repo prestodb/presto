@@ -147,6 +147,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -981,7 +982,7 @@ public class OrcTester
         throw new UnsupportedOperationException("Unsupported filter type: " + filter.getClass().getSimpleName());
     }
 
-    private static void assertFileContentsPresto(
+    public static void assertFileContentsPresto(
             List<Type> types,
             TempFile tempFile,
             List<List<?>> expectedValues,
@@ -1790,6 +1791,10 @@ public class OrcTester
                 long millis = ((SqlTimestamp) value).getMillisUtc();
                 type.writeLong(blockBuilder, millis);
             }
+            else if (TIMESTAMP_MICROSECONDS.equals(type)) {
+                long micros = ((SqlTimestamp) value).getMicrosUtc();
+                type.writeLong(blockBuilder, micros);
+            }
             else {
                 String baseType = type.getTypeSignature().getBase();
                 if (StandardTypes.ARRAY.equals(baseType)) {
@@ -2132,7 +2137,7 @@ public class OrcTester
         if (type.equals(DATE)) {
             return javaDateObjectInspector;
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP) || type.equals(TIMESTAMP_MICROSECONDS)) {
             return javaTimestampObjectInspector;
         }
         if (type instanceof DecimalType) {

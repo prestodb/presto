@@ -44,6 +44,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
@@ -60,7 +62,9 @@ public class TimestampColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize();
     private static final int MILLIS_PER_SECOND = 1000;
+    private static final int MICROS_PER_SECOND = 1000_000;
     private static final int MILLIS_TO_NANOS_TRAILING_ZEROS = 5;
+    private static final int MICROS_TO_NANOS_TRAILING_ZEROS = 2;
     // Timestamp is encoded as Seconds (Long) and Nanos (Integer)
     private static final long TIMESTAMP_RAW_SIZE = Long.BYTES + Integer.BYTES;
 
@@ -78,6 +82,8 @@ public class TimestampColumnWriter
     private long columnStatisticsRetainedSizeInBytes;
 
     private final long baseTimestampInSeconds;
+    private final int unitsPerSecond;
+    private final int trailingZeros;
 
     private int nonNullValueCount;
 
@@ -102,6 +108,17 @@ public class TimestampColumnWriter
         this.sequence = sequence;
         this.type = requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
+        if (type == TIMESTAMP) {
+            this.unitsPerSecond = MILLIS_PER_SECOND;
+            this.trailingZeros = MILLIS_TO_NANOS_TRAILING_ZEROS;
+        }
+        else if (type == TIMESTAMP_MICROSECONDS) {
+            this.unitsPerSecond = MICROS_PER_SECOND;
+            this.trailingZeros = MICROS_TO_NANOS_TRAILING_ZEROS;
+        }
+        else {
+            throw new UnsupportedOperationException("Unsupported Type: " + type);
+        }
         if (orcEncoding == DWRF) {
             this.columnEncoding = new ColumnEncoding(DIRECT, 0);
             this.secondsStream = new LongOutputStreamV1(columnWriterOptions, dwrfEncryptor, true, DATA);
@@ -150,8 +167,8 @@ public class TimestampColumnWriter
 
                 // It is a flaw in ORC encoding that uses normal integer division to compute seconds,
                 // and floor modulus to compute nano seconds.
-                long seconds = (value / MILLIS_PER_SECOND) - baseTimestampInSeconds;
-                long millis = Math.floorMod(value, MILLIS_PER_SECOND);
+                long seconds = (value / unitsPerSecond) - baseTimestampInSeconds;
+                long subSecondValue = Math.floorMod(value, unitsPerSecond);
                 // The "sub-second" value (i.e., the nanos value) typically has a large number of trailing
                 // zero, because many systems, like Presto, only record millisecond or microsecond precision
                 // timestamps. To optimize storage, if the value has more than two trailing zeros, the trailing
@@ -168,10 +185,10 @@ public class TimestampColumnWriter
                 //         7            0b110        120000000            (12 << 3) | 0b110
                 //         8            0b111        100000000             (1 << 3) | 0b111
                 //
-                // In Presto, we only have millisecond precision.
-                // Therefore, we always use the encoding for 6 trailing zeros (except when input is zero).
-                // For simplicity, we don't dynamically use 6, 7, 8 depending on the circumstance.
-                long encodedNanos = millis == 0 ? 0 : (millis << 3) | MILLIS_TO_NANOS_TRAILING_ZEROS;
+                // Presto-orc supports millisecond or microsecond precision.
+                // Except when input is zero, we use the encoding for 6 trailing zeros (millisecond precision) or 3 trailing zeros (microsecond precision)
+                // For simplicity, we don't dynamically use 3 to 8 zeros depending on the circumstance.
+                long encodedNanos = subSecondValue == 0 ? 0 : (subSecondValue << 3) | trailingZeros;
 
                 secondsStream.writeLong(seconds);
                 nanosStream.writeLong(encodedNanos);

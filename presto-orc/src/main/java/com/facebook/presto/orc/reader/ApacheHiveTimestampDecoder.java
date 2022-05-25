@@ -22,7 +22,7 @@ final class ApacheHiveTimestampDecoder
     // This comes from the Apache Hive ORC code
     public static long decodeTimestamp(long seconds, long serializedNanos, DecodeTimestampOptions options)
     {
-        long millis = (seconds + options.getBaseSeconds()) * options.getUnitsPerSecond();
+        long value = (seconds + options.getBaseSeconds()) * options.getUnitsPerSecond();
         long nanos = parseNanos(serializedNanos);
         if (nanos > 999999999 || nanos < 0) {
             throw new IllegalArgumentException("nanos field of an encoded timestamp in ORC must be between 0 and 999999999 inclusive, got " + nanos);
@@ -33,11 +33,11 @@ final class ApacheHiveTimestampDecoder
         // to get the correct value we need
         // (-42 - 1)*1000 + 999 = -42001
         // (42)*1000 + 1 = 42001
-        if (millis < 0 && nanos != 0) {
-            millis -= options.getUnitsPerSecond();
+        if (value < 0 && nanos != 0) {
+            value -= options.getUnitsPerSecond();
         }
-        // Truncate nanos to millis and add to mills
-        return millis + (nanos / options.getNanosPerUnit());
+        // Truncate nanos to required units (millis / micros) and add to value
+        return value + (nanos / options.getNanosPerUnit());
     }
 
     // This comes from the Apache Hive ORC code
