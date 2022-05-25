@@ -146,6 +146,7 @@ class PartitionedOutput : public Operator {
                 : planNode->partitionFunctionFactory()(numDestinations_)),
         outputChannels_(calculateOutputChannels(
             planNode->inputType(),
+            planNode->outputType(),
             planNode->outputType())),
         future_(false),
         bufferManager_(PartitionedOutputBufferManager::getInstance()),

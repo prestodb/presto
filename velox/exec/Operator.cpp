@@ -244,19 +244,23 @@ ChannelIndex exprToChannel(const core::ITypedExpr* expr, const TypePtr& type) {
 }
 
 std::vector<ChannelIndex> calculateOutputChannels(
-    const RowTypePtr& inputType,
-    const RowTypePtr& outputType) {
-  // Note that outputType may have more columns than inputType as some columns
-  // can be duplicated.
-
-  bool identicalProjection = inputType->size() == outputType->size();
-  const auto& outputNames = outputType->names();
+    const RowTypePtr& sourceOutputType,
+    const RowTypePtr& targetInputType,
+    const RowTypePtr& targetOutputType) {
+  // Note that targetInputType may have more columns than sourceOutputType as
+  // some columns can be duplicated.
+  bool identicalProjection =
+      sourceOutputType->size() == targetInputType->size();
+  const auto& outputNames = targetInputType->names();
 
   std::vector<ChannelIndex> outputChannels;
   outputChannels.resize(outputNames.size());
   for (auto i = 0; i < outputNames.size(); i++) {
-    outputChannels[i] = inputType->getChildIdx(outputNames[i]);
+    outputChannels[i] = sourceOutputType->getChildIdx(outputNames[i]);
     if (outputChannels[i] != i) {
+      identicalProjection = false;
+    }
+    if (outputNames[i] != targetOutputType->nameOf(i)) {
       identicalProjection = false;
     }
   }

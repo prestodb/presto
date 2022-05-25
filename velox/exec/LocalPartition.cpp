@@ -278,7 +278,8 @@ LocalPartition::LocalPartition(
               : planNode->partitionFunctionFactory()(numPartitions_)),
       sourceOutputChannels_{calculateOutputChannels(
           planNode->sources()[0]->outputType(),
-          planNode->inputTypeFromSource())},
+          planNode->inputTypeFromSource(),
+          planNode->outputType())},
       blockingReasons_{numPartitions_} {
   VELOX_CHECK(numPartitions_ == 1 || partitionFunction_ != nullptr);
 

@@ -624,7 +624,7 @@ TEST_F(LocalPartitionTest, unionAll) {
               {},
               {PlanBuilder(planNodeIdGenerator).values({data1}).planNode(),
                PlanBuilder(planNodeIdGenerator).values({data2}).planNode()},
-              {"d0 as c0", "d1 as c1"})
+              {"d0 AS c0", "d1 AS c1"})
           .planNode();
 
   assertQuery(
@@ -632,4 +632,27 @@ TEST_F(LocalPartitionTest, unionAll) {
       "WITH T1 AS (VALUES (10, 'x'), (11, 'y')), "
       "T2 AS (VALUES (20, 'z'), (21, 'w')) "
       "SELECT * FROM T1 UNION ALL SELECT * FROM T2; ");
+}
+
+// Test that LocalExchange returns the data with the proper output type.
+TEST_F(LocalPartitionTest, unionAllLocalExchange) {
+  auto data1 = makeRowVector({"d0"}, {makeFlatVector<StringView>({"x"})});
+  auto data2 = makeRowVector({"e0"}, {makeFlatVector<StringView>({"y"})});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .localPartitionRoundRobin(
+              {PlanBuilder(planNodeIdGenerator).values({data1}).planNode(),
+               PlanBuilder(planNodeIdGenerator).values({data2}).planNode()},
+              {"d0 AS g0"})
+          .project({"length(g0)"})
+          .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT length(c0) from ("
+      "SELECT * from (VALUES ('x')) as T1 (c0) UNION ALL "
+      "SELECT * from (VALUES ('y')) as T2 (c0)"
+      ");");
 }

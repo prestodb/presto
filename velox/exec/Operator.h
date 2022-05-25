@@ -422,12 +422,14 @@ std::vector<ChannelIndex> toChannels(
 
 ChannelIndex exprToChannel(const core::ITypedExpr* expr, const TypePtr& type);
 
-/// Given an input type and output type that contains a subset of the input type
-/// columns possibly in different order returns the indices of the output
-/// columns in the input type.
+/// Given a source output type and target input type we return the indices of
+/// the target input columns in the source output type.
+/// The target output type is used to determine if the projection is identity.
+/// An empty indices vector is returned when projection is identity.
 std::vector<ChannelIndex> calculateOutputChannels(
-    const RowTypePtr& inputType,
-    const RowTypePtr& outputType);
+    const RowTypePtr& sourceOutputType,
+    const RowTypePtr& targetInputType,
+    const RowTypePtr& targetOutputType);
 
 // A first operator in a Driver, e.g. table scan or exchange client.
 class SourceOperator : public Operator {
