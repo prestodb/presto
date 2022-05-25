@@ -96,4 +96,29 @@ void MemoryUsageTracker::decrementUsage(UsageType type, int64_t size) noexcept {
   }
   usage(currentUsageInBytes_, type).fetch_sub(size);
 }
+
+bool MemoryUsageTracker::maybeReserve(int64_t increment) {
+  constexpr int32_t kGrowthQuantum = 8 << 20;
+  auto addedReservation = bits::roundUp(increment, kGrowthQuantum);
+  auto candidate = this;
+  while (candidate) {
+    auto limit = candidate->maxTotalBytes();
+    // If this tracker has no limit, proceed to its parent.
+    if (limit == memory::kMaxMemory && candidate->parent_) {
+      candidate = candidate->parent_.get();
+      continue;
+    }
+    if (limit - candidate->getCurrentTotalBytes() > addedReservation) {
+      try {
+        reserve(addedReservation);
+      } catch (const std::exception& e) {
+        return false;
+      }
+      return true;
+    }
+    candidate = candidate->parent_.get();
+  }
+  return false;
+}
+
 } // namespace facebook::velox::memory

@@ -185,3 +185,21 @@ TEST(MemoryUsageTrackerTest, grow) {
   // The parent limit got set to 170, rounded up to 176
   EXPECT_EQ(176 * kMB, parent->maxTotalBytes());
 }
+
+TEST(MemoryUsageTrackerTest, maybeReserve) {
+  constexpr int64_t kMB = 1 << 20;
+  auto config =
+      memory::MemoryUsageConfigBuilder().maxTotalMemory(10 * kMB).build();
+  auto parent = memory::MemoryUsageTracker::create(config);
+  auto child = parent->addChild();
+  auto childConfig = memory::MemoryUsageConfigBuilder().build();
+  child->updateConfig(childConfig);
+  // 1MB can be reserved, rounds up to 8 and leaves 2 unreserved in parent.
+  EXPECT_TRUE(child->maybeReserve(kMB));
+  EXPECT_EQ(8 * kMB, child->getAvailableReservation());
+  EXPECT_EQ(8 * kMB, parent->getCurrentUserBytes());
+  // Fails to reserve 100MB, existing reservations are unchanged.
+  EXPECT_FALSE(child->maybeReserve(100 * kMB));
+  EXPECT_EQ(8 * kMB, child->getAvailableReservation());
+  EXPECT_EQ(8 * kMB, parent->getCurrentUserBytes());
+}
