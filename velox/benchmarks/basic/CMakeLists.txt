@@ -23,8 +23,6 @@ set(velox_benchmark_deps
     ${FOLLY}
     ${FOLLY_BENCHMARK}
     ${DOUBLE_CONVERSION}
-    gtest
-    gtest_main
     ${gflags_LIBRARIES}
     glog::glog)
 

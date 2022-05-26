@@ -156,7 +156,7 @@ class DummyWriter : public velox::dwrf::WriterShared {
   MOCK_METHOD0(resetImpl, void());
 
   friend class WriterFlushTestHelper;
-  FRIEND_TEST(TestWriterFlush, CheckAgainstMemoryBudget);
+  VELOX_FRIEND_TEST(TestWriterFlush, CheckAgainstMemoryBudget);
 };
 
 // Big idea is to directly manipulate context states (num rows) + memory pool

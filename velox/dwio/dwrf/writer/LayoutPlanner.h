@@ -47,7 +47,7 @@ class LayoutPlanner {
     static void sort(StreamList::iterator begin, StreamList::iterator end);
   };
 
-  FRIEND_TEST(LayoutPlannerTests, Basic);
+  VELOX_FRIEND_TEST(LayoutPlannerTests, Basic);
 };
 
 } // namespace facebook::velox::dwrf

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <gtest/gtest_prod.h>
 #include <bitset>
+#include "velox/common/base/GTestMacros.h"
 #include "velox/dwio/common/DataBuffer.h"
 
 namespace facebook {
@@ -202,16 +202,16 @@ class ChainedBuffer {
     return val + 1;
   }
 
-  FRIEND_TEST(ChainedBufferTests, testCreate);
-  FRIEND_TEST(ChainedBufferTests, testReserve);
-  FRIEND_TEST(ChainedBufferTests, testAppend);
-  FRIEND_TEST(ChainedBufferTests, testClear);
-  FRIEND_TEST(ChainedBufferTests, testGetPage);
-  FRIEND_TEST(ChainedBufferTests, testGetPageIndex);
-  FRIEND_TEST(ChainedBufferTests, testGetPageOffset);
-  FRIEND_TEST(ChainedBufferTests, testBitCount);
-  FRIEND_TEST(ChainedBufferTests, testTrailingZeros);
-  FRIEND_TEST(ChainedBufferTests, testPowerOf2);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testCreate);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testReserve);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testAppend);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testClear);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testGetPage);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testGetPageIndex);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testGetPageOffset);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testBitCount);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testTrailingZeros);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testPowerOf2);
 };
 
 } // namespace common

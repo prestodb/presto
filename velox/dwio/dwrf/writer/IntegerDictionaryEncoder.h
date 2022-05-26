@@ -17,7 +17,7 @@
 #pragma once
 
 #include <folly/container/F14Set.h>
-#include <gtest/gtest_prod.h>
+#include "velox/common/base/GTestMacros.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/dwrf/common/IntEncoder.h"
 #include "velox/dwio/dwrf/writer/DictionaryEncodingUtils.h"
@@ -275,9 +275,9 @@ class IntegerDictionaryEncoder : public AbstractIntegerDictionaryEncoder {
   }
 
  private:
-  FRIEND_TEST(TestIntegerDictionaryEncoder, Clear);
-  FRIEND_TEST(TestIntegerDictionaryEncoder, GetCount);
-  FRIEND_TEST(TestWriterContext, GetIntDictionaryEncoder);
+  VELOX_FRIEND_TEST(TestIntegerDictionaryEncoder, Clear);
+  VELOX_FRIEND_TEST(TestIntegerDictionaryEncoder, GetCount);
+  VELOX_FRIEND_TEST(TestWriterContext, GetIntDictionaryEncoder);
 
   // TODO: partially specialize for integers only.
   template <typename T>

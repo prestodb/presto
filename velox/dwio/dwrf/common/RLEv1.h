@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <gtest/gtest_prod.h>
+#include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/Nulls.h"
 #include "velox/dwio/dwrf/common/Adaptor.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
@@ -198,8 +198,8 @@ class RleEncoderV1 : public IntEncoder<isSigned> {
     }
   }
 
-  FRIEND_TEST(RleEncoderV1Test, encodeMinAndMax);
-  FRIEND_TEST(RleEncoderV1Test, encodeMinAndMaxint32);
+  VELOX_FRIEND_TEST(RleEncoderV1Test, encodeMinAndMax);
+  VELOX_FRIEND_TEST(RleEncoderV1Test, encodeMinAndMaxint32);
 };
 
 template <bool isSigned>

@@ -24,15 +24,14 @@
 #include <string>
 
 #include <fmt/format.h>
-#include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <gtest/gtest_prod.h>
 
 #include "folly/CPortability.h"
 #include "folly/Likely.h"
 #include "folly/Random.h"
 #include "folly/SharedMutex.h"
 #include "folly/experimental/FunctionScheduler.h"
+#include "velox/common/base/GTestMacros.h"
 #include "velox/common/memory/MemoryUsage.h"
 #include "velox/common/memory/MemoryUsageTracker.h"
 
@@ -406,7 +405,7 @@ class MemoryPoolImpl : public MemoryPoolBase {
   int64_t getSubtreeMaxBytes() const;
 
  private:
-  FRIEND_TEST(MemoryPoolTest, Ctor);
+  VELOX_FRIEND_TEST(MemoryPoolTest, Ctor);
 
   template <uint16_t A>
   struct ALIGNER {};
@@ -549,12 +548,12 @@ class MemoryManager final : public IMemoryManager {
   Allocator& getAllocator();
 
  private:
-  FRIEND_TEST(MemoryPoolImplTest, CapSubtree);
-  FRIEND_TEST(MemoryPoolImplTest, CapAllocation);
-  FRIEND_TEST(MemoryPoolImplTest, UncapMemory);
-  FRIEND_TEST(MemoryPoolImplTest, MemoryManagerGlobalCap);
-  FRIEND_TEST(MultiThreadingUncappingTest, Flat);
-  FRIEND_TEST(MultiThreadingUncappingTest, SimpleTree);
+  VELOX_FRIEND_TEST(MemoryPoolImplTest, CapSubtree);
+  VELOX_FRIEND_TEST(MemoryPoolImplTest, CapAllocation);
+  VELOX_FRIEND_TEST(MemoryPoolImplTest, UncapMemory);
+  VELOX_FRIEND_TEST(MemoryPoolImplTest, MemoryManagerGlobalCap);
+  VELOX_FRIEND_TEST(MultiThreadingUncappingTest, Flat);
+  VELOX_FRIEND_TEST(MultiThreadingUncappingTest, SimpleTree);
 
   std::shared_ptr<Allocator> allocator_;
   const int64_t memoryQuota_;

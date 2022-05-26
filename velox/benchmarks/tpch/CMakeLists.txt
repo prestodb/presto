@@ -33,9 +33,6 @@ target_link_libraries(
   velox_type
   velox_caching
   velox_vector
-  velox_vector_test_lib
-  gtest
-  gtest_main
   ${FOLLY_WITH_DEPENDENCIES}
   ${FOLLY_BENCHMARK}
   ${FMT})

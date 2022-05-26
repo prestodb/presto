@@ -16,10 +16,9 @@
 
 #pragma once
 
-#include <gtest/gtest_prod.h>
-
 #include <folly/Function.h>
 
+#include "velox/common/base/GTestMacros.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/IntDecoder.h"
 #include "velox/vector/BaseVector.h"
@@ -59,7 +58,7 @@ class StripeDictionaryCache {
       EncodingKeyHash>
       intDictionaryFactories_;
 
-  FRIEND_TEST(TestStripeDictionaryCache, RegisterDictionary);
+  VELOX_FRIEND_TEST(TestStripeDictionaryCache, RegisterDictionary);
 };
 
 } // namespace facebook::velox::dwrf

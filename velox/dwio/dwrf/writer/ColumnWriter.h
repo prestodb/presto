@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include "gtest/gtest_prod.h"
-
+#include "velox/common/base/GTestMacros.h"
 #include "velox/dwio/dwrf/common/ByteRLE.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/IntEncoder.h"
@@ -226,7 +225,7 @@ class ColumnWriter {
   // in_map stream
   const std::function<void(IndexBuilder&)> onRecordPosition_;
 
-  FRIEND_TEST(ColumnWriterTests, LowMemoryModeConfig);
+  VELOX_FRIEND_TEST(ColumnWriterTests, LowMemoryModeConfig);
   friend class ValueStatisticsBuilder;
 };
 

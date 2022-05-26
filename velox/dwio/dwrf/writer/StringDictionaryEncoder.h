@@ -18,7 +18,8 @@
 
 #include <folly/container/F14Set.h>
 #include <folly/hash/Checksum.h>
-#include <gtest/gtest_prod.h>
+
+#include "velox/common/base/GTestMacros.h"
 #include "velox/dwio/common/DataBuffer.h"
 
 namespace facebook::velox::dwrf {
@@ -171,10 +172,10 @@ class StringDictionaryEncoder {
   }
 
  private:
-  FRIEND_TEST(TestStringDictionaryEncoder, GetCount);
-  FRIEND_TEST(TestStringDictionaryEncoder, GetIndex);
-  FRIEND_TEST(TestStringDictionaryEncoder, GetStride);
-  FRIEND_TEST(TestStringDictionaryEncoder, Clear);
+  VELOX_FRIEND_TEST(TestStringDictionaryEncoder, GetCount);
+  VELOX_FRIEND_TEST(TestStringDictionaryEncoder, GetIndex);
+  VELOX_FRIEND_TEST(TestStringDictionaryEncoder, GetStride);
+  VELOX_FRIEND_TEST(TestStringDictionaryEncoder, Clear);
 
   // Intended for testing only.
   uint32_t getIndex(folly::StringPiece sp) {

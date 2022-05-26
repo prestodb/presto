@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "gtest/gtest_prod.h"
+#include "velox/common/base/GTestMacros.h"
 #include "velox/dwio/dwrf/writer/WriterContext.h"
 #include "velox/dwio/dwrf/writer/WriterSink.h"
 
@@ -163,7 +163,7 @@ class WriterBase {
   void writeUserMetadata(uint32_t writerVersion);
 
   friend class WriterTest;
-  FRIEND_TEST(WriterBaseTest, FlushWriterSinkUponClose);
+  VELOX_FRIEND_TEST(WriterBaseTest, FlushWriterSinkUponClose);
 };
 
 } // namespace facebook::velox::dwrf
