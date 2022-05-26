@@ -592,6 +592,77 @@ TEST_F(VectorMakerTest, arrayVectorUsingBaseVector) {
   EXPECT_EQ(arrayVectorWithNull->sizeAt(3), 0);
 }
 
+TEST_F(VectorMakerTest, mapVectorUsingKeyValueVectorsNoNulls) {
+  auto keys = maker_.flatVector<int32_t>({1, 2, 3, 4, 5, 6});
+  auto values = maker_.flatVector<int64_t>({7, 8, 9, 10, 11, 12});
+
+  // Create a map vector with 2 entries per map.
+  auto mapVector = maker_.mapVector({0, 2, 4}, keys, values);
+
+  EXPECT_EQ(mapVector->size(), 3);
+  for (int i = 0; i < 3; i++) {
+    EXPECT_EQ(mapVector->sizeAt(i), 2);
+    EXPECT_EQ(mapVector->isNullAt(i), false);
+  }
+
+  auto rawMapKeys = mapVector->mapKeys()->values()->as<int32_t>();
+  auto baseKeys = keys->values()->as<int32_t>();
+  EXPECT_EQ(memcmp(rawMapKeys, baseKeys, keys->size() * sizeof(int32_t)), 0);
+
+  auto rawMapValues = mapVector->mapValues()->values()->as<int64_t>();
+  auto baseValues = values->values()->as<int64_t>();
+  EXPECT_EQ(
+      memcmp(rawMapValues, baseValues, values->size() * sizeof(int64_t)), 0);
+}
+
+TEST_F(VectorMakerTest, mapVectorUsingKeyValueVectorsSomeNulls) {
+  auto keys = maker_.flatVector<int32_t>({1, 2, 3, 4, 5, 6});
+  auto values = maker_.flatVector<int64_t>({7, 8, 9, 10, 11, 12});
+
+  // Create map vector with last map as null.
+  auto mapVectorWithLastNull =
+      maker_.mapVector({0, 2, 4, 6}, keys, values, {3});
+  EXPECT_EQ(mapVectorWithLastNull->isNullAt(3), true);
+  EXPECT_EQ(mapVectorWithLastNull->sizeAt(3), 0);
+
+  // Create map vector with middle map as null.
+  auto mapVectorWithMiddleNull =
+      maker_.mapVector({0, 2, 2, 4, 6}, keys, values, {1});
+  EXPECT_EQ(mapVectorWithMiddleNull->isNullAt(1), true);
+  EXPECT_EQ(mapVectorWithMiddleNull->sizeAt(1), 0);
+}
+
+TEST_F(VectorMakerTest, mapVectorUsingKeyValueVectorsAllNulls) {
+  auto keys = maker_.flatVector<int32_t>({});
+  auto values = maker_.flatVector<int64_t>({});
+
+  // Create map vector with last map as null.
+  auto mapVector = maker_.mapVector({0, 0, 0}, keys, values, {0, 1, 2});
+
+  EXPECT_EQ(mapVector->size(), 3);
+  for (int i = 0; i < 3; i++) {
+    EXPECT_EQ(mapVector->sizeAt(i), 0);
+    EXPECT_EQ(mapVector->isNullAt(i), true);
+  }
+}
+
+TEST_F(VectorMakerTest, mapVectorUsingKeyValueVectorsUnevenKeysValues) {
+  auto keys = maker_.flatVector<int32_t>({1, 2, 3, 4, 5, 6});
+  // Create map vector with uneven keys and values, should fail.
+  auto values = maker_.flatVector<int64_t>({7, 8, 9});
+  EXPECT_THROW(maker_.mapVector({0, 2, 4}, keys, values), VeloxRuntimeError);
+}
+
+TEST_F(VectorMakerTest, mapVectorUsingKeyValueVectorsNullsInvalidIndices) {
+  auto keys = maker_.flatVector<int32_t>({0, 1, 2, 3, 4, 5});
+  auto values = maker_.flatVector<int64_t>({6, 7, 8, 9, 10, 11});
+
+  // The middle map is NULL, but according to the offsets it has size 2, this
+  // should fail.
+  EXPECT_THROW(
+      maker_.mapVector({0, 2, 4}, keys, values, {1}), VeloxRuntimeError);
+}
+
 TEST_F(VectorMakerTest, biasVector) {
   std::vector<std::optional<int64_t>> data = {10, 13, std::nullopt, 15, 12, 11};
   auto biasVector = maker_.biasVector(data);

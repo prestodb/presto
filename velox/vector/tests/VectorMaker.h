@@ -640,6 +640,20 @@ class VectorMaker {
       const VectorPtr& elements,
       const std::vector<vector_size_t>& nulls = {});
 
+  /// Create a MapVector from a vector of offsets and key and value vectors.
+  /// The size of the maps is computed from the difference of offsets.
+  /// The sizes of the key and value vectors must be equal.
+  /// An optional vector of nulls can be passed to specify null rows.
+  /// The offset for a null value must match previous offset
+  /// i.e size computed should be zero.
+  /// E.g map({0, 2 ,2}, keys, values, {1}) creates a map vector
+  /// with map at index 1 as null.
+  MapVectorPtr mapVector(
+      const std::vector<vector_size_t>& offsets,
+      const VectorPtr& keys,
+      const VectorPtr& values,
+      const std::vector<vector_size_t>& nulls = {});
+
  private:
   vector_size_t createOffsetsAndSizes(
       vector_size_t size,
