@@ -119,6 +119,7 @@ class FunctionRegistryTest : public testing::Test {
  public:
   FunctionRegistryTest() {
     registerAggregateFunc("aggregate_func");
+    registerAggregateFunc("Aggregate_Func_Alias");
   }
 
   void checkEqual(const TypePtr& actual, const TypePtr& expected) {
@@ -165,6 +166,13 @@ TEST_F(FunctionRegistryTest, hasAggregateFunctionSignatureWrongArgType) {
   testResolveAggregateFunction("aggregate_func", {BIGINT()}, nullptr, nullptr);
   testResolveAggregateFunction(
       "aggregate_func", {BIGINT(), BIGINT(), BIGINT()}, nullptr, nullptr);
+}
+
+TEST_F(FunctionRegistryTest, functionNameInMixedCase) {
+  testResolveAggregateFunction(
+      "aggregatE_funC", {BIGINT(), DOUBLE()}, BIGINT(), ARRAY(BIGINT()));
+  testResolveAggregateFunction(
+      "aggregatE_funC_aliaS", {DOUBLE(), DOUBLE()}, DOUBLE(), ARRAY(DOUBLE()));
 }
 
 } // namespace facebook::velox::exec::test

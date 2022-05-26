@@ -1218,6 +1218,13 @@ result. Here is an example of a test for simple function “sqrt”:
       EXPECT_TRUE(std::isnan(sqrt(kNan).value_or(-1)));
     }
 
+Function names
+------------
+
+For both simple and vector functions, their names are case insensitive. Function
+names are converted to lower case automatically when the functions are
+registered and when they are resolved for a given expression.
+
 Benchmarking
 ------------
 

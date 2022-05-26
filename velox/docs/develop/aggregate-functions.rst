@@ -442,6 +442,13 @@ For example,
 creates a final aggregation using an approx_percentile aggregate function with
 DOUBLE result type.
 
+Function names
+------------
+
+Same as scalar functions, aggregate function names are case insensitive. The names
+are converted to lower case automatically when the functions are registered and
+when they are resolved for a given expression.
+
 Documentation
 -------------
 
@@ -482,4 +489,3 @@ To confirm that aggregate function works end to end as part of query, update tes
 .. code-block:: java
 
     assertQuery("SELECT orderkey, array_agg(linenumber) FROM lineitem GROUP BY 1");
-

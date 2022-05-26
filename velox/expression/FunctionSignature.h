@@ -22,6 +22,8 @@
 
 namespace facebook::velox::exec {
 
+std::string sanitizeFunctionName(const std::string& name);
+
 // A type name (e.g. K or V in map(K, V)) and optionally constraints, e.g.
 // orderable, sortable, etc.
 class TypeVariableConstraint {

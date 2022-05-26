@@ -129,18 +129,23 @@ class FunctionRegistry {
       const std::shared_ptr<const Metadata>& metadata,
       typename FunctionEntry<Function, Metadata>::FunctionFactory factory) {
     for (const auto& name : names) {
-      if (registeredFunctions_.find(name) == registeredFunctions_.end()) {
-        registeredFunctions_[name] = SignatureMap{};
+      auto sanitizedName = sanitizeFunctionName(name);
+
+      if (registeredFunctions_.find(sanitizedName) ==
+          registeredFunctions_.end()) {
+        registeredFunctions_[sanitizedName] = SignatureMap{};
       }
 
-      registeredFunctions_[name][*metadata->signature()] =
+      registeredFunctions_[sanitizedName][*metadata->signature()] =
           std::make_unique<const FunctionEntry<Function, Metadata>>(
               metadata, std::move(factory));
     }
   }
 
   SignatureMap* getSignatureMap(const std::string& name) {
-    auto it = registeredFunctions_.find(name);
+    auto sanitizedName = sanitizeFunctionName(name);
+
+    auto it = registeredFunctions_.find(sanitizedName);
     if (it != registeredFunctions_.end()) {
       return &it->second;
     }

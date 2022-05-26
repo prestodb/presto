@@ -21,6 +21,17 @@
 
 namespace facebook::velox::exec {
 
+std::string sanitizeFunctionName(const std::string& name) {
+  std::string sanitizedName;
+  sanitizedName.resize(name.size());
+  std::transform(
+      name.begin(), name.end(), sanitizedName.begin(), [](unsigned char c) {
+        return std::tolower(c);
+      });
+
+  return sanitizedName;
+}
+
 void toAppend(
     const facebook::velox::exec::TypeSignature& signature,
     std::string* result) {

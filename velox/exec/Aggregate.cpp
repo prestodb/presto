@@ -38,8 +38,10 @@ AggregateFunctionMap& aggregateFunctions() {
 namespace {
 std::optional<const AggregateFunctionEntry*> getAggregateFunctionEntry(
     const std::string& name) {
+  auto sanitizedName = sanitizeFunctionName(name);
+
   auto& functionsMap = aggregateFunctions();
-  auto it = functionsMap.find(name);
+  auto it = functionsMap.find(sanitizedName);
   if (it != functionsMap.end()) {
     return &it->second;
   }
@@ -52,7 +54,10 @@ bool registerAggregateFunction(
     const std::string& name,
     std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
     AggregateFunctionFactory factory) {
-  aggregateFunctions()[name] = {std::move(signatures), std::move(factory)};
+  auto sanitizedName = sanitizeFunctionName(name);
+
+  aggregateFunctions()[sanitizedName] = {
+      std::move(signatures), std::move(factory)};
   return true;
 }
 

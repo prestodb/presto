@@ -199,7 +199,7 @@ VELOX_DECLARE_VECTOR_FUNCTION(
 
 inline void registerTestFunctions() {
   // If no alias is specified, ensure it will fallback to the struct name.
-  registerFunction<FuncOne, Varchar, Varchar>({"func_one"});
+  registerFunction<FuncOne, Varchar, Varchar>({"func_one", "Func_One_Alias"});
 
   // func_two has two signatures.
   registerFunction<FuncTwo, int64_t, int64_t, int32_t>({"func_two"});
@@ -213,9 +213,11 @@ inline void registerTestFunctions() {
   registerFunction<FuncFour, Varchar, Varchar>({"func_five"});
   registerFunction<FuncFive, int64_t, int64_t>({"func_four"});
 
-  registerFunction<VariadicFunc, Varchar, Variadic<Varchar>>({"variadic_func"});
+  registerFunction<VariadicFunc, Varchar, Variadic<Varchar>>(
+      {"variadic_func", "Variadic_Func_Alias"});
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_one, "vector_func_one");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_one, "Vector_Func_One_Alias");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_two, "vector_func_two");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_three, "vector_func_three");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_four, "vector_func_four");
@@ -247,7 +249,7 @@ class FunctionRegistryTest : public ::testing::Test {
 
 TEST_F(FunctionRegistryTest, getFunctionSignatures) {
   auto functionSignatures = getFunctionSignatures();
-  ASSERT_EQ(functionSignatures.size(), 11);
+  ASSERT_EQ(functionSignatures.size(), 14);
 
   ASSERT_EQ(functionSignatures.count("func_one"), 1);
   ASSERT_EQ(functionSignatures.count("func_two"), 1);
@@ -445,6 +447,21 @@ TEST_F(FunctionRegistryTest, registerFunctionTwice) {
   // The function should only be registered once, despite the multiple calls to
   // registerFunction.
   ASSERT_EQ(signatures.size(), 1);
+}
+
+TEST_F(FunctionRegistryTest, functionNameInMixedCase) {
+  auto result = resolveFunction("funC_onE", {VARCHAR()});
+  ASSERT_EQ(*result, *VARCHAR());
+  result = resolveFunction("funC_onE_aliaS", {VARCHAR()});
+  ASSERT_EQ(*result, *VARCHAR());
+
+  testResolveVectorFunction("vectoR_funC_onE_aliaS", {VARCHAR()}, BIGINT());
+  testResolveVectorFunction("vectoR_funC_onE", {VARCHAR()}, BIGINT());
+
+  result = resolveFunction("variadiC_funC_aliaS", {VARCHAR(), VARCHAR()});
+  ASSERT_EQ(*result, *VARCHAR());
+  result = resolveFunction("variadiC_funC", {});
+  ASSERT_EQ(*result, *VARCHAR());
 }
 
 template <typename T>

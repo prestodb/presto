@@ -27,17 +27,22 @@ VectorFunctionMap& vectorFunctionFactories() {
 
 std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(
     const std::string& name) {
-  return vectorFunctionFactories().withRLock([&name](auto& functions) -> auto {
-    auto it = functions.find(name);
-    return it == functions.end() ? std::nullopt
-                                 : std::optional(it->second.signatures);
-  });
+  auto sanitizedName = sanitizeFunctionName(name);
+
+  return vectorFunctionFactories()
+      .withRLock([&sanitizedName](auto& functions) -> auto {
+        auto it = functions.find(sanitizedName);
+        return it == functions.end() ? std::nullopt
+                                     : std::optional(it->second.signatures);
+      });
 }
 
 std::shared_ptr<VectorFunction> getVectorFunction(
     const std::string& name,
     const std::vector<TypePtr>& inputTypes,
     const std::vector<VectorPtr>& constantInputs) {
+  auto sanitizedName = sanitizeFunctionName(name);
+
   if (!constantInputs.empty()) {
     VELOX_CHECK_EQ(inputTypes.size(), constantInputs.size());
   }
@@ -55,11 +60,11 @@ std::shared_ptr<VectorFunction> getVectorFunction(
   }
 
   return vectorFunctionFactories().withRLock(
-      [&name, &inputArgs ](auto& functionMap) -> auto {
-        auto functionIterator = functionMap.find(name);
+      [&sanitizedName, &inputArgs ](auto& functionMap) -> auto {
+        auto functionIterator = functionMap.find(sanitizedName);
         return functionIterator == functionMap.end()
             ? nullptr
-            : functionIterator->second.factory(name, inputArgs);
+            : functionIterator->second.factory(sanitizedName, inputArgs);
       });
 }
 
@@ -71,17 +76,19 @@ bool registerStatefulVectorFunction(
     std::vector<FunctionSignaturePtr> signatures,
     VectorFunctionFactory factory,
     bool overwrite) {
+  auto sanitizedName = sanitizeFunctionName(name);
+
   if (overwrite) {
     vectorFunctionFactories().withWLock([&](auto& functionMap) {
       // Insert/overwrite.
-      functionMap[name] = {std::move(signatures), std::move(factory)};
+      functionMap[sanitizedName] = {std::move(signatures), std::move(factory)};
     });
     return true;
   }
 
   return vectorFunctionFactories().withWLock([&](auto& functionMap) {
-    auto [iterator, inserted] =
-        functionMap.insert({name, {std::move(signatures), std::move(factory)}});
+    auto [iterator, inserted] = functionMap.insert(
+        {sanitizedName, {std::move(signatures), std::move(factory)}});
     return inserted;
   });
 }
