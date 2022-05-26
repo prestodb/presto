@@ -130,7 +130,11 @@ class VectorFuzzer {
 
   VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
 
-  VectorPtr fuzzRow(const RowTypePtr& rowType, vector_size_t size);
+  VectorPtr
+  fuzzRow(const RowTypePtr& rowType, vector_size_t size, bool mayHaveNulls);
+
+  // Generate a random null vector.
+  BufferPtr fuzzNulls(vector_size_t size);
 
   VectorFuzzer::Options opts_;
 

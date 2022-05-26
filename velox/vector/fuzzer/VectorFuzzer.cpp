@@ -300,7 +300,8 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type) {
 VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
   VectorPtr vector;
   if (type->kind() == TypeKind::ROW) {
-    vector = fuzzRow(std::dynamic_pointer_cast<const RowType>(type), size);
+    vector =
+        fuzzRow(std::dynamic_pointer_cast<const RowType>(type), size, true);
   } else {
     auto offsets = allocateOffsets(size, pool_);
     auto rawOffsets = offsets->asMutable<vector_size_t>();
@@ -315,15 +316,7 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
       childSize += length;
     }
 
-    // Generate a random null vector.
-    NullsBuilder builder{size, pool_};
-    for (size_t i = 0; i < size; ++i) {
-      if (oneIn(opts_.nullChance)) {
-        builder.setNull(i);
-      }
-    }
-    auto nulls = builder.build();
-
+    auto nulls = fuzzNulls(size);
     if (type->kind() == TypeKind::ARRAY) {
       vector = std::make_shared<ArrayVector>(
           pool_,
@@ -366,16 +359,31 @@ VectorPtr VectorFuzzer::fuzzDictionary(const VectorPtr& vector) {
 }
 
 VectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
-  return fuzzRow(rowType, opts_.vectorSize);
+  return fuzzRow(rowType, opts_.vectorSize, false);
 }
 
-VectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType, vector_size_t size) {
+VectorPtr VectorFuzzer::fuzzRow(
+    const RowTypePtr& rowType,
+    vector_size_t size,
+    bool mayHaveNulls) {
   std::vector<VectorPtr> children;
   for (auto i = 0; i < rowType->size(); ++i) {
     children.push_back(fuzz(rowType->childAt(i), size));
   }
+
+  auto nulls = mayHaveNulls ? fuzzNulls(size) : nullptr;
   return std::make_shared<RowVector>(
-      pool_, rowType, nullptr, size, std::move(children));
+      pool_, rowType, nulls, size, std::move(children));
+}
+
+BufferPtr VectorFuzzer::fuzzNulls(vector_size_t size) {
+  NullsBuilder builder{size, pool_};
+  for (size_t i = 0; i < size; ++i) {
+    if (oneIn(opts_.nullChance)) {
+      builder.setNull(i);
+    }
+  }
+  return builder.build();
 }
 
 variant VectorFuzzer::randVariant(const TypePtr& arg) {
