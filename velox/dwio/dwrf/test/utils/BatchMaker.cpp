@@ -42,7 +42,8 @@ VectorPtr createScalar(
     size_t size,
     std::mt19937& gen,
     std::function<T()> val,
-    MemoryPool& pool) {
+    MemoryPool& pool,
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   BufferPtr values = AlignedBuffer::allocate<T>(size, &pool);
   auto valuesPtr = values->asMutableRange<T>();
 
@@ -51,7 +52,7 @@ VectorPtr createScalar(
 
   size_t nullCount = 0;
   for (size_t i = 0; i < size; ++i) {
-    auto notNull = isNotNull(gen, i, nullptr);
+    auto notNull = isNotNull(gen, i, isNullAt);
     bits::setNull(nullsPtr, i, !notNull);
     if (notNull) {
       valuesPtr[i] = val();
@@ -80,9 +81,13 @@ VectorPtr BatchMaker::createVector<TypeKind::BOOLEAN>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   return createScalar<bool>(
-      size, gen, [&gen]() { return Random::rand32(0, 2, gen) == 0; }, pool);
+      size,
+      gen,
+      [&gen]() { return Random::rand32(0, 2, gen) == 0; },
+      pool,
+      isNullAt);
 }
 
 template <>
@@ -91,12 +96,13 @@ VectorPtr BatchMaker::createVector<TypeKind::TINYINT>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   return createScalar<int8_t>(
       size,
       gen,
       [&gen]() { return static_cast<int8_t>(Random::rand32(gen)); },
-      pool);
+      pool,
+      isNullAt);
 }
 
 template <>
@@ -105,12 +111,13 @@ VectorPtr BatchMaker::createVector<TypeKind::SMALLINT>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   return createScalar<int16_t>(
       size,
       gen,
       [&gen]() { return static_cast<int16_t>(Random::rand32(gen)); },
-      pool);
+      pool,
+      isNullAt);
 }
 
 template <>
@@ -119,12 +126,13 @@ VectorPtr BatchMaker::createVector<TypeKind::INTEGER>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   return createScalar<int32_t>(
       size,
       gen,
       [&gen]() { return static_cast<int32_t>(Random::rand32(gen)); },
-      pool);
+      pool,
+      isNullAt);
 }
 
 template <>
@@ -133,9 +141,9 @@ VectorPtr BatchMaker::createVector<TypeKind::BIGINT>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   return createScalar<int64_t>(
-      size, gen, [&gen]() { return Random::rand64(gen); }, pool);
+      size, gen, [&gen]() { return Random::rand64(gen); }, pool, isNullAt);
 }
 
 template <>
@@ -144,12 +152,13 @@ VectorPtr BatchMaker::createVector<TypeKind::REAL>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   return createScalar<float>(
       size,
       gen,
       [&gen]() { return static_cast<float>(Random::randDouble01(gen)); },
-      pool);
+      pool,
+      isNullAt);
 }
 
 template <>
@@ -158,16 +167,21 @@ VectorPtr BatchMaker::createVector<TypeKind::DOUBLE>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   return createScalar<double>(
-      size, gen, [&gen]() { return Random::randDouble01(gen); }, pool);
+      size,
+      gen,
+      [&gen]() { return Random::randDouble01(gen); },
+      pool,
+      isNullAt);
 }
 
 VectorPtr createBinary(
     const TypePtr& type,
     size_t size,
     std::mt19937& gen,
-    MemoryPool& pool) {
+    MemoryPool& pool,
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   auto vector = BaseVector::create(type, size, &pool);
   auto flatVector = vector->asFlatVector<StringView>();
 
@@ -175,7 +189,7 @@ VectorPtr createBinary(
   std::vector<int64_t> lengths(size);
   size_t nullCount = 0;
   for (size_t i = 0; i < size; ++i) {
-    auto notNull = isNotNull(gen, i, nullptr);
+    auto notNull = isNotNull(gen, i, isNullAt);
     vector->setNull(i, !notNull);
     if (notNull) {
       // Make sure not all strings will be inlined
@@ -212,8 +226,8 @@ VectorPtr BatchMaker::createVector<TypeKind::VARCHAR>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
-  return createBinary(VARCHAR(), size, gen, pool);
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
+  return createBinary(VARCHAR(), size, gen, pool, isNullAt);
 }
 
 template <>
@@ -222,8 +236,8 @@ VectorPtr BatchMaker::createVector<TypeKind::VARBINARY>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
-  return createBinary(VARBINARY(), size, gen, pool);
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
+  return createBinary(VARBINARY(), size, gen, pool, isNullAt);
 }
 
 template <>
@@ -232,7 +246,7 @@ VectorPtr BatchMaker::createVector<TypeKind::TIMESTAMP>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   constexpr int64_t TIME_OFFSET = 1420099200;
   return createScalar<Timestamp>(
       size,
@@ -242,7 +256,8 @@ VectorPtr BatchMaker::createVector<TypeKind::TIMESTAMP>(
             TIME_OFFSET + Random::rand32(0, 60 * 60 * 24 * 365, gen),
             Random::rand32(0, 1'000'000, gen));
       },
-      pool);
+      pool,
+      isNullAt);
 }
 
 template <>
@@ -251,9 +266,13 @@ VectorPtr BatchMaker::createVector<TypeKind::DATE>(
     size_t size,
     MemoryPool& pool,
     std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> /*isNullAt*/) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
   return createScalar<Date>(
-      size, gen, [&gen]() { return Date(Random::rand32(gen)); }, pool);
+      size,
+      gen,
+      [&gen]() { return Date(Random::rand32(gen)); },
+      pool,
+      isNullAt);
 }
 
 template <>
