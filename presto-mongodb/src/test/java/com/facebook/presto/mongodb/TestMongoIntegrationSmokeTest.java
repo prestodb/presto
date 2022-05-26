@@ -77,7 +77,7 @@ public class TestMongoIntegrationSmokeTest
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
                 ", ObjectId('ffffffffffffffffffffffff') _objectid" +
-                ", cast(ObjectId('ffffffffffffffffffffffff') as string) _objectid_string";
+                ", cast(ObjectId('ffffffffffffffffffffffff') as varchar) _objectid_string";
 
         assertUpdate(query, 1);
 
