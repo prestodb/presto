@@ -182,6 +182,39 @@ class HashProbe : public Operator {
     bool currentRowPassed{false};
   };
 
+  // For semi join with extra filter, de-duplicates probe side rows with
+  // multiple matches.
+  class SemiJoinTracker {
+   public:
+    // Called for each row that the filter passes. Expects that probe
+    // side rows with multiple matches are next to each other. Calls onLastMatch
+    // just once for each probe side row with at least one match.
+    template <typename TOnLastMatch>
+    void advance(vector_size_t row, TOnLastMatch onLastMatch) {
+      if (currentRow != row) {
+        if (currentRow != -1) {
+          onLastMatch(currentRow);
+        }
+        currentRow = row;
+      }
+    }
+
+    // Called when all rows from the current input batch were processed. Calls
+    // onLastMatch for the last probe row with at least one match.
+    template <typename TOnLastMatch>
+    void finish(TOnLastMatch onLastMatch) {
+      if (currentRow != -1) {
+        onLastMatch(currentRow);
+      }
+
+      currentRow = -1;
+    }
+
+   private:
+    // The last row number passed to advance for the current input batch.
+    vector_size_t currentRow{-1};
+  };
+
   /// True if this is the last HashProbe operator in the pipeline. It is
   /// responsible for producing non-matching build-side rows for the right join.
   bool lastRightJoinProbe_{false};
@@ -191,6 +224,10 @@ class HashProbe : public Operator {
   /// For left join, tracks the probe side rows which had matches on the build
   /// side but didn't pass the filter.
   LeftJoinTracker leftJoinTracker_;
+
+  /// For semi join with filter, de-duplicates probe side rows with multiple
+  /// matches.
+  SemiJoinTracker semiJoinTracker_;
 
   // Keeps track of returned results between successive batches of
   // output for a batch of input.

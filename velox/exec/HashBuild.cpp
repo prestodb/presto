@@ -107,15 +107,15 @@ HashBuild::HashBuild(
         true, // hasProbedFlag
         mappedMemory_);
   } else {
-    // Semi and anti join only needs to know whether there is a match. Hence, no
-    // need to store entries with duplicate keys.
-    const bool allowDuplicates =
-        !joinNode->isSemiJoin() && !joinNode->isAntiJoin();
+    // Semi and anti join with no extra filter only needs to know whether there
+    // is a match. Hence, no need to store entries with duplicate keys.
+    const bool dropDuplicates = !joinNode->filter() &&
+        (joinNode->isSemiJoin() || joinNode->isAntiJoin());
 
     table_ = HashTable<true>::createForJoin(
         std::move(keyHashers),
         dependentTypes,
-        allowDuplicates,
+        !dropDuplicates, // allowDuplicates
         false, // hasProbedFlag
         mappedMemory_);
   }

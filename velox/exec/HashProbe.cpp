@@ -64,6 +64,10 @@ HashProbe::HashProbe(
       joinType_{joinNode->joinType()},
       filterResult_(1),
       outputRows_(outputBatchSize_) {
+  if (joinNode->isAntiJoin() && joinNode->filter()) {
+    VELOX_UNSUPPORTED("Anti join with a filter not supported yet.");
+  }
+
   auto probeType = joinNode->sources()[0]->outputType();
   auto numKeys = joinNode->leftKeys().size();
   keyChannels_.reserve(numKeys);
@@ -421,16 +425,17 @@ RowVectorPtr HashProbe::getOutput() {
     return output;
   }
 
-  const bool isSemiOrAntiJoin =
-      core::isSemiJoin(joinType_) || core::isAntiJoin(joinType_);
+  const bool isSemiOrAntiJoinNoFilter =
+      !filter_ && (core::isSemiJoin(joinType_) || core::isAntiJoin(joinType_));
 
   const bool emptyBuildSide = (table_->numDistinct() == 0);
 
   // Semi and anti joins are always cardinality reducing, e.g. for a given row
-  // of input they produce zero or 1 row of output. Therefore, we can process
-  // each batch of input in one go.
-  auto outputBatchSize =
-      (isSemiOrAntiJoin || emptyBuildSide) ? inputSize : outputBatchSize_;
+  // of input they produce zero or 1 row of output. Therefore, if there is
+  // no extra filter we can process each batch of input in one go.
+  auto outputBatchSize = (isSemiOrAntiJoinNoFilter || emptyBuildSide)
+      ? inputSize
+      : outputBatchSize_;
   auto mapping =
       initializeRowNumberMapping(rowNumberMapping_, outputBatchSize, pool());
   outputRows_.resize(outputBatchSize);
@@ -470,7 +475,7 @@ RowVectorPtr HashProbe::getOutput() {
     numOut = evalFilter(numOut);
     if (!numOut) {
       // The filter was false on all rows.
-      if (isSemiOrAntiJoin) {
+      if (isSemiOrAntiJoinNoFilter) {
         input_ = nullptr;
         return nullptr;
       }
@@ -484,7 +489,7 @@ RowVectorPtr HashProbe::getOutput() {
 
     fillOutput(numOut);
 
-    if (isSemiOrAntiJoin || emptyBuildSide) {
+    if (isSemiOrAntiJoinNoFilter || emptyBuildSide) {
       input_ = nullptr;
     }
     return output_;
@@ -544,6 +549,20 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     }
     if (results_.atEnd()) {
       leftJoinTracker_.finish(addMiss);
+    }
+  } else if (isSemiJoin(joinType_)) {
+    auto addLastMatch = [&](auto row) {
+      outputRows_[numPassed] = nullptr;
+      rawMapping[numPassed++] = row;
+    };
+    for (auto i = 0; i < numRows; ++i) {
+      if (!decodedFilterResult_.isNullAt(i) &&
+          decodedFilterResult_.valueAt<bool>(i)) {
+        semiJoinTracker_.advance(rawMapping[i], addLastMatch);
+      }
+    }
+    if (results_.atEnd()) {
+      semiJoinTracker_.finish(addLastMatch);
     }
   } else {
     for (auto i = 0; i < numRows; ++i) {
