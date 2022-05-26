@@ -19,5 +19,5 @@ target_link_libraries(velox_vector_hash_all_benchmark velox_vector
 add_executable(velox_vector_selectivity_vector_benchmark
                SelectivityVectorBenchmark.cpp)
 
-target_link_libraries(velox_vector_selectivity_vector_benchmark velox_exception
+target_link_libraries(velox_vector_selectivity_vector_benchmark velox_vector
                       ${FOLLY_WITH_DEPENDENCIES} ${FOLLY_BENCHMARK})

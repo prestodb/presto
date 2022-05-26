@@ -83,11 +83,7 @@ void EvalCtx::setWrapped(
       // with all nulls.
       nulls = AlignedBuffer::allocate<bool>(rows.size(), pool(), bits::kNull);
       // Set the active rows to non-null.
-      bits::orBits(
-          nulls->asMutable<uint64_t>(),
-          rows.asRange().bits(),
-          rows.begin(),
-          rows.end());
+      rows.clearNulls(nulls);
       if (wrapNulls_) {
         // Add the nulls from the wrapping.
         bits::andBits(

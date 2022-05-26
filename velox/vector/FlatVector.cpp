@@ -112,9 +112,7 @@ void FlatVector<bool>::copyValuesAndNulls(
       bits::andWithNegatedBits(
           rawValues, range.bits(), range.begin(), range.end());
     }
-    if (rawNulls) {
-      bits::orBits(rawNulls, rows.asRange().bits(), rows.begin(), rows.end());
-    }
+    rows.clearNulls(rawNulls);
   } else {
     auto sourceVector = source->asUnchecked<SimpleVector<bool>>();
     rows.applyToSelected([&](auto row) {

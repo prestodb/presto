@@ -195,9 +195,7 @@ void FlatVector<T>::copyValuesAndNulls(
     auto constant = source->asUnchecked<ConstantVector<T>>();
     T value = constant->valueAt(0);
     rows.applyToSelected([&](int32_t row) { rawValues_[row] = value; });
-    if (rawNulls) {
-      bits::orBits(rawNulls, rows.asRange().bits(), rows.begin(), rows.end());
-    }
+    rows.clearNulls(rawNulls);
   } else {
     auto sourceVector = source->typeKind() != TypeKind::UNKNOWN
         ? source->asUnchecked<SimpleVector<T>>()

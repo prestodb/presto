@@ -21,6 +21,7 @@
 #include <ostream>
 #include <vector>
 
+#include "velox/buffer/Buffer.h"
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Range.h"
@@ -229,6 +230,19 @@ class SelectivityVector {
         std::max<int32_t>(begin_, begin),
         std::min<int32_t>(end_, end));
     updateBounds();
+  }
+
+  /// Clear null bits in 'nulls' for active rows.
+  void clearNulls(BufferPtr& nulls) const {
+    if (nulls) {
+      bits::orBits(nulls->asMutable<uint64_t>(), bits_.data(), begin_, end_);
+    }
+  }
+
+  void clearNulls(uint64_t* rawNulls) const {
+    if (rawNulls) {
+      bits::orBits(rawNulls, bits_.data(), begin_, end_);
+    }
   }
 
   /**

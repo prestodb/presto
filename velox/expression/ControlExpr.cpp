@@ -374,8 +374,8 @@ void ConjunctExpr::evalSpecialForm(
   auto flatResult = result->asFlatVector<bool>();
   // clear nulls from the result for the active rows.
   if (flatResult->mayHaveNulls()) {
-    auto nulls = flatResult->mutableNulls(rows.end())->asMutable<uint64_t>();
-    bits::orBits(nulls, rows.asRange().bits(), rows.begin(), rows.end());
+    auto nulls = flatResult->mutableNulls(rows.end());
+    rows.clearNulls(nulls);
   }
   // Initialize result to all true for AND and all false for OR.
   auto values = flatResult->mutableValues(rows.end())->asMutable<uint64_t>();
@@ -497,11 +497,7 @@ void ConjunctExpr::updateResult(
       if (isAnd_) {
         // Clear the nulls and values for all active rows.
         if (result->mayHaveNulls()) {
-          bits::orBits(
-              result->mutableRawNulls(),
-              activeRows->asRange().bits(),
-              activeRows->begin(),
-              activeRows->end());
+          activeRows->clearNulls(result->mutableRawNulls());
         }
         bits::andWithNegatedBits(
             result->mutableRawValues<uint64_t>(),
