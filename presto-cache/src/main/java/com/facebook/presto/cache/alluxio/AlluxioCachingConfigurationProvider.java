@@ -21,6 +21,8 @@ import org.apache.hadoop.conf.Configuration;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.cache.CacheType.ALLUXIO;
 
@@ -43,7 +45,8 @@ public class AlluxioCachingConfigurationProvider
         if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == ALLUXIO) {
             configuration.set("alluxio.user.local.cache.enabled", String.valueOf(cacheConfig.isCachingEnabled()));
             if (cacheConfig.getBaseDirectory() != null) {
-                configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
+                List<String> list = cacheConfig.getBaseDirectory().stream().map(URI::getPath).collect(Collectors.toList());
+                configuration.setStrings("alluxio.user.client.cache.dir", list.toArray(new String[list.size()]));
             }
             configuration.set("alluxio.user.client.cache.size", alluxioCacheConfig.getMaxCacheSize().toString());
             configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));
