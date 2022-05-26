@@ -462,6 +462,25 @@ BufferPtr copyNullsBuffer(
 }
 } // namespace
 
+DecodedVector::DictionaryWrapping DecodedVector::dictionaryWrapping(
+    const BaseVector& wrapper,
+    const SelectivityVector& rows) const {
+  VELOX_CHECK(!isIdentityMapping_);
+  VELOX_CHECK(!isConstantMapping_);
+
+  VELOX_CHECK_LE(rows.end(), size_);
+
+  if (isOneLevelDictionary(wrapper)) {
+    // Re-use indices and nulls buffers.
+    return {wrapper.wrapInfo(), wrapper.nulls()};
+  } else {
+    // Make a copy of the indices and nulls buffers.
+    BufferPtr indices = copyIndicesBuffer(indices_, rows.end(), wrapper.pool());
+    BufferPtr nulls = copyNullsBuffer(nulls_, rows.end(), wrapper.pool());
+    return {std::move(indices), std::move(nulls)};
+  }
+}
+
 VectorPtr DecodedVector::wrap(
     VectorPtr data,
     const BaseVector& wrapper,
@@ -478,18 +497,11 @@ VectorPtr DecodedVector::wrap(
         rows.end(), wrapper.wrappedIndex(0), data);
   }
 
-  VELOX_CHECK_LE(rows.end(), size_);
-
-  if (isOneLevelDictionary(wrapper)) {
-    // Re-use indices and nulls buffers.
-    return BaseVector::wrapInDictionary(
-        wrapper.nulls(), wrapper.wrapInfo(), rows.end(), std::move(data));
-  } else {
-    // Make a copy of the indices and nulls buffers.
-    BufferPtr indices = copyIndicesBuffer(indices_, rows.end(), data->pool());
-    BufferPtr nulls = copyNullsBuffer(nulls_, rows.end(), data->pool());
-    return BaseVector::wrapInDictionary(
-        std::move(nulls), std::move(indices), rows.end(), std::move(data));
-  }
+  auto wrapping = dictionaryWrapping(wrapper, rows);
+  return BaseVector::wrapInDictionary(
+      std::move(wrapping.nulls),
+      std::move(wrapping.indices),
+      rows.end(),
+      std::move(data));
 }
 } // namespace facebook::velox

@@ -399,13 +399,6 @@ SelectivityVector* translateToInnerRows(
   return newRows;
 }
 
-template <typename T, typename U>
-BufferPtr newBuffer(const U* data, size_t size, memory::MemoryPool* pool) {
-  BufferPtr buffer = AlignedBuffer::allocate<T>(size, pool);
-  memcpy(buffer->asMutable<char>(), data, BaseVector::byteSize<T>(size));
-  return buffer;
-}
-
 SelectivityVector* singleRow(
     LocalSelectivityVector& holder,
     vector_size_t row) {
@@ -414,26 +407,17 @@ SelectivityVector* singleRow(
   rows->updateBounds();
   return rows;
 }
-} // namespace
 
-void Expr::setDictionaryWrapping(
+void setDictionaryWrapping(
     DecodedVector& decoded,
     const SelectivityVector& rows,
     BaseVector& firstWrapper,
     EvalCtx& context) {
-  if (decoded.indicesNotCopied() && decoded.nullsNotCopied()) {
-    context.setDictionaryWrap(firstWrapper.wrapInfo(), firstWrapper.nulls());
-  } else {
-    auto wrap = newBuffer<vector_size_t>(
-        decoded.indices(), rows.end(), context.execCtx()->pool());
-    // If nulls are added by wrapping add a null wrap.
-    auto wrapNulls = decoded.hasExtraNulls()
-        ? newBuffer<bool>(
-              decoded.nulls(), rows.end(), context.execCtx()->pool())
-        : BufferPtr(nullptr);
-    context.setDictionaryWrap(std::move(wrap), std::move(wrapNulls));
-  }
+  auto wrapping = decoded.dictionaryWrapping(firstWrapper, rows);
+  context.setDictionaryWrap(
+      std::move(wrapping.indices), std::move(wrapping.nulls));
 }
+} // namespace
 
 Expr::PeelEncodingsResult Expr::peelEncodings(
     EvalCtx& context,
@@ -561,7 +545,7 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
       *context.mutableFinalSelection() = newFinalSelection;
     }
 
-    setDictionaryWrapping(*decoded, rows, *firstWrapper, context);
+    setDictionaryWrapping(*decoded, rowsToDecode, *firstWrapper, context);
   }
   int numPeeled = 0;
   for (int i = 0; i < peeledVectors.size(); ++i) {
@@ -1101,7 +1085,7 @@ bool Expr::applyFunctionWithPeeling(
     context.setConstantWrap(rows.begin());
   } else {
     auto decoded = localDecoded.get();
-    decoded->makeIndices(*firstWrapper, applyRows, numLevels);
+    decoded->makeIndices(*firstWrapper, rows, numLevels);
     newRows = translateToInnerRows(applyRows, *decoded, newRowsHolder);
     context.saveAndReset(saver, rows);
     setDictionaryWrapping(*decoded, rows, *firstWrapper, context);

@@ -120,12 +120,6 @@ class DecodedVector {
     return indices_;
   }
 
-  /// Returns true if dictionary wrappings contained nulls. In this case the
-  /// mapping from top-level rows to entries in nulls() buffer is identity.
-  bool hasExtraNulls() const {
-    return hasExtraNulls_;
-  }
-
   /// Given a top-level row returns corresponding index in the base vector or
   /// data().
   vector_size_t index(vector_size_t idx) const {
@@ -205,9 +199,22 @@ class DecodedVector {
       const BaseVector& wrapper,
       const SelectivityVector& rows);
 
+  struct DictionaryWrapping {
+    BufferPtr indices;
+    BufferPtr nulls;
+  };
+
+  /// Returns 'indices' and 'nulls' buffers that represnt the combined
+  /// dictionary wrapping of the decoded vector. Requires
+  /// isIdentityMapping() == false and isConstantMapping() == false.
+  DictionaryWrapping dictionaryWrapping(
+      const BaseVector& wrapper,
+      const SelectivityVector& rows) const;
+
   /// Pre-allocated vector of 0, 1, 2,..
   static const std::vector<vector_size_t>& consecutiveIndices();
 
+ private:
   /// Pre-allocated vector of all zeros.
   static const std::vector<vector_size_t>& zeroIndices();
 
@@ -220,7 +227,6 @@ class DecodedVector {
     return copiedNulls_.empty() || nulls_ != copiedNulls_.data();
   }
 
- private:
   void setFlatNulls(const BaseVector& vector, const SelectivityVector& rows);
 
   template <TypeKind kind>

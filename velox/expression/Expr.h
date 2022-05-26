@@ -228,12 +228,6 @@ class Expr {
   void
   evalAll(const SelectivityVector& rows, EvalCtx& context, VectorPtr& result);
 
-  static void setDictionaryWrapping(
-      DecodedVector& decoded,
-      const SelectivityVector& rows,
-      BaseVector& firstWrapper,
-      EvalCtx& context);
-
   // Adds nulls from 'rawNulls' to positions of 'result' given by
   // 'rows'. Ensures that '*result' is writable, of sufficient size
   // and that it can take nulls. Makes a new '*result' when
