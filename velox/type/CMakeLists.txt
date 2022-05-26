@@ -25,6 +25,7 @@ add_library(
   TimestampConversion.cpp
   Date.cpp
   Filter.cpp
+  LongDecimal.cpp
   Subfield.cpp
   Tokenizer.cpp)
 

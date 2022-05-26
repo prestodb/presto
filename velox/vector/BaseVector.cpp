@@ -349,6 +349,12 @@ VectorPtr BaseVector::createInternal(
           true /*isSorted*/,
           0 /*representedBytes*/);
     }
+    case TypeKind::SHORT_DECIMAL: {
+      return createEmpty<TypeKind::SHORT_DECIMAL>(size, pool, type);
+    }
+    case TypeKind::LONG_DECIMAL: {
+      return createEmpty<TypeKind::LONG_DECIMAL>(size, pool, type);
+    }
     default:
       return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
           createEmpty, kind, size, pool, type);
@@ -563,6 +569,26 @@ VectorPtr newConstant(
       std::move(copy),
       SimpleVectorStats<T>{},
       sizeof(T) /*representedByteCount*/);
+}
+
+template <>
+VectorPtr newConstant<TypeKind::SHORT_DECIMAL>(
+    variant& value,
+    vector_size_t size,
+    velox::memory::MemoryPool* pool) {
+  // ShortDecimal variant is not supported to create
+  // constant vector.
+  VELOX_UNSUPPORTED();
+}
+
+template <>
+VectorPtr newConstant<TypeKind::LONG_DECIMAL>(
+    variant& value,
+    vector_size_t size,
+    velox::memory::MemoryPool* pool) {
+  // LongDecimal variant is not supported to create
+  // constant vector.
+  VELOX_UNSUPPORTED();
 }
 
 template <>

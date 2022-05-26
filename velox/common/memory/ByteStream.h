@@ -384,6 +384,13 @@ inline Timestamp ByteStream::read<Timestamp>() {
 }
 
 template <>
+inline LongDecimal ByteStream::read<LongDecimal>() {
+  LongDecimal value;
+  readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
+  return value;
+}
+
+template <>
 inline Date ByteStream::read<Date>() {
   Date value;
   readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
