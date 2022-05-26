@@ -237,19 +237,22 @@ static VectorPtr createEmpty(
     velox::memory::MemoryPool* pool,
     const TypePtr& type) {
   using T = typename TypeTraits<kind>::NativeType;
-  BufferPtr values = AlignedBuffer::allocate<T>(size, pool);
+
+  BufferPtr values;
+  if constexpr (std::is_same<T, StringView>::value) {
+    // Make sure to initialize StringView values so they can be safely accessed.
+    values = AlignedBuffer::allocate<T>(size, pool, T());
+  } else {
+    values = AlignedBuffer::allocate<T>(size, pool);
+  }
+
   return std::make_shared<FlatVector<T>>(
       pool,
       type,
       BufferPtr(nullptr),
       size,
       std::move(values),
-      std::vector<BufferPtr>(),
-      SimpleVectorStats<T>{},
-      0 /*distinctValueCount*/,
-      0 /*nullCount*/,
-      false /*isSorted*/,
-      0 /*representedBytes*/);
+      std::vector<BufferPtr>());
 }
 
 // static

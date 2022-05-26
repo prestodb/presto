@@ -50,49 +50,37 @@ void EvalCtx::setWrapped(
     const SelectivityVector& rows,
     VectorPtr& result) {
   VectorPtr localResult;
-  if (wrapEncoding_ == VectorEncoding::Simple::DICTIONARY) {
-    if (!source) {
-      // If all rows are null, make a constant null vector of the right type.
-      localResult =
-          BaseVector::createNullConstant(expr->type(), rows.size(), pool());
-    } else {
-      // If returning a dictionary for a conditional that will be merged with
-      // other branches of a conditional, set the undefined positions of the
-      // DictionaryVector to null.
-      BufferPtr nulls;
-      if (!isFinalSelection_) {
-        // If this is not the final selection, i.e. we are inside an if, start
-        // with all nulls.
-        nulls = AlignedBuffer::allocate<bool>(rows.size(), pool(), bits::kNull);
-        // Set the active rows to non-null.
-        rows.clearNulls(nulls);
-        if (wrapNulls_) {
-          // Add the nulls from the wrapping.
-          bits::andBits(
-              nulls->asMutable<uint64_t>(),
-              wrapNulls_->as<uint64_t>(),
-              rows.begin(),
-              rows.end());
-        }
-      } else {
-        nulls = wrapNulls_;
+  if (!source) {
+    // If all rows are null, make a constant null vector of the right type.
+    localResult =
+        BaseVector::createNullConstant(expr->type(), rows.size(), pool());
+  } else if (wrapEncoding_ == VectorEncoding::Simple::DICTIONARY) {
+    // If returning a dictionary for a conditional that will be merged with
+    // other branches of a conditional, set the undefined positions of the
+    // DictionaryVector to null.
+    BufferPtr nulls;
+    if (!isFinalSelection_) {
+      // If this is not the final selection, i.e. we are inside an if, start
+      // with all nulls.
+      nulls = AlignedBuffer::allocate<bool>(rows.size(), pool(), bits::kNull);
+      // Set the active rows to non-null.
+      rows.clearNulls(nulls);
+      if (wrapNulls_) {
+        // Add the nulls from the wrapping.
+        bits::andBits(
+            nulls->asMutable<uint64_t>(),
+            wrapNulls_->as<uint64_t>(),
+            rows.begin(),
+            rows.end());
       }
-      localResult = BaseVector::wrapInDictionary(
-          std::move(nulls), wrap_, rows.end(), std::move(source));
-    }
-  } else if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
-    if (errors_ && constantWrapIndex_ < errors_->size() &&
-        !errors_->isNullAt(constantWrapIndex_)) {
-      // If the single row caused an error that will be caught by a TRY
-      // upstream source may be not initialized, or otherwise in a bad state.
-      // Just return NULL, the value won't be used and TRY is just going to
-      // NULL out the result anyway.
-      localResult =
-          BaseVector::createNullConstant(expr->type(), rows.size(), pool());
     } else {
-      localResult = BaseVector::wrapInConstant(
-          rows.size(), constantWrapIndex_, std::move(source));
+      nulls = wrapNulls_;
     }
+    localResult = BaseVector::wrapInDictionary(
+        std::move(nulls), wrap_, rows.end(), std::move(source));
+  } else if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
+    localResult = BaseVector::wrapInConstant(
+        rows.size(), constantWrapIndex_, std::move(source));
   } else {
     VELOX_FAIL("Bad expression wrap encoding {}", wrapEncoding_);
   }
