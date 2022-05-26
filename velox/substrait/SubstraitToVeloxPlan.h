@@ -83,22 +83,22 @@ class SubstraitVeloxPlanConverter {
   }
 
   /// Return the index of Partition to be scanned.
-  u_int32_t getPartitionIndex() {
+  u_int32_t getPartitionIndex() const {
     return partitionIndex_;
   }
 
   /// Return the paths of the files to be scanned.
-  const std::vector<std::string>& getPaths() {
+  const std::vector<std::string>& getPaths() const {
     return paths_;
   }
 
   /// Return the starts of the files to be scanned.
-  const std::vector<u_int64_t>& getStarts() {
+  const std::vector<u_int64_t>& getStarts() const {
     return starts_;
   }
 
   /// Return the lengths to be scanned for each file.
-  const std::vector<u_int64_t>& getLengths() {
+  const std::vector<u_int64_t>& getLengths() const {
     return lengths_;
   }
 

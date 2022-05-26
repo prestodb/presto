@@ -16,13 +16,9 @@
 
 #include "velox/substrait/tests/JsonToProtoConverter.h"
 
-#include "velox/common/base/tests/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/connectors/hive/HiveConnector.h"
-#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
-#include "velox/exec/tests/utils/Cursor.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -37,147 +33,42 @@ using namespace facebook::velox::exec;
 class Substrait2VeloxPlanConversionTest
     : public exec::test::HiveConnectorTestBase {
  protected:
-  class VeloxConverter {
-   public:
-    // This class is an iterator for Velox computing.
-    class WholeComputeResultIterator {
-     public:
-      WholeComputeResultIterator(
-          const std::shared_ptr<const core::PlanNode>& planNode,
-          const std::vector<std::string>& paths,
-          const std::vector<u_int64_t>& starts,
-          const std::vector<u_int64_t>& lengths)
-          : planNode_(planNode),
-            paths_(paths),
-            starts_(starts),
-            lengths_(lengths) {
-        // Construct the splits.
-        std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
-            connectorSplits;
-        connectorSplits.reserve(paths.size());
-        for (int idx = 0; idx < paths.size(); idx++) {
-          auto path = paths[idx];
-          auto start = starts[idx];
-          auto length = lengths[idx];
-          connectorSplits.emplace_back(
-              makeHiveConnectorSplit(path, start, length));
-        }
-        splits_.reserve(connectorSplits.size());
-        for (const auto& connectorSplit : connectorSplits) {
-          splits_.emplace_back(exec::Split(folly::copy(connectorSplit), -1));
-        }
+  std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
+  makeSplits(const facebook::velox::substrait::SubstraitVeloxPlanConverter&
+                 converter) {
+    const auto& paths = converter.getPaths();
+    const auto& starts = converter.getStarts();
+    const auto& lengths = converter.getLengths();
 
-        params_.planNode = planNode;
-        cursor_ = std::make_unique<exec::test::TaskCursor>(params_);
-        addSplits_ = [&](Task* task) {
-          if (noMoreSplits_) {
-            return;
-          }
-          for (auto& split : splits_) {
-            task->addSplit("0", std::move(split));
-          }
-          task->noMoreSplits("0");
-          noMoreSplits_ = true;
-        };
-      }
-
-      bool HasNext() {
-        if (!mayHasNext_) {
-          return false;
-        }
-        if (numRows_ > 0) {
-          return true;
-        } else {
-          addSplits_(cursor_->task().get());
-          if (cursor_->moveNext()) {
-            result_ = cursor_->current();
-            numRows_ += result_->size();
-            return true;
-          } else {
-            mayHasNext_ = false;
-            return false;
-          }
-        }
-      }
-
-      RowVectorPtr Next() {
-        numRows_ = 0;
-        return result_;
-      }
-
-     private:
-      const std::shared_ptr<const core::PlanNode> planNode_;
-      std::unique_ptr<exec::test::TaskCursor> cursor_;
-      exec::test::CursorParameters params_;
-      std::vector<exec::Split> splits_;
-      bool noMoreSplits_ = false;
-      std::function<void(exec::Task*)> addSplits_;
-      std::vector<std::string> paths_;
-      std::vector<u_int64_t> starts_;
-      std::vector<u_int64_t> lengths_;
-      uint64_t numRows_ = 0;
-      bool mayHasNext_ = true;
-      RowVectorPtr result_;
-    };
-
-    // This method will resume the Substrait plan from Json file,
-    // and convert it into Velox PlanNode. A result iterator for
-    // Velox computing will be returned.
-    std::shared_ptr<WholeComputeResultIterator> getResIter(
-        const std::string& planPath) {
-      std::unique_ptr<memory::ScopedMemoryPool> pool_{
-          memory::getDefaultScopedMemoryPool()};
-
-      // Read sub.json and resume the Substrait plan.
-      ::substrait::Plan substraitPlan;
-      JsonToProtoConverter::readFromFile(planPath, substraitPlan);
-
-      auto planConverter = std::make_shared<
-          facebook::velox::substrait::SubstraitVeloxPlanConverter>();
-      // Convert to Velox PlanNode.
-      auto planNode = planConverter->toVeloxPlan(substraitPlan, pool_.get());
-
-      // Get the information for TableScan.
-      auto paths = planConverter->getPaths();
-
-      // In test, need to get the absolute path of the generated ORC file.
-      auto tempPath = getTmpDirPath();
-      std::vector<std::string> absolutePaths;
-      absolutePaths.reserve(paths.size());
-
-      for (const auto& path : paths) {
-        absolutePaths.emplace_back(fmt::format("{}{}", tempPath, path));
-      }
-
-      std::vector<u_int64_t> starts = planConverter->getStarts();
-      std::vector<u_int64_t> lengths = planConverter->getLengths();
-      // Construct the result iterator.
-      return std::make_shared<WholeComputeResultIterator>(
-          planNode, absolutePaths, starts, lengths);
+    std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
+        splits;
+    splits.reserve(paths.size());
+    for (int i = 0; i < paths.size(); i++) {
+      auto path = fmt::format("{}{}", tmpDir_->path, paths[i]);
+      auto start = starts[i];
+      auto length = lengths[i];
+      splits.emplace_back(makeHiveConnectorSplit(path, start, length));
     }
+    return splits;
+  }
 
-    std::string getTmpDirPath() const {
-      return tmpDir_->path;
-    }
-
-    std::shared_ptr<exec::test::TempDirectoryPath> tmpDir_{
-        exec::test::TempDirectoryPath::create()};
-  };
+  std::shared_ptr<exec::test::TempDirectoryPath> tmpDir_{
+      exec::test::TempDirectoryPath::create()};
 };
 
 // This test will firstly generate mock TPC-H lineitem ORC file. Then, Velox's
 // computing will be tested based on the generated ORC file.
 // Input: Json file of the Substrait plan for the below modified TPC-H Q6 query:
 //
-//  select sum(l_extendedprice*l_discount) as revenue from lineitem where
-//  l_shipdate_new >= 8766 and l_shipdate_new < 9131 and l_discount between .06
-//  - 0.01 and .06 + 0.01 and l_quantity < 24
+//  SELECT sum(l_extendedprice * l_discount) AS revenue
+//  FROM lineitem
+//  WHERE
+//    l_shipdate_new >= 8766 AND l_shipdate_new < 9131 AND
+//    l_discount BETWEEN .06 - 0.01 AND .06 + 0.01 AND
+//    l_quantity < 24
 //
-//  Tested Velox computings include: TableScan (Filter Pushdown) + Project +
-//  Aggregate
-//  Output: the Velox computed Aggregation result
-
-TEST_F(Substrait2VeloxPlanConversionTest, queryTest) {
+//  Tested Velox operators: TableScan (Filter Pushdown), Project, Aggregate.
+TEST_F(Substrait2VeloxPlanConversionTest, q6) {
   // Generate the used ORC file.
   auto type =
       ROW({"l_orderkey",
@@ -356,23 +247,28 @@ TEST_F(Substrait2VeloxPlanConversionTest, queryTest) {
       " the quickly ironic pains lose car"};
   vectors.emplace_back(makeFlatVector<std::string>(lCommentData));
 
-  // Batches has only one RowVector here.
-  auto batches = {makeRowVector(type->names(), vectors)};
+  // Write data into an ORC file.
+  writeToFile(
+      tmpDir_->path + "/mock_lineitem.orc",
+      {makeRowVector(type->names(), vectors)});
 
   // Find and deserialize Substrait plan json file.
   std::string planPath =
       getDataFilePath("velox/substrait/tests", "data/sub.json");
-  auto veloxConverter = std::make_shared<VeloxConverter>();
 
-  // Writes data into an ORC file.
-  writeToFile(veloxConverter->getTmpDirPath() + "/mock_lineitem.orc", batches);
+  // Read sub.json and resume the Substrait plan.
+  ::substrait::Plan substraitPlan;
+  JsonToProtoConverter::readFromFile(planPath, substraitPlan);
 
-  auto resIter = veloxConverter->getResIter(planPath);
-  while (resIter->HasNext()) {
-    auto rv = resIter->Next();
-    auto size = rv->size();
-    ASSERT_EQ(size, 1);
-    std::string res = rv->toString(0);
-    ASSERT_EQ(res, "{13613.1921}");
-  }
+  // Convert to Velox PlanNode.
+  facebook::velox::substrait::SubstraitVeloxPlanConverter planConverter;
+  auto planNode = planConverter.toVeloxPlan(substraitPlan, pool_.get());
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<double>(1, [](auto /*row*/) { return 13613.1921; }),
+  });
+
+  exec::test::AssertQueryBuilder(planNode)
+      .splits(makeSplits(planConverter))
+      .assertResults(expectedResult);
 }
