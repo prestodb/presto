@@ -49,80 +49,55 @@ void EvalCtx::setWrapped(
     VectorPtr source,
     const SelectivityVector& rows,
     VectorPtr& result) {
-  if (result) {
-    BaseVector::ensureWritable(rows, expr->type(), pool(), &result);
-    if (wrapEncoding_ == VectorEncoding::Simple::DICTIONARY) {
-      if (!wrapNulls_) {
-        result->copy(source.get(), rows, wrap_->as<vector_size_t>());
-      } else {
-        auto nonNullRows = rows;
-        nonNullRows.deselectNulls(
-            wrapNulls_->as<uint64_t>(), rows.begin(), rows.end());
-        if (nonNullRows.hasSelections()) {
-          result->copy(source.get(), nonNullRows, wrap_->as<vector_size_t>());
-        }
-        result->addNulls(wrapNulls_->as<uint64_t>(), rows);
-      }
-      return;
-    }
-    if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
-      rows.applyToSelected(
-          [&](auto row) { result->copy(source.get(), row, rows.begin(), 1); });
-
-      return;
-    }
-    VELOX_NYI();
-  }
+  VectorPtr localResult;
   if (wrapEncoding_ == VectorEncoding::Simple::DICTIONARY) {
-    // If returning a dictionary for a conditional that will be merged with
-    // other branches of a conditional, set the undefined positions of the
-    // DictionaryVector to null.
-    BufferPtr nulls;
-    if (!isFinalSelection_) {
-      // If this is not the final selection, i.e. we are inside an if, start
-      // with all nulls.
-      nulls = AlignedBuffer::allocate<bool>(rows.size(), pool(), bits::kNull);
-      // Set the active rows to non-null.
-      rows.clearNulls(nulls);
-      if (wrapNulls_) {
-        // Add the nulls from the wrapping.
-        bits::andBits(
-            nulls->asMutable<uint64_t>(),
-            wrapNulls_->as<uint64_t>(),
-            rows.begin(),
-            rows.end());
-      }
-    } else {
-      nulls = wrapNulls_;
-    }
     if (!source) {
-      // If all rows are null, make a flat vector of the right type with
-      // the nulls.
-      VELOX_CHECK(nulls);
-      result = BaseVector::create(expr->type(), rows.size(), pool());
-      result->addNulls(nulls->as<uint64_t>(), rows);
-      return;
+      // If all rows are null, make a constant null vector of the right type.
+      localResult =
+          BaseVector::createNullConstant(expr->type(), rows.size(), pool());
+    } else {
+      // If returning a dictionary for a conditional that will be merged with
+      // other branches of a conditional, set the undefined positions of the
+      // DictionaryVector to null.
+      BufferPtr nulls;
+      if (!isFinalSelection_) {
+        // If this is not the final selection, i.e. we are inside an if, start
+        // with all nulls.
+        nulls = AlignedBuffer::allocate<bool>(rows.size(), pool(), bits::kNull);
+        // Set the active rows to non-null.
+        rows.clearNulls(nulls);
+        if (wrapNulls_) {
+          // Add the nulls from the wrapping.
+          bits::andBits(
+              nulls->asMutable<uint64_t>(),
+              wrapNulls_->as<uint64_t>(),
+              rows.begin(),
+              rows.end());
+        }
+      } else {
+        nulls = wrapNulls_;
+      }
+      localResult = BaseVector::wrapInDictionary(
+          std::move(nulls), wrap_, rows.end(), std::move(source));
     }
-    result = BaseVector::wrapInDictionary(
-        std::move(nulls), wrap_, rows.end(), std::move(source));
-    return;
-  }
-  if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
+  } else if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
     if (errors_ && constantWrapIndex_ < errors_->size() &&
         !errors_->isNullAt(constantWrapIndex_)) {
       // If the single row caused an error that will be caught by a TRY
       // upstream source may be not initialized, or otherwise in a bad state.
       // Just return NULL, the value won't be used and TRY is just going to
       // NULL out the result anyway.
-      result =
+      localResult =
           BaseVector::createNullConstant(expr->type(), rows.size(), pool());
     } else {
-      result = BaseVector::wrapInConstant(
+      localResult = BaseVector::wrapInConstant(
           rows.size(), constantWrapIndex_, std::move(source));
     }
-    return;
+  } else {
+    VELOX_FAIL("Bad expression wrap encoding {}", wrapEncoding_);
   }
-  VELOX_CHECK(false, "Bad expression wrap encoding {}", wrapEncoding_);
+
+  moveOrCopyResult(localResult, rows, result);
 }
 
 void EvalCtx::saveAndReset(ContextSaver& saver, const SelectivityVector& rows) {
@@ -149,31 +124,27 @@ void EvalCtx::addError(
     const std::exception_ptr& exceptionPtr,
     ErrorVectorPtr& errorsPtr) const {
   auto errors = errorsPtr.get();
-  auto oldSize = errors ? errors->size() : 0;
   if (!errors) {
     auto size = index + 1;
+    auto nulls = AlignedBuffer::allocate<bool>(size, pool(), bits::kNull);
+    auto values = AlignedBuffer::allocate<ErrorVector::value_type>(
+        size, pool(), ErrorVector::value_type());
     errorsPtr = std::make_shared<ErrorVector>(
         pool(),
-        AlignedBuffer::allocate<bool>(size, pool(), true) /*nulls*/,
-        size /*length*/,
-        AlignedBuffer::allocate<ErrorVector::value_type>(
-            size, pool(), ErrorVector::value_type()),
-        std::vector<BufferPtr>(0),
-        SimpleVectorStats<std::shared_ptr<void>>{},
-        1 /*distinctValueCount*/,
-        size /*nullCount*/,
-        false /*isSorted*/,
-        size /*representedBytes*/);
+        std::move(nulls),
+        size,
+        std::move(values),
+        std::vector<BufferPtr>(0));
     errors = errorsPtr.get();
   } else if (errors->size() <= index) {
+    auto oldSize = errors->size();
     errors->resize(index + 1);
-  }
-  // Set all new positions to null, including the one to be set.
-  for (int32_t i = oldSize; i <= index; ++i) {
-    errors->setNull(i, true);
+    // Set all new positions to null, including the one to be set.
+    for (auto i = oldSize; i <= index; ++i) {
+      errors->setNull(i, true);
+    }
   }
   if (errors->isNullAt(index)) {
-    errors->setNull(index, false);
     errors->set(index, std::make_shared<std::exception_ptr>(exceptionPtr));
   }
 }
