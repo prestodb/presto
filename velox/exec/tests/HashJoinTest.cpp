@@ -659,6 +659,59 @@ TEST_F(HashJoinTest, antiJoin) {
   assertQuery(op, "SELECT t.c1 FROM t WHERE t.c0 NOT IN (SELECT c0 FROM u)");
 }
 
+TEST_F(HashJoinTest, antiJoinWithFilter) {
+  auto leftVectors = makeRowVector(
+      {"t0", "t1"},
+      {
+          makeFlatVector<int32_t>(1'000, [](auto row) { return row % 11; }),
+          makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+      });
+
+  auto rightVectors = makeRowVector(
+      {"u0", "u1"},
+      {
+          makeFlatVector<int32_t>(1'234, [](auto row) { return row % 5; }),
+          makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
+      });
+
+  createDuckDbTable("t", {leftVectors});
+  createDuckDbTable("u", {rightVectors});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto op = PlanBuilder(planNodeIdGenerator)
+                .values({leftVectors})
+                .hashJoin(
+                    {"t0"},
+                    {"u0"},
+                    PlanBuilder(planNodeIdGenerator)
+                        .values({rightVectors})
+                        .planNode(),
+                    "",
+                    {"t0", "t1"},
+                    core::JoinType::kAnti)
+                .planNode();
+
+  assertQuery(
+      op, "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE t0 = u0)");
+
+  op = PlanBuilder(planNodeIdGenerator)
+           .values({leftVectors})
+           .hashJoin(
+               {"t0"},
+               {"u0"},
+               PlanBuilder(planNodeIdGenerator)
+                   .values({rightVectors})
+                   .planNode(),
+               "t1 != u1",
+               {"t0", "t1"},
+               core::JoinType::kAnti)
+           .planNode();
+
+  assertQuery(
+      op,
+      "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE t0 = u0 AND t1 <> u1)");
+}
+
 TEST_F(HashJoinTest, dynamicFilters) {
   const int32_t numSplits = 20;
   const int32_t numRowsProbe = 1024;

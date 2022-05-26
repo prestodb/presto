@@ -64,10 +64,6 @@ HashProbe::HashProbe(
       joinType_{joinNode->joinType()},
       filterResult_(1),
       outputRows_(outputBatchSize_) {
-  if (joinNode->isAntiJoin() && joinNode->filter()) {
-    VELOX_UNSUPPORTED("Anti join with a filter not supported yet.");
-  }
-
   auto probeType = joinNode->sources()[0]->outputType();
   auto numKeys = joinNode->leftKeys().size();
   keyChannels_.reserve(numKeys);
@@ -264,7 +260,8 @@ void HashProbe::addInput(RowVectorPtr input) {
     return;
   }
   passingInputRowsInitialized_ = false;
-  if (isLeftJoin(joinType_) || isFullJoin(joinType_)) {
+  if (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
+      (isAntiJoin(joinType_) && filter_)) {
     // Make sure to allocate an entry in 'hits' for every input row to allow for
     // including rows without a match in the output. Also, make sure to
     // initialize all 'hits' to nullptr as HashTable::joinProbe will only
@@ -448,9 +445,9 @@ RowVectorPtr HashProbe::getOutput() {
       // rows, including ones with null join keys.
       std::iota(mapping.begin(), mapping.end(), 0);
       numOut = inputSize;
-    } else if (isAntiJoin(joinType_)) {
-      // When build side is not empty, anti join returns probe rows with no
-      // nulls in the join key and no match in the build side.
+    } else if (isAntiJoin(joinType_) && !filter_) {
+      // When build side is not empty, anti join without a filter returns probe
+      // rows with no nulls in the join key and no match in the build side.
       for (auto i = 0; i < inputSize; i++) {
         if (nonNullRows_.isValid(i) &&
             (!activeRows_.isValid(i) || !lookup_->hits[i])) {
@@ -461,7 +458,8 @@ RowVectorPtr HashProbe::getOutput() {
     } else {
       numOut = table_->listJoinResults(
           results_,
-          isLeftJoin(joinType_) || isFullJoin(joinType_),
+          isLeftJoin(joinType_) || isFullJoin(joinType_) ||
+              isAntiJoin(joinType_),
           mapping,
           folly::Range(outputRows_.data(), outputRows_.size()));
     }
@@ -541,14 +539,14 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     for (auto i = 0; i < numRows; ++i) {
       const bool passed = !decodedFilterResult_.isNullAt(i) &&
           decodedFilterResult_.valueAt<bool>(i);
-      leftJoinTracker_.advance(rawMapping[i], passed, addMiss);
+      noMatchDetector_.advance(rawMapping[i], passed, addMiss);
       if (passed) {
         outputRows_[numPassed] = outputRows_[i];
         rawMapping[numPassed++] = rawMapping[i];
       }
     }
     if (results_.atEnd()) {
-      leftJoinTracker_.finish(addMiss);
+      noMatchDetector_.finish(addMiss);
     }
   } else if (isSemiJoin(joinType_)) {
     auto addLastMatch = [&](auto row) {
@@ -563,6 +561,20 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     }
     if (results_.atEnd()) {
       semiJoinTracker_.finish(addLastMatch);
+    }
+  } else if (isAntiJoin(joinType_)) {
+    // Identify probe rows with no matches.
+    auto addMiss = [&](auto row) {
+      outputRows_[numPassed] = nullptr;
+      rawMapping[numPassed++] = row;
+    };
+    for (auto i = 0; i < numRows; ++i) {
+      const bool passed = !decodedFilterResult_.isNullAt(i) &&
+          decodedFilterResult_.valueAt<bool>(i);
+      noMatchDetector_.advance(rawMapping[i], passed, addMiss);
+    }
+    if (results_.atEnd()) {
+      noMatchDetector_.finish(addMiss);
     }
   } else {
     for (auto i = 0; i < numRows; ++i) {

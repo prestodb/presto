@@ -145,7 +145,7 @@ class HashProbe : public Operator {
 
   // Tracks probe side rows which had one or more matches on the build side, but
   // didn't pass the filter.
-  class LeftJoinTracker {
+  class NoMatchDetector {
    public:
     // Called for each row that the filter was evaluated on. Expects that probe
     // side rows with multiple matches on the build side are next to each other.
@@ -221,9 +221,9 @@ class HashProbe : public Operator {
 
   BaseHashTable::NotProbedRowsIterator rightJoinIterator_;
 
-  /// For left join, tracks the probe side rows which had matches on the build
-  /// side but didn't pass the filter.
-  LeftJoinTracker leftJoinTracker_;
+  /// For left and anti join with filter, tracks the probe side rows which had
+  /// matches on the build side but didn't pass the filter.
+  NoMatchDetector noMatchDetector_;
 
   /// For semi join with filter, de-duplicates probe side rows with multiple
   /// matches.
