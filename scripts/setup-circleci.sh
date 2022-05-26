@@ -18,7 +18,7 @@ set -efx -o pipefail
 # so that some low level types are the same size. Also, disable warnings.
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
-
+CPU_TARGET="${CPU_TARGET:-avx}"
 export CFLAGS=$(get_cxx_flags $CPU_TARGET)  # Used by LZO.
 export CXXFLAGS=$CFLAGS  # Used by boost.
 export CPPFLAGS=$CFLAGS  # Used by LZO.

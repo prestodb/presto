@@ -31,6 +31,7 @@ set -x # Print commands that are executed.
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
 
+CPU_TARGET="${CPU_TARGET:-avx}"
 FB_OS_VERSION=v2022.03.14.00
 NPROC=$(getconf _NPROCESSORS_ONLN)
 COMPILER_FLAGS=$(get_cxx_flags $CPU_TARGET)
