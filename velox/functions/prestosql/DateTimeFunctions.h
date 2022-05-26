@@ -236,43 +236,62 @@ struct DayFunction : public InitSessionTimezone<T>,
 };
 
 template <typename T>
-struct DayOfWeekFunction : public InitSessionTimezone<T> {
+struct DayOfWeekFunction : public InitSessionTimezone<T>,
+                           public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
-      int64_t& result,
-      const arg_type<Timestamp>& timestamp) {
-    std::tm dateTime = getDateTime(timestamp, this->timeZone_);
-    result = dateTime.tm_wday == 0 ? 7 : dateTime.tm_wday;
-    return true;
+  FOLLY_ALWAYS_INLINE int64_t getDayOfWeek(const std::tm& time) {
+    return time.tm_wday == 0 ? 7 : time.tm_wday;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
-    std::tm dateTm = getDateTime(date);
-    result = dateTm.tm_wday == 0 ? 7 : dateTm.tm_wday;
-    return true;
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getDayOfWeek(getDateTime(timestamp, this->timeZone_));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
+    result = getDayOfWeek(getDateTime(date));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = getDayOfWeek(getDateTime(timestamp, nullptr));
   }
 };
 
 template <typename T>
-struct DayOfYearFunction : public InitSessionTimezone<T> {
+struct DayOfYearFunction : public InitSessionTimezone<T>,
+                           public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
-      int64_t& result,
-      const arg_type<Timestamp>& timestamp) {
-    result = 1 + getDateTime(timestamp, this->timeZone_).tm_yday;
-    return true;
+  FOLLY_ALWAYS_INLINE int64_t getDayOfYear(const std::tm& time) {
+    return time.tm_yday + 1;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
-    result = 1 + getDateTime(date).tm_yday;
-    return true;
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getDayOfYear(getDateTime(timestamp, this->timeZone_));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
+    result = getDayOfYear(getDateTime(date));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = getDayOfYear(getDateTime(timestamp, nullptr));
   }
 };
 
 template <typename T>
-struct YearOfWeekFunction : public InitSessionTimezone<T> {
+struct YearOfWeekFunction : public InitSessionTimezone<T>,
+                            public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE int64_t computeYearOfWeek(const std::tm& dateTime) {
@@ -296,43 +315,43 @@ struct YearOfWeekFunction : public InitSessionTimezone<T> {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Timestamp>& timestamp) {
-    auto dateTime = getDateTime(timestamp, this->timeZone_);
-    result = computeYearOfWeek(dateTime);
-    return true;
+    result = computeYearOfWeek(getDateTime(timestamp, this->timeZone_));
   }
 
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
-    auto dateTime = getDateTime(date);
-    result = computeYearOfWeek(dateTime);
-    return true;
-  }
-};
-
-template <typename T>
-struct HourFunction : public InitSessionTimezone<T> {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-
-  FOLLY_ALWAYS_INLINE bool call(
-      int64_t& result,
-      const arg_type<Timestamp>& timestamp) {
-    result = getDateTime(timestamp, this->timeZone_).tm_hour;
-    return true;
-  }
-
-  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Date>& date) {
-    result = getDateTime(date).tm_hour;
-    return true;
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
+    result = computeYearOfWeek(getDateTime(date));
   }
 
   FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
-    const auto milliseconds = *timestampWithTimezone.template at<0>();
-    Timestamp timestamp{milliseconds / kMillisecondsInSecond, 0UL};
-    timestamp.toTimezone(*timestampWithTimezone.template at<1>());
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    result = computeYearOfWeek(getDateTime(timestamp, nullptr));
+  }
+};
+
+template <typename T>
+struct HourFunction : public InitSessionTimezone<T>,
+                      public TimestampWithTimezoneSupport<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getDateTime(timestamp, this->timeZone_).tm_hour;
+  }
+
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const arg_type<Date>& date) {
+    result = getDateTime(date).tm_hour;
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
     result = getDateTime(timestamp, nullptr).tm_hour;
   }
 };

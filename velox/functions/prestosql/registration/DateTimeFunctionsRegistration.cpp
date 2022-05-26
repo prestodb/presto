@@ -44,12 +44,18 @@ void registerSimpleFunctions() {
   registerFunction<DayOfWeekFunction, int64_t, Timestamp>(
       {"dow", "day_of_week"});
   registerFunction<DayOfWeekFunction, int64_t, Date>({"dow", "day_of_week"});
+  registerFunction<DayOfWeekFunction, int64_t, TimestampWithTimezone>(
+      {"dow", "day_of_week"});
   registerFunction<DayOfYearFunction, int64_t, Timestamp>(
+      {"doy", "day_of_year"});
+  registerFunction<DayOfYearFunction, int64_t, Date>({"doy", "day_of_year"});
+  registerFunction<DayOfYearFunction, int64_t, TimestampWithTimezone>(
       {"doy", "day_of_year"});
   registerFunction<YearOfWeekFunction, int64_t, Timestamp>(
       {"yow", "year_of_week"});
   registerFunction<YearOfWeekFunction, int64_t, Date>({"yow", "year_of_week"});
-  registerFunction<DayOfYearFunction, int64_t, Date>({"doy", "day_of_year"});
+  registerFunction<YearOfWeekFunction, int64_t, TimestampWithTimezone>(
+      {"yow", "year_of_week"});
   registerFunction<HourFunction, int64_t, Timestamp>({"hour"});
   registerFunction<HourFunction, int64_t, Date>({"hour"});
   registerFunction<HourFunction, int64_t, TimestampWithTimezone>({"hour"});

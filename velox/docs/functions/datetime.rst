@@ -140,7 +140,7 @@ pattern format.
 Convenience Extraction Functions
 --------------------------------
 
-These functions are supported for TIMESTAMP and DATE values.
+These functions are supported for TIMESTAMP, DATE, and Presto TIMESTAMPWITHTIMEZONE values.
 
 .. function:: day(x) -> bigint
 
