@@ -124,6 +124,12 @@ struct OperatorStats {
 
   MemoryStats memoryStats;
 
+  // Total bytes written for spilling.
+  uint64_t spilledBytes{0};
+
+  // Total rows written for spilling.
+  uint64_t spilledRows{0};
+
   std::unordered_map<std::string, RuntimeMetric> runtimeStats;
 
   int numDrivers = 0;

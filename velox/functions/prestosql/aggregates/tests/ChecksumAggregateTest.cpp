@@ -25,6 +25,11 @@ namespace facebook::velox::aggregate::test {
 
 class ChecksumAggregateTest : public AggregationTestBase {
  protected:
+  void SetUp() override {
+    // Test cases are too short to spill.
+    disableSpill();
+  }
+
   template <typename T>
   void assertSingleGroupChecksum(
       const std::vector<std::optional<T>>& data,

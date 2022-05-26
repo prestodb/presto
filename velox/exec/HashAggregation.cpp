@@ -65,6 +65,7 @@ HashAggregation::HashAggregation(
   aggrMaskChannels.reserve(numAggregates);
   std::vector<std::vector<ChannelIndex>> args;
   std::vector<std::vector<VectorPtr>> constantLists;
+  std::vector<TypePtr> intermediateTypes;
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode->aggregates()[i];
 
@@ -82,7 +83,17 @@ HashAggregation::HashAggregation(
         constants.push_back(nullptr);
       }
     }
-
+    if (isRawInput(aggregationNode->step())) {
+      intermediateTypes.push_back(
+          Aggregate::intermediateType(aggregate->name(), argTypes));
+    } else {
+      assert(!argTypes.empty()); // lint
+      intermediateTypes.push_back(argTypes[0]);
+      VELOX_CHECK_EQ(
+          argTypes.size(),
+          1,
+          "Intermediate aggregates must have a single argument");
+    }
     // Setup aggregation mask: convert the Variable Reference name to the
     // channel (projection) index, if there is a mask.
     const auto& aggrMask = aggregationNode->aggregateMasks()[i];
@@ -125,7 +136,9 @@ HashAggregation::HashAggregation(
       std::move(aggrMaskChannels),
       std::move(args),
       std::move(constantLists),
+      std::move(intermediateTypes),
       aggregationNode->ignoreNullKeys(),
+      isPartialOutput_,
       isRawInput(aggregationNode->step()),
       operatorCtx_.get());
 }
@@ -135,8 +148,11 @@ void HashAggregation::addInput(RowVectorPtr input) {
     mayPushdown_ = operatorCtx_->driver()->mayPushdownAggregation(this);
     pushdownChecked_ = true;
   }
-
   groupingSet_->addInput(input, mayPushdown_);
+  auto spilled = groupingSet_->spilledBytesAndRows();
+  stats_.spilledBytes = spilled.first;
+  stats_.spilledRows = spilled.second;
+
   if (isPartialOutput_ &&
       groupingSet_->allocatedBytes() > maxPartialAggregationMemoryUsage_) {
     partialFull_ = true;
@@ -212,8 +228,7 @@ RowVectorPtr HashAggregation::getOutput() {
   // Reuse output vectors if possible.
   prepareOutput(batchSize);
 
-  bool hasData = groupingSet_->getOutput(
-      batchSize, isPartialOutput_, &resultIterator_, output_);
+  bool hasData = groupingSet_->getOutput(batchSize, resultIterator_, output_);
   if (!hasData) {
     resultIterator_.reset();
 

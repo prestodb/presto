@@ -93,6 +93,10 @@ class QueryConfig {
 
   static constexpr const char* kCreateEmptyFiles = "driver.create_empty_files";
 
+  static constexpr const char* kSpillPath = "spiller-spill-path";
+
+  static constexpr const char* kTestingSpillPct = "testing.spill-pct";
+
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
@@ -170,6 +174,24 @@ class QueryConfig {
     return get<bool>(kExprEvalSimplified, false);
   }
 
+  /// Returns a path for writing spill files. If empty, spilling is
+  /// disabled. The path should be interpretable by
+  /// filesystems::getFileSystem and may refer to any writable
+  /// location. Actual file names are composed by appending '/' and a
+  /// filename composed of Task id and serial numbers. The files are
+  /// automatically deleted when no longer needed. Files may be left
+  /// behind after crashes but are identifiable based on the Task id in
+  /// the name.
+  std::optional<std::string> spillPath() const {
+    return get<std::string>(kSpillPath);
+  }
+
+  // Returns a percentage of aggregation or join input batches that
+  // will be forced to spill for testing. 0 means no extra spilling.
+  int32_t testingSpillPct() const {
+    return get<int32_t>(kTestingSpillPct, 0);
+  }
+
   bool exprTrackCpuUsage() const {
     return get<bool>(kExprTrackCpuUsage, false);
   }
@@ -177,6 +199,10 @@ class QueryConfig {
   template <typename T>
   T get(const std::string& key, const T& defaultValue) const {
     return config_->get<T>(key, defaultValue);
+  }
+  template <typename T>
+  std::optional<T> get(const std::string& key) const {
+    return std::optional<T>(config_->get<T>(key));
   }
 
  private:

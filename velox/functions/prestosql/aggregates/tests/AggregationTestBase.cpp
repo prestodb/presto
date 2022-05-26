@@ -17,6 +17,7 @@
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 using facebook::velox::exec::test::AssertQueryBuilder;
 using facebook::velox::exec::test::CursorParameters;
@@ -90,6 +91,21 @@ void AggregationTestBase::testAggregations(
   testAggregations(makeSource, groupingKeys, aggregates, {}, duckDbSql);
 }
 
+namespace {
+// Returns total spilled bytes inside 'task'.
+int64_t spilledBytes(const exec::Task& task) {
+  auto stats = task.taskStats();
+  int64_t spilledBytes = 0;
+  for (auto& pipeline : stats.pipelineStats) {
+    for (auto op : pipeline.operatorStats) {
+      spilledBytes += op.spilledBytes;
+    }
+  }
+
+  return spilledBytes;
+}
+} // namespace
+
 template <bool UseDuckDB>
 void AggregationTestBase::testAggregations(
     std::function<void(PlanBuilder&)> makeSource,
@@ -129,6 +145,31 @@ void AggregationTestBase::testAggregations(
     } else {
       AssertQueryBuilder(builder.planNode()).assertResults(expectedResult);
     }
+  }
+
+  // Run single with spilling.
+  if (!noSpill_) {
+    PlanBuilder builder;
+    makeSource(builder);
+    builder.singleAggregation(groupingKeys, aggregates);
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+
+    std::shared_ptr<exec::Task> task;
+    if constexpr (UseDuckDB) {
+      task = AssertQueryBuilder(builder.planNode(), duckDbQueryRunner_)
+                 .config(core::QueryConfig::kTestingSpillPct, "100")
+                 .config(core::QueryConfig::kSpillPath, tempDirectory->path)
+                 .assertResults(duckDbSql);
+    } else {
+      task = AssertQueryBuilder(builder.planNode())
+                 .config(core::QueryConfig::kTestingSpillPct, "100")
+                 .config(core::QueryConfig::kSpillPath, tempDirectory->path)
+                 .assertResults(expectedResult);
+    }
+    EXPECT_LT(0, spilledBytes(*task));
   }
 
   // Run partial + intermediate + final.

@@ -531,4 +531,16 @@ void RowContainer::setProbedFlag(char** rows, int32_t numRows) {
   }
 }
 
+int64_t RowContainer::sizeIncrement(
+    vector_size_t numRows,
+    int64_t variableLengthBytes) const {
+  constexpr int32_t kAllocUnit =
+      AllocationPool::kMinPages * memory::MappedMemory::kPageSize;
+  int32_t needRows = std::max<int64_t>(0, numRows - numFreeRows_);
+  int64_t needBytes =
+      std::min<int64_t>(0, variableLengthBytes - stringAllocator_.freeSpace());
+  return bits::roundUp(needRows * fixedRowSize_, kAllocUnit) +
+      bits::roundUp(needBytes, kAllocUnit);
+}
+
 } // namespace facebook::velox::exec

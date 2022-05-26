@@ -210,6 +210,12 @@ class Aggregate {
       const std::vector<TypePtr>& argTypes,
       const TypePtr& resultType);
 
+  // Returns the intermediate type for 'name' with signature
+  // 'argTypes'. Throws if cannot resolve.
+  static TypePtr intermediateType(
+      const std::string& name,
+      const std::vector<TypePtr>& argTypes);
+
  protected:
   // Shorthand for maintaining accumulator variable length size in
   // accumulator update methods. Use like: { auto tracker =

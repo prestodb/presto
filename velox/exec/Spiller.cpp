@@ -209,6 +209,7 @@ void Spiller::advanceSpill(uint64_t maxBytes) {
       std::rethrow_exception(result->error);
     }
     auto numWritten = result->rowsWritten;
+    spilledRows_ += numWritten;
     auto partition = result->partition;
     auto& run = spillRuns_[partition];
     auto spilled = folly::Range<char**>(run.rows.data(), numWritten);

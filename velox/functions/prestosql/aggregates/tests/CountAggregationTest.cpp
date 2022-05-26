@@ -39,6 +39,8 @@ class CountAggregation : public AggregationTestBase {
 TEST_F(CountAggregation, count) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
+  // No grouping, so no spill.
+  disableSpill();
 
   testAggregations(vectors, {}, {"count(1)"}, "SELECT count(1) FROM tmp");
 

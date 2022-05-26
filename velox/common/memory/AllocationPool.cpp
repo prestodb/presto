@@ -47,7 +47,7 @@ void AllocationPool::newRun(int32_t preferredSize) {
         bits::roundUp(preferredSize, memory::MappedMemory::kPageSize) /
         memory::MappedMemory::kPageSize;
     if (!mappedMemory_->allocate(
-            std::max<int32_t>(16, numPages),
+            std::max<int32_t>(kMinPages, numPages),
             owner_,
             allocation_,
             nullptr,

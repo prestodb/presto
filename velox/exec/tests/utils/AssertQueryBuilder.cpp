@@ -181,7 +181,9 @@ AssertQueryBuilder::readCursor() {
   VELOX_CHECK_NOT_NULL(params_.planNode);
 
   if (!configs_.empty()) {
-    params_.queryCtx = core::QueryCtx::createForTest();
+    if (!params_.queryCtx) {
+      params_.queryCtx = core::QueryCtx::createForTest();
+    }
     params_.queryCtx->setConfigOverridesUnsafe(std::move(configs_));
   }
 

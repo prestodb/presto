@@ -559,8 +559,7 @@ void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
     if (numDistinct_) {
       rehash();
     }
-  } else if (numNew + numDistinct_ > size_ - (size_ / 8)) {
-    // This implements the F14 load factor: Resize if less than 1/8 unoccupied.
+  } else if (numNew + numDistinct_ > rehashSize()) {
     auto newSize = bits::nextPowerOfTwo(size_ + numNew);
     allocateTables(newSize);
     rehash();

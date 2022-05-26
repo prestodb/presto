@@ -25,6 +25,10 @@ class CovarianceAggregationTest
     : public virtual AggregationTestBase,
       public testing::WithParamInterface<std::string> {
  protected:
+  void SetUp() override {
+    disableSpill();
+  }
+
   void testGroupBy(const std::string& aggName, const RowVectorPtr& data) {
     auto partialAgg = fmt::format("{}(c1, c2)", aggName);
     auto sql = fmt::format(

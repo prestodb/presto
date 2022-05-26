@@ -79,6 +79,11 @@ class AssertQueryBuilder {
       const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
           connectorSplits);
 
+  /// Sets the QueryCtx.
+  AssertQueryBuilder& queryCtx(const std::shared_ptr<core::QueryCtx>& ctx) {
+    params_.queryCtx = ctx;
+    return *this;
+  }
   // Methods to run the query and verify the results.
 
   /// Run the query and verify results against DuckDB. Requires

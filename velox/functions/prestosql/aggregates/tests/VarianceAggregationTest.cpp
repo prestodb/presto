@@ -55,6 +55,8 @@ class VarianceAggregationTest : public AggregationTestBase {
 };
 
 TEST_F(VarianceAggregationTest, varianceConst) {
+  // Not enough data.
+  disableSpill();
   // Have two row vectors at least as it triggers different code paths.
   auto vectors = {
       makeRowVector({
@@ -96,6 +98,7 @@ TEST_F(VarianceAggregationTest, varianceConst) {
 }
 
 TEST_F(VarianceAggregationTest, varianceConstNull) {
+  disableSpill();
   // Have two row vectors at least as it triggers different code paths.
   auto vectors = {
       makeRowVector({
@@ -123,6 +126,7 @@ TEST_F(VarianceAggregationTest, varianceConstNull) {
 }
 
 TEST_F(VarianceAggregationTest, varianceNulls) {
+  disableSpill();
   // Have two row vectors at least as it triggers different code paths.
   auto vectors = {
       makeRowVector({
@@ -150,6 +154,7 @@ TEST_F(VarianceAggregationTest, varianceNulls) {
 }
 
 TEST_F(VarianceAggregationTest, variance) {
+  disableSpill();
   auto vectors = makeVectors(rowType_, 10, 20);
   createDuckDbTable(vectors);
 
