@@ -46,6 +46,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -100,7 +101,7 @@ public class FileMergeCacheManager
     private final CacheStats stats;
 
     // config
-    private final Path baseDirectory;
+    private final List<Path> baseDirectoryList;
     private final long maxInflightBytes;
 
     @Inject
@@ -123,33 +124,34 @@ public class FileMergeCacheManager
                 .recordStats()
                 .build();
         this.stats = requireNonNull(stats, "stats is null");
-        this.baseDirectory = new Path(cacheConfig.getBaseDirectory());
+        this.baseDirectoryList = cacheConfig.getBaseDirectory().stream().map(x -> new Path(x)).collect(Collectors.toList());
         checkArgument(fileMergeCacheConfig.getMaxInMemoryCacheSize().toBytes() >= 0, "maxInflightBytes is negative");
         this.maxInflightBytes = fileMergeCacheConfig.getMaxInMemoryCacheSize().toBytes();
-
-        File target = new File(baseDirectory.toUri());
-        if (!target.exists()) {
-            try {
-                Files.createDirectories(target.toPath());
-            }
-            catch (IOException e) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create cache directory " + target, e);
-            }
-        }
-        else {
-            File[] files = target.listFiles();
-            if (files == null) {
-                return;
-            }
-
-            this.cacheRemovalExecutor.submit(() -> Arrays.stream(files).forEach(file -> {
+        for (Path path : baseDirectoryList) {
+            File target = new File(path.toUri());
+            if (!target.exists()) {
                 try {
-                    Files.delete(file.toPath());
+                    Files.createDirectories(target.toPath());
                 }
                 catch (IOException e) {
-                    // ignore
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create cache directory " + target, e);
                 }
-            }));
+            }
+            else {
+                File[] files = target.listFiles();
+                if (files == null) {
+                    return;
+                }
+
+                this.cacheRemovalExecutor.submit(() -> Arrays.stream(files).forEach(file -> {
+                    try {
+                        Files.delete(file.toPath());
+                    }
+                    catch (IOException e) {
+                        // ignore
+                    }
+                }));
+            }
         }
 
         this.cacheSizeCalculateExecutor.scheduleAtFixedRate(
@@ -247,14 +249,15 @@ public class FileMergeCacheManager
         // make a copy given the input data could be a reusable buffer
         stats.addInMemoryRetainedBytes(data.length());
         byte[] copy = data.getBytes();
-
-        cacheFlushExecutor.submit(() -> {
-            Path newFilePath = new Path(baseDirectory.toUri() + "/" + randomUUID() + EXTENSION);
-            if (!write(key, copy, newFilePath)) {
-                log.warn("%s Fail to persist cache %s with length %s ", Thread.currentThread().getName(), newFilePath, key.getLength());
-            }
-            stats.addInMemoryRetainedBytes(-copy.length);
-        });
+        for (Path path : baseDirectoryList) {
+            cacheFlushExecutor.submit(() -> {
+                Path newFilePath = new Path(path.toUri() + "/" + randomUUID() + EXTENSION);
+                if (!write(key, copy, newFilePath)) {
+                    log.warn("%s Fail to persist cache %s with length %s ", Thread.currentThread().getName(), newFilePath, key.getLength());
+                }
+                stats.addInMemoryRetainedBytes(-copy.length);
+            });
+        }
     }
 
     private boolean read(FileReadRequest request, byte[] buffer, int offset)
