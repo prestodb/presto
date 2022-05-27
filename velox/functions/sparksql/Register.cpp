@@ -104,6 +104,7 @@ void registerFunctions(const std::string& prefix) {
       prefix + "hash", hashSignatures(), makeHash);
   exec::registerStatefulVectorFunction(
       prefix + "murmur3hash", hashSignatures(), makeHash);
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map, prefix + "map");
 
   // Register 'in' functions.
   registerIn(prefix);

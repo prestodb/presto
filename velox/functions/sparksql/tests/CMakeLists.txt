@@ -20,6 +20,7 @@ add_executable(
   HashTest.cpp
   InTest.cpp
   LeastGreatestTest.cpp
+  MapTest.cpp
   RegexFunctionsTest.cpp
   SizeTest.cpp
   SortArrayTest.cpp
