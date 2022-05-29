@@ -114,7 +114,6 @@ The following is a minimal configuration for the coordinator:
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
-    query.max-total-memory-per-node=2GB
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
@@ -126,7 +125,6 @@ And this is a minimal configuration for the workers:
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
-    query.max-total-memory-per-node=2GB
     discovery.uri=http://example.net:8080
 
 Alternatively, if you are setting up a single machine for testing that
@@ -139,7 +137,6 @@ will function as both a coordinator and worker, use this configuration:
     http-server.http.port=8080
     query.max-memory=5GB
     query.max-memory-per-node=1GB
-    query.max-total-memory-per-node=2GB
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
@@ -159,7 +156,6 @@ Minimum 1 resource manager is needed for a cluster and more can be added in to t
     thrift.server.port=8081
     query.max-memory=50GB
     query.max-memory-per-node=1GB
-    query.max-total-memory-per-node=2GB
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
     thrift.server.ssl.enabled=true
@@ -175,7 +171,6 @@ Cluster supports pool of coordinators. Each coordinator will run subset of queri
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
-    query.max-total-memory-per-node=2GB
     discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
     resource-manager-enabled=true
 
@@ -189,7 +184,6 @@ Cluster supports pool of workers. They send their heartbeats to resource manager
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
-    query.max-total-memory-per-node=2GB
     discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
     resource-manager-enabled=true
 
@@ -219,10 +213,6 @@ These properties require some explanation:
 
 * ``query.max-memory-per-node``:
   The maximum amount of user memory that a query may use on any one machine.
-
-* ``query.max-total-memory-per-node``:
-  The maximum amount of user and system memory that a query may use on any one machine,
-  where system memory is the memory used during execution by readers, writers, and network buffers, etc.
 
 * ``discovery-server.enabled``:
   Presto uses the Discovery service to find all the nodes in the cluster.
