@@ -38,7 +38,7 @@ public class NodeMemoryConfig
     private DataSize softMaxQueryMemoryPerNode;
 
     // This is a per-query limit for the user plus system allocations.
-    private DataSize maxQueryTotalMemoryPerNode = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
+    private DataSize maxQueryTotalMemoryPerNode;
     private DataSize softMaxQueryTotalMemoryPerNode;
     private DataSize heapHeadroom = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
 
@@ -106,6 +106,10 @@ public class NodeMemoryConfig
     @NotNull
     public DataSize getMaxQueryTotalMemoryPerNode()
     {
+        if (maxQueryTotalMemoryPerNode == null) {
+            DataSize maxQueryMemoryPerNode = getMaxQueryMemoryPerNode();
+            return new DataSize(maxQueryMemoryPerNode.getValue() * 2, maxQueryMemoryPerNode.getUnit());
+        }
         return maxQueryTotalMemoryPerNode;
     }
 
