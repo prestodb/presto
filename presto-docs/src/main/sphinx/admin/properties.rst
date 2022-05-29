@@ -75,7 +75,7 @@ Memory Management Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
-    * **Default value:** ``JVM max memory * 0.3``
+    * **Default value:** ``query.max-memory-per-node * 2``
 
     This is the max amount of user and system memory a query can use on a worker.
     System memory is allocated during execution for things that are not directly
