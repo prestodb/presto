@@ -44,8 +44,11 @@ public class PrestoSparkLauncherCommand
 
     public void run()
     {
-        SparkConf sparkConfiguration = new SparkConf()
-                .setAppName("Presto");
+        SparkConf sparkConfiguration = new SparkConf();
+        if (sparkConfiguration.getOption("spark.app.name").isEmpty()) {
+            sparkConfiguration.setAppName("Presto");
+        }
+
         PrestoSparkConfInitializer.initialize(sparkConfiguration);
         SparkContext sparkContext = new SparkContext(sparkConfiguration);
 
