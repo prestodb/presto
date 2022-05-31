@@ -25,6 +25,7 @@ import java.util.Set;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -122,6 +123,33 @@ public class ColumnWriterOptions
     public Set<Integer> getFlattenedNodes()
     {
         return flattenedNodes;
+    }
+
+    /**
+     * Create a copy of this ColumnWriterOptions, but disable string and integer dictionary encodings.
+     */
+    public ColumnWriterOptions copyWithDisabledDictionaryEncoding()
+    {
+        return toBuilder()
+                .setStringDictionaryEncodingEnabled(false)
+                .setIntegerDictionaryEncodingEnabled(false)
+                .build();
+    }
+
+    public Builder toBuilder()
+    {
+        return new Builder()
+                .setCompressionKind(getCompressionKind())
+                .setCompressionLevel(getCompressionLevel())
+                .setCompressionMaxBufferSize(new DataSize(getCompressionMaxBufferSize(), BYTE))
+                .setStringStatisticsLimit(new DataSize(getStringStatisticsLimit(), BYTE))
+                .setIntegerDictionaryEncodingEnabled(isIntegerDictionaryEncodingEnabled())
+                .setStringDictionarySortingEnabled(isStringDictionarySortingEnabled())
+                .setStringDictionaryEncodingEnabled(isStringDictionaryEncodingEnabled())
+                .setIgnoreDictionaryRowGroupSizes(isIgnoreDictionaryRowGroupSizes())
+                .setPreserveDirectEncodingStripeCount(getPreserveDirectEncodingStripeCount())
+                .setCompressionBufferPool(getCompressionBufferPool())
+                .setFlattenedNodes(getFlattenedNodes());
     }
 
     public static Builder builder()
