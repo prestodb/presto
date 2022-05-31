@@ -490,7 +490,20 @@ class ExprSetListener {
   virtual void onCompletion(
       const std::string& uuid,
       const ExprSetCompletionEvent& event) = 0;
+
+  /// Called when a batch of rows encounters errors processing one or more
+  /// rows in a try expression to provide information about these errors. This
+  /// function must neither change rows nor errors.
+  /// @param rows Rows where errors exist.
+  /// @param errors Error vector produced inside the try expression.
+  virtual void onError(
+      const SelectivityVector& rows,
+      const EvalCtx::ErrorVector& errors) = 0;
 };
+
+/// Return the ExprSetListeners having been registered.
+folly::Synchronized<std::vector<std::shared_ptr<ExprSetListener>>>&
+exprSetListeners();
 
 /// Register a listener to be invoked on ExprSet destruction. Returns true if
 /// listener was successfully registered, false if listener is already

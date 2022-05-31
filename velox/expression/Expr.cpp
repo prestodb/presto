@@ -33,17 +33,15 @@ DEFINE_bool(
 
 namespace facebook::velox::exec {
 
-namespace {
 folly::Synchronized<std::vector<std::shared_ptr<ExprSetListener>>>&
-listeners() {
+exprSetListeners() {
   static folly::Synchronized<std::vector<std::shared_ptr<ExprSetListener>>>
       kListeners;
   return kListeners;
 }
-} // namespace
 
 bool registerExprSetListener(std::shared_ptr<ExprSetListener> listener) {
-  return listeners().withWLock([&](auto& listeners) {
+  return exprSetListeners().withWLock([&](auto& listeners) {
     for (const auto& existingListener : listeners) {
       if (existingListener == listener) {
         // Listener already registered. Do not register again.
@@ -57,7 +55,7 @@ bool registerExprSetListener(std::shared_ptr<ExprSetListener> listener) {
 
 bool unregisterExprSetListener(
     const std::shared_ptr<ExprSetListener>& listener) {
-  return listeners().withWLock([&](auto& listeners) {
+  return exprSetListeners().withWLock([&](auto& listeners) {
     for (auto it = listeners.begin(); it != listeners.end(); ++it) {
       if ((*it) == listener) {
         listeners.erase(it);
@@ -1269,7 +1267,7 @@ std::string makeUuid() {
 } // namespace
 
 ExprSet::~ExprSet() {
-  listeners().withRLock([&](auto& listeners) {
+  exprSetListeners().withRLock([&](auto& listeners) {
     if (!listeners.empty()) {
       std::unordered_map<std::string, exec::ExprStats> stats;
       std::unordered_set<const exec::Expr*> uniqueExprs;
