@@ -19,6 +19,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
@@ -176,6 +177,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
@@ -228,6 +230,7 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR, BIGINT),
                 groupByChannels,
+                ImmutableList.of(),
                 globalAggregationGroupIds,
                 Step.SINGLE,
                 true,
@@ -280,6 +283,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 true,
                 ImmutableList.of(arrayAggColumn.bind(ImmutableList.of(0), Optional.empty())),
@@ -322,6 +326,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
@@ -360,6 +365,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
@@ -386,6 +392,7 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(type),
                 ImmutableList.of(0),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
@@ -439,6 +446,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
@@ -472,6 +480,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                         LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty())),
@@ -503,6 +512,7 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Step.PARTIAL,
                 ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
@@ -585,6 +595,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(0),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
@@ -636,6 +647,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
@@ -679,6 +691,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(0),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(1), Optional.of(2))),
@@ -703,6 +716,50 @@ public class TestHashAggregationOperator
     }
 
     @Test
+    public void testSegmentedAggregation()
+    {
+        int numberOfRows = 10;
+        Block sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 1, 1, 2, 2, 2, 3, 3, 3, 3});
+        Block groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 1, 1, 2, 1, 2, 2, 1, 2, 1});
+        Block countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+        Page inputPage = new Page(sortedBlock, groupingBlock, countBlock);
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT, BIGINT),
+                ImmutableList.of(0, 1),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                Step.SINGLE,
+                false,
+                ImmutableList.of(COUNT.bind(ImmutableList.of(2), Optional.empty())),
+                Optional.empty(),
+                Optional.empty(),
+                4,
+                Optional.of(new DataSize(16, MEGABYTE)),
+                false,
+                new DataSize(16, MEGABYTE),
+                new DataSize(16, MEGABYTE),
+                new FailingSpillerFactory(),
+                joinCompiler,
+                false);
+
+        DriverContext driverContext = createDriverContext();
+        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT);
+        expectedBuilder.row(1L, 1L, 3L);
+        expectedBuilder.row(2L, 1L, 1L);
+        expectedBuilder.row(2L, 2L, 2L);
+        expectedBuilder.row(3L, 1L, 2L);
+        expectedBuilder.row(3L, 2L, 2L);
+
+        MaterializedResult expected = expectedBuilder.build();
+        List<Page> outputPages = toPages(operatorFactory, driverContext, ImmutableList.of(inputPage));
+        assertEquals(outputPages.size(), 1);
+        assertPagesEqualIgnoreOrder(driverContext, outputPages, expected, true, Optional.empty());
+    }
+
+    @Test
     public void testMemoryTracking()
             throws Exception
     {
@@ -722,6 +779,7 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),

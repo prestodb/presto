@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.Accumulator;
@@ -29,11 +30,13 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
@@ -41,6 +44,7 @@ import static com.facebook.presto.sql.planner.optimizations.HashGenerationOptimi
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -56,6 +60,7 @@ public class HashAggregationOperator
         private final PlanNodeId planNodeId;
         private final List<Type> groupByTypes;
         private final List<Integer> groupByChannels;
+        private final List<Integer> preGroupedChannels;
         private final List<Integer> globalAggregationGroupIds;
         private final Step step;
         private final boolean produceDefaultOutput;
@@ -80,6 +85,7 @@ public class HashAggregationOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> groupByTypes,
                 List<Integer> groupByChannels,
+                List<Integer> preGroupedChannels,
                 List<Integer> globalAggregationGroupIds,
                 Step step,
                 List<AccumulatorFactory> accumulatorFactories,
@@ -94,6 +100,7 @@ public class HashAggregationOperator
                     planNodeId,
                     groupByTypes,
                     groupByChannels,
+                    preGroupedChannels,
                     globalAggregationGroupIds,
                     step,
                     false,
@@ -117,6 +124,7 @@ public class HashAggregationOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> groupByTypes,
                 List<Integer> groupByChannels,
+                List<Integer> preGroupedChannels,
                 List<Integer> globalAggregationGroupIds,
                 Step step,
                 boolean produceDefaultOutput,
@@ -135,6 +143,7 @@ public class HashAggregationOperator
                     planNodeId,
                     groupByTypes,
                     groupByChannels,
+                    preGroupedChannels,
                     globalAggregationGroupIds,
                     step,
                     produceDefaultOutput,
@@ -157,6 +166,7 @@ public class HashAggregationOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> groupByTypes,
                 List<Integer> groupByChannels,
+                List<Integer> preGroupedChannels,
                 List<Integer> globalAggregationGroupIds,
                 Step step,
                 boolean produceDefaultOutput,
@@ -178,6 +188,7 @@ public class HashAggregationOperator
             this.groupIdChannel = requireNonNull(groupIdChannel, "groupIdChannel is null");
             this.groupByTypes = ImmutableList.copyOf(groupByTypes);
             this.groupByChannels = ImmutableList.copyOf(groupByChannels);
+            this.preGroupedChannels = preGroupedChannels;
             this.globalAggregationGroupIds = ImmutableList.copyOf(globalAggregationGroupIds);
             this.step = step;
             this.produceDefaultOutput = produceDefaultOutput;
@@ -202,6 +213,7 @@ public class HashAggregationOperator
                     operatorContext,
                     groupByTypes,
                     groupByChannels,
+                    preGroupedChannels,
                     globalAggregationGroupIds,
                     step,
                     produceDefaultOutput,
@@ -233,6 +245,7 @@ public class HashAggregationOperator
                     planNodeId,
                     groupByTypes,
                     groupByChannels,
+                    preGroupedChannels,
                     globalAggregationGroupIds,
                     step,
                     produceDefaultOutput,
@@ -253,6 +266,7 @@ public class HashAggregationOperator
     private final OperatorContext operatorContext;
     private final List<Type> groupByTypes;
     private final List<Integer> groupByChannels;
+    private final int[] preGroupedChannels;
     private final List<Integer> globalAggregationGroupIds;
     private final Step step;
     private final boolean produceDefaultOutput;
@@ -267,6 +281,7 @@ public class HashAggregationOperator
     private final SpillerFactory spillerFactory;
     private final JoinCompiler joinCompiler;
     private final boolean useSystemMemory;
+    private final Optional<PagesHashStrategy> preGroupedHashStrategy;
 
     private final List<Type> types;
     private final HashCollisionsCounter hashCollisionsCounter;
@@ -276,7 +291,10 @@ public class HashAggregationOperator
     private boolean inputProcessed;
     private boolean finishing;
     private boolean finished;
+    private boolean hasOutput;
     private Page currentPage;
+    private Page currentSegment;
+    private int firstUnprocessedRow;
 
     // for yield when memory is not available
     private Work<?> unfinishedWork;
@@ -285,6 +303,7 @@ public class HashAggregationOperator
             OperatorContext operatorContext,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
+            List<Integer> preGroupedChannels,
             List<Integer> globalAggregationGroupIds,
             Step step,
             boolean produceDefaultOutput,
@@ -307,6 +326,7 @@ public class HashAggregationOperator
 
         this.groupByTypes = ImmutableList.copyOf(groupByTypes);
         this.groupByChannels = ImmutableList.copyOf(groupByChannels);
+        this.preGroupedChannels = Ints.toArray(requireNonNull(preGroupedChannels, "preGroupedChannels is null"));
         this.globalAggregationGroupIds = ImmutableList.copyOf(globalAggregationGroupIds);
         this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
@@ -324,6 +344,16 @@ public class HashAggregationOperator
         this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
         operatorContext.setInfoSupplier(hashCollisionsCounter);
         this.useSystemMemory = useSystemMemory;
+        if (preGroupedChannels.isEmpty()) {
+            preGroupedHashStrategy = Optional.empty();
+        }
+        else {
+            preGroupedHashStrategy = Optional.of(joinCompiler.compilePagesHashStrategyFactory(groupByTypes, preGroupedChannels, Optional.empty())
+                    .createPagesHashStrategy(
+                            groupByTypes.stream()
+                                    .map(type -> ImmutableList.<Block>of())
+                                    .collect(toImmutableList()), OptionalInt.empty()));
+        }
     }
 
     @Override
@@ -350,11 +380,11 @@ public class HashAggregationOperator
         if (finishing || outputPages != null) {
             return false;
         }
-        else if (isAggregationBuilderFull()) {
+        else if (partialAggregationReachedMemoryLimit()) {
             return false;
         }
         else {
-            return unfinishedWork == null && currentPage == null;
+            return unfinishedWork == null && currentPage == null && !hasOutput;
         }
     }
 
@@ -363,15 +393,26 @@ public class HashAggregationOperator
     {
         checkState(unfinishedWork == null, "Operator has unfinished work");
         checkState(currentPage == null, "Operator has unprocessed page");
+        checkState(!hasOutput, "Operator has output");
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
         currentPage = requireNonNull(page, "page is null");
         inputProcessed = true;
 
         initializeAggregationBuilder();
+        if (preGroupedHashStrategy.isPresent()) {
+            // Running in segmented aggregation mode.
+            firstUnprocessedRow = 0;
+            if (currentSegment != null
+                    && !preGroupedHashStrategy.get().rowEqualsRow(0, currentSegment.extractChannels(preGroupedChannels), 0, page.extractChannels(preGroupedChannels))) {
+                // Page starts with new segment, must flush the current segment before processing the new one.
+                hasOutput = true;
+                return;
+            }
+            currentSegment = null;
+        }
+        processRemainingInput();
 
-        // process the current page; save the unfinished work if we are waiting for memory
-        unfinishedWork = aggregationBuilder.processPage(page);
         if (unfinishedWork.process()) {
             unfinishedWork = null;
         }
@@ -402,6 +443,10 @@ public class HashAggregationOperator
             return null;
         }
 
+        // Assign more work if possible
+        if (unfinishedWork == null) {
+            processRemainingInput();
+        }
         // process unfinished work if one exists
         if (unfinishedWork != null) {
             boolean workDone = unfinishedWork.process();
@@ -409,7 +454,7 @@ public class HashAggregationOperator
             if (!workDone) {
                 return null;
             }
-            unfinishedWork = null;
+            processRemainingInput();
         }
 
         if (outputPages == null) {
@@ -439,6 +484,11 @@ public class HashAggregationOperator
 
         if (outputPages.isFinished()) {
             closeAggregationBuilder();
+            // If there is more input unprocessed, start processing the remaining input.
+            if (currentPage != null) {
+                initializeAggregationBuilder();
+                processRemainingInput();
+            }
             return null;
         }
 
@@ -498,6 +548,7 @@ public class HashAggregationOperator
 
     private void closeAggregationBuilder()
     {
+        hasOutput = false;
         outputPages = null;
         if (aggregationBuilder != null) {
             aggregationBuilder.recordHashCollisions(hashCollisionsCounter);
@@ -510,16 +561,66 @@ public class HashAggregationOperator
         operatorContext.localRevocableMemoryContext().setBytes(0);
     }
 
+    private void processRemainingInput()
+    {
+        if (currentPage == null || firstUnprocessedRow == currentPage.getPositionCount()) {
+            // No remaining input to process.
+            currentPage = null;
+            unfinishedWork = null;
+            return;
+        }
+
+        if (!preGroupedHashStrategy.isPresent()) {
+            // Not running in segmented aggregation mode, simply process the whole page.
+            unfinishedWork = aggregationBuilder.processPage(currentPage);
+            currentPage = null;
+            return;
+        }
+
+        if (hasOutput) {
+            // The current output hasn't been flushed yet, don't assign more work.
+            return;
+        }
+
+        // May be equal to page.getPositionCount() if the end is not found in this page.
+        int nextSegmentStart = findNextSegmentStart(preGroupedHashStrategy.get(), firstUnprocessedRow, currentPage.extractChannels(preGroupedChannels));
+        unfinishedWork = aggregationBuilder.processPage(currentPage.getRegion(firstUnprocessedRow, nextSegmentStart - firstUnprocessedRow));
+        firstUnprocessedRow = nextSegmentStart;
+
+        if (nextSegmentStart == currentPage.getPositionCount()) {
+            // Reached the page end, the current segment might have more rows in the next page.
+            currentSegment = currentPage.getRegion(currentPage.getPositionCount() - 1, 1);
+            currentPage = null;
+        }
+        else {
+            currentSegment = null;
+        }
+    }
+
+    private int findNextSegmentStart(PagesHashStrategy pagesHashStrategy, int startPosition, Page page)
+    {
+        for (int i = startPosition + 1; i < page.getPositionCount(); i++) {
+            if (!pagesHashStrategy.rowEqualsRow(startPosition, page, i, page)) {
+                return i;
+            }
+        }
+        return page.getPositionCount();
+    }
+
     // Produce results if one of the following is true:
+    // - running in segmented aggregation mode and have an output ready.
     // - partial aggregation reached memory limit.
     // - received finish() signal and there is no more input remaining to process.
     private boolean shouldFlush()
     {
-        return isAggregationBuilderFull()
+        return hasOutput
+                || partialAggregationReachedMemoryLimit()
                 || (finishing && currentPage == null);
     }
 
-    private boolean isAggregationBuilderFull() {
+    private boolean partialAggregationReachedMemoryLimit()
+    {
+        // Only during partial aggregation mode, aggregationBuilder may become full.
         return aggregationBuilder != null && aggregationBuilder.isFull();
     }
 

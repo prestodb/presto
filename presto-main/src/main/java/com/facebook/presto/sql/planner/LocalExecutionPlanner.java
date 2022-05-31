@@ -2550,6 +2550,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        ImmutableList.of(),
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2655,6 +2656,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        ImmutableList.of(),
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2709,6 +2711,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        ImmutableList.of(),
                         new DataSize(0, BYTE),
                         context,
                         0,
@@ -3084,6 +3087,7 @@ public class LocalExecutionPlanner
                     distinctAggregationSpillEnabled,
                     orderByAggregationSpillEnabled,
                     node.isStreamable(),
+                    node.getPreGroupedVariables(),
                     unspillMemoryLimit,
                     context,
                     0,
@@ -3108,6 +3112,7 @@ public class LocalExecutionPlanner
                 boolean distinctSpillEnabled,
                 boolean orderBySpillEnabled,
                 boolean isStreamable,
+                List<VariableReferenceExpression> preGroupedVariables,
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context,
                 int startOutputChannel,
@@ -3167,11 +3172,13 @@ public class LocalExecutionPlanner
             }
             else {
                 Optional<Integer> hashChannel = hashVariable.map(variableChannelGetter(source));
+                List<Integer> preGroupedChannels = getChannelsForVariables(preGroupedVariables, source.getLayout());
                 return new HashAggregationOperatorFactory(
                         context.getNextOperatorId(),
                         planNodeId,
                         groupByTypes,
                         groupByChannels,
+                        preGroupedChannels,
                         ImmutableList.copyOf(globalGroupingSets),
                         step,
                         hasDefaultOutput,
