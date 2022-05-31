@@ -824,6 +824,12 @@ public class LegacySqlQueryScheduler
     }
 
     @Override
+    public long getOutputPositions()
+    {
+        return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getOutputPositions();
+    }
+
+    @Override
     public DataSize getOutputDataSize()
     {
         return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getOutputDataSize();
