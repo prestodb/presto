@@ -177,8 +177,7 @@ public final class PlanMatchPattern
 
     private PlanMatchPattern addColumnReferences(String expectedTableName, Map<String, String> columnReferences)
     {
-        columnReferences.entrySet().forEach(
-                reference -> withAlias(reference.getKey(), columnReference(expectedTableName, reference.getValue())));
+        columnReferences.forEach((key, value) -> withAlias(key, columnReference(expectedTableName, value)));
         return this;
     }
 
