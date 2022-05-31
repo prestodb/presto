@@ -116,6 +116,12 @@ public class MockQueryExecution
     }
 
     @Override
+    public long getOutputPositions()
+    {
+        return 0;
+    }
+
+    @Override
     public DataSize getOutputDataSize()
     {
         return null;
