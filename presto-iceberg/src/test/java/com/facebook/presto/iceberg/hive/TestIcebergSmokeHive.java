@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.iceberg.TestAbstractIcebergSmoke;
 import org.testng.annotations.Test;
 
 import java.util.List;
