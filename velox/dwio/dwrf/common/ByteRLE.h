@@ -125,10 +125,8 @@ class ByteRleDecoder {
   /**
    * Load the RowIndex values for the stream this is reading.
    */
-  virtual size_t loadIndices(
-      const proto::RowIndex& rowIndex,
-      size_t startIndex) {
-    return inputStream->loadIndices(rowIndex, startIndex) + 1;
+  virtual size_t loadIndices(size_t startIndex) {
+    return inputStream->positionSize() + startIndex + 1;
   }
 
   void skipBytes(size_t bytes);
@@ -264,9 +262,8 @@ class BooleanRleDecoder : public ByteRleDecoder {
 
   void next(char* data, uint64_t numValues, const uint64_t* nulls) override;
 
-  size_t loadIndices(const proto::RowIndex& rowIndex, size_t startIndex)
-      override {
-    return ByteRleDecoder::loadIndices(rowIndex, startIndex) + 1;
+  size_t loadIndices(size_t startIndex) override {
+    return ByteRleDecoder::loadIndices(startIndex) + 1;
   }
 
   // Advances 'dataPosition' by 'numValue' non-nulls, where 'current'

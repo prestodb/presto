@@ -247,7 +247,7 @@ TEST(StripeStream, zeroLength) {
     int32_t size = 1;
     EXPECT_FALSE(stream->Next(&buf, &size));
     proto::RowIndex rowIndex;
-    EXPECT_EQ(stream->loadIndices(rowIndex, 0), 2);
+    EXPECT_EQ(stream->positionSize(), 2);
   }
 }
 

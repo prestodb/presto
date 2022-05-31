@@ -59,10 +59,10 @@ class PagedInputStream : public SeekableInputStream {
         ")");
   }
 
-  size_t loadIndices(const proto::RowIndex& /* unused */, size_t startIndex)
-      override {
-    // need to skip 2 values: compressed position + uncompressed position
-    return startIndex + 2;
+  size_t positionSize() override {
+    // not compressed, so need 2 positions (compressed position + uncompressed
+    // position)
+    return 2;
   }
 
  protected:

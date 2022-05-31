@@ -178,11 +178,9 @@ std::string SeekableArrayInputStream::getName() const {
       "SeekableArrayInputStream ", position, " of ", length);
 }
 
-size_t SeekableArrayInputStream::loadIndices(
-    const proto::RowIndex& /*rowIndex*/,
-    size_t startIndex) {
-  // not compressed, so only need to skip 1 value (uncompressed position)
-  return startIndex + 1;
+size_t SeekableArrayInputStream::positionSize() {
+  // not compressed, so only need 1 position (uncompressed position)
+  return 1;
 }
 
 static uint64_t computeBlock(uint64_t request, uint64_t length) {
@@ -260,11 +258,9 @@ std::string SeekableFileInputStream::getName() const {
       input.getName(), " from ", start, " for ", length);
 }
 
-size_t SeekableFileInputStream::loadIndices(
-    const proto::RowIndex& /*rowIndex*/,
-    size_t startIndex) {
-  // not compressed, so only need to skip 1 value: uncompressed position
-  return startIndex + 1;
+size_t SeekableFileInputStream::positionSize() {
+  // not compressed, so only need 1 position (uncompressed position)
+  return 1;
 }
 
 } // namespace facebook::velox::dwrf

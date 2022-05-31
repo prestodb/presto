@@ -1349,14 +1349,13 @@ void StringDictionaryColumnReader::ensureInitialized() {
     // load stride dictionary offsets
     rowIndex_ = ProtoUtils::readProto<proto::RowIndex>(std::move(indexStream_));
     auto indexStartOffset = flatMapContext_.inMapDecoder
-        ? flatMapContext_.inMapDecoder->loadIndices(*rowIndex_, 0)
+        ? flatMapContext_.inMapDecoder->loadIndices(0)
         : 0;
     positionOffset = notNullDecoder_
-        ? notNullDecoder_->loadIndices(*rowIndex_, indexStartOffset)
+        ? notNullDecoder_->loadIndices(indexStartOffset)
         : indexStartOffset;
-    auto offset = strideDictStream->loadIndices(*rowIndex_, positionOffset);
-    strideDictSizeOffset =
-        strideDictLengthDecoder->loadIndices(*rowIndex_, offset);
+    size_t offset = strideDictStream->positionSize() + positionOffset;
+    strideDictSizeOffset = strideDictLengthDecoder->loadIndices(offset);
   }
   initialized_ = true;
 }
