@@ -768,6 +768,12 @@ public class SqlQueryScheduler
     }
 
     @Override
+    public long getOutputPositions()
+    {
+        return getStageInfo().getLatestAttemptExecutionInfo().getStats().getOutputPositions();
+    }
+
+    @Override
     public DataSize getOutputDataSize()
     {
         return getStageInfo().getLatestAttemptExecutionInfo().getStats().getOutputDataSize();
