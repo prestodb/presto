@@ -75,6 +75,7 @@ public class QueryManagerConfig
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
     private DataSize queryMaxScanRawInputBytes = DataSize.succinctDataSize(1000, PETABYTE);
+    private long queryMaxOutputPositions = Long.MAX_VALUE;
     private DataSize queryMaxOutputSize = DataSize.succinctDataSize(1000, PETABYTE);
 
     private int requiredWorkers = 1;
@@ -445,6 +446,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxScanRawInputBytes(DataSize queryMaxRawInputBytes)
     {
         this.queryMaxScanRawInputBytes = queryMaxRawInputBytes;
+        return this;
+    }
+
+    @Min(1)
+    public long getQueryMaxOutputPositions()
+    {
+        return queryMaxOutputPositions;
+    }
+
+    @Config("query.max-output-positions")
+    public QueryManagerConfig setQueryMaxOutputPositions(long queryMaxOutputPositions)
+    {
+        this.queryMaxOutputPositions = queryMaxOutputPositions;
         return this;
     }
 

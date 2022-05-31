@@ -54,6 +54,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxOutputPositions;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxOutputSize;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxScanRawInputBytes;
 import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
@@ -62,6 +63,7 @@ import static com.facebook.presto.execution.QueryLimit.Source.SYSTEM;
 import static com.facebook.presto.execution.QueryLimit.createDurationLimit;
 import static com.facebook.presto.execution.QueryLimit.getMinimum;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_POSITIONS_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -81,6 +83,7 @@ public class SqlQueryManager
 
     private final Duration maxQueryCpuTime;
     private final DataSize maxQueryScanPhysicalBytes;
+    private final long maxQueryOutputPositions;
     private final DataSize maxQueryOutputSize;
 
     private final ScheduledExecutorService queryManagementExecutor;
@@ -97,6 +100,7 @@ public class SqlQueryManager
 
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanRawInputBytes();
+        this.maxQueryOutputPositions = queryManagerConfig.getQueryMaxOutputPositions();
         this.maxQueryOutputSize = queryManagerConfig.getQueryMaxOutputSize();
 
         this.queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
@@ -129,6 +133,13 @@ public class SqlQueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query scan bytes limits");
+            }
+
+            try {
+                enforceOutputPositionsLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query output rows limits");
             }
 
             try {
@@ -364,6 +375,21 @@ public class SqlQueryManager
             DataSize limit = Ordering.natural().min(maxQueryScanPhysicalBytes, sessionlimit);
             if (rawInputSize.compareTo(limit) >= 0) {
                 query.fail(new ExceededScanLimitException(limit));
+            }
+        }
+    }
+
+    /**
+     * Enforce query output row limits
+     */
+    private void enforceOutputPositionsLimits()
+    {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
+            long outputPositions = query.getOutputPositions();
+            long sessionLimit = getQueryMaxOutputPositions(query.getSession());
+            long limit = Ordering.natural().min(maxQueryOutputPositions, sessionLimit);
+            if (outputPositions > limit) {
+                query.fail(new PrestoException(EXCEEDED_OUTPUT_POSITIONS_LIMIT, "Query has exceeded output rows Limit of " + limit));
             }
         }
     }

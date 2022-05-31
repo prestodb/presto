@@ -331,6 +331,20 @@ public class SqlQueryExecution
     }
 
     @Override
+    public long getOutputPositions()
+    {
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getOutputPositions();
+        }
+        if (scheduler == null) {
+            return 0;
+        }
+        return scheduler.getOutputPositions();
+    }
+
+    @Override
     public DataSize getOutputDataSize()
     {
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();

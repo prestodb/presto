@@ -158,6 +158,12 @@ public abstract class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public long getOutputPositions()
+    {
+        return 0;
+    }
+
+    @Override
     public DataSize getOutputDataSize()
     {
         return DataSize.succinctBytes(0);

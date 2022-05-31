@@ -62,6 +62,8 @@ public interface QueryExecution
 
     DataSize getRawInputDataSize();
 
+    long getOutputPositions();
+
     DataSize getOutputDataSize();
 
     int getRunningTaskCount();
