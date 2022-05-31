@@ -1148,7 +1148,14 @@ public class TestHiveMaterializedViewLogicalPlanner
             MaterializedResult viewTable = computeActual(viewQuery);
             MaterializedResult baseTable = computeActual(baseQuery);
             assertEquals(viewTable, baseTable);
-            // getExplainPlan(viewQuery, LOGICAL);
+
+            assertPlan(getSession(), viewQuery, anyTree(
+                    join(INNER, ImmutableList.of(equiJoinClause("orderkey", "orderkey_7")),
+                            anyTree(filter("orderkey < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(table1,
+                                    ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
+                                    ImmutableMap.of("orderkey", "orderkey")))),
+                            anyTree(PlanMatchPattern.constrainedTableScan(table2, ImmutableMap.of(), ImmutableMap.of("orderkey_7", "orderkey")))),
+                    filter("view_orderkey < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("view_orderkey", "view_orderkey")))));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
