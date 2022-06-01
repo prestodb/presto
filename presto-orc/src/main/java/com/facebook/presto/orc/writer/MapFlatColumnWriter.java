@@ -388,11 +388,10 @@ public class MapFlatColumnWriter
     @Override
     public long getBufferedBytes()
     {
-        long bufferedBytes = 0;
+        long bufferedBytes = presentStream.getBufferedBytes();
         for (MapFlatValueWriter valueWriter : valueWriters) {
-            bufferedBytes += valueWriter.getValueWriter().getBufferedBytes();
+            bufferedBytes += valueWriter.getBufferedBytes();
         }
-        // TODO Implement me
         return bufferedBytes;
     }
 
