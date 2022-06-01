@@ -15,7 +15,6 @@ add_executable(
   velox_type_test
   StringViewTest.cpp
   TypeTest.cpp
-  DecimalTest.cpp
   FilterTest.cpp
   SubfieldTest.cpp
   TimestampConversionTest.cpp

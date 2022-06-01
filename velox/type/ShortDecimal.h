@@ -25,9 +25,7 @@ namespace facebook::velox {
 
 struct ShortDecimal {
  public:
-  // Default required for creating vector with NULL values.
-  ShortDecimal() = default;
-  constexpr explicit ShortDecimal(int64_t value) : unscaledValue_(value) {}
+  explicit ShortDecimal(int64_t value) : unscaledValue_(value) {}
 
   int64_t unscaledValue() const {
     return unscaledValue_;
@@ -57,10 +55,37 @@ struct ShortDecimal {
     return unscaledValue_ >= other.unscaledValue_;
   }
 
+  // Needed for serialization of FlatVector<ShortDecimal>
+  operator StringView() const {
+    VELOX_NYI();
+  }
+
+  std::string toString() const;
+
+  operator std::string() const {
+    return toString();
+  }
+
+  operator folly::dynamic() const {
+    return folly::dynamic(unscaledValue_);
+  }
+
  private:
-  int64_t unscaledValue_;
+  const int64_t unscaledValue_;
 };
 } // namespace facebook::velox
+
+namespace std {
+template <>
+struct hash<::facebook::velox::ShortDecimal> {
+  size_t operator()(const ::facebook::velox::ShortDecimal& value) const {
+    return std::hash<int64_t>{}(value.unscaledValue());
+  }
+};
+
+std::string to_string(const ::facebook::velox::ShortDecimal& ts);
+
+} // namespace std
 
 namespace folly {
 template <>
