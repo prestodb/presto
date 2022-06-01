@@ -552,7 +552,7 @@ public class TestAbstractIcebergSmoke
 
     private void testTruncateTransformsForFormat(Session session, FileFormat format)
     {
-        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_transform$partitions\"";
+        String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"test_truncate_transform$partitions\"";
 
         assertUpdate(session, format("CREATE TABLE test_truncate_transform (d VARCHAR, b BIGINT)" +
                 " WITH (format = '%s', partitioning = ARRAY['truncate(d, 2)'])", format.name()));
@@ -570,13 +570,13 @@ public class TestAbstractIcebergSmoke
         assertQuery(session, "SELECT COUNT(*) FROM \"test_truncate_transform$partitions\"", "SELECT 3");
 
         assertQuery(session, "SELECT b FROM test_truncate_transform WHERE substr(d, 1, 2) = 'ab'", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
-        assertQuery(session, select + " WHERE d_trunc = 'ab'", "VALUES('ab', 3, 'ab598', 'abxy', 1, 3)");
+        assertQuery(session, select + " WHERE partition.d_trunc = 'ab'", "VALUES('ab', 3, 'ab598', 'abxy', 1, 3)");
 
         assertQuery(session, "SELECT b FROM test_truncate_transform WHERE substr(d, 1, 2) = 'mo'", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
-        assertQuery(session, select + " WHERE d_trunc = 'mo'", "VALUES('mo', 2, 'mommy', 'moscow', 4, 5)");
+        assertQuery(session, select + " WHERE partition.d_trunc = 'mo'", "VALUES('mo', 2, 'mommy', 'moscow', 4, 5)");
 
         assertQuery(session, "SELECT b FROM test_truncate_transform WHERE substr(d, 1, 2) = 'Gr'", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
-        assertQuery(session, select + " WHERE d_trunc = 'Gr'", "VALUES('Gr', 2, 'Greece', 'Grozny', 6, 7)");
+        assertQuery(session, select + " WHERE partition.d_trunc = 'Gr'", "VALUES('Gr', 2, 'Greece', 'Grozny', 6, 7)");
 
         dropTable(session, "test_truncate_transform");
     }
@@ -589,7 +589,7 @@ public class TestAbstractIcebergSmoke
 
     private void testBucketTransformsForFormat(Session session, FileFormat format)
     {
-        String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
+        String select = "SELECT partition.d_bucket, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"test_bucket_transform$partitions\"";
 
         assertUpdate(session, format("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT)" +
                 " WITH (format = '%s', partitioning = ARRAY['bucket(d, 2)'])", format.name()));
@@ -605,9 +605,9 @@ public class TestAbstractIcebergSmoke
 
         assertQuery(session, "SELECT COUNT(*) FROM \"test_bucket_transform$partitions\"", "SELECT 2");
 
-        assertQuery(session, select + " WHERE d_bucket = 0", "VALUES(0, 3, 'Grozny', 'mommy', 1, 7)");
+        assertQuery(session, select + " WHERE partition.d_bucket = 0", "VALUES(0, 3, 'Grozny', 'mommy', 1, 7)");
 
-        assertQuery(session, select + " WHERE d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
+        assertQuery(session, select + " WHERE partition.d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
 
         dropTable(session, "test_bucket_transform");
     }

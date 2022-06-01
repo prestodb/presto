@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -89,17 +90,17 @@ public class TestIcebergSystemTables
     {
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$partitions\"",
-                "VALUES ('_date', 'date', '', '')," +
-                        "('row_count', 'bigint', '', '')," +
+                "VALUES ('partition', 'row(\"_date\" date)', '', '')," +
+                        "('record_count', 'bigint', '', '')," +
                         "('file_count', 'bigint', '', '')," +
                         "('total_size', 'bigint', '', '')," +
-                        "('_bigint', 'row(\"min\" bigint, \"max\" bigint, \"null_count\" bigint)', '', '')");
+                        "('data', 'row(\"_bigint\" row(\"min\" bigint, \"max\" bigint, \"null_count\" bigint))', '', '')");
 
         MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table$partitions\"");
         assertEquals(result.getRowCount(), 3);
 
         Map<LocalDate, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
-                .collect(toImmutableMap(row -> (LocalDate) row.getField(0), Function.identity()));
+                .collect(toImmutableMap(row -> (LocalDate) ((List<?>) row.getField(0)).get(0), Function.identity()));
 
         // Test if row counts are computed correctly
         assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(1), 1L);
@@ -107,14 +108,15 @@ public class TestIcebergSystemTables
         assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1), 2L);
 
         // Test if min/max values and null value count are computed correctly.
+
         assertEquals(
-                rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4),
+                ((List<?>) rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4)).get(0),
                 new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L).getFields());
         assertEquals(
-                rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4),
+                ((List<?>) rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4)).get(0),
                 new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L).getFields());
         assertEquals(
-                rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4),
+                ((List<?>) rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4)).get(0),
                 new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L).getFields());
     }
 
