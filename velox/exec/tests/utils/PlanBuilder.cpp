@@ -15,6 +15,8 @@
  */
 
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include <velox/core/ITypedExpr.h>
+#include <velox/type/Filter.h>
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
@@ -138,6 +140,10 @@ std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
   auto queryCtx = core::QueryCtx::createForTest();
   auto upper = toConstant(upperExpr, queryCtx);
   switch (upper->typeKind()) {
+    case TypeKind::TINYINT:
+      return common::test::lessThanOrEqual(singleValue<int8_t>(upper));
+    case TypeKind::SMALLINT:
+      return common::test::lessThanOrEqual(singleValue<int16_t>(upper));
     case TypeKind::INTEGER:
       return common::test::lessThanOrEqual(singleValue<int32_t>(upper));
     case TypeKind::BIGINT:
@@ -163,6 +169,10 @@ std::unique_ptr<common::Filter> makeLessThanFilter(
   auto queryCtx = core::QueryCtx::createForTest();
   auto upper = toConstant(upperExpr, queryCtx);
   switch (upper->typeKind()) {
+    case TypeKind::TINYINT:
+      return common::test::lessThan(singleValue<int8_t>(upper));
+    case TypeKind::SMALLINT:
+      return common::test::lessThan(singleValue<int16_t>(upper));
     case TypeKind::INTEGER:
       return common::test::lessThan(singleValue<int32_t>(upper));
     case TypeKind::BIGINT:
@@ -188,6 +198,10 @@ std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
   auto queryCtx = core::QueryCtx::createForTest();
   auto lower = toConstant(lowerExpr, queryCtx);
   switch (lower->typeKind()) {
+    case TypeKind::TINYINT:
+      return common::test::greaterThanOrEqual(singleValue<int8_t>(lower));
+    case TypeKind::SMALLINT:
+      return common::test::greaterThanOrEqual(singleValue<int16_t>(lower));
     case TypeKind::INTEGER:
       return common::test::greaterThanOrEqual(singleValue<int32_t>(lower));
     case TypeKind::BIGINT:
@@ -213,6 +227,10 @@ std::unique_ptr<common::Filter> makeGreaterThanFilter(
   auto queryCtx = core::QueryCtx::createForTest();
   auto lower = toConstant(lowerExpr, queryCtx);
   switch (lower->typeKind()) {
+    case TypeKind::TINYINT:
+      return common::test::greaterThan(singleValue<int8_t>(lower));
+    case TypeKind::SMALLINT:
+      return common::test::greaterThan(singleValue<int16_t>(lower));
     case TypeKind::INTEGER:
       return common::test::greaterThan(singleValue<int32_t>(lower));
     case TypeKind::BIGINT:
@@ -240,6 +258,10 @@ std::unique_ptr<common::Filter> makeEqualFilter(
   switch (value->typeKind()) {
     case TypeKind::BOOLEAN:
       return common::test::boolEqual(singleValue<bool>(value));
+    case TypeKind::TINYINT:
+      return common::test::equal(singleValue<int8_t>(value));
+    case TypeKind::SMALLINT:
+      return common::test::equal(singleValue<int16_t>(value));
     case TypeKind::INTEGER:
       return common::test::equal(singleValue<int32_t>(value));
     case TypeKind::BIGINT:
@@ -258,10 +280,39 @@ std::unique_ptr<common::Filter> makeEqualFilter(
 
 std::unique_ptr<common::Filter> makeNotEqualFilter(
     const core::TypedExprPtr& valueExpr) {
-  std::vector<std::unique_ptr<common::Filter>> filters;
-  filters.emplace_back(makeLessThanFilter(valueExpr));
-  filters.emplace_back(makeGreaterThanFilter(valueExpr));
-  return std::make_unique<common::MultiRange>(std::move(filters), false, false);
+  auto queryCtx = core::QueryCtx::createForTest();
+  auto value = toConstant(valueExpr, queryCtx);
+
+  std::unique_ptr<common::Filter> lessThanFilter =
+      makeLessThanFilter(valueExpr);
+  std::unique_ptr<common::Filter> greaterThanFilter =
+      makeGreaterThanFilter(valueExpr);
+
+  if (value->typeKind() == TypeKind::TINYINT ||
+      value->typeKind() == TypeKind::SMALLINT ||
+      value->typeKind() == TypeKind::INTEGER ||
+      value->typeKind() == TypeKind::BIGINT) {
+    // Cast lessThanFilter and greaterThanFilter to
+    // std::unique_ptr<common::BigintRange>.
+    std::vector<std::unique_ptr<common::BigintRange>> ranges;
+    auto lessRange =
+        dynamic_cast<common::BigintRange*>(lessThanFilter.release());
+    VELOX_CHECK_NOT_NULL(lessRange, "Less-than range is null");
+    ranges.emplace_back(std::unique_ptr<common::BigintRange>(lessRange));
+
+    auto greaterRange =
+        dynamic_cast<common::BigintRange*>(greaterThanFilter.release());
+    VELOX_CHECK_NOT_NULL(greaterRange, "Greater-than range is null");
+    ranges.emplace_back(std::unique_ptr<common::BigintRange>(greaterRange));
+
+    return std::make_unique<common::BigintMultiRange>(std::move(ranges), false);
+  } else {
+    std::vector<std::unique_ptr<common::Filter>> filters;
+    filters.emplace_back(std::move(lessThanFilter));
+    filters.emplace_back(std::move(greaterThanFilter));
+    return std::make_unique<common::MultiRange>(
+        std::move(filters), false, false);
+  }
 }
 
 std::unique_ptr<common::Filter> makeBetweenFilter(

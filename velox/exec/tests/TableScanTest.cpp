@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <velox/type/Timestamp.h>
 #include "velox/common/base/tests/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
@@ -1455,26 +1456,100 @@ TEST_F(TableScanTest, bucket) {
   }
 }
 
+TEST_F(TableScanTest, integerNotEqualFilter) {
+  auto rowType = ROW(
+      {"c0", "c1", "c2", "c3"}, {TINYINT(), SMALLINT(), INTEGER(), BIGINT()});
+
+  const vector_size_t size = 1'000;
+
+  // Create four columns of various integer types for testing the != filter
+  // first two columns test normal filtering against TINYINT/SMALLINT
+  // third column tests negative numbers and INTEGER type
+  // fourth column tests nulls and BIGINT type
+  auto rowVector = makeRowVector(
+      {makeFlatVector<int8_t>(size, [](auto row) { return row % 15; }),
+       makeFlatVector<int16_t>(size, [](auto row) { return row % 122; }),
+       makeFlatVector<int32_t>(size, [](auto row) { return (row % 97) * -1; }),
+       makeFlatVector<int64_t>(
+           size, [](auto row) { return row % 210; }, nullEvery(11))});
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, rowVector);
+  createDuckDbTable({rowVector});
+
+  assertQuery(
+      PlanBuilder().tableScan(rowType, {"c0 != 0::TINYINT"}, {}).planNode(),
+      {filePath},
+      "SELECT * FROM tmp WHERE c0 != 0");
+
+  assertQuery(
+      PlanBuilder().tableScan(rowType, {"c1 != 1::SMALLINT"}, {}).planNode(),
+      {filePath},
+      "SELECT * FROM tmp WHERE c1 != 1");
+
+  assertQuery(
+      PlanBuilder().tableScan(rowType, {"c2 != (-2)::INTEGER"}, {}).planNode(),
+      {filePath},
+      "SELECT * FROM tmp WHERE c2 != -2");
+
+  assertQuery(
+      PlanBuilder().tableScan(rowType, {"c3 != 3::BIGINT"}, {}).planNode(),
+      {filePath},
+      "SELECT * FROM tmp WHERE c3 != 3");
+}
+
 TEST_F(TableScanTest, floatingPointNotEqualFilter) {
   auto vectors = makeVectors(1, 1'000);
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, vectors);
   createDuckDbTable(vectors);
 
-  const std::string tableName = "t";
-
   auto outputType = ROW({"c4"}, {DOUBLE()});
-  auto op = PlanBuilder()
-                .tableScan(tableName, outputType, {}, {"c4 != 0.0"})
-                .planNode();
+  auto op = PlanBuilder().tableScan(outputType, {"c4 != 0.0"}, {}).planNode();
   assertQuery(op, {filePath}, "SELECT c4 FROM tmp WHERE c4 != 0.0");
 
   outputType = ROW({"c3"}, {REAL()});
   op = PlanBuilder()
-           .tableScan(tableName, outputType, {}, {"c3 != cast(0.0 as REAL)"})
+           .tableScan(outputType, {"c3 != cast(0.0 as REAL)"}, {})
            .planNode();
   assertQuery(
       op, {filePath}, "SELECT c3 FROM tmp WHERE c3 != cast(0.0 as REAL)");
+}
+
+TEST_F(TableScanTest, stringNotEqualFilter) {
+  auto rowType = ROW({"c0", "c1"}, {VARCHAR(), VARCHAR()});
+
+  const vector_size_t size = 1'000;
+
+  std::vector<StringView> fruitViews = {"apple", "banana", "cherry", "grapes"};
+  // ensure empty string is handled properly
+  std::vector<StringView> colourViews = {"red", "blue", "green", "purple", ""};
+  // create two columns of strings to test against, c0 with some nulls and
+  // c1 with some empty strings
+  auto rowVector = makeRowVector(
+      {makeFlatVector<StringView>(
+           size,
+           [&fruitViews](auto row) {
+             return fruitViews[row % fruitViews.size()];
+           },
+           nullEvery(15)),
+       makeFlatVector<StringView>(size, [&colourViews](auto row) {
+         return colourViews[row % colourViews.size()];
+       })});
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, rowVector);
+  createDuckDbTable({rowVector});
+
+  assertQuery(
+      PlanBuilder().tableScan(rowType, {"c0 != 'banana'"}, {}).planNode(),
+      {filePath},
+      "SELECT * FROM tmp WHERE c0 != 'banana'");
+
+  assertQuery(
+      PlanBuilder().tableScan(rowType, {"c1 != ''"}, {}).planNode(),
+      {filePath},
+      "SELECT * FROM tmp WHERE c1 != ''");
 }
 
 TEST_F(TableScanTest, remainingFilter) {
