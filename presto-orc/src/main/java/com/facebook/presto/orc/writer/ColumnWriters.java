@@ -21,6 +21,7 @@ import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StatisticsBuilder;
@@ -29,13 +30,15 @@ import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
-import static com.facebook.presto.orc.metadata.statistics.StatisticsBuilders.createFlatMapKeyStatisticsBuilderSupplier;
+import static com.facebook.presto.orc.metadata.statistics.StatisticsBuilders.createEmptyColumnStatistics;
+import static com.facebook.presto.orc.metadata.statistics.StatisticsBuilders.createStatisticsBuilderSupplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -139,13 +142,20 @@ public final class ColumnWriters
                     checkArgument(orcEncoding == DWRF, "%s does not support flat maps", orcEncoding);
                     Type valueType = type.getTypeParameters().get(1);
                     OrcType keyOrcType = orcTypes.get(orcType.getFieldTypeIndex(0));
-                    Supplier<StatisticsBuilder> keyStatisticsBuilderSupplier = createFlatMapKeyStatisticsBuilderSupplier(keyOrcType, columnWriterOptions);
+                    Supplier<StatisticsBuilder> keyStatisticsBuilderSupplier = createStatisticsBuilderSupplier(keyOrcType, columnWriterOptions);
 
                     // value writers should not create their own expensive dictionaries, instead they should use shared dictionaries
                     ColumnWriterOptions valueWriterColumnWriterOptions = columnWriterOptions.copyWithDisabledDictionaryEncoding();
 
+                    // Flat map writer needs to provide column statistics for the value node(s) even if there are no values.
+                    // This lambda will provide empty column statistics right away instead of creating an expensive empty
+                    // value writer and getting empty stats from it.
+                    int valueNodeIndex = orcType.getFieldTypeIndex(1);
+                    Supplier<Map<Integer, ColumnStatistics>> emptyColumnStatisticsSupplier =
+                            () -> createEmptyColumnStatistics(orcTypes, valueNodeIndex, columnWriterOptions);
+
                     IntFunction<ColumnWriter> valueWriterSupplier = (valueSequence) -> createColumnWriter(
-                            orcType.getFieldTypeIndex(1),
+                            valueNodeIndex,
                             valueSequence,
                             orcTypes,
                             valueType,
@@ -158,14 +168,15 @@ public final class ColumnWriters
                     return new MapFlatColumnWriter(
                             nodeIndex,
                             orcType.getFieldTypeIndex(0),
-                            orcType.getFieldTypeIndex(1),
+                            valueNodeIndex,
                             type.getTypeParameters().get(0),
                             valueType,
                             keyStatisticsBuilderSupplier,
                             columnWriterOptions,
                             dwrfEncryptor,
                             metadataWriter,
-                            valueWriterSupplier);
+                            valueWriterSupplier,
+                            emptyColumnStatisticsSupplier);
                 }
 
                 ColumnWriter keyWriter = createColumnWriter(
