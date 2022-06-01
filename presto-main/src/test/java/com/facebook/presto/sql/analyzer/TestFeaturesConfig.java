@@ -195,6 +195,7 @@ public class TestFeaturesConfig
                 .setMaxStageCountForEagerScheduling(25)
                 .setHyperloglogStandardErrorWarningThreshold(0.004)
                 .setPreferMergeJoin(false)
+                .setMergeJoinBufferEnabled(true)
                 .setSegmentedAggregationEnabled(false)
                 .setQueryAnalyzerTimeout(new Duration(3, MINUTES))
                 .setQuickDistinctLimitEnabled(false));
@@ -343,6 +344,7 @@ public class TestFeaturesConfig
                 .put("execution-policy.max-stage-count-for-eager-scheduling", "123")
                 .put("hyperloglog-standard-error-warning-threshold", "0.02")
                 .put("optimizer.prefer-merge-join", "true")
+                .put("optimizer.merge-join-buffer-enabled", "false")
                 .put("optimizer.segmented-aggregation-enabled", "true")
                 .put("planner.query-analyzer-timeout", "10s")
                 .put("optimizer.quick-distinct-limit-enabled", "true")
@@ -489,6 +491,7 @@ public class TestFeaturesConfig
                 .setMaxStageCountForEagerScheduling(123)
                 .setHyperloglogStandardErrorWarningThreshold(0.02)
                 .setPreferMergeJoin(true)
+                .setMergeJoinBufferEnabled(false)
                 .setSegmentedAggregationEnabled(true)
                 .setQueryAnalyzerTimeout(new Duration(10, SECONDS))
                 .setQuickDistinctLimitEnabled(true);
