@@ -236,8 +236,8 @@ public class MapFlatSelectiveStreamReader
 
         outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
-        if (presentStream != null && keyCount == 0) {
-            readAllNulls(positions, positionCount);
+        if (keyCount == 0 && presentStream == null) {
+            readAllEmpty(positions, positionCount);
         }
         else {
             readNotAllNulls(offset, positions, positionCount);
@@ -248,20 +248,19 @@ public class MapFlatSelectiveStreamReader
         return outputPositionCount;
     }
 
-    private void readAllNulls(int[] positions, int positionCount)
-            throws IOException
+    private void readAllEmpty(int[] positions, int positionCount)
     {
-        presentStream.skip(positions[positionCount - 1]);
+        outputPositions = positions;
+        outputPositionsReadOnly = true;
 
-        allNulls = true;
-
-        if (!nullsAllowed) {
+        if (!nonNullsAllowed) {
+            allNulls = true;
             outputPositionCount = 0;
         }
         else {
             outputPositionCount = positionCount;
-            outputPositions = positions;
-            outputPositionsReadOnly = true;
+            nestedLengths = ensureCapacity(nestedLengths, positionCount);
+            Arrays.fill(nestedLengths, 0);
         }
     }
 
