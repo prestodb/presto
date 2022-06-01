@@ -131,6 +131,11 @@ class MapFlatValueWriter
         return valueWriter.getIndexStreams(Optional.of(inMapStream.getCheckpoints()));
     }
 
+    public long getBufferedBytes()
+    {
+        return valueWriter.getBufferedBytes() + inMapStream.getBufferedBytes();
+    }
+
     public void close()
     {
         inMapStream.close();
