@@ -289,13 +289,12 @@ public class OrcTester
         OrcTester orcTester = new OrcTester();
         orcTester.nullTestsEnabled = true;
         orcTester.skipBatchTestsEnabled = true;
+        orcTester.skipStripeTestsEnabled = true;
         orcTester.formats = ImmutableSet.of(DWRF);
         orcTester.compressions = ImmutableSet.of(ZLIB);
         orcTester.dwrfEncryptionEnabled = true;
         orcTester.flattenAllColumns = true;
-
-        // TODO: sdruzkin - enable this flag after fixing a bug with null/empty maps in the selective reader
-        // orcTester.useSelectiveOrcReader = true;
+        orcTester.useSelectiveOrcReader = true;
         return orcTester;
     }
 

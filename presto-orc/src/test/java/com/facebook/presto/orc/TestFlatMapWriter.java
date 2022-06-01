@@ -51,21 +51,36 @@ public class TestFlatMapWriter
     private static final Map<?, ?> EMPTY_MAP = ImmutableMap.of();
 
     @Test
-    public void testComplexValueType()
+    public void testMapValueType()
+            throws Exception
+    {
+        runTest(mapType(INTEGER, mapType(INTEGER, VARCHAR)),
+                1, 2, 3,
+                ImmutableMap.of(10, "20"), ImmutableMap.of(11, "22"), ImmutableMap.of(12, "23"), ImmutableMap.of(13, "24"), ImmutableMap.of(14, "25"));
+    }
+
+    @Test
+    public void testArrayValueType()
             throws Exception
     {
         runTest(mapType(INTEGER, arrayType(INTEGER)),
                 1, 2, 3,
                 ImmutableList.of(1, 2), ImmutableList.of(3), ImmutableList.of(4, 5), ImmutableList.of(6), ImmutableList.of(9, 10));
+    }
 
+    @Test
+    public void testRowValueType()
+            throws Exception
+    {
         runTest(mapType(INTEGER, rowType(INTEGER, VARCHAR)),
                 1, 2, 3,
                 ImmutableList.of(10, "20"), ImmutableList.of(11, "22"), ImmutableList.of(12, "23"), ImmutableList.of(13, "24"), ImmutableList.of(14, "25"));
+    }
 
-        runTest(mapType(INTEGER, mapType(INTEGER, VARCHAR)),
-                1, 2, 3,
-                ImmutableMap.of(10, "20"), ImmutableMap.of(11, "22"), ImmutableMap.of(12, "23"), ImmutableMap.of(13, "24"), ImmutableMap.of(14, "25"));
-
+    @Test
+    public void testDeeplyNestedValueType()
+            throws Exception
+    {
         // do one deeply nested value type
         runTest(mapType(INTEGER, arrayType(arrayType(INTEGER))),
                 1, 2, 3,
