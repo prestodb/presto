@@ -102,6 +102,7 @@ public class MapFlatColumnWriter
 
     private final List<MapFlatValueWriter> valueWriters = new ArrayList<>();
     private final IntFunction<ColumnWriter> valueWriterFactory;
+    private final Supplier<Map<Integer, ColumnStatistics>> emptyValueColumnStatisticsSupplier;
     private final IntList rowsInFinishedRowGroups = new IntArrayList();
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
 
@@ -119,9 +120,7 @@ public class MapFlatColumnWriter
     // won't be able to get required column statistics for all sub nodes.
     // This field contains cached stripe column statistics for the value node(s)
     // for this edge case.
-    // TODO: Extend the ColumnStatisticsBuilders to create builders to all ORC
-    //  types to able to build empty stats without initializing value writers
-    private Map<Integer, ColumnStatistics> emptyValueColumnStripeStatistics;
+    private Map<Integer, ColumnStatistics> emptyValueColumnStatistics;
 
     public MapFlatColumnWriter(
             int nodeIndex,
@@ -133,7 +132,8 @@ public class MapFlatColumnWriter
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             MetadataWriter metadataWriter,
-            IntFunction<ColumnWriter> valueWriterFactory)
+            IntFunction<ColumnWriter> valueWriterFactory,
+            Supplier<Map<Integer, ColumnStatistics>> emptyValueColumnStatisticsSupplier)
     {
         checkArgument(nodeIndex > 0, "nodeIndex is invalid: %s", nodeIndex);
         checkArgument(keyNodeIndex > 0, "keyNodeIndex is invalid: %s", keyNodeIndex);
@@ -150,6 +150,7 @@ public class MapFlatColumnWriter
         this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         this.keyManager = getKeyManager(keyType, keyStatisticsBuilderSupplier);
         this.valueWriterFactory = requireNonNull(valueWriterFactory, "valueWriterFactory is null");
+        this.emptyValueColumnStatisticsSupplier = requireNonNull(emptyValueColumnStatisticsSupplier, "emptyValueColumnStatisticsSupplier is null");
 
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
@@ -229,18 +230,10 @@ public class MapFlatColumnWriter
         rowsInFinishedRowGroups.add(nonNullRowGroupValueCount);
         nonNullRowGroupValueCount = 0;
 
-        Map<Integer, ColumnStatistics> valueStats;
-        if (valueWriters.isEmpty()) {
-            valueStats = getEmptyValueColumnStatistics();
-        }
-        else {
-            valueStats = getValueColumnStatistics(ColumnWriter::finishRowGroup);
-        }
-
         return ImmutableMap.<Integer, ColumnStatistics>builder()
                 .put(nodeIndex, mapStats)
                 .put(keyNodeIndex, keyManager.getRowGroupColumnStatistics())
-                .putAll(valueStats)
+                .putAll(getValueColumnStatistics(ColumnWriter::finishRowGroup))
                 .build();
     }
 
@@ -249,35 +242,32 @@ public class MapFlatColumnWriter
     {
         checkState(closed);
 
-        Map<Integer, ColumnStatistics> valueStats;
-        if (valueWriters.isEmpty()) {
-            valueStats = getEmptyValueColumnStatistics();
-        }
-        else {
-            valueStats = getValueColumnStatistics(ColumnWriter::getColumnStripeStatistics);
-        }
         return ImmutableMap.<Integer, ColumnStatistics>builder()
                 .put(nodeIndex, mergeColumnStatistics(rowGroupColumnStatistics))
                 .put(keyNodeIndex, keyManager.getStripeColumnStatistics())
-                .putAll(valueStats)
+                .putAll(getValueColumnStatistics(ColumnWriter::getColumnStripeStatistics))
                 .build();
     }
 
-    // Create and cache value columnStripeStatistics for cases when the there are no value writers,
-    // but we still need to write valid column stripe statistics for all nested writers.
+    /**
+     * Create and cache ColumnStatistics for the value node(s) for cases when the there are no value
+     * writers, but we still need to write valid column stripe statistics for all nested writers.
+     */
     private Map<Integer, ColumnStatistics> getEmptyValueColumnStatistics()
     {
-        if (emptyValueColumnStripeStatistics == null) {
-            ColumnWriter valueWriter = valueWriterFactory.apply(0);
-            valueWriter.close();
+        if (emptyValueColumnStatistics == null) {
             // stats are the same for row group and stripe
-            emptyValueColumnStripeStatistics = valueWriter.getColumnStripeStatistics();
+            emptyValueColumnStatistics = emptyValueColumnStatisticsSupplier.get();
         }
-        return emptyValueColumnStripeStatistics;
+        return emptyValueColumnStatistics;
     }
 
     private Map<Integer, ColumnStatistics> getValueColumnStatistics(Function<ColumnWriter, Map<Integer, ColumnStatistics>> getStats)
     {
+        if (valueWriters.isEmpty()) {
+            return getEmptyValueColumnStatistics();
+        }
+
         ImmutableListMultimap.Builder<Integer, ColumnStatistics> allValueStats = ImmutableListMultimap.builder();
         for (MapFlatValueWriter valueWriter : valueWriters) {
             Map<Integer, ColumnStatistics> valueColumnStatistic = getStats.apply(valueWriter.getValueWriter());
