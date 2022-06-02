@@ -77,6 +77,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
@@ -493,7 +494,9 @@ public enum FileFormat
                                 true,
                                 NO_CACHE_CONSTRAINTS,
                                 Optional.empty(),
-                                Optional.empty(),
+                                OptionalLong.of(targetFile.length()),
+                                OptionalLong.of(0),
+                                OptionalLong.of(targetFile.length()),
                                 modificationTime,
                                 false),
                         Optional.empty())

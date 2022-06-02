@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
@@ -213,7 +214,9 @@ public class HivePageSourceProvider
                         splitContext.isCacheable(),
                         cacheQuota,
                         hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new),
-                        Optional.of(hiveSplit.getFileSize()),
+                        OptionalLong.of(hiveSplit.getFileSize()),
+                        OptionalLong.of(hiveSplit.getStart()),
+                        OptionalLong.of(hiveSplit.getLength()),
                         hiveSplit.getFileModifiedTime(),
                         HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
                 hiveLayout.getRemainingPredicate(),
@@ -330,7 +333,9 @@ public class HivePageSourceProvider
                             splitContext.isCacheable(),
                             cacheQuota,
                             split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new),
-                            Optional.of(split.getFileSize()),
+                            OptionalLong.of(split.getFileSize()),
+                            OptionalLong.of(split.getStart()),
+                            OptionalLong.of(split.getLength()),
                             split.getFileModifiedTime(),
                             HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
                     encryptionInformation,
