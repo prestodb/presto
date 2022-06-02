@@ -236,6 +236,38 @@ struct DayFunction : public InitSessionTimezone<T>,
 };
 
 template <typename T>
+struct DateMinusIntervalDayTime {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      Date& result,
+      const arg_type<Date>& date,
+      const arg_type<IntervalDayTime>& interval) {
+    VELOX_USER_CHECK(
+        interval.hasWholeDays(),
+        "Cannot subtract hours, minutes, seconds or milliseconds from a date");
+    result = date;
+    result.addDays(-interval.days());
+  }
+};
+
+template <typename T>
+struct DatePlusIntervalDayTime {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      Date& result,
+      const arg_type<Date>& date,
+      const arg_type<IntervalDayTime>& interval) {
+    VELOX_USER_CHECK(
+        interval.hasWholeDays(),
+        "Cannot add hours, minutes, seconds or milliseconds to a date");
+    result = date;
+    result.addDays(interval.days());
+  }
+};
+
+template <typename T>
 struct DayOfWeekFunction : public InitSessionTimezone<T>,
                            public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);

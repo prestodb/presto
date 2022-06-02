@@ -565,6 +565,38 @@ TEST_F(DateTimeFunctionsTest, dayOfMonthDate) {
   EXPECT_EQ(2, day(Date(-18262)));
 }
 
+TEST_F(DateTimeFunctionsTest, plusMinusDateIntervalDayTime) {
+  const auto plus = [&](std::optional<Date> date,
+                        std::optional<IntervalDayTime> interval) {
+    return evaluateOnce<Date>("c0 + c1", date, interval);
+  };
+  const auto minus = [&](std::optional<Date> date,
+                         std::optional<IntervalDayTime> interval) {
+    return evaluateOnce<Date>("c0 - c1", date, interval);
+  };
+
+  const IntervalDayTime oneDay(kMillisInDay * 1);
+  const IntervalDayTime tenDays(kMillisInDay * 10);
+  const IntervalDayTime partDay(kMillisInHour * 25);
+  const Date baseDate(20000);
+  const Date baseDatePlus1(20000 + 1);
+  const Date baseDatePlus10(20000 + 10);
+  const Date baseDateMinus1(20000 - 1);
+  const Date baseDateMinus10(20000 - 10);
+
+  EXPECT_EQ(std::nullopt, plus(std::nullopt, oneDay));
+  EXPECT_EQ(std::nullopt, plus(Date(10000), std::nullopt));
+  EXPECT_EQ(baseDatePlus1, plus(baseDate, oneDay));
+  EXPECT_EQ(baseDatePlus10, plus(baseDate, tenDays));
+  EXPECT_EQ(std::nullopt, minus(std::nullopt, oneDay));
+  EXPECT_EQ(std::nullopt, minus(Date(10000), std::nullopt));
+  EXPECT_EQ(baseDateMinus1, minus(baseDate, oneDay));
+  EXPECT_EQ(baseDateMinus10, minus(baseDate, tenDays));
+
+  EXPECT_THROW(plus(baseDate, partDay), VeloxUserError);
+  EXPECT_THROW(minus(baseDate, partDay), VeloxUserError);
+}
+
 TEST_F(DateTimeFunctionsTest, dayOfMonthTimestampWithTimezone) {
   EXPECT_EQ(
       31,

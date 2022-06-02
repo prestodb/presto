@@ -39,6 +39,12 @@ struct IntervalDayTime {
     return milliseconds_;
   }
 
+  /// Returns number of whole days in the interval.
+  int64_t days() const;
+
+  /// Returns true if contains whole days only.
+  bool hasWholeDays() const;
+
   bool operator==(const IntervalDayTime& other) const {
     return milliseconds_ == other.milliseconds_;
   }

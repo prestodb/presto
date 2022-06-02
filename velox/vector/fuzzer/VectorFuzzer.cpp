@@ -94,6 +94,10 @@ Date randDate(FuzzerGenerator& rng) {
   return Date(folly::Random::rand32(rng));
 }
 
+IntervalDayTime randIntervalDayTime(FuzzerGenerator& rng) {
+  return IntervalDayTime(folly::Random::rand64(rng));
+}
+
 size_t genContainerLength(
     const VectorFuzzer::Options& opts,
     FuzzerGenerator& rng) {
@@ -194,6 +198,8 @@ variant randVariantImpl(
     return variant(randTimestamp(rng, opts.useMicrosecondPrecisionTimestamp));
   } else if constexpr (std::is_same_v<TCpp, Date>) {
     return variant(randDate(rng));
+  } else if constexpr (std::is_same_v<TCpp, IntervalDayTime>) {
+    return variant(randIntervalDayTime(rng));
   } else {
     return variant(rand<TCpp>(rng));
   }
@@ -219,6 +225,8 @@ void fuzzFlatImpl(
           i, randTimestamp(rng, opts.useMicrosecondPrecisionTimestamp));
     } else if constexpr (std::is_same_v<TCpp, Date>) {
       flatVector->set(i, randDate(rng));
+    } else if constexpr (std::is_same_v<TCpp, IntervalDayTime>) {
+      flatVector->set(i, randIntervalDayTime(rng));
     } else {
       flatVector->set(i, rand<TCpp>(rng));
     }

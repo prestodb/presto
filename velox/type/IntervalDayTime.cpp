@@ -24,6 +24,14 @@ void parseTo(folly::StringPiece /*in*/, IntervalDayTime& /*out*/) {
 
 static const char* kIntervalFormat = "%d %02d:%02d:%02d.%03d";
 
+int64_t IntervalDayTime::days() const {
+  return milliseconds_ / kMillisInDay;
+}
+
+bool IntervalDayTime::hasWholeDays() const {
+  return (milliseconds_ % kMillisInDay) == 0;
+}
+
 std::string IntervalDayTime::toString() const {
   int64_t remainMillis = milliseconds_;
   const int64_t days = remainMillis / kMillisInDay;
