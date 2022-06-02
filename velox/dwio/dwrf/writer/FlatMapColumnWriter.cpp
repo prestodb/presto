@@ -28,7 +28,7 @@ FlatMapColumnWriter<K>::FlatMapColumnWriter(
     WriterContext& context,
     const TypeWithId& type,
     const uint32_t sequence)
-    : ColumnWriter{context, type, sequence, nullptr},
+    : BaseColumnWriter{context, type, sequence, nullptr},
       keyType_{*type.childAt(0)},
       valueType_{*type.childAt(1)},
       maxKeyCount_{context_.getConfig(Config::MAP_FLAT_MAX_KEYS)} {
@@ -45,7 +45,7 @@ FlatMapColumnWriter<K>::FlatMapColumnWriter(
 template <TypeKind K>
 void FlatMapColumnWriter<K>::setEncoding(
     proto::ColumnEncoding& encoding) const {
-  ColumnWriter::setEncoding(encoding);
+  BaseColumnWriter::setEncoding(encoding);
   encoding.set_kind(proto::ColumnEncoding_Kind::ColumnEncoding_Kind_MAP_FLAT);
 }
 
@@ -53,7 +53,7 @@ template <TypeKind K>
 void FlatMapColumnWriter<K>::flush(
     std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
     std::function<void(proto::ColumnEncoding&)> encodingOverride) {
-  ColumnWriter::flush(encodingFactory, encodingOverride);
+  BaseColumnWriter::flush(encodingFactory, encodingOverride);
 
   for (auto& pair : valueWriters_) {
     pair.second.flush(encodingFactory);
@@ -65,7 +65,7 @@ void FlatMapColumnWriter<K>::flush(
 
 template <TypeKind K>
 void FlatMapColumnWriter<K>::createIndexEntry() {
-  ColumnWriter::createIndexEntry();
+  BaseColumnWriter::createIndexEntry();
   rowsInStrides_.push_back(rowsInCurrentStride_);
   rowsInCurrentStride_ = 0;
 
@@ -111,7 +111,7 @@ void FlatMapColumnWriter<K>::clearNodes() {
 
 template <TypeKind K>
 void FlatMapColumnWriter<K>::reset() {
-  ColumnWriter::reset();
+  BaseColumnWriter::reset();
   clearNodes();
   valueWriters_.clear();
   rowsInStrides_.clear();
@@ -346,7 +346,7 @@ uint64_t FlatMapColumnWriter<K>::write(
   const MapVector* mapSlice = slice->as<MapVector>();
   if (mapSlice) {
     // Map is flat
-    ColumnWriter::write(slice, ranges);
+    writeNulls(slice, ranges);
     offsets = mapSlice->rawOffsets();
     lengths = mapSlice->rawSizes();
     nullCount = processBatch(Flat{slice}, mapSlice);
@@ -354,7 +354,7 @@ uint64_t FlatMapColumnWriter<K>::write(
     // Map is encoded. Decode.
     auto localDecodedMap = decode(slice, ranges);
     auto& decodedMap = localDecodedMap.get();
-    ColumnWriter::write(decodedMap, ranges);
+    writeNulls(decodedMap, ranges);
     mapSlice = decodedMap.base()->template as<MapVector>();
     DWIO_ENSURE(mapSlice, "unexpected vector type");
 

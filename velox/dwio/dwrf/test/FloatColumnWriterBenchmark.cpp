@@ -79,7 +79,7 @@ void FloatColumnWriterBenchmarkbase() {
     // write
     auto config = std::make_shared<Config>();
     WriterContext context{config, memory::getDefaultScopedMemoryPool()};
-    auto writer = ColumnWriter::create(context, *typeWithId, 0);
+    auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
     braces.dismiss();
     writer->write(vector, Ranges::of(0, size));
   }

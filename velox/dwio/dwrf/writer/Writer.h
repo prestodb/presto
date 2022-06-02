@@ -21,7 +21,12 @@
 
 namespace facebook::velox::dwrf {
 
-struct WriterOptions : public WriterOptionsShared {};
+struct WriterOptions : public WriterOptionsShared {
+  std::function<std::unique_ptr<ColumnWriter>(
+      WriterContext& context,
+      const velox::dwio::common::TypeWithId& type)>
+      columnWriterFactory;
+};
 
 class Writer : public WriterShared {
  public:
@@ -30,7 +35,11 @@ class Writer : public WriterShared {
       std::unique_ptr<dwio::common::DataSink> sink,
       memory::MemoryPool& pool)
       : WriterShared{options, std::move(sink), pool} {
-    writer_ = ColumnWriter::create(getContext(), *schema_);
+    if (!options.columnWriterFactory) {
+      writer_ = BaseColumnWriter::create(getContext(), *schema_);
+    } else {
+      writer_ = options.columnWriterFactory(getContext(), *schema_);
+    }
   }
 
   ~Writer() override = default;
@@ -82,6 +91,7 @@ class Writer : public WriterShared {
   std::unique_ptr<ColumnWriter> writer_;
 
   friend class E2EEncryptionTest;
+  friend class WriterTestHelper;
 };
 
 } // namespace facebook::velox::dwrf

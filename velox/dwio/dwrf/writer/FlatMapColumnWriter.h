@@ -42,7 +42,7 @@ class ValueStatisticsBuilder {
     return create_(context, root, options);
   }
 
-  void merge(const ColumnWriter& writer) const {
+  void merge(const BaseColumnWriter& writer) const {
     statisticsBuilder_->merge(*writer.indexStatsBuilder_);
     DWIO_ENSURE(
         children_.size() == writer.children_.size(),
@@ -102,7 +102,7 @@ class ValueWriter {
         keyInfo_{keyInfo},
         inMap_{createBooleanRleEncoder(context.newStream(
             {type.id, sequence, 0, StreamKind::StreamKind_IN_MAP}))},
-        columnWriter_{ColumnWriter::create(
+        columnWriter_{BaseColumnWriter::create(
             context,
             type,
             sequence,
@@ -174,7 +174,7 @@ class ValueWriter {
   uint32_t sequence_;
   const proto::KeyInfo keyInfo_;
   std::unique_ptr<ByteRleEncoder> inMap_;
-  std::unique_ptr<ColumnWriter> columnWriter_;
+  std::unique_ptr<BaseColumnWriter> columnWriter_;
   dwio::common::DataBuffer<char> inMapBuffer_;
   Ranges ranges_;
 };
@@ -217,7 +217,7 @@ struct TypeInfo<TypeKind::VARBINARY> {
 } // namespace
 
 template <TypeKind K>
-class FlatMapColumnWriter : public ColumnWriter {
+class FlatMapColumnWriter : public BaseColumnWriter {
  public:
   FlatMapColumnWriter(
       WriterContext& context,
@@ -269,7 +269,7 @@ class FlatMapColumnWriter : public ColumnWriter {
 template <>
 class FlatMapColumnWriter<TypeKind::INVALID> {
  public:
-  static std::unique_ptr<ColumnWriter> create(
+  static std::unique_ptr<BaseColumnWriter> create(
       WriterContext& context,
       const dwio::common::TypeWithId& type,
       const uint32_t sequence) {

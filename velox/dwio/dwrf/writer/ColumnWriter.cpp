@@ -30,7 +30,7 @@ using namespace facebook::velox::memory;
 
 namespace facebook::velox::dwrf {
 
-WriterContext::LocalDecodedVector ColumnWriter::decode(
+WriterContext::LocalDecodedVector BaseColumnWriter::decode(
     const VectorPtr& slice,
     const Ranges& ranges) {
   auto& selected = context_.getSharedSelectivityVector(slice->size());
@@ -49,7 +49,7 @@ WriterContext::LocalDecodedVector ColumnWriter::decode(
 namespace {
 
 template <typename T>
-class ByteRleColumnWriter : public ColumnWriter {
+class ByteRleColumnWriter : public BaseColumnWriter {
  public:
   ByteRleColumnWriter(
       WriterContext& context,
@@ -58,7 +58,7 @@ class ByteRleColumnWriter : public ColumnWriter {
       std::function<std::unique_ptr<ByteRleEncoder>(
           std::unique_ptr<BufferedOutputStream>)> factory,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type, sequence, onRecordPosition},
+      : BaseColumnWriter{context, type, sequence, onRecordPosition},
         data_{factory(newStream(StreamKind::StreamKind_DATA))} {
     reset();
   }
@@ -68,12 +68,12 @@ class ByteRleColumnWriter : public ColumnWriter {
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
       std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
-    ColumnWriter::flush(encodingFactory, encodingOverride);
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
     data_->flush();
   }
 
   void recordPosition() override {
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     data_->recordPosition(*indexBuilder_);
   }
 
@@ -91,7 +91,7 @@ uint64_t ByteRleColumnWriter<int8_t>::write(
     // Optimized path for flat vectors
     auto flatVector = slice->as<FlatVector<int8_t>>();
     DWIO_ENSURE(flatVector, "unexpected vector type");
-    ColumnWriter::write(slice, ranges);
+    writeNulls(slice, ranges);
     const auto* nulls = slice->rawNulls();
     const auto* vals = flatVector->template rawValues<char>();
     data_->add(vals, ranges, nulls);
@@ -103,7 +103,7 @@ uint64_t ByteRleColumnWriter<int8_t>::write(
     // The path for non-flat vectors
     auto localDecoded = decode(slice, ranges);
     auto& decodedVector = localDecoded.get();
-    ColumnWriter::write(decodedVector, ranges);
+    writeNulls(decodedVector, ranges);
 
     std::function<bool(vector_size_t)> isNullAt = nullptr;
     if (decodedVector.mayHaveNulls()) {
@@ -141,7 +141,7 @@ uint64_t ByteRleColumnWriter<bool>::write(
     // Optimized path for flat vectors
     auto flatVector = slice->as<FlatVector<bool>>();
     DWIO_ENSURE(flatVector, "unexpected vector type");
-    ColumnWriter::write(slice, ranges);
+    writeNulls(slice, ranges);
     const auto* nulls = slice->rawNulls();
     const auto* vals = flatVector->template rawValues<uint64_t>();
     data_->addBits(vals, ranges, nulls, false);
@@ -152,7 +152,7 @@ uint64_t ByteRleColumnWriter<bool>::write(
   } else {
     auto localDecoded = decode(slice, ranges);
     auto& decodedVector = localDecoded.get();
-    ColumnWriter::write(decodedVector, ranges);
+    writeNulls(decodedVector, ranges);
 
     std::function<bool(vector_size_t)> isNullAt = nullptr;
     if (decodedVector.mayHaveNulls()) {
@@ -186,14 +186,14 @@ uint64_t ByteRleColumnWriter<bool>::write(
 // inefficient for the column, we would write the column with direct encoding
 // instead.
 template <typename T>
-class IntegerColumnWriter : public ColumnWriter {
+class IntegerColumnWriter : public BaseColumnWriter {
  public:
   IntegerColumnWriter(
       WriterContext& context,
       const TypeWithId& type,
       const uint32_t sequence,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type, sequence, onRecordPosition},
+      : BaseColumnWriter{context, type, sequence, onRecordPosition},
         data_{nullptr},
         dataDirect_{nullptr},
         inDictionary_{nullptr},
@@ -232,7 +232,7 @@ class IntegerColumnWriter : public ColumnWriter {
     // Lots of decisions regarding the presence of streams are made at flush
     // time. We would defer recording all stream positions till then, and
     // only record position for PRESENT stream upon construction.
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     // Record starting position only for direct encoding because we don't know
     // until the next flush whether we need to write the IN_DICTIONARY stream.
     if (useDictionaryEncoding_) {
@@ -260,7 +260,7 @@ class IntegerColumnWriter : public ColumnWriter {
     }
 
     // NOTE: Flushes index. All index entries need to have been backfilled.
-    ColumnWriter::flush(encodingFactory, encodingOverride);
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
 
     ensureValidStreamWriters(useDictionaryEncoding_);
     // Flush in the order of the spec: IN_DICT, DICT_DATA, DATA
@@ -286,7 +286,7 @@ class IntegerColumnWriter : public ColumnWriter {
   // FIXME: call base class set encoding first to deal with sequence and
   // whatnot.
   void setEncoding(proto::ColumnEncoding& encoding) const override {
-    ColumnWriter::setEncoding(encoding);
+    BaseColumnWriter::setEncoding(encoding);
     if (useDictionaryEncoding_) {
       encoding.set_kind(
           proto::ColumnEncoding_Kind::ColumnEncoding_Kind_DICTIONARY);
@@ -300,7 +300,7 @@ class IntegerColumnWriter : public ColumnWriter {
     // Add entry with stats for either case.
     indexBuilder_->addEntry(*indexStatsBuilder_);
     indexStatsBuilder_->reset();
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     // TODO: the only way useDictionaryEncoding_ right now is
     // through abandonDictionary, so we already have the stream initialization
     // handled. Might want to rethink stream initialization in the future when
@@ -503,7 +503,7 @@ uint64_t IntegerColumnWriter<T>::writeDict(
     const Ranges& ranges) {
   auto& statsBuilder =
       dynamic_cast<IntegerStatisticsBuilder&>(*indexStatsBuilder_);
-  ColumnWriter::write(decodedVector, ranges);
+  writeNulls(decodedVector, ranges);
   // make sure we have enough space
   rows_.reserve(rows_.size() + ranges.size());
   auto processRow = [&](vector_size_t pos) {
@@ -543,7 +543,7 @@ uint64_t IntegerColumnWriter<T>::writeDirect(
   ensureValidStreamWriters(false);
   auto flatVector = slice->asFlatVector<T>();
   DWIO_ENSURE(flatVector, "unexpected vector type");
-  ColumnWriter::write(slice, ranges);
+  writeNulls(slice, ranges);
   auto nulls = slice->rawNulls();
   auto vals = flatVector->rawValues();
 
@@ -648,14 +648,14 @@ void IntegerColumnWriter<T>::convertToDirectEncoding() {
           std::placeholders::_1));
 }
 
-class TimestampColumnWriter : public ColumnWriter {
+class TimestampColumnWriter : public BaseColumnWriter {
  public:
   TimestampColumnWriter(
       WriterContext& context,
       const TypeWithId& type,
       const uint32_t sequence,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type, sequence, onRecordPosition},
+      : BaseColumnWriter{context, type, sequence, onRecordPosition},
         seconds_{IntEncoder</* isSigned = */ true>::createRle(
             RleVersion_1,
             newStream(StreamKind::StreamKind_DATA),
@@ -674,13 +674,13 @@ class TimestampColumnWriter : public ColumnWriter {
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
       std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
-    ColumnWriter::flush(encodingFactory, encodingOverride);
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
     seconds_->flush();
     nanos_->flush();
   }
 
   void recordPosition() override {
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     seconds_->recordPosition(*indexBuilder_);
     nanos_->recordPosition(*indexBuilder_);
   }
@@ -738,7 +738,7 @@ uint64_t TimestampColumnWriter::write(
   // deal with.
   auto localDecoded = decode(slice, ranges);
   auto& decodedVector = localDecoded.get();
-  ColumnWriter::write(decodedVector, ranges);
+  writeNulls(decodedVector, ranges);
 
   size_t count = 0;
   if (decodedVector.mayHaveNulls()) {
@@ -775,14 +775,14 @@ uint64_t TimestampColumnWriter::write(
 // the given string values. If dictionary encoding is determined to be
 // inefficient for the column, we would write the column with direct encoding
 // instead.
-class StringColumnWriter : public ColumnWriter {
+class StringColumnWriter : public BaseColumnWriter {
  public:
   StringColumnWriter(
       WriterContext& context,
       const TypeWithId& type,
       const uint32_t sequence,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type, sequence, onRecordPosition},
+      : BaseColumnWriter{context, type, sequence, onRecordPosition},
         data_{nullptr},
         dataDirect_{nullptr},
         dataDirectLength_{nullptr},
@@ -818,7 +818,7 @@ class StringColumnWriter : public ColumnWriter {
     // Lots of decisions regarding the presence of streams are made at flush
     // time. We would defer recording all stream positions till then, and
     // only record position for PRESENT stream upon construction.
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     // Record starting position only for direct encoding because we don't know
     // until the next flush whether we need to write the IN_DICTIONARY stream.
     if (useDictionaryEncoding_) {
@@ -845,7 +845,7 @@ class StringColumnWriter : public ColumnWriter {
     }
 
     // NOTE: Flushes index. All index entries need to have been backfilled.
-    ColumnWriter::flush(encodingFactory, encodingOverride);
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
 
     ensureValidStreamWriters(useDictionaryEncoding_);
     // Flush in the order of the spec:
@@ -879,7 +879,7 @@ class StringColumnWriter : public ColumnWriter {
   // FIXME: call base class set encoding first to deal with sequence and
   // whatnot.
   void setEncoding(proto::ColumnEncoding& encoding) const override {
-    ColumnWriter::setEncoding(encoding);
+    BaseColumnWriter::setEncoding(encoding);
     if (useDictionaryEncoding_) {
       encoding.set_kind(
           proto::ColumnEncoding_Kind::ColumnEncoding_Kind_DICTIONARY);
@@ -893,7 +893,7 @@ class StringColumnWriter : public ColumnWriter {
     // Add entry with stats for either case.
     indexBuilder_->addEntry(*indexStatsBuilder_);
     indexStatsBuilder_->reset();
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     // TODO: the only way useDictionaryEncoding_ right now is
     // through abandonDictionary, so we already have the stream initialization
     // handled. Might want to rethink stream initialization in the future when
@@ -1100,7 +1100,7 @@ uint64_t StringColumnWriter::writeDict(
     const Ranges& ranges) {
   auto& statsBuilder =
       dynamic_cast<StringStatisticsBuilder&>(*indexStatsBuilder_);
-  ColumnWriter::write(decodedVector, ranges);
+  writeNulls(decodedVector, ranges);
   // make sure we have enough space
   rows_.reserve(rows_.size() + ranges.size());
   size_t strideIndex = strideOffsets_.size() - 1;
@@ -1140,7 +1140,7 @@ uint64_t StringColumnWriter::writeDirect(
     const Ranges& ranges) {
   auto& statsBuilder =
       dynamic_cast<StringStatisticsBuilder&>(*indexStatsBuilder_);
-  ColumnWriter::write(decodedVector, ranges);
+  writeNulls(decodedVector, ranges);
 
   // make sure we have enough space
   rows_.reserve(rows_.size() + ranges.size());
@@ -1327,14 +1327,14 @@ void StringColumnWriter::convertToDirectEncoding() {
 }
 
 template <typename T>
-class FloatColumnWriter : public ColumnWriter {
+class FloatColumnWriter : public BaseColumnWriter {
  public:
   FloatColumnWriter(
       WriterContext& context,
       const TypeWithId& type,
       const uint32_t sequence,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type, sequence, onRecordPosition},
+      : BaseColumnWriter{context, type, sequence, onRecordPosition},
         data_{newStream(StreamKind::StreamKind_DATA)} {
     reset();
   }
@@ -1344,12 +1344,12 @@ class FloatColumnWriter : public ColumnWriter {
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
       std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
-    ColumnWriter::flush(encodingFactory, encodingOverride);
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
     data_.flush();
   }
 
   void recordPosition() override {
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     data_.recordPosition(*indexBuilder_);
   }
 
@@ -1369,7 +1369,7 @@ uint64_t FloatColumnWriter<T>::write(
   if (slice->encoding() == VectorEncoding::Simple::FLAT) {
     auto flatVector = slice->asFlatVector<T>();
     DWIO_ENSURE(flatVector, "unexpected vector type");
-    ColumnWriter::write(slice, ranges);
+    writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
     auto data = flatVector->rawValues();
     if (slice->mayHaveNulls()) {
@@ -1407,7 +1407,7 @@ uint64_t FloatColumnWriter<T>::write(
   } else {
     auto localDecoded = decode(slice, ranges);
     auto& decodedVector = localDecoded.get();
-    ColumnWriter::write(decodedVector, ranges);
+    writeNulls(decodedVector, ranges);
 
     // higher throughput is achieved through this local buffer
     auto writer = createBufferedWriter<T>(
@@ -1447,14 +1447,14 @@ uint64_t FloatColumnWriter<T>::write(
   return rawSize;
 }
 
-class BinaryColumnWriter : public ColumnWriter {
+class BinaryColumnWriter : public BaseColumnWriter {
  public:
   BinaryColumnWriter(
       WriterContext& context,
       const TypeWithId& type,
       const uint32_t sequence,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type, sequence, onRecordPosition},
+      : BaseColumnWriter{context, type, sequence, onRecordPosition},
         data_{newStream(StreamKind::StreamKind_DATA)},
         lengths_{IntEncoder<false>::createRle(
             RleVersion_1,
@@ -1469,13 +1469,13 @@ class BinaryColumnWriter : public ColumnWriter {
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
       std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
-    ColumnWriter::flush(encodingFactory, encodingOverride);
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
     data_.flush();
     lengths_->flush();
   }
 
   void recordPosition() override {
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     data_.recordPosition(*indexBuilder_);
     lengths_->recordPosition(*indexBuilder_);
   }
@@ -1500,7 +1500,7 @@ uint64_t BinaryColumnWriter::write(
   if (slice->encoding() == VectorEncoding::Simple::FLAT) {
     auto binarySlice = slice->asFlatVector<StringView>();
     DWIO_ENSURE(binarySlice, "unexpected vector type");
-    ColumnWriter::write(slice, ranges);
+    writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
     auto data = binarySlice->rawValues();
 
@@ -1529,7 +1529,7 @@ uint64_t BinaryColumnWriter::write(
     // Decode
     auto localDecoded = decode(slice, ranges);
     auto& decodedVector = localDecoded.get();
-    ColumnWriter::write(decodedVector, ranges);
+    writeNulls(decodedVector, ranges);
 
     auto processRow = [&](size_t pos) {
       auto val = decodedVector.template valueAt<StringView>(pos);
@@ -1566,14 +1566,14 @@ uint64_t BinaryColumnWriter::write(
   return rawSize;
 }
 
-class StructColumnWriter : public ColumnWriter {
+class StructColumnWriter : public BaseColumnWriter {
  public:
   StructColumnWriter(
       WriterContext& context,
       const TypeWithId& type,
       const uint32_t sequence,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type, sequence, onRecordPosition} {
+      : BaseColumnWriter{context, type, sequence, onRecordPosition} {
     reset();
   }
 
@@ -1582,7 +1582,7 @@ class StructColumnWriter : public ColumnWriter {
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
       std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
-    ColumnWriter::flush(encodingFactory, encodingOverride);
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
     for (auto& c : children_) {
       c->flush(encodingFactory);
     }
@@ -1655,7 +1655,7 @@ uint64_t StructColumnWriter::write(
     rowSlice = decodedVector.base()->as<RowVector>();
     DWIO_ENSURE(rowSlice, "unexpected vector type");
     childRangesPtr = &childRanges;
-    ColumnWriter::write(decodedVector, ranges);
+    writeNulls(decodedVector, ranges);
 
     if (decodedVector.mayHaveNulls()) {
       // Compute range of slice that child writer need to write.
@@ -1677,7 +1677,7 @@ uint64_t StructColumnWriter::write(
     rowSlice = slice->as<RowVector>();
     DWIO_ENSURE(rowSlice, "unexpected vector type");
     childRangesPtr = &ranges;
-    ColumnWriter::write(slice, ranges);
+    writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
     if (slice->mayHaveNulls()) {
       // Compute range of slice that child writer need to write.
@@ -1690,14 +1690,14 @@ uint64_t StructColumnWriter::write(
   return writeChildrenAndStats(rowSlice, *childRangesPtr, nullCount);
 }
 
-class ListColumnWriter : public ColumnWriter {
+class ListColumnWriter : public BaseColumnWriter {
  public:
   ListColumnWriter(
       WriterContext& context,
       const TypeWithId& type,
       const uint32_t sequence,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type, sequence, onRecordPosition},
+      : BaseColumnWriter{context, type, sequence, onRecordPosition},
         lengths_{IntEncoder</* isSigned = */ false>::createRle(
             RleVersion_1,
             newStream(StreamKind::StreamKind_LENGTH),
@@ -1711,13 +1711,13 @@ class ListColumnWriter : public ColumnWriter {
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
       std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
-    ColumnWriter::flush(encodingFactory, encodingOverride);
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
     lengths_->flush();
     children_.at(0)->flush(encodingFactory);
   }
 
   void recordPosition() override {
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     lengths_->recordPosition(*indexBuilder_);
   }
 
@@ -1751,7 +1751,7 @@ uint64_t ListColumnWriter::write(const VectorPtr& slice, const Ranges& ranges) {
     arraySlice = decodedVector.base()->as<ArrayVector>();
     DWIO_ENSURE(arraySlice, "unexpected vector type");
 
-    ColumnWriter::write(decodedVector, ranges);
+    writeNulls(decodedVector, ranges);
     offsets = arraySlice->rawOffsets();
     lengths = arraySlice->rawSizes();
 
@@ -1772,7 +1772,7 @@ uint64_t ListColumnWriter::write(const VectorPtr& slice, const Ranges& ranges) {
     arraySlice = slice->as<ArrayVector>();
     DWIO_ENSURE(arraySlice, "unexpected vector type");
 
-    ColumnWriter::write(slice, ranges);
+    writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
     // Retargeting array and its offsets and lengths to be used
     // by the processRow lambda.
@@ -1813,14 +1813,14 @@ uint64_t ListColumnWriter::write(const VectorPtr& slice, const Ranges& ranges) {
   return rawSize;
 }
 
-class MapColumnWriter : public ColumnWriter {
+class MapColumnWriter : public BaseColumnWriter {
  public:
   MapColumnWriter(
       WriterContext& context,
       const TypeWithId& type,
       const uint32_t sequence,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type, sequence, onRecordPosition},
+      : BaseColumnWriter{context, type, sequence, onRecordPosition},
         lengths_{IntEncoder</* isSigned = */ false>::createRle(
             RleVersion_1,
             newStream(StreamKind::StreamKind_LENGTH),
@@ -1834,14 +1834,14 @@ class MapColumnWriter : public ColumnWriter {
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
       std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
-    ColumnWriter::flush(encodingFactory, encodingOverride);
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
     lengths_->flush();
     children_.at(0)->flush(encodingFactory);
     children_.at(1)->flush(encodingFactory);
   }
 
   void recordPosition() override {
-    ColumnWriter::recordPosition();
+    BaseColumnWriter::recordPosition();
     lengths_->recordPosition(*indexBuilder_);
   }
 
@@ -1875,7 +1875,7 @@ uint64_t MapColumnWriter::write(const VectorPtr& slice, const Ranges& ranges) {
     mapSlice = decodedVector.base()->as<MapVector>();
     DWIO_ENSURE(mapSlice, "unexpected vector type");
 
-    ColumnWriter::write(decodedVector, ranges);
+    writeNulls(decodedVector, ranges);
     offsets = mapSlice->rawOffsets();
     lengths = mapSlice->rawSizes();
 
@@ -1896,7 +1896,7 @@ uint64_t MapColumnWriter::write(const VectorPtr& slice, const Ranges& ranges) {
     mapSlice = slice->as<MapVector>();
     DWIO_ENSURE(mapSlice, "unexpected vector type");
 
-    ColumnWriter::write(slice, ranges);
+    writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
     offsets = mapSlice->rawOffsets();
     lengths = mapSlice->rawSizes();
@@ -1939,7 +1939,7 @@ uint64_t MapColumnWriter::write(const VectorPtr& slice, const Ranges& ranges) {
 
 } // namespace
 
-std::unique_ptr<ColumnWriter> ColumnWriter::create(
+std::unique_ptr<BaseColumnWriter> BaseColumnWriter::create(
     WriterContext& context,
     const TypeWithId& type,
     const uint32_t sequence,

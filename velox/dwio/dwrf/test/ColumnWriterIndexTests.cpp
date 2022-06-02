@@ -324,7 +324,7 @@ class WriterEncodingIndexTest2 {
     for (auto n = 0; n < mocks.size(); ++n) {
       EXPECT_CALL(*mocks.at(n), add(0, -1)).Times(recordPositionCount[n]);
     }
-    auto columnWriter = ColumnWriter::create(context, *typeWithId);
+    auto columnWriter = BaseColumnWriter::create(context, *typeWithId);
 
     // Indices are captured the same way for all stripes in the derived tests.
     for (size_t j = 0; j != stripeCount; ++j) {
@@ -708,7 +708,7 @@ class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
     // ColumnWriter::recordPosition to capture PRESENT stream positions.
     // Compression + BufferedOutputStream + byteRLE + booleanRLE
     EXPECT_CALL(*mockIndexBuilderPtr, add(0, -1)).Times(4);
-    auto columnWriter = ColumnWriter::create(context, *typeWithId);
+    auto columnWriter = BaseColumnWriter::create(context, *typeWithId);
 
     for (size_t j = 0; j != stripeCount; ++j) {
       // We need to convert from dictionary in the first stripe. This part calls
@@ -894,7 +894,7 @@ class StringColumnWriterDictionaryEncodingIndexTest : public testing::Test {
     // ColumnWriter::recordPosition to capture PRESENT stream positions.
     // Compression + BufferedOutputStream + byteRLE + booleanRLE
     EXPECT_CALL(*mockIndexBuilderPtr, add(0, -1)).Times(4);
-    auto columnWriter = ColumnWriter::create(context, *typeWithId);
+    auto columnWriter = BaseColumnWriter::create(context, *typeWithId);
 
     // Indices are captured the same way for all stripes when using dictionary
     // encoding.
@@ -997,7 +997,7 @@ class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
     // ColumnWriter::recordPosition to capture PRESENT stream positions.
     // Compression + BufferedOutputStream + byteRLE + booleanRLE
     EXPECT_CALL(*mockIndexBuilderPtr, add(0, -1)).Times(4);
-    auto columnWriter = ColumnWriter::create(context, *typeWithId);
+    auto columnWriter = BaseColumnWriter::create(context, *typeWithId);
 
     for (size_t j = 0; j != stripeCount; ++j) {
       // We need to convert from dictionary in the first stripe. This part calls

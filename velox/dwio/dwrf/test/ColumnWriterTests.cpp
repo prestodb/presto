@@ -306,7 +306,7 @@ void testDataTypeWriter(
   auto dataTypeWithId = TypeWithId::create(type, 1);
 
   // write
-  auto writer = ColumnWriter::create(context, *dataTypeWithId, sequence);
+  auto writer = BaseColumnWriter::create(context, *dataTypeWithId, sequence);
   auto size = data.size();
   auto batch = populateBatch(data, &pool);
   const size_t stripeCount = 2;
@@ -348,7 +348,7 @@ TEST(ColumnWriterTests, LowMemoryModeConfig) {
   auto config = std::make_shared<Config>();
   WriterContext context{
       config, facebook::velox::memory::getDefaultScopedMemoryPool()};
-  auto writer = ColumnWriter::create(context, *dataTypeWithId);
+  auto writer = BaseColumnWriter::create(context, *dataTypeWithId);
   EXPECT_TRUE(writer->useDictionaryEncoding());
 }
 
@@ -741,7 +741,7 @@ void testMapWriter(
   }
 
   WriterContext context{config, getDefaultScopedMemoryPool()};
-  const auto writer = ColumnWriter::create(context, *writerDataTypeWithId);
+  const auto writer = BaseColumnWriter::create(context, *writerDataTypeWithId);
   // For writing flat map with encoded input, we'd like to test all 4
   // combinations.
   size_t strideCount = testEncoded ? 4 : 2;
@@ -1657,7 +1657,7 @@ struct IntegerColumnWriterTypedTestCase {
         dictionaryWriteThreshold);
     WriterContext context{config, getDefaultScopedMemoryPool()};
     // Register root node.
-    auto columnWriter = ColumnWriter::create(context, *typeWithId);
+    auto columnWriter = BaseColumnWriter::create(context, *typeWithId);
 
     for (size_t i = 0; i != flushCount; ++i) {
       proto::StripeFooter stripeFooter;
@@ -2755,13 +2755,13 @@ void testIntegerDictionaryEncodableWriterConstructor() {
   {
     config->set(Config::DICTIONARY_NUMERIC_KEY_SIZE_THRESHOLD, slightlyOver);
     WriterContext context{config, getDefaultScopedMemoryPool()};
-    EXPECT_ANY_THROW(ColumnWriter::create(context, *typeWithId));
+    EXPECT_ANY_THROW(BaseColumnWriter::create(context, *typeWithId));
   }
   float slightlyUnder = -std::numeric_limits<float>::epsilon();
   {
     config->set(Config::DICTIONARY_NUMERIC_KEY_SIZE_THRESHOLD, slightlyUnder);
     WriterContext context{config, getDefaultScopedMemoryPool()};
-    EXPECT_ANY_THROW(ColumnWriter::create(context, *typeWithId));
+    EXPECT_ANY_THROW(BaseColumnWriter::create(context, *typeWithId));
   }
 }
 
@@ -2880,7 +2880,7 @@ struct StringColumnWriterTestCase {
     WriterContext context{config, getDefaultScopedMemoryPool()};
     // Register root node.
     auto typeWithId = TypeWithId::create(type, 1);
-    auto columnWriter = ColumnWriter::create(context, *typeWithId);
+    auto columnWriter = BaseColumnWriter::create(context, *typeWithId);
 
     // Prepare input
     std::vector<VectorPtr> batches;
@@ -3723,7 +3723,7 @@ TEST(ColumnWriterTests, IntDictWriterDirectValueOverflow) {
   }
   auto vector = populateBatch<int32_t>(data, &pool);
 
-  auto writer = ColumnWriter::create(context, *typeWithId, 0);
+  auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
   writer->write(vector, Ranges::of(0, size));
   writer->createIndexEntry();
   proto::StripeFooter sf;
@@ -3769,7 +3769,7 @@ TEST(ColumnWriterTests, ShortDictWriterDictValueOverflow) {
   }
   auto vector = populateBatch<int16_t>(data, &pool);
 
-  auto writer = ColumnWriter::create(context, *typeWithId, 0);
+  auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
   writer->write(vector, Ranges::of(0, size));
   writer->createIndexEntry();
   proto::StripeFooter sf;
@@ -3810,7 +3810,7 @@ TEST(ColumnWriterTests, RemovePresentStream) {
   auto typeWithId = TypeWithId::create(type, 1);
 
   // write
-  auto writer = ColumnWriter::create(context, *typeWithId, 0);
+  auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
 
   writer->write(vector, Ranges::of(0, size));
   writer->createIndexEntry();
@@ -3932,7 +3932,7 @@ struct DictColumnWriterTestCase {
     auto batch =
         createDictionaryBatch(size_, valueAt, isNullAt, complexVectorType);
 
-    const auto writer = ColumnWriter::create(context, *typeWithId);
+    const auto writer = BaseColumnWriter::create(context, *typeWithId);
 
     // Testing write direct paths
     if (writeDirect_) {
