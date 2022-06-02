@@ -287,6 +287,38 @@ public class TestGroupByHash
     }
 
     @Test(dataProvider = "dataType")
+    public void testEmptyPage(Type type)
+    {
+        // Create an empty page
+        int length = 0;
+        Block valuesBlock;
+        if (type == VARCHAR) {
+            valuesBlock = createStringSequenceBlock(0, length);
+        }
+        else if (type == BIGINT) {
+            valuesBlock = createLongSequenceBlock(0, length);
+        }
+        else {
+            throw new IllegalArgumentException("unsupported data type");
+        }
+        Block hashBlock = getHashBlock(ImmutableList.of(type), valuesBlock);
+        Page page = new Page(valuesBlock, hashBlock);
+        AtomicInteger currentQuota = new AtomicInteger(0);
+        AtomicInteger allowedQuota = new AtomicInteger(3);
+        UpdateMemory updateMemory = () -> {
+            if (currentQuota.get() < allowedQuota.get()) {
+                currentQuota.getAndIncrement();
+                return true;
+            }
+            return false;
+        };
+
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, updateMemory);
+        Work<?> addPageWork = groupByHash.addPage(page);
+        assertTrue(addPageWork.process());
+    }
+
+    @Test(dataProvider = "dataType")
     public void testMemoryReservationYield(Type type)
     {
         // Create a page with positionCount >> expected size of groupByHash
