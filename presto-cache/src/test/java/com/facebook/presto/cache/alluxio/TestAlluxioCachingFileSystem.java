@@ -44,6 +44,7 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -501,7 +502,17 @@ public class TestAlluxioCachingFileSystem
     private int readFully(AlluxioCachingFileSystem fileSystem, CacheQuota quota, long position, byte[] buffer, int offset, int length)
             throws Exception
     {
-        try (FSDataInputStream stream = fileSystem.openFile(new Path(testFilePath), new HiveFileContext(true, quota, Optional.empty(), Optional.of((long) DATA_LENGTH), 0, false))) {
+        try (FSDataInputStream stream = fileSystem.openFile(
+                new Path(testFilePath),
+                new HiveFileContext(
+                        true,
+                        quota,
+                        Optional.empty(),
+                        OptionalLong.of(DATA_LENGTH),
+                        OptionalLong.of(offset),
+                        OptionalLong.of(length),
+                        0,
+                        false))) {
             return stream.read(position, buffer, offset, length);
         }
     }

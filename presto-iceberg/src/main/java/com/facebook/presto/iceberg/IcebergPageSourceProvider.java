@@ -91,6 +91,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -295,8 +296,15 @@ public class IcebergPageSourceProvider
             FileStatus fileStatus = fileSystem.getFileStatus(path);
             long fileSize = fileStatus.getLen();
             long modificationTime = fileStatus.getModificationTime();
-            HiveFileContext hiveFileContext = new HiveFileContext(true, NO_CACHE_CONSTRAINTS,
-                    Optional.empty(), Optional.of(fileSize), modificationTime, false);
+            HiveFileContext hiveFileContext = new HiveFileContext(
+                    true,
+                    NO_CACHE_CONSTRAINTS,
+                    Optional.empty(),
+                    OptionalLong.of(fileSize),
+                    OptionalLong.of(start),
+                    OptionalLong.of(length),
+                    modificationTime,
+                    false);
             FSDataInputStream inputStream = fileSystem.openFile(path, hiveFileContext);
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, fileSize).getParquetMetadata();
@@ -446,8 +454,15 @@ public class IcebergPageSourceProvider
             FileStatus fileStatus = fileSystem.getFileStatus(path);
             long fileSize = fileStatus.getLen();
             long modificationTime = fileStatus.getModificationTime();
-            HiveFileContext hiveFileContext = new HiveFileContext(true, NO_CACHE_CONSTRAINTS,
-                    Optional.empty(), Optional.of(fileSize), modificationTime, false);
+            HiveFileContext hiveFileContext = new HiveFileContext(
+                    true,
+                    NO_CACHE_CONSTRAINTS,
+                    Optional.empty(),
+                    OptionalLong.of(fileSize),
+                    OptionalLong.of(start),
+                    OptionalLong.of(length),
+                    modificationTime,
+                    false);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.openFile(path, hiveFileContext));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
