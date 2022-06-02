@@ -72,7 +72,7 @@ void setValuesResultTyped(
     decoded.get()->decode(*args[i * 2 + 1], rows);
     rows.applyToSelected([&](vector_size_t row) {
       if (decoded->isNullAt(row)) {
-        valuesResult->asFlatVector<T>()->setNull(row, true);
+        valuesResult->asFlatVector<T>()->setNull(row * mapSize + i, true);
       } else {
         flatValues[row * mapSize + i] = decoded->valueAt<T>(row);
       }
