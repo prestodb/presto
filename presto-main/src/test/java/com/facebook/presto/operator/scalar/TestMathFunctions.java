@@ -1468,6 +1468,33 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInverseLaplaceCdf()
+    {
+        assertFunction("inverse_laplace_cdf(5, 1, 0.5)", DOUBLE, 5.0);
+        assertFunction("inverse_laplace_cdf(5, 2, 0.5)", DOUBLE, 5.0);
+        assertFunction("round(inverse_laplace_cdf(5, 2, 0.6), 4)", DOUBLE, 5.0 + 0.4463);
+        assertFunction("round(inverse_laplace_cdf(-5, 2, 0.4), 4)", DOUBLE, -5.0 - 0.4463);
+
+        assertInvalidFunction("inverse_laplace_cdf(5, 2, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_laplace_cdf(5, 2, 1.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_laplace_cdf(5, 0, 0.5)", "scale must be greater than 0");
+        assertInvalidFunction("inverse_laplace_cdf(5, -1, 0.5)", "scale must be greater than 0");
+    }
+
+    @Test
+    public void testLaplaceCdf()
+            throws Exception
+    {
+        assertFunction("laplace_cdf(4, 1, 4)", DOUBLE, 0.5);
+        assertFunction("laplace_cdf(4, 2, 4.0)", DOUBLE, 0.5);
+        assertFunction("round(laplace_cdf(4, 2, 4.0 - 0.4463), 2)", DOUBLE, 0.4);
+        assertFunction("round(laplace_cdf(-4, 2, -4.0 + 0.4463), 4)", DOUBLE, 0.6);
+
+        assertInvalidFunction("laplace_cdf(5, 0, 10)", "scale must be greater than 0");
+        assertInvalidFunction("laplace_cdf(5, -1, 10)", "scale must be greater than 0");
+    }
+
+    @Test
     public void testInversePoissonCdf()
     {
         assertFunction("inverse_poisson_cdf(3, 0.0)", INTEGER, 0);
