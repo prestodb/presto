@@ -143,11 +143,11 @@ Response Header Name                   Description
 ``X-Presto-Set-Role``                  Instructs the client to set ``X-Presto-Role`` request header to the catalog role give by the
                                        value of the ``X-Presto-Set-Role`` headerin subsequent client requests.
 ``X-Presto-Added-Prepare``             Instructs the client to add the name=value pair to the set of prepared statements
-                                       that will be sent in the ``X-Presto-Prepared-Statements`` request header
+                                       that will be sent in the ``X-Presto-Prepared-Statement`` request header
                                        in subsequent client requests.
 ``X-Presto-Deallocated-Prepare``       Instructs the client to remove the prepared statement whose name is the value of the
                                        ``X-Presto-Deallocated-Prepare`` header from the client's list of prepared statements
-                                       sent in the ``X-Presto-Prepared-Statements`` request header in subsequent client requests.
+                                       sent in the ``X-Presto-Prepared-Statement`` request header in subsequent client requests.
 ``X-Presto-Started-Transaction-Id``    Provides the transaction ID that the client should pass back in the
                                        ``X-Presto-Transaction-Id`` request header in subsequent requests.
 ``X-Presto-Clear-Transaction-Id``      Instructs the client to clear the ``X-Presto-Transaction-Id`` request header used in
