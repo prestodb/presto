@@ -196,6 +196,11 @@ Probability Functions: cdf
     Compute the Chi-square cdf with given df (degrees of freedom) parameter:  P(N < value; df).
     The df parameter must be a positive real number, and value must be a non-negative real value (both of type DOUBLE).
 
+.. function:: laplace_cdf(mean, scale, value) -> double
+
+    Compute the Laplace cdf with given mean and scale parameters:  P(N < value; mean, scale).
+    The mean and value must be real values and the scale parameter must be a positive value (all of type DOUBLE).
+
 .. function:: normal_cdf(mean, sd, value) -> double
 
     Compute the Normal cdf with given mean and standard deviation (sd):  P(N < value; mean, sd).
@@ -238,6 +243,13 @@ Probability Functions: inverse_cdf
 
     Compute the inverse of the Chi-square cdf with given df (degrees of freedom) parameter for the cumulative
     probability (p): P(N < n). The df parameter must be positive real values.
+    The probability p must lie on the interval [0, 1].
+
+.. function:: inverse_laplace_cdf(mean, scale, p) -> double
+
+    Compute the inverse of the Laplace cdf with given mean and scale parameters
+    for the cumulative probability (p): P(N < n). The mean must be
+    a real value and the scale must be a positive real value (both of type DOUBLE).
     The probability p must lie on the interval [0, 1].
 
 .. function:: inverse_normal_cdf(mean, sd, p) -> double

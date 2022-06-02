@@ -34,6 +34,7 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.CauchyDistribution;
 import org.apache.commons.math3.distribution.ChiSquaredDistribution;
+import org.apache.commons.math3.distribution.LaplaceDistribution;
 import org.apache.commons.math3.distribution.PoissonDistribution;
 import org.apache.commons.math3.distribution.WeibullDistribution;
 import org.apache.commons.math3.special.Erf;
@@ -897,6 +898,33 @@ public final class MathFunctions
         checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
         checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
         ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.cumulativeProbability(value);
+    }
+
+    @Description("inverse of Laplace cdf given mean, scale parameters and probability")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseLaplaceCdf(
+            @SqlType(StandardTypes.DOUBLE) double mean,
+            @SqlType(StandardTypes.DOUBLE) double scale,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        LaplaceDistribution distribution = new LaplaceDistribution(null, mean, scale);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
+    @Description("Laplace cdf given mean, scale parameters and value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double laplaceCdf(
+            @SqlType(StandardTypes.DOUBLE) double mean,
+            @SqlType(StandardTypes.DOUBLE) double scale,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        LaplaceDistribution distribution = new LaplaceDistribution(null, mean, scale);
         return distribution.cumulativeProbability(value);
     }
 
