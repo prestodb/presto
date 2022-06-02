@@ -19,8 +19,18 @@ public interface ConnectorCommitHandle
 {
     String EMPTY_COMMIT_OUTPUT = "";
 
-    default String getSerializedCommitOutput(SchemaTableName table)
+    default String getSerializedCommitOutputForRead(SchemaTableName table)
     {
         return EMPTY_COMMIT_OUTPUT;
+    }
+
+    default String getSerializedCommitOutputForWrite(SchemaTableName table)
+    {
+        return EMPTY_COMMIT_OUTPUT;
+    }
+
+    default boolean hasCommitOutput(SchemaTableName table)
+    {
+        return false;
     }
 }

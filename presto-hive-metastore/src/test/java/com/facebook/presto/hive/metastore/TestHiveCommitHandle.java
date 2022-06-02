@@ -16,7 +16,6 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.joda.time.DateTime;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -27,23 +26,23 @@ import static org.testng.Assert.assertEquals;
 
 public class TestHiveCommitHandle
 {
-    private Map<SchemaTableName, List<DateTime>> testData;
+    private Map<SchemaTableName, List<Long>> testData;
 
     @BeforeTest
     public void setTestData()
     {
-        ImmutableMap.Builder<SchemaTableName, List<DateTime>> builder = ImmutableMap.builder();
-        builder.put(new SchemaTableName("s1", "t1"), ImmutableList.of(new DateTime(1000), new DateTime(2000)));
-        builder.put(new SchemaTableName("s2", "t2"), ImmutableList.of(new DateTime(3000), new DateTime(4000)));
+        ImmutableMap.Builder<SchemaTableName, List<Long>> builder = ImmutableMap.builder();
+        builder.put(new SchemaTableName("s1", "t1"), ImmutableList.of(1L, 2L));
+        builder.put(new SchemaTableName("s2", "t2"), ImmutableList.of(3L, 4L));
         testData = builder.build();
     }
 
     @Test
     public void testGetSerializedCommitOutput()
     {
-        HiveCommitHandle commitHandle = new HiveCommitHandle(testData);
-        assertEquals(commitHandle.getSerializedCommitOutput(new SchemaTableName("s1", "t1")), "1,2");
-        assertEquals(commitHandle.getSerializedCommitOutput(new SchemaTableName("s2", "t2")), "3,4");
-        assertEquals(commitHandle.getSerializedCommitOutput(new SchemaTableName("s3", "t3")), "");
+        HiveCommitHandle commitHandle = new HiveCommitHandle(testData, ImmutableMap.of());
+        assertEquals(commitHandle.getSerializedCommitOutputForRead(new SchemaTableName("s1", "t1")), "1,2");
+        assertEquals(commitHandle.getSerializedCommitOutputForRead(new SchemaTableName("s2", "t2")), "3,4");
+        assertEquals(commitHandle.getSerializedCommitOutputForRead(new SchemaTableName("s3", "t3")), "");
     }
 }
