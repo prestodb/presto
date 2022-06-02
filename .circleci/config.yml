@@ -344,8 +344,8 @@ jobs:
           command: |
             set -xu
             cd ~/adapter-deps/install/bin/
-            wget https://dl.min.io/server/minio/release/linux-amd64/minio
-            chmod +x minio
+            wget https://dl.min.io/server/minio/release/linux-amd64/archive/minio-20220526054841.0.0.x86_64.rpm
+            rpm -i minio-20220526054841.0.0.x86_64.rpm
       - run:
           name: Build
           command: |
