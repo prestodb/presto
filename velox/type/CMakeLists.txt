@@ -18,15 +18,16 @@ add_subdirectory(tz)
 
 add_library(
   velox_type
-  StringView.h
-  Type.cpp
-  Variant.cpp
-  Timestamp.cpp
-  TimestampConversion.cpp
   Date.cpp
   Filter.cpp
+  IntervalDayTime.cpp
+  StringView.h
   Subfield.cpp
-  Tokenizer.cpp)
+  Timestamp.cpp
+  TimestampConversion.cpp
+  Tokenizer.cpp
+  Type.cpp
+  Variant.cpp)
 
 target_link_libraries(
   velox_type

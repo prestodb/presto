@@ -51,7 +51,8 @@ void generateJsonTyped(
     if constexpr (std::is_same_v<T, bool>) {
       result.append(value ? "true" : "false");
     } else if constexpr (
-        std::is_same_v<T, Date> || std::is_same_v<T, Timestamp>) {
+        std::is_same_v<T, Date> || std::is_same_v<T, Timestamp> ||
+        std::is_same_v<T, IntervalDayTime>) {
       result.append(std::to_string(value));
     } else {
       folly::toAppend<std::string, T>(value, &result);

@@ -364,6 +364,7 @@ TEST_F(DecodedVectorTest, constantNull) {
   testConstantNull(VARBINARY());
   testConstantNull(TIMESTAMP());
   testConstantNull(DATE());
+  testConstantNull(INTERVAL_DAY_TIME());
   testConstantNull(ARRAY(INTEGER()));
   testConstantNull(MAP(INTEGER(), INTEGER()));
   testConstantNull(ROW({INTEGER()}));

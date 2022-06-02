@@ -117,6 +117,21 @@ TEST(TypeTest, date) {
   EXPECT_EQ(date->begin(), date->end());
 }
 
+TEST(TypeTest, intervalDayTime) {
+  auto interval = INTERVAL_DAY_TIME();
+  EXPECT_EQ(interval->toString(), "INTERVAL DAY TO SECOND");
+  EXPECT_EQ(interval->size(), 0);
+  EXPECT_THROW(interval->childAt(0), std::invalid_argument);
+  EXPECT_EQ(interval->kind(), TypeKind::INTERVAL_DAY_TIME);
+  EXPECT_STREQ(interval->kindName(), "INTERVAL DAY TO SECOND");
+  EXPECT_EQ(interval->begin(), interval->end());
+
+  IntervalDayTime dt(
+      kMillisInDay * 5 + kMillisInHour * 4 + kMillisInMinute * 6 +
+      kMillisInSecond * 7 + 98);
+  EXPECT_EQ("5 04:06:07.098", dt.toString());
+}
+
 TEST(TypeTest, shortDecimal) {
   auto shortDecimal = SHORT_DECIMAL(10, 5);
   EXPECT_EQ(shortDecimal->toString(), "SHORT_DECIMAL(10,5)");
@@ -489,6 +504,7 @@ TEST(TypeTest, cpp2Type) {
   EXPECT_EQ(*CppToType<bool>::create(), *BOOLEAN());
   EXPECT_EQ(*CppToType<Timestamp>::create(), *TIMESTAMP());
   EXPECT_EQ(*CppToType<Date>::create(), *DATE());
+  EXPECT_EQ(*CppToType<IntervalDayTime>::create(), *INTERVAL_DAY_TIME());
   EXPECT_EQ(*CppToType<Array<int32_t>>::create(), *ARRAY(INTEGER()));
   auto type = CppToType<Map<int32_t, Map<int64_t, float>>>::create();
   EXPECT_EQ(*type, *MAP(INTEGER(), MAP(BIGINT(), REAL())));
@@ -498,6 +514,7 @@ TEST(TypeTest, kindHash) {
   EXPECT_EQ(BIGINT()->hashKind(), BIGINT()->hashKind());
   EXPECT_EQ(TIMESTAMP()->hashKind(), TIMESTAMP()->hashKind());
   EXPECT_EQ(DATE()->hashKind(), DATE()->hashKind());
+  EXPECT_EQ(INTERVAL_DAY_TIME()->hashKind(), INTERVAL_DAY_TIME()->hashKind());
   EXPECT_NE(BIGINT()->hashKind(), INTEGER()->hashKind());
   EXPECT_EQ(
       ROW({{"a", BIGINT()}})->hashKind(), ROW({{"b", BIGINT()}})->hashKind());
@@ -563,6 +580,8 @@ TEST(TypeTest, follySformat) {
   EXPECT_EQ("VARBINARY", folly::sformat("{}", VARBINARY()));
   EXPECT_EQ("TIMESTAMP", folly::sformat("{}", TIMESTAMP()));
   EXPECT_EQ("DATE", folly::sformat("{}", DATE()));
+  EXPECT_EQ(
+      "INTERVAL DAY TO SECOND", folly::sformat("{}", INTERVAL_DAY_TIME()));
 
   EXPECT_EQ("ARRAY<VARCHAR>", folly::sformat("{}", ARRAY(VARCHAR())));
   EXPECT_EQ(

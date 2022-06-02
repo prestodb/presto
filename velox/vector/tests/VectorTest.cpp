@@ -123,11 +123,7 @@ class VectorTest : public testing::Test {
 
   template <typename T>
   T testValue(int32_t i, BufferPtr& space) {
-    if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
-      return std::make_shared<NonPOD>(i);
-    } else {
-      return i;
-    }
+    return i;
   }
 
   template <TypeKind KIND>
@@ -777,6 +773,16 @@ Date VectorTest::testValue(int32_t i, BufferPtr& space) {
   return Date(i);
 }
 
+template <>
+std::shared_ptr<void> VectorTest::testValue(int32_t i, BufferPtr& space) {
+  return std::make_shared<NonPOD>(i);
+}
+
+template <>
+IntervalDayTime VectorTest::testValue(int32_t i, BufferPtr& space) {
+  return IntervalDayTime(i);
+}
+
 VectorPtr VectorTest::createMap(int32_t numRows, bool withNulls) {
   BufferPtr nulls;
   BufferPtr offsets;
@@ -841,6 +847,7 @@ TEST_F(VectorTest, createOther) {
   testFlat<TypeKind::BOOLEAN>(BOOLEAN(), vectorSize_);
   testFlat<TypeKind::TIMESTAMP>(TIMESTAMP(), vectorSize_);
   testFlat<TypeKind::DATE>(DATE(), vectorSize_);
+  testFlat<TypeKind::INTERVAL_DAY_TIME>(INTERVAL_DAY_TIME(), vectorSize_);
 }
 
 TEST_F(VectorTest, createOpaque) {
@@ -1371,6 +1378,7 @@ TEST_F(VectorCreateConstantTest, null) {
 
   testNullConstant<TypeKind::TIMESTAMP>(TIMESTAMP());
   testNullConstant<TypeKind::DATE>(DATE());
+  testNullConstant<TypeKind::INTERVAL_DAY_TIME>(INTERVAL_DAY_TIME());
 
   testNullConstant<TypeKind::VARCHAR>(VARCHAR());
   testNullConstant<TypeKind::VARBINARY>(VARBINARY());

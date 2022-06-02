@@ -43,6 +43,9 @@ namespace facebook::velox::exec {
       case TypeKind::DATE: {                                             \
         return TEMPLATE_FUNC<TypeKind::DATE>(__VA_ARGS__);               \
       }                                                                  \
+      case TypeKind::INTERVAL_DAY_TIME: {                                \
+        return TEMPLATE_FUNC<TypeKind::INTERVAL_DAY_TIME>(__VA_ARGS__);  \
+      }                                                                  \
       case TypeKind::VARCHAR:                                            \
       case TypeKind::VARBINARY: {                                        \
         return TEMPLATE_FUNC<TypeKind::VARCHAR>(__VA_ARGS__);            \

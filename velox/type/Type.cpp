@@ -15,15 +15,11 @@
  */
 
 #include "velox/type/Type.h"
-
-#include <sstream>
-#include <typeindex>
-
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
-
 #include <folly/Demangle.h>
-
+#include <sstream>
+#include <typeindex>
 #include "velox/common/base/Exceptions.h"
 
 namespace std {
@@ -59,6 +55,7 @@ const std::unordered_map<std::string, TypeKind>& getTypeStringMap() {
       {"VARBINARY", TypeKind::VARBINARY},
       {"TIMESTAMP", TypeKind::TIMESTAMP},
       {"DATE", TypeKind::DATE},
+      {"INTERVAL DAY TO SECOND", TypeKind::INTERVAL_DAY_TIME},
       {"SHORT_DECIMAL", TypeKind::SHORT_DECIMAL},
       {"LONG_DECIMAL", TypeKind::LONG_DECIMAL},
       {"ARRAY", TypeKind::ARRAY},
@@ -104,6 +101,7 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
       {TypeKind::VARBINARY, "VARBINARY"},
       {TypeKind::TIMESTAMP, "TIMESTAMP"},
       {TypeKind::DATE, "DATE"},
+      {TypeKind::INTERVAL_DAY_TIME, "INTERVAL DAY TO SECOND"},
       {TypeKind::SHORT_DECIMAL, "SHORT_DECIMAL"},
       {TypeKind::LONG_DECIMAL, "LONG_DECIMAL"},
       {TypeKind::ARRAY, "ARRAY"},
@@ -605,6 +603,7 @@ KOSKI_DEFINE_SCALAR_ACCESSOR(TIMESTAMP);
 KOSKI_DEFINE_SCALAR_ACCESSOR(VARCHAR);
 KOSKI_DEFINE_SCALAR_ACCESSOR(VARBINARY);
 KOSKI_DEFINE_SCALAR_ACCESSOR(DATE);
+KOSKI_DEFINE_SCALAR_ACCESSOR(INTERVAL_DAY_TIME);
 KOSKI_DEFINE_SCALAR_ACCESSOR(UNKNOWN);
 
 #undef KOSKI_DEFINE_SCALAR_ACCESSOR

@@ -49,6 +49,9 @@ template <>
 struct VariantEquality<TypeKind::DATE>;
 
 template <>
+struct VariantEquality<TypeKind::INTERVAL_DAY_TIME>;
+
+template <>
 struct VariantEquality<TypeKind::ARRAY>;
 
 template <>
@@ -213,6 +216,7 @@ class variant {
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::DOUBLE)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARCHAR)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::DATE)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::INTERVAL_DAY_TIME)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::TIMESTAMP)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::UNKNOWN)
   // On 64-bit platforms `int64_t` is declared as `long int`, not `long long
@@ -271,6 +275,13 @@ class variant {
         TypeKind::DATE,
         new
         typename detail::VariantTypeTraits<TypeKind::DATE>::stored_type{input}};
+  }
+
+  static variant intervalDayTime(const IntervalDayTime& input) {
+    return {
+        TypeKind::INTERVAL_DAY_TIME,
+        new typename detail::VariantTypeTraits<
+            TypeKind::INTERVAL_DAY_TIME>::stored_type{input}};
   }
 
   template <class T>
@@ -605,6 +616,7 @@ struct VariantConverter {
       case TypeKind::VARBINARY:
         return convert<TypeKind::VARBINARY, ToKind>(value);
       case TypeKind::DATE:
+      case TypeKind::INTERVAL_DAY_TIME:
       case TypeKind::TIMESTAMP:
         // Default date/timestamp conversion is prone to errors and implicit
         // assumptions. Block converting timestamp to integer, double and

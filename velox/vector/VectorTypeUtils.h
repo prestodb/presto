@@ -45,6 +45,13 @@ struct KindToFlatVector<TypeKind::DATE> {
 };
 
 template <>
+struct KindToFlatVector<TypeKind::INTERVAL_DAY_TIME> {
+  using type = FlatVector<IntervalDayTime>;
+  using WrapperType = IntervalDayTime;
+  using HashRowType = IntervalDayTime;
+};
+
+template <>
 struct KindToFlatVector<TypeKind::MAP> {
   using type = MapVector;
   using WrapperType = ComplexType;

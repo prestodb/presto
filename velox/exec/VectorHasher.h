@@ -52,6 +52,13 @@ class UniqueValue {
     data_ = value.days();
   }
 
+  explicit UniqueValue(IntervalDayTime value) {
+    // The number of valid bytes of IntervalDayTime stored in data_ is
+    // (int64_t)value.milliseconds().
+    size_ = sizeof(int64_t);
+    data_ = value.milliseconds();
+  }
+
   uint32_t size() const {
     return size_;
   }
@@ -273,6 +280,7 @@ class VectorHasher {
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
       case TypeKind::DATE:
+      case TypeKind::INTERVAL_DAY_TIME:
         return true;
       default:
         return false;
@@ -544,6 +552,11 @@ class VectorHasher {
 template <>
 inline int64_t VectorHasher::toInt64(Date value) const {
   return value.days();
+}
+
+template <>
+inline int64_t VectorHasher::toInt64(IntervalDayTime value) const {
+  return value.milliseconds();
 }
 
 template <>

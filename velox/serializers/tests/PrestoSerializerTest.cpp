@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/serializers/PrestoSerializer.h"
+#include <folly/Random.h>
 #include <gtest/gtest.h>
 #include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
@@ -192,6 +193,20 @@ TEST_F(PrestoSerializerTest, timestampWithTimeZone) {
       BufferPtr(nullptr),
       100,
       std::vector<VectorPtr>{timestamp, timezone});
+
+  testRoundTrip(vector);
+
+  // Add some nulls.
+  for (auto i = 0; i < 100; i += 7) {
+    vector->setNull(i, true);
+  }
+  testRoundTrip(vector);
+}
+
+TEST_F(PrestoSerializerTest, intervalDayTime) {
+  auto vector = vectorMaker_->flatVector<IntervalDayTime>(100, [](auto row) {
+    return IntervalDayTime(row + folly::Random::rand32());
+  });
 
   testRoundTrip(vector);
 
