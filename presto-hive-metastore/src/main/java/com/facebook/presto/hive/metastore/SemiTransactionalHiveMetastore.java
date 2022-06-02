@@ -49,7 +49,6 @@ import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -116,6 +115,8 @@ public class SemiTransactionalHiveMetastore
 {
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
+    private static final int MAX_LAST_DATA_COMMIT_TIME_ENTRY_PER_TABLE = 100;
+    private static final int MAX_LAST_DATA_COMMIT_TIME_ENTRY_PER_TRANSACTION = 10_000;
 
     private final ExtendedHiveMetastore delegate;
     private final HdfsEnvironment hdfsEnvironment;
@@ -124,6 +125,10 @@ public class SemiTransactionalHiveMetastore
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
     private final boolean undoMetastoreOperationsEnabled;
+
+    // Cache lastDataCommitTime for read queries.
+    @GuardedBy("this")
+    private final Map<SchemaTableName, List<Long>> lastDataCommitTimesForRead = new HashMap<>();
 
     @GuardedBy("this")
     private final Map<SchemaTableName, Action<TableAndMore>> tableActions = new HashMap<>();
@@ -505,8 +510,8 @@ public class SemiTransactionalHiveMetastore
 
     private ConnectorCommitHandle buildCommitHandle(SchemaTableName table, MetastoreOperationResult operationStats)
     {
-        Map<SchemaTableName, List<DateTime>> lastDataCommitTimes = ImmutableMap.of(table, operationStats.getLastDataCommitTimes());
-        return new HiveCommitHandle(lastDataCommitTimes);
+        Map<SchemaTableName, List<Long>> lastDataCommitTimes = ImmutableMap.of(table, operationStats.getLastDataCommitTimes());
+        return new HiveCommitHandle(ImmutableMap.of(), lastDataCommitTimes);
     }
 
     public synchronized void finishInsertIntoExistingTable(
@@ -747,7 +752,29 @@ public class SemiTransactionalHiveMetastore
         }
         Map<String, Optional<Partition>> delegateResult = delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNamesToQuery.build());
         resultBuilder.putAll(delegateResult);
+
+        cacheLastDataCommitTimes(delegateResult, databaseName, tableName);
+
         return resultBuilder.build();
+    }
+
+    private synchronized void cacheLastDataCommitTimes(Map<String, Optional<Partition>> existingPartitions, String databaseName, String tableName)
+    {
+        // Limit the number of entries for each individual table
+        List<Long> lastDataCommitTimes = existingPartitions.values().stream()
+                .filter(Optional::isPresent)
+                .map(partition -> partition.get().getLastDataCommitTime())
+                .limit(MAX_LAST_DATA_COMMIT_TIME_ENTRY_PER_TABLE)
+                .collect(toImmutableList());
+
+        // Limit the number of entries for the entire transaction
+        int capacity = MAX_LAST_DATA_COMMIT_TIME_ENTRY_PER_TRANSACTION - lastDataCommitTimesForRead.size();
+        if (capacity >= lastDataCommitTimes.size()) {
+            lastDataCommitTimesForRead.put(new SchemaTableName(databaseName, tableName), lastDataCommitTimes);
+        }
+        else {
+            lastDataCommitTimesForRead.put(new SchemaTableName(databaseName, tableName), lastDataCommitTimes.subList(0, capacity));
+        }
     }
 
     public synchronized void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
@@ -1026,10 +1053,13 @@ public class SemiTransactionalHiveMetastore
         try {
             switch (state) {
                 case EMPTY:
-                    return EMPTY_HIVE_COMMIT_HANDLE;
+                    // This is for read-only transactions. Therefore, the times for write is empty.
+                    return new HiveCommitHandle(lastDataCommitTimesForRead, ImmutableMap.of());
                 case SHARED_OPERATION_BUFFERED:
+                    // This is for transactions with write.
                     return commitShared();
                 case EXCLUSIVE_OPERATION_BUFFERED:
+                    // The times for both read and write are empty since neither read nor write is involved.
                     requireNonNull(bufferedExclusiveOperation, "bufferedExclusiveOperation is null");
                     return bufferedExclusiveOperation.execute(delegate, hdfsEnvironment);
                 case FINISHED:
@@ -1358,6 +1388,7 @@ public class SemiTransactionalHiveMetastore
             }
             partition = Partition.builder(partition)
                     .setCreateTime(oldPartition.get().getCreateTime())
+                    .setLastDataCommitTime(oldPartition.get().getLastDataCommitTime())
                     .build();
             String partitionName = getPartitionName(metastoreContext, partition.getDatabaseName(), partition.getTableName(), partition.getValues());
             PartitionStatistics oldPartitionStatistics = getExistingPartitionStatistics(metastoreContext, partition, partitionName);
@@ -1683,27 +1714,27 @@ public class SemiTransactionalHiveMetastore
         public ConnectorCommitHandle buildCommitHandle()
         {
             // Only the last metastore operations is returned, when a series of operations are executed.
-            Map<SchemaTableName, List<DateTime>> partitionAlterationResults = buildPartitionAlterationResults();
+            Map<SchemaTableName, List<Long>> partitionAlterationResults = buildPartitionAlterationResults();
             if (!partitionAlterationResults.isEmpty()) {
-                return new HiveCommitHandle(partitionAlterationResults);
+                return new HiveCommitHandle(lastDataCommitTimesForRead, partitionAlterationResults);
             }
 
-            Map<SchemaTableName, List<DateTime>> partitionCreationResults = buildPartitionCreationResults();
+            Map<SchemaTableName, List<Long>> partitionCreationResults = buildPartitionCreationResults();
             if (!partitionCreationResults.isEmpty()) {
-                return new HiveCommitHandle(partitionCreationResults);
+                return new HiveCommitHandle(lastDataCommitTimesForRead, partitionCreationResults);
             }
 
-            Map<SchemaTableName, List<DateTime>> tableCreationResults = buildTableCreationResults();
+            Map<SchemaTableName, List<Long>> tableCreationResults = buildTableCreationResults();
             if (!tableCreationResults.isEmpty()) {
-                return new HiveCommitHandle(tableCreationResults);
+                return new HiveCommitHandle(lastDataCommitTimesForRead, tableCreationResults);
             }
 
             return EMPTY_HIVE_COMMIT_HANDLE;
         }
 
-        private ImmutableMap<SchemaTableName, List<DateTime>> buildTableCreationResults()
+        private ImmutableMap<SchemaTableName, List<Long>> buildTableCreationResults()
         {
-            ImmutableMap.Builder<SchemaTableName, List<DateTime>> builder = ImmutableMap.builder();
+            ImmutableMap.Builder<SchemaTableName, List<Long>> builder = ImmutableMap.builder();
             for (CreateTableOperation operation : addTableOperations) {
                 if (!operation.getOperationResult().isPresent()) {
                     continue;
@@ -1715,16 +1746,16 @@ public class SemiTransactionalHiveMetastore
             return builder.build();
         }
 
-        private ImmutableMap<SchemaTableName, List<DateTime>> buildPartitionCreationResults()
+        private ImmutableMap<SchemaTableName, List<Long>> buildPartitionCreationResults()
         {
-            ImmutableMap.Builder<SchemaTableName, List<DateTime>> builder = ImmutableMap.builder();
+            ImmutableMap.Builder<SchemaTableName, List<Long>> builder = ImmutableMap.builder();
             for (SchemaTableName schemaTableName : partitionAdders.keySet()) {
                 PartitionAdder partitionAdder = partitionAdders.get(schemaTableName);
                 if (partitionAdder.getOperationResults().isEmpty()) {
                     continue;
                 }
 
-                ImmutableList.Builder<DateTime> lastCommitTimeBuilder = ImmutableList.builder();
+                ImmutableList.Builder<Long> lastCommitTimeBuilder = ImmutableList.builder();
                 for (MetastoreOperationResult operationResult : partitionAdder.getOperationResults()) {
                     lastCommitTimeBuilder.addAll(operationResult.getLastDataCommitTimes());
                 }
@@ -1733,10 +1764,10 @@ public class SemiTransactionalHiveMetastore
             return builder.build();
         }
 
-        private ImmutableMap<SchemaTableName, List<DateTime>> buildPartitionAlterationResults()
+        private ImmutableMap<SchemaTableName, List<Long>> buildPartitionAlterationResults()
         {
-            ImmutableMap.Builder<SchemaTableName, List<DateTime>> builder = ImmutableMap.builder();
-            ImmutableList.Builder<DateTime> lastCommitTimeBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<SchemaTableName, List<Long>> builder = ImmutableMap.builder();
+            ImmutableList.Builder<Long> lastCommitTimeBuilder = ImmutableList.builder();
             SchemaTableName table = null;
             for (AlterPartitionOperation operation : alterPartitionOperations) {
                 if (!operation.getOperationResult().isPresent()) {

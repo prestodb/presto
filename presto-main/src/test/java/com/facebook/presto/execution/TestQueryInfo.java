@@ -172,7 +172,7 @@ public class TestQueryInfo
                 null,
                 null,
                 ImmutableList.of(new PrestoWarning(new WarningCode(1, "name"), "message")),
-                ImmutableSet.of(new Input(new ConnectorId("connector"), "schema", "table", Optional.empty(), ImmutableList.of(new Column("name", "type")), Optional.empty())),
+                ImmutableSet.of(new Input(new ConnectorId("connector"), "schema", "table", Optional.empty(), ImmutableList.of(new Column("name", "type")), Optional.empty(), "")),
                 Optional.empty(),
                 true,
                 Optional.empty(),

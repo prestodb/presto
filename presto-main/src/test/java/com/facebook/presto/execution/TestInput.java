@@ -33,7 +33,8 @@ public class TestInput
                 new Column("column1", "string"),
                 new Column("column2", "string"),
                 new Column("column3", "string")),
-                Optional.empty());
+                Optional.empty(),
+                "");
 
         String json = codec.toJson(expected);
         Input actual = codec.fromJson(json);

@@ -44,6 +44,7 @@ public class Partition
     private final boolean eligibleToIgnore;
     private final boolean sealedPartition;
     private final int createTime;
+    private final long lastDataCommitTime;
 
     @JsonCreator
     public Partition(
@@ -56,7 +57,8 @@ public class Partition
             @JsonProperty("partitionVersion") Optional<Long> partitionVersion,
             @JsonProperty("eligibleToIgnore") boolean eligibleToIgnore,
             @JsonProperty("sealedPartition") boolean sealedPartition,
-            @JsonProperty("createTime") int createTime)
+            @JsonProperty("createTime") int createTime,
+            @JsonProperty("lastDataCommitTime") long lastDataCommitTime)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -68,6 +70,7 @@ public class Partition
         this.eligibleToIgnore = eligibleToIgnore;
         this.sealedPartition = sealedPartition;
         this.createTime = createTime;
+        this.lastDataCommitTime = lastDataCommitTime;
     }
 
     @JsonProperty
@@ -136,6 +139,12 @@ public class Partition
         return createTime;
     }
 
+    @JsonProperty
+    public long getLastDataCommitTime()
+    {
+        return lastDataCommitTime;
+    }
+
     @Override
     public String toString()
     {
@@ -166,13 +175,14 @@ public class Partition
                 Objects.equals(partitionVersion, partition.partitionVersion) &&
                 Objects.equals(eligibleToIgnore, partition.eligibleToIgnore) &&
                 Objects.equals(sealedPartition, partition.sealedPartition) &&
-                Objects.equals(createTime, partition.getCreateTime());
+                Objects.equals(createTime, partition.getCreateTime()) &&
+                Objects.equals(lastDataCommitTime, partition.getLastDataCommitTime());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore, sealedPartition, createTime);
+        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore, sealedPartition, createTime, lastDataCommitTime);
     }
 
     public static Builder builder()
@@ -197,6 +207,7 @@ public class Partition
         private boolean isEligibleToIgnore;
         private boolean isSealedPartition = true;
         private int createTime;
+        private long lastDataCommitTime;
 
         private Builder()
         {
@@ -214,6 +225,7 @@ public class Partition
             this.partitionVersion = partition.getPartitionVersion();
             this.isEligibleToIgnore = partition.isEligibleToIgnore();
             this.createTime = partition.getCreateTime();
+            this.lastDataCommitTime = partition.getLastDataCommitTime();
         }
 
         public Builder setDatabaseName(String databaseName)
@@ -281,9 +293,15 @@ public class Partition
             return this;
         }
 
+        public Builder setLastDataCommitTime(long lastDataCommitTime)
+        {
+            this.lastDataCommitTime = lastDataCommitTime;
+            return this;
+        }
+
         public Partition build()
         {
-            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition, createTime);
+            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition, createTime, lastDataCommitTime);
         }
     }
 }
