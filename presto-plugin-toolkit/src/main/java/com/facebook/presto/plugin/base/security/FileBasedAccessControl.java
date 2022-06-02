@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.base.security;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -174,7 +175,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, ConnectorSession session)
     {
         if (!checkTablePermission(identity, tableName, INSERT)) {
             denyInsertTable(tableName.toString());

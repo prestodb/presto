@@ -38,6 +38,7 @@ import static com.facebook.presto.plugin.base.security.FileBasedAccessControlCon
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.security.Privilege.SELECT;
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.io.Files.copy;
@@ -336,7 +337,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanDropTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanTruncateTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of());
-                    accessControlManager.checkCanInsertIntoTable(transactionId, alice, context, aliceTable);
+                    accessControlManager.checkCanInsertIntoTable(transactionId, alice, context, aliceTable, testSessionBuilder().build());
                     accessControlManager.checkCanDeleteFromTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanAddColumns(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanRenameColumn(transactionId, alice, context, aliceTable);
@@ -374,7 +375,7 @@ public class TestFileBasedSystemAccessControl
         }));
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanInsertIntoTable(transactionId, alice, context, aliceTable);
+            accessControlManager.checkCanInsertIntoTable(transactionId, alice, context, aliceTable, testSessionBuilder().build());
         }));
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
