@@ -81,6 +81,7 @@ import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -535,14 +536,47 @@ public class QueryStateMachine
         if (!output.get().isPresent()) {
             return;
         }
-
         Output outputInfo = output.get().get();
         SchemaTableName table = new SchemaTableName(outputInfo.getSchema(), outputInfo.getTable());
         output.set(Optional.of(new Output(
                 outputInfo.getConnectorId(),
                 outputInfo.getSchema(),
                 outputInfo.getTable(),
-                commitHandle.getSerializedCommitOutput(table))));
+                commitHandle.getSerializedCommitOutputForWrite(table))));
+    }
+
+    private void addSerializedCommitOutputToInputs(List<?> commitHandles)
+    {
+        ImmutableSet.Builder<Input> builder = ImmutableSet.builder();
+
+        for (Input input : inputs.get()) {
+            builder.add(attachSerializedCommitOutput(input, commitHandles));
+        }
+
+        inputs.set(builder.build());
+    }
+
+    private Input attachSerializedCommitOutput(Input input, List<?> commitHandles)
+    {
+        SchemaTableName table = new SchemaTableName(input.getSchema(), input.getTable());
+        for (Object handle : commitHandles) {
+            if (!(handle instanceof ConnectorCommitHandle)) {
+                throw new PrestoException(INVALID_ARGUMENTS, "Type ConnectorCommitHandle is expected");
+            }
+
+            ConnectorCommitHandle commitHandle = (ConnectorCommitHandle) handle;
+            if (commitHandle.hasCommitOutput(table)) {
+                return new Input(
+                        input.getConnectorId(),
+                        input.getSchema(),
+                        input.getTable(),
+                        input.getConnectorInfo(),
+                        input.getColumns(),
+                        input.getStatistics(),
+                        commitHandle.getSerializedCommitOutputForRead(table));
+            }
+        }
+        return input;
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -760,10 +794,19 @@ public class QueryStateMachine
         return true;
     }
 
+    // TODO: Simplify the commit logic of the transaction manager.
     private void processConnectorCommitHandle(Object result)
     {
+        // For read-only transactions, transaction manager returns a list of commit handles.
+        // No need to handle Output here since they are read-only transactions.
+        if (result instanceof List) {
+            addSerializedCommitOutputToInputs((List<?>) result);
+        }
+
+        // For transactions containing write operation, the transaction manager returns a single commit handle.
         if (result instanceof ConnectorCommitHandle) {
             addSerializedCommitOutputToOutput((ConnectorCommitHandle) result);
+            addSerializedCommitOutputToInputs(ImmutableList.of(result));
         }
     }
 

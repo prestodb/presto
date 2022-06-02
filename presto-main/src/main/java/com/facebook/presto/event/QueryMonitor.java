@@ -406,7 +406,8 @@ public class QueryMonitor
                     input.getColumns().stream()
                             .map(Column::getName).collect(Collectors.toList()),
                     input.getConnectorInfo(),
-                    input.getStatistics()));
+                    input.getStatistics(),
+                    input.getSerializedCommitOutput()));
         }
 
         Optional<QueryOutputMetadata> output = Optional.empty();

@@ -114,6 +114,7 @@ public class TestRecordingHiveMetastore
             Optional.empty(),
             false,
             true,
+            0,
             0);
     private static final PartitionStatistics PARTITION_STATISTICS = new PartitionStatistics(
             new HiveBasicStatistics(10, 11, 10000, 10001),

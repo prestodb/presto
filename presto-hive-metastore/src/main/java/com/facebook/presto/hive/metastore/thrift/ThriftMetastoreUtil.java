@@ -134,6 +134,7 @@ public final class ThriftMetastoreUtil
 {
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
+    public static final String LAST_DATA_COMMIT_TIME = "lastDataCommitTime";
 
     private ThriftMetastoreUtil() {}
 
@@ -478,6 +479,22 @@ public final class ThriftMetastoreUtil
         return serdeInfo;
     }
 
+    // extract lastDataCommitTime from partition params.
+    public static long getLastDataCommitTime(org.apache.hadoop.hive.metastore.api.Partition partition)
+    {
+        if (!partition.isSetParameters()) {
+            return 0L;
+        }
+
+        Map<String, String> parameters = partition.getParameters();
+        try {
+            return Long.parseLong(parameters.getOrDefault(LAST_DATA_COMMIT_TIME, "0"));
+        }
+        catch (NumberFormatException e) {
+            return 0L;
+        }
+    }
+
     public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionMutator partitionMutator, ColumnConverter columnConverter)
     {
         StorageDescriptor storageDescriptor = partition.getSd();
@@ -493,7 +510,8 @@ public final class ThriftMetastoreUtil
                         .map(fieldSchema -> columnConverter.toColumn(fieldSchema))
                         .collect(toList()))
                 .setParameters(partition.getParameters())
-                .setCreateTime(partition.getCreateTime());
+                .setCreateTime(partition.getCreateTime())
+                .setLastDataCommitTime(getLastDataCommitTime(partition));
 
         // mutate apache partition to Presto partition
         partitionMutator.mutate(partitionBuilder, partition);
