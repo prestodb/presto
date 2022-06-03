@@ -85,10 +85,6 @@ public class MaterializedViewPlanValidator
     {
         context.pushJoinNode(node);
 
-        if (context.getJoinNodes().size() > 1) {
-            throw new SemanticException(NOT_SUPPORTED, node, "More than one join in materialized view is not supported yet.");
-        }
-
         JoinCriteria joinCriteria;
         switch (node.getType()) {
             case INNER:
