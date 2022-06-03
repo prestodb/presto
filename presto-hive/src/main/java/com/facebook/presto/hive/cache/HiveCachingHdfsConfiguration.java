@@ -62,15 +62,10 @@ public class HiveCachingHdfsConfiguration
     @Override
     public Configuration getConfiguration(HdfsContext context, URI uri)
     {
-        Configuration defaultConfig = hiveHdfsConfiguration.getConfiguration(context, uri);
         @SuppressWarnings("resource")
         Configuration config = new CachingJobConf((factoryConfig, factoryUri) -> {
             try {
-                Configuration currentConfig = defaultConfig;
-                if (uri.compareTo(factoryUri) != 0) {
-                    currentConfig = hiveHdfsConfiguration.getConfiguration(context, factoryUri);
-                }
-                FileSystem fileSystem = (new Path(factoryUri)).getFileSystem(currentConfig);
+                FileSystem fileSystem = (new Path(factoryUri)).getFileSystem(hiveHdfsConfiguration.getConfiguration(context, factoryUri));
                 checkState(fileSystem instanceof ExtendedFileSystem);
                 return cacheFactory.createCachingFileSystem(
                         factoryConfig,
@@ -84,7 +79,7 @@ public class HiveCachingHdfsConfiguration
             catch (IOException e) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create caching file system", e);
             }
-        }, defaultConfig);
+        }, hiveHdfsConfiguration.getConfiguration(context, uri));
         return config;
     }
 
