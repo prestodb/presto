@@ -166,7 +166,7 @@ public class StoragePartitionLoader
         Path path = new Path(location);
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
-        ExtendedFileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext.getIdentity().getUser(), path, configuration);
+        ExtendedFileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
         boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
