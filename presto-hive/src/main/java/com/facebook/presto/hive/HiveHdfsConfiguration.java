@@ -46,51 +46,25 @@ public class HiveHdfsConfiguration
     private final HdfsConfigurationInitializer initializer;
     private final Set<DynamicConfigurationProvider> dynamicProviders;
 
-    // This is set to TRUE if the configuration providers are empty or they do NOT dependent on the URI
-    private final boolean isConfigReusable;
-
-    // This is set to TRUE after the ThreadLocal config object is updated by all configuration providers
-    private boolean isConfigUpdated;
-
     @Inject
     public HiveHdfsConfiguration(HdfsConfigurationInitializer initializer, Set<DynamicConfigurationProvider> dynamicProviders)
     {
         this.initializer = requireNonNull(initializer, "initializer is null");
         this.dynamicProviders = ImmutableSet.copyOf(requireNonNull(dynamicProviders, "dynamicProviders is null"));
-        boolean isUriIndependentConfig = true;
-        for (DynamicConfigurationProvider provider : dynamicProviders) {
-            isUriIndependentConfig = isUriIndependentConfig && provider.isUriIndependentConfigurationProvider();
-        }
-        this.isConfigReusable = isUriIndependentConfig;
     }
 
     @Override
     public Configuration getConfiguration(HdfsContext context, URI uri)
     {
         if (dynamicProviders.isEmpty()) {
+            // use the same configuration for everything
             return hadoopConfiguration.get();
         }
 
-        if (isConfigReusable && isConfigUpdated) {
-            // use the same configuration for everything
-            return new CopyOnWriteConfiguration(hadoopConfiguration.get());
-        }
-
-        Configuration config = hadoopConfiguration.get();
-        if (!isConfigReusable) {
-            config = new Configuration(hadoopConfiguration.get());
-        }
-
+        Configuration config = new Configuration(hadoopConfiguration.get());
         for (DynamicConfigurationProvider provider : dynamicProviders) {
             provider.updateConfiguration(config, context, uri);
         }
-
-        if (isConfigReusable && !isConfigUpdated) {
-            // Return a CopyOnWrite config so that we make a copy before modifying it down the lane
-            isConfigUpdated = true;
-            return new CopyOnWriteConfiguration(config);
-        }
-
         return config;
     }
 }
