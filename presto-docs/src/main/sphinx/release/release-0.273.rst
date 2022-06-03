@@ -2,6 +2,11 @@
 Release 0.273
 =============
 
+.. warning::
+
+   There is a regression in query execution times due to way we are processing HdfsConfiguration
+   and the issue is fixed in 0.273.2 release.
+
 **Highlights**
 ==============
 * Add new Presto connector for Clickhouse.
