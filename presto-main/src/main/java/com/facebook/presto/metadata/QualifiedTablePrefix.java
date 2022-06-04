@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -28,6 +31,7 @@ import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 
 @Immutable
+@ThriftStruct
 public class QualifiedTablePrefix
 {
     private final String catalogName;
@@ -56,6 +60,7 @@ public class QualifiedTablePrefix
     }
 
     @JsonCreator
+    @ThriftConstructor
     public QualifiedTablePrefix(
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schemaName") Optional<String> schemaName,
@@ -73,18 +78,21 @@ public class QualifiedTablePrefix
     }
 
     @JsonProperty
+    @ThriftField(value = 1)
     public String getCatalogName()
     {
         return catalogName;
     }
 
     @JsonProperty
+    @ThriftField(value = 2)
     public Optional<String> getSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty
+    @ThriftField(value = 3)
     public Optional<String> getTableName()
     {
         return tableName;

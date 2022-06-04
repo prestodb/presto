@@ -28,7 +28,7 @@ public final class TableHandle
 {
     private final ConnectorId connectorId;
     private final ConnectorTableHandle connectorHandle;
-    private final ConnectorTransactionHandle transaction;
+    private ConnectorTransactionHandle transaction;
 
     // ConnectorTableHandle will represent the engine's view of data set on a table, we will deprecate ConnectorTableLayoutHandle later.
     // TODO remove table layout once it is fully deprecated.
@@ -88,6 +88,11 @@ public final class TableHandle
     public Optional<Supplier<TupleDomain<ColumnHandle>>> getDynamicFilter()
     {
         return dynamicFilter;
+    }
+
+    public void setTransaction(ConnectorTransactionHandle connectorTransactionHandle)
+    {
+        this.transaction = connectorTransactionHandle;
     }
 
     public TableHandle withDynamicFilter(Supplier<TupleDomain<ColumnHandle>> dynamicFilter)

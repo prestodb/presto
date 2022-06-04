@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -25,6 +28,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class QualifiedObjectName
 {
     private final String catalogName;
@@ -54,6 +58,7 @@ public class QualifiedObjectName
         return new QualifiedObjectName(catalogName, schemaName, objectName.toLowerCase(ENGLISH));
     }
 
+    @ThriftConstructor
     public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
         checkLowerCase(catalogName, "catalogName");
@@ -69,16 +74,19 @@ public class QualifiedObjectName
         return new CatalogSchemaName(catalogName, schemaName);
     }
 
+    @ThriftField(value = 1)
     public String getCatalogName()
     {
         return catalogName;
     }
 
+    @ThriftField(value = 2)
     public String getSchemaName()
     {
         return schemaName;
     }
 
+    @ThriftField(value = 3)
     public String getObjectName()
     {
         return objectName;

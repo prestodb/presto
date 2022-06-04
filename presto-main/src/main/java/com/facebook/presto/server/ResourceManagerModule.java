@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
+import com.facebook.presto.catalogserver.CatalogServer;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
@@ -23,6 +24,7 @@ import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.resourcemanager.DistributedClusterStatsResource;
 import com.facebook.presto.resourcemanager.DistributedQueryInfoResource;
 import com.facebook.presto.resourcemanager.DistributedQueryResource;
@@ -31,8 +33,10 @@ import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.resourcemanager.ResourceManagerServer;
-import com.facebook.presto.transaction.NoOpTransactionManager;
+import com.facebook.presto.transaction.ForTransactionManager;
+import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -41,6 +45,10 @@ import io.airlift.units.Duration;
 
 import javax.inject.Singleton;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -49,6 +57,8 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class ResourceManagerModule
         extends AbstractConfigurationAwareModule
@@ -61,6 +71,7 @@ public class ResourceManagerModule
 
         // presto coordinator announcement
         discoveryBinder(binder).bindHttpAnnouncement("presto-resource-manager");
+        discoveryBinder(binder).bindHttpAnnouncement("presto-catalog-server");
 
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
@@ -90,10 +101,9 @@ public class ResourceManagerModule
         jsonCodecBinder(binder).bindListJsonCodec(QueryStateInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(ResourceGroupInfo.class);
 
-        binder.bind(TransactionManager.class).to(NoOpTransactionManager.class);
-
         binder.bind(ResourceManagerClusterStateProvider.class).in(Scopes.SINGLETON);
         driftServerBinder(binder).bindService(ResourceManagerServer.class);
+        driftServerBinder(binder).bindService(CatalogServer.class);
 
         binder.bind(NodeResourceStatusProvider.class).toInstance(() -> true);
 
@@ -112,5 +122,32 @@ public class ResourceManagerModule
     public static ResourceGroupManager<?> getResourceGroupManager(@SuppressWarnings("rawtypes") ResourceGroupManager manager)
     {
         return manager;
+    }
+
+    @Provides
+    @Singleton
+    @ForTransactionManager
+    public static ScheduledExecutorService createTransactionIdleCheckExecutor()
+    {
+        return newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
+    }
+
+    @Provides
+    @Singleton
+    @ForTransactionManager
+    public static ExecutorService createTransactionFinishingExecutor()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s"));
+    }
+
+    @Provides
+    @Singleton
+    public static TransactionManager createTransactionManager(
+            TransactionManagerConfig config,
+            CatalogManager catalogManager,
+            @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
+            @ForTransactionManager ExecutorService finishingExecutor)
+    {
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
     }
 }

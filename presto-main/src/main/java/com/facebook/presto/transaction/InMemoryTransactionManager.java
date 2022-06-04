@@ -181,6 +181,25 @@ public class InMemoryTransactionManager
     }
 
     @Override
+    public void tryRegisterTransaction(TransactionInfo transactionInfo)
+    {
+        TransactionId transactionId = transactionInfo.getTransactionId();
+        if (transactions.containsKey(transactionId)) {
+            return;
+        }
+        BoundedExecutor executor = new BoundedExecutor(finishingExecutor, maxFinishingConcurrency);
+        TransactionMetadata transactionMetadata = new TransactionMetadata(transactionId,
+                transactionInfo.getIsolationLevel(),
+                transactionInfo.isReadOnly(),
+                transactionInfo.isAutoCommitContext(),
+                catalogManager,
+                executor,
+                functionNamespaceManagers,
+                companionCatalogs);
+        checkState(transactions.put(transactionId, transactionMetadata) == null, "Duplicate transaction ID: %s", transactionId);
+    }
+
+    @Override
     public TransactionId beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext)
     {
         TransactionId transactionId = TransactionId.create();
