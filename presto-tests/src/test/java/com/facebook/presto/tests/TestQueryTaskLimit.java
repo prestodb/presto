@@ -68,7 +68,7 @@ public class TestQueryTaskLimit
         executor = null;
     }
 
-    @Test(timeOut = 30_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is overloaded with too many tasks.*")
+    @Test(timeOut = 90_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is overloaded with too many tasks.*")
     public void testExceedTaskLimit()
             throws Exception
     {
@@ -86,7 +86,7 @@ public class TestQueryTaskLimit
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test(timeOut = 90_000)
     public void testQueuingWhenTaskLimitExceeds()
             throws Exception
     {
