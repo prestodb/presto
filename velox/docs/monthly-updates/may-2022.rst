@@ -1,0 +1,67 @@
+********************
+May 2022 Update
+********************
+
+Documentation
+=============
+
+* Add documentation for :doc:`SIMD <../develop/simd>`.
+* Add :doc:`Velox in 10 min <../velox-in-10-min>` tutorial.
+
+Core Library
+============
+
+* Add support for user-defined join operators.
+* Build abstract and portable SIMD using xsimd.
+* Add AlignedStlAllocator for folly F14 containers.
+* Add Substrait FilterNode and FieldAccessTypedExpr, CastTypedExpr support.
+* Add Decimal type.
+* Add Checkpointing for SsdCache.
+* Add SSE4.2 support.
+* Add TPC-H Connector.
+* Add support for constant partitioning columns.
+* Add fast path for const, flat encoded primitive arguments in SimpleFunctionAdapter.
+* Add support for more types in HivePartitionFunction.
+* Add support for Apple M1.
+* Add Velox to Substrait converter.
+* Add spilling to HashAggregation.
+* Add support for anti join with filter.
+
+Presto Functions
+================
+
+* Add :func:`histogram` function for integral, floating-point, boolean, timestamp, and date types.
+* Implement DISTINCT FROM.
+* Support TimestampWithTimezone in :func:`day_of_week`, :func:`day_of_year`, and :func:`year_of_week` functions.
+
+Performance and Correctness
+===========================
+
+* Add benchmark for simple aggregates.
+* Add benchmark for row writer.
+* Reuse memory more often when evaluating simple functions.
+* Reuse memory for aggregation results when possible.
+* Optimize row writer performance by around 20%.
+* Add string writer benchmark.
+
+
+Debugging Experience
+====================
+
+* Add memory allocations to printPlanWithStats.
+* Print output type in PlanNode::toString.
+* Add config property to enable cpu usage tracking for expressions.
+* Add number of input and output batches statistics for operators.
+* Add number of processed batches, vectors for expressions.
+
+
+Credits
+=======
+
+Abhash Jain, Adam Simpkins, Amithash Prasad, Arpit Porwal, Behnam Robatmili,
+Chad Austin, Deepak Majeti, Ernesto Avilés Vázquez, Ezgi Çiçek, James Xu,
+Jialiang Tan, Jie1 Zhang, Jimmy Lu, Jing Zhu, John Reese, Karteek Murthy,
+Kevin Wilfong, Krishna Pai, Laith Sakka, MJ Deng, Masha Basmanova, Muir Manders,
+Orri Erling, Patrick Stuedi, Pedro Eugenio Rocha Pedreira, Pyre Bot Jr, Rui Mo,
+Sergey Pershin, TJ Yin, Wei He, Zhenyuan Zhao, artem.malyshev, rui-mo, usurai,
+xuedongluan, yeyuqiang, yingsu00
