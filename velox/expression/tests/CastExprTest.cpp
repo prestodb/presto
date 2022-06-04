@@ -260,6 +260,23 @@ TEST_F(CastExprTest, timestamp) {
       });
 }
 
+TEST_F(CastExprTest, dateToTimestamp) {
+  testCast<Date, Timestamp>(
+      "timestamp",
+      {
+          Date(0),
+          Date(10957),
+          Date(14557),
+          std::nullopt,
+      },
+      {
+          Timestamp(0, 0),
+          Timestamp(946684800, 0),
+          Timestamp(1257724800, 0),
+          std::nullopt,
+      });
+}
+
 TEST_F(CastExprTest, timestampInvalid) {
   testCast<int8_t, Timestamp>("timestamp", {12}, {Timestamp(0, 0)}, true);
   testCast<int16_t, Timestamp>("timestamp", {1234}, {Timestamp(0, 0)}, true);

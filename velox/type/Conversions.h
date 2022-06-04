@@ -58,6 +58,10 @@ struct Converter<TypeKind::BOOLEAN> {
   static T cast(const std::string& v, bool& nullOutput) {
     return folly::to<T>(v);
   }
+
+  static T cast(const Date& d, bool& nullOutput) {
+    VELOX_UNSUPPORTED("Conversion of Date to Boolean is not supported");
+  }
 };
 
 template <TypeKind KIND, bool TRUNCATE>
@@ -338,6 +342,10 @@ struct Converter<
   // might throw 'loss of precision' error.
   static T cast(const int64_t& v, bool& nullOutput) {
     return static_cast<T>(v);
+  }
+
+  static T cast(const Date& d, bool& nullOutput) {
+    VELOX_UNSUPPORTED("Conversion of Date to Real or Double is not supported");
   }
 };
 
