@@ -35,6 +35,7 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.CauchyDistribution;
 import org.apache.commons.math3.distribution.ChiSquaredDistribution;
 import org.apache.commons.math3.distribution.PoissonDistribution;
+import org.apache.commons.math3.distribution.UniformIntegerDistribution;
 import org.apache.commons.math3.distribution.WeibullDistribution;
 import org.apache.commons.math3.special.Erf;
 
@@ -900,6 +901,36 @@ public final class MathFunctions
         return distribution.cumulativeProbability(value);
     }
 
+    @Description("descrete uniform pmf P(X = k) where a <= k <= b")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double discreteUniformPmf(
+            @SqlType(StandardTypes.INTEGER) long a,
+            @SqlType(StandardTypes.INTEGER) long b,
+            @SqlType(StandardTypes.INTEGER) long k)
+    {
+        checkCondition(a <= b, INVALID_FUNCTION_ARGUMENT, "b must be > a");
+        checkCondition(k >= a && k <= b, INVALID_FUNCTION_ARGUMENT, "k must be >= a and <= b");
+
+        UniformIntegerDistribution distribution = new UniformIntegerDistribution((int) a, (int) b);
+        return distribution.probability((int) k);
+    }
+
+    @Description("descrete uniform cdf P(X <= k) where a <= k <= b")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double discreteUniformCdf(
+            @SqlType(StandardTypes.INTEGER) long a,
+            @SqlType(StandardTypes.INTEGER) long b,
+            @SqlType(StandardTypes.INTEGER) long k)
+    {
+        checkCondition(a <= b, INVALID_FUNCTION_ARGUMENT, "b must be > a");
+        checkCondition(k >= a && k <= b, INVALID_FUNCTION_ARGUMENT, "k must be >= a and <= b");
+
+        UniformIntegerDistribution distribution = new UniformIntegerDistribution((int) a, (int) b);
+        return distribution.cumulativeProbability((int) k);
+    }
+  
     @Description("Inverse of Poisson cdf given lambda (mean) parameter and probability")
     @ScalarFunction
     @SqlType(StandardTypes.INTEGER)
