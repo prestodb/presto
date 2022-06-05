@@ -195,6 +195,11 @@ Probability Functions: cdf
 
     Compute the Chi-square cdf with given df (degrees of freedom) parameter:  P(N < value; df).
     The df parameter must be a positive real number, and value must be a non-negative real value (both of type DOUBLE).
+    
+.. function:: continuous_uniform_cdf(a, b, v) -> double
+
+    Compute the continuous uniform cdf with given [a, b] boundaries:  P(X <= x).
+    The a, b parameters must be real numbers and value v must be a real number.
 
 .. function:: normal_cdf(mean, sd, value) -> double
 
@@ -238,6 +243,14 @@ Probability Functions: inverse_cdf
 
     Compute the inverse of the Chi-square cdf with given df (degrees of freedom) parameter for the cumulative
     probability (p): P(N < n). The df parameter must be positive real values.
+    The probability p must lie on the interval [0, 1].
+
+.. function:: inverse_continuous_uniform_cdf(a, b, p) -> double
+
+    Compute the inverse of the continuous uniform cdf with given [a, b] boundaries.
+    inf{x in R | P(X<=x) >= p} for 0 < p <= 1,
+    inf{x in R | P(X<=x) > 0} for p = 0.
+    The a, b parameters must be real numbers.
     The probability p must lie on the interval [0, 1].
 
 .. function:: inverse_normal_cdf(mean, sd, p) -> double

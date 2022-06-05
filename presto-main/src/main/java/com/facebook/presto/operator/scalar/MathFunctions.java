@@ -35,6 +35,7 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.CauchyDistribution;
 import org.apache.commons.math3.distribution.ChiSquaredDistribution;
 import org.apache.commons.math3.distribution.PoissonDistribution;
+import org.apache.commons.math3.distribution.UniformRealDistribution;
 import org.apache.commons.math3.distribution.WeibullDistribution;
 import org.apache.commons.math3.special.Erf;
 
@@ -897,6 +898,33 @@ public final class MathFunctions
         checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
         checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
         ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.cumulativeProbability(value);
+    }
+
+    @Description("inverse of continuous uniform cdf given a, b parameters and probability")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseContinuousUniformCdf(
+            @SqlType(StandardTypes.DOUBLE) double a,
+            @SqlType(StandardTypes.DOUBLE) double b,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(b > a, INVALID_FUNCTION_ARGUMENT, "b must be > a");
+        UniformRealDistribution distribution = new UniformRealDistribution(a, b);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
+    @Description("Continuous uniform cdf given the a, b parameters and value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double continuousUniformCdf(
+            @SqlType(StandardTypes.DOUBLE) double a,
+            @SqlType(StandardTypes.DOUBLE) double b,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(b > a, INVALID_FUNCTION_ARGUMENT, "b must be > a");
+        UniformRealDistribution distribution = new UniformRealDistribution(a, b);
         return distribution.cumulativeProbability(value);
     }
 

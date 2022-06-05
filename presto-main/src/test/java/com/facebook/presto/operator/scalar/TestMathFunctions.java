@@ -1468,6 +1468,32 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInverseContinuousUniformCdf()
+    {
+        assertFunction("inverse_continuous_uniform_cdf(3.0, 4.0, 0.3)", DOUBLE, 3.3);
+        assertFunction("inverse_continuous_uniform_cdf(3.0, 4.0, 0.0)", DOUBLE, 3.0);
+        assertFunction("inverse_continuous_uniform_cdf(3.0, 4.0, 0.7)", DOUBLE, 3.7);
+        assertFunction("inverse_continuous_uniform_cdf(3.0, 4.0, 1.0)", DOUBLE, 4.0);
+
+        assertInvalidFunction("inverse_continuous_uniform_cdf(7.0, 3.0, 0.5)", "b must be > a");
+        assertInvalidFunction("inverse_continuous_uniform_cdf(7.0, 7.0, 0.5)", "b must be > a");
+        assertInvalidFunction("inverse_beta_cdf(3.0, 5.0, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_beta_cdf(3.0, 5.0, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testContinuousUniformCdf()
+            throws Exception
+    {
+        assertFunction("continuous_uniform_cdf(3.0, 4.0, 0.0)", DOUBLE, 0.0);
+        assertFunction("continuous_uniform_cdf(3.0, 4.0, 5.0)", DOUBLE, 1.0);
+        assertFunction("round(continuous_uniform_cdf(3.0, 4.0, 3.4), 12)", DOUBLE, 0.4);
+
+        assertInvalidFunction("continuous_uniform_cdf(7.0, 3.0, 0.5)", "b must be > a");
+        assertInvalidFunction("continuous_uniform_cdf(7.0, 7.0, 0.5)", "b must be > a");
+    }
+
+    @Test
     public void testInversePoissonCdf()
     {
         assertFunction("inverse_poisson_cdf(3, 0.0)", INTEGER, 0);
