@@ -359,14 +359,20 @@ TEST_F(ExprStatsTest, errorLog) {
   auto listener = std::make_shared<TestListener>(events, exceptions);
   ASSERT_TRUE(exec::registerExprSetListener(listener));
 
-  auto data = makeRowVector({makeNullableFlatVector<StringView>(
-      {"12"_sv, "1a"_sv, "34"_sv, ""_sv, std::nullopt, " 1"_sv})});
+  auto data = makeRowVector(
+      {makeNullableFlatVector<StringView>(
+           {"12"_sv, "1a"_sv, "34"_sv, ""_sv, std::nullopt, " 1"_sv}),
+       makeNullableFlatVector<StringView>(
+           {"12.3a"_sv, "ab"_sv, "3.4"_sv, "5.6"_sv, std::nullopt, "1.1a"_sv}),
+       makeNullableFlatVector<StringView>(
+           {"12"_sv, "34"_sv, "0"_sv, "78"_sv, "0"_sv, "0"_sv})});
 
   auto rowType = asRowType(data->type());
   auto exprSet = compileExpressions({"try(cast(c0 as integer))"}, rowType);
 
   evaluate(*exprSet, data);
 
+  // Expect errors at rows 2 and 4.
   ASSERT_EQ(2, listener->exceptionCount());
   ASSERT_EQ(2, exceptions.size());
   for (const auto& exception : exceptions) {
@@ -377,11 +383,33 @@ TEST_F(ExprStatsTest, errorLog) {
     ASSERT_TRUE(exception.find("Stack trace:") != std::string::npos);
   }
 
+  // Test with multiple try expressions. Expect errors at rows 1, 2, 4, and 6.
+  // The second row in c1 does not cause an additional error because the
+  // corresponding row in c0 already triggered an error first that caused this
+  // row to be nulled out.
+  listener->reset();
+  exprSet = compileExpressions(
+      {"try(cast(c0 as integer)) + try(cast(c1 as double))"}, rowType);
+
+  evaluate(*exprSet, data);
+  ASSERT_EQ(4, listener->exceptionCount());
+  ASSERT_EQ(4, exceptions.size());
+
+  // Test with nested try expressions. Expect errors at rows 2, 3, 4, and 6. Row
+  // 5 in c2 does not cause an error because the corresponding row in c0 is
+  // null, so this row is not evaluated for the division.
+  listener->reset();
+  exprSet = compileExpressions(
+      {"try(try(cast(c0 as integer)) / cast(c2 as integer))"}, rowType);
+
+  evaluate(*exprSet, data);
+  ASSERT_EQ(4, listener->exceptionCount());
+  ASSERT_EQ(4, exceptions.size());
+
   // Test with no error.
   listener->reset();
+  exprSet = compileExpressions({"try(cast(c2 as integer))"}, rowType);
 
-  data = makeRowVector(
-      {makeNullableFlatVector<StringView>({"12"_sv, "34"_sv, "56"_sv})});
   evaluate(*exprSet, data);
   ASSERT_EQ(0, listener->exceptionCount());
   ASSERT_EQ(0, exceptions.size());
