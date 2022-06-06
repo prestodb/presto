@@ -314,6 +314,7 @@ public class TestAddExchangesPlans
                         "        COUNT(*)\n" +
                         "    FROM (\n" +
                         "        VALUES\n" +
+                        "            (1, 2),\n" +
                         "            (1, 2)\n" +
                         "    ) t (a, b)\n" +
                         "    GROUP BY\n" +

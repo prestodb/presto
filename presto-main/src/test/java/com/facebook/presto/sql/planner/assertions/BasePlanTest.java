@@ -198,6 +198,15 @@ public class BasePlanTest
         });
     }
 
+    protected void assertPlanValidatorWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, Consumer<Plan> planValidator)
+    {
+        queryRunner.inTransaction(session, transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            planValidator.accept(actualPlan);
+            return null;
+        });
+    }
+
     protected Plan plan(String sql)
     {
         return plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
@@ -212,6 +221,21 @@ public class BasePlanTest
     {
         try {
             return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Planning failed for SQL: " + sql, e);
+        }
+    }
+
+    protected Plan plan(String sql, LogicalPlanner.Stage stage, Session session)
+    {
+        return plan(sql, stage, true, session);
+    }
+
+    protected Plan plan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, Session session)
+    {
+        try {
+            return queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);

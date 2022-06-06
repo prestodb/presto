@@ -424,6 +424,17 @@ public final class AggregationNode
             this.mask = requireNonNull(mask, "mask is null");
         }
 
+        public static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)
+        {
+            checkArgument(aggregation.isDistinct(), "Expected aggregation to have DISTINCT input");
+            return new AggregationNode.Aggregation(
+                    aggregation.getCall(),
+                    aggregation.getFilter(),
+                    aggregation.getOrderBy(),
+                    false,
+                    aggregation.getMask());
+        }
+
         @JsonProperty
         public CallExpression getCall()
         {
