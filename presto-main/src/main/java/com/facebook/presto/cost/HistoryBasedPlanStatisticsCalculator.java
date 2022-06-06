@@ -27,6 +27,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.useExternalPlanStatisticsEnabled;
+import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonLogicalPlan;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -64,7 +66,7 @@ public class HistoryBasedPlanStatisticsCalculator
     private PlanStatistics getStatistics(PlanNode planNode, Session session, TypeProvider types, Lookup lookup)
     {
         planNode = removeGroupReferences(planNode, lookup);
-        if (externalPlanStatisticsProvider.isPresent()) {
+        if (externalPlanStatisticsProvider.isPresent() && useExternalPlanStatisticsEnabled(session)) {
             return externalPlanStatisticsProvider.get().getStats(
                     planNode,
                     node -> jsonLogicalPlan(node, types, metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session),
@@ -74,6 +76,10 @@ public class HistoryBasedPlanStatisticsCalculator
                             ImmutableList.copyOf(tableScanNode.getAssignments().values()),
                             new Constraint<>(tableScanNode.getCurrentConstraint())));
         }
+        if (!useHistoryBasedPlanStatisticsEnabled(session)) {
+            return PlanStatistics.empty();
+        }
+        // Unimplemented
         return PlanStatistics.empty();
     }
 }

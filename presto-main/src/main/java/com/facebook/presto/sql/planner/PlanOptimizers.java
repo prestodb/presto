@@ -556,7 +556,7 @@ public class PlanOptimizers
 
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
-            builder.add((new IterativeOptimizer(
+            builder.add(new IterativeOptimizer(
                     ruleStats,
                     statsCalculator,
                     estimatedExchangesCostCalculator,
@@ -564,7 +564,7 @@ public class PlanOptimizers
                             new DetermineJoinDistributionType(costComparator, taskCountEstimator), // Must run before AddExchanges
                             // Must run before AddExchanges and after ReplicateSemiJoinInDelete
                             // to avoid temporarily having an invalid plan
-                            new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator)))));
+                            new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
             builder.add(
                     new IterativeOptimizer(
                             ruleStats,
