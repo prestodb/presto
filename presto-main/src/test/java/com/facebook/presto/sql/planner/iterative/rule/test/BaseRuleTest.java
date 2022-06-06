@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -23,6 +24,10 @@ import org.testng.annotations.BeforeClass;
 import java.util.List;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public abstract class BaseRuleTest
 {
@@ -60,5 +65,23 @@ public abstract class BaseRuleTest
     protected FunctionAndTypeManager getFunctionManager()
     {
         return tester.getMetadata().getFunctionAndTypeManager();
+    }
+
+    protected void assertNodeRemovedFromPlan(Plan plan, Class nodeClass)
+    {
+        assertFalse(
+                searchFrom(plan.getRoot())
+                        .where(isInstanceOfAny(nodeClass))
+                        .matches(),
+                "Unexpected " + nodeClass.toString() + " in plan after optimization. ");
+    }
+
+    protected void assertNodePresentInPlan(Plan plan, Class nodeClass)
+    {
+        assertTrue(
+                searchFrom(plan.getRoot())
+                        .where(isInstanceOfAny(nodeClass))
+                        .matches(),
+                "Expected " + nodeClass.toString() + " in plan after optimization. ");
     }
 }
