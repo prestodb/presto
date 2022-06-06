@@ -938,6 +938,10 @@ public class PlanPrinter
                 }
             }
 
+            if (!node.getTableConstraints().isEmpty()) {
+                nodeOutput.appendDetailsLine("Table Constraints: %s", node.getTableConstraints());
+            }
+
             TupleDomain<ColumnHandle> predicate = node.getCurrentConstraint();
             if (predicate == null) {
                 // This happens when printing the plan fragment on worker for debug purpose

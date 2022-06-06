@@ -110,6 +110,12 @@ public class TestHiveClientFileMetastore
         // FileHiveMetastore has various incompatibilities
     }
 
+    @Override
+    public void testTableConstraints()
+    {
+        // FileHiveMetastore has no support for table constraints
+    }
+
     @Test
     public void testPartitionNotReadable()
     {

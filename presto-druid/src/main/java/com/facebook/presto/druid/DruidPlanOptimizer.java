@@ -171,6 +171,7 @@ public class DruidPlanOptimizer
                             newTableHandle,
                             ImmutableList.copyOf(assignments.keySet()),
                             assignments.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, (e) -> (ColumnHandle) (e.getValue()))),
+                            tableScanNode.getTableConstraints(),
                             tableScanNode.getCurrentConstraint(),
                             tableScanNode.getEnforcedConstraint()));
         }

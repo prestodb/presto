@@ -156,6 +156,7 @@ public class JdbcComputePushdown
                     tableHandle,
                     oldTableScanNode.getOutputVariables(),
                     oldTableScanNode.getAssignments(),
+                    oldTableScanNode.getTableConstraints(),
                     oldTableScanNode.getCurrentConstraint(),
                     oldTableScanNode.getEnforcedConstraint());
 
