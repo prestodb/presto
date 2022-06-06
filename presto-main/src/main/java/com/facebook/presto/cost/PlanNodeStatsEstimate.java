@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VariableWidthType;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
@@ -175,6 +176,18 @@ public class PlanNodeStatsEstimate
     public boolean isOutputRowCountUnknown()
     {
         return isNaN(outputRowCount);
+    }
+
+    public PlanNodeStatsEstimate combineStats(PlanStatistics planStatistics)
+    {
+        if (planStatistics.getConfidence() > 0) {
+            return new PlanNodeStatsEstimate(
+                    planStatistics.getRowCount().getValue(),
+                    planStatistics.getOutputSize().getValue(),
+                    true,
+                    variableStatistics);
+        }
+        return this;
     }
 
     @Override
