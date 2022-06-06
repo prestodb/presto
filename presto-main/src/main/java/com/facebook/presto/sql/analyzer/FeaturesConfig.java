@@ -152,6 +152,7 @@ public class FeaturesConfig
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
+    private boolean exploitConstraints;
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
     private double partialAggregationByteReductionThreshold = 0.5;
@@ -850,6 +851,18 @@ public class FeaturesConfig
     public FeaturesConfig setUseMarkDistinct(boolean value)
     {
         this.useMarkDistinct = value;
+        return this;
+    }
+
+    public boolean isExploitConstraints()
+    {
+        return exploitConstraints;
+    }
+
+    @Config("optimizer.exploit-constraints")
+    public FeaturesConfig setExploitConstraints(boolean value)
+    {
+        this.exploitConstraints = value;
         return this;
     }
 

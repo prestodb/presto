@@ -52,6 +52,8 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats dropRole = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats lock = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats unlock = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getPrimaryKey = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getUniqueConstraints = new HiveMetastoreApiStats();
 
     @Managed
     @Nested
@@ -284,10 +286,20 @@ public class ThriftHiveMetastoreStats
         return lock;
     }
 
+    public HiveMetastoreApiStats getGetPrimaryKey()
+    {
+        return getPrimaryKey;
+    }
+
     @Managed
     @Nested
     public HiveMetastoreApiStats getUnlock()
     {
         return unlock;
+    }
+
+    public HiveMetastoreApiStats getGetUniqueConstraints()
+    {
+        return getUniqueConstraints;
     }
 }

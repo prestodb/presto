@@ -24,14 +24,19 @@ import com.facebook.presto.hive.metastore.thrift.HiveMetastoreClient;
 import com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreStats;
+import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
+import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -51,6 +56,7 @@ import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION_VALUES2;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_ROLES;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE_WITH_CONSTRAINTS;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.function.UnaryOperator.identity;
@@ -111,14 +117,14 @@ public class TestCachingHiveMetastore
     public void testGetAllTable()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 1);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
@@ -445,6 +451,21 @@ public class TestCachingHiveMetastore
         catch (RuntimeException ignored) {
         }
         assertEquals(mockClient.getAccessCount(), 2);
+    }
+
+    @Test
+    public void testTableConstraints()
+    {
+        assertEquals(mockClient.getAccessCount(), 0);
+        List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        assertEquals(tableConstraints.get(0), new PrimaryKeyConstraint<>("", ImmutableSet.of("c1"), true, true));
+        assertEquals(tableConstraints.get(1), new UniqueConstraint<>("", ImmutableSet.of("c2"), true, true));
+        assertEquals(mockClient.getAccessCount(), 2);
+        metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        assertEquals(mockClient.getAccessCount(), 2);
+        metastore.flushCache();
+        metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
+        assertEquals(mockClient.getAccessCount(), 4);
     }
 
     public static class MockHiveCluster

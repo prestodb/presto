@@ -34,9 +34,12 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -97,6 +100,18 @@ public class BridgingHiveMetastore
             }
             return fromMetastoreApiTable(table, metastoreContext.getColumnConverter());
         });
+    }
+
+    @Override
+    public List<TableConstraint<String>> getTableConstraints(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        ImmutableList.Builder<TableConstraint<String>> constraints = ImmutableList.builder();
+        Optional<PrimaryKeyConstraint<String>> primaryKey = delegate.getPrimaryKey(metastoreContext, databaseName, tableName);
+        if (primaryKey.isPresent()) {
+            constraints.add(primaryKey.get());
+        }
+        constraints.addAll(delegate.getUniqueConstraints(metastoreContext, databaseName, tableName));
+        return constraints.build();
     }
 
     @Override

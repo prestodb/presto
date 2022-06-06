@@ -139,6 +139,12 @@ public class TestHiveClientGlueMetastore
     }
 
     @Override
+    public void testTableConstraints()
+    {
+        // GlueMetastore has no support for table constraints
+    }
+
+    @Override
     public void testStorePartitionWithStatistics()
             throws Exception
     {

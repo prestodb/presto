@@ -396,6 +396,7 @@ public class HiveFilterPushdown
                     new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
+                    tableScan.getTableConstraints(),
                     layout.getPredicate(),
                     TupleDomain.all());
 
@@ -431,6 +432,7 @@ public class HiveFilterPushdown
                     new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
+                    tableScan.getTableConstraints(),
                     pushdownFilterResult.getLayout().getPredicate(),
                     TupleDomain.all());
         }

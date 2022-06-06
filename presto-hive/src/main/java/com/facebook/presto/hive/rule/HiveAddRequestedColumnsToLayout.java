@@ -103,6 +103,7 @@ public class HiveAddRequestedColumnsToLayout
                             Optional.of(hiveLayoutWithDesiredColumns)),
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
+                    tableScan.getTableConstraints(),
                     tableScan.getCurrentConstraint(),
                     tableScan.getEnforcedConstraint());
         }

@@ -53,4 +53,9 @@ public interface ConnectorSession
     <T> T getProperty(String name, Class<T> type);
 
     Optional<String> getSchema();
+
+    default boolean isReadConstraints()
+    {
+        return false;
+    }
 }

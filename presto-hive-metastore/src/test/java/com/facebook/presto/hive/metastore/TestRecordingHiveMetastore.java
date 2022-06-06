@@ -21,6 +21,9 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.SortingColumn.Order;
+import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
+import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -32,6 +35,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +71,16 @@ public class TestRecordingHiveMetastore
             HiveType.HIVE_INT,
             Optional.of("comment"),
             Optional.empty());
+    private static final Column TABLE_COLUMN_PK = new Column(
+            "column_pk",
+            HiveType.HIVE_INT,
+            Optional.of("Primary Key"),
+            Optional.empty());
+    private static final Column TABLE_COLUMN_UNIQUE = new Column(
+            "column_unique",
+            HiveType.HIVE_INT,
+            Optional.of("Unique Key"),
+            Optional.empty());
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
             "location",
@@ -85,7 +99,7 @@ public class TestRecordingHiveMetastore
             "owner",
             OTHER,
             TABLE_STORAGE,
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(TABLE_COLUMN, TABLE_COLUMN_PK, TABLE_COLUMN_UNIQUE),
             ImmutableList.of(TABLE_COLUMN),
             ImmutableMap.of("param", "value3"),
             Optional.of("original_text"),
@@ -117,6 +131,8 @@ public class TestRecordingHiveMetastore
                     OptionalLong.of(8))));
     private static final HivePrivilegeInfo PRIVILEGE_INFO = new HivePrivilegeInfo(HivePrivilege.SELECT, true, new PrestoPrincipal(USER, "grantor"), new PrestoPrincipal(USER, "grantee"));
     private static final RoleGrant ROLE_GRANT = new RoleGrant(new PrestoPrincipal(USER, "grantee"), "role", true);
+    private static final PrimaryKeyConstraint<String> TEST_PRIMARY_KEY = new PrimaryKeyConstraint<>("", ImmutableSet.of("column_pk"), true, true);
+    private static final UniqueConstraint<String> TEST_UNIQUE_CONSTRAINT = new UniqueConstraint<>("", ImmutableSet.of("column_unique"), true, true);
 
     @Test
     public void testRecordingHiveMetastore()
@@ -159,6 +175,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.listTablePrivileges(TEST_METASTORE_CONTEXT, "database", "table", new PrestoPrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(TEST_METASTORE_CONTEXT), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(TEST_METASTORE_CONTEXT, new PrestoPrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
+        assertEquals(hiveMetastore.getTableConstraints(TEST_METASTORE_CONTEXT, "database", "table"), ImmutableList.of(TEST_PRIMARY_KEY, TEST_UNIQUE_CONSTRAINT));
     }
 
     private static class TestingHiveMetastore
@@ -307,6 +324,19 @@ public class TestRecordingHiveMetastore
         public Set<RoleGrant> listRoleGrants(MetastoreContext metastoreContext, PrestoPrincipal principal)
         {
             return ImmutableSet.of(ROLE_GRANT);
+        }
+
+        @Override
+        public List<TableConstraint<String>> getTableConstraints(MetastoreContext metastoreContext, String database, String table)
+        {
+            if (database.equals("database") && table.equals("table")) {
+                List<TableConstraint<String>> constraints = new ArrayList<>();
+                constraints.add(TEST_PRIMARY_KEY);
+                constraints.add(TEST_UNIQUE_CONSTRAINT);
+                return constraints;
+            }
+
+            return ImmutableList.of();
         }
     }
 }

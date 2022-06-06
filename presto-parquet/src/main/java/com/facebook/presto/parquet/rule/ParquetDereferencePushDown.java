@@ -390,6 +390,7 @@ public abstract class ParquetDereferencePushDown
                     tableScan.getTable(),
                     newOutputVariables,
                     newAssignments,
+                    tableScan.getTableConstraints(),
                     tableScan.getCurrentConstraint(),
                     tableScan.getEnforcedConstraint());
 
