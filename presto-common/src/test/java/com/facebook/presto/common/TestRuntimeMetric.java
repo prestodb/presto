@@ -122,4 +122,20 @@ public class TestRuntimeMetric
 
         assertRuntimeMetricEquals(actual, metric);
     }
+
+    @Test
+    public void testJsonWhenUnitIsUnavailable()
+    {
+        RuntimeMetric metric1 = new RuntimeMetric(TEST_METRIC_NAME, NONE);
+        metric1.addValue(101);
+        metric1.addValue(202);
+        RuntimeMetric metric2 = new RuntimeMetric(TEST_METRIC_NAME, null);
+        metric2.addValue(202);
+        metric2.addValue(101);
+
+        String json = "{\"name\" : \"test_metric\", \"sum\" : 303, \"count\" : 2, \"max\" : 202, \"min\" : 101}";
+        RuntimeMetric actual = JsonCodec.jsonCodec(RuntimeMetric.class).fromJson(json);
+        assertRuntimeMetricEquals(actual, metric1);
+        assertRuntimeMetricEquals(actual, metric2);
+    }
 }
