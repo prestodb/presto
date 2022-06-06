@@ -125,7 +125,7 @@ public class TestSubqueries
                 "SELECT (SELECT count(*) FROM (VALUES 1, 1, 3) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertExistsRewrittenToAggregationBelowJoin(
-                "SELECT EXISTS(SELECT 1 FROM (values ('x', 1)) u(x, cid) WHERE x = 'x' AND t.cid = cid LIMIT 1) " +
+                "SELECT EXISTS(SELECT 1 FROM (values ('x', 1), ('y', 2)) u(x, cid) WHERE x = 'x' AND t.cid = cid LIMIT 1) " +
                         "FROM (values 1) t(cid)",
                 "VALUES true",
                 false);
