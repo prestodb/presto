@@ -58,6 +58,15 @@ public abstract class PlanNode
     public abstract List<PlanNode> getSources();
 
     /**
+     * Logical properties are a function of source properties and the operation performed by the plan node
+     */
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getDefaultProperties();
+    }
+
+    /**
      * The output from the upstream PlanNodes.
      * It should serve as the input for the current PlanNode.
      */

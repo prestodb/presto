@@ -26,7 +26,7 @@ import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 
 public abstract class BaseRuleTest
 {
-    private RuleTester tester;
+    protected RuleTester tester;
     private List<Plugin> plugins;
 
     public BaseRuleTest(Plugin... plugins)
@@ -35,7 +35,7 @@ public abstract class BaseRuleTest
     }
 
     @BeforeClass
-    public final void setUp()
+    public void setUp()
     {
         tester = new RuleTester(plugins);
     }
