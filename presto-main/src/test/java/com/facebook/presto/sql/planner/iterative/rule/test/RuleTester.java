@@ -16,8 +16,13 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -69,6 +74,11 @@ public class RuleTester
 
     public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats)
     {
+        this(plugins, sessionProperties, nodeCountForStats, new TpchConnectorFactory(1));
+    }
+
+    public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats, ConnectorFactory connectorFactory)
+    {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
                 .setSchema("tiny")
@@ -84,7 +94,7 @@ public class RuleTester
                 .map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
                 .orElseGet(() -> new LocalQueryRunner(session));
         queryRunner.createCatalog(session.getCatalog().get(),
-                new TpchConnectorFactory(1),
+                connectorFactory,
                 ImmutableMap.of());
         plugins.stream().forEach(queryRunner::installPlugin);
 
@@ -99,6 +109,11 @@ public class RuleTester
     public RuleAssert assertThat(Rule rule)
     {
         return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
+    }
+
+    public RuleAssert assertThat(Rule rule, LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl, Optional.of(logicalPropertiesProvider));
     }
 
     public OptimizerAssert assertThat(PlanOptimizer optimizer)
@@ -135,5 +150,13 @@ public class RuleTester
     public ConnectorId getCurrentConnectorId()
     {
         return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
+    }
+
+    public List<TableConstraint<ColumnHandle>> getTableConstraints(TableHandle tableHandle)
+    {
+        return queryRunner.inTransaction(transactionSession -> {
+            metadata.getCatalogHandle(transactionSession, session.getCatalog().get());
+            return metadata.getTableMetadata(transactionSession, tableHandle).getMetadata().getTableConstraints();
+        });
     }
 }

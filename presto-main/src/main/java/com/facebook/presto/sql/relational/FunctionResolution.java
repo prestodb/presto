@@ -333,4 +333,9 @@ public final class FunctionResolution
     {
         return functionAndTypeManager.lookupFunction("approx_set", fromTypes(valueType));
     }
+
+    public boolean isEqualFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getOperatorType().map(EQUAL::equals).orElse(false);
+    }
 }

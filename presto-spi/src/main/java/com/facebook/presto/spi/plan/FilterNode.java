@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class FilterNode
@@ -93,6 +94,13 @@ public final class FilterNode
             throw new IllegalArgumentException("Expect exactly one child to replace");
         }
         return new FilterNode(getSourceLocation(), getId(), newChildren.get(0), predicate);
+    }
+
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getFilterProperties(this);
     }
 
     @Override
