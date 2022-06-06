@@ -38,6 +38,7 @@ import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.FilterStatsCalculator;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
@@ -302,6 +303,7 @@ public class LocalQueryRunner
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final JoinCompiler joinCompiler;
     private final ConnectorManager connectorManager;
+    private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
     private final PluginManager pluginManager;
     private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
@@ -400,7 +402,8 @@ public class LocalQueryRunner
         this.statsNormalizer = new StatsNormalizer();
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata);
         this.filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer);
-        this.statsCalculator = createNewStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer, filterStatsCalculator);
+        this.historyBasedPlanStatisticsManager = new HistoryBasedPlanStatisticsManager(metadata);
+        this.statsCalculator = createNewStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer, filterStatsCalculator, historyBasedPlanStatisticsManager);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
@@ -461,7 +464,8 @@ public class LocalQueryRunner
                 new QueryPrerequisitesManager(),
                 new SessionPropertyDefaults(nodeInfo),
                 new ThrowingNodeTtlFetcherManager(),
-                new ThrowingClusterTtlProviderManager());
+                new ThrowingClusterTtlProviderManager(),
+                historyBasedPlanStatisticsManager);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());

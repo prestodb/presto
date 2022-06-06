@@ -199,7 +199,12 @@ public class IterativeOptimizer
 
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.variableAllocator.getTypes());
+        StatsProvider statsProvider = new CachingStatsProvider(
+                statsCalculator,
+                Optional.of(context.memo),
+                context.lookup,
+                context.session,
+                context.variableAllocator.getTypes());
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session);
 
         return new Rule.Context()
