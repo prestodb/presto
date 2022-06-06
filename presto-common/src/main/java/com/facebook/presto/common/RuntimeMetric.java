@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -45,7 +46,7 @@ public class RuntimeMetric
     public RuntimeMetric(String name, RuntimeUnit unit)
     {
         this.name = requireNonNull(name, "name is null");
-        this.unit = requireNonNull(unit, "unit is null");
+        this.unit = unit == null ? NONE : unit;
     }
 
     public static RuntimeMetric copyOf(RuntimeMetric metric)
