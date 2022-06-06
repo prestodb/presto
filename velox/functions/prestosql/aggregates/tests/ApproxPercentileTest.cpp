@@ -273,5 +273,24 @@ TEST_F(ApproxPercentileTest, partialFull) {
   exec::test::assertQuery(params, {expected});
 }
 
+TEST_F(ApproxPercentileTest, finalAggregateAccuracy) {
+  auto batch = makeRowVector(
+      {makeFlatVector<int32_t>(1000, [](auto row) { return row; })});
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  std::vector<std::shared_ptr<const core::PlanNode>> sources;
+  for (int i = 0; i < 10; ++i) {
+    sources.push_back(
+        PlanBuilder(planNodeIdGenerator)
+            .values({batch})
+            .partialAggregation({}, {"approx_percentile(c0, 0.005, 0.0001)"})
+            .planNode());
+  }
+  auto op = PlanBuilder(planNodeIdGenerator)
+                .localPartitionRoundRobin(sources)
+                .finalAggregation()
+                .planNode();
+  assertQuery(op, "SELECT 5");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

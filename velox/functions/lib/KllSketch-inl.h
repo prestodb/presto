@@ -27,9 +27,9 @@ namespace detail {
 
 constexpr uint8_t kMaxLevel = 60;
 
-uint32_t computeTotalCapacity(uint16_t k, uint8_t numLevels);
+uint32_t computeTotalCapacity(uint32_t k, uint8_t numLevels);
 
-uint16_t levelCapacity(uint16_t k, uint8_t numLevels, uint8_t height);
+uint32_t levelCapacity(uint32_t k, uint8_t numLevels, uint8_t height);
 
 // Collect elements in odd or even positions to first half of buf.
 template <typename T, typename RandomBit>
@@ -131,7 +131,7 @@ struct CompressResult {
  */
 template <typename T, typename C, typename RandomBit>
 CompressResult generalCompress(
-    uint16_t k,
+    uint32_t k,
     uint8_t numLevelsIn,
     T* items,
     uint32_t* inLevels,
@@ -250,7 +250,7 @@ void readRange(const char* data, size_t& offset, folly::Range<const T*>& out) {
 } // namespace detail
 
 template <typename T, typename A, typename C>
-KllSketch<T, A, C>::KllSketch(uint16_t k, const A& allocator, uint32_t seed)
+KllSketch<T, A, C>::KllSketch(uint32_t k, const A& allocator, uint32_t seed)
     : k_(k),
       allocator_(allocator),
       randomBit_(seed),
@@ -267,7 +267,7 @@ KllSketch<T, A, C>::KllSketch(const A& allocator, uint32_t seed)
       levels_(AllocU32(allocator)) {}
 
 template <typename T, typename A, typename C>
-void KllSketch<T, A, C>::setK(uint16_t k) {
+void KllSketch<T, A, C>::setK(uint32_t k) {
   if (k_ == k) {
     return;
   }
@@ -700,7 +700,7 @@ template <typename T, typename A, typename C>
 KllSketch<T, A, C> KllSketch<T, A, C>::fromRepeatedValue(
     T value,
     size_t count,
-    uint16_t k,
+    uint32_t k,
     const A& allocator,
     uint32_t seed) {
   int numLevels = 0;

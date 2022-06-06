@@ -18,7 +18,7 @@
 
 namespace facebook::velox::functions::kll {
 
-uint16_t kFromEpsilon(double eps) {
+uint32_t kFromEpsilon(double eps) {
   return ceil(exp(1.0285 * log(2.296 / eps)));
 }
 
@@ -41,7 +41,7 @@ double powerOfTwoThirds(int n) {
 
 } // namespace
 
-uint32_t computeTotalCapacity(uint16_t k, uint8_t numLevels) {
+uint32_t computeTotalCapacity(uint32_t k, uint8_t numLevels) {
   uint32_t total = 0;
   for (uint8_t h = 0; h < numLevels; ++h) {
     total += levelCapacity(k, numLevels, h);
@@ -49,10 +49,10 @@ uint32_t computeTotalCapacity(uint16_t k, uint8_t numLevels) {
   return total;
 }
 
-uint16_t levelCapacity(uint16_t k, uint8_t numLevels, uint8_t height) {
+uint32_t levelCapacity(uint32_t k, uint8_t numLevels, uint8_t height) {
   VELOX_DCHECK_LT(height, numLevels);
   VELOX_DCHECK_LE(numLevels, kMaxLevel);
-  return std::max<uint16_t>(
+  return std::max<uint32_t>(
       kMinBufferWidth, k * powerOfTwoThirds(numLevels - height - 1));
 }
 

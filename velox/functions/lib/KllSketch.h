@@ -24,10 +24,10 @@
 
 namespace facebook::velox::functions::kll {
 
-constexpr uint16_t kDefaultK = 200;
+constexpr uint32_t kDefaultK = 200;
 
 /// Estimate the proper k value to ensure the error bound epsilon.
-uint16_t kFromEpsilon(double epsilon);
+uint32_t kFromEpsilon(double epsilon);
 
 /// Implementation of KLL sketch that can achieve nearly optimal
 /// accuracy per retained item.
@@ -50,12 +50,12 @@ template <
     typename Compare = std::less<T>>
 struct KllSketch {
   KllSketch(
-      uint16_t k = kll::kDefaultK,
+      uint32_t k = kll::kDefaultK,
       const Allocator& = Allocator(),
       uint32_t seed = folly::Random::rand32());
 
   /// Cannot be called after insert().
-  void setK(uint16_t k);
+  void setK(uint32_t k);
 
   /// Add one new value to the sketch.
   void insert(T value);
@@ -108,7 +108,7 @@ struct KllSketch {
   static KllSketch<T, Allocator, Compare> fromRepeatedValue(
       T value,
       size_t count,
-      uint16_t k = kll::kDefaultK,
+      uint32_t k = kll::kDefaultK,
       const Allocator& = Allocator(),
       uint32_t seed = folly::Random::rand32());
 
@@ -145,7 +145,7 @@ struct KllSketch {
   }
 
   struct View {
-    uint16_t k;
+    uint32_t k;
     size_t n;
     T minValue;
     T maxValue;
@@ -171,7 +171,7 @@ struct KllSketch {
   using AllocU32 = typename std::allocator_traits<
       Allocator>::template rebind_alloc<uint32_t>;
 
-  uint16_t k_;
+  uint32_t k_;
   Allocator allocator_;
 
   // Cannot use sfmt19937 here because the object cannot be guaranteed

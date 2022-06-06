@@ -236,7 +236,11 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       }
       auto tracker = trackRowSize(groups[row]);
       auto accumulator = value<KllSketchAccumulator<T>>(groups[row]);
-      accumulator->append(getDeserializedDigest(row));
+      auto digest = getDeserializedDigest(row);
+      if (accuracy_ != kMissingNormalizedValue) {
+        accumulator->setAccuracy(accuracy_);
+      }
+      accumulator->append(digest);
     });
   }
 
@@ -303,6 +307,9 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     });
 
     if (!digests.empty()) {
+      if (accuracy_ != kMissingNormalizedValue) {
+        accumulator->setAccuracy(accuracy_);
+      }
       accumulator->append(digests);
     }
   }
@@ -365,7 +372,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     VELOX_USER_CHECK_GE(percentile, 0, "Percentile must be between 0 and 1");
     VELOX_USER_CHECK_LE(percentile, 1, "Percentile must be between 0 and 1");
 
-    if (percentile_ < 0) {
+    if (percentile_ == kMissingNormalizedValue) {
       percentile_ = percentile;
     } else {
       VELOX_USER_CHECK_EQ(
@@ -382,10 +389,13 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     VELOX_CHECK(
         decodedAccuracy_.isConstantMapping(),
         "Accuracy argument must be constant for all input rows");
-    auto accuracy = decodedAccuracy_.valueAt<double>(0);
+    checkSetAccuracy(decodedAccuracy_.valueAt<double>(0));
+  }
+
+  void checkSetAccuracy(double accuracy) {
     VELOX_USER_CHECK(
         0 < accuracy && accuracy <= 1, "Accuracy must be between 0 and 1");
-    if (accuracy_ < 0) {
+    if (accuracy_ == kMissingNormalizedValue) {
       accuracy_ = accuracy;
     } else {
       VELOX_USER_CHECK_EQ(
@@ -407,11 +417,13 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       const KllSketch<T>& digest,
       FlatVector<StringView>* result,
       vector_size_t index) {
-    auto size = sizeof percentile_ + digest.serializedByteSize();
+    auto size =
+        sizeof percentile_ + sizeof accuracy_ + digest.serializedByteSize();
     Buffer* buffer = result->getBufferWithSpace(size);
     char* data = buffer->asMutable<char>() + buffer->size();
     OutputByteStream stream(data);
     stream.appendOne(percentile_);
+    stream.appendOne(accuracy_);
     digest.serialize(data + stream.offset());
     buffer->setSize(buffer->size() + size);
     result->setNoCopy(index, StringView(data, size));
@@ -422,13 +434,18 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     InputByteStream stream(data.data());
     auto percentile = stream.read<double>();
     checkSetPercentile(percentile);
+    if (auto accuracy = stream.read<double>();
+        accuracy != kMissingNormalizedValue) {
+      checkSetAccuracy(accuracy);
+    }
     return data.data() + stream.offset();
   }
 
+  static constexpr double kMissingNormalizedValue = -1;
   const bool hasWeight_;
   const bool hasAccuracy_;
-  double percentile_{-1.0};
-  double accuracy_{-1.0};
+  double percentile_{kMissingNormalizedValue};
+  double accuracy_{kMissingNormalizedValue};
   DecodedVector decodedValue_;
   DecodedVector decodedWeight_;
   DecodedVector decodedPercentile_;
