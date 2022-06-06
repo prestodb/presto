@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -29,12 +30,14 @@ public class GroupReference
 {
     private final int groupId;
     private final List<VariableReferenceExpression> outputs;
+    private final Optional<LogicalProperties> logicalProperties;
 
-    public GroupReference(Optional<SourceLocation> sourceLocation, PlanNodeId id, int groupId, List<VariableReferenceExpression> outputs)
+    public GroupReference(Optional<SourceLocation> sourceLocation, PlanNodeId id, int groupId, List<VariableReferenceExpression> outputs, Optional<LogicalProperties> logicalProperties)
     {
         super(sourceLocation, id);
         this.groupId = groupId;
         this.outputs = ImmutableList.copyOf(outputs);
+        this.logicalProperties = logicalProperties;
     }
 
     public int getGroupId()
@@ -64,5 +67,10 @@ public class GroupReference
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         throw new UnsupportedOperationException();
+    }
+
+    public Optional<LogicalProperties> getLogicalProperties()
+    {
+        return logicalProperties;
     }
 }

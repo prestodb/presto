@@ -63,6 +63,13 @@ public final class ValuesNode
     }
 
     @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getValuesProperties(this);
+    }
+
+    @Override
     @JsonProperty
     public List<VariableReferenceExpression> getOutputVariables()
     {

@@ -89,6 +89,13 @@ public final class TopNNode
     }
 
     @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getTopNProperties(this);
+    }
+
+    @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return source.getOutputVariables();
