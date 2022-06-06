@@ -139,6 +139,7 @@ public final class HiveSessionProperties
     public static final String MAX_INITIAL_SPLITS = "max_initial_splits";
     public static final String FILE_SPLITTABLE = "file_splittable";
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
+    private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1169,5 +1170,10 @@ public final class HiveSessionProperties
     public static boolean isHudiMetadataEnabled(ConnectorSession session)
     {
         return session.getProperty(HUDI_METADATA_ENABLED, Boolean.class);
+    }
+
+    public static boolean isReadTableConstraints(ConnectorSession session)
+    {
+        return session.getProperty(READ_TABLE_CONSTRAINTS, Boolean.class);
     }
 }
