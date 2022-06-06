@@ -26,7 +26,9 @@ import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.OptimizerAssert;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -38,6 +40,7 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
@@ -116,9 +119,30 @@ public class RuleTester
         return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl, Optional.of(logicalPropertiesProvider));
     }
 
+    public OptimizerAssert assertThat(Set<Rule<?>> rules)
+    {
+        PlanOptimizer optimizer = new IterativeOptimizer(
+                new RuleStatsRecorder(),
+                queryRunner.getStatsCalculator(),
+                queryRunner.getCostCalculator(),
+                rules);
+        return new OptimizerAssert(metadata, queryRunner, queryRunner.getStatsCalculator(), session, optimizer, transactionManager, accessControl);
+    }
+
+    public OptimizerAssert assertThat(Set<Rule<?>> rules, LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        PlanOptimizer optimizer = new IterativeOptimizer(
+                new RuleStatsRecorder(),
+                queryRunner.getStatsCalculator(),
+                queryRunner.getCostCalculator(),
+                Optional.of(logicalPropertiesProvider),
+                rules);
+        return new OptimizerAssert(metadata, queryRunner, queryRunner.getStatsCalculator(), session, optimizer, transactionManager, accessControl);
+    }
+
     public OptimizerAssert assertThat(PlanOptimizer optimizer)
     {
-        return new OptimizerAssert(metadata, queryRunner.getStatsCalculator(), session, optimizer, transactionManager, accessControl);
+        return new OptimizerAssert(metadata, queryRunner, queryRunner.getStatsCalculator(), session, optimizer, transactionManager, accessControl);
     }
 
     @Override
