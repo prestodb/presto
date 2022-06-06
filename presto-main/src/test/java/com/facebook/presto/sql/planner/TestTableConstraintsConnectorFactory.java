@@ -11,66 +11,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpch;
+package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.tpch.ColumnNaming;
+import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.facebook.presto.tpch.TpchNodePartitioningProvider;
+import com.facebook.presto.tpch.TpchRecordSetProvider;
+import com.facebook.presto.tpch.TpchSplitManager;
+import com.facebook.presto.tpch.TpchTransactionHandle;
 
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-
-public class TpchConnectorFactory
-        implements ConnectorFactory
+public class TestTableConstraintsConnectorFactory
+        extends TpchConnectorFactory
 {
-    public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
-
-    private final int defaultSplitsPerNode;
-    private final boolean predicatePushdownEnabled;
-    private final boolean partitioningEnabled;
-
-    public TpchConnectorFactory()
+    public TestTableConstraintsConnectorFactory(int defaultSplitsPerNode)
     {
-        this(Runtime.getRuntime().availableProcessors());
-    }
-
-    public TpchConnectorFactory(int defaultSplitsPerNode)
-    {
-        this(defaultSplitsPerNode, true, true);
-    }
-
-    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled, boolean partitioningEnabled)
-    {
-        this.defaultSplitsPerNode = defaultSplitsPerNode;
-        this.predicatePushdownEnabled = predicatePushdownEnabled;
-        this.partitioningEnabled = partitioningEnabled;
-    }
-
-    @Override
-    public String getName()
-    {
-        return "tpch";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new TpchHandleResolver();
+        super(defaultSplitsPerNode);
     }
 
     @Override
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
-        int splitsPerNode = getSplitsPerNode(properties);
+        int splitsPerNode = super.getSplitsPerNode(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase());
         NodeManager nodeManager = context.getNodeManager();
 
@@ -85,7 +57,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(catalogName, columnNaming, predicatePushdownEnabled, isPartitioningEnabled(properties));
+                return new TestTableConstraintsMetadata(catalogName, columnNaming, isPredicatePushdownEnabled(), isPartitioningEnabled(properties));
             }
 
             @Override
@@ -106,25 +78,5 @@ public class TpchConnectorFactory
                 return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
             }
         };
-    }
-
-    protected int getSplitsPerNode(Map<String, String> properties)
-    {
-        try {
-            return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
-        }
-        catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid property tpch.splits-per-node");
-        }
-    }
-
-    protected boolean isPartitioningEnabled(Map<String, String> properties)
-    {
-        return Boolean.parseBoolean(properties.getOrDefault("tpch.partitioning-enabled", String.valueOf(partitioningEnabled)));
-    }
-
-    protected boolean isPredicatePushdownEnabled()
-    {
-        return predicatePushdownEnabled;
     }
 }

@@ -262,7 +262,7 @@ public class TestCanonicalPlanGenerator
                         .filter(f -> !f.isSynthetic())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
-                ImmutableSet.of("table", "assignments", "outputVariables", "currentConstraint", "enforcedConstraint"));
+                ImmutableSet.of("table", "assignments", "outputVariables", "currentConstraint", "enforcedConstraint", "tableConstraints"));
         assertEquals(
                 Arrays.stream(CanonicalTableScanNode.class.getDeclaredFields())
                         .filter(f -> !f.isSynthetic())

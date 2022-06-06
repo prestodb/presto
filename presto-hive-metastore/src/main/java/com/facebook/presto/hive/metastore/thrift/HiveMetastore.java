@@ -25,9 +25,12 @@ import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
+import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -168,5 +171,15 @@ public interface HiveMetastore
         }
 
         return Optional.of(table.get().getSd().getCols());
+    }
+
+    default Optional<PrimaryKeyConstraint<String>> getPrimaryKey(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return Optional.empty();
+    }
+
+    default List<UniqueConstraint<String>> getUniqueConstraints(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return ImmutableList.of();
     }
 }
