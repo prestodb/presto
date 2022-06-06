@@ -95,6 +95,13 @@ public final class DistinctLimitNode
     }
 
     @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getDistinctLimitProperties(this);
+    }
+
+    @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
         ArrayList<VariableReferenceExpression> outputVariables = new ArrayList<>(distinctVariables);

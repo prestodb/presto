@@ -26,6 +26,8 @@ import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.LogicalProperties;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -40,6 +42,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl;
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
@@ -70,8 +73,15 @@ public class RuleAssert
     private Session session;
     private TypeProvider types;
     private PlanNode plan;
+    private Optional<LogicalPropertiesProvider> logicalPropertiesProvider;
 
     public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
+    {
+        this(metadata, statsCalculator, costCalculator, session, rule, transactionManager, accessControl, Optional.empty());
+    }
+
+    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule,
+            TransactionManager transactionManager, AccessControl accessControl, Optional<LogicalPropertiesProvider> logicalPropertiesProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statsCalculator = new TestingStatsCalculator(requireNonNull(statsCalculator, "statsCalculator is null"));
@@ -80,6 +90,7 @@ public class RuleAssert
         this.rule = requireNonNull(rule, "rule is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.logicalPropertiesProvider = requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider is null");
     }
 
     public RuleAssert setSystemProperty(String key, String value)
@@ -175,18 +186,42 @@ public class RuleAssert
         });
     }
 
+    public void matches(LogicalProperties expectedLogicalProperties)
+    {
+        RuleApplication ruleApplication = applyRule();
+        TypeProvider types = ruleApplication.types;
+
+        if (!ruleApplication.wasRuleApplied()) {
+            fail(String.format(
+                    "%s did not fire for:\n%s",
+                    rule.getClass().getName(),
+                    formatPlan(plan, types)));
+        }
+
+        // ensure that the logical properties of the root group are equivalent to the expected logical properties
+        LogicalProperties rootNodeLogicalProperties = ruleApplication.getMemo().getLogicalProperties(ruleApplication.getMemo().getRootGroup()).get();
+        if (!((LogicalPropertiesImpl) rootNodeLogicalProperties).equals((LogicalPropertiesImpl) expectedLogicalProperties)) {
+            fail(String.format(
+                    "Logical properties of root node doesn't match expected logical properties\n" +
+                            "\texpected: %s\n" +
+                            "\tactual:   %s",
+                    expectedLogicalProperties,
+                    rootNodeLogicalProperties));
+        }
+    }
+
     private RuleApplication applyRule()
     {
         PlanVariableAllocator variableAllocator = new PlanVariableAllocator(types.allVariables());
-        Memo memo = new Memo(idAllocator, plan);
+        Memo memo = new Memo(idAllocator, plan, logicalPropertiesProvider);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, costCalculator, variableAllocator, memo, lookup, session)));
+        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, costCalculator, variableAllocator, memo, lookup, session), memo));
     }
 
-    private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
+    private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context, Memo memo)
     {
         PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
         Match<T> match = matcher.match(rule.getPattern(), planNode);
@@ -199,7 +234,7 @@ public class RuleAssert
             result = rule.apply(match.value(), match.captures(), context);
         }
 
-        return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getVariableAllocator().getTypes(), result);
+        return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getVariableAllocator().getTypes(), memo, result);
     }
 
     private String formatPlan(PlanNode plan, TypeProvider types)
@@ -286,13 +321,15 @@ public class RuleAssert
         private final StatsProvider statsProvider;
         private final TypeProvider types;
         private final Rule.Result result;
+        private final Memo memo;
 
-        public RuleApplication(Lookup lookup, StatsProvider statsProvider, TypeProvider types, Rule.Result result)
+        public RuleApplication(Lookup lookup, StatsProvider statsProvider, TypeProvider types, Memo memo, Rule.Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
             this.types = requireNonNull(types, "types is null");
             this.result = requireNonNull(result, "result is null");
+            this.memo = requireNonNull(memo, "memo is null");
         }
 
         private boolean wasRuleApplied()
@@ -303,6 +340,11 @@ public class RuleAssert
         public PlanNode getTransformedPlan()
         {
             return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
+        }
+
+        private Memo getMemo()
+        {
+            return memo;
         }
     }
 

@@ -108,6 +108,13 @@ public final class ProjectNode
     }
 
     @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getProjectProperties(this);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

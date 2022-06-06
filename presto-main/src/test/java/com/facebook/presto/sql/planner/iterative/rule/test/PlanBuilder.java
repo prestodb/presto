@@ -25,11 +25,13 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -100,6 +102,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -269,8 +272,20 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 count,
-                new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())),
+                new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, ASC_NULLS_FIRST)).collect(toImmutableList())),
                 TopNNode.Step.SINGLE);
+    }
+
+    public DistinctLimitNode distinctLimit(long count, List<VariableReferenceExpression> distinctSymbols, PlanNode source)
+    {
+        return new DistinctLimitNode(
+                source.getSourceLocation(),
+                idAllocator.getNextId(),
+                source,
+                count,
+                false,
+                distinctSymbols,
+                Optional.empty());
     }
 
     public SampleNode sample(double sampleRatio, SampleNode.Type type, PlanNode source)
@@ -515,6 +530,26 @@ public class PlanBuilder
                 tableHandle,
                 variables,
                 assignments,
+                ImmutableList.of(),
+                currentConstraint,
+                enforcedConstraint);
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<VariableReferenceExpression> variables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint,
+            List<TableConstraint<ColumnHandle>> tableConstraints)
+    {
+        return new TableScanNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                tableHandle,
+                variables,
+                assignments,
+                tableConstraints,
                 currentConstraint,
                 enforcedConstraint);
     }

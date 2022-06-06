@@ -102,6 +102,13 @@ public final class LimitNode
     }
 
     @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getLimitProperties(this);
+    }
+
+    @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return source.getOutputVariables();

@@ -170,6 +170,13 @@ public final class TableScanNode
     }
 
     @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getTableScanProperties(this);
+    }
+
+    @Override
     @JsonProperty
     public List<VariableReferenceExpression> getOutputVariables()
     {
