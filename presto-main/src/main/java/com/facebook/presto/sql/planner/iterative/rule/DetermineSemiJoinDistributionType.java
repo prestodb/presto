@@ -46,7 +46,10 @@ import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
+import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinDistributionTypeEnabled;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
+import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
 import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
@@ -104,12 +107,27 @@ public class DetermineSemiJoinDistributionType
         possibleJoinNodes.add(getSemiJoinNodeWithCost(node.withDistributionType(PARTITIONED), context));
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents())) {
+            if (isSizeBasedJoinDistributionTypeEnabled(context.getSession())) {
+                return getSizeBaseDistributionType(node, context);
+            }
             return node.withDistributionType(PARTITIONED);
         }
 
         // Using Ordering to facilitate rule determinism
         Ordering<PlanNodeWithCost> planNodeOrderings = costComparator.forSession(context.getSession()).onResultOf(PlanNodeWithCost::getCost);
         return planNodeOrderings.min(possibleJoinNodes).getPlanNode();
+    }
+
+    private PlanNode getSizeBaseDistributionType(SemiJoinNode node, Context context)
+    {
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
+
+        if (getSourceTablesSizeInBytes(node.getFilteringSource(), context) <= joinMaxBroadcastTableSize.toBytes()) {
+            // choose replicated distribution type as filtering source contains small source tables only
+            return node.withDistributionType(REPLICATED);
+        }
+
+        return node.withDistributionType(PARTITIONED);
     }
 
     private boolean canReplicate(SemiJoinNode node, Context context)
@@ -119,7 +137,9 @@ public class DetermineSemiJoinDistributionType
         PlanNode buildSide = node.getFilteringSource();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputVariables());
-        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes();
+        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes()
+            || (isSizeBasedJoinDistributionTypeEnabled(context.getSession())
+                && getSourceTablesSizeInBytes(buildSide, context) <= joinMaxBroadcastTableSize.toBytes());
     }
 
     private PlanNodeWithCost getSemiJoinNodeWithCost(SemiJoinNode possibleJoinNode, Context context)
