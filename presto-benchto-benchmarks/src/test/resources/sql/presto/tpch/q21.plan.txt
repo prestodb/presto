@@ -10,23 +10,21 @@ local exchange (GATHER, SINGLE, [])
                                     local exchange (GATHER, SINGLE, [])
                                         partial aggregation over (commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_189)
                                             join (LEFT, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, [orderkey])
+                                                join (INNER, REPLICATED):
                                                     join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, [nationkey])
+                                                        remote exchange (REPARTITION, HASH, [orderkey])
                                                             join (INNER, PARTITIONED):
-                                                                remote exchange (REPARTITION, HASH, [orderkey])
-                                                                    join (INNER, PARTITIONED):
-                                                                        remote exchange (REPARTITION, HASH, [suppkey])
-                                                                            scan supplier
-                                                                        local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPARTITION, HASH, [suppkey_0])
-                                                                                scan lineitem
+                                                                remote exchange (REPARTITION, HASH, [suppkey_0])
+                                                                    scan lineitem
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPARTITION, HASH, [orderkey_3])
-                                                                        scan orders
+                                                                    remote exchange (REPARTITION, HASH, [suppkey])
+                                                                        scan supplier
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, [nationkey_6])
-                                                                scan nation
+                                                            remote exchange (REPARTITION, HASH, [orderkey_3])
+                                                                scan orders
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan nation
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [orderkey_10])
                                                         scan lineitem
