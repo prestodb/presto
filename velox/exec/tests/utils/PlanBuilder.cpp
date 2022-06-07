@@ -315,6 +315,53 @@ std::unique_ptr<common::Filter> makeNotEqualFilter(
   }
 }
 
+template <typename T>
+std::vector<int64_t>
+toInt64List(const VectorPtr& vector, vector_size_t start, vector_size_t size) {
+  auto ints = vector->as<SimpleVector<T>>();
+  std::vector<int64_t> values;
+  for (auto i = 0; i < size; i++) {
+    values.push_back(ints->valueAt(start + i));
+  }
+  return values;
+}
+
+std::unique_ptr<common::Filter> makeInFilter(const core::TypedExprPtr& expr) {
+  auto queryCtx = core::QueryCtx::createForTest();
+  auto vector = toConstant(expr, queryCtx);
+  VELOX_CHECK_EQ(vector->typeKind(), TypeKind::ARRAY);
+
+  auto arrayVector = vector->valueVector()->as<ArrayVector>();
+  auto index = vector->as<ConstantVector<ComplexType>>()->index();
+  auto offset = arrayVector->offsetAt(index);
+  auto size = arrayVector->sizeAt(index);
+  auto elements = arrayVector->elements();
+
+  auto elementType = arrayVector->type()->asArray().elementType();
+  switch (elementType->kind()) {
+    case TypeKind::TINYINT:
+      return common::test::in(toInt64List<int16_t>(elements, offset, size));
+    case TypeKind::SMALLINT:
+      return common::test::in(toInt64List<int16_t>(elements, offset, size));
+    case TypeKind::INTEGER:
+      return common::test::in(toInt64List<int32_t>(elements, offset, size));
+    case TypeKind::BIGINT:
+      return common::test::in(toInt64List<int64_t>(elements, offset, size));
+    case TypeKind::VARCHAR: {
+      auto stringElements = elements->as<SimpleVector<StringView>>();
+      std::vector<std::string> values;
+      for (auto i = 0; i < size; i++) {
+        values.push_back(stringElements->valueAt(offset + i).str());
+      }
+      return common::test::in(values);
+    }
+    default:
+      VELOX_NYI(
+          "Unsupported value type for 'in' filter: {}",
+          elementType->toString());
+  }
+}
+
 std::unique_ptr<common::Filter> makeBetweenFilter(
     const core::TypedExprPtr& lowerExpr,
     const core::TypedExprPtr& upperExpr) {
@@ -392,6 +439,10 @@ std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
         return {
             Subfield(field->name()),
             makeBetweenFilter(call->inputs()[1], call->inputs()[2])};
+      }
+    } else if (call->name() == "in") {
+      if (auto field = asField(call, 0)) {
+        return {Subfield(field->name()), makeInFilter(call->inputs()[1])};
       }
     } else if (call->name() == "is_null") {
       if (auto field = asField(call, 0)) {

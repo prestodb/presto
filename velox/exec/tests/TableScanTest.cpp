@@ -913,42 +913,34 @@ TEST_F(TableScanTest, statsBasedSkippingConstants) {
   writeToFile(filePaths[0]->path, rowVector);
   createDuckDbTable({rowVector});
 
-  // skip whole file
-  auto filters = singleSubfieldFilter("c0", in({0, 10, 100, 1000}));
-
-  auto assertQuery = [&](const std::string& query) {
-    auto tableHandle = makeTableHandle(std::move(filters));
-    auto rowType = ROW({"c1"}, {INTEGER()});
-    auto assignments = allRegularColumns(rowType);
+  auto assertQuery = [&](const std::string& filter) {
     return TableScanTest::assertQuery(
-        PlanBuilder().tableScan(rowType, tableHandle, assignments).planNode(),
+        PlanBuilder(pool_.get())
+            .tableScan(asRowType(rowVector->type()), {filter})
+            .planNode(),
         filePaths,
-        query);
+        "SELECT * FROM tmp WHERE " + filter);
   };
 
-  auto task = assertQuery("SELECT c1 FROM tmp WHERE c0 in (0, 10, 100, 1000)");
+  // skip whole file
+  auto task = assertQuery("c0 in (0, 10, 100, 1000)");
   EXPECT_EQ(0, getTableScanStats(task).rawInputRows);
   EXPECT_EQ(1, getSkippedSplitsStat(task));
 
   // skip all but first rowgroup
-  filters = singleSubfieldFilter("c1", in({0, 10, 100, 1000}));
-  task = assertQuery("SELECT c1 FROM tmp WHERE c1 in (0, 10, 100, 1000)");
+  task = assertQuery("c1 in (0, 10, 100, 1000)");
 
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputRows);
   EXPECT_EQ(3, getSkippedStridesStat(task));
 
   // skip whole file
-  filters = singleSubfieldFilter(
-      "c2", in(std::vector<std::string>{"apple", "cherry"}));
-  task = assertQuery("SELECT c1 FROM tmp WHERE c2 in ('apple', 'cherry')");
+  task = assertQuery("c2 in ('apple', 'cherry')");
 
   EXPECT_EQ(0, getTableScanStats(task).rawInputRows);
   EXPECT_EQ(1, getSkippedSplitsStat(task));
 
   // skip all but second rowgroup
-  filters = singleSubfieldFilter(
-      "c3", in(std::vector<std::string>{"banana", "grapefruit"}));
-  task = assertQuery("SELECT c1 FROM tmp WHERE c3 in ('banana', 'grapefruit')");
+  task = assertQuery("c3 in ('banana', 'grapefruit')");
 
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputRows);
   EXPECT_EQ(3, getSkippedStridesStat(task));
