@@ -23,8 +23,6 @@
 
 namespace facebook::velox::functions {
 
-using JsonVector = std::vector<const folly::dynamic*>;
-
 /**
  * Extract a json object from path
  * @param json: A json object
@@ -72,20 +70,5 @@ folly::Optional<folly::dynamic> jsonExtract(
 folly::Optional<std::string> jsonExtractScalar(
     const std::string& json,
     const std::string& path);
-
-class JsonExtractor {
- public:
-  explicit JsonExtractor(const std::string& path);
-
-  folly::Optional<folly::dynamic> extract(const folly::dynamic* json);
-
- private:
-  void tokenize();
-
- private:
-  bool isValid_;
-  std::string path_;
-  std::vector<std::string> tokens_;
-};
 
 } // namespace facebook::velox::functions

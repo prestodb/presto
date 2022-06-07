@@ -415,13 +415,13 @@ TEST(JsonExtractorTest, fullJsonValueTest) {
 }
 
 TEST(JsonExtractorTest, invalidJsonPathTest) {
-  EXPECT_JSON_VALUE_NULL(""s, ""s);
+  EXPECT_THROW_INVALID_ARGUMENT(""s, ""s);
   EXPECT_THROW_INVALID_ARGUMENT("{}"s, "$.bar[2][-1]"s);
   EXPECT_THROW_INVALID_ARGUMENT("{}"s, "$.fuu..bar"s);
   EXPECT_THROW_INVALID_ARGUMENT("{}"s, "$."s);
-  EXPECT_JSON_VALUE_NULL(""s, "$$"s);
-  EXPECT_JSON_VALUE_NULL(""s, " "s);
-  EXPECT_JSON_VALUE_NULL(""s, "."s);
+  EXPECT_THROW_INVALID_ARGUMENT(""s, "$$"s);
+  EXPECT_THROW_INVALID_ARGUMENT(""s, " "s);
+  EXPECT_THROW_INVALID_ARGUMENT(""s, "."s);
   EXPECT_THROW_INVALID_ARGUMENT(
       "{ \"store\": { \"book\": [{ \"title\": \"title\" }] } }"s,
       "$.store.book["s);

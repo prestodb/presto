@@ -28,44 +28,76 @@
 
 namespace facebook::velox::functions {
 
-// Cache tokenize operations in JsonExtractor across invocations in the same
-// thread for the same JsonPath.
-thread_local std::unordered_map<std::string, std::shared_ptr<JsonExtractor>>
-    kExtractorCache;
-
-thread_local JsonPathTokenizer kTokenizer;
-
-static const std::string kIgnoreChars = " \n\t\r\\";
-// Max extractor number in extractor cache
-static const uint32_t kMaxCacheNum = 32;
-
 namespace {
 
-folly::Optional<folly::dynamic> jsonExtractInternal(
-    const folly::dynamic* json,
-    folly::StringPiece path) {
-  // Pre-process
-  auto trimedPath = folly::trimWhitespace(path).str();
+using JsonVector = std::vector<const folly::dynamic*>;
 
-  std::shared_ptr<JsonExtractor> op;
-  if (kExtractorCache.count(trimedPath)) {
-    op = kExtractorCache.at(trimedPath);
-  } else {
-    if (kExtractorCache.size() == kMaxCacheNum) {
-      // TODO: Blindly evict the first one, use better policy
-      kExtractorCache.erase(kExtractorCache.begin());
+class JsonExtractor {
+ public:
+  // Use this method to get an instance of JsonExtractor given a json path.
+  static JsonExtractor& getInstance(folly::StringPiece path) {
+    // Pre-process
+    auto trimedPath = folly::trimWhitespace(path).str();
+
+    std::shared_ptr<JsonExtractor> op;
+    if (kExtractorCache.count(trimedPath)) {
+      op = kExtractorCache.at(trimedPath);
+    } else {
+      if (kExtractorCache.size() == kMaxCacheNum) {
+        // TODO: Blindly evict the first one, use better policy
+        kExtractorCache.erase(kExtractorCache.begin());
+      }
+      op = std::make_shared<JsonExtractor>(trimedPath);
+      kExtractorCache[trimedPath] = op;
     }
-    op = std::make_shared<JsonExtractor>(trimedPath);
-    kExtractorCache[trimedPath] = op;
+    return *op;
   }
 
-  return op->extract(json);
-}
+  folly::Optional<folly::dynamic> extract(const folly::dynamic& json);
 
-bool isScalarType(const folly::Optional<folly::dynamic>& json) {
-  return json.has_value() && !json->isObject() && !json->isArray() &&
-      !json->isNull();
-}
+  // Shouldn't instantiate directly - use getInstance().
+  explicit JsonExtractor(const std::string& path) {
+    if (!tokenize(path)) {
+      VELOX_USER_FAIL("Invalid JSON path: {}", path);
+    }
+  }
+
+ private:
+  bool tokenize(const std::string& path) {
+    if (path.empty()) {
+      return false;
+    }
+    if (!kTokenizer.reset(path)) {
+      return false;
+    }
+
+    while (kTokenizer.hasNext()) {
+      if (auto token = kTokenizer.getNext()) {
+        tokens_.push_back(token.value());
+      } else {
+        tokens_.clear();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Cache tokenize operations in JsonExtractor across invocations in the same
+  // thread for the same JsonPath.
+  thread_local static std::
+      unordered_map<std::string, std::shared_ptr<JsonExtractor>>
+          kExtractorCache;
+  thread_local static JsonPathTokenizer kTokenizer;
+
+  // Max extractor number in extractor cache
+  static const uint32_t kMaxCacheNum{32};
+
+  std::vector<std::string> tokens_;
+};
+
+thread_local std::unordered_map<std::string, std::shared_ptr<JsonExtractor>>
+    JsonExtractor::kExtractorCache;
+thread_local JsonPathTokenizer JsonExtractor::kTokenizer;
 
 void extractObject(
     const folly::dynamic* jsonObj,
@@ -96,42 +128,14 @@ void extractArray(
     }
   }
 }
-} // namespace
-
-JsonExtractor::JsonExtractor(const std::string& path)
-    : isValid_(false), path_(path) {
-  tokenize();
-}
-
-void JsonExtractor::tokenize() {
-  if (path_.empty()) {
-    return;
-  }
-  folly::StringPiece jsonPath(path_);
-  if (!kTokenizer.reset(path_)) {
-    return;
-  }
-
-  while (kTokenizer.hasNext()) {
-    if (auto token = kTokenizer.getNext()) {
-      tokens_.push_back(token.value());
-    } else {
-      tokens_.clear();
-      return;
-    }
-  }
-  isValid_ = true;
-}
 
 folly::Optional<folly::dynamic> JsonExtractor::extract(
-    const folly::dynamic* json) {
-  VELOX_USER_CHECK(isValid_, "Invalid JSON path: {}", path_);
-
+    const folly::dynamic& json) {
   JsonVector input;
   // Temporary extraction result holder, swap with input after
   // each iteration.
   JsonVector result;
-  input.push_back(json);
+  input.push_back(&json);
 
   for (auto& token : tokens_) {
     for (auto& jsonObj : input) {
@@ -162,12 +166,23 @@ folly::Optional<folly::dynamic> JsonExtractor::extract(
   }
 }
 
+bool isScalarType(const folly::Optional<folly::dynamic>& json) {
+  return json.has_value() && !json->isObject() && !json->isArray() &&
+      !json->isNull();
+}
+
+} // namespace
+
 folly::Optional<folly::dynamic> jsonExtract(
     folly::StringPiece json,
     folly::StringPiece path) {
   try {
-    auto jsonObj = folly::parseJson(json);
-    return jsonExtractInternal(&jsonObj, path);
+    // If extractor fails to parse the path, this will throw a VeloxUserError,
+    // and we want to let this exception bubble up to the client. We only catch
+    // json parsing failures (in which cases we return folly::none instead of
+    // throw).
+    auto& extractor = JsonExtractor::getInstance(path);
+    return extractor.extract(folly::parseJson(json));
   } catch (const folly::json::parse_error&) {
   } catch (const folly::ConversionError&) {
     // Folly might throw a conversion error while parsing the input json. In
@@ -186,7 +201,7 @@ folly::Optional<folly::dynamic> jsonExtract(
     const folly::dynamic& json,
     folly::StringPiece path) {
   try {
-    return jsonExtractInternal(&json, path);
+    return JsonExtractor::getInstance(path).extract(json);
   } catch (const folly::json::parse_error&) {
   }
   return folly::none;
