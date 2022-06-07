@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +27,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TransactionInfo
 {
     private final TransactionId transactionId;
@@ -35,6 +39,7 @@ public class TransactionInfo
     private final List<ConnectorId> connectorIds;
     private final Optional<ConnectorId> writtenConnectorId;
 
+    @ThriftConstructor
     public TransactionInfo(
             TransactionId transactionId,
             IsolationLevel isolationLevel,
@@ -55,41 +60,49 @@ public class TransactionInfo
         this.writtenConnectorId = requireNonNull(writtenConnectorId, "writtenConnectorId is null");
     }
 
+    @ThriftField(value = 1)
     public TransactionId getTransactionId()
     {
         return transactionId;
     }
 
+    @ThriftField(value = 2)
     public IsolationLevel getIsolationLevel()
     {
         return isolationLevel;
     }
 
+    @ThriftField(value = 3)
     public boolean isReadOnly()
     {
         return readOnly;
     }
 
+    @ThriftField(value = 4)
     public boolean isAutoCommitContext()
     {
         return autoCommitContext;
     }
 
+    @ThriftField(value = 5)
     public DateTime getCreateTime()
     {
         return createTime;
     }
 
+    @ThriftField(value = 6)
     public Duration getIdleTime()
     {
         return idleTime;
     }
 
+    @ThriftField(value = 7)
     public List<ConnectorId> getConnectorIds()
     {
         return connectorIds;
     }
 
+    @ThriftField(value = 8)
     public Optional<ConnectorId> getWrittenConnectorId()
     {
         return writtenConnectorId;

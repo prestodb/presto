@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -86,7 +86,7 @@ public class TpcdsSplit
     @Override
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return HARD_AFFINITY;
+        return NO_PREFERENCE;
     }
 
     @JsonProperty

@@ -29,6 +29,8 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.catalogserver.CatalogServerClient;
+import com.facebook.presto.catalogserver.RemoteMetadataManager;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.common.block.Block;
@@ -378,6 +380,10 @@ public class ServerMainModule
                     }
                     return new ExceptionClassification(Optional.of(true), NORMAL);
                 });
+        driftClientBinder(binder)
+                .bindDriftClient(CatalogServerClient.class)
+                .withAddressSelector((addressSelectorBinder, annotation, prefix) ->
+                        addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(RandomResourceManagerAddressSelector.class));
         newOptionalBinder(binder, ClusterMemoryManagerService.class);
         install(installModuleIf(
                 ServerConfig.class,
@@ -538,7 +544,13 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        if (serverConfig.isResourceManagerEnabled() && serverConfig.isCoordinator()) {
+            binder.bind(RemoteMetadataManager.class).in(Scopes.SINGLETON);
+            binder.bind(Metadata.class).to(RemoteMetadataManager.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        }
 
         // row expression utils
         binder.bind(DomainTranslator.class).to(RowExpressionDomainTranslator.class).in(Scopes.SINGLETON);
