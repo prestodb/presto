@@ -123,3 +123,7 @@ add_executable(velox_functions_benchmarks_string_writer_no_nulls
                StringWriterBenchmark.cpp)
 target_link_libraries(velox_functions_benchmarks_string_writer_no_nulls
                       ${BENCHMARK_DEPENDENCIES_NO_FUNC})
+
+add_executable(velox_functions_prestosql_benchmarks_zip ZipBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_zip
+                      ${BENCHMARK_DEPENDENCIES})

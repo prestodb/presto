@@ -178,4 +178,74 @@ TEST_F(ZipTest, complexTypes) {
   assertEqualVectors(expected, result);
 }
 
+/// Test if we can zip two integer arrays with dictionary encoded elements.
+TEST_F(ZipTest, dictionaryElements) {
+  auto firstIndices = makeIndices(9, [](vector_size_t row) { return row; });
+  auto firstElements = makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8});
+  auto firstElementsDictionary =
+      wrapInDictionary(firstIndices, 9, firstElements);
+  auto firstVector = makeArrayVector({0, 3, 6}, firstElementsDictionary);
+
+  // Use different indices.
+  auto secondIndices =
+      makeIndices(9, [](vector_size_t row) { return 8 - row; });
+  auto secondElements =
+      makeFlatVector<int32_t>({10, 11, 12, 13, 14, 15, 16, 17, 18});
+  auto secondElementsDictionary =
+      wrapInDictionary(secondIndices, 9, secondElements);
+  auto secondVector = makeArrayVector({0, 3, 6}, secondElementsDictionary);
+
+  auto result = evaluate<ArrayVector>(
+      "zip(c0, c1)",
+      makeRowVector({
+          firstVector,
+          secondVector,
+      }));
+
+  auto firstResult = makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8});
+  auto secondResult =
+      makeFlatVector<int32_t>({18, 17, 16, 15, 14, 13, 12, 11, 10});
+
+  auto rowVector = makeRowVector({firstResult, secondResult});
+
+  // create the expected ArrayVector
+  auto expected = makeArrayVector({0, 3, 6}, rowVector);
+
+  assertEqualVectors(expected, result);
+}
+
+/// Test if we can zip two dictionary encoded integer arrays
+TEST_F(ZipTest, dictionaryArrays) {
+  auto firstElements = makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8});
+  auto firstIndices = makeIndices(3, [](vector_size_t row) { return row; });
+  auto firstVector = makeArrayVector({0, 3, 6}, firstElements);
+  auto firstVectorDictionary = wrapInDictionary(firstIndices, 3, firstVector);
+
+  // Use different indices.
+  auto secondElements =
+      makeFlatVector<int32_t>({10, 11, 12, 13, 14, 15, 16, 17, 18});
+  auto secondIndices =
+      makeIndices(3, [](vector_size_t row) { return 2 - row; });
+  auto secondVector = makeArrayVector({0, 3, 6}, secondElements);
+  auto secondVectorDictionary =
+      wrapInDictionary(secondIndices, 3, secondVector);
+
+  auto result = evaluate<ArrayVector>(
+      "zip(c0, c1)",
+      makeRowVector({
+          firstVectorDictionary,
+          secondVectorDictionary,
+      }));
+
+  auto firstResult = makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8});
+  auto secondResult =
+      makeFlatVector<int32_t>({16, 17, 18, 13, 14, 15, 10, 11, 12});
+
+  auto rowVector = makeRowVector({firstResult, secondResult});
+
+  // create the expected ArrayVector
+  auto expected = makeArrayVector({0, 3, 6}, rowVector);
+
+  assertEqualVectors(expected, result);
+}
 } // namespace

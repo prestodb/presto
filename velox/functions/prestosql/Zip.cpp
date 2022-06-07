@@ -85,13 +85,18 @@ class ZipFunction : public exec::VectorFunction {
     // Size of elements in result vector.
     vector_size_t resultElementsSize = 0;
     auto pool = context->pool();
+    // This is true if for all rows, all the arrays within a row are the same
+    // size.
+    bool allSameSize = true;
 
     // Determine what the size of the resultant elements will be so we can
     // reserve enough space.
     auto getMaxArraySize = [&](vector_size_t row) -> vector_size_t {
       vector_size_t maxSize = 0;
       for (int i = 0; i < numInputArrays; i++) {
-        maxSize = std::max(maxSize, rawSizes[i][indices[i][row]]);
+        vector_size_t size = rawSizes[i][indices[i][row]];
+        allSameSize &= i == 0 || maxSize == size;
+        maxSize = std::max(maxSize, size);
       }
       return maxSize;
     };
@@ -104,6 +109,48 @@ class ZipFunction : public exec::VectorFunction {
       resultElementsSize += maxSize;
       rawResultArraySizes[row] = maxSize;
     });
+
+    if (allSameSize) {
+      // This is true if all input vectors have the "flat" Array encoding.
+      bool allFlat = true;
+      for (const auto& arg : args) {
+        allFlat &= arg->encoding() == VectorEncoding::Simple::ARRAY;
+      }
+
+      if (allFlat) {
+        // Fast path if all input Vectors are flat and for all rows, all arrays
+        // within a row are the same size.  In this case we don't have to add
+        // nulls, or decode the arrays, we can just pass in the element Vectors
+        // as is to be the fields of the output Rows.
+        std::vector<VectorPtr> elements;
+        elements.reserve(args.size());
+        for (const auto& arg : args) {
+          elements.push_back(arg->as<ArrayVector>()->elements());
+        }
+
+        auto rowType = outputType->childAt(0);
+        auto rowVector = std::make_shared<RowVector>(
+            pool,
+            rowType,
+            BufferPtr(nullptr),
+            resultElementsSize,
+            std::move(elements));
+
+        // Now convert these to an Array
+        auto arrayVector = std::make_shared<ArrayVector>(
+            pool,
+            outputType,
+            BufferPtr(nullptr),
+            rows.end(),
+            baseVectors[0]->offsets(),
+            resultArraySizesBuffer,
+            std::move(rowVector));
+
+        context->moveOrCopyResult(arrayVector, rows, result);
+
+        return;
+      }
+    }
 
     // Create individual result vectors for each input Array vector.
 
