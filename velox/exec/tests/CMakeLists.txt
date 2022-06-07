@@ -16,42 +16,43 @@ add_subdirectory(utils)
 add_executable(
   velox_exec_test
   AssertQueryBuilderTest.cpp
+  AggregationTest.cpp
+  AggregateFunctionRegistryTest.cpp
+  AssignUniqueIdTest.cpp
   CrossJoinTest.cpp
   CustomJoinTest.cpp
   DriverTest.cpp
   EnforceSingleRowTest.cpp
   FilterProjectTest.cpp
-  TableScanTest.cpp
-  TaskTest.cpp
-  AggregationTest.cpp
-  AggregateFunctionRegistryTest.cpp
-  RowContainerTest.cpp
+  FunctionSignatureBuilderTest.cpp
+  HashJoinTest.cpp
   HashTableTest.cpp
-  TreeOfLosersTest.cpp
-  VectorHasherTest.cpp
+  LimitTest.cpp
   LocalPartitionTest.cpp
   MultiFragmentTest.cpp
+  MergeJoinTest.cpp
+  MergeTest.cpp
+  OperatorUtilsTest.cpp
+  OrderByTest.cpp
   ParseTypeSignatureTest.cpp
   PartitionedOutputBufferManagerTest.cpp
-  RoundRobinPartitionFunctionTest.cpp
-  StreamingAggregationTest.cpp
-  TableWriteTest.cpp
-  TaskListenerTest.cpp
-  TopNTest.cpp
-  LimitTest.cpp
-  OrderByTest.cpp
-  OperatorUtilsTest.cpp
-  MergeTest.cpp
-  MergeJoinTest.cpp
-  HashJoinTest.cpp
   PlanBuilderTest.cpp
   PlanNodeToStringTest.cpp
-  FunctionSignatureBuilderTest.cpp
+  PrintPlanWithStatsTest.cpp
+  RoundRobinPartitionFunctionTest.cpp
+  RowContainerTest.cpp
   SimpleFunctionResolutionTest.cpp
   SpillTest.cpp
   SpillerTest.cpp
+  StreamingAggregationTest.cpp
+  TableScanTest.cpp
+  TableWriteTest.cpp
+  TaskListenerTest.cpp
+  TaskTest.cpp
+  TopNTest.cpp
+  TreeOfLosersTest.cpp
   UnnestTest.cpp
-  AssignUniqueIdTest.cpp)
+  VectorHasherTest.cpp)
 
 add_test(
   NAME velox_exec_test
@@ -85,6 +86,7 @@ target_link_libraries(
   ${Boost_SYSTEM_LIBRARIES}
   gtest
   gtest_main
+  gmock
   ${FOLLY_WITH_DEPENDENCIES}
   ${DOUBLE_CONVERSION}
   ${gflags_LIBRARIES}
