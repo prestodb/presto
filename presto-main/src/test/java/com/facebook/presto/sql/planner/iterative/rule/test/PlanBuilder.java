@@ -315,7 +315,12 @@ public class PlanBuilder
 
     public FilterNode filter(RowExpression predicate, PlanNode source)
     {
-        return new FilterNode(source.getSourceLocation(), idAllocator.getNextId(), source, predicate);
+        return filter(idAllocator.getNextId(), predicate, source);
+    }
+
+    public FilterNode filter(PlanNodeId planNodeId, RowExpression predicate, PlanNode source)
+    {
+        return new FilterNode(source.getSourceLocation(), planNodeId, source, predicate);
     }
 
     public AggregationNode aggregation(Consumer<AggregationBuilder> aggregationBuilderConsumer)
