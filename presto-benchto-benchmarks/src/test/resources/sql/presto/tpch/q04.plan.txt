@@ -6,10 +6,11 @@ remote exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [orderpriority])
                         partial aggregation over (orderpriority)
                             join (INNER, PARTITIONED):
-                                remote exchange (REPARTITION, HASH, [orderkey])
-                                    scan orders
                                 final aggregation over (orderkey_0)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [orderkey_0])
                                             partial aggregation over (orderkey_0)
                                                 scan lineitem
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, [orderkey])
+                                        scan orders
