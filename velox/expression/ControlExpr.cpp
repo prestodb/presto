@@ -698,6 +698,10 @@ class ExprCallable : public Callable {
         rows.end(),
         std::move(allVectors));
     EvalCtx lambdaCtx(context->execCtx(), context->exprSet(), row.get());
+    if (!context->isFinalSelection()) {
+      *lambdaCtx.mutableIsFinalSelection() = false;
+      *lambdaCtx.mutableFinalSelection() = context->finalSelection();
+    }
     body_->eval(rows, lambdaCtx, *result);
   }
 

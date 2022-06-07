@@ -165,7 +165,7 @@ class HiveDataSource : public DataSource {
  private:
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows
   // passed. Populates filterEvalCtx_.selectedIndices and selectedBits if only
-  // some rows passed the filter. If no or all rows passed
+  // some rows passed the filter. If none or all rows passed
   // filterEvalCtx_.selectedIndices and selectedBits are not updated.
   vector_size_t evaluateRemainingFilter(RowVectorPtr& rowVector);
 

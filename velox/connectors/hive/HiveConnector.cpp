@@ -528,16 +528,21 @@ RowVectorPtr HiveDataSource::next(uint64_t size) {
 
     auto rowVector = std::dynamic_pointer_cast<RowVector>(output_);
 
+    // In case there is a remaining filter that excludes some but not all rows,
+    // collect the indices of the passing rows. If there is no filter, or it
+    // passes on all rows, leave this as null and let exec::wrap skip wrapping
+    // the results.
     BufferPtr remainingIndices;
     if (remainingFilterExprSet_) {
       rowsRemaining = evaluateRemainingFilter(rowVector);
       VELOX_CHECK_LE(rowsRemaining, rowsScanned);
       if (rowsRemaining == 0) {
-        // no rows passed the remaining filter
+        // No rows passed the remaining filter.
         return RowVector::createEmpty(outputType_, pool_);
       }
 
-      if (rowsRemaining < rowsScanned) {
+      if (rowsRemaining < rowVector->size()) {
+        // Some, but not all rows passed the remaining filter.
         remainingIndices = filterEvalCtx_.selectedIndices;
       }
     }

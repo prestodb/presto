@@ -1602,6 +1602,55 @@ TEST_F(TableScanTest, remainingFilter) {
       "SELECT c1, c2 FROM tmp WHERE c1 > c0");
 }
 
+/// Test the handling of constant remaining filter results which occur when
+/// filter input is a dictionary vector with all indices being the same (i.e.
+/// DictionaryVector::isConstant() == true).
+TEST_F(TableScanTest, remainingFilterConstantResult) {
+  /// Make 2 batches of 10K rows each. 10K is the default batch size in
+  /// TableScan. Use a pushed down and a remaining filter. Make it so that
+  /// pushed down filter passes only for a subset of rows from each batch, e.g.
+  /// pass for the first 100 rows in the first batch and for the first 5 rows
+  /// in the second batch. Then, use remaining filter that passes for a subset
+  /// of rows that passed the pushed down filter in the first batch and all rows
+  /// in the second batch. Make sure that remaining filter doesn't pass on the
+  /// first 5 rows in the first batch, e.g. passing row numbers for the first
+  /// batch start with 11. Also, make sure that remaining filter inputs for the
+  /// second batch are dictionary encoded and constant. This makes it so that
+  /// first batch is producing results using dictionary encoding with indices
+  /// starting at 11 and second batch cannot re-use these indices as they point
+  /// past the vector size (5).
+  vector_size_t size = 10'000;
+  std::vector<RowVectorPtr> data = {
+      makeRowVector({
+          makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+          makeFlatVector<StringView>(
+              size,
+              [](auto row) { return StringView(fmt::format("{}", row % 23)); }),
+      }),
+      makeRowVector({
+          makeFlatVector<int64_t>(
+              size, [](auto row) { return row < 5 ? row : 1000; }),
+          makeFlatVector<StringView>(size, [](auto row) { return "15"_sv; }),
+      }),
+  };
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, data);
+  createDuckDbTable(data);
+
+  auto rowType = asRowType(data[0]->type());
+
+  auto plan =
+      PlanBuilder()
+          .tableScan(rowType, {"c0 < 100"}, "cast(c1 as bigint) % 23 > 10")
+          .planNode();
+
+  assertQuery(
+      plan,
+      {filePath},
+      "SELECT * FROM tmp WHERE c0 < 100 AND c1::bigint % 23 > 10");
+}
+
 TEST_F(TableScanTest, aggregationPushdown) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();

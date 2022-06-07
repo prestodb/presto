@@ -49,80 +49,45 @@ void EvalCtx::setWrapped(
     VectorPtr source,
     const SelectivityVector& rows,
     VectorPtr& result) {
-  if (result) {
-    BaseVector::ensureWritable(rows, expr->type(), pool(), &result);
-    if (wrapEncoding_ == VectorEncoding::Simple::DICTIONARY) {
-      if (!wrapNulls_) {
-        result->copy(source.get(), rows, wrap_->as<vector_size_t>());
-      } else {
-        auto nonNullRows = rows;
-        nonNullRows.deselectNulls(
-            wrapNulls_->as<uint64_t>(), rows.begin(), rows.end());
-        if (nonNullRows.hasSelections()) {
-          result->copy(source.get(), nonNullRows, wrap_->as<vector_size_t>());
-        }
-        result->addNulls(wrapNulls_->as<uint64_t>(), rows);
-      }
-      return;
-    }
-    if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
-      rows.applyToSelected(
-          [&](auto row) { result->copy(source.get(), row, rows.begin(), 1); });
-
-      return;
-    }
-    VELOX_NYI();
-  }
+  VectorPtr localResult;
   if (wrapEncoding_ == VectorEncoding::Simple::DICTIONARY) {
-    // If returning a dictionary for a conditional that will be merged with
-    // other branches of a conditional, set the undefined positions of the
-    // DictionaryVector to null.
-    BufferPtr nulls;
-    if (!isFinalSelection_) {
-      // If this is not the final selection, i.e. we are inside an if, start
-      // with all nulls.
-      nulls = AlignedBuffer::allocate<bool>(rows.size(), pool(), bits::kNull);
-      // Set the active rows to non-null.
-      rows.clearNulls(nulls);
-      if (wrapNulls_) {
-        // Add the nulls from the wrapping.
-        bits::andBits(
-            nulls->asMutable<uint64_t>(),
-            wrapNulls_->as<uint64_t>(),
-            rows.begin(),
-            rows.end());
-      }
-    } else {
-      nulls = wrapNulls_;
-    }
     if (!source) {
-      // If all rows are null, make a flat vector of the right type with
-      // the nulls.
-      VELOX_CHECK(nulls);
-      result = BaseVector::create(expr->type(), rows.size(), pool());
-      result->addNulls(nulls->as<uint64_t>(), rows);
-      return;
-    }
-    result = BaseVector::wrapInDictionary(
-        std::move(nulls), wrap_, rows.end(), std::move(source));
-    return;
-  }
-  if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
-    if (errors_ && constantWrapIndex_ < errors_->size() &&
-        !errors_->isNullAt(constantWrapIndex_)) {
-      // If the single row caused an error that will be caught by a TRY
-      // upstream source may be not initialized, or otherwise in a bad state.
-      // Just return NULL, the value won't be used and TRY is just going to
-      // NULL out the result anyway.
-      result =
+      // If all rows are null, make a constant null vector of the right type.
+      localResult =
           BaseVector::createNullConstant(expr->type(), rows.size(), pool());
     } else {
-      result = BaseVector::wrapInConstant(
-          rows.size(), constantWrapIndex_, std::move(source));
+      // If returning a dictionary for a conditional that will be merged with
+      // other branches of a conditional, set the undefined positions of the
+      // DictionaryVector to null.
+      BufferPtr nulls;
+      if (!isFinalSelection_) {
+        // If this is not the final selection, i.e. we are inside an if, start
+        // with all nulls.
+        nulls = AlignedBuffer::allocate<bool>(rows.size(), pool(), bits::kNull);
+        // Set the active rows to non-null.
+        rows.clearNulls(nulls);
+        if (wrapNulls_) {
+          // Add the nulls from the wrapping.
+          bits::andBits(
+              nulls->asMutable<uint64_t>(),
+              wrapNulls_->as<uint64_t>(),
+              rows.begin(),
+              rows.end());
+        }
+      } else {
+        nulls = wrapNulls_;
+      }
+      localResult = BaseVector::wrapInDictionary(
+          std::move(nulls), wrap_, rows.end(), std::move(source));
     }
-    return;
+  } else if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
+    localResult = BaseVector::wrapInConstant(
+        rows.size(), constantWrapIndex_, std::move(source));
+  } else {
+    VELOX_FAIL("Bad expression wrap encoding {}", wrapEncoding_);
   }
-  VELOX_CHECK(false, "Bad expression wrap encoding {}", wrapEncoding_);
+
+  moveOrCopyResult(localResult, rows, result);
 }
 
 void EvalCtx::saveAndReset(ContextSaver& saver, const SelectivityVector& rows) {
