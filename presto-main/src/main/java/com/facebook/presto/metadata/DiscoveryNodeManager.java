@@ -165,6 +165,7 @@ public final class DiscoveryNodeManager
             URI uri = getHttpUri(service, httpsRequired);
             OptionalInt thriftPort = getThriftServerPort(service);
             NodeVersion nodeVersion = getNodeVersion(service);
+            OptionalInt raftPort = getRaftPort(service);
             if (uri != null && nodeVersion != null) {
                 InternalNode node = new InternalNode(
                         service.getNodeId(),
@@ -174,7 +175,8 @@ public final class DiscoveryNodeManager
                         isCoordinator(service),
                         isResourceManager(service),
                         isCatalogServer(service),
-                        ALIVE);
+                        ALIVE,
+                        raftPort);
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -296,8 +298,9 @@ public final class DiscoveryNodeManager
             boolean coordinator = isCoordinator(service);
             boolean resourceManager = isResourceManager(service);
             boolean catalogServer = isCatalogServer(service);
+            OptionalInt raftPort = getRaftPort(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, ALIVE);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, raftPort);
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -364,17 +367,7 @@ public final class DiscoveryNodeManager
                 InternalNode deadNode = nodes.get(nodeId);
                 Set<ConnectorId> deadNodeConnectorIds = connectorIdsByNodeId.get(nodeId);
                 for (ConnectorId id : deadNodeConnectorIds) {
-                    byConnectorIdBuilder.put(
-                            id,
-                            new InternalNode(
-                                    deadNode.getNodeIdentifier(),
-                                    deadNode.getInternalUri(),
-                                    deadNode.getThriftPort(),
-                                    deadNode.getNodeVersion(),
-                                    deadNode.isCoordinator(),
-                                    deadNode.isResourceManager(),
-                                    deadNode.isCatalogServer(),
-                                    DEAD));
+                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), deadNode.isCatalogServer(), DEAD, deadNode.getRaftPort()));
                 }
             }
         }
@@ -541,6 +534,20 @@ public final class DiscoveryNodeManager
                 return OptionalInt.of(Integer.parseInt(port));
             }
             catch (IllegalArgumentException ignored) {
+            }
+        }
+        return OptionalInt.empty();
+    }
+
+    private static OptionalInt getRaftPort(ServiceDescriptor descriptor)
+    {
+        String port = descriptor.getProperties().get("raftPort");
+        if (port != null) {
+            try {
+                return OptionalInt.of(Integer.parseInt(port));
+            }
+            catch (IllegalArgumentException exception) {
+                log.error("Error getting raft port %s", port);
             }
         }
         return OptionalInt.empty();
