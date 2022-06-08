@@ -232,7 +232,6 @@ public class MapFlatColumnWriter
 
         return ImmutableMap.<Integer, ColumnStatistics>builder()
                 .put(nodeIndex, mapStats)
-                .put(keyNodeIndex, keyManager.getRowGroupColumnStatistics())
                 .putAll(getValueColumnStatistics(ColumnWriter::finishRowGroup))
                 .build();
     }
@@ -466,7 +465,6 @@ public class MapFlatColumnWriter
         protected StatisticsBuilder rowGroupStatsBuilder;
         protected final T keyToWriter;
         private final Supplier<StatisticsBuilder> statisticsBuilderSupplier;
-        private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
 
         public KeyManager(T keyToWriter, Supplier<StatisticsBuilder> statisticsBuilderSupplier)
         {
@@ -477,22 +475,14 @@ public class MapFlatColumnWriter
 
         public abstract MapFlatValueWriter getOrCreateValueWriter(int position, Block keyBlock);
 
-        public ColumnStatistics getRowGroupColumnStatistics()
-        {
-            ColumnStatistics columnStatistics = rowGroupStatsBuilder.buildColumnStatistics();
-            rowGroupColumnStatistics.add(columnStatistics);
-            return columnStatistics;
-        }
-
         public ColumnStatistics getStripeColumnStatistics()
         {
-            return mergeColumnStatistics(rowGroupColumnStatistics);
+            return rowGroupStatsBuilder.buildColumnStatistics();
         }
 
         public void reset()
         {
             keyToWriter.clear();
-            rowGroupColumnStatistics.clear();
             rowGroupStatsBuilder = statisticsBuilderSupplier.get();
         }
     }
