@@ -158,6 +158,36 @@ TEST_F(EnsureWritableVectorTest, flat) {
   }
 }
 
+TEST_F(EnsureWritableVectorTest, flatStrings) {
+  SelectivityVector rows(1'000);
+
+  VectorPtr result;
+  BaseVector::ensureWritable(rows, VARCHAR(), pool_.get(), &result);
+  ASSERT_TRUE(result);
+  ASSERT_EQ(rows.size(), result->size());
+  ASSERT_EQ(TypeKind::VARCHAR, result->typeKind());
+  ASSERT_EQ(VectorEncoding::Simple::FLAT, result->encoding());
+
+  for (auto i = 0; i < result->size(); ++i) {
+    ASSERT_EQ("", result->asFlatVector<StringView>()->valueAt(i).str());
+  }
+
+  // Add a reference to values buffer. Expect ensureWritable to make a new
+  // buffer.
+  auto valuesCopy = result->values();
+
+  BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), &result);
+  ASSERT_TRUE(result);
+  ASSERT_EQ(rows.size(), result->size());
+  ASSERT_EQ(TypeKind::VARCHAR, result->typeKind());
+  ASSERT_EQ(VectorEncoding::Simple::FLAT, result->encoding());
+
+  ASSERT_NE(valuesCopy->as<StringView>(), result->values()->as<StringView>());
+  for (auto i = 0; i < result->size(); ++i) {
+    ASSERT_EQ("", result->asFlatVector<StringView>()->valueAt(i).str());
+  }
+}
+
 namespace {
 SelectivityVector selectOddRows(vector_size_t size) {
   SelectivityVector oddRows(size);

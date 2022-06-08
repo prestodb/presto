@@ -331,8 +331,14 @@ template <typename T>
 void FlatVector<T>::ensureWritable(const SelectivityVector& rows) {
   auto newSize = std::max<vector_size_t>(rows.size(), BaseVector::length_);
   if (values_ && !values_->unique()) {
-    BufferPtr newValues =
-        AlignedBuffer::allocate<T>(newSize, BaseVector::pool_);
+    BufferPtr newValues;
+    if constexpr (std::is_same<T, StringView>::value) {
+      // Make sure to initialize StringView values so they can be safely
+      // accessed.
+      newValues = AlignedBuffer::allocate<T>(newSize, BaseVector::pool_, T());
+    } else {
+      newValues = AlignedBuffer::allocate<T>(newSize, BaseVector::pool_);
+    }
 
     auto rawNewValues = newValues->asMutable<T>();
     SelectivityVector rowsToCopy(BaseVector::length_);
