@@ -706,6 +706,7 @@ class TaskListener {
   /// failure as well as runtime statistics about task execution.
   virtual void onTaskCompletion(
       const std::string& taskUuid,
+      const std::string& taskId,
       TaskState state,
       std::exception_ptr error,
       TaskStats stats) = 0;

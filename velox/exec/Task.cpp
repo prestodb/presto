@@ -1170,7 +1170,8 @@ uint64_t Task::timeSinceEndMs() const {
 void Task::onTaskCompletion() {
   listeners().withRLock([&](auto& listeners) {
     for (auto& listener : listeners) {
-      listener->onTaskCompletion(uuid_, state_, exception_, taskStats_);
+      listener->onTaskCompletion(
+          uuid_, taskId_, state_, exception_, taskStats_);
     }
   });
 }

@@ -47,6 +47,7 @@ class TestTaskListener : public exec::TaskListener {
 
   void onTaskCompletion(
       const std::string& taskUuid,
+      const std::string& taskId,
       exec::TaskState state,
       std::exception_ptr error,
       exec::TaskStats stats) override {
