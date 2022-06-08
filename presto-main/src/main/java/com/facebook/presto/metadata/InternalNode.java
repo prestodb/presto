@@ -67,6 +67,7 @@ public class InternalNode
     private final boolean resourceManager;
     private final boolean catalogServer;
     private final NodeStatus nodeStatus;
+    private final OptionalInt raftPort;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
@@ -75,13 +76,23 @@ public class InternalNode
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, boolean catalogServer)
     {
-        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager, catalogServer, ALIVE);
+        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, OptionalInt.empty());
     }
 
     @ThriftConstructor
     public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager, boolean catalogServer)
     {
-        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, catalogServer, ALIVE);
+        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, catalogServer, ALIVE, OptionalInt.empty());
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager, OptionalInt raftPort)
+    {
+        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, false, ALIVE, raftPort);
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, NodeStatus nodeStatus, OptionalInt raftPort)
+    {
+        this(nodeIdentifier, internalUri, thriftPort, nodeVersion, coordinator, resourceManager, false, nodeStatus, raftPort);
     }
 
     public InternalNode(
@@ -92,7 +103,8 @@ public class InternalNode
             boolean coordinator,
             boolean resourceManager,
             boolean catalogServer,
-            NodeStatus nodeStatus)
+            NodeStatus nodeStatus,
+            OptionalInt raftPort)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
@@ -103,6 +115,7 @@ public class InternalNode
         this.resourceManager = resourceManager;
         this.catalogServer = catalogServer;
         this.nodeStatus = nodeStatus;
+        this.raftPort = requireNonNull(raftPort, "raftPort is null");
     }
 
     @ThriftField(1)
@@ -182,6 +195,11 @@ public class InternalNode
         return catalogServer;
     }
 
+    public OptionalInt getRaftPort()
+    {
+        return raftPort;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -212,6 +230,7 @@ public class InternalNode
                 .add("coordinator", coordinator)
                 .add("resourceManager", resourceManager)
                 .add("catalogServer", catalogServer)
+                .add("raftPort", raftPort)
                 .toString();
     }
 }

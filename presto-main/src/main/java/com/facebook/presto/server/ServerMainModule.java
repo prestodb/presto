@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.discovery.client.ServiceAnnouncement;
 import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.stats.GcMonitor;
@@ -121,6 +122,7 @@ import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
+import com.facebook.presto.resourcemanager.RaftConfig;
 import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceManagerClient;
@@ -633,14 +635,21 @@ public class ServerMainModule
         // presto announcement
         checkArgument(!(serverConfig.isResourceManager() && serverConfig.isCoordinator()),
                 "Server cannot be configured as both resource manager and coordinator");
+
         checkArgument(!(serverConfig.isCatalogServer() && serverConfig.isCoordinator()),
                 "Server cannot be configured as both catalog server and coordinator");
-        discoveryBinder(binder).bindHttpAnnouncement("presto")
+
+        ServiceAnnouncement.ServiceAnnouncementBuilder serviceAnnouncementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("resource_manager", String.valueOf(serverConfig.isResourceManager()))
                 .addProperty("catalog_server", String.valueOf(serverConfig.isCatalogServer()))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
+
+        RaftConfig raftConfig = buildConfigObject(RaftConfig.class);
+        if (serverConfig.isResourceManager() && raftConfig.isEnabled()) {
+            serviceAnnouncementBuilder.addProperty("raftPort", String.valueOf(raftConfig.getPort()));
+        }
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);
