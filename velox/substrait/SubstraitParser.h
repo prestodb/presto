@@ -95,7 +95,10 @@ class SubstraitParser {
   /// a mapping relation should be added here.
   std::unordered_map<std::string, std::string> substraitVeloxFunctionMap_ = {
       {"add", "plus"},
-      {"subtract", "minus"}};
+      {"subtract", "minus"},
+      {"modulus", "mod"},
+      {"not_equal", "neq"},
+      {"equal", "eq"}};
 };
 
 } // namespace facebook::velox::substrait

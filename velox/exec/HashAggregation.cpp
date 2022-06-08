@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/HashAggregation.h"
+#include <optional>
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/Task.h"
 
@@ -63,6 +64,7 @@ HashAggregation::HashAggregation(
   aggregates.reserve(numAggregates);
   std::vector<std::optional<ChannelIndex>> aggrMaskChannels;
   aggrMaskChannels.reserve(numAggregates);
+  auto numMasks = aggregationNode->aggregateMasks().size();
   std::vector<std::vector<ChannelIndex>> args;
   std::vector<std::vector<VectorPtr>> constantLists;
   std::vector<TypePtr> intermediateTypes;
@@ -96,12 +98,16 @@ HashAggregation::HashAggregation(
     }
     // Setup aggregation mask: convert the Variable Reference name to the
     // channel (projection) index, if there is a mask.
-    const auto& aggrMask = aggregationNode->aggregateMasks()[i];
-    if (aggrMask == nullptr) {
-      aggrMaskChannels.emplace_back(std::optional<ChannelIndex>{});
+    if (i < numMasks) {
+      const auto& aggrMask = aggregationNode->aggregateMasks()[i];
+      if (aggrMask == nullptr) {
+        aggrMaskChannels.emplace_back(std::nullopt);
+      } else {
+        aggrMaskChannels.emplace_back(
+            inputType->asRow().getChildIdx(aggrMask->name()));
+      }
     } else {
-      aggrMaskChannels.emplace_back(
-          inputType->asRow().getChildIdx(aggrMask->name()));
+      aggrMaskChannels.emplace_back(std::nullopt);
     }
 
     const auto& resultType = outputType_->childAt(numHashers + i);

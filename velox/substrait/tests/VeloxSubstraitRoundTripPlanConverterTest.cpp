@@ -74,8 +74,6 @@ class VeloxSubstraitRoundTripPlanConverterTest : public OperatorTestBase {
       std::make_shared<VeloxToSubstraitPlanConvertor>();
   std::shared_ptr<SubstraitVeloxPlanConverter> substraitConverter_ =
       std::make_shared<SubstraitVeloxPlanConverter>();
-  std::unique_ptr<memory::ScopedMemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
 };
 
 TEST_F(VeloxSubstraitRoundTripPlanConverterTest, project) {
@@ -111,4 +109,96 @@ TEST_F(VeloxSubstraitRoundTripPlanConverterTest, values) {
   auto plan = PlanBuilder().values({vectors}).planNode();
 
   assertPlanConversion(plan, "SELECT * FROM tmp");
+}
+
+TEST_F(VeloxSubstraitRoundTripPlanConverterTest, count) {
+  auto vectors = makeVectors(2, 7, 3);
+  createDuckDbTable(vectors);
+
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .filter("c6 < 24")
+                  .singleAggregation({"c0", "c1"}, {"count(c4) as num_price"})
+                  .project({"num_price"})
+                  .planNode();
+
+  assertPlanConversion(
+      plan,
+      "SELECT count(c4) as num_price FROM tmp WHERE c6 < 24 GROUP BY c0, c1");
+}
+
+TEST_F(VeloxSubstraitRoundTripPlanConverterTest, countAll) {
+  auto vectors = makeVectors(2, 7, 3);
+  createDuckDbTable(vectors);
+
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .filter("c6 < 24")
+                  .singleAggregation({"c0", "c1"}, {"count(1) as num_price"})
+                  .project({"num_price"})
+                  .planNode();
+
+  assertPlanConversion(
+      plan,
+      "SELECT count(*) as num_price FROM tmp WHERE c6 < 24 GROUP BY c0, c1");
+}
+
+TEST_F(VeloxSubstraitRoundTripPlanConverterTest, sum) {
+  auto vectors = makeVectors(2, 7, 3);
+  createDuckDbTable(vectors);
+
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .partialAggregation({}, {"sum(1)", "count(c4)"})
+                  .planNode();
+
+  assertPlanConversion(plan, "SELECT sum(1), count(c4) FROM tmp");
+}
+
+TEST_F(VeloxSubstraitRoundTripPlanConverterTest, sumAndCount) {
+  auto vectors = makeVectors(2, 7, 3);
+  createDuckDbTable(vectors);
+
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .partialAggregation({}, {"sum(c1)", "count(c4)"})
+                  .finalAggregation()
+                  .planNode();
+
+  assertPlanConversion(plan, "SELECT sum(c1), count(c4) FROM tmp");
+}
+
+TEST_F(VeloxSubstraitRoundTripPlanConverterTest, sumGlobal) {
+  auto vectors = makeVectors(2, 7, 3);
+  createDuckDbTable(vectors);
+
+  // Global final aggregation.
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .partialAggregation({"c0"}, {"sum(c0)", "sum(c1)"})
+                  .intermediateAggregation()
+                  .finalAggregation()
+                  .planNode();
+  assertPlanConversion(
+      plan, "SELECT c0, sum(c0), sum(c1) FROM tmp GROUP BY c0");
+}
+
+TEST_F(VeloxSubstraitRoundTripPlanConverterTest, sumMask) {
+  auto vectors = makeVectors(2, 7, 3);
+  createDuckDbTable(vectors);
+
+  auto plan =
+      PlanBuilder()
+          .values(vectors)
+          .project({"c0", "c1", "c2 % 2 < 10 AS m0", "c3 % 3 = 0 AS m1"})
+          .partialAggregation(
+              {}, {"sum(c0)", "sum(c0)", "sum(c1)"}, {"m0", "m1", "m1"})
+          .finalAggregation()
+          .planNode();
+
+  assertPlanConversion(
+      plan,
+      "SELECT sum(c0) FILTER (WHERE c2 % 2 < 10), "
+      "sum(c0) FILTER (WHERE c3 % 3 = 0), sum(c1) FILTER (WHERE c3 % 3 = 0) "
+      "FROM tmp");
 }

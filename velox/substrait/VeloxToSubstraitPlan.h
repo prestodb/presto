@@ -66,6 +66,12 @@ class VeloxToSubstraitPlanConvertor {
       const std::shared_ptr<const core::ProjectNode>& projectNode,
       ::substrait::ProjectRel* projectRel);
 
+  /// Convert Velox Aggregation Node into Substrait AggregateRel.
+  void toSubstrait(
+      google::protobuf::Arena& arena,
+      const std::shared_ptr<const core::AggregationNode>& aggregateNode,
+      ::substrait::AggregateRel* aggregateRel);
+
   /// Construct the function map between the Velox function name and index.
   void constructFunctionMap();
 
