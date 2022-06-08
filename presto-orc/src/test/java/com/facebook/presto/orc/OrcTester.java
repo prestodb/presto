@@ -1591,16 +1591,12 @@ public class OrcTester
 
         writer.write(new Page(blocks));
         writer.close();
-
-        // TODO: sdruzkin - fix row group stats validation for flat maps
-        if (flattenedColumns.isEmpty()) {
-            writer.validate(new FileOrcDataSource(
-                    outputFile,
-                    new DataSize(1, MEGABYTE),
-                    new DataSize(1, MEGABYTE),
-                    new DataSize(1, MEGABYTE),
-                    true));
-        }
+        writer.validate(new FileOrcDataSource(
+                outputFile,
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                true));
     }
 
     public static List<StripeFooter> getStripes(File inputFile, OrcEncoding encoding)
