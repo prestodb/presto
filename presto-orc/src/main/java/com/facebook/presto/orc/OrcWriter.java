@@ -67,6 +67,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -209,6 +210,7 @@ public class OrcWriter
         this.orcTypes = inputOrcTypes.orElseGet(() -> OrcType.createOrcRowType(0, columnNames, types));
 
         requireNonNull(compressionKind, "compressionKind is null");
+        Set<Integer> flattenedNodes = mapColumnToNode(options.getFlattenedColumns(), orcTypes);
         this.columnWriterOptions = ColumnWriterOptions.builder()
                 .setCompressionKind(compressionKind)
                 .setCompressionLevel(options.getCompressionLevel())
@@ -220,9 +222,11 @@ public class OrcWriter
                 .setIgnoreDictionaryRowGroupSizes(options.isIgnoreDictionaryRowGroupSizes())
                 .setPreserveDirectEncodingStripeCount(options.getPreserveDirectEncodingStripeCount())
                 .setCompressionBufferPool(compressionBufferPool)
-                .setFlattenedNodes(mapColumnToNode(options.getFlattenedColumns(), orcTypes))
+                .setFlattenedNodes(flattenedNodes)
                 .build();
         recordValidation(validation -> validation.setCompression(compressionKind));
+        recordValidation(validation -> validation.setFlattenedNodes(flattenedNodes));
+        recordValidation(validation -> validation.setOrcTypes(orcTypes));
 
         requireNonNull(options, "options is null");
         this.flushPolicy = requireNonNull(options.getFlushPolicy(), "flushPolicy is null");
