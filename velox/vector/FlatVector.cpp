@@ -210,6 +210,41 @@ Buffer* FlatVector<StringView>::getBufferWithSpace(vector_size_t size) {
 }
 
 template <>
+void FlatVector<StringView>::prepareForReuse() {
+  BaseVector::prepareForReuse();
+
+  // Check values buffer. Keep the buffer if singly-referenced and mutable.
+  // Reset otherwise.
+  if (values_ && !(values_->unique() && values_->isMutable())) {
+    values_ = nullptr;
+    rawValues_ = nullptr;
+  }
+
+  // Check string buffers. Keep at most one singly-referenced buffer if it is
+  // not too large.
+  if (!stringBuffers_.empty()) {
+    auto& firstBuffer = stringBuffers_.front();
+    if (firstBuffer->unique() && firstBuffer->isMutable() &&
+        firstBuffer->capacity() <= kMaxStringSizeForReuse) {
+      firstBuffer->setSize(0);
+      stringBuffers_.resize(1);
+    } else {
+      stringBuffers_.clear();
+    }
+  }
+
+  // Clear the StringViews to avoid referencing freed memory.
+  if (rawValues_) {
+    for (auto i = 0; i < BaseVector::length_; ++i) {
+      rawValues_[i] = StringView();
+    }
+  }
+
+  // Clear ASCII-ness.
+  SimpleVector<StringView>::invalidateIsAscii();
+}
+
+template <>
 void FlatVector<StringView>::set(vector_size_t idx, StringView value) {
   VELOX_DCHECK(idx < BaseVector::length_);
   if (BaseVector::rawNulls_) {

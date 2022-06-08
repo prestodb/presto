@@ -402,6 +402,9 @@ void FlatVector<bool>::copyValuesAndNulls(
 template <>
 Buffer* FlatVector<StringView>::getBufferWithSpace(vector_size_t size);
 
+template <>
+void FlatVector<StringView>::prepareForReuse();
+
 template <typename T>
 using FlatVectorPtr = std::shared_ptr<FlatVector<T>>;
 

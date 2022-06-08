@@ -76,6 +76,11 @@ TEST_F(VectorPrepareForReuseTest, strings) {
     ASSERT_EQ(originalVector, vector.get());
     ASSERT_EQ(originalBytes, vector->retainedSize());
 
+    // Verify that StringViews are reset to empty strings.
+    for (auto i = 0; i < vector->size(); i++) {
+      ASSERT_EQ("", vector->asFlatVector<StringView>()->valueAt(i).str());
+    }
+
     for (auto i = 0; i < vector->size(); i++) {
       vector->asFlatVector<StringView>()->set(i, stringAt(i));
     }
