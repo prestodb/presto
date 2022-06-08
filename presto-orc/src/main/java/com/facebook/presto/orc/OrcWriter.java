@@ -81,6 +81,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toFileStatistics;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStripeEncryptionGroup;
+import static com.facebook.presto.orc.metadata.OrcType.createNodeIdToColumnMap;
 import static com.facebook.presto.orc.metadata.OrcType.mapColumnToNode;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
@@ -148,6 +149,7 @@ public class OrcWriter
     private long stripeRawSize;
     private long rawSize;
     private List<ColumnStatistics> unencryptedStats;
+    private final Map<Integer, Integer> nodeIdToColumn;
 
     public OrcWriter(
             DataSink dataSink,
@@ -207,6 +209,7 @@ public class OrcWriter
         requireNonNull(columnNames, "columnNames is null");
         requireNonNull(inputOrcTypes, "inputOrcTypes is null");
         this.orcTypes = inputOrcTypes.orElseGet(() -> OrcType.createOrcRowType(0, columnNames, types));
+        this.nodeIdToColumn = createNodeIdToColumnMap(this.orcTypes);
 
         requireNonNull(compressionKind, "compressionKind is null");
         this.columnWriterOptions = ColumnWriterOptions.builder()
@@ -567,7 +570,11 @@ public class OrcWriter
                     .mapToLong(StreamDataOutput::size)
                     .sum();
         }
-        streamLayout.reorder(dataStreams, ImmutableMap.of(), ImmutableMap.of());
+        ImmutableMap.Builder<Integer, ColumnEncoding> columnEncodingsBuilder = ImmutableMap.builder();
+        columnEncodingsBuilder.put(0, new ColumnEncoding(DIRECT, 0));
+        columnWriters.forEach(columnWriter -> columnEncodingsBuilder.putAll(columnWriter.getColumnEncodings()));
+        Map<Integer, ColumnEncoding> columnEncodings = columnEncodingsBuilder.build();
+        streamLayout.reorder(dataStreams, nodeIdToColumn, columnEncodings);
 
         // add data streams
         for (StreamDataOutput dataStream : dataStreams) {
@@ -588,14 +595,10 @@ public class OrcWriter
             offset += dataStream.size();
         }
 
-        Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();
-        columnWriters.forEach(columnWriter -> columnEncodings.putAll(columnWriter.getColumnEncodings()));
-
         Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
         columnWriters.forEach(columnWriter -> columnStatistics.putAll(columnWriter.getColumnStripeStatistics()));
 
         // the 0th column is a struct column for the whole row
-        columnEncodings.put(0, new ColumnEncoding(DIRECT, 0));
         columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, null));
 
         Map<Integer, ColumnEncoding> unencryptedColumnEncodings = columnEncodings.entrySet().stream()
