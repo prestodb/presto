@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(VELOX_ENABLE_S3)
-  add_subdirectory(s3fs)
-endif()
-if(VELOX_ENABLE_HDFS)
-  add_subdirectory(hdfs)
+# for generated headers
+
+add_library(velox_hdfs HdfsFileSystem.cpp HdfsReadFile.cpp)
+target_link_libraries(velox_hdfs ${LIBHDFS3})
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
 endif()

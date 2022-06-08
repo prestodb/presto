@@ -17,6 +17,7 @@
 
 #include <unistd.h>
 #include <cstdlib>
+#include <fstream>
 #include <memory>
 #include <string>
 
@@ -38,6 +39,13 @@ class TempFilePath {
 
   TempFilePath(const TempFilePath&) = delete;
   TempFilePath& operator=(const TempFilePath&) = delete;
+
+  void append(std::string data) {
+    std::ofstream file(path, std::ios_base::app);
+    file << data;
+    file.flush();
+    file.close();
+  }
 
  private:
   int fd;

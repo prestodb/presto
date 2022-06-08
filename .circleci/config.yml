@@ -18,7 +18,7 @@ workflows:
     jobs:
       - linux-build
       - linux-build-options
-      - linux-parquet-s3-build
+      - linux-parquet-hive-storage-adapters-build
       - macos-build
       - format-check
       - header-check
@@ -49,7 +49,7 @@ workflows:
       - linux-build
       - linux-build-release
       - linux-build-options
-      - linux-parquet-s3-build
+      - linux-parquet-hive-storage-adapters-build
       - macos-build
 
 executors:
@@ -316,7 +316,7 @@ jobs:
           paths:
             - .ccache/
 
-  linux-parquet-s3-build:
+  linux-parquet-hive-storage-adapters-build:
     executor: build
     steps:
       - checkout
@@ -347,13 +347,23 @@ jobs:
             wget https://dl.min.io/server/minio/release/linux-amd64/archive/minio-20220526054841.0.0.x86_64.rpm
             rpm -i minio-20220526054841.0.0.x86_64.rpm
       - run:
+          name: "Install Hadoop dependency"
+          command: |
+            set -xu
+            cd ~/adapter-deps/install/bin/
+            wget https://archive.apache.org/dist/hadoop/common/hadoop-2.10.1/hadoop-2.10.1.tar.gz
+            tar xf hadoop-2.10.1.tar.gz
+            chmod +x hadoop-2.10.1
+            cp -a hadoop-2.10.1 /usr/local/
+            yum -y install java-1.8.0-openjdk
+      - run:
           name: Build
           command: |
             mkdir -p .ccache
             export CCACHE_DIR=$(realpath .ccache)
             ccache -sz -M 5Gi
             source /opt/rh/gcc-toolset-9/enable
-            make release EXTRA_CMAKE_FLAGS=" -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_S3=ON " AWSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make release EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_HDFS=ON -DVELOX_ENABLE_S3=ON" AWSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
           no_output_timeout: 1h
       - store_artifacts:
@@ -366,7 +376,10 @@ jobs:
       - run:
           name: "Run Unit Tests"
           command: |
-            export PATH=~/adapter-deps/install/bin:${PATH}
+            export JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk
+            export HADOOP_ROOT_LOGGER="WARN,DRFA"
+            export LIBHDFS3_CONF=$(pwd)/.circleci/hdfs-client.xml
+            export PATH=~/adapter-deps/install/bin:~/adapter-deps/install/hadoop-2.10.1/bin:${PATH}
             cd _build/release && ctest -j 16 -VV --output-on-failure
           no_output_timeout: 1h
 

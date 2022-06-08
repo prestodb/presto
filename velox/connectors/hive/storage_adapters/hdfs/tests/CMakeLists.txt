@@ -12,9 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(VELOX_ENABLE_S3)
-  add_subdirectory(s3fs)
-endif()
-if(VELOX_ENABLE_HDFS)
-  add_subdirectory(hdfs)
-endif()
+add_executable(velox_hdfs_file_test HdfsFileSystemTest.cpp HdfsMiniCluster.cpp)
+add_test(velox_hdfs_file_test velox_hdfs_file_test)
+target_link_libraries(
+  velox_hdfs_file_test
+  velox_file
+  velox_hdfs
+  velox_core
+  velox_exec_test_util
+  velox_hive_connector
+  velox_dwio_common_exception
+  velox_exec
+  gtest
+  gtest_main
+  gmock)

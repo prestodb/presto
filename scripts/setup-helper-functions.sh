@@ -22,7 +22,6 @@ function github_checkout {
   shift
   local GIT_CLONE_PARAMS=$@
   local DIRNAME=$(basename $REPO)
-  echo $DIRNAME
   cd "${DEPENDENCY_DIR}"
   if [ -z "${DIRNAME}" ]; then
     echo "Failed to get repo name from ${REPO}"

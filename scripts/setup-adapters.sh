@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+SCRIPTDIR=$(dirname "$0")
+source $SCRIPTDIR/setup-helper-functions.sh
+
 # Propagate errors and improve debugging.
 set -eufx -o pipefail
 
@@ -28,10 +31,36 @@ function install_aws-sdk-cpp {
   cmake_install -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS:BOOL=OFF -DMINIMIZE_SIZE:BOOL=ON -DENABLE_TESTING:BOOL=OFF -DBUILD_ONLY:STRING="s3;identity-management" -DCMAKE_INSTALL_PREFIX="${DEPENDENCY_DIR}/install"
 }
 
+function install_libhdfs3 {
+  github_checkout apache/hawq master
+  cd $DEPENDENCY_DIR/hawq/depends/libhdfs3
+  if [[ "$OSTYPE" == darwin* ]]; then
+     sed -i '' -e "/FIND_PACKAGE(GoogleTest REQUIRED)/d" ./CMakeLists.txt
+     sed -i '' -e "s/dumpversion/dumpfullversion/" ./CMakeLists.txt
+  fi
+
+  if [[ "$OSTYPE" == linux-gnu* ]]; then
+    sed -i "/FIND_PACKAGE(GoogleTest REQUIRED)/d" ./CMakeLists.txt
+    sed -i "s/dumpversion/dumpfullversion/" ./CMake/Platform.cmake
+  fi
+  cmake_install
+}
+
+DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 cd "${DEPENDENCY_DIR}" || exit
 # aws-sdk-cpp missing dependencies
 
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+   yum -y install libxml2-devel libgsasl-devel libuuid-devel
+fi
+
+if [[ "$OSTYPE" == darwin* ]]; then
+   brew install libxml2 gsasl
+fi
+
 install_aws-sdk-cpp
+install_libhdfs3
+
 _ret=$?
 if [ $_ret -eq 0 ] ; then
    echo "All deps for Velox adapters installed!"

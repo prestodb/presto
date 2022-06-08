@@ -45,6 +45,7 @@ option(VELOX_ENABLE_SUBSTRAIT "Buid Substrait-to-Velox converter." OFF)
 option(VELOX_ENABLE_BENCHMARKS "Build velox top level benchmarks." OFF)
 option(VELOX_ENABLE_BENCHMARKS_BASIC "Build velox basic benchmarks." OFF)
 option(VELOX_ENABLE_S3 "Build S3 Connector" OFF)
+option(VELOX_ENABLE_HDFS "Build Hdfs Connector" OFF)
 option(VELOX_ENABLE_PARQUET "Enable Parquet support" OFF)
 option(VELOX_BUILD_TEST_UTILS "Enable Velox test utilities" OFF)
 
@@ -107,6 +108,14 @@ if(VELOX_ENABLE_S3)
   endif()
   find_package(AWSSDK REQUIRED COMPONENTS s3;identity-management)
   add_definitions(-DVELOX_ENABLE_S3)
+endif()
+
+if(VELOX_ENABLE_HDFS)
+  find_library(
+    LIBHDFS3
+    NAMES libhdfs3.so libhdfs3.dylib
+    HINTS "${CMAKE_SOURCE_DIR}/hawq/depends/libhdfs3/_build/src/" REQUIRED)
+  add_definitions(-DVELOX_ENABLE_HDFS3)
 endif()
 
 if(VELOX_ENABLE_PARQUET)
