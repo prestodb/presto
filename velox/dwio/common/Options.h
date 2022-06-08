@@ -97,6 +97,12 @@ class RowReaderOptions {
   std::shared_ptr<velox::common::ScanSpec> scanSpec_ = nullptr;
   // Node id for map column to a list of keys to be projected as a struct.
   std::unordered_map<uint32_t, std::vector<std::string>> flatmapNodeIdAsStruct_;
+  // Optional executors to enable internal reader parallelism.
+  // 'decodingExecutor' allow parallelising the vector decoding process.
+  // 'ioExecutor' enables parallelism when performing file system read
+  // operations.
+  std::shared_ptr<folly::Executor> decodingExecutor_;
+  std::shared_ptr<folly::Executor> ioExecutor_;
 
  public:
   RowReaderOptions(const RowReaderOptions& other) {
@@ -250,6 +256,22 @@ class RowReaderOptions {
   const std::unordered_map<uint32_t, std::vector<std::string>>&
   getMapColumnIdAsStruct() const {
     return flatmapNodeIdAsStruct_;
+  }
+
+  void setDecodingExecutor(std::shared_ptr<folly::Executor> executor) {
+    decodingExecutor_ = executor;
+  }
+
+  void setIOExecutor(std::shared_ptr<folly::Executor> executor) {
+    ioExecutor_ = executor;
+  }
+
+  const std::shared_ptr<folly::Executor>& getDecodingExecutor() const {
+    return decodingExecutor_;
+  }
+
+  const std::shared_ptr<folly::Executor>& getIOExecutor() const {
+    return ioExecutor_;
   }
 };
 
