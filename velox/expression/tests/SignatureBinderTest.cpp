@@ -30,6 +30,13 @@ void testSignatureBinder(
   ASSERT_TRUE(expectedReturnType->kindEquals(returnType));
 }
 
+void assertCannotResolve(
+    const std::shared_ptr<exec::FunctionSignature>& signature,
+    const std::vector<TypePtr>& actualTypes) {
+  exec::SignatureBinder binder(*signature, actualTypes);
+  ASSERT_FALSE(binder.tryBind());
+}
+
 TEST(SignatureBinderTest, generics) {
   // array(T), T -> boolean
   {
@@ -41,6 +48,17 @@ TEST(SignatureBinderTest, generics) {
                          .build();
 
     testSignatureBinder(signature, {ARRAY(BIGINT()), BIGINT()}, BOOLEAN());
+    testSignatureBinder(
+        signature, {ARRAY(DECIMAL(20, 3)), DECIMAL(20, 3)}, BOOLEAN());
+    assertCannotResolve(signature, {ARRAY(DECIMAL(20, 3)), DECIMAL(20, 4)});
+    testSignatureBinder(
+        signature,
+        {ARRAY(FIXED_SIZE_ARRAY(20, BIGINT())), FIXED_SIZE_ARRAY(20, BIGINT())},
+        BOOLEAN());
+    assertCannotResolve(
+        signature,
+        {ARRAY(FIXED_SIZE_ARRAY(20, BIGINT())),
+         FIXED_SIZE_ARRAY(10, BIGINT())});
   }
 
   // array(array(T)), array(T) -> boolean
@@ -144,13 +162,6 @@ TEST(SignatureBinderTest, variableArity) {
         {INTEGER(), TIMESTAMP(), VARCHAR(), SMALLINT()},
         TIMESTAMP());
   }
-}
-
-void assertCannotResolve(
-    const std::shared_ptr<exec::FunctionSignature>& signature,
-    const std::vector<TypePtr>& actualTypes) {
-  exec::SignatureBinder binder(*signature, actualTypes);
-  ASSERT_FALSE(binder.tryBind());
 }
 
 TEST(SignatureBinderTest, unresolvable) {

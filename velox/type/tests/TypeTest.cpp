@@ -465,6 +465,11 @@ TEST(TypeTest, equality) {
   EXPECT_TRUE(*ARRAY(INTEGER()) == *ARRAY(INTEGER()));
   EXPECT_FALSE(*ARRAY(INTEGER()) == *ARRAY(REAL()));
   EXPECT_FALSE(*ARRAY(INTEGER()) == *ARRAY(ARRAY(INTEGER())));
+  EXPECT_TRUE(
+      *FIXED_SIZE_ARRAY(10, INTEGER()) == *FIXED_SIZE_ARRAY(10, INTEGER()));
+  EXPECT_FALSE(*FIXED_SIZE_ARRAY(10, INTEGER()) == *ARRAY(INTEGER()));
+  EXPECT_FALSE(
+      *FIXED_SIZE_ARRAY(10, INTEGER()) == *FIXED_SIZE_ARRAY(9, INTEGER()));
 
   // struct
   EXPECT_TRUE(
@@ -510,14 +515,29 @@ TEST(TypeTest, cpp2Type) {
   EXPECT_EQ(*type, *MAP(INTEGER(), MAP(BIGINT(), REAL())));
 }
 
-TEST(TypeTest, kindHash) {
-  EXPECT_EQ(BIGINT()->hashKind(), BIGINT()->hashKind());
-  EXPECT_EQ(TIMESTAMP()->hashKind(), TIMESTAMP()->hashKind());
-  EXPECT_EQ(DATE()->hashKind(), DATE()->hashKind());
-  EXPECT_EQ(INTERVAL_DAY_TIME()->hashKind(), INTERVAL_DAY_TIME()->hashKind());
-  EXPECT_NE(BIGINT()->hashKind(), INTEGER()->hashKind());
-  EXPECT_EQ(
-      ROW({{"a", BIGINT()}})->hashKind(), ROW({{"b", BIGINT()}})->hashKind());
+TEST(TypeTest, equivalent) {
+  EXPECT_TRUE(ROW({{"a", BIGINT()}})->equivalent(*ROW({{"b", BIGINT()}})));
+  EXPECT_FALSE(ROW({{"a", BIGINT()}})->equivalent(*ROW({{"a", INTEGER()}})));
+  EXPECT_TRUE(MAP(BIGINT(), BIGINT())->equivalent(*MAP(BIGINT(), BIGINT())));
+  EXPECT_FALSE(
+      MAP(BIGINT(), BIGINT())->equivalent(*MAP(BIGINT(), ARRAY(BIGINT()))));
+  EXPECT_TRUE(ARRAY(BIGINT())->equivalent(*ARRAY(BIGINT())));
+  EXPECT_FALSE(ARRAY(BIGINT())->equivalent(*ARRAY(INTEGER())));
+  EXPECT_FALSE(ARRAY(BIGINT())->equivalent(*ROW({{"a", BIGINT()}})));
+  EXPECT_FALSE(FIXED_SIZE_ARRAY(10, BIGINT())->equivalent(*ARRAY(BIGINT())));
+  EXPECT_FALSE(FIXED_SIZE_ARRAY(10, BIGINT())
+                   ->equivalent(*FIXED_SIZE_ARRAY(9, BIGINT())));
+  EXPECT_TRUE(FIXED_SIZE_ARRAY(10, BIGINT())
+                  ->equivalent(*FIXED_SIZE_ARRAY(10, BIGINT())));
+  EXPECT_TRUE(SHORT_DECIMAL(10, 5)->equivalent(*SHORT_DECIMAL(10, 5)));
+  EXPECT_FALSE(SHORT_DECIMAL(10, 6)->equivalent(*SHORT_DECIMAL(10, 5)));
+  EXPECT_FALSE(SHORT_DECIMAL(11, 5)->equivalent(*SHORT_DECIMAL(10, 5)));
+  EXPECT_TRUE(LONG_DECIMAL(30, 5)->equivalent(*LONG_DECIMAL(30, 5)));
+  EXPECT_FALSE(LONG_DECIMAL(30, 6)->equivalent(*LONG_DECIMAL(30, 5)));
+  EXPECT_FALSE(LONG_DECIMAL(31, 5)->equivalent(*LONG_DECIMAL(30, 5)));
+}
+
+TEST(TypeTest, kindEquals) {
   EXPECT_TRUE(ROW({{"a", BIGINT()}})->kindEquals(ROW({{"b", BIGINT()}})));
   EXPECT_FALSE(ROW({{"a", BIGINT()}})->kindEquals(ROW({{"a", INTEGER()}})));
   EXPECT_TRUE(MAP(BIGINT(), BIGINT())->kindEquals(MAP(BIGINT(), BIGINT())));
@@ -526,7 +546,27 @@ TEST(TypeTest, kindHash) {
   EXPECT_TRUE(ARRAY(BIGINT())->kindEquals(ARRAY(BIGINT())));
   EXPECT_FALSE(ARRAY(BIGINT())->kindEquals(ARRAY(INTEGER())));
   EXPECT_FALSE(ARRAY(BIGINT())->kindEquals(ROW({{"a", BIGINT()}})));
+  EXPECT_TRUE(FIXED_SIZE_ARRAY(10, BIGINT())->kindEquals(ARRAY(BIGINT())));
+  EXPECT_TRUE(FIXED_SIZE_ARRAY(10, BIGINT())
+                  ->kindEquals(FIXED_SIZE_ARRAY(9, BIGINT())));
+  EXPECT_TRUE(FIXED_SIZE_ARRAY(10, BIGINT())
+                  ->kindEquals(FIXED_SIZE_ARRAY(10, BIGINT())));
+  EXPECT_TRUE(SHORT_DECIMAL(10, 5)->kindEquals(SHORT_DECIMAL(10, 5)));
+  EXPECT_TRUE(SHORT_DECIMAL(10, 6)->kindEquals(SHORT_DECIMAL(10, 5)));
+  EXPECT_TRUE(SHORT_DECIMAL(11, 5)->kindEquals(SHORT_DECIMAL(10, 5)));
+  EXPECT_TRUE(LONG_DECIMAL(30, 5)->kindEquals(LONG_DECIMAL(30, 5)));
+  EXPECT_TRUE(LONG_DECIMAL(30, 6)->kindEquals(LONG_DECIMAL(30, 5)));
+  EXPECT_TRUE(LONG_DECIMAL(31, 5)->kindEquals(LONG_DECIMAL(30, 5)));
+}
 
+TEST(TypeTest, kindHash) {
+  EXPECT_EQ(BIGINT()->hashKind(), BIGINT()->hashKind());
+  EXPECT_EQ(TIMESTAMP()->hashKind(), TIMESTAMP()->hashKind());
+  EXPECT_EQ(DATE()->hashKind(), DATE()->hashKind());
+  EXPECT_EQ(INTERVAL_DAY_TIME()->hashKind(), INTERVAL_DAY_TIME()->hashKind());
+  EXPECT_NE(BIGINT()->hashKind(), INTEGER()->hashKind());
+  EXPECT_EQ(
+      ROW({{"a", BIGINT()}})->hashKind(), ROW({{"b", BIGINT()}})->hashKind());
   EXPECT_EQ(
       MAP(BIGINT(), BIGINT())->hashKind(), MAP(BIGINT(), BIGINT())->hashKind());
   EXPECT_NE(
