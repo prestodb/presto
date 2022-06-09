@@ -2761,18 +2761,30 @@ TEST_F(ExprTest, lambdaExceptionContext) {
   auto array = makeArrayVector<int64_t>(
       10, [](auto /*row*/) { return 5; }, [](auto row) { return row * 3; });
   core::Expressions::registerLambda(
-      "lambda",
+      "lambda1",
       ROW({"x"}, {BIGINT()}),
       ROW({ARRAY(BIGINT())}),
       parse::parseExpr("x / 0 > 1"),
       execCtx_->pool());
-
   assertError(
-      "filter(c0, function('lambda'))",
+      "filter(c0, function('lambda1'))",
       array,
       "divide(x, 0:BIGINT)",
-      "filter(c0, lambda)",
+      "filter(c0, (x) -> gt(divide(x, 0:BIGINT), 1:BIGINT))",
       "division by zero");
+
+  core::Expressions::registerLambda(
+      "lambda2",
+      ROW({"x"}, {BIGINT()}),
+      ROW({"c1"}, {INTEGER()}),
+      parse::parseExpr("x / c1 > 1"),
+      execCtx_->pool());
+  assertError(
+      "filter(c0, function('lambda2'))",
+      array,
+      "filter(c0, (x, c1) -> gt(divide(x, cast((c1) as BIGINT)), 1:BIGINT))",
+      "Same as context.",
+      "Field not found: c1. Available fields are: c0.");
 }
 
 /// Verify that null inputs result in exceptions, not crashes.

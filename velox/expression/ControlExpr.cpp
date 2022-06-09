@@ -713,6 +713,31 @@ class ExprCallable : public Callable {
 
 } // namespace
 
+std::string LambdaExpr::toString(bool recursive) const {
+  if (!recursive) {
+    return name_;
+  }
+
+  std::string inputs;
+  for (int i = 0; i < signature_->size(); ++i) {
+    inputs.append(signature_->nameOf(i));
+    if (!inputs.empty()) {
+      inputs.append(", ");
+    }
+  }
+
+  for (const auto& field : capture_) {
+    inputs.append(field->field());
+    if (!inputs.empty()) {
+      inputs.append(", ");
+    }
+  }
+  inputs.pop_back();
+  inputs.pop_back();
+
+  return fmt::format("({}) -> {}", inputs, body_->toString());
+}
+
 void LambdaExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
