@@ -576,7 +576,79 @@ std::unique_ptr<common::Filter> VectorHasher::getFilter(
   }
 }
 
-void VectorHasher::cardinality(uint64_t& asRange, uint64_t& asDistincts) {
+namespace {
+template <typename T>
+// Adds 'reserve' to either end of the range between 'min' and 'max' while
+// staying in the range of T.
+void extendRange(int64_t reserve, int64_t& min, int64_t& max) {
+  int64_t kMin = std::numeric_limits<T>::min();
+  int64_t kMax = std::numeric_limits<T>::max();
+  if (kMin + reserve + 1 > min) {
+    min = kMin;
+  } else {
+    min -= reserve;
+  }
+  if (kMax - reserve < max) {
+    max = kMax;
+  } else {
+    max += reserve;
+  }
+}
+
+// Adds 'reservePct' % to either end of the range between 'min' and 'max' while
+// staying in the range of 'kind'.
+void extendRange(
+    TypeKind kind,
+    int32_t reservePct,
+    int64_t& min,
+    int64_t& max) {
+  // The reserve is 2 + reservePct % of the range. Add 2 to make sure
+  // that a non-0 peercentage actually adds something for a small
+  // range.
+  int64_t reserve =
+      reservePct == 0 ? 0 : 2 + (max - min) * (reservePct / 100.0);
+  switch (kind) {
+    case TypeKind::BOOLEAN:
+      break;
+    case TypeKind::TINYINT:
+      extendRange<int8_t>(reserve, min, max);
+      break;
+    case TypeKind::SMALLINT:
+      extendRange<int16_t>(reserve, min, max);
+      break;
+    case TypeKind::INTEGER:
+    case TypeKind::DATE:
+      extendRange<int32_t>(reserve, min, max);
+      break;
+    case TypeKind::BIGINT:
+    case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY:
+      extendRange<int64_t>(reserve, min, max);
+      break;
+
+    default:
+      VELOX_FAIL("Unsupported VectorHasher typeKind {}", kind);
+  }
+}
+
+int64_t addIdReserve(size_t numDistinct, int32_t reservePct) {
+  // A merge of hashers in a hash join build may end up over the limit, so
+  // return that.
+  if (numDistinct > VectorHasher::kMaxDistinct) {
+    return numDistinct;
+  }
+  if (reservePct == VectorHasher::kNoLimit) {
+    return VectorHasher::kMaxDistinct;
+  }
+  return std::min<int64_t>(
+      VectorHasher::kMaxDistinct, numDistinct * (1 + (reservePct / 100.0)));
+}
+} // namespace
+
+void VectorHasher::cardinality(
+    int32_t reservePct,
+    uint64_t& asRange,
+    uint64_t& asDistincts) {
   if (typeKind_ == TypeKind::BOOLEAN) {
     hasRange_ = true;
     asRange = 3;
@@ -590,9 +662,17 @@ void VectorHasher::cardinality(uint64_t& asRange, uint64_t& asDistincts) {
     rangeOverflow_ = true;
     asRange = kRangeTooLarge;
   } else if (signedRange < kMaxRange) {
-    // If min is 10 and max is 20 then cardinality is 11 distinct
-    // values in the closed interval + 1 for null.
-    asRange = signedRange + 2;
+    // We check that after the extension by reservePct the range of max - min
+    // will still be in int64_t bounds.
+    VELOX_CHECK_GE(100, reservePct);
+    static_assert(kMaxRange < std::numeric_limits<uint64_t>::max() / 4);
+    // We pad the range by 'reservePct'%, half below and half above,
+    // while staying within bounds of the type. We do not pad the
+    // limits yet, this is done only when enabling range mode.
+    int64_t min = min_;
+    int64_t max = max_;
+    extendRange(type_->kind(), reservePct, min, max);
+    asRange = (max - min) + 2;
   } else {
     rangeOverflow_ = true;
     asRange = kRangeTooLarge;
@@ -601,17 +681,17 @@ void VectorHasher::cardinality(uint64_t& asRange, uint64_t& asDistincts) {
     asDistincts = kRangeTooLarge;
     return;
   }
-  // Count of values + 1 for null.
-  asDistincts = uniqueValues_.size() + 1;
+  // Padded count of values + 1 for null.
+  asDistincts = addIdReserve(uniqueValues_.size(), reservePct) + 1;
 }
 
-uint64_t VectorHasher::enableValueIds(uint64_t multiplier, int64_t reserve) {
+uint64_t VectorHasher::enableValueIds(uint64_t multiplier, int32_t reservePct) {
   VELOX_CHECK_NE(
       typeKind_,
       TypeKind::BOOLEAN,
       "A boolean VectorHasher should  always be by range");
   multiplier_ = multiplier;
-  rangeSize_ = uniqueValues_.size() + 1 + reserve;
+  rangeSize_ = addIdReserve(uniqueValues_.size(), reservePct) + 1;
   isRange_ = false;
   uint64_t result;
   if (__builtin_mul_overflow(multiplier_, rangeSize_, &result)) {
@@ -620,23 +700,13 @@ uint64_t VectorHasher::enableValueIds(uint64_t multiplier, int64_t reserve) {
   return result;
 }
 
-uint64_t VectorHasher::enableValueRange(uint64_t multiplier, int64_t reserve) {
-  static constexpr int64_t kMin = std::numeric_limits<int64_t>::min();
-  static constexpr int64_t kMax = std::numeric_limits<int64_t>::max();
-  // Use reserve as padding above and below the range.
-  reserve /= 2;
+uint64_t VectorHasher::enableValueRange(
+    uint64_t multiplier,
+    int32_t reservePct) {
   multiplier_ = multiplier;
+  VELOX_CHECK_LE(0, reservePct);
   VELOX_CHECK(hasRange_);
-  if (kMin + reserve + 1 > min_) {
-    min_ = kMin;
-  } else {
-    min_ -= reserve;
-  }
-  if (kMax - reserve < max_) {
-    max_ = kMax;
-  } else {
-    max_ += reserve;
-  }
+  extendRange(type_->kind(), reservePct, min_, max_);
   isRange_ = true;
   // No overflow because max range is under 63 bits.
   if (typeKind_ == TypeKind::BOOLEAN) {

@@ -828,7 +828,7 @@ bool HashTable<ignoreNullKeys>::analyze() {
       }
       uint64_t rangeSize;
       uint64_t distinctSize;
-      hasher->cardinality(rangeSize, distinctSize);
+      hasher->cardinality(0, rangeSize, distinctSize);
       if (distinctSize == VectorHasher::kRangeTooLarge &&
           rangeSize == VectorHasher::kRangeTooLarge) {
         return false;
@@ -887,9 +887,8 @@ void HashTable<ignoreNullKeys>::enableRangeWhereCan(
     for (auto i = 0; i < rangeSizes.size(); ++i) {
       auto kind = hashers_[i]->typeKind();
       // NOLINT
-      multipler = safeMul(
-          multipler,
-          addReserve(useRange[i] ? rangeSizes[i] : distinctSizes[i], kind));
+      multipler =
+          safeMul(multipler, useRange[i] ? rangeSizes[i] : distinctSizes[i]);
     }
     return multipler;
   };
@@ -908,32 +907,6 @@ void HashTable<ignoreNullKeys>::enableRangeWhereCan(
   }
 }
 
-// Returns the total number of values to reserve given a distinct
-// count or a range size and a type. The maximum size is the
-// cardinality of the type + 1 to indicate null.
-template <bool ignoreNullKeys>
-int64_t HashTable<ignoreNullKeys>::addReserve(int64_t count, TypeKind kind) {
-  if (isJoinBuild_) {
-    return count;
-  }
-  if (count >= VectorHasher::kRangeTooLarge / 2) {
-    return count;
-  }
-  auto range = count + (count / 2);
-  switch (kind) {
-    case TypeKind::BOOLEAN:
-      return 3;
-    case TypeKind::TINYINT:
-      return std::min<int64_t>(range, 257);
-    case TypeKind::SMALLINT:
-      return std::min<int64_t>(range, 0x10001);
-    case TypeKind::INTEGER:
-      return std::min<int64_t>(range, 0x10000001);
-    default:
-      return range;
-  }
-}
-
 template <bool ignoreNullKeys>
 uint64_t HashTable<ignoreNullKeys>::setHasherMode(
     const std::vector<std::unique_ptr<VectorHasher>>& hashers,
@@ -941,14 +914,12 @@ uint64_t HashTable<ignoreNullKeys>::setHasherMode(
     const std::vector<uint64_t>& rangeSizes,
     const std::vector<uint64_t>& distinctSizes) {
   uint64_t multiplier = 1;
+  // A group by leaves 50% space for values not yet seen.
   for (int i = 0; i < hashers.size(); ++i) {
     auto kind = hashers[i]->typeKind();
     multiplier = useRange.size() > i && useRange[i]
-        ? hashers[i]->enableValueRange(
-              multiplier, addReserve(rangeSizes[i], kind) - rangeSizes[i])
-        : hashers[i]->enableValueIds(
-              multiplier,
-              addReserve(distinctSizes[i], kind) - distinctSizes[i]);
+        ? hashers[i]->enableValueRange(multiplier, reservePct())
+        : hashers[i]->enableValueIds(multiplier, reservePct());
     VELOX_CHECK_NE(multiplier, VectorHasher::kRangeTooLarge);
   }
   return multiplier;
@@ -977,25 +948,20 @@ void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
   }
   for (int i = 0; i < hashers_.size(); ++i) {
     auto kind = hashers_[i]->typeKind();
-    hashers_[i]->cardinality(rangeSizes[i], distinctSizes[i]);
-    distinctsWithReserve =
-        safeMul(distinctsWithReserve, addReserve(distinctSizes[i], kind));
-    rangesWithReserve =
-        safeMul(rangesWithReserve, addReserve(rangeSizes[i], kind));
+    hashers_[i]->cardinality(reservePct(), rangeSizes[i], distinctSizes[i]);
+    distinctsWithReserve = safeMul(distinctsWithReserve, distinctSizes[i]);
+    rangesWithReserve = safeMul(rangesWithReserve, rangeSizes[i]);
     if (distinctSizes[i] == VectorHasher::kRangeTooLarge &&
         rangeSizes[i] != VectorHasher::kRangeTooLarge) {
       useRange[i] = true;
-      bestWithReserve =
-          safeMul(bestWithReserve, addReserve(rangeSizes[i], kind));
+      bestWithReserve = safeMul(bestWithReserve, rangeSizes[i]);
     } else if (
         rangeSizes[i] != VectorHasher::kRangeTooLarge &&
         rangeSizes[i] <= distinctSizes[i] * 20) {
       useRange[i] = true;
-      bestWithReserve =
-          safeMul(bestWithReserve, addReserve(rangeSizes[i], kind));
+      bestWithReserve = safeMul(bestWithReserve, rangeSizes[i]);
     } else {
-      bestWithReserve =
-          safeMul(bestWithReserve, addReserve(distinctSizes[i], kind));
+      bestWithReserve = safeMul(bestWithReserve, distinctSizes[i]);
     }
   }
 

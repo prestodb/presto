@@ -363,11 +363,6 @@ class HashTable : public BaseHashTable {
 
   void setHashMode(HashMode mode, int32_t numNew) override;
 
-  /// Adds extra values for value id ranges for group by hash tables in
-  /// kArray or kNormalizedKey mode. Identity for join tables since all
-  /// keys are known at build time.
-  int64_t addReserve(int64_t count, TypeKind kind);
-
   /// Tries to use as many range hashers as can in a normalized key situation.
   void enableRangeWhereCan(
       const std::vector<uint64_t>& rangeSizes,
@@ -446,6 +441,13 @@ class HashTable : public BaseHashTable {
   // Erases the entries of rows from the hash table and its RowContainer.
   // 'hashes' must be computed according to 'hashMode_'.
   void eraseWithHashes(folly::Range<char**> rows, uint64_t* hashes);
+
+  // Returns the percentage of values to reserve for new keys in range
+  // or distinct mode VectorHashers in a group by hash table. 0 for
+  // join build sides.
+  int32_t reservePct() const {
+    return isJoinBuild_ ? 0 : 50;
+  }
 
   const std::vector<std::unique_ptr<Aggregate>>& aggregates_;
   int8_t sizeBits_;

@@ -137,6 +137,12 @@ class VectorHasher {
   // data and 3 of length).
   static constexpr int64_t kMaxRange = ~0UL >> 5;
   static constexpr uint64_t kRangeTooLarge = ~0UL;
+  // Stop counting distinct values after this many and revert to regular hash.
+  static constexpr int32_t kMaxDistinct = 100'000;
+
+  // Indicates reserving kMaxDistinct possible values when supplied as
+  // reservePct to enableValueIds().
+  static constexpr int32_t kNoLimit = -1;
 
   VectorHasher(TypePtr type, ChannelIndex channel)
       : channel_(channel), type_(std::move(type)), typeKind_(type_->kind()) {
@@ -243,13 +249,29 @@ class VectorHasher {
     uniqueValuesStorage_.clear();
   }
 
-  uint64_t enableValueRange(uint64_t multiplier, int64_t reserve);
+  // Sets 'this' to range mode and adds 'reservePct' values to the
+  // range, half below and half above, staying within bounds of the
+  // data type. In this mode, hashed values become offsets from the
+  // lower end of the padded range times 'multiplier'. Returns
+  // 'multiplier' times the number of distinct values 'this' can
+  // produce. Does not accept kNoLimit for 'reservePct'.
+  uint64_t enableValueRange(uint64_t multiplier, int32_t reservePct);
 
-  uint64_t enableValueIds(uint64_t multiplier, int64_t reserve);
+  // Sets this to 'value ids' mode, where each distinct value has an
+  // integer id times 'multiplier'. Leaves 'reservePct' % values at
+  // the end of the distinct ids range. Returns 'multiplier' times the
+  // number of distinct values reserved. 'reservePct' = kNoLimit means
+  // that we reserve kMaxDistinct distinct values.
+  uint64_t enableValueIds(uint64_t multiplier, int32_t reservePct);
 
   // Returns the number of distinct values in range and distinct-values modes.
-  // kRangeTooLarge means that the mode is not applicable.
-  void cardinality(uint64_t& asRange, uint64_t& asDistincts);
+  // kRangeTooLarge means that the mode is not applicable. If 'reservePct' is
+  // non-zero, pads the range with 'reservePct' % extra values. For 'asRange'
+  // half is added below and half above the range, however not exceeding limits
+  // of the data type. For 'asDistinct' the values are added to the end of the
+  // range of ids.
+  void
+  cardinality(int32_t reservePct, uint64_t& asRange, uint64_t& asDistincts);
 
   void analyze(
       char** groups,
@@ -302,8 +324,6 @@ class VectorHasher {
   static constexpr uint32_t kStringASRangeMaxSize = 7;
   static constexpr uint32_t kStringBufferUnitSize = 1024;
   static constexpr uint64_t kMaxDistinctStringsBytes = 1 << 20;
-  // Stop counting distinct values after this many and revert to regular hash.
-  static constexpr int32_t kMaxDistinct = 100'000;
 
   // Maps a binary string of up to 7 bytes to int64_t. Each size maps
   // to a different numeric range, so leading zeros are considered.

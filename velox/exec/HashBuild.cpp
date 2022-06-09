@@ -249,7 +249,7 @@ void HashBuild::addRuntimeStats() {
   uint64_t asRange;
   uint64_t asDistinct;
   for (auto i = 0; i < hashers.size(); i++) {
-    hashers[i]->cardinality(asRange, asDistinct);
+    hashers[i]->cardinality(0, asRange, asDistinct);
     if (asRange != VectorHasher::kRangeTooLarge) {
       stats_.addRuntimeStat(
           fmt::format("rangeKey{}", i), RuntimeCounter(asRange));

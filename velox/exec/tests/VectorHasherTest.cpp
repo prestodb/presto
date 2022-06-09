@@ -87,7 +87,7 @@ class VectorHasherTest : public testing::Test {
 
     uint64_t asRange;
     uint64_t asDistinct;
-    hasher->cardinality(asRange, asDistinct);
+    hasher->cardinality(0, asRange, asDistinct);
     ASSERT_EQ(18, asRange);
     ASSERT_EQ(18, asDistinct);
 
@@ -120,7 +120,7 @@ class VectorHasherTest : public testing::Test {
       ok = hasher->computeValueIds(*outOfRangeVector, allRows, result);
       ASSERT_FALSE(ok);
 
-      hasher->cardinality(asRange, asDistinct);
+      hasher->cardinality(0, asRange, asDistinct);
       ASSERT_GT(asRange, 18);
       ASSERT_GT(asDistinct, 18);
     }
@@ -323,7 +323,7 @@ TEST_F(VectorHasherTest, stringIds) {
   uint64_t asRange;
   uint64_t asDistincts;
   // Get the range of ids as min-max range and as count of distincts.
-  hasher->cardinality(asRange, asDistincts);
+  hasher->cardinality(0, asRange, asDistincts);
   // All fit in range representation since no longer than 7 bytes.
   EXPECT_NE(asRange, exec::VectorHasher::kRangeTooLarge);
   // 15 values + 1 for null. The 0-length string is in common between zeros and
@@ -358,9 +358,9 @@ TEST_F(VectorHasherTest, stringIds) {
   hasher->lookupValueIds(*vector, rows, scratchMemory, hashes);
   // Since none of the values fit the range, all bits should be clear in rows.
   EXPECT_EQ(rows.countSelected(), 0);
-  // We expect a multiplier of 1 * (15 distinct values + 1 for null + 10 for
+  // We expect a multiplier of 1 * (15 distinct values + 1 for null + 50% for
   // reserve).
-  EXPECT_EQ(hasher->enableValueIds(1, 10), 15 + 1 + 10);
+  EXPECT_EQ(23, hasher->enableValueIds(1, 50));
   rows.setValidRange(0, sizeof(zeros) + sizeof(digits), true);
   rows.updateBounds();
   // We get ids for values that have been seen, we expect found for all in
@@ -381,7 +381,7 @@ TEST_F(VectorHasherTest, integerIds) {
   raw_vector<uint64_t> hashes(ints->size());
   SelectivityVector rows(ints->size());
   EXPECT_FALSE(hasher->computeValueIds(*vector, rows, hashes));
-  hasher->enableValueRange(1, 2000);
+  hasher->enableValueRange(1, 50);
   EXPECT_TRUE(hasher->computeValueIds(*vector, rows, hashes));
   // null is always 0
   EXPECT_EQ(hashes[0], 0);
@@ -390,13 +390,13 @@ TEST_F(VectorHasherTest, integerIds) {
   EXPECT_EQ(hashes[11], 101);
   uint64_t numRange;
   uint64_t numDistinct;
-  hasher->cardinality(numRange, numDistinct);
+  hasher->cardinality(0, numRange, numDistinct);
   EXPECT_EQ(numDistinct, 100);
   EXPECT_GT(numRange, 1001);
   ints->set(10, 10000);
 
   EXPECT_FALSE(hasher->computeValueIds(*vector, rows, hashes));
-  hasher->cardinality(numRange, numDistinct);
+  hasher->cardinality(0, numRange, numDistinct);
   EXPECT_EQ(numRange, VectorHasher::kRangeTooLarge);
 
   auto filter = hasher->getFilter(false);
@@ -410,7 +410,7 @@ TEST_F(VectorHasherTest, integerIds) {
   ASSERT_FALSE(bigintValues->testInt64(0));
 
   hasher = exec::VectorHasher::create(BIGINT(), 1);
-  hasher->enableValueIds(1, 100000);
+  hasher->enableValueIds(1, VectorHasher::kNoLimit);
   // We add values that are over 100K distinct and withmax - min > int64_t max.
   EXPECT_TRUE(hasher->computeValueIds(*vector, rows, hashes));
   // null is still 0.
@@ -423,7 +423,7 @@ TEST_F(VectorHasherTest, integerIds) {
     hasher->computeValueIds(*vector, rows, hashes);
   }
 
-  hasher->cardinality(numRange, numDistinct);
+  hasher->cardinality(0, numRange, numDistinct);
   EXPECT_EQ(numRange, VectorHasher::kRangeTooLarge);
   EXPECT_EQ(numDistinct, VectorHasher::kRangeTooLarge);
 }
@@ -440,26 +440,27 @@ TEST_F(VectorHasherTest, dateIds) {
   raw_vector<uint64_t> hashes(dates->size());
   SelectivityVector rows(dates->size());
   EXPECT_FALSE(hasher->computeValueIds(*vector, rows, hashes));
-  hasher->enableValueRange(1, 2000);
+  hasher->enableValueRange(1, 0);
   EXPECT_TRUE(hasher->computeValueIds(*vector, rows, hashes));
   // Hash of null is always 0.
   EXPECT_EQ(hashes[0], 0);
-  EXPECT_EQ(hashes[1], 1001);
-  EXPECT_EQ(hashes[11], 1101);
+  EXPECT_EQ(hashes[1], 1);
+  EXPECT_EQ(hashes[11], 101);
 
   uint64_t numRange;
   uint64_t numDistinct;
-  hasher->cardinality(numRange, numDistinct);
+  hasher->cardinality(0, numRange, numDistinct);
   EXPECT_EQ(numDistinct, 100);
-  EXPECT_GT(numRange, 1001);
+  EXPECT_GT(numRange, 100);
 
   dates->set(10, 10000);
   EXPECT_FALSE(hasher->computeValueIds(*vector, rows, hashes));
-  hasher->cardinality(numRange, numDistinct);
-  EXPECT_EQ(numRange, 2147494650);
+  hasher->cardinality(10, numRange, numDistinct);
+  // The range is padded up by 10%.
+  EXPECT_LE(2360000000, numRange);
 
   hasher = exec::VectorHasher::create(DATE(), 1);
-  hasher->enableValueIds(1, 100000);
+  hasher->enableValueIds(1, VectorHasher::kNoLimit);
   // We add values that are over 100K distinct and with max - min > int32_t max.
   EXPECT_TRUE(hasher->computeValueIds(*vector, rows, hashes));
   // Hash of null is still 0.
@@ -472,7 +473,7 @@ TEST_F(VectorHasherTest, dateIds) {
     hasher->computeValueIds(*vector, rows, hashes);
   }
 
-  hasher->cardinality(numRange, numDistinct);
+  hasher->cardinality(0, numRange, numDistinct);
   EXPECT_EQ(numRange, 2147583649);
   EXPECT_EQ(numDistinct, VectorHasher::kRangeTooLarge);
 }
@@ -497,7 +498,7 @@ TEST_F(VectorHasherTest, boolNoNulls) {
   EXPECT_EQ(4, hashes[2]);
   uint64_t numRange;
   uint64_t numDistinct;
-  hasher->cardinality(numRange, numDistinct);
+  hasher->cardinality(0, numRange, numDistinct);
   EXPECT_EQ(numRange, 3);
   EXPECT_EQ(numDistinct, 3);
 }
@@ -522,7 +523,7 @@ TEST_F(VectorHasherTest, boolWithNulls) {
   EXPECT_EQ(hashes[2], 2 * 2);
   uint64_t numRange;
   uint64_t numDistinct;
-  hasher->cardinality(numRange, numDistinct);
+  hasher->cardinality(0, numRange, numDistinct);
   EXPECT_EQ(numRange, 3);
   EXPECT_EQ(numDistinct, 3);
 }
@@ -550,7 +551,7 @@ TEST_F(VectorHasherTest, merge) {
   hasher.merge(otherEmptyHasher);
   uint64_t numRange;
   uint64_t numDistinct;
-  hasher.cardinality(numRange, numDistinct);
+  hasher.cardinality(0, numRange, numDistinct);
   // [0..1100] plus 1 for null.
   EXPECT_EQ(numRange, 1 + 1000 + kSize);
   // Half the values are in common, plus 1 for null.
@@ -614,7 +615,7 @@ TEST_F(VectorHasherTest, computeValueIdsBoolDictionary) {
   auto hasher = exec::VectorHasher::create(BOOLEAN(), 0);
   uint64_t rangeSize;
   uint64_t distinctSize;
-  hasher->cardinality(rangeSize, distinctSize);
+  hasher->cardinality(0, rangeSize, distinctSize);
   EXPECT_EQ(3, rangeSize);
   EXPECT_EQ(3, distinctSize);
   raw_vector<uint64_t> result(size);
@@ -660,7 +661,7 @@ TEST_F(VectorHasherTest, computeValueIdsStrings) {
 
     uint64_t asRange;
     uint64_t asDistinct;
-    hasher->cardinality(asRange, asDistinct);
+    hasher->cardinality(0, asRange, asDistinct);
     ASSERT_EQ(baseVectors[i]->size() + 1, asDistinct);
 
     multiplier = hasher->enableValueIds(multiplier, 0);
@@ -692,4 +693,125 @@ TEST_F(VectorHasherTest, computeValueIdsStrings) {
   }
 
   ASSERT_LE(uniqueValues.size(), multiplier);
+}
+
+namespace {
+
+// enum for marking special values to be tested in a type.
+enum class Value { kNull, kMin, kMax, kZero };
+
+template <typename T>
+// Appends a null for id 0, min of T for 1, max of T for 2 and 0 for 3.
+void append(FlatVectorPtr<T>& vector, Value id) {
+  auto size = vector->size();
+  vector->resize(size + 1);
+  if (id == Value::kNull) {
+    vector->setNull(size, true);
+  } else {
+    vector->set(
+        size,
+        id == Value::kMin       ? std::numeric_limits<T>::min()
+            : id == Value::kMax ? std::numeric_limits<T>::max()
+                                : 0);
+  }
+}
+} // namespace
+
+TEST_F(VectorHasherTest, endOfRange) {
+  // We sample with large but not end-reaching ranges of different
+  // ints.  We check that ranges are rounded up to ends of the data
+  // types.  We check that nulls, min and max values in each column
+  // combine to make distinct normalized keys. For example the
+  // normalized key of max of key 1, null of key 2 must be different
+  // from null of key 1, min of key 2. This tests that the ends of
+  // ranges are padded properly and that the multipliers of each key
+  // cover all the values in range for the key for 8, 16 and 32 bit
+  // types. 64 bit types limit the range of max - min to less than 63
+  // bits, so we can't have a range that touches both upper and lower
+  // bounds of the data type.
+
+  constexpr int64_t kTinyRange = std::numeric_limits<uint8_t>::max();
+  constexpr int64_t kSmallRange = std::numeric_limits<uint16_t>::max();
+  constexpr int64_t kIntRange = std::numeric_limits<uint32_t>::max();
+
+  using exec::VectorHasher;
+
+  // Make samples of 8, 16 and 32 bit values such that when rounding, the
+  // extended range will cover both ends of the type.
+  auto tinySample = vectorMaker_->flatVector(std::vector<int8_t>{-100, 110});
+  auto smallSample =
+      vectorMaker_->flatVector(std::vector<int16_t>{-30000, 31000});
+  auto intSample =
+      vectorMaker_->flatVector(std::vector<int32_t>{-2001000000, 2000000000});
+  auto tinyHasher = VectorHasher::create(TINYINT(), 0);
+  auto smallHasher = VectorHasher::create(SMALLINT(), 1);
+  auto intHasher = VectorHasher::create(INTEGER(), 2);
+  raw_vector<uint64_t> result;
+  // Analyze the sample data.
+  SelectivityVector rows(2);
+  tinyHasher->computeValueIds(*tinySample, rows, result);
+  smallHasher->computeValueIds(*smallSample, rows, result);
+  intHasher->computeValueIds(*intSample, rows, result);
+
+  // Check that the analysis concluded that the padded ranges extend the width
+  // of the data type.
+  uint64_t distinct;
+  uint64_t range;
+  tinyHasher->cardinality(50, range, distinct);
+  // Distinct count is 4 because 2 values + 50% is 3 and 1 for the null value.
+  EXPECT_EQ(4, distinct);
+  EXPECT_EQ(range, kTinyRange + 2);
+  smallHasher->cardinality(50, range, distinct);
+  EXPECT_EQ(4, distinct);
+  EXPECT_EQ(range, kSmallRange + 2);
+  intHasher->cardinality(50, range, distinct);
+  EXPECT_EQ(4, distinct);
+  EXPECT_EQ(range, kIntRange + 2);
+
+  // Set the VectorHashers to encode inputs as offsets within the the range of
+  // each.
+  auto multiplier1 = tinyHasher->enableValueRange(1, 50);
+  auto multiplier2 = smallHasher->enableValueRange(multiplier1, 50);
+  auto multiplier3 = intHasher->enableValueRange(multiplier2, 50);
+  // The total number of combinations is the product of the
+  // ranges. Each range includes the end points and an extra value for
+  // null, hence (max - min) + 2. E.g. the range of 1 .. 2 inclusive
+  // plus null has three distinct values.
+  EXPECT_EQ(
+      (kTinyRange + 2) * (kSmallRange + 2) * (kIntRange + 2), multiplier3);
+
+  // Make test data. Each vector of 8, 16 and 32 bit values has the min, 0, max
+  // of its type and null.
+  auto tinyData =
+      BaseVector::create<FlatVector<int8_t>>(TINYINT(), 0, pool_.get());
+  auto smallData =
+      BaseVector::create<FlatVector<int16_t>>(SMALLINT(), 0, pool_.get());
+  auto intData =
+      BaseVector::create<FlatVector<int32_t>>(INTEGER(), 0, pool_.get());
+  std::vector<Value> values = {
+      Value::kNull, Value::kMin, Value::kZero, Value::kMax};
+
+  for (auto tinyId : values) {
+    for (auto smallId : values) {
+      for (auto intId : values) {
+        append<int8_t>(tinyData, tinyId);
+        append<int16_t>(smallData, smallId);
+        append<int32_t>(intData, intId);
+      }
+    }
+  }
+
+  // make normalized keys from the 8, 16 and 32 bit key parts.
+  result.resize(tinyData->size());
+  rows.resize(tinyData->size());
+  tinyHasher->computeValueIds(*tinyData, rows, result);
+  smallHasher->computeValueIds(*smallData, rows, result);
+  intHasher->computeValueIds(*intData, rows, result);
+
+  // Check that all the results are distinct.
+  std::unordered_set<uint64_t> uniques;
+  for (auto id : result) {
+    uniques.insert(id);
+  }
+  EXPECT_EQ(tinyData->size(), uniques.size());
 }
