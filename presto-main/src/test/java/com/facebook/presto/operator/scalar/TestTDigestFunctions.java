@@ -439,8 +439,8 @@ public class TestTDigestFunctions
 
         functionAssertions.assertFunction(
                 sql,
-                SqlVarbinary,
-                new SqlVarbinary(tDigest.serialize().getBytes()));
+                String,
+                new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "));
     }
 
     @Test
@@ -506,8 +506,8 @@ public class TestTDigestFunctions
 
         functionAssertions.assertFunction(
                 sql,
-                SqlVarbinary,
-                new SqlVarbinary(tDigest.serialize().getBytes()));
+                String,
+                new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "));
     }
 
     @Test
