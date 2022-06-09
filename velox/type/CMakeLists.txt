@@ -21,6 +21,7 @@ add_library(
   Date.cpp
   Filter.cpp
   IntervalDayTime.cpp
+  LongDecimal.cpp
   StringView.h
   Subfield.cpp
   Timestamp.cpp

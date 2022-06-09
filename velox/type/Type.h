@@ -38,6 +38,7 @@
 #include "velox/common/serialization/Serializable.h"
 #include "velox/type/Date.h"
 #include "velox/type/IntervalDayTime.h"
+#include "velox/type/LongDecimal.h"
 #include "velox/type/ShortDecimal.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Timestamp.h"
@@ -309,7 +310,7 @@ struct TypeTraits<TypeKind::SHORT_DECIMAL> {
 template <>
 struct TypeTraits<TypeKind::LONG_DECIMAL> {
   using ImplType = DecimalType<TypeKind::LONG_DECIMAL>;
-  using NativeType = int128_t;
+  using NativeType = LongDecimal;
   using DeepCopiedType = NativeType;
   static constexpr uint32_t minSubTypes = 0;
   static constexpr uint32_t maxSubTypes = 0;
@@ -1202,6 +1203,12 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       return TEMPLATE_FUNC<::facebook::velox::TypeKind::UNKNOWN>(__VA_ARGS__); \
     } else if ((typeKind) == ::facebook::velox::TypeKind::OPAQUE) {            \
       return TEMPLATE_FUNC<::facebook::velox::TypeKind::OPAQUE>(__VA_ARGS__);  \
+    } else if ((typeKind) == ::facebook::velox::TypeKind::SHORT_DECIMAL) {     \
+      return TEMPLATE_FUNC<::facebook::velox::TypeKind::SHORT_DECIMAL>(        \
+          __VA_ARGS__);                                                        \
+    } else if ((typeKind) == ::facebook::velox::TypeKind::LONG_DECIMAL) {      \
+      return TEMPLATE_FUNC<::facebook::velox::TypeKind::LONG_DECIMAL>(         \
+          __VA_ARGS__);                                                        \
     } else {                                                                   \
       return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(                               \
           TEMPLATE_FUNC, typeKind, __VA_ARGS__);                               \
@@ -1280,6 +1287,12 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       return TEMPLATE_FUNC<::facebook::velox::TypeKind::UNKNOWN>(__VA_ARGS__); \
     } else if ((typeKind) == ::facebook::velox::TypeKind::OPAQUE) {            \
       return TEMPLATE_FUNC<::facebook::velox::TypeKind::OPAQUE>(__VA_ARGS__);  \
+    } else if (((typeKind) == ::facebook::velox::TypeKind::SHORT_DECIMAL)) {   \
+      return TEMPLATE_FUNC<::facebook::velox::TypeKind::SHORT_DECIMAL>(        \
+          __VA_ARGS__);                                                        \
+    } else if (((typeKind) == ::facebook::velox::TypeKind::LONG_DECIMAL)) {    \
+      return TEMPLATE_FUNC<::facebook::velox::TypeKind::LONG_DECIMAL>(         \
+          __VA_ARGS__);                                                        \
     } else {                                                                   \
       return VELOX_DYNAMIC_TYPE_DISPATCH_IMPL(                                 \
           TEMPLATE_FUNC, , typeKind, __VA_ARGS__);                             \
@@ -1412,7 +1425,7 @@ std::shared_ptr<const Type> createType(
         std::string(TypeTraits<KIND>::name) +
         " primitive type takes no childern"};
   }
-  VELOX_USER_CHECK(TypeTraits<KIND>::isPrimitiveType);
+  static_assert(TypeTraits<KIND>::isPrimitiveType);
   return ScalarType<KIND>::create();
 }
 
@@ -1658,6 +1671,20 @@ struct CppToType<DynamicRow> : public TypeTraits<TypeKind::ROW> {
 };
 
 template <>
+struct CppToType<ShortDecimal> : public TypeTraits<TypeKind::SHORT_DECIMAL> {
+  static std::shared_ptr<const Type> create() {
+    throw std::logic_error{"can't determine exact type for ShortDecimal"};
+  }
+};
+
+template <>
+struct CppToType<LongDecimal> : public TypeTraits<TypeKind::LONG_DECIMAL> {
+  static std::shared_ptr<const Type> create() {
+    throw std::logic_error{"can't determine exact type for LongDecimal"};
+  }
+};
+
+template <>
 struct CppToType<UnknownValue> : public CppToTypeBase<TypeKind::UNKNOWN> {};
 
 // todo: remaining cpp2type
@@ -1685,6 +1712,16 @@ inline Timestamp to(const std::string& value) {
 }
 
 template <>
+inline ShortDecimal to(const std::string& value) {
+  VELOX_UNSUPPORTED();
+}
+
+template <>
+inline LongDecimal to(const std::string& value) {
+  VELOX_UNSUPPORTED();
+}
+
+template <>
 inline UnknownValue to(const std::string& /* value */) {
   return UnknownValue();
 }
@@ -1692,6 +1729,20 @@ inline UnknownValue to(const std::string& /* value */) {
 template <>
 inline std::string to(const Timestamp& value) {
   return value.toString();
+}
+
+template <>
+inline std::string to(const ShortDecimal& value) {
+  // ShortDecimal doesn't have precision and scale information to
+  // be serialized into string.
+  VELOX_UNSUPPORTED();
+}
+
+template <>
+inline std::string to(const LongDecimal& value) {
+  // LongDecimal doesn't have precision and scale information to
+  // be serialized into string.
+  VELOX_UNSUPPORTED();
 }
 
 template <>

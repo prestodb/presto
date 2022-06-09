@@ -110,6 +110,10 @@ std::string typeToEncodingName(const TypePtr& type) {
       return "INT_ARRAY";
     case TypeKind::INTERVAL_DAY_TIME:
       return "LONG_ARRAY";
+    case TypeKind::SHORT_DECIMAL:
+      return "LONG_ARRAY";
+    case TypeKind::LONG_DECIMAL:
+      return "INT128_ARRAY";
     case TypeKind::ARRAY:
       return "ARRAY";
     case TypeKind::MAP:
@@ -639,6 +643,8 @@ void readColumns(
           {TypeKind::TIMESTAMP, &read<Timestamp>},
           {TypeKind::DATE, &read<Date>},
           {TypeKind::INTERVAL_DAY_TIME, &read<IntervalDayTime>},
+          {TypeKind::SHORT_DECIMAL, &read<ShortDecimal>},
+          {TypeKind::LONG_DECIMAL, &read<LongDecimal>},
           {TypeKind::VARCHAR, &read<StringView>},
           {TypeKind::VARBINARY, &read<StringView>},
           {TypeKind::ARRAY, &readArrayVector},
