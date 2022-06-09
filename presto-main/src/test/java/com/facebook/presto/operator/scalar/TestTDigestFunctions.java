@@ -485,7 +485,11 @@ public class TestTDigestFunctions
     public void testConstructTDigestLarge()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        ImmutableList<Double> values = ImmutableList.of(0.0d, 1.0d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 7.0d, 8.0d, 9.0d);
+        List<Double> values = new ArrayList<>();
+        for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+            values.add((double) i);
+        }
+
         values.stream().forEach(tDigest::add);
 
         List<Integer> weights = Collections.nCopies(values.size(), 1);
