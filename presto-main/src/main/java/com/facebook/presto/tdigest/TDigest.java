@@ -159,6 +159,26 @@ public class TDigest
         return new TDigest(compression);
     }
 
+    public static TDigest createTDigest(
+            double[] centroidMeans,
+            double[] centroidWeights,
+            double compression,
+            double min,
+            double max,
+            double sum,
+            int count)
+    {
+        TDigest tDigest = new TDigest(compression);
+        tDigest.setMinMax(min, max);
+        tDigest.setSum(sum);
+        tDigest.totalWeight = sum; // TODO: what should totalWeight be?
+        tDigest.activeCentroids = count;
+        tDigest.weight = centroidWeights;
+        tDigest.mean = centroidMeans;
+
+        return tDigest;
+    }
+
     public static TDigest createTDigest(Slice slice)
     {
         if (slice == null) {

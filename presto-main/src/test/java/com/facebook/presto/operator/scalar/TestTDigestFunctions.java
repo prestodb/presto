@@ -415,6 +415,35 @@ public class TestTDigestFunctions
     }
 
     @Test
+    public void testConstructTDigest()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        ImmutableList<Double> values = ImmutableList.of(0.0d, 1.0d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 7.0d, 8.0d, 9.0d);
+        values.stream().forEach(tDigest::add);
+
+        List<Integer> weights = Collections.nCopies(values.size(), 1);
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        long count = values.size();
+
+        String sql = format("construct_tdigest(CAST(ROW(%s, %s, %s, %s, %s, %s, %s) AS ROW(centroid_means ARRAY<DOUBLE>, centroid_weights ARRAY<BIGINT>, compression DOUBLE, min DOUBLE, max DOUBLE, sum DOUBLE, count BIGINT)))",
+                values,
+                weights,
+                compression,
+                min,
+                max,
+                sum,
+                count);
+
+        functionAssertions.assertFunction(
+                sql,
+                SqlVarbinary,
+                new SqlVarbinary(tDigest.serialize().getBytes()));
+    }
+
+    @Test
     public void testDestructureTDigest()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
@@ -450,6 +479,35 @@ public class TestTDigestFunctions
                 format("%s.centroid_weights", sql),
                 new ArrayType(INTEGER),
                 weights);
+    }
+
+    @Test
+    public void testConstructTDigestLarge()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        ImmutableList<Double> values = ImmutableList.of(0.0d, 1.0d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 7.0d, 8.0d, 9.0d);
+        values.stream().forEach(tDigest::add);
+
+        List<Integer> weights = Collections.nCopies(values.size(), 1);
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        long count = values.size();
+
+        String sql = format("construct_tdigest(CAST(ROW(%s, %s, %s, %s, %s, %s, %s) AS ROW(centroid_means ARRAY<DOUBLE>, centroid_weights ARRAY<BIGINT>, compression DOUBLE, min DOUBLE, max DOUBLE, sum DOUBLE, count BIGINT)))",
+                values,
+                weights,
+                compression,
+                min,
+                max,
+                sum,
+                count);
+
+        functionAssertions.assertFunction(
+                sql,
+                SqlVarbinary,
+                new SqlVarbinary(tDigest.serialize().getBytes()));
     }
 
     @Test

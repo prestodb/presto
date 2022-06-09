@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -137,21 +138,28 @@ public final class TDigestFunctions
         return TDIGEST_CENTROIDS_ROW_TYPE.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
     }
 
-    @ScalarFunction(value = "structure_tdigest", visibility = EXPERIMENTAL)
+    @ScalarFunction(value = "construct_tdigest", visibility = EXPERIMENTAL)
     @Description("Return a serialized TDigest, given the raw representation.")
     @SqlType("varbinary")
-    public static Block structureTDigest(@SqlType("row(centroid_means array(double), centroid_weights array(integer), compression double, min double, max double, sum double, count bigint)") TDIGEST_CENTROIDS_ROW_TYPE input)
+    public static SqlVarbinary constructTDigest(
+            @SqlType("ARRAY<DOUBLE>") double[] centroidMeans,
+            @SqlType("ARRAY<DOUBLE>") double[] centroidWeights,
+            @SqlType("DOUBLE") double compression,
+            @SqlType("DOUBLE") double min,
+            @SqlType("DOUBLE") double max,
+            @SqlType("DOUBLE") double sum,
+            @SqlType("BIGINT") int count)
     {
-        TDigest tDigest = createTDigest(input.compression);
+        TDigest tDigest = createTDigest(
+                centroidMeans,
+                centroidWeights,
+                compression,
+                min,
+                max,
+                sum,
+                count);
 
-        tDigest.setMinMax(input.min, input.max);
-        tDigest.setSum(input.sum);
-        tDigest.totalWeight = input.sum; // TODO: what should totalWeight be?
-        tDigest.activeCentroids = input.count;
-        tDigest.weight = input.centroid_weights;
-        tDigest.mean = input.centroid_means;
-
-        SqlVarbinary result = new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " ");
+        SqlVarbinary result = new SqlVarbinary(tDigest.serialize().getBytes());
         return result;
     }
 }
