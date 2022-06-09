@@ -197,11 +197,15 @@ void FlatVector<bool>::copyValuesAndNulls(
 
 template <>
 Buffer* FlatVector<StringView>::getBufferWithSpace(vector_size_t size) {
+  // Check if the last buffer is uniquely referenced and has enough space.
   Buffer* buffer =
       stringBuffers_.empty() ? nullptr : stringBuffers_.back().get();
-  if (buffer && buffer->size() + size <= buffer->capacity()) {
+  if (buffer && buffer->unique() &&
+      buffer->size() + size <= buffer->capacity()) {
     return buffer;
   }
+
+  // Allocate a new buffer.
   int32_t newSize = std::max(kInitialStringSize, size);
   BufferPtr newBuffer = AlignedBuffer::allocate<char>(newSize, pool());
   newBuffer->setSize(0);

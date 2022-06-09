@@ -346,7 +346,10 @@ void FlatVector<T>::ensureWritable(const SelectivityVector& rows) {
     rowsToCopy.applyToSelected(
         [&](vector_size_t row) { rawNewValues[row] = rawValues_[row]; });
 
-    // string buffers are append only, hence, safe to share
+    // Keep the string buffers even if multiply referenced. These are
+    // append-only and are written to in FlatVector::set which calls
+    // getBufferWithSpace which allocates a new buffer if existing buffers
+    // are multiply-referenced.
 
     // TODO Optimization: check and remove string buffers not referenced by
     // rowsToCopy
