@@ -171,7 +171,7 @@ public class TDigest
         TDigest tDigest = new TDigest(compression);
         tDigest.setMinMax(min, max);
         tDigest.setSum(sum);
-        tDigest.totalWeight = sum; // TODO: what should totalWeight be?
+        tDigest.totalWeight = Arrays.stream(centroidWeights).sum(); // set totalWeight to sum of all centroidWeights
         tDigest.activeCentroids = count;
         tDigest.weight = centroidWeights;
         tDigest.mean = centroidMeans;

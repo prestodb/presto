@@ -139,7 +139,7 @@ public final class TDigestFunctions
     }
 
     @ScalarFunction(value = "construct_tdigest", visibility = EXPERIMENTAL)
-    @Description("Return a serialized TDigest, given the raw representation.")
+    @Description("Create a TDigest by passing in its internal state.")
     @SqlType("varbinary")
     public static SqlVarbinary constructTDigest(
             @SqlType("ARRAY<DOUBLE>") double[] centroidMeans,
