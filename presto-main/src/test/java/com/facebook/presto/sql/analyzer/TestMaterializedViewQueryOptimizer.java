@@ -134,6 +134,30 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testWithCount()
+    {
+        String originalViewSql = format("SELECT COUNT(a) as a_count, COUNT(b, c) as bc_count FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT COUNT(a), COUNT(b, c) FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT SUM(a_count), SUM(bc_count) FROM %s", VIEW);
+
+        assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
+    }
+
+    @Test
+    public void testWithCountDistinct()
+    {
+        String originalViewSql = format("SELECT COUNT((a)) as a_count, COUNT(b, c) as bc_count FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT COUNT(DISTINCT(a)), COUNT(b, c) FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+
+        originalViewSql = format("SELECT COUNT(DISTINCT(a)) as a_count, COUNT(b, c) as bc_count FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT COUNT(DISTINCT(a)), COUNT(b, c) FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+    }
+
+    @Test
     public void testWithArithmeticBinary()
     {
         String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
@@ -326,18 +350,8 @@ public class TestMaterializedViewQueryOptimizer
     @Test
     public void testWithUnsupportedFunction()
     {
-        String originalViewSql = format("SELECT COUNT(a) FROM %s", BASE_TABLE_1);
-        String baseQuerySql = format("SELECT COUNT(a) FROM %s", BASE_TABLE_1);
-
-        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
-
-        originalViewSql = format("SELECT a FROM %s", BASE_TABLE_1);
-        baseQuerySql = format("SELECT COUNT(a) FROM %s", BASE_TABLE_1);
-
-        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
-
-        originalViewSql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
-        baseQuerySql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
+        String originalViewSql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
 
         assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
 
