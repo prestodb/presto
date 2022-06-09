@@ -83,6 +83,12 @@ public class MaterializedViewQueryOptimizer
 {
     private static final Logger logger = Logger.get(MaterializedViewQueryOptimizer.class);
 
+    private static final QualifiedName MIN = QualifiedName.of("MIN");
+    private static final QualifiedName MAX = QualifiedName.of("MAX");
+    private static final QualifiedName SUM = QualifiedName.of("SUM");
+    private static final QualifiedName COUNT = QualifiedName.of("COUNT");
+    private static final Set<QualifiedName> SUPPORTED_FUNCTION_CALLS = ImmutableSet.of(MIN, MAX, SUM, COUNT);
+
     private final Metadata metadata;
     private final Session session;
     private final SqlParser sqlParser;
@@ -91,10 +97,6 @@ public class MaterializedViewQueryOptimizer
     private final Table materializedView;
     private final Query materializedViewQuery;
     private final LogicalRowExpressions logicalRowExpressions;
-    private final Set<QualifiedName> supportedFunctionCalls = ImmutableSet.of(
-            QualifiedName.of("MIN"),
-            QualifiedName.of("MAX"),
-            QualifiedName.of("SUM"));
 
     private MaterializedViewInfo materializedViewInfo;
     private Optional<Identifier> removablePrefix = Optional.empty();
@@ -218,8 +220,9 @@ public class MaterializedViewQueryOptimizer
                     .withRelationType(RelationId.anonymous(), new RelationType(fields.build()))
                     .build();
 
-            // Given base query's filter condition and materialized view's filter condition, the goal is to check if MV's filters contain Base's filters (Base implies MV).
-            // Let base query's filter condition be A, and MV's filter condition be B.
+            // Given base query's filter condition and materialized view's filter condition, the goal is to check if materialized view's
+            // filters contain Base's filters (Base implies materialized view).
+            // Let base query's filter condition be A, and materialized view's filter condition be B.
             // One way to evaluate A implies B is to evaluate logical expression A^~B and check if the output domain is none.
             // If the resulting domain is none, then A^~B is false. Thus A implies B.
             // For more information and examples: https://fb.quip.com/WwmxA40jLMxR
@@ -325,13 +328,18 @@ public class MaterializedViewQueryOptimizer
     @Override
     protected Node visitFunctionCall(FunctionCall node, Void context)
     {
-        if (!supportedFunctionCalls.contains(node.getName())) {
+        if (!SUPPORTED_FUNCTION_CALLS.contains(node.getName())) {
             throw new SemanticException(NOT_SUPPORTED, node, node.getName() + " function is not supported in query optimizer");
         }
         ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
 
         if (materializedViewInfo.getBaseToViewColumnMap().containsKey(node)) {
-            rewrittenArguments.add(materializedViewInfo.getBaseToViewColumnMap().get(node));
+            Identifier derivedColumn = materializedViewInfo.getBaseToViewColumnMap().get(node);
+
+            if (node.getName().equals(COUNT)) {
+                return rewriteCountAsSum(node, derivedColumn);
+            }
+            rewrittenArguments.add(derivedColumn);
         }
         else {
             for (Expression argument : node.getArguments()) {
@@ -427,6 +435,36 @@ public class MaterializedViewQueryOptimizer
         // If a selected column is not present in GROUP BY node of the query.
         // It must be 1) be selected in the materialized view and 2) not present in GROUP BY node of the materialized view
         return groupByOfMaterializedView.contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression);
+    }
+    /**
+     * This is special-cased for now as COUNT is the only non-associative
+     * function supported by materialized view rewrites. In the future, we will want to
+     * support more non-associative functions and explore more
+     * extensible options.
+     *
+     * Functions in optimized materialized view queries are by default expanded to
+     * func(column_derived_from_func_in_mv). This only works for associative
+     * functions. Count is non-associative: COUNT(x \ union y) != COUNT(Count(x), COUNT(y)).
+     * Rather, COUNT(x \ union y) == SUM(COUNT(x), COUNT(y). This is what we do here.
+     * */
+    private static FunctionCall rewriteCountAsSum(FunctionCall node, Expression derivedColumnName)
+    {
+        if (!node.getName().equals(COUNT)) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Provided function was not COUNT");
+        }
+
+        if (node.isDistinct()) {
+            throw new SemanticException(NOT_SUPPORTED, node, "COUNT(DISTINCT) is not supported for materialized view query rewrite optimization");
+        }
+
+        return new FunctionCall(
+                SUM,
+                node.getWindow(),
+                node.getFilter(),
+                node.getOrderBy(),
+                node.isDistinct(),
+                node.isIgnoreNulls(),
+                ImmutableList.of(derivedColumnName));
     }
 
     private RowExpression convertToRowExpression(Expression expression, Scope scope)
