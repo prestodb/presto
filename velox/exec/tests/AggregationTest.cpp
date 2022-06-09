@@ -474,7 +474,9 @@ TEST_F(AggregationTest, global) {
 
   assertQuery(
       op,
-      "SELECT sum(15), sum(c1), sum(c2), sum(c4), sum(c5), min(15), min(c1), min(c2), min(c3), min(c4), min(c5), max(15), max(c1), max(c2), max(c3), max(c4), max(c5) FROM tmp");
+      "SELECT sum(15), sum(c1), sum(c2), sum(c4), sum(c5), "
+      "min(15), min(c1), min(c2), min(c3), min(c4), min(c5), "
+      "max(15), max(c1), max(c2), max(c3), max(c4), max(c5) FROM tmp");
 }
 
 TEST_F(AggregationTest, singleBigintKey) {
@@ -677,6 +679,64 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
                 .finalAggregation()
                 .planNode())
       .assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
+}
+
+// Validates partial aggregate output types for SUM/MIN/MAX.
+TEST_F(AggregationTest, validatePartialTypes) {
+  auto vectors = makeVectors(rowType_, 10, 1);
+  auto execAggr = [&](const std::vector<std::string>& aggregates) {
+    auto plan = PlanBuilder()
+                    .values(vectors)
+                    .partialAggregation({}, aggregates)
+                    .planNode();
+    return AssertQueryBuilder(plan).copyResults(pool());
+  };
+
+  RowVectorPtr output;
+
+  // C0 - BIGINT
+  // TODO: sum(c0) overflows int64_t and fails UBSAN.
+  output = execAggr({"min(c0)", "max(c0)"});
+  EXPECT_EQ(BIGINT(), output->childAt(0)->type());
+  EXPECT_EQ(BIGINT(), output->childAt(1)->type());
+
+  // C1 - SMALLINT
+  output = execAggr({"sum(c1)", "min(c1)", "max(c1)"});
+  EXPECT_EQ(BIGINT(), output->childAt(0)->type());
+  EXPECT_EQ(BIGINT(), output->childAt(1)->type());
+  EXPECT_EQ(BIGINT(), output->childAt(2)->type());
+
+  // C2 - INTEGER
+  output = execAggr({"sum(c2)", "min(c2)", "max(c2)"});
+  EXPECT_EQ(BIGINT(), output->childAt(0)->type());
+  EXPECT_EQ(BIGINT(), output->childAt(1)->type());
+  EXPECT_EQ(BIGINT(), output->childAt(2)->type());
+
+  // C3 - BIGINT
+  // TODO: sum(c3) overflows int64_t and fails UBSAN.
+  output = execAggr({"min(c3)", "max(c3)"});
+  EXPECT_EQ(BIGINT(), output->childAt(0)->type());
+  EXPECT_EQ(BIGINT(), output->childAt(1)->type());
+
+  // C4 - REAL
+  output = execAggr({"sum(c4)", "min(c4)", "max(c4)"});
+  EXPECT_EQ(DOUBLE(), output->childAt(0)->type());
+  EXPECT_EQ(REAL(), output->childAt(1)->type());
+  EXPECT_EQ(REAL(), output->childAt(2)->type());
+
+  // C5 - DOUBLE
+  output = execAggr({"sum(c5)", "min(c5)", "max(c5)"});
+  EXPECT_EQ(DOUBLE(), output->childAt(0)->type());
+  EXPECT_EQ(DOUBLE(), output->childAt(1)->type());
+  EXPECT_EQ(DOUBLE(), output->childAt(2)->type());
+
+  // C6 - VARCHAR
+  output = execAggr({"min(c6)", "max(c6)"});
+  EXPECT_EQ(VARCHAR(), output->childAt(0)->type());
+  EXPECT_EQ(VARCHAR(), output->childAt(1)->type());
+
+  // Can't sum strings.
+  EXPECT_THROW(execAggr({"sum(c6)"}), VeloxUserError);
 }
 
 TEST_F(AggregationTest, spill) {

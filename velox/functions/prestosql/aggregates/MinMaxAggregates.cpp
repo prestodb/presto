@@ -525,7 +525,7 @@ bool registerMinMaxAggregate(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
   for (const auto& inputType :
-       {"tinyint", "smallint", "integer", "bigint", "timestamp", "real"}) {
+       {"tinyint", "smallint", "integer", "bigint", "timestamp"}) {
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                              .returnType(inputType)
                              .intermediateType("bigint")
