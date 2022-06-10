@@ -92,6 +92,7 @@ public class TestPinotQueryBase
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "realtimeOnly");
     protected static PinotTableHandle offlineOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "offlineOnly");
     protected static PinotTableHandle hybridTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "hybrid");
+    protected static PinotTableHandle hybridTableWithTsTimeColumn = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "hybridTableWithTsTimeColumn");
     protected static PinotColumnHandle regionId = new PinotColumnHandle("regionId", BIGINT, REGULAR);
     protected static PinotColumnHandle distinctCountDim = new PinotColumnHandle("distinctCountDim", BIGINT, REGULAR);
     protected static PinotColumnHandle city = new PinotColumnHandle("city", VARCHAR, REGULAR);
