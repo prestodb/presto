@@ -40,12 +40,20 @@ void AggregationMasks::addInput(
 
     // Get decoded vector and update the masked selectivity vector.
     decodedMask_.decode(*maskVector, rows);
-    rows.applyToSelected([&](vector_size_t i) {
-      if (maskVector->isNullAt(i) || !decodedMask_.valueAt<bool>(i)) {
-        maskedRows.setValid(i, false);
+    if (decodedMask_.isConstantMapping()) {
+      if (decodedMask_.isNullAt(rows.begin()) ||
+          !decodedMask_.valueAt<bool>(rows.begin())) {
+        maskedRows.setValidRange(rows.begin(), rows.end(), false);
+        maskedRows.updateBounds();
       }
-    });
-    maskedRows.updateBounds();
+    } else {
+      rows.applyToSelected([&](vector_size_t i) {
+        if (decodedMask_.isNullAt(i) || !decodedMask_.valueAt<bool>(i)) {
+          maskedRows.setValid(i, false);
+        }
+      });
+      maskedRows.updateBounds();
+    }
   }
 }
 

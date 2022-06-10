@@ -343,12 +343,13 @@ class PlanBuilder {
   /// types of aggregate expressions.
   PlanBuilder& singleAggregation(
       const std::vector<std::string>& groupingKeys,
-      const std::vector<std::string>& aggregates) {
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& masks = {}) {
     return aggregation(
         groupingKeys,
         {},
         aggregates,
-        {},
+        masks,
         core::AggregationNode::Step::kSingle,
         false);
   }

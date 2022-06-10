@@ -884,6 +884,32 @@ TEST_F(AggregationTest, groupingSets) {
       plan,
       "SELECT k1, k2, count(1), sum(a), max(b) FROM tmp GROUP BY GROUPING SETS ((k1), (k2))");
 
+  // Compute a subset of aggregates per grouping set by using masks based on
+  // group_id column.
+  plan = PlanBuilder()
+             .values({data})
+             .groupId({{"k1"}, {"k2"}}, {"a", "b"})
+             .project(
+                 {"k1",
+                  "k2",
+                  "group_id",
+                  "a",
+                  "b",
+                  "group_id = 0 as mask_a",
+                  "group_id = 1 as mask_b"})
+             .singleAggregation(
+                 {"k1", "k2", "group_id"},
+                 {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"},
+                 {"", "mask_a", "mask_b"})
+             .project({"k1", "k2", "count_1", "sum_a", "max_b"})
+             .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT k1, null, count(1), sum(a), null FROM tmp GROUP BY k1 "
+      "UNION ALL "
+      "SELECT null, k2, count(1), null, max(b) FROM tmp GROUP BY k2");
+
   // Cube.
   plan = PlanBuilder()
              .values({data})
