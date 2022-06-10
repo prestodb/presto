@@ -119,6 +119,7 @@ class Config {
   // Limit the raw data size per batch to avoid being forced
   // to write oversized stripes.
   static Entry<uint64_t> RAW_DATA_SIZE_PER_BATCH;
+  static Entry<bool> MAP_STATISTICS;
 
  private:
   std::unordered_map<std::string, std::string> configs_;

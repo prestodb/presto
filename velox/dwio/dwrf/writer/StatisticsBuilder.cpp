@@ -58,23 +58,6 @@ static void mergeMax(std::optional<T>& to, const std::optional<T>& from) {
   }
 }
 
-template <typename T>
-static void mergeWithOverflowCheck(
-    std::optional<T>& to,
-    const std::optional<T>& from) {
-  if (to.has_value()) {
-    if (from.has_value()) {
-      auto overflow =
-          __builtin_add_overflow(to.value(), from.value(), &to.value());
-      if (overflow) {
-        to.reset();
-      }
-    } else {
-      to.reset();
-    }
-  }
-}
-
 } // namespace
 
 void StatisticsBuilder::merge(const dwio::common::ColumnStatistics& other) {
@@ -132,9 +115,9 @@ std::unique_ptr<dwio::common::ColumnStatistics> StatisticsBuilder::build()
 }
 
 std::unique_ptr<StatisticsBuilder> StatisticsBuilder::create(
-    TypeKind typeKind,
+    const Type& type,
     const StatisticsBuilderOptions& options) {
-  switch (typeKind) {
+  switch (type.kind()) {
     case TypeKind::BOOLEAN:
       return std::make_unique<BooleanStatisticsBuilder>(options);
     case TypeKind::TINYINT:
@@ -149,6 +132,13 @@ std::unique_ptr<StatisticsBuilder> StatisticsBuilder::create(
       return std::make_unique<StringStatisticsBuilder>(options);
     case TypeKind::VARBINARY:
       return std::make_unique<BinaryStatisticsBuilder>(options);
+    case TypeKind::MAP:
+      // For now we only capture map stats for flatmaps, which are
+      // top level maps only.
+      // However, we don't need to create a different builder type here
+      // because the serialized stats will fall back to default type if we don't
+      // call the map specific update methods.
+      return std::make_unique<MapStatisticsBuilder>(type, options);
     default:
       return std::make_unique<StatisticsBuilder>(options);
   }
@@ -170,18 +160,18 @@ void StatisticsBuilder::createTree(
     case TypeKind::VARCHAR:
     case TypeKind::VARBINARY:
     case TypeKind::TIMESTAMP:
-      statBuilders.push_back(StatisticsBuilder::create(kind, options));
+      statBuilders.push_back(StatisticsBuilder::create(type, options));
       break;
 
     case TypeKind::ARRAY: {
-      statBuilders.push_back(StatisticsBuilder::create(kind, options));
+      statBuilders.push_back(StatisticsBuilder::create(type, options));
       const auto& arrayType = dynamic_cast<const ArrayType&>(type);
       createTree(statBuilders, *arrayType.elementType(), options);
       break;
     }
 
     case TypeKind::MAP: {
-      statBuilders.push_back(StatisticsBuilder::create(kind, options));
+      statBuilders.push_back(StatisticsBuilder::create(type, options));
       const auto& mapType = dynamic_cast<const MapType&>(type);
       createTree(statBuilders, *mapType.keyType(), options);
       createTree(statBuilders, *mapType.valueType(), options);
@@ -189,7 +179,7 @@ void StatisticsBuilder::createTree(
     }
 
     case TypeKind::ROW: {
-      statBuilders.push_back(StatisticsBuilder::create(kind, options));
+      statBuilders.push_back(StatisticsBuilder::create(type, options));
       const auto& rowType = dynamic_cast<const RowType&>(type);
       for (const auto& childType : rowType.children()) {
         createTree(statBuilders, *childType, options);
@@ -395,4 +385,39 @@ void BinaryStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
   }
 }
 
+void MapStatisticsBuilder::merge(const dwio::common::ColumnStatistics& other) {
+  StatisticsBuilder::merge(other);
+  auto stats = dynamic_cast<const dwio::common::MapColumnStatistics*>(&other);
+  if (!stats) {
+    // We only care about the case when type specific stats is missing yet
+    // it has non-null values.
+    if (!isEmpty(other) && !entryStatistics_.empty()) {
+      entryStatistics_.clear();
+    }
+    return;
+  }
+
+  for (const auto& entry : stats->getEntryStatistics()) {
+    getKeyStats(entry.first).merge(*entry.second);
+  }
+}
+
+void MapStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
+  StatisticsBuilder::toProto(stats);
+  if (!isEmpty(*this) && !entryStatistics_.empty()) {
+    auto mapStats = stats.mutable_mapstatistics();
+    for (const auto& entry : entryStatistics_) {
+      auto entryStatistics = mapStats->add_stats();
+      const auto& key = entry.first;
+      // Sets the corresponding key. Leave null keys null.
+      if (key.intKey.has_value()) {
+        entryStatistics->mutable_key()->set_intkey(key.intKey.value());
+      } else if (key.bytesKey.has_value()) {
+        entryStatistics->mutable_key()->set_byteskey(key.bytesKey.value());
+      }
+      dynamic_cast<const StatisticsBuilder&>(*entry.second)
+          .toProto(*entryStatistics->mutable_stats());
+    }
+  }
+}
 } // namespace facebook::velox::dwrf

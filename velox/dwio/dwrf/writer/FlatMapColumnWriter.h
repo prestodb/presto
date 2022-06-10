@@ -69,7 +69,7 @@ class ValueStatisticsBuilder {
       WriterContext& context,
       const dwio::common::TypeWithId& type,
       const StatisticsBuilderOptions& options) {
-    auto builder = StatisticsBuilder::create(type.type->kind(), options);
+    auto builder = StatisticsBuilder::create(*type.type, options);
 
     std::vector<std::unique_ptr<ValueStatisticsBuilder>> children{};
     for (size_t i = 0; i < type.size(); ++i) {
@@ -112,7 +112,8 @@ class ValueWriter {
         inMapBuffer_{
             context.getMemoryPool(MemoryUsageCategory::GENERAL),
             inMapSize},
-        ranges_{} {}
+        ranges_{},
+        collectMapStats_{context.getConfig(Config::MAP_STATISTICS)} {}
 
   void addOffset(uint64_t offset, uint64_t inMapIndex) {
     if (UNLIKELY(inMapBuffer_[inMapIndex])) {
@@ -148,8 +149,13 @@ class ValueWriter {
     return sequence_;
   }
 
-  void createIndexEntry(const ValueStatisticsBuilder& statsBuilder) {
-    statsBuilder.merge(*columnWriter_);
+  void createIndexEntry(
+      const ValueStatisticsBuilder& valueStatsBuilder,
+      MapStatisticsBuilder& mapStatsBuilder) {
+    if (collectMapStats_) {
+      mapStatsBuilder.addValues(keyInfo_, *columnWriter_->indexStatsBuilder_);
+    }
+    valueStatsBuilder.merge(*columnWriter_);
     columnWriter_->createIndexEntry();
   }
 
@@ -177,6 +183,7 @@ class ValueWriter {
   std::unique_ptr<BaseColumnWriter> columnWriter_;
   dwio::common::DataBuffer<char> inMapBuffer_;
   Ranges ranges_;
+  const bool collectMapStats_;
 };
 
 namespace {

@@ -478,6 +478,7 @@ void testFlatMapConfig(
   auto config = std::make_shared<Config>();
   config->set(Config::FLATTEN_MAP, true);
   config->set<const std::vector<uint32_t>>(Config::MAP_FLAT_COLS, mapColumnIds);
+  config->set(Config::MAP_STATISTICS, true);
 
   auto sink = std::make_unique<MemorySink>(pool, 200 * 1024 * 1024);
   auto sinkPtr = sink.get();

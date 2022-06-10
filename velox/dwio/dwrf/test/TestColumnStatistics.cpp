@@ -17,10 +17,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <cmath>
+#include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/dwrf/writer/StatisticsBuilder.h"
+#include "velox/dwio/type/fbhive/HiveTypeParser.h"
 
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
+using facebook::velox::dwio::type::fbhive::HiveTypeParser;
 
 StatisticsBuilderOptions options{16};
 
@@ -765,4 +768,231 @@ TEST(StatisticsBuilder, initialSize) {
   EXPECT_EQ(target2.getSize().value(), 100);
   stats = target2.build();
   EXPECT_EQ(stats->getSize().value(), 100);
+}
+
+proto::KeyInfo createKeyInfo(int64_t key) {
+  proto::KeyInfo keyInfo;
+  keyInfo.set_intkey(key);
+  return keyInfo;
+}
+
+inline bool operator==(
+    const ColumnStatistics& lhs,
+    const ColumnStatistics& rhs) {
+  return (lhs.hasNull() == rhs.hasNull()) &&
+      (lhs.getNumberOfValues() == rhs.getNumberOfValues()) &&
+      (lhs.getRawSize() == rhs.getRawSize());
+}
+
+void checkEntries(
+    const std::vector<ColumnStatistics>& entries,
+    const std::vector<ColumnStatistics>& expectedEntries) {
+  EXPECT_EQ(expectedEntries.size(), entries.size());
+  for (const auto& entry : entries) {
+    EXPECT_NE(
+        std::find_if(
+            expectedEntries.begin(),
+            expectedEntries.end(),
+            [&](const ColumnStatistics& expectedStats) {
+              return expectedStats == entry;
+            }),
+        expectedEntries.end());
+  }
+}
+
+struct TestKeyStats {
+  TestKeyStats(int64_t key, bool hasNull, uint64_t valueCount, uint64_t rawSize)
+      : key{key}, hasNull{hasNull}, valueCount{valueCount}, rawSize{rawSize} {}
+
+  int64_t key;
+  bool hasNull;
+  uint64_t valueCount;
+  uint64_t rawSize;
+};
+
+struct MapStatsAddValueTestCase {
+  explicit MapStatsAddValueTestCase(
+      const std::vector<TestKeyStats>& input,
+      const std::vector<TestKeyStats>& expected)
+      : input{input}, expected{expected} {}
+
+  std::vector<TestKeyStats> input;
+  std::vector<TestKeyStats> expected;
+};
+
+class MapStatisticsBuilderAddValueTest
+    : public ::testing::Test,
+      public ::testing::WithParamInterface<MapStatsAddValueTestCase> {};
+
+TEST_P(MapStatisticsBuilderAddValueTest, addValues) {
+  auto type = HiveTypeParser{}.parse("map<int, float>");
+  MapStatisticsBuilder mapStatsBuilder{*type, options};
+
+  for (const auto& entry : GetParam().input) {
+    StatisticsBuilder statsBuilder{options};
+    if (entry.hasNull) {
+      statsBuilder.setHasNull();
+    }
+    statsBuilder.increaseValueCount(entry.valueCount);
+    statsBuilder.increaseRawSize(entry.rawSize);
+    mapStatsBuilder.addValues(createKeyInfo(entry.key), statsBuilder);
+  }
+
+  const auto& expectedTestEntries = GetParam().expected;
+  std::vector<ColumnStatistics> expectedEntryStats{};
+  expectedEntryStats.reserve(expectedTestEntries.size());
+  for (const auto& entry : expectedTestEntries) {
+    StatisticsBuilder statsBuilder{options};
+    if (entry.hasNull) {
+      statsBuilder.setHasNull();
+    }
+    statsBuilder.increaseValueCount(entry.valueCount);
+    statsBuilder.increaseRawSize(entry.rawSize);
+    expectedEntryStats.push_back(statsBuilder);
+  }
+
+  std::vector<ColumnStatistics> entryStats;
+  const auto& outputEntries = mapStatsBuilder.getEntryStatistics();
+  entryStats.reserve(outputEntries.size());
+  for (const auto& entry : outputEntries) {
+    entryStats.push_back(*entry.second);
+  }
+
+  checkEntries(entryStats, expectedEntryStats);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MapStatisticsBuilderAddValueTestSuite,
+    MapStatisticsBuilderAddValueTest,
+    testing::Values(
+        MapStatsAddValueTestCase{{}, {}},
+        MapStatsAddValueTestCase{
+            {TestKeyStats{1, false, 1, 21}},
+            {TestKeyStats{1, false, 1, 21}}},
+        MapStatsAddValueTestCase{
+            {TestKeyStats{1, false, 1, 21}, TestKeyStats{1, true, 3, 42}},
+            {TestKeyStats{1, true, 4, 63}}},
+        MapStatsAddValueTestCase{
+            {TestKeyStats{1, false, 1, 21}, TestKeyStats{2, true, 3, 42}},
+            {TestKeyStats{1, false, 1, 21}, TestKeyStats{2, true, 3, 42}}},
+        MapStatsAddValueTestCase{
+            {TestKeyStats{1, false, 1, 21},
+             TestKeyStats{2, false, 3, 42},
+             TestKeyStats{2, false, 3, 42},
+             TestKeyStats{1, true, 1, 42}},
+            {TestKeyStats{1, true, 2, 63}, TestKeyStats{2, false, 6, 84}}}));
+
+struct MapStatsMergeTestCase {
+  std::vector<std::vector<TestKeyStats>> inputs;
+  std::vector<TestKeyStats> expected;
+};
+
+class MapStatisticsBuilderMergeTest
+    : public ::testing::Test,
+      public ::testing::WithParamInterface<MapStatsMergeTestCase> {};
+
+TEST_P(MapStatisticsBuilderMergeTest, addValues) {
+  auto type = HiveTypeParser{}.parse("map<int, float>");
+
+  const auto& inputTestEntries = GetParam().inputs;
+  std::vector<std::unique_ptr<MapStatisticsBuilder>> mapStatsBuilders;
+  mapStatsBuilders.reserve(inputTestEntries.size());
+  for (const auto& input : inputTestEntries) {
+    std::unique_ptr<MapStatisticsBuilder> mapStatsBuilder =
+        std::make_unique<MapStatisticsBuilder>(*type, options);
+    for (const auto& entry : input) {
+      StatisticsBuilder statsBuilder{options};
+      if (entry.hasNull) {
+        statsBuilder.setHasNull();
+      }
+      statsBuilder.increaseValueCount(entry.valueCount);
+      statsBuilder.increaseRawSize(entry.rawSize);
+      mapStatsBuilder->addValues(createKeyInfo(entry.key), statsBuilder);
+    }
+    mapStatsBuilders.push_back(std::move(mapStatsBuilder));
+  }
+
+  MapStatisticsBuilder aggregateMapStatsBuilder{*type, options};
+  for (const auto& mapStatsBuilder : mapStatsBuilders) {
+    aggregateMapStatsBuilder.merge(*mapStatsBuilder);
+  }
+
+  const auto& expectedTestEntries = GetParam().expected;
+  std::vector<ColumnStatistics> expectedEntryStats{};
+  expectedEntryStats.reserve(expectedTestEntries.size());
+  for (const auto& entry : expectedTestEntries) {
+    StatisticsBuilder statsBuilder{options};
+    if (entry.hasNull) {
+      statsBuilder.setHasNull();
+    }
+    statsBuilder.increaseValueCount(entry.valueCount);
+    statsBuilder.increaseRawSize(entry.rawSize);
+    expectedEntryStats.push_back(statsBuilder);
+  }
+
+  std::vector<ColumnStatistics> entryStats;
+  const auto& aggregatedEntries = aggregateMapStatsBuilder.getEntryStatistics();
+  entryStats.reserve(aggregatedEntries.size());
+  for (const auto& entry : aggregatedEntries) {
+    entryStats.push_back(*entry.second);
+  }
+
+  checkEntries(entryStats, expectedEntryStats);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MapStatisticsBuilderMergeTestSuite,
+    MapStatisticsBuilderMergeTest,
+    testing::Values(
+        MapStatsMergeTestCase{{}, {}},
+        MapStatsMergeTestCase{
+            {{TestKeyStats{1, false, 1, 21}}},
+            {TestKeyStats{1, false, 1, 21}}},
+        MapStatsMergeTestCase{
+            {{}, {TestKeyStats{1, false, 1, 21}}},
+            {TestKeyStats{1, false, 1, 21}}},
+        MapStatsMergeTestCase{
+            {{TestKeyStats{1, false, 1, 21}}, {TestKeyStats{1, true, 3, 42}}},
+            {TestKeyStats{1, true, 4, 63}}},
+        MapStatsMergeTestCase{
+            {{TestKeyStats{1, false, 1, 21}}, {TestKeyStats{2, true, 3, 42}}},
+            {TestKeyStats{1, false, 1, 21}, TestKeyStats{2, true, 3, 42}}},
+        MapStatsMergeTestCase{
+            {{TestKeyStats{1, false, 1, 21}, TestKeyStats{2, false, 3, 42}},
+             {TestKeyStats{2, false, 3, 42}},
+             {TestKeyStats{1, true, 1, 42}}},
+            {TestKeyStats{1, true, 2, 63}, TestKeyStats{2, false, 6, 84}}}));
+
+TEST(MapStatisticsBuilderTest, innerStatsType) {
+  {
+    auto type = HiveTypeParser{}.parse("map<int, float>");
+    MapStatisticsBuilder mapStatsBuilder{*type, options};
+
+    DoubleStatisticsBuilder statsBuilder{options};
+    statsBuilder.addValues(0.1);
+    statsBuilder.addValues(1.0);
+    mapStatsBuilder.addValues(createKeyInfo(1), statsBuilder);
+
+    auto& doubleStats = dynamic_cast<DoubleColumnStatistics&>(
+        *mapStatsBuilder.getEntryStatistics().at(KeyInfo{1}));
+
+    EXPECT_EQ(0.1, doubleStats.getMinimum());
+    EXPECT_EQ(1.0, doubleStats.getMaximum());
+  }
+  {
+    auto type = HiveTypeParser{}.parse("map<bigint, bigint>");
+    MapStatisticsBuilder mapStatsBuilder{*type, options};
+
+    IntegerStatisticsBuilder statsBuilder{options};
+    statsBuilder.addValues(1);
+    statsBuilder.addValues(2);
+    mapStatsBuilder.addValues(createKeyInfo(1), statsBuilder);
+
+    auto& intStats = dynamic_cast<IntegerColumnStatistics&>(
+        *mapStatsBuilder.getEntryStatistics().at(KeyInfo{1}));
+
+    EXPECT_EQ(1, intStats.getMinimum());
+    EXPECT_EQ(2, intStats.getMaximum());
+    EXPECT_EQ(3, intStats.getSum());
+  }
 }

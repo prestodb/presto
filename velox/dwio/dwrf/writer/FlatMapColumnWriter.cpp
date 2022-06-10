@@ -36,8 +36,7 @@ FlatMapColumnWriter<K>::FlatMapColumnWriter(
   keyFileStatsBuilder_ =
       std::unique_ptr<typename TypeInfo<K>::StatisticsBuilder>(
           dynamic_cast<typename TypeInfo<K>::StatisticsBuilder*>(
-              StatisticsBuilder::create(keyType_.type->kind(), options)
-                  .release()));
+              StatisticsBuilder::create(*keyType_.type, options).release()));
   valueFileStatsBuilder_ = ValueStatisticsBuilder::create(context_, valueType_);
   reset();
 }
@@ -65,13 +64,16 @@ void FlatMapColumnWriter<K>::flush(
 
 template <TypeKind K>
 void FlatMapColumnWriter<K>::createIndexEntry() {
+  // Aggregate value writer index stats into map writer index stats before
+  // merging into file stats.
+  auto& mapStatsBuilder =
+      dynamic_cast<MapStatisticsBuilder&>(*indexStatsBuilder_);
+  for (auto& pair : valueWriters_) {
+    pair.second.createIndexEntry(*valueFileStatsBuilder_, mapStatsBuilder);
+  }
   BaseColumnWriter::createIndexEntry();
   rowsInStrides_.push_back(rowsInCurrentStride_);
   rowsInCurrentStride_ = 0;
-
-  for (auto& pair : valueWriters_) {
-    pair.second.createIndexEntry(*valueFileStatsBuilder_);
-  }
 }
 
 template <TypeKind K>
@@ -159,10 +161,12 @@ ValueWriter& FlatMapColumnWriter<K>::getValueWriter(
 
   ValueWriter& valueWriter = it->second;
 
+  auto& mapStatsBuilder =
+      dynamic_cast<MapStatisticsBuilder&>(*fileStatsBuilder_);
   // Back fill previous strides with not-in-map indication
   for (auto& rows : rowsInStrides_) {
     valueWriter.backfill(rows);
-    valueWriter.createIndexEntry(*valueFileStatsBuilder_);
+    valueWriter.createIndexEntry(*valueFileStatsBuilder_, mapStatsBuilder);
   }
 
   // Back fill current (partial) stride with not-in-map indication

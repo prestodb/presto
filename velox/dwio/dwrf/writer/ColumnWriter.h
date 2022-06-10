@@ -169,8 +169,8 @@ class BaseColumnWriter : public ColumnWriter {
           createBooleanRleEncoder(newStream(StreamKind::StreamKind_PRESENT));
     }
     auto options = StatisticsBuilderOptions::fromConfig(context.getConfigs());
-    indexStatsBuilder_ = StatisticsBuilder::create(type.type->kind(), options);
-    fileStatsBuilder_ = StatisticsBuilder::create(type.type->kind(), options);
+    indexStatsBuilder_ = StatisticsBuilder::create(*type.type, options);
+    fileStatsBuilder_ = StatisticsBuilder::create(*type.type, options);
   }
 
   uint64_t writeNulls(const VectorPtr& slice, const Ranges& ranges) {
@@ -258,6 +258,7 @@ class BaseColumnWriter : public ColumnWriter {
 
   VELOX_FRIEND_TEST(ColumnWriterTests, LowMemoryModeConfig);
   friend class ValueStatisticsBuilder;
+  friend class ValueWriter;
 };
 
 } // namespace facebook::velox::dwrf

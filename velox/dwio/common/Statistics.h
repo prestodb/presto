@@ -16,10 +16,52 @@
 
 #pragma once
 
+#include <folly/Hash.h>
+#include <folly/container/F14Map.h>
+
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook::velox::dwio::common {
+struct KeyInfo {
+ public:
+  explicit KeyInfo(int64_t intKey)
+      : intKey{std::make_optional<int64_t>(intKey)} {}
+  explicit KeyInfo(const std::string& bytesKey)
+      : bytesKey{std::make_optional<std::string>(bytesKey)} {}
+
+  bool operator==(const KeyInfo& other) const {
+    return intKey == other.intKey && bytesKey == other.bytesKey;
+  }
+
+  std::string toString() const {
+    if (intKey.has_value()) {
+      return folly::to<std::string>(*intKey);
+    } else if (bytesKey.has_value()) {
+      return *bytesKey;
+    }
+    VELOX_UNREACHABLE("Illegal null key info");
+  }
+  std::optional<int64_t> intKey;
+  std::optional<std::string> bytesKey;
+
+ private:
+  KeyInfo() {}
+};
+
+struct KeyInfoHash {
+  KeyInfoHash() = default;
+
+  size_t operator()(const KeyInfo& keyInfo) const {
+    if (keyInfo.intKey.has_value()) {
+      return folly::Hash{}(*keyInfo.intKey);
+    } else if (keyInfo.bytesKey.has_value()) {
+      return folly::Hash{}(*keyInfo.bytesKey);
+    }
+    VELOX_UNREACHABLE("Illegal null key info");
+  }
+};
 
 /**
  * Statistics that are available for all types of columns.
@@ -390,6 +432,59 @@ class StringColumnStatistics : public virtual ColumnStatistics {
   std::optional<std::string> min_;
   std::optional<std::string> max_;
   std::optional<uint64_t> length_;
+};
+
+/**
+ * Statistics for (flat) map columns.
+ */
+class MapColumnStatistics : public virtual ColumnStatistics {
+ public:
+  MapColumnStatistics(
+      std::optional<uint64_t> valueCount,
+      std::optional<bool> hasNull,
+      std::optional<uint64_t> rawSize,
+      std::optional<uint64_t> size,
+      folly::F14FastMap<
+          KeyInfo,
+          std::unique_ptr<ColumnStatistics>,
+          folly::transparent<KeyInfoHash>>&& entryStatistics)
+      : ColumnStatistics(valueCount, hasNull, rawSize, size),
+        entryStatistics_{std::move(entryStatistics)} {}
+
+  ~MapColumnStatistics() override = default;
+
+  const folly::F14FastMap<
+      KeyInfo,
+      std::unique_ptr<ColumnStatistics>,
+      folly::transparent<KeyInfoHash>>&
+  getEntryStatistics() const {
+    return entryStatistics_;
+  }
+
+  std::string toString() const override {
+    std::vector<std::string> values{};
+    values.reserve(entryStatistics_.size());
+    for (const auto& entry : entryStatistics_) {
+      auto& stats = *entry.second;
+      values.push_back(fmt::format(
+          "{{ Key: {}, Stats: {},}}",
+          entry.first.toString(),
+          stats.toString()));
+    }
+    std::string repr;
+    folly::join(",", values, repr);
+    return folly::to<std::string>(ColumnStatistics::toString(), repr);
+  }
+
+ protected:
+  MapColumnStatistics()
+      : entryStatistics_{17, folly::transparent<KeyInfoHash>()} {}
+
+  folly::F14FastMap<
+      KeyInfo,
+      std::unique_ptr<ColumnStatistics>,
+      folly::transparent<KeyInfoHash>>
+      entryStatistics_;
 };
 
 class Statistics {

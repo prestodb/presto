@@ -16,8 +16,10 @@
 
 #pragma once
 
+#include <velox/common/base/Exceptions.h>
 #include "velox/dwio/dwrf/common/Config.h"
 #include "velox/dwio/dwrf/common/Statistics.h"
+#include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::dwrf {
@@ -43,6 +45,32 @@ addWithOverflowCheck(std::optional<T>& to, T value, uint64_t count) {
     }
   }
 }
+
+template <typename T>
+static void mergeWithOverflowCheck(
+    std::optional<T>& to,
+    const std::optional<T>& from) {
+  if (to.has_value()) {
+    if (from.has_value()) {
+      auto overflow =
+          __builtin_add_overflow(to.value(), from.value(), &to.value());
+      if (overflow) {
+        to.reset();
+      }
+    } else {
+      to.reset();
+    }
+  }
+}
+
+inline dwio::common::KeyInfo constructKey(const dwrf::proto::KeyInfo& keyInfo) {
+  if (keyInfo.has_intkey()) {
+    return dwio::common::KeyInfo{keyInfo.intkey()};
+  } else if (keyInfo.has_byteskey()) {
+    return dwio::common::KeyInfo{keyInfo.byteskey()};
+  }
+  VELOX_UNREACHABLE("Illegal null key info");
+}
 } // namespace
 
 struct StatisticsBuilderOptions {
@@ -66,7 +94,7 @@ struct StatisticsBuilderOptions {
 class StatisticsBuilder : public virtual dwio::common::ColumnStatistics {
  public:
   explicit StatisticsBuilder(const StatisticsBuilderOptions& options)
-      : initialSize_{options.initialSize} {
+      : options_{options} {
     init();
   }
 
@@ -113,7 +141,7 @@ class StatisticsBuilder : public virtual dwio::common::ColumnStatistics {
   std::unique_ptr<dwio::common::ColumnStatistics> build() const;
 
   static std::unique_ptr<StatisticsBuilder> create(
-      TypeKind type,
+      const Type& type,
       const StatisticsBuilderOptions& options);
 
   // for the given type tree, create the a list of stat builders
@@ -127,10 +155,11 @@ class StatisticsBuilder : public virtual dwio::common::ColumnStatistics {
     valueCount_ = 0;
     hasNull_ = false;
     rawSize_ = 0;
-    size_ = initialSize_;
+    size_ = options_.initialSize;
   }
 
-  std::optional<uint64_t> initialSize_;
+ protected:
+  StatisticsBuilderOptions options_;
 };
 
 class BooleanStatisticsBuilder : public StatisticsBuilder,
@@ -348,5 +377,50 @@ class BinaryStatisticsBuilder : public StatisticsBuilder,
   void init() {
     length_ = 0;
   }
+};
+
+class MapStatisticsBuilder : public StatisticsBuilder,
+                             public dwio::common::MapColumnStatistics {
+ public:
+  MapStatisticsBuilder(
+      const Type& type,
+      const StatisticsBuilderOptions& options)
+      : StatisticsBuilder{options},
+        valueType_{type.as<velox::TypeKind::MAP>().valueType()} {
+    init();
+  }
+
+  ~MapStatisticsBuilder() override = default;
+
+  void addValues(
+      const dwrf::proto::KeyInfo& keyInfo,
+      const StatisticsBuilder& stats) {
+    // Since addValues is called once per key info per stride,
+    // it's ok to just construct the key struct per call.
+    auto& keyStats = getKeyStats(constructKey(keyInfo));
+    keyStats.merge(stats);
+  }
+
+  void merge(const dwio::common::ColumnStatistics& other) override;
+
+  void reset() override {
+    StatisticsBuilder::reset();
+    init();
+  }
+
+  void toProto(proto::ColumnStatistics& stats) const override;
+
+ private:
+  void init() {
+    entryStatistics_.clear();
+  }
+
+  StatisticsBuilder& getKeyStats(const dwio::common::KeyInfo& keyInfo) {
+    auto result = entryStatistics_.try_emplace(
+        keyInfo, StatisticsBuilder::create(*valueType_, options_));
+    return dynamic_cast<StatisticsBuilder&>(*result.first->second);
+  }
+
+  const TypePtr valueType_;
 };
 } // namespace facebook::velox::dwrf
