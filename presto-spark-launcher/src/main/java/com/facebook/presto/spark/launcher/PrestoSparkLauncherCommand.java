@@ -24,6 +24,7 @@ import org.apache.spark.SparkContext;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkFile;
@@ -52,6 +53,13 @@ public class PrestoSparkLauncherCommand
         TargzBasedPackageSupplier packageSupplier = new TargzBasedPackageSupplier(new File(clientOptions.packagePath));
         packageSupplier.deploy(sparkContext);
 
+        Optional<Map<String, String>> sessionPropertyConfigurationProperties;
+        if (clientOptions.sessionPropertyConfig == null) {
+            sessionPropertyConfigurationProperties = Optional.empty();
+        }
+        else {
+            sessionPropertyConfigurationProperties = Optional.of(loadProperties(checkFile(new File(clientOptions.sessionPropertyConfig))));
+        }
         PrestoSparkDistribution distribution = new PrestoSparkDistribution(
                 sparkContext,
                 packageSupplier,
@@ -60,7 +68,7 @@ public class PrestoSparkLauncherCommand
                 "LOCAL",
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
+                sessionPropertyConfigurationProperties,
                 Optional.empty(),
                 Optional.empty());
 
