@@ -149,6 +149,75 @@ void AggregationNode::addDetails(std::stringstream& stream) const {
   }
 }
 
+namespace {
+RowTypePtr getGroupIdOutputType(
+    const std::map<std::string, FieldAccessTypedExprPtr>&
+        outputGroupingKeyNames,
+    const std::vector<FieldAccessTypedExprPtr>& aggregationInputs,
+    const std::string& groupIdName) {
+  // Grouping keys come first, followed by aggregation inputs and groupId
+  // column.
+
+  auto numOutputs =
+      outputGroupingKeyNames.size() + aggregationInputs.size() + 1;
+
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+
+  names.reserve(numOutputs);
+  types.reserve(numOutputs);
+
+  for (const auto& [name, groupingKey] : outputGroupingKeyNames) {
+    names.push_back(name);
+    types.push_back(groupingKey->type());
+  }
+
+  for (const auto& input : aggregationInputs) {
+    names.push_back(input->name());
+    types.push_back(input->type());
+  }
+
+  names.push_back(groupIdName);
+  types.push_back(BIGINT());
+
+  return ROW(std::move(names), std::move(types));
+}
+} // namespace
+
+GroupIdNode::GroupIdNode(
+    PlanNodeId id,
+    std::vector<std::vector<FieldAccessTypedExprPtr>> groupingSets,
+    std::map<std::string, FieldAccessTypedExprPtr> outputGroupingKeyNames,
+    std::vector<FieldAccessTypedExprPtr> aggregationInputs,
+    std::string groupIdName,
+    PlanNodePtr source)
+    : PlanNode(std::move(id)),
+      sources_{source},
+      outputType_(getGroupIdOutputType(
+          outputGroupingKeyNames,
+          aggregationInputs,
+          groupIdName)),
+      groupingSets_(std::move(groupingSets)),
+      outputGroupingKeyNames_(std::move(outputGroupingKeyNames)),
+      aggregationInputs_(std::move(aggregationInputs)),
+      groupIdName_(std::move(groupIdName)) {
+  VELOX_CHECK_GE(
+      groupingSets_.size(),
+      2,
+      "GroupIdNode requires two or more grouping sets.");
+}
+
+void GroupIdNode::addDetails(std::stringstream& stream) const {
+  for (auto i = 0; i < groupingSets_.size(); ++i) {
+    if (i > 0) {
+      stream << ", ";
+    }
+    stream << "[";
+    addFields(stream, groupingSets_[i]);
+    stream << "]";
+  }
+}
+
 const std::vector<PlanNodePtr>& ValuesNode::sources() const {
   return kEmptySources;
 }

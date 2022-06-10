@@ -22,6 +22,7 @@
 #include "velox/exec/EnforceSingleRow.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/FilterProject.h"
+#include "velox/exec/GroupId.h"
 #include "velox/exec/HashAggregation.h"
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/HashProbe.h"
@@ -350,6 +351,11 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
         operators.push_back(
             std::make_unique<HashAggregation>(id, ctx.get(), aggregationNode));
       }
+    } else if (
+        auto groupIdNode =
+            std::dynamic_pointer_cast<const core::GroupIdNode>(planNode)) {
+      operators.push_back(
+          std::make_unique<GroupId>(id, ctx.get(), groupIdNode));
     } else if (
         auto topNNode =
             std::dynamic_pointer_cast<const core::TopNNode>(planNode)) {

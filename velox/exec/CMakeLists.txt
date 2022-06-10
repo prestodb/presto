@@ -23,6 +23,7 @@ add_library(
   EnforceSingleRow.cpp
   Exchange.cpp
   FilterProject.cpp
+  GroupId.cpp
   GroupingSet.cpp
   HashAggregation.cpp
   HashBuild.cpp

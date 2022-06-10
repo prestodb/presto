@@ -1016,6 +1016,34 @@ PlanBuilder& PlanBuilder::streamingAggregation(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::groupId(
+    const std::vector<std::vector<std::string>>& groupingSets,
+    const std::vector<std::string>& aggregationInputs,
+    std::string groupIdName) {
+  std::vector<std::vector<core::FieldAccessTypedExprPtr>> groupingSetExprs;
+  groupingSetExprs.reserve(groupingSets.size());
+  for (const auto& groupingSet : groupingSets) {
+    groupingSetExprs.push_back(fields(groupingSet));
+  }
+
+  std::map<std::string, core::FieldAccessTypedExprPtr> outputGroupingKeyNames;
+  for (const auto& groupingSet : groupingSetExprs) {
+    for (const auto& groupingKey : groupingSet) {
+      outputGroupingKeyNames[groupingKey->name()] = groupingKey;
+    }
+  }
+
+  planNode_ = std::make_shared<core::GroupIdNode>(
+      nextPlanNodeId(),
+      groupingSetExprs,
+      std::move(outputGroupingKeyNames),
+      fields(aggregationInputs),
+      std::move(groupIdName),
+      planNode_);
+
+  return *this;
+}
+
 PlanBuilder& PlanBuilder::localMerge(
     const std::vector<std::string>& keys,
     std::vector<std::shared_ptr<const core::PlanNode>> sources) {

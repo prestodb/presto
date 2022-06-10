@@ -855,5 +855,63 @@ TEST_F(AggregationTest, memoryAllocations) {
   ASSERT_EQ(5, planStats.at(aggNodeId).numMemoryAllocations);
 }
 
+TEST_F(AggregationTest, groupingSets) {
+  vector_size_t size = 1'000;
+  auto data = makeRowVector(
+      {"k1", "k2", "a", "b"},
+      {
+          makeFlatVector<int64_t>(size, [](auto row) { return row % 11; }),
+          makeFlatVector<int64_t>(size, [](auto row) { return row % 17; }),
+          makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+          makeFlatVector<StringView>(
+              size,
+              [](auto row) { return StringView(std::string(row % 12, 'x')); }),
+      });
+
+  createDuckDbTable({data});
+
+  auto plan =
+      PlanBuilder()
+          .values({data})
+          .groupId({{"k1"}, {"k2"}}, {"a", "b"})
+          .singleAggregation(
+              {"k1", "k2", "group_id"},
+              {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"})
+          .project({"k1", "k2", "count_1", "sum_a", "max_b"})
+          .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT k1, k2, count(1), sum(a), max(b) FROM tmp GROUP BY GROUPING SETS ((k1), (k2))");
+
+  // Cube.
+  plan = PlanBuilder()
+             .values({data})
+             .groupId({{"k1", "k2"}, {"k1"}, {"k2"}, {}}, {"a", "b"})
+             .singleAggregation(
+                 {"k1", "k2", "group_id"},
+                 {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"})
+             .project({"k1", "k2", "count_1", "sum_a", "max_b"})
+             .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT k1, k2, count(1), sum(a), max(b) FROM tmp GROUP BY CUBE (k1, k2)");
+
+  // Rollup.
+  plan = PlanBuilder()
+             .values({data})
+             .groupId({{"k1", "k2"}, {"k1"}, {}}, {"a", "b"})
+             .singleAggregation(
+                 {"k1", "k2", "group_id"},
+                 {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"})
+             .project({"k1", "k2", "count_1", "sum_a", "max_b"})
+             .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT k1, k2, count(1), sum(a), max(b) FROM tmp GROUP BY ROLLUP (k1, k2)");
+}
+
 } // namespace
 } // namespace facebook::velox::exec::test

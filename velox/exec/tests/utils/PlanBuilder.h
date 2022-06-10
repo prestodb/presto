@@ -437,6 +437,13 @@ class PlanBuilder {
       bool ignoreNullKeys,
       const std::vector<TypePtr>& resultTypes = {});
 
+  /// Add a GroupIdNode using the specified grouping sets, aggregation inputs
+  /// and a groupId column name.
+  PlanBuilder& groupId(
+      const std::vector<std::vector<std::string>>& groupingSets,
+      const std::vector<std::string>& aggregationInputs,
+      std::string groupIdName = "group_id");
+
   /// Add a LocalMergeNode using specified ORDER BY clauses.
   ///
   /// For example,

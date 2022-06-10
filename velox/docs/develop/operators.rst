@@ -35,6 +35,7 @@ TableScanNode               TableScan                                        Y
 FilterNode                  FilterProject
 ProjectNode                 FilterProject
 AggregationNode             HashAggregation or StreamingAggregation
+GroupIdNode                 GroupId
 HashJoinNode                HashProbe and HashBuild
 MergeJoinNode               MergeJoin
 CrossJoinNode               CrossJoinProbe and CrossJoinBuild
@@ -138,6 +139,28 @@ each measure for each combination of the grouping keys.
      - For each measure, an optional boolean input column that is used to mask out rows for this particular measure.
    * - ignoreNullKeys
      - A boolean flag indicating whether the aggregation should drop rows with nulls in any of the grouping keys. Used to avoid unnecessary processing for an aggregation followed by an inner join on the grouping keys.
+
+GroupIdNode
+~~~~~~~~~~~
+
+Duplicates the input for each of the specified grouping key sets. Used to
+implement aggregations over grouping sets.
+
+.. list-table::
+   :widths: 10 30
+   :align: left
+   :header-rows: 1
+
+   * - Property
+     - Description
+   * - groupingSets
+     - List of grouping key sets. Keys within each set must be unique, but keys can repeat across the sets.
+   * - outputGroupingKeyNames
+     - Output names for the grouping key columns.
+   * - aggregationInputs
+     - Input columns to duplicate.
+   * - groupIdName
+     - The name for the group-id column that identifies the grouping set. Zero-based integer corresponding to the position of the grouping set in the 'groupingSets' list.
 
 HashJoinNode and MergeJoinNode
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
