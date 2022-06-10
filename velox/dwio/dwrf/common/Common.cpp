@@ -96,8 +96,8 @@ std::string columnEncodingKindToString(ColumnEncodingKind kind) {
   return folly::to<std::string>("unknown - ", kind);
 }
 
-StreamIdentifier EncodingKey::forKind(const proto::Stream_Kind kind) const {
-  return StreamIdentifier(node, sequence, 0, kind);
+DwrfStreamIdentifier EncodingKey::forKind(const proto::Stream_Kind kind) const {
+  return DwrfStreamIdentifier(node, sequence, 0, kind);
 }
 
 } // namespace facebook::velox::dwrf

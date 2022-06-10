@@ -144,7 +144,7 @@ class CacheTest : public testing::Test {
         std::move(ssd));
     cache_->setVerifyHook(checkEntry);
     for (auto i = 0; i < kMaxStreams; ++i) {
-      streamIds_.push_back(std::make_unique<dwrf::StreamIdentifier>(
+      streamIds_.push_back(std::make_unique<dwrf::DwrfStreamIdentifier>(
           i, i, 0, dwrf::StreamKind_DATA));
     }
     streamStarts_.resize(kMaxStreams + 1);
@@ -449,7 +449,7 @@ class CacheTest : public testing::Test {
       memory::getDefaultScopedMemoryPool()};
 
   // Id of simulated streams. Corresponds 1:1 to 'streamStarts_'.
-  std::vector<std::unique_ptr<dwrf::StreamIdentifier>> streamIds_;
+  std::vector<std::unique_ptr<dwrf::DwrfStreamIdentifier>> streamIds_;
 
   // Start offset of each simulated stream in a simulated stripe.
   std::vector<uint64_t> streamStarts_;

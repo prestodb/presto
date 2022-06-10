@@ -48,19 +48,19 @@ class MockStrideIndexProvider : public StrideIndexProvider {
 
 class MockStreamInformation : public StreamInformation {
  public:
-  explicit MockStreamInformation(const StreamIdentifier& streamIdentifier)
+  explicit MockStreamInformation(const DwrfStreamIdentifier& streamIdentifier)
       : streamIdentifier_{streamIdentifier} {}
 
   StreamKind getKind() const override {
-    return streamIdentifier_.kind;
+    return streamIdentifier_.kind();
   }
 
   uint32_t getNode() const override {
-    return streamIdentifier_.node;
+    return streamIdentifier_.encodingKey().node;
   }
 
   uint32_t getSequence() const override {
-    return streamIdentifier_.sequence;
+    return streamIdentifier_.encodingKey().sequence;
   }
 
   MOCK_CONST_METHOD0(getOffset, uint64_t());
@@ -69,7 +69,7 @@ class MockStreamInformation : public StreamInformation {
   MOCK_CONST_METHOD0(valid, bool());
 
  private:
-  const StreamIdentifier& streamIdentifier_;
+  const DwrfStreamIdentifier& streamIdentifier_;
 };
 
 class TestStripeStreams : public StripeStreamsBase {
@@ -87,7 +87,7 @@ class TestStripeStreams : public StripeStreamsBase {
   }
 
   std::unique_ptr<SeekableInputStream> getStream(
-      const StreamIdentifier& si,
+      const DwrfStreamIdentifier& si,
       bool throwIfNotFound) const override {
     const DataBufferHolder* stream = nullptr;
     if (context_.hasStream(si)) {
@@ -97,10 +97,10 @@ class TestStripeStreams : public StripeStreamsBase {
       if (throwIfNotFound) {
         DWIO_RAISE(fmt::format(
             "stream (node = {}, seq = {}, column = {}, kind = {}) not found",
-            si.node,
-            si.sequence,
-            si.column,
-            si.kind));
+            si.encodingKey().node,
+            si.encodingKey().sequence,
+            si.column(),
+            si.kind()));
       } else {
         return nullptr;
       }
@@ -136,7 +136,7 @@ class TestStripeStreams : public StripeStreamsBase {
       std::function<void(const StreamInformation&)> visitor) const override {
     uint32_t count = 0;
     context_.iterateUnSuppressedStreams([&](auto& pair) {
-      if (pair.first.node == node) {
+      if (pair.first.encodingKey().node == node) {
         visitor(MockStreamInformation(pair.first));
         ++count;
       }
@@ -153,7 +153,7 @@ class TestStripeStreams : public StripeStreamsBase {
     return options_;
   }
 
-  bool getUseVInts(const StreamIdentifier& streamId) const override {
+  bool getUseVInts(const DwrfStreamIdentifier& streamId) const override {
     DWIO_ENSURE(
         context_.hasStream(streamId),
         fmt::format("Stream not found: {}", streamId.toString()));
@@ -808,7 +808,7 @@ void testMapWriter(
     auto valueNodeId = dataTypeWithId->childAt(1)->id;
     auto streamCount = 0;
     context.iterateUnSuppressedStreams([&](auto& pair) {
-      if (pair.first.node == valueNodeId) {
+      if (pair.first.encodingKey().node == valueNodeId) {
         ++streamCount;
       }
     });
@@ -819,7 +819,7 @@ void testMapWriter(
 
     streamCount = 0;
     context.iterateUnSuppressedStreams([&](auto& pair) {
-      if (pair.first.node == valueNodeId) {
+      if (pair.first.encodingKey().node == valueNodeId) {
         ++streamCount;
       }
     });
@@ -3735,7 +3735,7 @@ TEST(ColumnWriterTests, IntDictWriterDirectValueOverflow) {
 
   // get data stream
   TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
-  StreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
+  DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
   auto stream = streams.getStream(si, true);
 
   // read it as long
@@ -3781,7 +3781,7 @@ TEST(ColumnWriterTests, ShortDictWriterDictValueOverflow) {
 
   // get data stream
   TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
-  StreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
+  DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
   auto stream = streams.getStream(si, true);
 
   // read it as long
@@ -3821,7 +3821,7 @@ TEST(ColumnWriterTests, RemovePresentStream) {
 
   // get data stream
   TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
-  StreamIdentifier si{1, 0, 0, proto::Stream_Kind_PRESENT};
+  DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_PRESENT};
   ASSERT_EQ(streams.getStream(si, false), nullptr);
 }
 

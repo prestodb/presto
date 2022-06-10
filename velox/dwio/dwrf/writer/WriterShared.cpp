@@ -348,10 +348,10 @@ void WriterShared::flushStripe(bool close) {
 
   uint32_t lastIndex = 0;
   uint64_t offset = 0;
-  auto addStream = [&](const auto& stream, const auto& out) {
+  auto addStream = [&](const DwrfStreamIdentifier& stream, const auto& out) {
     proto::Stream* s;
     uint32_t currentIndex;
-    auto nodeId = stream.node;
+    auto nodeId = stream.encodingKey().node;
     s = encodingManager.addStreamToFooter(nodeId, currentIndex);
 
     // set offset only when needed, ie. when offset of current stream cannot be
@@ -367,10 +367,10 @@ void WriterShared::flushStripe(bool close) {
     // Jolly/Presto readers can't read streams bigger than 2GB.
     validateStreamSize(stream, out.size());
 
-    s->set_kind(static_cast<proto::Stream_Kind>(stream.kind));
+    s->set_kind(static_cast<proto::Stream_Kind>(stream.kind()));
     s->set_node(nodeId);
-    s->set_column(stream.column);
-    s->set_sequence(stream.sequence);
+    s->set_column(stream.column());
+    s->set_sequence(stream.encodingKey().sequence);
     s->set_length(out.size());
     s->set_usevints(context.getConfig(Config::USE_VINTS));
     offset += out.size();
@@ -386,10 +386,10 @@ void WriterShared::flushStripe(bool close) {
   planner->plan();
   planner->iterateIndexStreams([&](auto& streamId, auto& content) {
     DWIO_ENSURE_EQ(
-        streamId.kind,
+        streamId.kind(),
         StreamKind::StreamKind_ROW_INDEX,
         "unexpected stream kind ",
-        streamId.kind);
+        streamId.kind());
     indexLength += content.size();
     addStream(streamId, content);
     sink.addBuffers(content);
@@ -399,10 +399,10 @@ void WriterShared::flushStripe(bool close) {
   sink.setMode(WriterSink::Mode::Data);
   planner->iterateDataStreams([&](auto& streamId, auto& content) {
     DWIO_ENSURE_NE(
-        streamId.kind,
+        streamId.kind(),
         StreamKind::StreamKind_ROW_INDEX,
         "unexpected stream kind ",
-        streamId.kind);
+        streamId.kind());
     dataLength += content.size();
     addStream(streamId, content);
     sink.addBuffers(content);

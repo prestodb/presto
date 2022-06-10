@@ -73,15 +73,17 @@ class WriterContext : public CompressionBufferPool {
         generalPool_, compressionBlockSize + PAGE_HEADER_SIZE);
   }
 
-  bool hasStream(const StreamIdentifier& stream) const {
+  bool hasStream(const DwrfStreamIdentifier& stream) const {
     return streams_.find(stream) != streams_.end();
   }
 
-  const DataBufferHolder& getStream(const StreamIdentifier& stream) const {
+  const DataBufferHolder& getStream(const DwrfStreamIdentifier& stream) const {
     return streams_.at(stream);
   }
 
-  void addBuffer(const StreamIdentifier& stream, folly::StringPiece buffer) {
+  void addBuffer(
+      const DwrfStreamIdentifier& stream,
+      folly::StringPiece buffer) {
     streams_.at(stream).take(buffer);
   }
 
@@ -94,7 +96,7 @@ class WriterContext : public CompressionBufferPool {
   // capacity vs actual usage problem. However, this is ok as an upperbound for
   // flush policy evaluation and would be more accurate after flush.
   std::unique_ptr<BufferedOutputStream> newStream(
-      const StreamIdentifier& stream) {
+      const DwrfStreamIdentifier& stream) {
     DWIO_ENSURE(
         !hasStream(stream), "Stream already exists ", stream.toString());
     streams_.emplace(
@@ -106,8 +108,9 @@ class WriterContext : public CompressionBufferPool {
             getConfig(Config::COMPRESSION_BLOCK_SIZE_MIN),
             getConfig(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO)));
     auto& holder = streams_.at(stream);
-    auto encrypter = handler_->isEncrypted(stream.node)
-        ? std::addressof(handler_->getEncryptionProvider(stream.node))
+    auto encrypter = handler_->isEncrypted(stream.encodingKey().node)
+        ? std::addressof(
+              handler_->getEncryptionProvider(stream.encodingKey().node))
         : nullptr;
     return newStream(compression, holder, encrypter);
   }
@@ -164,7 +167,7 @@ class WriterContext : public CompressionBufferPool {
         : std::make_unique<IndexBuilder>(std::move(stream));
   }
 
-  void suppressStream(const StreamIdentifier& stream) {
+  void suppressStream(const DwrfStreamIdentifier& stream) {
     DWIO_ENSURE(hasStream(stream));
     auto& collector = streams_.at(stream);
     collector.suppress();
@@ -253,8 +256,8 @@ class WriterContext : public CompressionBufferPool {
   }
 
   void iterateUnSuppressedStreams(
-      std::function<void(std::pair<const StreamIdentifier, DataBufferHolder>&)>
-          callback) {
+      std::function<void(
+          std::pair<const DwrfStreamIdentifier, DataBufferHolder>&)> callback) {
     for (auto& pair : streams_) {
       if (!pair.second.isSuppressed()) {
         callback(pair);
@@ -278,7 +281,7 @@ class WriterContext : public CompressionBufferPool {
   }
 
   virtual void removeStreams(
-      std::function<bool(const StreamIdentifier&)> predicate) {
+      std::function<bool(const DwrfStreamIdentifier&)> predicate) {
     auto it = streams_.begin();
     while (it != streams_.end()) {
       if (predicate(it->first)) {
@@ -442,7 +445,10 @@ class WriterContext : public CompressionBufferPool {
   memory::MemoryPool& generalPool_;
   // Map needs referential stability because reference to map value is stored by
   // another class.
-  folly::F14NodeMap<StreamIdentifier, DataBufferHolder, StreamIdentifierHash>
+  folly::F14NodeMap<
+      DwrfStreamIdentifier,
+      DataBufferHolder,
+      dwio::common::StreamIdentifierHash>
       streams_;
   folly::F14FastMap<
       EncodingKey,

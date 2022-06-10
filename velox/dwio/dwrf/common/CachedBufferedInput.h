@@ -107,7 +107,7 @@ class CachedBufferedInput : public BufferedInput {
 
   std::unique_ptr<SeekableInputStream> enqueue(
       dwio::common::Region region,
-      const StreamIdentifier* FOLLY_NULLABLE si) override;
+      const dwio::common::StreamIdentifier* FOLLY_NULLABLE si) override;
 
   void load(const dwio::common::LogType) override;
 

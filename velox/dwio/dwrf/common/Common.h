@@ -16,11 +16,13 @@
 
 #pragma once
 
+#include <fmt/format.h>
 #include <string>
 
-#include <fmt/format.h>
-
 #include "folly/Range.h"
+
+#include "velox/common/caching/ScanTracker.h"
+#include "velox/dwio/common/StreamIdentifier.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 
 namespace facebook::velox::dwrf {
@@ -102,9 +104,7 @@ enum ColumnEncodingKind {
   ColumnEncodingKind_DICTIONARY_V2 = 3
 };
 
-constexpr uint32_t MAX_UINT32 = std::numeric_limits<uint32_t>::max();
-
-class StreamIdentifier;
+class DwrfStreamIdentifier;
 class EncodingKey {
  public:
   static const EncodingKey& getInvalid() {
@@ -113,7 +113,8 @@ class EncodingKey {
   }
 
  public:
-  EncodingKey() : EncodingKey(MAX_UINT32, MAX_UINT32) {}
+  EncodingKey()
+      : EncodingKey(dwio::common::MAX_UINT32, dwio::common::MAX_UINT32) {}
 
   /* implicit */ EncodingKey(uint32_t n, uint32_t s = 0)
       : node{n}, sequence{s} {}
@@ -129,14 +130,14 @@ class EncodingKey {
   }
 
   bool valid() const {
-    return node != MAX_UINT32 && sequence >= 0;
+    return node != dwio::common::MAX_UINT32 && sequence >= 0;
   }
 
   std::string toString() const {
     return fmt::format("[node={}, sequence={}]", node, sequence);
   }
 
-  StreamIdentifier forKind(const proto::Stream_Kind kind) const;
+  DwrfStreamIdentifier forKind(const proto::Stream_Kind kind) const;
 };
 
 struct EncodingKeyHash {
@@ -145,73 +146,86 @@ struct EncodingKeyHash {
   }
 };
 
-class StreamIdentifier : public EncodingKey {
+class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
  public:
-  static const StreamIdentifier& getInvalid() {
-    static const StreamIdentifier INVALID;
+  static const DwrfStreamIdentifier& getInvalid() {
+    static const DwrfStreamIdentifier INVALID;
     return INVALID;
   }
 
  public:
-  StreamIdentifier()
-      : EncodingKey(), column(MAX_UINT32), kind(StreamKind_DATA) {}
+  DwrfStreamIdentifier()
+      : column_(dwio::common::MAX_UINT32), kind_(StreamKind_DATA) {}
 
-  /* implicit */ StreamIdentifier(const proto::Stream& stream)
-      : StreamIdentifier(
+  /* implicit */ DwrfStreamIdentifier(const proto::Stream& stream)
+      : DwrfStreamIdentifier(
             stream.node(),
             stream.has_sequence() ? stream.sequence() : 0,
-            stream.has_column() ? stream.column() : MAX_UINT32,
+            stream.has_column() ? stream.column() : dwio::common::MAX_UINT32,
             stream.kind()) {}
 
-  StreamIdentifier(
-      uint32_t node,
-      uint32_t sequence,
-      uint32_t column,
-      proto::Stream_Kind pkind)
-      : StreamIdentifier{
-            node,
-            sequence,
-            column,
-            static_cast<StreamKind>(pkind)} {}
-
-  StreamIdentifier(
+  DwrfStreamIdentifier(
       uint32_t node,
       uint32_t sequence,
       uint32_t column,
       StreamKind kind)
-      : EncodingKey(node, sequence), column{column}, kind(kind) {}
+      : StreamIdentifier(
+            velox::cache::TrackingId((node << kNodeShift) | kind).id()),
+        column_{column},
+        kind_(kind),
+        encodingKey_{node, sequence} {}
 
-  ~StreamIdentifier() = default;
+  DwrfStreamIdentifier(
+      uint32_t node,
+      uint32_t sequence,
+      uint32_t column,
+      proto::Stream_Kind pkind)
+      : DwrfStreamIdentifier(
+            node,
+            sequence,
+            column,
+            static_cast<StreamKind>(pkind)) {}
 
-  bool operator==(const StreamIdentifier& other) const {
+  ~DwrfStreamIdentifier() = default;
+
+  bool operator==(const DwrfStreamIdentifier& other) const {
     // column == other.column may be join the expression if all files
     // share the same new version that has column field filled
-    return node == other.node && sequence == other.sequence &&
-        kind == other.kind;
+    return encodingKey_ == other.encodingKey_ && kind_ == other.kind_;
   }
 
   std::size_t hash() const {
-    return std::hash<uint32_t>()(node) ^ std::hash<uint32_t>()(sequence) ^
-        std::hash<uint32_t>()(kind);
+    return encodingKey_.hash() ^ std::hash<uint32_t>()(kind_);
   }
 
-  uint32_t column;
-  StreamKind kind;
+  uint32_t column() const {
+    return column_;
+  }
+
+  const StreamKind& kind() const {
+    return kind_;
+  }
+
+  const EncodingKey& encodingKey() const {
+    return encodingKey_;
+  }
 
   std::string toString() const {
     return fmt::format(
-        "[node={}, sequence={}, column={}, kind={}]",
-        node,
-        sequence,
-        column,
-        static_cast<uint32_t>(kind));
+        "[id={}, node={}, sequence={}, column={}, kind={}]",
+        id_,
+        encodingKey_.node,
+        encodingKey_.sequence,
+        column_,
+        static_cast<uint32_t>(kind_));
   }
-};
 
-struct StreamIdentifierHash {
-  std::size_t operator()(const StreamIdentifier& si) const {
-    return si.hash();
-  }
+ private:
+  static constexpr int32_t kNodeShift = 5;
+
+  uint32_t column_;
+  StreamKind kind_;
+  EncodingKey encodingKey_;
 };
 
 std::string columnEncodingKindToString(ColumnEncodingKind kind);

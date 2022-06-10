@@ -212,11 +212,11 @@ void StripeStreamsImpl::loadStreams() {
 }
 
 std::unique_ptr<SeekableInputStream> StripeStreamsImpl::getCompressedStream(
-    const StreamIdentifier& si) const {
+    const DwrfStreamIdentifier& si) const {
   const auto& info = getStreamInfo(si);
 
   std::unique_ptr<SeekableInputStream> streamRead;
-  if (si.kind == StreamKind::StreamKind_ROW_INDEX) {
+  if (si.kind() == StreamKind::StreamKind_ROW_INDEX) {
     streamRead = getIndexStreamFromCache(info);
   }
 
@@ -245,19 +245,20 @@ StripeStreamsImpl::getEncodingKeys() const {
   return encodingKeys;
 }
 
-std::unordered_map<uint32_t, std::vector<StreamIdentifier>>
+std::unordered_map<uint32_t, std::vector<DwrfStreamIdentifier>>
 StripeStreamsImpl::getStreamIdentifiers() const {
-  std::unordered_map<uint32_t, std::vector<StreamIdentifier>> nodeToStreamIdMap;
+  std::unordered_map<uint32_t, std::vector<DwrfStreamIdentifier>>
+      nodeToStreamIdMap;
 
   for (const auto& kv : streams_) {
-    nodeToStreamIdMap[kv.first.node].push_back(kv.first);
+    nodeToStreamIdMap[kv.first.encodingKey().node].push_back(kv.first);
   }
 
   return nodeToStreamIdMap;
 }
 
 std::unique_ptr<SeekableInputStream> StripeStreamsImpl::getStream(
-    const StreamIdentifier& si,
+    const DwrfStreamIdentifier& si,
     bool /* throwIfNotFound*/) const {
   // if not found, return an empty {}
   const auto& info = getStreamInfo(si, false /* throwIfNotFound */);
@@ -266,7 +267,7 @@ std::unique_ptr<SeekableInputStream> StripeStreamsImpl::getStream(
   }
 
   std::unique_ptr<SeekableInputStream> streamRead;
-  if (si.kind == StreamKind::StreamKind_ROW_INDEX) {
+  if (si.kind() == StreamKind::StreamKind_ROW_INDEX) {
     streamRead = getIndexStreamFromCache(info);
   }
 
@@ -282,7 +283,9 @@ std::unique_ptr<SeekableInputStream> StripeStreamsImpl::getStream(
   auto streamDebugInfo =
       fmt::format("Stripe {} Stream {}", stripeIndex_, si.toString());
   return reader_.getReader().createDecompressedStream(
-      std::move(streamRead), streamDebugInfo, getDecrypter(si.node));
+      std::move(streamRead),
+      streamDebugInfo,
+      getDecrypter(si.encodingKey().node));
 }
 
 uint32_t StripeStreamsImpl::visitStreamsOfNode(
@@ -290,7 +293,7 @@ uint32_t StripeStreamsImpl::visitStreamsOfNode(
     std::function<void(const StreamInformation&)> visitor) const {
   uint32_t count = 0;
   for (auto& item : streams_) {
-    if (item.first.node == node) {
+    if (item.first.encodingKey().node == node) {
       visitor(item.second);
       ++count;
     }
@@ -299,7 +302,7 @@ uint32_t StripeStreamsImpl::visitStreamsOfNode(
   return count;
 }
 
-bool StripeStreamsImpl::getUseVInts(const StreamIdentifier& si) const {
+bool StripeStreamsImpl::getUseVInts(const DwrfStreamIdentifier& si) const {
   const auto& info = getStreamInfo(si, false);
   if (!info.valid()) {
     return true;

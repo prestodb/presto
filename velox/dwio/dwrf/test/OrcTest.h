@@ -41,10 +41,12 @@ class MockStripeStreams : public StripeStreams {
   MockStripeStreams() : scopedPool_{memory::getDefaultScopedMemoryPool()} {};
   ~MockStripeStreams() = default;
   std::unique_ptr<SeekableInputStream> getStream(
-      const StreamIdentifier& si,
+      const DwrfStreamIdentifier& si,
       bool throwIfNotFound) const override {
     return std::unique_ptr<SeekableInputStream>(getStreamProxy(
-        si.node, static_cast<proto::Stream_Kind>(si.kind), throwIfNotFound));
+        si.encodingKey().node,
+        static_cast<proto::Stream_Kind>(si.kind()),
+        throwIfNotFound));
   }
 
   std::function<BufferPtr()> getIntDictionaryInitializerForNode(
@@ -92,7 +94,7 @@ class MockStripeStreams : public StripeStreams {
     return ptr ? *ptr : options_;
   }
 
-  bool getUseVInts(const StreamIdentifier& streamId) const override {
+  bool getUseVInts(const DwrfStreamIdentifier& /* streamId */) const override {
     return true; // current tests all expect results from using vints
   }
 

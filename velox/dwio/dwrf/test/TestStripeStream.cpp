@@ -416,7 +416,7 @@ TEST(StripeStream, readEncryptedStreams) {
   for (uint32_t node = 1; node < 6; ++node) {
     EncodingKey ek{node};
     auto stream = streams.getStream(
-        StreamIdentifier{node, 0, 0, StreamKind::StreamKind_DATA}, false);
+        DwrfStreamIdentifier{node, 0, 0, StreamKind::StreamKind_DATA}, false);
     if (existed.count(node)) {
       ASSERT_EQ(streams.getEncoding(ek).dictionarysize(), node + 1);
       ASSERT_NE(stream, nullptr);
@@ -485,7 +485,7 @@ TEST(StripeStream, schemaMismatch) {
   for (uint32_t node = 3; node < 4; ++node) {
     EncodingKey ek{node};
     auto stream = streams.getStream(
-        StreamIdentifier{node, 0, 0, StreamKind::StreamKind_DATA}, false);
+        DwrfStreamIdentifier{node, 0, 0, StreamKind::StreamKind_DATA}, false);
     ASSERT_EQ(streams.getEncoding(ek).dictionarysize(), node + 1);
     ASSERT_NE(stream, nullptr);
   }
@@ -507,12 +507,12 @@ class TestStripeStreams : public StripeStreamsBase {
   }
 
   std::unique_ptr<SeekableInputStream> getStream(
-      const StreamIdentifier& si,
+      const DwrfStreamIdentifier& si,
       bool throwIfNotFound) const override {
     return std::unique_ptr<SeekableInputStream>(getStreamProxy(
-        si.node,
-        si.sequence,
-        static_cast<proto::Stream_Kind>(si.kind),
+        si.encodingKey().node,
+        si.encodingKey().sequence,
+        static_cast<proto::Stream_Kind>(si.kind()),
         throwIfNotFound));
   }
 
@@ -530,7 +530,7 @@ class TestStripeStreams : public StripeStreamsBase {
     VELOX_UNSUPPORTED();
   }
 
-  bool getUseVInts(const StreamIdentifier& /* unused */) const override {
+  bool getUseVInts(const DwrfStreamIdentifier& /* unused */) const override {
     return true; // current tests all expect results from using vints
   }
 

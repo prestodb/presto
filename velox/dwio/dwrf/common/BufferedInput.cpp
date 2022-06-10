@@ -78,7 +78,7 @@ void BufferedInput::load(const LogType logType) {
 
 std::unique_ptr<SeekableInputStream> BufferedInput::enqueue(
     Region region,
-    const StreamIdentifier* /*si*/) {
+    const dwio::common::StreamIdentifier* /*si*/) {
   if (region.length == 0) {
     return std::make_unique<SeekableArrayInputStream>(
         static_cast<const char*>(nullptr), 0);

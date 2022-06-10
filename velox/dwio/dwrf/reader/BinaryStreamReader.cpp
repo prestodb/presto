@@ -68,7 +68,7 @@ std::vector<proto::ColumnEncoding> BinaryStripeStreams::getEncodings(
   return encodings;
 }
 
-std::vector<StreamIdentifier> BinaryStripeStreams::getStreamIdentifiers(
+std::vector<DwrfStreamIdentifier> BinaryStripeStreams::getStreamIdentifiers(
     const uint32_t nodeId) const {
   if (nodeToStreamIdMap_.count(nodeId) == 0) {
     return {};

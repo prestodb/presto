@@ -25,12 +25,13 @@ TEST(LayoutPlannerTests, Basic) {
   WriterContext context{
       config, facebook::velox::memory::getDefaultScopedMemoryPool()};
   // fake streams
-  std::vector<StreamIdentifier> streams;
+  std::vector<DwrfStreamIdentifier> streams;
+  streams.reserve(10);
   std::array<char, 256> data;
   std::memset(data.data(), 'a', data.size());
   auto addStream =
       [&](uint32_t node, uint32_t seq, StreamKind kind, uint32_t size) {
-        auto streamId = StreamIdentifier{node, seq, 0, kind};
+        auto streamId = DwrfStreamIdentifier{node, seq, 0, kind};
         streams.push_back(streamId);
         AppendOnlyBufferedStream out{context.newStream(streamId)};
         out.write(data.data(), size);

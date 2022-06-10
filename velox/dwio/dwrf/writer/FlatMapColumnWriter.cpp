@@ -101,11 +101,11 @@ void FlatMapColumnWriter<K>::clearNodes() {
     return nodeId >= valueType_.id && nodeId <= valueType_.maxId;
   });
 
-  context_.removeStreams([this](auto& identifier) {
-    return identifier.node >= valueType_.id &&
-        identifier.node <= valueType_.maxId &&
-        (identifier.kind == StreamKind::StreamKind_DICTIONARY_DATA ||
-         identifier.sequence > 0);
+  context_.removeStreams([this](const DwrfStreamIdentifier& identifier) {
+    return identifier.encodingKey().node >= valueType_.id &&
+        identifier.encodingKey().node <= valueType_.maxId &&
+        (identifier.kind() == StreamKind::StreamKind_DICTIONARY_DATA ||
+         identifier.encodingKey().sequence > 0);
   });
 }
 

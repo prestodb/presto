@@ -47,7 +47,7 @@ class BufferedInput {
   // read-ahead and caching for BufferedInput implementations supporting these.
   virtual std::unique_ptr<SeekableInputStream> enqueue(
       dwio::common::Region region,
-      const StreamIdentifier* FOLLY_NULLABLE si = nullptr);
+      const dwio::common::StreamIdentifier* FOLLY_NULLABLE si = nullptr);
 
   // load all regions to be read in an optimized way (IO efficiency)
   virtual void load(const dwio::common::LogType);

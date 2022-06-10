@@ -64,7 +64,7 @@ class WriterTest : public Test {
   }
 
   void validateStreamSize(uint64_t streamSize) {
-    StreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
+    DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
     writer->validateStreamSize(si, streamSize);
   }
 

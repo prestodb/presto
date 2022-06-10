@@ -141,7 +141,7 @@ class WriterBase {
   }
 
   void validateStreamSize(
-      const StreamIdentifier& streamId,
+      const DwrfStreamIdentifier& streamId,
       uint64_t streamSize) {
     if (context_->isStreamSizeAboveThresholdCheckEnabled) {
       // Jolly doesn't support Streams bigger than 2GB.

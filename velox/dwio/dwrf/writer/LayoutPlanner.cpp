@@ -32,7 +32,8 @@ LayoutPlanner::LayoutPlanner(StreamList streams)
     : streams_{std::move(streams)} {}
 
 void LayoutPlanner::iterateIndexStreams(
-    std::function<void(const StreamIdentifier&, DataBufferHolder&)> consumer) {
+    std::function<void(const DwrfStreamIdentifier&, DataBufferHolder&)>
+        consumer) {
   for (auto iter = streams_.begin(), end = iter + indexCount_; iter != end;
        ++iter) {
     consumer(*iter->first, *iter->second);
@@ -40,7 +41,8 @@ void LayoutPlanner::iterateIndexStreams(
 }
 
 void LayoutPlanner::iterateDataStreams(
-    std::function<void(const StreamIdentifier&, DataBufferHolder&)> consumer) {
+    std::function<void(const DwrfStreamIdentifier&, DataBufferHolder&)>
+        consumer) {
   for (auto iter = streams_.begin() + indexCount_; iter != streams_.end();
        ++iter) {
     consumer(*iter->first, *iter->second);
@@ -51,7 +53,7 @@ void LayoutPlanner::plan() {
   // place index before data
   auto iter =
       std::partition(streams_.begin(), streams_.end(), [](auto& stream) {
-        return stream.first->kind == StreamKind::StreamKind_ROW_INDEX;
+        return stream.first->kind() == StreamKind::StreamKind_ROW_INDEX;
       });
   indexCount_ = iter - streams_.begin();
 
@@ -71,8 +73,9 @@ void LayoutPlanner::NodeSizeSorter::sort(
   // 4. for same sequence, small kind first
 
   // calculate node size
-  auto getNodeKey = [](const StreamIdentifier& stream) {
-    return static_cast<uint64_t>(stream.node) << 32 | stream.sequence;
+  auto getNodeKey = [](const DwrfStreamIdentifier& stream) {
+    return static_cast<uint64_t>(stream.encodingKey().node) << 32 |
+        stream.encodingKey().sequence;
   };
 
   std::unordered_map<uint64_t, uint64_t> nodeSize;
@@ -96,19 +99,19 @@ void LayoutPlanner::NodeSizeSorter::sort(
     }
 
     // if size is the same, sort by node and sequence
-    auto nodeA = a.first->node;
-    auto nodeB = b.first->node;
+    auto nodeA = a.first->encodingKey().node;
+    auto nodeB = b.first->encodingKey().node;
     if (nodeA != nodeB) {
       return nodeA < nodeB;
     }
 
-    auto seqA = a.first->sequence;
-    auto seqB = b.first->sequence;
+    auto seqA = a.first->encodingKey().sequence;
+    auto seqB = b.first->encodingKey().sequence;
     if (seqA != seqB) {
       return seqA < seqB;
     }
 
-    return a.first->kind < b.first->kind;
+    return a.first->kind() < b.first->kind();
   });
 }
 

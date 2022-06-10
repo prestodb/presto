@@ -36,7 +36,7 @@ class StrideIndexProvider {
  */
 class StreamInformationImpl : public StreamInformation {
  private:
-  StreamIdentifier streamId_;
+  DwrfStreamIdentifier streamId_;
   uint64_t offset_;
   uint64_t length_;
   bool useVInts_;
@@ -47,7 +47,7 @@ class StreamInformationImpl : public StreamInformation {
     return NOT_FOUND;
   }
 
-  StreamInformationImpl() : streamId_{StreamIdentifier::getInvalid()} {}
+  StreamInformationImpl() : streamId_{DwrfStreamIdentifier::getInvalid()} {}
   StreamInformationImpl(uint64_t offset, const proto::Stream& stream)
       : streamId_(stream),
         offset_(offset),
@@ -59,15 +59,15 @@ class StreamInformationImpl : public StreamInformation {
   ~StreamInformationImpl() override = default;
 
   StreamKind getKind() const override {
-    return streamId_.kind;
+    return streamId_.kind();
   }
 
   uint32_t getNode() const override {
-    return streamId_.node;
+    return streamId_.encodingKey().node;
   }
 
   uint32_t getSequence() const override {
-    return streamId_.sequence;
+    return streamId_.encodingKey().sequence;
   }
 
   uint64_t getOffset() const override {
@@ -83,7 +83,7 @@ class StreamInformationImpl : public StreamInformation {
   }
 
   bool valid() const override {
-    return streamId_.valid();
+    return streamId_.encodingKey().valid();
   }
 };
 
@@ -113,7 +113,7 @@ class StripeStreams {
    * @return the new stream
    */
   virtual std::unique_ptr<SeekableInputStream> getStream(
-      const StreamIdentifier& si,
+      const DwrfStreamIdentifier& si,
       bool throwIfNotFound) const = 0;
 
   /// Get the integer dictionary data for the given node and sequence.
@@ -142,7 +142,7 @@ class StripeStreams {
    * Defaults to true.
    * @param streamId stream identifier
    */
-  virtual bool getUseVInts(const StreamIdentifier& streamId) const = 0;
+  virtual bool getUseVInts(const DwrfStreamIdentifier& streamId) const = 0;
 
   /**
    * Get the memory pool for this reader.
@@ -202,9 +202,9 @@ class StripeStreamsImpl : public StripeStreamsBase {
 
   // map of stream id -> stream information
   std::unordered_map<
-      StreamIdentifier,
+      DwrfStreamIdentifier,
       StreamInformationImpl,
-      StreamIdentifierHash>
+      dwio::common::StreamIdentifierHash>
       streams_;
   std::unordered_map<EncodingKey, uint32_t, EncodingKeyHash> encodings_;
   std::unordered_map<EncodingKey, proto::ColumnEncoding, EncodingKeyHash>
@@ -257,26 +257,26 @@ class StripeStreamsImpl : public StripeStreamsBase {
   void loadReadPlan();
 
   std::unique_ptr<SeekableInputStream> getCompressedStream(
-      const StreamIdentifier& si) const;
+      const DwrfStreamIdentifier& si) const;
 
-  uint64_t getStreamLength(const StreamIdentifier& si) const {
+  uint64_t getStreamLength(const DwrfStreamIdentifier& si) const {
     return getStreamInfo(si).getLength();
   }
 
   std::unordered_map<uint32_t, std::vector<uint32_t>> getEncodingKeys() const;
 
-  std::unordered_map<uint32_t, std::vector<StreamIdentifier>>
+  std::unordered_map<uint32_t, std::vector<DwrfStreamIdentifier>>
   getStreamIdentifiers() const;
 
   std::unique_ptr<SeekableInputStream> getStream(
-      const StreamIdentifier& si,
+      const DwrfStreamIdentifier& si,
       bool throwIfNotFound) const override;
 
   uint32_t visitStreamsOfNode(
       uint32_t node,
       std::function<void(const StreamInformation&)> visitor) const override;
 
-  bool getUseVInts(const StreamIdentifier& si) const override;
+  bool getUseVInts(const DwrfStreamIdentifier& si) const override;
 
   const StrideIndexProvider& getStrideIndexProvider() const override {
     return provider_;
@@ -288,7 +288,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
 
  private:
   const StreamInformation& getStreamInfo(
-      const StreamIdentifier& si,
+      const DwrfStreamIdentifier& si,
       const bool throwIfNotFound = true) const {
     auto index = streams_.find(si);
     if (index == streams_.end()) {

@@ -216,7 +216,7 @@ class IntegerColumnWriter : public BaseColumnWriter {
       // Suppress the stream used to initialize dictionary encoder.
       // TODO: passing factory method into the dict encoder also works
       // around this problem but has messier code organization.
-      context_.suppressStream(StreamIdentifier{
+      context_.suppressStream(DwrfStreamIdentifier{
           id_,
           context_.shareFlatMapDictionaries ? 0 : sequence_,
           0,
@@ -352,7 +352,7 @@ class IntegerColumnWriter : public BaseColumnWriter {
     // Suppress the stream used to initialize dictionary encoder.
     // TODO: passing factory method into the dict encoder also works
     // around this problem but has messier code organization.
-    context_.suppressStream(StreamIdentifier{
+    context_.suppressStream(DwrfStreamIdentifier{
         id_,
         context_.shareFlatMapDictionaries ? 0 : sequence_,
         0,

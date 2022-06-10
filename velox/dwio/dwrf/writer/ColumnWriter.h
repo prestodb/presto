@@ -67,7 +67,7 @@ class ColumnWriter {
   }
 
   std::unique_ptr<BufferedOutputStream> newStream(StreamKind kind) {
-    return context_.newStream(StreamIdentifier{id_, sequence_, 0, kind});
+    return context_.newStream(DwrfStreamIdentifier{id_, sequence_, 0, kind});
   }
 
   WriterContext& context_;
@@ -218,7 +218,7 @@ class BaseColumnWriter : public ColumnWriter {
   }
 
   void suppressStream(StreamKind kind) {
-    context_.suppressStream(StreamIdentifier{id_, sequence_, 0, kind});
+    context_.suppressStream(DwrfStreamIdentifier{id_, sequence_, 0, kind});
   }
 
   template <typename T>
