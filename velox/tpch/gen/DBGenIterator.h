@@ -40,6 +40,16 @@ class DBGenIterator {
   // internal lock).
   static DBGenIterator create(size_t scaleFactor);
 
+  // Before generating records using the gen*() functions below, call the
+  // appropriate init*() function to correctly initialize the seed given the
+  // offset to be generated.
+  void initNation(size_t offset);
+  void initRegion(size_t offset);
+  void initOrder(size_t offset);
+  void initSupplier(size_t offset);
+  void initPart(size_t offset);
+  void initCustomer(size_t offset);
+
   // Generate different types of records.
   void genNation(size_t index, code_t& code);
   void genRegion(size_t index, code_t& code);

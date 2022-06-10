@@ -347,6 +347,7 @@ RowVectorPtr genTpchOrders(
   auto commentVector = children[8]->asFlatVector<StringView>();
 
   auto dbgenIt = DBGenIterator::create(scaleFactor);
+  dbgenIt.initOrder(offset);
   order_t order;
 
   // Dbgen generates the dataset one row at a time, so we need to transpose it
@@ -404,6 +405,7 @@ RowVectorPtr genTpchLineItem(
   auto commentVector = children[15]->asFlatVector<StringView>();
 
   auto dbgenIt = DBGenIterator::create(scaleFactor);
+  dbgenIt.initOrder(ordersOffset);
   order_t order;
 
   // Dbgen can't generate lineItem one row at a time; instead, it generates
@@ -483,6 +485,7 @@ RowVectorPtr genTpchPart(
   auto commentVector = children[8]->asFlatVector<StringView>();
 
   auto dbgenIt = DBGenIterator::create(scaleFactor);
+  dbgenIt.initPart(offset);
   part_t part;
 
   // Dbgen generates the dataset one row at a time, so we need to transpose it
@@ -524,6 +527,7 @@ RowVectorPtr genTpchSupplier(
   auto commentVector = children[6]->asFlatVector<StringView>();
 
   auto dbgenIt = DBGenIterator::create(scaleFactor);
+  dbgenIt.initSupplier(offset);
   supplier_t supp;
 
   // Dbgen generates the dataset one row at a time, so we need to transpose it
@@ -574,6 +578,8 @@ RowVectorPtr genTpchPartSupp(
   size_t partIdx = offset / SUPP_PER_PART;
   size_t partSuppIdx = offset % SUPP_PER_PART;
   size_t partSuppCount = 0;
+
+  dbgenIt.initPart(partIdx);
 
   do {
     dbgenIt.genPart(partIdx + 1, part);
@@ -626,6 +632,7 @@ RowVectorPtr genTpchCustomer(
   auto commentVector = children[7]->asFlatVector<StringView>();
 
   auto dbgenIt = DBGenIterator::create(scaleFactor);
+  dbgenIt.initCustomer(offset);
   customer_t cust;
 
   // Dbgen generates the dataset one row at a time, so we need to transpose it
@@ -668,6 +675,7 @@ RowVectorPtr genTpchNation(
   auto commentVector = children[3]->asFlatVector<StringView>();
 
   auto dbgenIt = DBGenIterator::create(scaleFactor);
+  dbgenIt.initNation(offset);
   code_t code;
 
   // Dbgen generates the dataset one row at a time, so we need to transpose it
@@ -700,6 +708,7 @@ RowVectorPtr genTpchRegion(
   auto commentVector = children[2]->asFlatVector<StringView>();
 
   auto dbgenIt = DBGenIterator::create(scaleFactor);
+  dbgenIt.initRegion(offset);
   code_t code;
 
   // Dbgen generates the dataset one row at a time, so we need to transpose it

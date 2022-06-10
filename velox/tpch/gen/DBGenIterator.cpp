@@ -83,6 +83,32 @@ DBGenIterator DBGenIterator::create(size_t scaleFactor) {
   return DBGenIterator(dbGenLease->getLease(scaleFactor));
 }
 
+void DBGenIterator::initNation(size_t offset) {
+  sd_nation(NATION, offset);
+}
+
+void DBGenIterator::initRegion(size_t offset) {
+  sd_region(REGION, offset);
+}
+
+void DBGenIterator::initOrder(size_t offset) {
+  sd_order(ORDER, offset);
+  sd_line(LINE, offset);
+}
+
+void DBGenIterator::initSupplier(size_t offset) {
+  sd_supp(SUPP, offset);
+}
+
+void DBGenIterator::initPart(size_t offset) {
+  sd_part(PART, offset);
+  sd_psupp(PSUPP, offset);
+}
+
+void DBGenIterator::initCustomer(size_t offset) {
+  sd_cust(CUST, offset);
+}
+
 void DBGenIterator::genNation(size_t index, code_t& code) {
   row_start(NATION);
   mk_nation(index, &code);
