@@ -24,12 +24,14 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DecodeTimestampOptions
 {
+    private final boolean enableMicroPrecision;
     private final long unitsPerSecond;
     private final long nanosecondsPerUnit;
     private final long baseSeconds;
 
     public DecodeTimestampOptions(DateTimeZone hiveStorageTimeZone, boolean enableMicroPrecision)
     {
+        this.enableMicroPrecision = enableMicroPrecision;
         TimeUnit timeUnit = enableMicroPrecision ? MICROSECONDS : MILLISECONDS;
 
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
@@ -38,6 +40,11 @@ public class DecodeTimestampOptions
         this.nanosecondsPerUnit = TimeUnit.NANOSECONDS.convert(1, timeUnit);
 
         this.baseSeconds = MILLISECONDS.toSeconds(new DateTime(2015, 1, 1, 0, 0, hiveStorageTimeZone).getMillis());
+    }
+
+    public boolean enableMicroPrecision()
+    {
+        return enableMicroPrecision;
     }
 
     public long getUnitsPerSecond()
