@@ -34,4 +34,7 @@ public class PrestoSparkClientOptions
 
     @Option(name = "--schema", title = "schema", description = "Default schema")
     public String schema;
+
+    @Option(name = "--session-property-config", title = "file", description = "session-property-configuration.properties path")
+    public String sessionPropertyConfig;
 }
