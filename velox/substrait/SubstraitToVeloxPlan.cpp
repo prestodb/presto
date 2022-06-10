@@ -282,12 +282,11 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     colIdx += 1;
   }
 
-  auto projectNode = std::make_shared<core::ProjectNode>(
+  return std::make_shared<core::ProjectNode>(
       nextPlanNodeId(),
       std::move(projectNames),
       std::move(expressions),
       childNode);
-  return projectNode;
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
@@ -312,10 +311,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::ReadRel& readRel,
     memory::MemoryPool* pool,
-    u_int32_t& index,
-    std::vector<std::string>& paths,
-    std::vector<u_int64_t>& starts,
-    std::vector<u_int64_t>& lengths) {
+    std::shared_ptr<SplitInfo>& splitInfo) {
   // Get output names and types.
   std::vector<std::string> colNameList;
   std::vector<TypePtr> veloxTypeList;
@@ -335,15 +331,25 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   // Parse local files
   if (readRel.has_local_files()) {
     const auto& fileList = readRel.local_files().items();
-    paths.reserve(fileList.size());
-    starts.reserve(fileList.size());
-    lengths.reserve(fileList.size());
+    splitInfo->paths.reserve(fileList.size());
+    splitInfo->starts.reserve(fileList.size());
+    splitInfo->lengths.reserve(fileList.size());
     for (const auto& file : fileList) {
-      // Expect all Partitions share the same index.
-      index = file.partition_index();
-      paths.emplace_back(file.uri_file());
-      starts.emplace_back(file.start());
-      lengths.emplace_back(file.length());
+      // Expect all files to share the same index.
+      splitInfo->partitionIndex = file.partition_index();
+      splitInfo->paths.emplace_back(file.uri_file());
+      splitInfo->starts.emplace_back(file.start());
+      splitInfo->lengths.emplace_back(file.length());
+      switch (file.format()) {
+        case 0:
+          splitInfo->format = dwio::common::FileFormat::ORC;
+          break;
+        case 1:
+          splitInfo->format = dwio::common::FileFormat::PARQUET;
+          break;
+        default:
+          splitInfo->format = dwio::common::FileFormat::UNKNOWN;
+      }
     }
   }
 
@@ -464,8 +470,11 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     return toVeloxPlan(rel.filter(), pool);
   }
   if (rel.has_read()) {
-    return toVeloxPlan(
-        rel.read(), pool, partitionIndex_, paths_, starts_, lengths_);
+    auto splitInfo = std::make_shared<SplitInfo>();
+
+    auto planNode = toVeloxPlan(rel.read(), pool, splitInfo);
+    splitInfoMap_[planNode->id()] = splitInfo;
+    return planNode;
   }
   VELOX_NYI("Substrait conversion not supported for Rel.");
 }

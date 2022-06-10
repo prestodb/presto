@@ -34,20 +34,34 @@ class Substrait2VeloxPlanConversionTest
     : public exec::test::HiveConnectorTestBase {
  protected:
   std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
-  makeSplits(const facebook::velox::substrait::SubstraitVeloxPlanConverter&
-                 converter) {
-    const auto& paths = converter.getPaths();
-    const auto& starts = converter.getStarts();
-    const auto& lengths = converter.getLengths();
+  makeSplits(
+      const facebook::velox::substrait::SubstraitVeloxPlanConverter& converter,
+      std::shared_ptr<const core::PlanNode> planNode) {
+    const auto& splitInfos = converter.splitInfos();
+    auto leafPlanNodeIds = planNode->leafPlanNodeIds();
+    // Only one leaf node is expected here.
+    EXPECT_EQ(1, leafPlanNodeIds.size());
+    const auto& splitInfo = splitInfos.at(*leafPlanNodeIds.begin());
+
+    const auto& paths = splitInfo->paths;
+    const auto& starts = splitInfo->starts;
+    const auto& lengths = splitInfo->lengths;
+    const auto fileFormat = splitInfo->format;
 
     std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
         splits;
     splits.reserve(paths.size());
+
     for (int i = 0; i < paths.size(); i++) {
       auto path = fmt::format("{}{}", tmpDir_->path, paths[i]);
       auto start = starts[i];
       auto length = lengths[i];
-      splits.emplace_back(makeHiveConnectorSplit(path, start, length));
+      auto split = facebook::velox::exec::test::HiveConnectorSplitBuilder(path)
+                       .fileFormat(fileFormat)
+                       .start(start)
+                       .length(length)
+                       .build();
+      splits.emplace_back(split);
     }
     return splits;
   }
@@ -269,6 +283,6 @@ TEST_F(Substrait2VeloxPlanConversionTest, q6) {
   });
 
   exec::test::AssertQueryBuilder(planNode)
-      .splits(makeSplits(planConverter))
+      .splits(makeSplits(planConverter, planNode))
       .assertResults(expectedResult);
 }
