@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.reader.TimestampOutOfBoundsException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -39,6 +40,7 @@ import static java.lang.Math.floorDiv;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.assertThrows;
 
 public class TestTimestampWriteAndRead
 {
@@ -99,14 +101,36 @@ public class TestTimestampWriteAndRead
     public void testMilliWriteAndMicroRead()
             throws Exception
     {
-        List<SqlTimestamp> milliSecondValuesInMicro = MILLISECOND_VALUES.stream()
-                .map(milliTimestamp -> new SqlTimestamp(
-                        milliTimestamp.getMillisUtc() * 1000,
-                        milliTimestamp.getSessionTimeZoneKey().get(),
-                        MICROSECONDS))
-                .collect(toList());
+        List<SqlTimestamp> milliSecondValuesInMicro = getMilliTimestampsInMicros(MILLISECOND_VALUES);
 
         testPrestoRoundTrip(TIMESTAMP, MILLISECOND_VALUES, TIMESTAMP_MICROSECONDS, milliSecondValuesInMicro);
+    }
+
+    // Using micro precision reduces max timestamp range that can be represented compared to using milli precision
+    // Micro uses last 6 digits of long variable for precision, whereas only last 3 digits are needed for millis
+    // Long.MAX_VALUE is 9223372036854775807, Long.MIN_VALUE is -9223372036854775808
+    // Max and min seconds supported reading millis are 9223372036854775 and -9223372036854775
+    // Max and min seconds supported reading micros are 9223372036854 and -9223372036854
+    @Test
+    public void testOverflowReadingMicros()
+            throws Exception
+    {
+        List<SqlTimestamp> milliSecondValuesNoOverflow = ImmutableList.of(
+                sqlTimestampOf(9_223_372_036_854_000L, SESSION, MILLISECONDS),
+                sqlTimestampOf(-9_223_372_036_854_000L, SESSION, MILLISECONDS));
+        List<SqlTimestamp> valuesInMicroNoOverflow = getMilliTimestampsInMicros(milliSecondValuesNoOverflow);
+        testPrestoRoundTrip(TIMESTAMP, milliSecondValuesNoOverflow, TIMESTAMP_MICROSECONDS, valuesInMicroNoOverflow);
+
+        List<SqlTimestamp> millisecondValuesOverflow = ImmutableList.of(
+                sqlTimestampOf(9_223_372_036_855_000L, SESSION, MILLISECONDS),
+                sqlTimestampOf(-9_223_372_036_855_000L, SESSION, MILLISECONDS));
+        List<SqlTimestamp> valuesInMicroOverflow = getMilliTimestampsInMicros(millisecondValuesOverflow);
+
+        // Reading with milli precision works fine
+        testPrestoRoundTrip(TIMESTAMP, millisecondValuesOverflow, TIMESTAMP, millisecondValuesOverflow);
+        // Overflows while reading with micro precision
+        assertThrows(TimestampOutOfBoundsException.class,
+                () -> testPrestoRoundTrip(TIMESTAMP, millisecondValuesOverflow, TIMESTAMP_MICROSECONDS, valuesInMicroOverflow));
     }
 
     // Flaw in ORC encoding makes timestamp between 1969-12-31 23:59:59.000000, exclusive, and 1970-01-01 00:00:00.000000, exclusive.
@@ -181,5 +205,15 @@ public class TestTimestampWriteAndRead
                         ImmutableMap.of());
             }
         }
+    }
+
+    private List<SqlTimestamp> getMilliTimestampsInMicros(List<SqlTimestamp> millisecondValues)
+    {
+        return millisecondValues.stream()
+                .map(milliTimestamp -> new SqlTimestamp(
+                        milliTimestamp.getMillisUtc() * 1000,
+                        milliTimestamp.getSessionTimeZoneKey().get(),
+                        MICROSECONDS))
+                .collect(toList());
     }
 }
