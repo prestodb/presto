@@ -44,6 +44,7 @@ jobs:
             !presto-accumulo,
             !presto-cassandra,
             !presto-hive,
+            !presto-iceberg,
             !presto-kudu,
             !presto-docs,
             !presto-server,
