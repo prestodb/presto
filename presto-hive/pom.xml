@@ -499,6 +499,9 @@
                                 <exclude>**/TestHive2InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive3InsertOverwrite.java</exclude>
                                 <exclude>**/TestHiveIntegrationSmokeTest.java</exclude>
+                                <exclude>**/TestHiveDistributedJoinQueriesWithDynamicFiltering.java</exclude>
+                                <exclude>**/TestHiveDistributedQueries.java</exclude>
+                                <exclude>**/TestHiveDistributedQueriesWithThriftRpc.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -532,6 +535,9 @@
                             <includes>
                                 <include>**/TestHiveDistributedQueriesWithExchangeMaterialization.java</include>
                                 <include>**/TestHiveDistributedAggregationsWithExchangeMaterialization.java</include>
+                                <include>**/TestHiveDistributedJoinQueriesWithDynamicFiltering.java</include>
+                                <include>**/TestHiveDistributedQueries.java</include>
+                                <include>**/TestHiveDistributedQueriesWithThriftRpc.java</include>
                             </includes>
                         </configuration>
                     </plugin>
