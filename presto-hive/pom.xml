@@ -498,6 +498,7 @@
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                                 <exclude>**/TestHive2InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive3InsertOverwrite.java</exclude>
+                                <exclude>**/TestHiveIntegrationSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -505,7 +506,23 @@
             </build>
         </profile>
         <profile>
-            <id>test-hive-materialized-queries</id>
+            <id>test-hive-integration-smoke-test</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveIntegrationSmokeTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-materialized-queries-aggregations</id>
             <build>
                 <plugins>
                     <plugin>
@@ -514,21 +531,6 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveDistributedQueriesWithExchangeMaterialization.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>test-hive-materialized-aggregations</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
                                 <include>**/TestHiveDistributedAggregationsWithExchangeMaterialization.java</include>
                             </includes>
                         </configuration>
