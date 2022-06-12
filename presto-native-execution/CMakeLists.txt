@@ -19,7 +19,7 @@ set(VELOX_ROOT ${CMAKE_BINARY_DIR}/velox)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -mavx2 -mfma -mavx -mf16c -masm=intel -mlzcnt")
+    "${CMAKE_CXX_FLAGS} -mavx2 -mfma -mavx -mf16c -mlzcnt")
 if("${TREAT_WARNINGS_AS_ERRORS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 endif()
