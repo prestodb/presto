@@ -94,13 +94,13 @@ import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varbinaryWr
 import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static com.facebook.presto.plugin.jdbc.WriteMapping.objectMapping;
 import static com.facebook.presto.plugin.jdbc.WriteMapping.sliceMapping;
-import static com.facebook.presto.plugin.jdbc.util.TypeUtils.arrayDepth;
-import static com.facebook.presto.plugin.jdbc.util.TypeUtils.getArrayElementPgTypeName;
-import static com.facebook.presto.plugin.jdbc.util.TypeUtils.getJdbcObjectArray;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlSessionProperties.getArrayMapping;
+import static com.facebook.presto.plugin.postgresql.util.TypeUtils.arrayDepth;
+import static com.facebook.presto.plugin.postgresql.util.TypeUtils.getArrayElementPgTypeName;
+import static com.facebook.presto.plugin.postgresql.util.TypeUtils.getJdbcObjectArray;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;

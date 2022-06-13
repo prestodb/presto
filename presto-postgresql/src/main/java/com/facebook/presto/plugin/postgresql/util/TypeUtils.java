@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.jdbc.util;
+package com.facebook.presto.plugin.postgresql.util;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.ArrayType;

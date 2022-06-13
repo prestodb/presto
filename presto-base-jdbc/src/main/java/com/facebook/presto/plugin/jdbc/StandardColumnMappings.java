@@ -13,9 +13,21 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
@@ -366,6 +378,56 @@ public final class StandardColumnMappings
 
             case Types.TIMESTAMP:
                 return Optional.of(timestampColumnMapping());
+        }
+        return Optional.empty();
+    }
+
+    public static Optional<ColumnMapping> getColumnMappingFromPrestoType(Type type)
+    {
+        if (type instanceof BooleanType) {
+            return Optional.of(booleanColumnMapping());
+        }
+        else if (type instanceof TinyintType) {
+            return Optional.of(tinyintColumnMapping());
+        }
+        else if (type instanceof SmallintType) {
+            return Optional.of(smallIntColumnMapping());
+        }
+        else if (type instanceof IntegerType) {
+            return Optional.of(integerColumnMapping());
+        }
+        else if (type instanceof BigintType) {
+            return Optional.of(bigintColumnMapping());
+        }
+        else if (type instanceof RealType) {
+            return Optional.of(realColumnMapping());
+        }
+        else if (type instanceof DoubleType) {
+            return Optional.of(doubleColumnMapping());
+        }
+        else if (type instanceof DecimalType) {
+            //TODO: add support for Decimal type here
+            return Optional.empty();
+        }
+        else if (type instanceof CharType) {
+            //TODO: check if there is any way of getting the column size here
+            return Optional.of(charColumnMapping(createCharType(CharType.MAX_LENGTH)));
+        }
+        else if (type instanceof VarcharType) {
+            //TODO: check if there is any way of getting the actual column size here
+            return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+        }
+        else if (type instanceof VarbinaryType) {
+            return Optional.of(varbinaryColumnMapping());
+        }
+        else if (type instanceof DateType) {
+            return Optional.of(dateColumnMapping());
+        }
+        else if (type instanceof TimeType) {
+            return Optional.of(timeColumnMapping());
+        }
+        else if (type instanceof TimestampType) {
+            return Optional.of(timestampColumnMapping());
         }
         return Optional.empty();
     }
