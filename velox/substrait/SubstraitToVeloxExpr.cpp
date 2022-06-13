@@ -21,21 +21,21 @@ namespace facebook::velox::substrait {
 
 std::shared_ptr<const core::FieldAccessTypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression::FieldReference& sField,
+    const ::substrait::Expression::FieldReference& substraitField,
     const RowTypePtr& inputType) {
-  auto typeCase = sField.reference_type_case();
+  auto typeCase = substraitField.reference_type_case();
   switch (typeCase) {
     case ::substrait::Expression::FieldReference::ReferenceTypeCase::
         kDirectReference: {
-      auto dRef = sField.direct_reference();
-      int32_t colIdx = substraitParser_.parseReferenceSegment(dRef);
+      const auto& directRef = substraitField.direct_reference();
+      int32_t colIdx = substraitParser_.parseReferenceSegment(directRef);
 
       const auto& inputTypes = inputType->children();
       const auto& inputNames = inputType->names();
       const int64_t inputSize = inputNames.size();
 
       if (colIdx <= inputSize) {
-        // convert type to row
+        // Convert type to row.
         return std::make_shared<core::FieldAccessTypedExpr>(
             inputTypes[colIdx],
             std::make_shared<core::InputTypedExpr>(inputTypes[colIdx]),
@@ -52,39 +52,42 @@ SubstraitVeloxExprConverter::toVeloxExpr(
 
 std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression::ScalarFunction& sFunc,
+    const ::substrait::Expression::ScalarFunction& substraitFunc,
     const RowTypePtr& inputType) {
   std::vector<std::shared_ptr<const core::ITypedExpr>> params;
-  params.reserve(sFunc.args().size());
-  for (const auto& sArg : sFunc.args()) {
+  params.reserve(substraitFunc.args().size());
+  for (const auto& sArg : substraitFunc.args()) {
     params.emplace_back(toVeloxExpr(sArg, inputType));
   }
-  auto functionId = sFunc.function_reference();
-  auto veloxFunction =
-      substraitParser_.findVeloxFunction(functionMap_, functionId);
-  auto substraitType = substraitParser_.parseType(sFunc.output_type());
-  auto veloxType = toVeloxType(substraitType->type);
+  const auto& veloxFunction = substraitParser_.findVeloxFunction(
+      functionMap_, substraitFunc.function_reference());
+  const auto& veloxType = toVeloxType(
+      substraitParser_.parseType(substraitFunc.output_type())->type);
+
   return std::make_shared<const core::CallTypedExpr>(
       veloxType, std::move(params), veloxFunction);
 }
 
 std::shared_ptr<const core::ConstantTypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression::Literal& sLit) {
-  auto typeCase = sLit.literal_type_case();
+    const ::substrait::Expression::Literal& substraitLit) {
+  auto typeCase = substraitLit.literal_type_case();
   switch (typeCase) {
     case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean:
-      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.boolean()));
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(substraitLit.boolean()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kI32:
-      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.i32()));
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(substraitLit.i32()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kI64:
-      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.i64()));
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(substraitLit.i64()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kFp64:
-      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.fp64()));
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(substraitLit.fp64()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kNull: {
-      auto substraitType = substraitParser_.parseType(sLit.null());
-      auto veloxType = toVeloxType(substraitType->type);
-
+      auto veloxType =
+          toVeloxType(substraitParser_.parseType(substraitLit.null())->type);
       return std::make_shared<core::ConstantTypedExpr>(
           veloxType, variant::null(veloxType->kind()));
     }
@@ -111,19 +114,19 @@ SubstraitVeloxExprConverter::toVeloxExpr(
 
 std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression& sExpr,
+    const ::substrait::Expression& substraitExpr,
     const RowTypePtr& inputType) {
   std::shared_ptr<const core::ITypedExpr> veloxExpr;
-  auto typeCase = sExpr.rex_type_case();
+  auto typeCase = substraitExpr.rex_type_case();
   switch (typeCase) {
     case ::substrait::Expression::RexTypeCase::kLiteral:
-      return toVeloxExpr(sExpr.literal());
+      return toVeloxExpr(substraitExpr.literal());
     case ::substrait::Expression::RexTypeCase::kScalarFunction:
-      return toVeloxExpr(sExpr.scalar_function(), inputType);
+      return toVeloxExpr(substraitExpr.scalar_function(), inputType);
     case ::substrait::Expression::RexTypeCase::kSelection:
-      return toVeloxExpr(sExpr.selection(), inputType);
+      return toVeloxExpr(substraitExpr.selection(), inputType);
     case ::substrait::Expression::RexTypeCase::kCast:
-      return toVeloxExpr(sExpr.cast(), inputType);
+      return toVeloxExpr(substraitExpr.cast(), inputType);
     default:
       VELOX_NYI(
           "Substrait conversion not supported for Expression '{}'", typeCase);

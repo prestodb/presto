@@ -32,14 +32,14 @@ class SubstraitVeloxExprConverter {
       const std::unordered_map<uint64_t, std::string>& functionMap)
       : functionMap_(functionMap) {}
 
-  /// Used to convert Substrait Field into Velox Field Expression.
+  /// Convert Substrait Field into Velox Field Expression.
   std::shared_ptr<const core::FieldAccessTypedExpr> toVeloxExpr(
-      const ::substrait::Expression::FieldReference& sField,
+      const ::substrait::Expression::FieldReference& substraitField,
       const RowTypePtr& inputType);
 
-  /// Used to convert Substrait ScalarFunction into Velox Expression.
+  /// Convert Substrait ScalarFunction into Velox Expression.
   std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
-      const ::substrait::Expression::ScalarFunction& sFunc,
+      const ::substrait::Expression::ScalarFunction& substraitFunc,
       const RowTypePtr& inputType);
 
   /// Convert Substrait CastExpression to Velox Expression.
@@ -47,11 +47,11 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression::Cast& castExpr,
       const RowTypePtr& inputType);
 
-  /// Used to convert Substrait Literal into Velox Expression.
+  /// Convert Substrait Literal into Velox Expression.
   std::shared_ptr<const core::ConstantTypedExpr> toVeloxExpr(
-      const ::substrait::Expression::Literal& sLit);
+      const ::substrait::Expression::Literal& substraitLit);
 
-  /// Used to convert Substrait Expression into Velox Expression.
+  /// Convert Substrait Expression into Velox Expression.
   std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
       const ::substrait::Expression& substraitExpr,
       const RowTypePtr& inputType);
