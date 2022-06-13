@@ -49,6 +49,7 @@ jobs:
           - ":presto-spark-base -P presto-spark-tests-smoke"
           - ":presto-spark-base -P presto-spark-tests-all-queries"
           - ":presto-spark-base -P presto-spark-tests-spill-queries"
+          - ":presto-iceberg"
     timeout-minutes: 80
     steps:
       - uses: actions/checkout@v2
