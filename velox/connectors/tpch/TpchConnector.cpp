@@ -71,6 +71,7 @@ TpchDataSource::TpchDataSource(
       tpchTableHandle, "TableHandle must be an instance of TpchTableHandle");
   tpchTable_ = tpchTableHandle->getTable();
   scaleFactor_ = tpchTableHandle->getScaleFactor();
+  tpchTableRowCount_ = getRowCount(tpchTable_, scaleFactor_);
 
   auto tpchTableSchema = getTableSchema(tpchTableHandle->getTable());
   VELOX_CHECK_NOT_NULL(tpchTableSchema, "TpchSchema can't be null.");
@@ -127,21 +128,31 @@ void TpchDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
       "Previous split has not been processed yet. Call next() to process the split.");
   currentSplit_ = std::dynamic_pointer_cast<TpchConnectorSplit>(split);
   VELOX_CHECK(currentSplit_, "Wrong type of split for TpchDataSource.");
-  splitOffset_ = 0;
+
+  size_t partSize =
+      std::ceil((double)tpchTableRowCount_ / (double)currentSplit_->totalParts);
+
+  splitOffset_ = partSize * currentSplit_->partNumber;
+  splitEnd_ = splitOffset_ + partSize;
 }
 
 RowVectorPtr TpchDataSource::next(uint64_t size) {
   VELOX_CHECK_NOT_NULL(
       currentSplit_, "No split to process. Call addSplit() first.");
 
-  auto outputVector =
-      getTpchData(tpchTable_, size, splitOffset_, scaleFactor_, pool_);
+  auto outputVector = getTpchData(
+      tpchTable_,
+      std::min(size, (splitEnd_ - splitOffset_)),
+      splitOffset_,
+      scaleFactor_,
+      pool_);
 
   // If the split is exhausted.
   if (!outputVector || outputVector->size() == 0) {
     currentSplit_ = nullptr;
     return nullptr;
   }
+
   splitOffset_ += outputVector->size();
   completedRows_ += outputVector->size();
   completedBytes_ += outputVector->retainedSize();
