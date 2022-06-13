@@ -483,30 +483,4 @@ void Base64::decode_url(
 // //   return result;
 // // }
 
-// void Base64::base64_decode_string(const std::string& str, std::string& out) {
-//   size_t len = str.length();
-//   while (len && str[len - 1] == '=') {
-//     --len;
-//   }
-
-//   uint8_t b1[4];
-//   const char* b = str.data();
-//   out.clear();
-//   while (len >= 4) {
-//     b1[0] = b[0];
-//     b1[1] = b[1];
-//     b1[2] = b[2];
-//     b1[3] = b[3];
-//     apache::thrift::protocol::base64_decode(b1, 4);
-//     out.append((const char*)b1, 3);
-//     b += 4;
-//     len -= 4;
-//   }
-//   if (len > 1) {
-//     FOR_EACH_RANGE (i, 0, len) { b1[i] = b[i]; }
-//     apache::thrift::protocol::base64_decode(b1, len);
-//     out.append((const char*)b1, len - 1);
-//   }
-// }
-
 } // namespace facebook::velox::encoding
