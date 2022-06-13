@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.PREFER_MERGE_JOIN;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.ORDER_BASED_EXECUTION_ENABLED;
@@ -133,6 +134,12 @@ public class TestMergeJoinPlan
                     mergeJoinEnabled(),
                     "select * from test_join_customer join test_join_order on test_join_customer.custkey = test_join_order.custkey",
                     joinPlan("test_join_customer", "test_join_order", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, true));
+
+            // When we miss grouped execution session property, we can't enable merge join
+            assertPlan(
+                    groupedExecutionDisabled(),
+                    "select * from test_join_customer join test_join_order on test_join_customer.custkey = test_join_order.custkey",
+                    joinPlan("test_join_customer", "test_join_order", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, false));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer");
@@ -291,10 +298,20 @@ public class TestMergeJoinPlan
         }
     }
 
+    private Session groupedExecutionDisabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(PREFER_MERGE_JOIN, "true")
+                .setSystemProperty(GROUPED_EXECUTION, "false")
+                .setCatalogSessionProperty(HIVE_CATALOG, ORDER_BASED_EXECUTION_ENABLED, "true")
+                .build();
+    }
+
     private Session mergeJoinEnabled()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(PREFER_MERGE_JOIN, "true")
+                .setSystemProperty(GROUPED_EXECUTION, "true")
                 .setCatalogSessionProperty(HIVE_CATALOG, ORDER_BASED_EXECUTION_ENABLED, "true")
                 .build();
     }
