@@ -29,6 +29,9 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.catalogserver.CatalogServerClient;
+import com.facebook.presto.catalogserver.RandomCatalogServerAddressSelector;
+import com.facebook.presto.catalogserver.RemoteMetadataManager;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.common.block.Block;
@@ -269,6 +272,9 @@ public class ServerMainModule
         if (serverConfig.isResourceManager()) {
             install(new ResourceManagerModule());
         }
+        else if (serverConfig.isCatalogServer()) {
+            install(new CatalogServerModule());
+        }
         else if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
         }
@@ -379,6 +385,13 @@ public class ServerMainModule
                     }
                     return new ExceptionClassification(Optional.of(true), NORMAL);
                 });
+
+        binder.bind(RandomCatalogServerAddressSelector.class).in(Scopes.SINGLETON);
+        driftClientBinder(binder)
+                .bindDriftClient(CatalogServerClient.class)
+                .withAddressSelector((addressSelectorBinder, annotation, prefix) ->
+                        addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(RandomCatalogServerAddressSelector.class));
+
         newOptionalBinder(binder, ClusterMemoryManagerService.class);
         install(installModuleIf(
                 ServerConfig.class,
@@ -539,7 +552,14 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+
+        if (serverConfig.isCatalogServerEnabled() && serverConfig.isCoordinator()) {
+            binder.bind(RemoteMetadataManager.class).in(Scopes.SINGLETON);
+            binder.bind(Metadata.class).to(RemoteMetadataManager.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        }
 
         // row expression utils
         binder.bind(DomainTranslator.class).to(RowExpressionDomainTranslator.class).in(Scopes.SINGLETON);
@@ -613,10 +633,13 @@ public class ServerMainModule
         // presto announcement
         checkArgument(!(serverConfig.isResourceManager() && serverConfig.isCoordinator()),
                 "Server cannot be configured as both resource manager and coordinator");
+        checkArgument(!(serverConfig.isCatalogServer() && serverConfig.isCoordinator()),
+                "Server cannot be configured as both catalog server and coordinator");
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("resource_manager", String.valueOf(serverConfig.isResourceManager()))
+                .addProperty("catalog_server", String.valueOf(serverConfig.isCatalogServer()))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
 
         // server info resource
