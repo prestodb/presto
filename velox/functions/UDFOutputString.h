@@ -42,20 +42,12 @@ class UDFOutputString {
 
   /// Has the semantics as std::string, except that it does not fill the
   /// space[size(), newSize] with 0 but rather leaves it as is
-  virtual void resize(size_t newSize) {
-    if (newSize <= size_) {
-      // shrinking
-      size_ = newSize;
-      return;
-    }
-
-    // newSize > size
-    if (newSize <= capacity_) {
-      size_ = newSize;
-    } else {
+  void resize(size_t newSize) {
+    if (newSize > capacity_) {
       reserve(newSize);
-      resize(newSize);
     }
+    size_ = newSize;
+    return;
   }
 
   /// Reserve a sequential space for the string with at least size bytes.

@@ -472,7 +472,7 @@ struct TestFunction {
       out_type<Varchar>& out,
       const arg_type<Varchar>&,
       const arg_type<Varchar>&) {
-    out = "1"_sv;
+    out.copy_from("1"_sv);
   }
 
   void call(int32_t& out, const arg_type<Variadic<Varchar>>&) {

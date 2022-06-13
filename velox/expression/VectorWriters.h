@@ -354,58 +354,45 @@ struct VectorWriter<
   using exec_out_t = StringWriter<>;
 
   void init(vector_t& vector) {
-    vector_ = &vector;
+    proxy_.vector_ = &vector;
   }
 
   void finish() {}
 
   void ensureSize(size_t size) {
-    if (size > vector_->size()) {
-      vector_->resize(size, /*setNotNull*/ false);
+    if (size > proxy_.vector_->size()) {
+      proxy_.vector_->resize(size, /*setNotNull*/ false);
     }
   }
 
   VectorWriter() {}
 
   exec_out_t& current() {
-    proxy_ = exec_out_t(vector_, offset_);
     return proxy_;
   }
 
-  void copyCommit(const exec_out_t& data) {
-    // If not initialized for zero-copy writes, copy the value into the vector.
-    if (!proxy_.initialized()) {
-      vector_->set(offset_, StringView(data.value()));
-    } else {
-      // Not really copying.
-      proxy_.finalize();
-    }
-  }
-
   void commitNull() {
-    vector_->setNull(offset_, true);
+    proxy_.vector_->setNull(proxy_.offset_, true);
   }
 
   void commit(bool isSet) {
     // this code path is called when the slice is top-level
     if (isSet) {
-      copyCommit(proxy_);
+      proxy_.finalize();
     } else {
       commitNull();
     }
+    proxy_.prepareForReuse(isSet);
   }
 
   void setOffset(int32_t offset) {
-    offset_ = offset;
+    proxy_.offset_ = offset;
   }
 
   vector_t& vector() {
-    return *vector_;
+    return *proxy_.vector_;
   }
-
   exec_out_t proxy_;
-  vector_t* vector_;
-  size_t offset_ = 0;
 };
 
 template <typename T>

@@ -29,20 +29,9 @@ class StringWriter;
 template <>
 class StringWriter<false /*reuseInput*/> : public UDFOutputString {
  public:
-  StringWriter() : vector_(nullptr), offset_(-1) {}
-
   // Used to initialize top-level strings and allow zero-copy writes.
   StringWriter(FlatVector<StringView>* vector, int32_t offset)
       : vector_(vector), offset_(offset) {}
-
-  // Used to initialize nested strings and requires a copy on write.
-  /* implicit */ StringWriter(StringView value)
-      : vector_(nullptr), offset_(-1), value_{value.str()} {}
-
-  // Returns true if initialized for zero-copy write. False, otherwise.
-  bool initialized() const {
-    return offset_ >= 0;
-  }
 
   // If not initialized for zero-copy write, returns a string to copy into the
   // target vector on commit.
@@ -57,12 +46,10 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
     }
 
     auto* newDataBuffer = vector_->getBufferWithSpace(newCapacity);
-    // If the new allocated space is on the same buffer no need to copy content
-    // or reassign start address
-    if (dataBuffer_ == newDataBuffer) {
-      setCapacity(newCapacity);
-      return;
-    }
+    auto actualCapacity = newDataBuffer->capacity() - newDataBuffer->size();
+
+    // Impossible to be the same due to the way the capacity is computed.
+    DCHECK(dataBuffer_ != newDataBuffer);
 
     auto newStartAddress =
         newDataBuffer->asMutable<char>() + newDataBuffer->size();
@@ -71,21 +58,31 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
       std::memcpy(newStartAddress, data(), size());
     }
 
-    setCapacity(newCapacity);
+    setCapacity(actualCapacity);
     setData(newStartAddress);
     dataBuffer_ = newDataBuffer;
   }
 
   /// Not called by the UDF Implementation. Should be called at the end to
-  /// finalize the allocation and the string writing
+  /// finalize the allocation and the string writing.
   void finalize() {
     if (!finalized_) {
-      VELOX_CHECK(size() == 0 || data());
-      if (dataBuffer_) {
+      VELOX_DCHECK(size() == 0 || data());
+      if LIKELY (size()) {
+        DCHECK(dataBuffer_);
         dataBuffer_->setSize(dataBuffer_->size() + size());
       }
       vector_->setNoCopy(offset_, StringView(data(), size()));
     }
+  }
+
+  void prepareForReuse(bool isSet) {
+    if (isSet) {
+      setCapacity(capacity() - size());
+      setData(data() + size());
+    }
+    resize(0);
+    finalized_ = false;
   }
 
   void setEmpty() {
@@ -126,7 +123,6 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
 
   template <typename T>
   void copy_from(const T& input) {
-    VELOX_DCHECK(initialized());
     append(input);
   }
 
@@ -135,6 +131,8 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
   }
 
  private:
+  StringWriter() = default;
+
   bool finalized_{false};
 
   /// The buffer that the output string uses for its allocation set during
@@ -146,6 +144,9 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
   int32_t offset_;
 
   std::string value_;
+
+  template <typename A, typename B>
+  friend struct VectorWriter;
 };
 
 // A string writer with UDFOutputString semantics that utilizes a pre-allocated
@@ -179,7 +180,7 @@ class StringWriter<true /*reuseInput*/> : public UDFOutputString {
   /// Not called by the UDF Implementation. Should be called at the end to
   /// finalize the allocation and the string writing
   void finalize() {
-    VELOX_CHECK(size() == 0 || data());
+    VELOX_DCHECK(size() == 0 || data());
     vector_->setNoCopy(offset_, StringView(data(), size()));
   }
 
