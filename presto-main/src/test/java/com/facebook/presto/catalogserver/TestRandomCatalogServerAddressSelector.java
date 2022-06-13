@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.resourcemanager;
+package com.facebook.presto.catalogserver;
 
 import com.facebook.drift.client.address.SimpleAddressSelector;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -27,7 +27,7 @@ import java.util.OptionalInt;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestRandomResourceManagerAddressSelector
+public class TestRandomCatalogServerAddressSelector
 {
     public static final ConnectorId CONNECTOR_ID = new ConnectorId("dummy");
 
@@ -35,7 +35,7 @@ public class TestRandomResourceManagerAddressSelector
     public void testAddressSelectionContextPresent()
     {
         InMemoryNodeManager internalNodeManager = new InMemoryNodeManager();
-        RandomResourceManagerAddressSelector selector = new RandomResourceManagerAddressSelector(internalNodeManager);
+        RandomCatalogServerAddressSelector selector = new RandomCatalogServerAddressSelector(internalNodeManager);
 
         HostAndPort hostAndPort = HostAndPort.fromParts("abc", 123);
         Optional<SimpleAddressSelector.SimpleAddress> address = selector.selectAddress(Optional.of(hostAndPort.toString()));
@@ -47,7 +47,7 @@ public class TestRandomResourceManagerAddressSelector
     public void testAddressSelectionContextPresentWithInvalidAddress()
     {
         InMemoryNodeManager internalNodeManager = new InMemoryNodeManager();
-        RandomResourceManagerAddressSelector selector = new RandomResourceManagerAddressSelector(internalNodeManager);
+        RandomCatalogServerAddressSelector selector = new RandomCatalogServerAddressSelector(internalNodeManager);
 
         selector.selectAddress(Optional.of("host:123.456"));
     }
@@ -56,18 +56,18 @@ public class TestRandomResourceManagerAddressSelector
     public void testAddressSelectionNoContext()
     {
         InMemoryNodeManager internalNodeManager = new InMemoryNodeManager();
-        RandomResourceManagerAddressSelector selector = new RandomResourceManagerAddressSelector(internalNodeManager, hostAndPorts -> Optional.of(hostAndPorts.get(0)));
+        RandomCatalogServerAddressSelector selector = new RandomCatalogServerAddressSelector(internalNodeManager, hostAndPorts -> Optional.of(hostAndPorts.get(0)));
 
         internalNodeManager.addNode(
                 CONNECTOR_ID,
                 new InternalNode(
-                    "1",
-                    URI.create("local://localhost:123/1"),
-                    OptionalInt.empty(),
-                    "1",
-                    false,
-                    true,
-                    false));
+                        "1",
+                        URI.create("local://localhost:123/1"),
+                        OptionalInt.empty(),
+                        "1",
+                        false,
+                        false,
+                        true));
         internalNodeManager.addNode(
                 CONNECTOR_ID,
                 new InternalNode(
@@ -76,8 +76,8 @@ public class TestRandomResourceManagerAddressSelector
                         OptionalInt.of(2),
                         "1",
                         false,
-                        true,
-                        false));
+                        false,
+                        true));
         internalNodeManager.addNode(
                 CONNECTOR_ID,
                 new InternalNode(
@@ -86,8 +86,8 @@ public class TestRandomResourceManagerAddressSelector
                         OptionalInt.of(3),
                         "1",
                         false,
-                        true,
-                        false));
+                        false,
+                        true));
 
         Optional<SimpleAddressSelector.SimpleAddress> address = selector.selectAddress(Optional.empty());
         assertTrue(address.isPresent());

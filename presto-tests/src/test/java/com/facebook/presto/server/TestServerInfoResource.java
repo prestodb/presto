@@ -86,6 +86,7 @@ public class TestServerInfoResource
     {
         queryRunner = createQueryRunner(
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of("cluster.required-resource-managers-active", "1", "cluster.required-coordinators-active", "1"),
                 ImmutableMap.of("query.client.timeout", "10s"), 2);
     }
@@ -105,6 +106,7 @@ public class TestServerInfoResource
     {
         queryRunner = createQueryRunnerWithNoClusterReadyCheck(
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of("cluster.required-resource-managers-active", "2", "cluster.required-coordinators-active", "1"),
                 ImmutableMap.of("query.client.timeout", "10s"), 2);
     }
@@ -123,6 +125,7 @@ public class TestServerInfoResource
             throws Exception
     {
         queryRunner = createQueryRunnerWithNoClusterReadyCheck(
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of("cluster.required-resource-managers-active", "1", "cluster.required-coordinators-active", "3"),
                 ImmutableMap.of("query.client.timeout", "10s"), 2);

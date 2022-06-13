@@ -40,6 +40,7 @@ public class PrestoSparkInternalNodeManager
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
+            ImmutableSet.of(),
             ImmutableSet.of());
 
     @Override
@@ -83,6 +84,12 @@ public class PrestoSparkInternalNodeManager
 
     @Override
     public Set<InternalNode> getResourceManagers()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<InternalNode> getCatalogServers()
     {
         throw new UnsupportedOperationException();
     }

@@ -27,14 +27,22 @@ public class AllNodes
     private final Set<InternalNode> shuttingDownNodes;
     private final Set<InternalNode> activeCoordinators;
     private final Set<InternalNode> activeResourceManagers;
+    private final Set<InternalNode> activeCatalogServers;
 
-    public AllNodes(Set<InternalNode> activeNodes, Set<InternalNode> inactiveNodes, Set<InternalNode> shuttingDownNodes, Set<InternalNode> activeCoordinators, Set<InternalNode> activeResourceManagers)
+    public AllNodes(
+            Set<InternalNode> activeNodes,
+            Set<InternalNode> inactiveNodes,
+            Set<InternalNode> shuttingDownNodes,
+            Set<InternalNode> activeCoordinators,
+            Set<InternalNode> activeResourceManagers,
+            Set<InternalNode> activeCatalogServers)
     {
         this.activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
         this.inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
         this.shuttingDownNodes = ImmutableSet.copyOf(requireNonNull(shuttingDownNodes, "shuttingDownNodes is null"));
         this.activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
         this.activeResourceManagers = ImmutableSet.copyOf(requireNonNull(activeResourceManagers, "activeResourceManagers is null"));
+        this.activeCatalogServers = ImmutableSet.copyOf(requireNonNull(activeCatalogServers, "activeCatalogServers is null"));
     }
 
     public Set<InternalNode> getActiveNodes()
@@ -62,6 +70,11 @@ public class AllNodes
         return activeResourceManagers;
     }
 
+    public Set<InternalNode> getActiveCatalogServers()
+    {
+        return activeCatalogServers;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -76,12 +89,13 @@ public class AllNodes
                 Objects.equals(inactiveNodes, allNodes.inactiveNodes) &&
                 Objects.equals(shuttingDownNodes, allNodes.shuttingDownNodes) &&
                 Objects.equals(activeCoordinators, allNodes.activeCoordinators) &&
-                Objects.equals(activeResourceManagers, allNodes.activeResourceManagers);
+                Objects.equals(activeResourceManagers, allNodes.activeResourceManagers) &&
+                Objects.equals(activeCatalogServers, allNodes.activeCatalogServers);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(activeNodes, inactiveNodes, shuttingDownNodes, activeCoordinators, activeResourceManagers);
+        return Objects.hash(activeNodes, inactiveNodes, shuttingDownNodes, activeCoordinators, activeResourceManagers, activeCatalogServers);
     }
 }

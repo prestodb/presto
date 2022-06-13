@@ -56,6 +56,7 @@ public class TestDiscoveryNodeManager
     private final NodeInfo workerNodeInfo = new NodeInfo("test");
     private final NodeInfo coordinatorNodeInfo = new NodeInfo("test");
     private final NodeInfo resourceManagerNodeInfo = new NodeInfo("test");
+    private final NodeInfo catalogServerNodeInfo = new NodeInfo("test");
     private final InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig();
     private NodeVersion expectedVersion;
     private Set<InternalNode> activeNodes;
@@ -65,6 +66,8 @@ public class TestDiscoveryNodeManager
     private InternalNode inActiveCoordinator;
     private InternalNode inActiveResourceManager;
     private InternalNode resourceManager;
+    private InternalNode catalogServer;
+    private InternalNode inActiveCatalogServer;
     private InternalNode workerNode1;
     private final PrestoNodeServiceSelector selector = new PrestoNodeServiceSelector();
     private HttpClient testHttpClient;
@@ -80,11 +83,37 @@ public class TestDiscoveryNodeManager
 
         expectedVersion = new NodeVersion("1");
         coordinator = new InternalNode(coordinatorNodeInfo.getNodeId(), URI.create("https://192.0.2.8"), expectedVersion, true);
-        resourceManager = new InternalNode(resourceManagerNodeInfo.getNodeId(), URI.create("https://192.0.2.9"), expectedVersion, false, true);
+        resourceManager = new InternalNode(
+                resourceManagerNodeInfo.getNodeId(),
+                URI.create("https://192.0.2.9"),
+                expectedVersion,
+                false,
+                true,
+                false);
+        catalogServer = new InternalNode(
+                catalogServerNodeInfo.getNodeId(),
+                URI.create("https://192.0.3.1"),
+                expectedVersion,
+                false,
+                false,
+                true);
         workerNode1 = new InternalNode(workerNodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion, false);
         workerNode2 = new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion, false);
         workerNode3 = new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion, false);
-        inActiveResourceManager = new InternalNode(resourceManagerNodeInfo.getNodeId(), URI.create("https://192.0.2.9"), new NodeVersion("2"), false, true);
+        inActiveResourceManager = new InternalNode(
+                resourceManagerNodeInfo.getNodeId(),
+                URI.create("https://192.0.2.9"),
+                new NodeVersion("2"),
+                false,
+                true,
+                false);
+        inActiveCatalogServer = new InternalNode(
+                catalogServerNodeInfo.getNodeId(),
+                URI.create("https://192.0.3.2"),
+                new NodeVersion("2"),
+                false,
+                false,
+                true);
         inActiveCoordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.1"), new NodeVersion("2"), true);
         inActiveWorkerNode1 = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, false);
         inActiveWorkerNode2 = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false);
@@ -94,10 +123,12 @@ public class TestDiscoveryNodeManager
                 .addAll(workerNodes)
                 .add(coordinator)
                 .add(resourceManager)
+                .add(catalogServer)
                 .build();
         inactiveNodes = ImmutableSet.of(
                 inActiveCoordinator,
                 inActiveResourceManager,
+                inActiveCatalogServer,
                 inActiveWorkerNode1,
                 inActiveWorkerNode2);
 
@@ -112,7 +143,7 @@ public class TestDiscoveryNodeManager
             AllNodes allNodes = manager.getAllNodes();
 
             Set<InternalNode> activeNodes = allNodes.getActiveNodes();
-            assertEqualsIgnoreOrder(activeNodes, ImmutableSet.of(resourceManager));
+            assertEqualsIgnoreOrder(activeNodes, ImmutableSet.of(resourceManager, catalogServer));
 
             for (InternalNode actual : activeNodes) {
                 for (InternalNode expected : this.activeNodes) {
@@ -123,7 +154,7 @@ public class TestDiscoveryNodeManager
             assertEqualsIgnoreOrder(activeNodes, manager.getNodes(ACTIVE));
 
             Set<InternalNode> inactiveNodes = allNodes.getInactiveNodes();
-            assertEqualsIgnoreOrder(inactiveNodes, ImmutableSet.of(inActiveResourceManager));
+            assertEqualsIgnoreOrder(inactiveNodes, ImmutableSet.of(inActiveResourceManager, inActiveCatalogServer));
 
             for (InternalNode actual : inactiveNodes) {
                 for (InternalNode expected : this.inactiveNodes) {
@@ -242,6 +273,18 @@ public class TestDiscoveryNodeManager
         }
     }
 
+    @Test
+    public void testGetCatalogServers()
+    {
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.of(host -> false), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig);
+        try {
+            assertEquals(manager.getCatalogServers(), ImmutableSet.of(catalogServer));
+        }
+        finally {
+            manager.stop();
+        }
+    }
+
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".* current node not returned .*")
     public void testGetCurrentNodeRequired()
@@ -294,6 +337,7 @@ public class TestDiscoveryNodeManager
                         .addProperty("node_version", node.getNodeVersion().toString())
                         .addProperty("coordinator", String.valueOf(node.isCoordinator()))
                         .addProperty("resource_manager", String.valueOf(node.isResourceManager()))
+                        .addProperty("catalog_server", String.valueOf(node.isCatalogServer()))
                         .build());
             }
 
