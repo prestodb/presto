@@ -32,6 +32,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
@@ -69,16 +70,21 @@ public final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
+    public static Table loadHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
     {
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-        TableOperations operations = new HiveTableOperations(
-                metastore,
-                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER),
-                hdfsEnvironment,
-                hdfsContext,
-                table.getSchemaName(),
-                table.getTableName());
+        TableOperations operations = createHiveTableOperations(metastore, hdfsEnvironment, session, table);
+        return new BaseTable(operations, quotedTableName(table));
+    }
+
+    public static Table getIcebergTableWithMetadata(
+            ExtendedHiveMetastore metastore,
+            HdfsEnvironment hdfsEnvironment,
+            ConnectorSession session,
+            SchemaTableName table,
+            TableMetadata tableMetadata)
+    {
+        HiveTableOperations operations = createHiveTableOperations(metastore, hdfsEnvironment, session, table);
+        operations.initializeFromMetadata(tableMetadata);
         return new BaseTable(operations, quotedTableName(table));
     }
 
@@ -141,6 +147,18 @@ public final class IcebergUtil
     public static Optional<String> getTableComment(Table table)
     {
         return Optional.ofNullable(table.properties().get(TABLE_COMMENT));
+    }
+
+    private static HiveTableOperations createHiveTableOperations(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
+    {
+        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+        return new HiveTableOperations(
+                metastore,
+                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER),
+                hdfsEnvironment,
+                hdfsContext,
+                table.getSchemaName(),
+                table.getTableName());
     }
 
     private static String quotedTableName(SchemaTableName name)

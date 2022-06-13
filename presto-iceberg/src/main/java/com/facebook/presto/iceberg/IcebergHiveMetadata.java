@@ -42,6 +42,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -55,6 +56,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.IcebergSchemaProperties.getSchemaLocation;
@@ -62,9 +64,10 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
-import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.loadHiveIcebergTable;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
@@ -89,6 +92,8 @@ public class IcebergHiveMetadata
 {
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
+
+    private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
 
     public IcebergHiveMetadata(
             ExtendedHiveMetastore metastore,
@@ -377,5 +382,14 @@ public class IcebergHiveMetadata
             return Optional.of(IcebergUtil.resolveSnapshotId(table, snapshotId.get()));
         }
         return Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
+    }
+
+    org.apache.iceberg.Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
+    {
+        TableMetadata metadata = tableMetadataCache.computeIfAbsent(
+                table,
+                ignore -> ((BaseTable) loadHiveIcebergTable(metastore, hdfsEnvironment, session, table)).operations().current());
+
+        return getIcebergTableWithMetadata(metastore, hdfsEnvironment, session, table, metadata);
     }
 }

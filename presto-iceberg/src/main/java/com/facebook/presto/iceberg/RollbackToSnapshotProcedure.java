@@ -32,7 +32,7 @@ import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
-import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.loadHiveIcebergTable;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static java.util.Objects.requireNonNull;
 
@@ -89,7 +89,7 @@ public class RollbackToSnapshotProcedure
         }
         else {
             ExtendedHiveMetastore metastore = ((IcebergHiveMetadata) metadata).getMetastore();
-            icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, clientSession, schemaTableName);
+            icebergTable = loadHiveIcebergTable(metastore, hdfsEnvironment, clientSession, schemaTableName);
         }
         icebergTable.rollback().toSnapshotId(snapshotId).commit();
     }
