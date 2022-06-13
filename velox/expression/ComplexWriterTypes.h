@@ -76,20 +76,6 @@ bool constexpr requires_commit =
 
 // The object passed to the simple function interface that represent a single
 // array entry.
-//
-// General Interface:
-// - add_item()  : Add not null item and return proxy to the value to be
-// written.
-// - add_null()  : Add null item.
-// - size()      : Return the size of the array.
-//
-// Special std::like interfaces when V is primitive:
-// - resize(n)         : Resize to n, nullity not written.
-// - operator[](index) : Returns PrimitiveWriter which can be used to write
-// value and nullity at index.
-// - push_back(std::optional<v> value) : Increase size by 1, adding a value or
-// null.
-// - back() : Return PrimitiveWriter for the last element in the array.
 template <typename V>
 class ArrayWriter {
   using child_writer_t = VectorWriter<V, void>;
@@ -300,25 +286,6 @@ class ArrayWriter {
 
 // The object passed to the simple function interface that represent a single
 // output map entry.
-//
-// General Interface:
-// - add_item()  : return references to key and value writers as tuple.
-// - add_null()  : return key writer, set value to null.
-// - size()      : return the size of the map.
-//
-// Special interface when K, V are primitives:
-// - emplace(key&, value& ) : add new item to the map.
-//
-// `resize` followed by `operator[]` allows for avoiding per item capacity check
-// and length increment and hence results in the best peformance. The map can be
-// viewed as std::vector<std::tuple<k, v>> for that aspect.
-//
-// - operator[](i)   : access item at index i, returns key and value writers.
-// - resize(n)       : add n uninitialized items to the end of the map.
-//
-// The interface does not guarantee that duplicates not written.
-//
-
 template <typename K, typename V>
 class MapWriter {
   using key_writer_t = VectorWriter<K, void>;

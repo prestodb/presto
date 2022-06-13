@@ -397,8 +397,8 @@ as much as possible to allow for faster compilation in codegen.
 Complex Types
 ^^^^^^^^^^^^^
 
-Complex types as inputs
-***********************
+Inputs (View Types)
+*******************
 Input complex types are represented in the simple function interface using light-weight lazy
 access abstractions that enable efficient direct access to the underlying data in Velox
 vectors.
@@ -424,7 +424,7 @@ the corresponding std type. For example: a *Map<Row<int, int>, Array<float>>* co
 
 All views types are cheap to copy objects, for example the size of ArrayView is 16 bytes at max.
 
-**1- OptionalAccessor<E>**:
+**OptionalAccessor<E>**:
 
 OptionalAccessor is an *std::optional* like object that provides lazy access to the nullity and
 value of the underlying Velox vector at a specific index. Currently, it is used to represent elements of nullable input arrays
@@ -455,7 +455,7 @@ The following expressions are valid, where array[0] is an optional accessor.
     if(std::nullopt == array[0]) ...
     if(array[0]== std::optional<int>{1}) ...
 
-**2- NullableArrayView<T> and NullFreeArrayView<T>**
+**NullableArrayView<T> and NullFreeArrayView<T>**
 
 NullableArrayView and NullFreeArrayView have interfaces similar to that of *std::vector<std::optional<V>>* and *std::vector<V>*,
 the code below shows the function arraySum, a range loop is used to iterate over the values.
@@ -536,7 +536,7 @@ would skip reading the nullity when mayHaveNulls() is false.
 Note: calls to operator[], iterator de-referencing, and iterator pointer de-referencing are r-values (temporaries),
 versus l-values in STD containers. Hence those can be bound to const references or l-values but not normal references.
 
-**3- NullableMapView<K, V> and  NullFreeMapView<K, V>**
+**NullableMapView<K, V> and  NullFreeMapView<K, V>**
 
 NullableMapView and NullFreeMapView has an interfaces similar to std::map<K, std::optional<V>> and std::map<K, V>,
 the code below shows an example function mapSum, sums up the keys and values.
@@ -620,19 +620,98 @@ Note that in the range-loop, the range expression is assigned to a universal ref
      auto itt = *it;
      for(const auto& e : *itt){..}
 
+Outputs (Writer Types)
+**********************
+
+Outputs of complex types are represented using special writers that are designed in a way that
+minimizes data copying by writing directly to Velox vectors.
+
+**ArrayWriter<V>**
+
+- out_type<V>& add_item() : add non-null item and return the writer of the added value.
+- add_null(): add null item.
+- reserve(vector_size_t size): make sure space for `size` items is allocated in the underlying vector.
+- vector_size_t size(): get the length of the array.
+- resize(vector_size_t size): change the size of the array reserving space for the new elements if needed.
+
+- void add_items(const T& data): append data from any container with std::vector-like interface.
+- void copy_from(const T& data): assign data to match that of any container with std::vector-like interface.
+
+- void add_items(const NullFreeArrayView<V>& data): append data from array view (faster than item by item).
+- void copy_from(const NullFreeArrayView<V>& data): assign data from array view (faster than item by item).
+
+- void add_items(const NullableArrayView<V>& data): append data from array view (faster than item by item).
+- void copy_from(const NullableArrayView<V>& data): assign data from array view (faster than item by item).
+
+When V is primitive, the following functions are available, making the writer usable as std::vector<V>.
+
+- push_back(std::optional<V>): add item or null.
+- PrimitiveWriter<V> operator[](vector_size_t index): return a primitive writer that is assignable to std::optional<V> for the item at index (should be called after a resize).
+- PrimitiveWriter<V> back(): return a primitive writer that is assignable to std::optional<V> for the item at index length -1.
+
+
+**MapWriter<K, V>**
+
+- reserve(vector_size_t size): make sure space for `size` entries is allocated in the underlying vector.
+- std::tuple<out_type<K>&, out_type<V>&> add_item(): add non-null item and return the writers of key and value as tuple.
+- out_type<K>& add_null(): add null item and return the key writer.
+- vector_size_t size(): return the length of the array.
+
+- void add_items(const T& data): append data from any container with std::vector<tuple<K, V>> like interface.
+- void copy_from(const NullFreeMapView<V>& data): assign data from array view (faster than item by item).
+- void copy_from(const NullableMapView<V>& data): assign data from array view (faster than item by item).
+
+When K and V are primitives, the following functions are available, making the writer usable as std::vector<std::tuple<K, V>>.
+
+- resize(vector_size_t size): change the size.
+- emplace(K, std::optional<V>): add element to the map.
+- std::tuple<K&, PrimitiveWriter<V>> operator[](vector_size_t index): returns pair of writers for element at index. Key writer is assignable to K. while value writer is assignable to std::optional<V>.
+
+**RowWriter<T...>**
+
+- template<vector_size_t I> set_null_at(): set null for row item at index I.
+- template<vector_size_t I> get_writer_at(): set not null for row item at index I, and return writer to to the row element at index I.
+
+When all types T... are primitives, the following functions are available.
+
+- void operator=(const std::tuple<T...>& inputs): assignable to std::tuple<T...>.
+- void operator=(const std::tuple<std::optional<T>...>& inputs): assignable to std::tuple<std::optional<T>...>.
+- void copy_from(const std::tuple<K...>& inputs): similar as the above.
+
+When a given Ti is primitive, the following is valid.
+
+- PrimitiveWriter<Ti> exec::get<I>(RowWriter<T...>): return a primitive writer for item at index I that is assignable to std::optional.
+
+**PrimitiveWriter<T>**
+
+Assignable to std::optional<T> allows writing null or value to the primitive. Returned by complex writers when writing nullable
+primitives.
+
+**StringWriter<>**:
+
+- void reserve(size_t newCapacity) : Reserve a space for the output string with size of at least newCapacity.
+- void resize(size_t newCapacity) : Set the size of the string.
+- char* data(): returns pointer to the first char of the string, can be written to directly (safe to write to index at capacity()-1).
+- vector_size_t capacity(): returns the capacity of the string.
+- vector_size_t size(): returns the size of the string.
+- operator+=(const T& input): append data from char* or any type with data() and size().
+- append(const T& input): append data from char* or any type with data() and size().
+- copy_from(const T& input): append data from char* or any type with data() and size().
+
+When Zero-copy optimization is enabled (see zero-copy-string-result section above), the following functions can be used.
+
+- void setEmpty(): set to empty string.
+- void setNoCopy(const StringView& value): set string to an input string without performing deep copy.
+
 
 Limitations
 ***********
+1. It is not possible to define functions that have generic output types,
+for example Array<T> output, where T is an input type.
 
-1. It is not possible to define functions that accept generic arrays,
-maps or structs (e.g. map_keys, map_values, array_distinct, array_sort) as
-it requires a generic representation for the input type that is still not
-supported.
-
-2. Output complex types now are double materialized; first in the simple functions when they
-are created and then when they are copied again to the Velox vector. Some work is planned to
-avoid that by using writer proxies that write directly to Velox vectors. This section will
-be updated once the new writer interfaces are completed.
+2. If a function throws an exception while writing a complex type, then the output of the
+row being written as well as the output of the next row are undefined. Hence, it's recommended
+to avoid throwing exceptions after writing has started for a complex output within the function.
 
 Variadic Arguments
 ^^^^^^^^^^^^^^^^^^
