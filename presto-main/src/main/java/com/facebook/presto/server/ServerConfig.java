@@ -24,6 +24,8 @@ public class ServerConfig
 {
     private boolean resourceManager;
     private boolean resourceManagerEnabled;
+    private boolean catalogServer;
+    private boolean catalogServerEnabled;
     private boolean coordinator = true;
     private String prestoVersion = getClass().getPackage().getImplementationVersion();
     private String dataSources;
@@ -53,6 +55,30 @@ public class ServerConfig
     public ServerConfig setResourceManagerEnabled(boolean resourceManagerEnabled)
     {
         this.resourceManagerEnabled = resourceManagerEnabled;
+        return this;
+    }
+
+    public boolean isCatalogServer()
+    {
+        return catalogServer;
+    }
+
+    @Config("catalog-server")
+    public ServerConfig setCatalogServer(boolean catalogServer)
+    {
+        this.catalogServer = catalogServer;
+        return this;
+    }
+
+    public boolean isCatalogServerEnabled()
+    {
+        return catalogServerEnabled;
+    }
+
+    @Config("catalog-server-enabled")
+    public ServerConfig setCatalogServerEnabled(boolean catalogServerEnabled)
+    {
+        this.catalogServerEnabled = catalogServerEnabled;
         return this;
     }
 
