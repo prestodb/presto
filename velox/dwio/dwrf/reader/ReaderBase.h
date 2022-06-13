@@ -16,8 +16,9 @@
 
 #pragma once
 
+#include "velox/dwio/common/BufferedInput.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/TypeWithId.h"
-#include "velox/dwio/dwrf/common/BufferedInput.h"
 #include "velox/dwio/dwrf/common/Compression.h"
 #include "velox/dwio/dwrf/common/Statistics.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
@@ -66,7 +67,8 @@ class ReaderBase {
       std::unique_ptr<dwio::common::InputStream> stream,
       std::shared_ptr<dwio::common::encryption::DecrypterFactory>
           decryptorFactory = nullptr,
-      std::shared_ptr<BufferedInputFactory> bufferedInputFactory = nullptr,
+      std::shared_ptr<dwio::common::BufferedInputFactory> bufferedInputFactory =
+          nullptr,
       uint64_t fileNum = -1);
 
   // create reader base from metadata
@@ -84,8 +86,9 @@ class ReaderBase {
         cache_{std::move(cache)},
         handler_{std::move(handler)},
         input_{
-            stream_ ? std::make_unique<BufferedInput>(*stream_, pool_)
-                    : nullptr},
+            stream_
+                ? std::make_unique<dwio::common::BufferedInput>(*stream_, pool_)
+                : nullptr},
         schema_{
             std::dynamic_pointer_cast<const RowType>(convertType(*footer_))},
         fileLength_{0},
@@ -134,13 +137,14 @@ class ReaderBase {
     return schemaWithId_;
   }
 
-  BufferedInput& getBufferedInput() const {
+  dwio::common::BufferedInput& getBufferedInput() const {
     return *input_;
   }
 
-  const BufferedInputFactory& bufferedInputFactory() const {
-    return bufferedInputFactory_ ? *bufferedInputFactory_
-                                 : *BufferedInputFactory::baseFactory();
+  const dwio::common::BufferedInputFactory& bufferedInputFactory() const {
+    return bufferedInputFactory_
+        ? *bufferedInputFactory_
+        : *dwio::common::BufferedInputFactory::baseFactory();
   }
 
   const std::unique_ptr<StripeMetadataCache>& getMetadataCache() const {
@@ -199,8 +203,8 @@ class ReaderBase {
   std::unique_ptr<dwio::common::ColumnStatistics> getColumnStatistics(
       uint32_t index) const;
 
-  std::unique_ptr<SeekableInputStream> createDecompressedStream(
-      std::unique_ptr<SeekableInputStream> compressed,
+  std::unique_ptr<dwio::common::SeekableInputStream> createDecompressedStream(
+      std::unique_ptr<dwio::common::SeekableInputStream> compressed,
       const std::string& streamDebugInfo,
       const dwio::common::encryption::Decrypter* decrypter = nullptr) const {
     return createDecompressor(
@@ -216,8 +220,8 @@ class ReaderBase {
   std::unique_ptr<T> readProtoFromString(
       const std::string& data,
       const dwio::common::encryption::Decrypter* decrypter = nullptr) const {
-    auto compressed =
-        std::make_unique<SeekableArrayInputStream>(data.data(), data.size());
+    auto compressed = std::make_unique<dwio::common::SeekableArrayInputStream>(
+        data.data(), data.size());
     return ProtoUtils::readProto<T>(createDecompressedStream(
         std::move(compressed), "Protobuf Metadata", decrypter));
   }
@@ -241,9 +245,9 @@ class ReaderBase {
   // Keeps factory alive for possibly async prefetch.
   std::shared_ptr<dwio::common::encryption::DecrypterFactory> decryptorFactory_;
   std::unique_ptr<encryption::DecryptionHandler> handler_;
-  std::shared_ptr<BufferedInputFactory> bufferedInputFactory_;
+  std::shared_ptr<dwio::common::BufferedInputFactory> bufferedInputFactory_;
 
-  std::unique_ptr<BufferedInput> input_;
+  std::unique_ptr<dwio::common::BufferedInput> input_;
   RowTypePtr schema_;
   // Lazily populated
   mutable std::shared_ptr<const dwio::common::TypeWithId> schemaWithId_;

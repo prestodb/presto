@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/dwrf/common/Adaptor.h"
+#include "velox/dwio/common/Adaptor.h"
 
 DIAGNOSTIC_PUSH
 DIAGNOSTIC_IGNORE("-Wconversion")

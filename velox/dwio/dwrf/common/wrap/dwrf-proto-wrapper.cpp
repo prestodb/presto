@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/Adaptor.h"
+#include "velox/dwio/common/Adaptor.h"
 
 DIAGNOSTIC_IGNORE("-Wconversion")
 DIAGNOSTIC_IGNORE("-Wdeprecated")

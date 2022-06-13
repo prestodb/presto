@@ -43,7 +43,7 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
     if (notNullDecoder_) {
       ensureRowGroupIndex();
       auto positions = toPositions(index_->entry(index));
-      PositionProvider positionsProvider(positions);
+      dwio::common::PositionProvider positionsProvider(positions);
       notNullDecoder_->seekToRowGroup(positionsProvider);
     }
     // Set the read offset recursively. Do this before seeking the

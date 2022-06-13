@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/dwrf/common/InputStream.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/type/Type.h"
 
@@ -38,7 +38,7 @@ class ProtoUtils final {
   // object to serialize to.
   template <typename T>
   static std::unique_ptr<T> readProto(
-      std::unique_ptr<SeekableInputStream> stream,
+      std::unique_ptr<dwio::common::SeekableInputStream> stream,
       std::unique_ptr<T> ret = nullptr) {
     if (!ret) {
       ret = std::make_unique<T>();
@@ -55,7 +55,9 @@ class ProtoUtils final {
   // moving an arena proto via unique_ptr would be confusing since it
   // is not owned by the unique_ptr.
   template <typename T>
-  static T* readProtoInto(std::unique_ptr<SeekableInputStream> stream, T* ret) {
+  static T* readProtoInto(
+      std::unique_ptr<dwio::common::SeekableInputStream> stream,
+      T* ret) {
     DWIO_ENSURE(ret);
     DWIO_ENSURE(
         ret->ParseFromZeroCopyStream(stream.get()),

@@ -40,7 +40,7 @@ class BinaryStripeStreams {
         ek.forKind(proto::Stream_Kind_ROW_INDEX), false));
   }
 
-  std::unique_ptr<SeekableInputStream> getStream(
+  std::unique_ptr<dwio::common::SeekableInputStream> getStream(
       const DwrfStreamIdentifier& si) const {
     return stripeStreams_.getCompressedStream(si);
   }

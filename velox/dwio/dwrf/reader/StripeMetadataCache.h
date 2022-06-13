@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/dwrf/common/InputStream.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 
 namespace facebook::velox::dwrf {
@@ -51,13 +51,13 @@ class StripeMetadataCache {
     return getIndex(mode, stripeIndex) != INVALID_INDEX;
   }
 
-  std::unique_ptr<SeekableArrayInputStream> get(
+  std::unique_ptr<dwio::common::SeekableArrayInputStream> get(
       proto::StripeCacheMode mode,
       uint64_t stripeIndex) const {
     auto index = getIndex(mode, stripeIndex);
     if (index != INVALID_INDEX) {
       auto offset = offsets_[index];
-      return std::make_unique<SeekableArrayInputStream>(
+      return std::make_unique<dwio::common::SeekableArrayInputStream>(
           buffer_->data() + offset, offsets_[index + 1] - offset);
     }
     return {};

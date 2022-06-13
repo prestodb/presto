@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/common/PagedInputStream.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook::velox::dwrf {
@@ -220,13 +221,14 @@ void PagedInputStream::clearDecompressionState() {
   inputBufferPtrEnd_ = nullptr;
 }
 
-void PagedInputStream::seekToPosition(PositionProvider& positionProvider) {
+void PagedInputStream::seekToPosition(
+    dwio::common::PositionProvider& positionProvider) {
   auto compressedOffset = positionProvider.next();
   auto uncompressedOffset = positionProvider.next();
 
   if (compressedOffset != lastHeaderOffset_) {
     std::vector<uint64_t> positions = {compressedOffset};
-    auto provider = PositionProvider(positions);
+    auto provider = dwio::common::PositionProvider(positions);
     input_->seekToPosition(provider);
 
     clearDecompressionState();

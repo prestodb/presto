@@ -16,19 +16,23 @@
 
 #include "velox/dwio/dwrf/common/DirectDecoder.h"
 #include "velox/common/base/BitUtil.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 
 namespace facebook::velox::dwrf {
 
 template <bool isSigned>
-void DirectDecoder<isSigned>::seekToRowGroup(PositionProvider& location) {
+void DirectDecoder<isSigned>::seekToRowGroup(
+    dwio::common::PositionProvider& location) {
   // move the input stream
   IntDecoder<isSigned>::inputStream->seekToPosition(location);
   // force a re-read from the stream
   IntDecoder<isSigned>::bufferEnd = IntDecoder<isSigned>::bufferStart;
 }
 
-template void DirectDecoder<true>::seekToRowGroup(PositionProvider& location);
-template void DirectDecoder<false>::seekToRowGroup(PositionProvider& location);
+template void DirectDecoder<true>::seekToRowGroup(
+    dwio::common::PositionProvider& location);
+template void DirectDecoder<false>::seekToRowGroup(
+    dwio::common::PositionProvider& location);
 
 template <bool isSigned>
 void DirectDecoder<isSigned>::skip(uint64_t numValues) {

@@ -20,9 +20,10 @@
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/dwio/common/InputStream.h"
-#include "velox/dwio/dwrf/common/InputStream.h"
+#include "velox/dwio/common/IoStatistics.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 class CachedBufferedInput;
 
@@ -30,9 +31,9 @@ class CacheInputStream : public SeekableInputStream {
  public:
   CacheInputStream(
       CachedBufferedInput* cache,
-      dwio::common::IoStatistics* ioStats,
-      const dwio::common::Region& region,
-      dwio::common::InputStream& input,
+      IoStatistics* ioStats,
+      const Region& region,
+      InputStream& input,
       uint64_t fileNum,
       std::shared_ptr<cache::ScanTracker> tracker,
       cache::TrackingId trackingId,
@@ -52,20 +53,18 @@ class CacheInputStream : public SeekableInputStream {
   void loadPosition();
 
   // Synchronously sets 'pin_' to cover 'region'.
-  void loadSync(dwio::common::Region region);
+  void loadSync(Region region);
 
   // Returns true if there is an SSD ache and 'entry' is present there and
   // successfully loaded.
-  bool loadFromSsd(
-      dwio::common::Region region,
-      cache::AsyncDataCacheEntry& entry);
+  bool loadFromSsd(Region region, cache::AsyncDataCacheEntry& entry);
 
   CachedBufferedInput* const bufferedInput_;
   cache::AsyncDataCache* const cache_;
-  dwio::common::IoStatistics* ioStats_;
-  dwio::common::InputStream& input_;
+  IoStatistics* ioStats_;
+  InputStream& input_;
   // The region of 'input' 'this' ranges over.
-  const dwio::common::Region region_;
+  const Region region_;
   const uint64_t fileNum_;
   std::shared_ptr<cache::ScanTracker> tracker_;
   const cache::TrackingId trackingId_;
@@ -94,4 +93,4 @@ class CacheInputStream : public SeekableInputStream {
   uint64_t position_ = 0;
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

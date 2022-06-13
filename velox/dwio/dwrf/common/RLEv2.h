@@ -18,9 +18,9 @@
 
 #include "velox/common/base/Nulls.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/dwio/common/Adaptor.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/exception/Exception.h"
-#include "velox/dwio/dwrf/common/Adaptor.h"
 #include "velox/dwio/dwrf/common/IntDecoder.h"
 
 #include <vector>
@@ -38,13 +38,13 @@ class RleDecoderV2 : public IntDecoder<isSigned> {
   };
 
   RleDecoderV2(
-      std::unique_ptr<SeekableInputStream> input,
+      std::unique_ptr<dwio::common::SeekableInputStream> input,
       memory::MemoryPool& pool);
 
   /**
    * Seek to a specific row group.
    */
-  void seekToRowGroup(PositionProvider&) override;
+  void seekToRowGroup(dwio::common::PositionProvider&) override;
 
   /**
    * Seek over a given number of values.

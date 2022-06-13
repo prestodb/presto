@@ -14,26 +14,13 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/BufferedInput.h"
-
 #include <fmt/format.h>
+
+#include "velox/dwio/common/BufferedInput.h"
 
 DEFINE_bool(wsVRLoad, false, "Use WS VRead API to load");
 
-namespace facebook::velox::dwrf {
-
-using dwio::common::LogType;
-using dwio::common::Region;
-
-namespace {
-
-// Because only individual streams are ever enqueue'd we can uniquely identify
-// a stream by the filenum and offset.
-std::string CacheKey(uint64_t filenum, Region region) {
-  return fmt::format("{}_{}", filenum, region.offset);
-}
-
-} // namespace
+namespace facebook::velox::dwio::common {
 
 void BufferedInput::load(const LogType logType) {
   // no regions to load
@@ -117,9 +104,7 @@ void BufferedInput::loadWithAction(
   readRegion(last, logType, action);
 }
 
-bool BufferedInput::tryMerge(
-    dwio::common::Region& first,
-    const dwio::common::Region& second) {
+bool BufferedInput::tryMerge(Region& first, const Region& second) {
   DWIO_ENSURE_GE(second.offset, first.offset, "regions should be sorted.");
   int64_t gap = second.offset - first.offset - first.length;
 
@@ -148,7 +133,7 @@ std::unique_ptr<SeekableInputStream> BufferedInput::readBuffer(
   const auto result = readInternal(offset, length);
 
   auto size = std::get<1>(result);
-  if (size == dwio::common::MAX_UINT64) {
+  if (size == MAX_UINT64) {
     return {};
   }
 
@@ -184,7 +169,7 @@ std::tuple<const char*, uint64_t> BufferedInput::readInternal(
     }
   }
 
-  return std::make_tuple(nullptr, dwio::common::MAX_UINT64);
+  return std::make_tuple(nullptr, MAX_UINT64);
 }
 
 //  static
@@ -194,4 +179,4 @@ BufferedInputFactory::baseFactoryShared() {
   return instance;
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

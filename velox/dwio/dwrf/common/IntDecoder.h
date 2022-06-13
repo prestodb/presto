@@ -20,8 +20,8 @@
 #include <folly/Range.h>
 #include <folly/Varint.h>
 #include "velox/common/encode/Coding.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/exception/Exception.h"
-#include "velox/dwio/dwrf/common/InputStream.h"
 #include "velox/dwio/dwrf/common/IntCodecCommon.h"
 #include "velox/dwio/dwrf/common/StreamUtil.h"
 
@@ -33,7 +33,7 @@ class IntDecoder {
   static constexpr int32_t kMinDenseBatch = 8;
 
   IntDecoder(
-      std::unique_ptr<SeekableInputStream> input,
+      std::unique_ptr<dwio::common::SeekableInputStream> input,
       bool useVInts,
       uint32_t numBytes)
       : inputStream(std::move(input)),
@@ -47,7 +47,8 @@ class IntDecoder {
   /**
    * Seek to a specific row group.
    */
-  virtual void seekToRowGroup(PositionProvider& positionProvider) = 0;
+  virtual void seekToRowGroup(
+      dwio::common::PositionProvider& positionProvider) = 0;
 
   /**
    * Seek over a given number of values.
@@ -109,7 +110,7 @@ class IntDecoder {
    * @param pool memory pool to use for allocation
    */
   static std::unique_ptr<IntDecoder<isSigned>> createRle(
-      std::unique_ptr<SeekableInputStream> input,
+      std::unique_ptr<dwio::common::SeekableInputStream> input,
       RleVersion version,
       memory::MemoryPool& pool,
       bool useVInts,
@@ -119,7 +120,7 @@ class IntDecoder {
    * Create a direct decoder
    */
   static std::unique_ptr<IntDecoder<isSigned>> createDirect(
-      std::unique_ptr<SeekableInputStream> input,
+      std::unique_ptr<dwio::common::SeekableInputStream> input,
       bool useVInts,
       uint32_t numBytes);
 
@@ -192,7 +193,7 @@ class IntDecoder {
     }
   }
 
-  const std::unique_ptr<SeekableInputStream> inputStream;
+  const std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
   const char* bufferStart;
   const char* bufferEnd;
   const bool useVInts;

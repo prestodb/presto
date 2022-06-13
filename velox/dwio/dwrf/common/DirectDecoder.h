@@ -28,12 +28,12 @@ template <bool isSigned>
 class DirectDecoder : public IntDecoder<isSigned> {
  public:
   DirectDecoder(
-      std::unique_ptr<SeekableInputStream> input,
+      std::unique_ptr<dwio::common::SeekableInputStream> input,
       bool useVInts,
       uint32_t numBytes)
       : IntDecoder<isSigned>{std::move(input), useVInts, numBytes} {}
 
-  void seekToRowGroup(PositionProvider&) override;
+  void seekToRowGroup(dwio::common::PositionProvider&) override;
 
   void skip(uint64_t numValues) override;
 

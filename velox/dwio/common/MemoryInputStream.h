@@ -22,22 +22,17 @@
 
 #include "velox/dwio/common/InputStream.h"
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace common {
+namespace facebook::velox::dwio::common {
 
 class MemoryInputStream : public ReferenceableInputStream {
  public:
-  MemoryInputStream(
-      const std::string& /* UNUSED */,
-      const common::MetricsLogPtr& _log)
+  MemoryInputStream(const std::string& /* UNUSED */, const MetricsLogPtr& _log)
       : ReferenceableInputStream("MemoryInputStream", _log) {}
 
   MemoryInputStream(
       const char* FOLLY_NULLABLE _buffer,
       size_t _size,
-      const common::MetricsLogPtr& _log = common::MetricsLog::voidLog())
+      const MetricsLogPtr& _log = MetricsLog::voidLog())
       : ReferenceableInputStream("MemoryInputStream", _log),
         buffer(_buffer),
         size(_size),
@@ -53,7 +48,7 @@ class MemoryInputStream : public ReferenceableInputStream {
       void* FOLLY_NONNULL buf,
       uint64_t length,
       uint64_t offset,
-      common::MetricsLog::MetricsType /* UNUSED */) override;
+      MetricsLog::MetricsType /* UNUSED */) override;
 
   const char* FOLLY_NULLABLE getData() const;
 
@@ -61,12 +56,12 @@ class MemoryInputStream : public ReferenceableInputStream {
       void* FOLLY_NULLABLE /*buf*/,
       uint64_t /*length*/,
       uint64_t offset,
-      common::MetricsLog::MetricsType /* UNUSED */) override;
+      MetricsLog::MetricsType /* UNUSED */) override;
 
   const void* FOLLY_NULLABLE readReferenceOnly(
       uint64_t /*length*/,
       uint64_t offset,
-      common::MetricsLog::MetricsType /* UNUSED */) override;
+      MetricsLog::MetricsType /* UNUSED */) override;
 
  private:
   const char* FOLLY_NULLABLE buffer;
@@ -74,7 +69,4 @@ class MemoryInputStream : public ReferenceableInputStream {
   uint64_t naturalReadSize;
 };
 
-} // namespace common
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::dwio::common

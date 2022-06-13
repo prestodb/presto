@@ -17,8 +17,9 @@
 
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/dwio/common/CachedBufferedInput.h"
+#include "velox/dwio/common/IoStatistics.h"
 #include "velox/dwio/common/ScanSpec.h"
-#include "velox/dwio/dwrf/common/CachedBufferedInput.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/OperatorUtils.h"
@@ -193,7 +194,7 @@ class HiveDataSource : public DataSource {
   FileHandleFactory* FOLLY_NONNULL fileHandleFactory_;
   velox::memory::MemoryPool* FOLLY_NONNULL pool_;
   std::shared_ptr<dwio::common::IoStatistics> ioStats_;
-  std::shared_ptr<dwrf::BufferedInputFactory> bufferedInputFactory_;
+  std::shared_ptr<dwio::common::BufferedInputFactory> bufferedInputFactory_;
   std::shared_ptr<common::ScanSpec> scanSpec_;
   std::shared_ptr<HiveConnectorSplit> split_;
   dwio::common::ReaderOptions readerOpts_;

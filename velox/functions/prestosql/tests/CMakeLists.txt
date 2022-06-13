@@ -75,4 +75,5 @@ target_link_libraries(
   gtest
   gtest_main
   ${gflags_LIBRARIES}
-  gmock)
+  gmock
+  gmock_main)

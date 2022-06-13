@@ -16,18 +16,20 @@
 
 #pragma once
 
+#include <folly/Executor.h>
+
 #include "velox/common/caching/FileGroupStats.h"
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/dwio/common/BufferedInput.h"
+#include "velox/dwio/common/CacheInputStream.h"
 #include "velox/dwio/common/InputStream.h"
-#include "velox/dwio/dwrf/common/BufferedInput.h"
-#include "velox/dwio/dwrf/common/CacheInputStream.h"
-
-#include <folly/Executor.h>
+#include "velox/dwio/common/IoStatistics.h"
+#include "velox/dwio/common/Options.h"
 
 DECLARE_int32(cache_load_quantum);
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 // Abstract class for owning an InputStream and related structures
 // like pins into file handle caches. TODO: Make file handle cache
@@ -35,7 +37,7 @@ namespace facebook::velox::dwrf {
 class AbstractInputStreamHolder {
  public:
   virtual ~AbstractInputStreamHolder() = default;
-  virtual dwio::common::InputStream& get() = 0;
+  virtual InputStream& get() = 0;
 };
 
 // Function type for making copies of InputStream for running
@@ -72,14 +74,14 @@ struct CacheRequest {
 class CachedBufferedInput : public BufferedInput {
  public:
   CachedBufferedInput(
-      dwio::common::InputStream& input,
+      InputStream& input,
       memory::MemoryPool& pool,
       uint64_t fileNum,
       cache::AsyncDataCache* FOLLY_NONNULL cache,
       std::shared_ptr<cache::ScanTracker> tracker,
       uint64_t groupId,
       StreamSource streamSource,
-      std::shared_ptr<dwio::common::IoStatistics> ioStats,
+      std::shared_ptr<IoStatistics> ioStats,
       folly::Executor* FOLLY_NULLABLE executor,
       int32_t loadQuantum,
       int32_t maxCoalesceDistance)
@@ -106,17 +108,15 @@ class CachedBufferedInput : public BufferedInput {
   }
 
   std::unique_ptr<SeekableInputStream> enqueue(
-      dwio::common::Region region,
-      const dwio::common::StreamIdentifier* FOLLY_NULLABLE si) override;
+      Region region,
+      const StreamIdentifier* FOLLY_NULLABLE si) override;
 
-  void load(const dwio::common::LogType) override;
+  void load(const LogType) override;
 
   bool isBuffered(uint64_t offset, uint64_t length) const override;
 
-  std::unique_ptr<SeekableInputStream> read(
-      uint64_t offset,
-      uint64_t length,
-      dwio::common::LogType logType) const override;
+  std::unique_ptr<SeekableInputStream>
+  read(uint64_t offset, uint64_t length, LogType logType) const override;
 
   bool shouldPreload() override;
 
@@ -159,7 +159,7 @@ class CachedBufferedInput : public BufferedInput {
   std::shared_ptr<cache::ScanTracker> tracker_;
   const uint64_t groupId_;
   StreamSource streamSource_;
-  std::shared_ptr<dwio::common::IoStatistics> ioStats_;
+  std::shared_ptr<IoStatistics> ioStats_;
   folly::Executor* const FOLLY_NULLABLE executor_;
 
   // Regions that are candidates for loading.
@@ -186,9 +186,9 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
       std::shared_ptr<cache::ScanTracker> tracker,
       uint64_t groupId,
       StreamSource streamSource,
-      std::shared_ptr<dwio::common::IoStatistics> ioStats,
+      std::shared_ptr<IoStatistics> ioStats,
       folly::Executor* FOLLY_NULLABLE executor,
-      const dwio::common::ReaderOptions& readerOpts)
+      const ReaderOptions& readerOpts)
       : cache_(cache),
         tracker_(std::move(tracker)),
         groupId_(groupId),
@@ -199,7 +199,7 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
         maxCoalesceDistance_(readerOpts.maxCoalesceDistance()) {}
 
   std::unique_ptr<BufferedInput> create(
-      dwio::common::InputStream& input,
+      InputStream& input,
       velox::memory::MemoryPool& pool,
       uint64_t fileNum) const override {
     return std::make_unique<CachedBufferedInput>(
@@ -232,9 +232,9 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
   std::shared_ptr<cache::ScanTracker> tracker_;
   const uint64_t groupId_;
   StreamSource streamSource_;
-  std::shared_ptr<dwio::common::IoStatistics> ioStats_;
+  std::shared_ptr<IoStatistics> ioStats_;
   folly::Executor* FOLLY_NULLABLE executor_;
   int32_t loadQuantum_;
   int32_t maxCoalesceDistance_;
 };
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

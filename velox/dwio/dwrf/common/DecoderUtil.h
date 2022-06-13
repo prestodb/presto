@@ -159,7 +159,7 @@ void fixedWidthScan(
     void* voidValues,
     int32_t* filterHits,
     int32_t& numValues,
-    SeekableInputStream& input,
+    dwio::common::SeekableInputStream& input,
     const char*& bufferStart,
     const char*& bufferEnd,
     TFilter& filter,

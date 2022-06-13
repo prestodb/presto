@@ -15,8 +15,8 @@
  */
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/dwio/common/Adaptor.h"
 #include "velox/dwio/common/exception/Exceptions.h"
-#include "velox/dwio/dwrf/common/Adaptor.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"

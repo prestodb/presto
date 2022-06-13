@@ -14,10 +14,7 @@
 
 add_library(
   velox_dwio_dwrf_common
-  BufferedInput.cpp
   ByteRLE.cpp
-  CachedBufferedInput.cpp
-  CacheInputStream.cpp
   Common.cpp
   Compression.cpp
   Config.cpp
@@ -27,7 +24,6 @@ add_library(
   DirectDecoder.cpp
   Encryption.cpp
   EncryptionSpecification.cpp
-  InputStream.cpp
   IntDecoder.cpp
   IntEncoder.cpp
   OutputStream.cpp

@@ -40,10 +40,11 @@ class MockStripeStreams : public StripeStreams {
  public:
   MockStripeStreams() : scopedPool_{memory::getDefaultScopedMemoryPool()} {};
   ~MockStripeStreams() = default;
-  std::unique_ptr<SeekableInputStream> getStream(
+
+  std::unique_ptr<dwio::common::SeekableInputStream> getStream(
       const DwrfStreamIdentifier& si,
       bool throwIfNotFound) const override {
-    return std::unique_ptr<SeekableInputStream>(getStreamProxy(
+    return std::unique_ptr<dwio::common::SeekableInputStream>(getStreamProxy(
         si.encodingKey().node,
         static_cast<proto::Stream_Kind>(si.kind()),
         throwIfNotFound));
@@ -78,7 +79,7 @@ class MockStripeStreams : public StripeStreams {
       uint32_t(uint32_t, std::function<void(const StreamInformation&)>));
   MOCK_CONST_METHOD3(
       getStreamProxy,
-      SeekableInputStream*(uint32_t, proto::Stream_Kind, bool));
+      dwio::common::SeekableInputStream*(uint32_t, proto::Stream_Kind, bool));
   MOCK_CONST_METHOD0(getStrideIndexProviderProxy, StrideIndexProvider*());
   MOCK_CONST_METHOD0(getColumnSelectorProxy, dwio::common::ColumnSelector*());
   MOCK_CONST_METHOD0(

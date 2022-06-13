@@ -18,8 +18,6 @@
 #include <memory>
 
 #include "velox/dwio/common/InputStream.h"
-#include "velox/dwio/common/ScanSpec.h"
-#include "velox/dwio/dwrf/common/CachedBufferedInput.h"
 #include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/type/Conversions.h"
@@ -315,7 +313,7 @@ bool testFilters(
   return true;
 }
 
-class InputStreamHolder : public dwrf::AbstractInputStreamHolder {
+class InputStreamHolder : public dwio::common::AbstractInputStreamHolder {
  public:
   InputStreamHolder(
       FileHandleCachedPtr fileHandle,
@@ -389,16 +387,17 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   // three are supported to enable comparison.
   if (asyncCache) {
     readerOpts_.setFileNum(fileHandle_->uuid.id());
-    bufferedInputFactory_ = std::make_unique<dwrf::CachedBufferedInputFactory>(
-        (asyncCache),
-        Connector::getTracker(scanId_, readerOpts_.loadQuantum()),
-        fileHandle_->groupId.id(),
-        [factory = fileHandleFactory_, path = split_->filePath]() {
-          return makeStreamHolder(factory, path);
-        },
-        ioStats_,
-        executor_,
-        readerOpts_);
+    bufferedInputFactory_ =
+        std::make_unique<dwio::common::CachedBufferedInputFactory>(
+            (asyncCache),
+            Connector::getTracker(scanId_, readerOpts_.loadQuantum()),
+            fileHandle_->groupId.id(),
+            [factory = fileHandleFactory_, path = split_->filePath]() {
+              return makeStreamHolder(factory, path);
+            },
+            ioStats_,
+            executor_,
+            readerOpts_);
     readerOpts_.setBufferedInputFactory(bufferedInputFactory_);
   }
 

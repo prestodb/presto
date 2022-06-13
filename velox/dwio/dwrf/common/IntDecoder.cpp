@@ -2409,7 +2409,7 @@ template void IntDecoder<false>::bulkReadRows(
 
 template <bool isSigned>
 std::unique_ptr<IntDecoder<isSigned>> IntDecoder<isSigned>::createRle(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     RleVersion version,
     memory::MemoryPool& pool,
     bool useVInts,
@@ -2427,13 +2427,13 @@ std::unique_ptr<IntDecoder<isSigned>> IntDecoder<isSigned>::createRle(
 }
 
 template std::unique_ptr<IntDecoder<true>> IntDecoder<true>::createRle(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     RleVersion version,
     memory::MemoryPool& pool,
     bool useVInts,
     uint32_t numBytes);
 template std::unique_ptr<IntDecoder<false>> IntDecoder<false>::createRle(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     RleVersion version,
     memory::MemoryPool& pool,
     bool useVInts,
@@ -2441,7 +2441,7 @@ template std::unique_ptr<IntDecoder<false>> IntDecoder<false>::createRle(
 
 template <bool isSigned>
 std::unique_ptr<IntDecoder<isSigned>> IntDecoder<isSigned>::createDirect(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     bool useVInts,
     uint32_t numBytes) {
   return std::make_unique<DirectDecoder<isSigned>>(
@@ -2449,11 +2449,11 @@ std::unique_ptr<IntDecoder<isSigned>> IntDecoder<isSigned>::createDirect(
 }
 
 template std::unique_ptr<IntDecoder<true>> IntDecoder<true>::createDirect(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     bool useVInts,
     uint32_t numBytes);
 template std::unique_ptr<IntDecoder<false>> IntDecoder<false>::createDirect(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     bool useVInts,
     uint32_t numBytes);
 

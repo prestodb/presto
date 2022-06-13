@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/common/RLEv2.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 
 namespace facebook::velox::dwrf {
 
@@ -119,7 +120,7 @@ int64_t RleDecoderV2<isSigned>::readLongBE(uint64_t bsz) {
 
 template <bool isSigned>
 RleDecoderV2<isSigned>::RleDecoderV2(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     MemoryPool& pool)
     : IntDecoder<isSigned>{std::move(input), false, 0},
       firstByte(0),
@@ -146,14 +147,15 @@ RleDecoderV2<isSigned>::RleDecoderV2(
 }
 
 template RleDecoderV2<true>::RleDecoderV2(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     MemoryPool& pool);
 template RleDecoderV2<false>::RleDecoderV2(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     MemoryPool& pool);
 
 template <bool isSigned>
-void RleDecoderV2<isSigned>::seekToRowGroup(PositionProvider& location) {
+void RleDecoderV2<isSigned>::seekToRowGroup(
+    dwio::common::PositionProvider& location) {
   // move the input stream
   IntDecoder<isSigned>::inputStream->seekToPosition(location);
   // clear state
@@ -163,8 +165,10 @@ void RleDecoderV2<isSigned>::seekToRowGroup(PositionProvider& location) {
   skip(location.next());
 }
 
-template void RleDecoderV2<true>::seekToRowGroup(PositionProvider& location);
-template void RleDecoderV2<false>::seekToRowGroup(PositionProvider& location);
+template void RleDecoderV2<true>::seekToRowGroup(
+    dwio::common::PositionProvider& location);
+template void RleDecoderV2<false>::seekToRowGroup(
+    dwio::common::PositionProvider& location);
 
 template <bool isSigned>
 void RleDecoderV2<isSigned>::skip(uint64_t numValues) {

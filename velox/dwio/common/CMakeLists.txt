@@ -14,11 +14,16 @@
 add_subdirectory(compression)
 add_subdirectory(encryption)
 add_subdirectory(exception)
+
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
+
 add_library(
   velox_dwio_common
+  BufferedInput.cpp
+  CachedBufferedInput.cpp
+  CacheInputStream.cpp
   ColumnSelector.cpp
   DataBuffer.cpp
   DataSink.cpp
@@ -29,14 +34,16 @@ add_library(
   Options.cpp
   ReaderFactory.cpp
   ScanSpec.cpp
+  SeekableInputStream.cpp
   TypeWithId.cpp)
 
 target_link_libraries(
   velox_dwio_common
   velox_buffer
-  velox_exception
+  velox_caching
   velox_dwio_common_encryption
   velox_dwio_common_compression
+  velox_exception
   velox_memory
   Boost::regex
   ${FOLLY_WITH_DEPENDENCIES}

@@ -19,8 +19,8 @@
 #include <memory>
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Nulls.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/dwrf/common/Common.h"
-#include "velox/dwio/dwrf/common/InputStream.h"
 #include "velox/dwio/dwrf/common/IntCodecCommon.h"
 #include "velox/dwio/dwrf/common/OutputStream.h"
 #include "velox/dwio/dwrf/common/Range.h"
@@ -92,7 +92,9 @@ class ByteRleEncoder {
 
 class ByteRleDecoder {
  public:
-  ByteRleDecoder(std::unique_ptr<SeekableInputStream> input, EncodingKey ek)
+  ByteRleDecoder(
+      std::unique_ptr<dwio::common::SeekableInputStream> input,
+      EncodingKey ek)
       : inputStream{std::move(input)},
         remainingValues{0},
         value{0},
@@ -106,7 +108,7 @@ class ByteRleDecoder {
   /**
    * Seek to a specific row group.
    */
-  virtual void seekToRowGroup(PositionProvider& positionProvider);
+  virtual void seekToRowGroup(dwio::common::PositionProvider& positionProvider);
 
   /**
    * Seek over a given number of values.
@@ -214,7 +216,7 @@ class ByteRleDecoder {
     }
   }
 
-  std::unique_ptr<SeekableInputStream> inputStream;
+  std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
   size_t remainingValues;
   char value;
   const char* bufferStart;
@@ -242,13 +244,13 @@ std::unique_ptr<ByteRleEncoder> createBooleanRleEncoder(
  * @param input the input stream to read from
  */
 std::unique_ptr<ByteRleDecoder> createByteRleDecoder(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     const EncodingKey& ek);
 
 class BooleanRleDecoder : public ByteRleDecoder {
  public:
   BooleanRleDecoder(
-      std::unique_ptr<SeekableInputStream> input,
+      std::unique_ptr<dwio::common::SeekableInputStream> input,
       const EncodingKey& ek)
       : ByteRleDecoder{std::move(input), ek},
         remainingBits{0},
@@ -256,7 +258,8 @@ class BooleanRleDecoder : public ByteRleDecoder {
 
   ~BooleanRleDecoder() override = default;
 
-  void seekToRowGroup(PositionProvider& positionProvider) override;
+  void seekToRowGroup(
+      dwio::common::PositionProvider& positionProvider) override;
 
   void skip(uint64_t numValues) override;
 
@@ -348,7 +351,7 @@ class BooleanRleDecoder : public ByteRleDecoder {
  * @param input the input stream to read from
  */
 std::unique_ptr<BooleanRleDecoder> createBooleanRleDecoder(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     const EncodingKey& ek);
 
 } // namespace facebook::velox::dwrf

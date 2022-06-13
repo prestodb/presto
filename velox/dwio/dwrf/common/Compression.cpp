@@ -334,7 +334,7 @@ class ZlibDecompressionStream : public PagedInputStream,
                                 private ZlibDecompressor {
  public:
   ZlibDecompressionStream(
-      std::unique_ptr<SeekableInputStream> inStream,
+      std::unique_ptr<dwio::common::SeekableInputStream> inStream,
       uint64_t blockSize,
       MemoryPool& pool,
       const std::string& streamDebugInfo)
@@ -472,9 +472,9 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
       bufferPool, bufferHolder, config, std::move(compressor), encrypter);
 }
 
-std::unique_ptr<SeekableInputStream> createDecompressor(
+std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
     CompressionKind kind,
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     uint64_t blockSize,
     MemoryPool& pool,
     const std::string& streamDebugInfo,

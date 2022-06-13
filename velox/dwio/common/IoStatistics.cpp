@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/common/IoStatistics.h"
 #include <glog/logging.h>
 #include <atomic>
 #include <utility>
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace common {
+#include "velox/dwio/common/IoStatistics.h"
+
+namespace facebook::velox::dwio::common {
 
 uint64_t IoStatistics::rawBytesRead() const {
   return rawBytesRead_.load(std::memory_order_relaxed);
@@ -135,7 +133,4 @@ folly::dynamic IoStatistics::getOperationStatsSnapshot() const {
   return json;
 }
 
-} // namespace common
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::dwio::common

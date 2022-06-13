@@ -18,8 +18,8 @@
 
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/Options.h"
+#include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/dwrf/common/Common.h"
-#include "velox/dwio/dwrf/common/InputStream.h"
 #include "velox/dwio/dwrf/reader/StripeDictionaryCache.h"
 #include "velox/dwio/dwrf/reader/StripeReaderBase.h"
 
@@ -112,7 +112,7 @@ class StripeStreams {
    * @param throwIfNotFound fail if a stream is required and not found
    * @return the new stream
    */
-  virtual std::unique_ptr<SeekableInputStream> getStream(
+  virtual std::unique_ptr<dwio::common::SeekableInputStream> getStream(
       const DwrfStreamIdentifier& si,
       bool throwIfNotFound) const = 0;
 
@@ -256,7 +256,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
   // load data into buffer according to read plan
   void loadReadPlan();
 
-  std::unique_ptr<SeekableInputStream> getCompressedStream(
+  std::unique_ptr<dwio::common::SeekableInputStream> getCompressedStream(
       const DwrfStreamIdentifier& si) const;
 
   uint64_t getStreamLength(const DwrfStreamIdentifier& si) const {
@@ -268,7 +268,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
   std::unordered_map<uint32_t, std::vector<DwrfStreamIdentifier>>
   getStreamIdentifiers() const;
 
-  std::unique_ptr<SeekableInputStream> getStream(
+  std::unique_ptr<dwio::common::SeekableInputStream> getStream(
       const DwrfStreamIdentifier& si,
       bool throwIfNotFound) const override;
 
@@ -299,7 +299,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
     return index->second;
   }
 
-  std::unique_ptr<SeekableInputStream> getIndexStreamFromCache(
+  std::unique_ptr<dwio::common::SeekableInputStream> getIndexStreamFromCache(
       const StreamInformation& info) const;
 
   const dwio::common::encryption::Decrypter* getDecrypter(

@@ -18,7 +18,7 @@
 
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/Nulls.h"
-#include "velox/dwio/dwrf/common/Adaptor.h"
+#include "velox/dwio/common/Adaptor.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/common/IntDecoder.h"
 #include "velox/dwio/dwrf/common/IntEncoder.h"
@@ -233,7 +233,7 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
   using super = IntDecoder<isSigned>;
 
   RleDecoderV1(
-      std::unique_ptr<SeekableInputStream> input,
+      std::unique_ptr<dwio::common::SeekableInputStream> input,
       bool useVInts,
       uint32_t numBytes)
       : IntDecoder<isSigned>{std::move(input), useVInts, numBytes},
@@ -242,7 +242,8 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
         delta(0),
         repeating(false) {}
 
-  void seekToRowGroup(PositionProvider& positionProvider) override;
+  void seekToRowGroup(
+      dwio::common::PositionProvider& positionProvider) override;
 
   void skip(uint64_t numValues) override;
 

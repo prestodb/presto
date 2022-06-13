@@ -16,39 +16,29 @@
 
 #include "velox/dwio/common/InputStream.h"
 
-#include <algorithm>
-#include <cerrno>
-#include <chrono>
-#include <cstdint>
-#include <cstring>
-#include <functional>
-#include <istream>
-#include <limits>
-#include <stdexcept>
-#include <string_view>
-#include <type_traits>
-
 #include <fcntl.h>
-#include <fmt/format.h>
+#include <folly/container/F14Map.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <cerrno>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <istream>
+#include <stdexcept>
+#include <string_view>
+#include <type_traits>
 
-#include "folly/container/F14Map.h"
 #include "velox/dwio/common/exception/Exception.h"
 
-using namespace facebook::velox::dwio::common;
-
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace common {
+namespace facebook::velox::dwio::common {
 
 folly::SemiFuture<uint64_t> InputStream::readAsync(
     const std::vector<folly::Range<char*>>& buffers,
     uint64_t offset,
-    common::LogType logType) {
+    LogType logType) {
   try {
     read(buffers, offset, logType);
     uint64_t size = 0;
@@ -64,7 +54,7 @@ folly::SemiFuture<uint64_t> InputStream::readAsync(
 FileInputStream::FileInputStream(
     const std::string& path,
     const MetricsLogPtr& metricsLog,
-    common::IoStatistics* stats)
+    IoStatistics* stats)
     : InputStream(path, metricsLog, stats) {
   file = open(path.c_str(), O_RDONLY);
   if (file == -1) {
@@ -152,7 +142,7 @@ static constexpr char kReadFilePath[] = "ReadFileFakePath";
 ReadFileInputStream::ReadFileInputStream(
     velox::ReadFile* readFile,
     const MetricsLogPtr& metricsLog,
-    common::IoStatistics* stats)
+    IoStatistics* stats)
     : InputStream(kReadFilePath, metricsLog, stats), readFile_(readFile) {}
 
 void ReadFileInputStream::read(
@@ -185,7 +175,7 @@ void ReadFileInputStream::read(
 void ReadFileInputStream::read(
     const std::vector<folly::Range<char*>>& buffers,
     uint64_t offset,
-    common::LogType logType) {
+    LogType logType) {
   int64_t bufferSize = 0;
   for (auto& buffer : buffers) {
     bufferSize += buffer.size();
@@ -208,7 +198,7 @@ void ReadFileInputStream::read(
 folly::SemiFuture<uint64_t> ReadFileInputStream::readAsync(
     const std::vector<folly::Range<char*>>& buffers,
     uint64_t offset,
-    common::LogType logType) {
+    LogType logType) {
   int64_t bufferSize = 0;
   for (auto& buffer : buffers) {
     bufferSize += buffer.size();
@@ -294,7 +284,7 @@ bool InputStream::registerFactory(InputStream::Factory factory) {
 std::unique_ptr<InputStream> InputStream::create(
     const std::string& path,
     const MetricsLogPtr& metricsLog,
-    common::IoStatistics* stats) {
+    IoStatistics* stats) {
   DWIO_ENSURE_NOT_NULL(metricsLog.get());
   for (auto& factory : factories()) {
     auto result = factory(path, metricsLog, stats);
@@ -307,8 +297,8 @@ std::unique_ptr<InputStream> InputStream::create(
 
 static std::unique_ptr<InputStream> fileInputStreamFactory(
     const std::string& filename,
-    const common::MetricsLogPtr& metricsLog,
-    common::IoStatistics* stats = nullptr) {
+    const MetricsLogPtr& metricsLog,
+    IoStatistics* stats = nullptr) {
   if (strncmp(filename.c_str(), "file:", 5) == 0) {
     return std::make_unique<FileInputStream>(
         filename.substr(5), metricsLog, stats);
@@ -320,7 +310,4 @@ VELOX_REGISTER_INPUT_STREAM_METHOD_DEFINITION(
     FileInputStream,
     fileInputStreamFactory)
 
-} // namespace common
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::dwio::common

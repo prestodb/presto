@@ -14,23 +14,6 @@
 
 add_subdirectory(utils)
 
-set(VELOX_LINK_LIBS
-    velox_dwio_common
-    velox_dwio_dwrf_reader
-    velox_dwio_dwrf_common
-    velox_dwio_dwrf_utils
-    velox_dwio_dwrf_writer
-    velox_dwio_common_exception
-    velox_dwio_type_fbhive
-    velox_vector
-    velox_exception
-    velox_memory
-    velox_process
-    velox_serialization
-    velox_encode
-    velox_type
-    velox_caching)
-
 set(TEST_LINK_LIBS
     velox_dwrf_test_utils
     ${gflags_LIBRARIES}
@@ -117,20 +100,6 @@ target_link_libraries(
   ${ZSTD}
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
-
-add_executable(velox_dwio_dwrf_buffered_input_test TestBufferedInput.cpp)
-add_test(velox_dwio_dwrf_buffered_input_test
-         velox_dwio_dwrf_buffered_input_test)
-
-target_link_libraries(velox_dwio_dwrf_buffered_input_test ${VELOX_LINK_LIBS}
-                      ${FOLLY_WITH_DEPENDENCIES} ${TEST_LINK_LIBS})
-
-add_executable(velox_dwio_dwrf_cache_input_test CacheInputTest.cpp)
-add_test(velox_dwio_dwrf_cache_input_test velox_dwio_dwrf_cache_input_test)
-
-target_link_libraries(
-  velox_dwio_dwrf_cache_input_test ${VELOX_LINK_LIBS} velox_temp_path
-  ${FOLLY_WITH_DEPENDENCIES} ${TEST_LINK_LIBS})
 
 add_executable(velox_dwio_dwrf_dictionary_encoder_test
                TestIntegerDictionaryEncoder.cpp TestStringDictionaryEncoder.cpp)

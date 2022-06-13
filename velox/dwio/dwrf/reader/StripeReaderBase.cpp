@@ -58,7 +58,7 @@ const proto::StripeInformation& StripeReaderBase::loadStripe(
   }
 
   // load stripe footer
-  std::unique_ptr<SeekableInputStream> stream;
+  std::unique_ptr<dwio::common::SeekableInputStream> stream;
   if (cache) {
     stream = cache->get(proto::StripeCacheMode::FOOTER, index);
   }

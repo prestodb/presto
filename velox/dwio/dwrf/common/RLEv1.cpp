@@ -64,7 +64,8 @@ template void RleEncoderV1<true>::writeValues();
 template void RleEncoderV1<false>::writeValues();
 
 template <bool isSigned>
-void RleDecoderV1<isSigned>::seekToRowGroup(PositionProvider& location) {
+void RleDecoderV1<isSigned>::seekToRowGroup(
+    dwio::common::PositionProvider& location) {
   // move the input stream
   IntDecoder<isSigned>::inputStream->seekToPosition(location);
   // force a re-read from the stream
@@ -75,8 +76,10 @@ void RleDecoderV1<isSigned>::seekToRowGroup(PositionProvider& location) {
   skip(location.next());
 }
 
-template void RleDecoderV1<true>::seekToRowGroup(PositionProvider& location);
-template void RleDecoderV1<false>::seekToRowGroup(PositionProvider& location);
+template void RleDecoderV1<true>::seekToRowGroup(
+    dwio::common::PositionProvider& location);
+template void RleDecoderV1<false>::seekToRowGroup(
+    dwio::common::PositionProvider& location);
 
 template <bool isSigned>
 void RleDecoderV1<isSigned>::skip(uint64_t numValues) {

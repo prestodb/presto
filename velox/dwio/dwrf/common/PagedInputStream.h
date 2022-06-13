@@ -16,11 +16,12 @@
 
 #pragma once
 
+#include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/dwrf/common/Compression.h"
 
 namespace facebook::velox::dwrf {
 
-class PagedInputStream : public SeekableInputStream {
+class PagedInputStream : public dwio::common::SeekableInputStream {
  public:
   PagedInputStream(
       std::unique_ptr<SeekableInputStream> inStream,
@@ -45,7 +46,7 @@ class PagedInputStream : public SeekableInputStream {
   google::protobuf::int64 ByteCount() const override {
     return bytesReturned_;
   }
-  void seekToPosition(PositionProvider& position) override;
+  void seekToPosition(dwio::common::PositionProvider& position) override;
   std::string getName() const override {
     return folly::to<std::string>(
         "PagedInputStream StreamInfo (",

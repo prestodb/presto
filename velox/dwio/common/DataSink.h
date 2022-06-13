@@ -33,7 +33,7 @@ class DataSink : public Closeable {
   explicit DataSink(
       std::string name,
       MetricsLogPtr metricLogger,
-      common::IoStatistics* stats = nullptr)
+      IoStatistics* stats = nullptr)
       : name_{std::move(name)},
         size_{0},
         metricLogger_{std::move(metricLogger)},
@@ -100,12 +100,12 @@ class DataSink : public Closeable {
   using Factory = std::function<std::unique_ptr<DataSink>(
       const std::string&,
       const common::MetricsLogPtr&,
-      common::IoStatistics* stats)>;
+      IoStatistics* stats)>;
 
   static std::unique_ptr<DataSink> create(
       const std::string&,
       const common::MetricsLogPtr& = common::MetricsLog::voidLog(),
-      common::IoStatistics* stats = nullptr);
+      IoStatistics* stats = nullptr);
 
   static bool registerFactory(const Factory& factory);
 
@@ -113,7 +113,7 @@ class DataSink : public Closeable {
   std::string name_;
   uint64_t size_;
   MetricsLogPtr metricLogger_;
-  common::IoStatistics* stats_;
+  IoStatistics* stats_;
 
   void writeImpl(
       std::vector<DataBuffer<char>>& buffers,
@@ -138,7 +138,7 @@ class FileSink : public DataSink {
   explicit FileSink(
       const std::string& name,
       const MetricsLogPtr& metricLogger = MetricsLog::voidLog(),
-      common::IoStatistics* stats = nullptr);
+      IoStatistics* stats = nullptr);
 
   ~FileSink() override {
     destroy();
@@ -165,7 +165,7 @@ class MemorySink : public DataSink {
       velox::memory::MemoryPool& pool,
       size_t capacity,
       const MetricsLogPtr& metricLogger = MetricsLog::voidLog(),
-      common::IoStatistics* stats = nullptr)
+      IoStatistics* stats = nullptr)
       : DataSink{"MemorySink", metricLogger, stats}, data_{pool, capacity} {}
 
   ~MemorySink() override {

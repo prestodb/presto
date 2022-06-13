@@ -39,7 +39,7 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
     ensureRowGroupIndex();
 
     auto positions = toPositions(index_->entry(index));
-    PositionProvider positionsProvider(positions);
+    dwio::common::PositionProvider positionsProvider(positions);
 
     if (notNullDecoder_) {
       notNullDecoder_->seekToRowGroup(positionsProvider);

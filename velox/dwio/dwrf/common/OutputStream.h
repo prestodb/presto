@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include "velox/dwio/common/wrap/zero-copy-stream-wrapper.h"
 #include "velox/dwio/dwrf/common/DataBufferHolder.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
-#include "velox/dwio/dwrf/common/wrap/zero-copy-stream-wrapper.h"
 
 namespace facebook::velox::dwrf {
 

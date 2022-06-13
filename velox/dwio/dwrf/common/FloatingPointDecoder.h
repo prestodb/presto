@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/common/StreamUtil.h"
 
@@ -26,7 +27,8 @@ struct DropValues;
 template <typename TData, typename TRequested>
 class FloatingPointDecoder {
  public:
-  FloatingPointDecoder(std::unique_ptr<SeekableInputStream>&& input)
+  FloatingPointDecoder(
+      std::unique_ptr<dwio::common::SeekableInputStream>&& input)
       : input_(std::move(input)) {}
 
   TData readValue() {
@@ -40,7 +42,7 @@ class FloatingPointDecoder {
     return temp;
   }
 
-  void seekToRowGroup(PositionProvider& positionProvider) {
+  void seekToRowGroup(dwio::common::PositionProvider& positionProvider) {
     input_->seekToPosition(positionProvider);
     bufferStart_ = bufferEnd_;
   }
@@ -168,7 +170,7 @@ class FloatingPointDecoder {
     visitor.setNumValues(hasFilter ? numValues : numRows);
   }
 
-  std::unique_ptr<SeekableInputStream> input_;
+  std::unique_ptr<dwio::common::SeekableInputStream> input_;
   const char* bufferStart_ = nullptr;
   const char* bufferEnd_ = nullptr;
 };

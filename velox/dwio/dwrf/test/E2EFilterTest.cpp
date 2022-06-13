@@ -22,7 +22,6 @@ using namespace facebook::velox::dwrf;
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 
-using dwio::common::MemoryInputStream;
 using dwio::common::MemorySink;
 
 class E2EFilterTest : public E2EFilterTestBase {

@@ -17,16 +17,15 @@
 #pragma once
 
 #include "velox/dwio/common/DataBuffer.h"
-#include "velox/dwio/common/Options.h"
-#include "velox/dwio/dwrf/common/Common.h"
-#include "velox/dwio/dwrf/common/InputStream.h"
+#include "velox/dwio/common/SeekableInputStream.h"
+#include "velox/dwio/common/StreamIdentifier.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 class BufferedInput {
  public:
   constexpr static uint64_t kMaxMergeDistance = 1024 * 1024 * 1.25;
-  BufferedInput(dwio::common::InputStream& input, memory::MemoryPool& pool)
+  BufferedInput(InputStream& input, memory::MemoryPool& pool)
       : input_{input}, pool_{pool} {}
 
   BufferedInput(BufferedInput&&) = default;
@@ -46,18 +45,18 @@ class BufferedInput {
   // 'si' allows tracking which streams actually get read. This may control
   // read-ahead and caching for BufferedInput implementations supporting these.
   virtual std::unique_ptr<SeekableInputStream> enqueue(
-      dwio::common::Region region,
-      const dwio::common::StreamIdentifier* FOLLY_NULLABLE si = nullptr);
+      Region region,
+      const StreamIdentifier* FOLLY_NULLABLE si = nullptr);
 
   // load all regions to be read in an optimized way (IO efficiency)
-  virtual void load(const dwio::common::LogType);
+  virtual void load(const LogType);
 
   virtual bool isBuffered(uint64_t offset, uint64_t length) const {
     return !!readBuffer(offset, length);
   }
 
   virtual std::unique_ptr<SeekableInputStream>
-  read(uint64_t offset, uint64_t length, dwio::common::LogType logType) const {
+  read(uint64_t offset, uint64_t length, LogType logType) const {
     std::unique_ptr<SeekableInputStream> ret = readBuffer(offset, length);
     if (!ret) {
       VLOG(1) << "Unplanned read. Offset: " << offset << ", Length: " << length;
@@ -88,13 +87,13 @@ class BufferedInput {
   virtual void setNumStripes(int32_t /*numStripes*/) {}
 
  protected:
-  dwio::common::InputStream& input_;
+  InputStream& input_;
 
  private:
   memory::MemoryPool& pool_;
   std::vector<uint64_t> offsets_;
-  std::vector<dwio::common::DataBuffer<char>> buffers_;
-  std::vector<dwio::common::Region> regions_;
+  std::vector<DataBuffer<char>> buffers_;
+  std::vector<Region> regions_;
 
   std::unique_ptr<SeekableInputStream> readBuffer(
       uint64_t offset,
@@ -104,13 +103,12 @@ class BufferedInput {
       uint64_t length) const;
 
   void readRegion(
-      const dwio::common::Region& region,
-      const dwio::common::LogType logType,
-      std::function<
-          void(void* FOLLY_NONNULL, uint64_t, uint64_t, dwio::common::LogType)>
+      const Region& region,
+      const LogType logType,
+      std::function<void(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType)>
           action) {
     offsets_.push_back(region.offset);
-    dwio::common::DataBuffer<char> buffer(pool_, region.length);
+    DataBuffer<char> buffer(pool_, region.length);
 
     // action is required
     DWIO_ENSURE_NOT_NULL(action);
@@ -121,15 +119,12 @@ class BufferedInput {
 
   // we either load data parallelly or sequentially according to flag
   void loadWithAction(
-      const dwio::common::LogType logType,
-      std::function<
-          void(void* FOLLY_NONNULL, uint64_t, uint64_t, dwio::common::LogType)>
+      const LogType logType,
+      std::function<void(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType)>
           action);
 
   // tries and merges WS read regions into one
-  bool tryMerge(
-      dwio::common::Region& first,
-      const dwio::common::Region& second);
+  bool tryMerge(Region& first, const Region& second);
 };
 
 class BufferedInputFactory {
@@ -137,7 +132,7 @@ class BufferedInputFactory {
   virtual ~BufferedInputFactory() = default;
 
   virtual std::unique_ptr<BufferedInput> create(
-      dwio::common::InputStream& input,
+      InputStream& input,
       velox::memory::MemoryPool& pool,
       uint64_t /*fileNum*/) const {
     return std::make_unique<BufferedInput>(input, pool);
@@ -159,4 +154,4 @@ class BufferedInputFactory {
   }
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

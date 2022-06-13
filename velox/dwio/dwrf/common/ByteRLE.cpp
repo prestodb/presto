@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include "velox/dwio/dwrf/common/ByteRLE.h"
 #include <algorithm>
+
 #include "velox/dwio/common/exception/Exceptions.h"
+#include "velox/dwio/dwrf/common/ByteRLE.h"
 
 namespace facebook::velox::dwrf {
 
@@ -347,7 +347,8 @@ void ByteRleDecoder::nextBuffer() {
   bufferEnd = bufferStart + bufferLength;
 }
 
-void ByteRleDecoder::seekToRowGroup(PositionProvider& positionProvider) {
+void ByteRleDecoder::seekToRowGroup(
+    dwio::common::PositionProvider& positionProvider) {
   // move the input stream
   inputStream->seekToPosition(positionProvider);
   // force a re-read from the stream
@@ -452,12 +453,13 @@ void ByteRleDecoder::next(
 }
 
 std::unique_ptr<ByteRleDecoder> createByteRleDecoder(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     const EncodingKey& ek) {
   return std::make_unique<ByteRleDecoder>(std::move(input), ek);
 }
 
-void BooleanRleDecoder::seekToRowGroup(PositionProvider& positionProvider) {
+void BooleanRleDecoder::seekToRowGroup(
+    dwio::common::PositionProvider& positionProvider) {
   ByteRleDecoder::seekToRowGroup(positionProvider);
   uint64_t consumed = positionProvider.next();
   DWIO_ENSURE_LE(
@@ -566,7 +568,7 @@ void BooleanRleDecoder::next(
 }
 
 std::unique_ptr<BooleanRleDecoder> createBooleanRleDecoder(
-    std::unique_ptr<SeekableInputStream> input,
+    std::unique_ptr<dwio::common::SeekableInputStream> input,
     const EncodingKey& ek) {
   return std::make_unique<BooleanRleDecoder>(std::move(input), ek);
 }

@@ -34,10 +34,7 @@
 #include "velox/dwio/common/IoStatistics.h"
 #include "velox/dwio/common/MetricsLog.h"
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace common {
+namespace facebook::velox::dwio::common {
 
 constexpr uint64_t DEFAULT_AUTO_PRELOAD_SIZE =
     (static_cast<const uint64_t>((1ul << 20) * 72));
@@ -61,7 +58,7 @@ class InputStream {
   explicit InputStream(
       const std::string& path,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
-      common::IoStatistics* FOLLY_NULLABLE stats = nullptr)
+      IoStatistics* FOLLY_NULLABLE stats = nullptr)
       : path_{path}, metricsLog_{metricsLog}, stats_(stats) {}
 
   virtual ~InputStream() = default;
@@ -69,7 +66,7 @@ class InputStream {
   /**
    * Get the stats object
    */
-  common::IoStatistics* FOLLY_NULLABLE getStats() const {
+  IoStatistics* FOLLY_NULLABLE getStats() const {
     return stats_;
   }
 
@@ -105,7 +102,7 @@ class InputStream {
   virtual void read(
       const std::vector<folly::Range<char*>>& buffers,
       uint64_t offset,
-      common::LogType logType) {
+      LogType logType) {
     uint64_t bufferOffset = 0;
     for (auto& range : buffers) {
       if (range.data()) {
@@ -120,7 +117,7 @@ class InputStream {
   virtual folly::SemiFuture<uint64_t> readAsync(
       const std::vector<folly::Range<char*>>& buffers,
       uint64_t offset,
-      common::LogType logType);
+      LogType logType);
 
   /// Returns true if readAsync has a native implementation that is
   /// asynchronous.
@@ -147,20 +144,20 @@ class InputStream {
 
   using Factory = std::function<std::unique_ptr<InputStream>(
       const std::string&,
-      const common::MetricsLogPtr&,
-      common::IoStatistics* FOLLY_NULLABLE stats)>;
+      const MetricsLogPtr&,
+      IoStatistics* FOLLY_NULLABLE stats)>;
 
   static std::unique_ptr<InputStream> create(
       const std::string&,
-      const common::MetricsLogPtr& = common::MetricsLog::voidLog(),
-      common::IoStatistics* FOLLY_NULLABLE stats = nullptr);
+      const MetricsLogPtr& = MetricsLog::voidLog(),
+      IoStatistics* FOLLY_NULLABLE stats = nullptr);
 
   static bool registerFactory(Factory factory);
 
  protected:
   std::string path_;
   MetricsLogPtr metricsLog_;
-  common::IoStatistics* FOLLY_NULLABLE stats_;
+  IoStatistics* FOLLY_NULLABLE stats_;
 };
 
 class FileInputStream : public InputStream {
@@ -172,7 +169,7 @@ class FileInputStream : public InputStream {
   explicit FileInputStream(
       const std::string& filename,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
-      common::IoStatistics* FOLLY_NULLABLE stats = nullptr);
+      IoStatistics* FOLLY_NULLABLE stats = nullptr);
 
   ~FileInputStream() override;
 
@@ -192,7 +189,7 @@ class ReadFileInputStream final : public InputStream {
   explicit ReadFileInputStream(
       velox::ReadFile* FOLLY_NONNULL readFile,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
-      common::IoStatistics* FOLLY_NULLABLE stats = nullptr);
+      IoStatistics* FOLLY_NULLABLE stats = nullptr);
 
   virtual ~ReadFileInputStream() {}
 
@@ -205,17 +202,17 @@ class ReadFileInputStream final : public InputStream {
     return 10ULL << 20;
   }
 
-  void read(void* FOLLY_NONNULL, uint64_t, uint64_t, common::LogType) override;
+  void read(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType) override;
 
   void read(
       const std::vector<folly::Range<char*>>& buffers,
       uint64_t offset,
-      common::LogType logType) override;
+      LogType logType) override;
 
   folly::SemiFuture<uint64_t> readAsync(
       const std::vector<folly::Range<char*>>& buffers,
       uint64_t offset,
-      common::LogType logType) override;
+      LogType logType) override;
 
   bool hasReadAsync() const override;
 
@@ -232,7 +229,7 @@ class ReferenceableInputStream : public InputStream {
   explicit ReferenceableInputStream(
       const std::string& /* UNUSED*/,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
-      common::IoStatistics* FOLLY_NULLABLE stats = nullptr)
+      IoStatistics* FOLLY_NULLABLE stats = nullptr)
       : InputStream("ReferenceablelnputStream", metricsLog, stats),
         autoPreloadLength_(0),
         prefetching_(false) {}
@@ -250,10 +247,7 @@ class ReferenceableInputStream : public InputStream {
   virtual const void* FOLLY_NULLABLE
   readReferenceOnly(uint64_t length, uint64_t offset, LogType) = 0;
 };
-} // namespace common
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::dwio::common
 
 #define VELOX_STATIC_REGISTER_INPUT_STREAM(function)                           \
   namespace {                                                                  \
