@@ -166,6 +166,7 @@ public class TestingPrestoServer
     private final ShutdownAction shutdownAction;
     private final RequestBlocker requestBlocker;
     private final boolean resourceManager;
+    private final boolean catalogServer;
     private final boolean coordinator;
     private final ServerInfoResource serverInfoResource;
     private final ResourceManagerClusterStateProvider clusterStateProvider;
@@ -231,12 +232,25 @@ public class TestingPrestoServer
             Optional<Path> baseDataDir)
             throws Exception
     {
-        this(false, false, coordinator, properties, environment, discoveryUri, parserOptions, additionalModules, baseDataDir);
+        this(
+                false,
+                false,
+                false,
+                false,
+                coordinator,
+                properties,
+                environment,
+                discoveryUri,
+                parserOptions,
+                additionalModules,
+                baseDataDir);
     }
 
     public TestingPrestoServer(
             boolean resourceManager,
             boolean resourceManagerEnabled,
+            boolean catalogServer,
+            boolean catalogServerEnabled,
             boolean coordinator,
             Map<String, String> properties,
             String environment,
@@ -247,6 +261,7 @@ public class TestingPrestoServer
             throws Exception
     {
         this.resourceManager = resourceManager;
+        this.catalogServer = catalogServer;
         this.coordinator = coordinator;
 
         this.baseDataDir = baseDataDir.orElseGet(TestingPrestoServer::tempDirectory);
@@ -258,7 +273,7 @@ public class TestingPrestoServer
             coordinatorPort = "0";
         }
 
-        Map<String, String> serverProperties = getServerProperties(resourceManagerEnabled, properties, environment, discoveryUri);
+        Map<String, String> serverProperties = getServerProperties(resourceManagerEnabled, catalogServerEnabled, properties, environment, discoveryUri);
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
@@ -362,6 +377,17 @@ public class TestingPrestoServer
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
             clusterStateProvider = injector.getInstance(ResourceManagerClusterStateProvider.class);
         }
+        else if (catalogServer) {
+            dispatchManager = null;
+            queryManager = null;
+            resourceGroupManager = Optional.empty();
+            nodePartitioningManager = null;
+            planOptimizerManager = null;
+            clusterMemoryManager = null;
+            statsCalculator = null;
+            eventListenerManager = null;
+            clusterStateProvider = null;
+        }
         else {
             dispatchManager = null;
             queryManager = null;
@@ -393,18 +419,25 @@ public class TestingPrestoServer
         refreshNodes();
     }
 
-    private Map<String, String> getServerProperties(boolean resourceManagerEnabled, Map<String, String> properties, String environment, URI discoveryUri)
+    private Map<String, String> getServerProperties(
+            boolean resourceManagerEnabled,
+            boolean catalogServerEnabled,
+            Map<String, String> properties,
+            String environment,
+            URI discoveryUri)
     {
         Map<String, String> serverProperties = new HashMap<>();
         serverProperties.put("coordinator", String.valueOf(coordinator));
         serverProperties.put("resource-manager", String.valueOf(resourceManager));
         serverProperties.put("resource-manager-enabled", String.valueOf(resourceManagerEnabled));
+        serverProperties.put("catalog-server", String.valueOf(catalogServer));
+        serverProperties.put("catalog-server-enabled", String.valueOf(catalogServerEnabled));
         serverProperties.put("presto.version", "testversion");
         serverProperties.put("task.concurrency", "4");
         serverProperties.put("task.max-worker-threads", "4");
         serverProperties.put("exchange.client-threads", "4");
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
-        if (coordinator || resourceManager) {
+        if (coordinator || resourceManager || catalogServer) {
             // enabling failure detector in tests can make them flakey
             serverProperties.put("failure-detector.enabled", "false");
         }
