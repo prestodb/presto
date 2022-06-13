@@ -317,7 +317,7 @@ bool Expr::checkGetSharedSubexprValues(
   //
   // For now, disable the optimization if any encodings have been peeled off.
 
-  if (!isMultiplyReferenced_ || !sharedSubexprValues_ ||
+  if (!deterministic_ || !isMultiplyReferenced_ || !sharedSubexprValues_ ||
       context.wrapEncoding() != VectorEncoding::Simple::FLAT) {
     return false;
   }
