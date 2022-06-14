@@ -90,9 +90,9 @@ connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
 }
 
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
-    const std::shared_ptr<const protocol::ColumnHandle>& column) {
+    const protocol::ColumnHandle* column) {
   if (auto hiveColumn =
-          std::dynamic_pointer_cast<const protocol::HiveColumnHandle>(column)) {
+          dynamic_cast<const protocol::HiveColumnHandle*>(column)) {
     return std::make_shared<connector::hive::HiveColumnHandle>(
         hiveColumn->name,
         toHiveColumnType(hiveColumn->columnType),
@@ -370,13 +370,19 @@ std::unique_ptr<common::Filter> toFilter(
 
 std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     const protocol::TableHandle& tableHandle,
-    const VeloxExprConverter& exprConverter) {
+    const VeloxExprConverter& exprConverter,
+    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
+        partitionColumns) {
   if (auto hiveLayout =
           std::dynamic_pointer_cast<const protocol::HiveTableLayoutHandle>(
               tableHandle.connectorTableLayout)) {
     VELOX_CHECK(
         hiveLayout->pushdownFilterEnabled,
         "Table scan with filter pushdown disabled is not supported");
+
+    for (const auto& entry : hiveLayout->partitionColumns) {
+      partitionColumns.emplace(entry.name, toColumnHandle(&entry));
+    }
 
     connector::hive::SubfieldFilters subfieldFilters;
     auto domains = hiveLayout->domainPredicate.domains;
@@ -410,7 +416,11 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
               "{}.{}", hiveTableHandle->schemaName, hiveTableHandle->tableName);
 
     return std::make_shared<connector::hive::HiveTableHandle>(
-        tableName, true, std::move(subfieldFilters), remainingFilter);
+        tableHandle.connectorId,
+        tableName,
+        true,
+        std::move(subfieldFilters),
+        remainingFilter);
   }
 
   throw std::invalid_argument("Unsupported TableHandle type");
@@ -472,6 +482,18 @@ void setCellFromVariant(
       columnVector,
       row,
       value);
+}
+
+void setCellFromVariant(
+    const VectorPtr& data,
+    vector_size_t row,
+    const velox::variant& value) {
+  if (value.isNull()) {
+    data->setNull(row, true);
+    return;
+  }
+  VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      setCellFromVariantByKind, data->typeKind(), data, row, value);
 }
 
 velox::core::SortOrder toVeloxSortOrder(const protocol::SortOrder& sortOrder) {
@@ -539,6 +561,28 @@ std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> toFieldExprs(
   return fields;
 }
 
+std::vector<TypedExprPtr> toTypedExprs(
+    const std::vector<std::shared_ptr<protocol::RowExpression>>& expressions,
+    const VeloxExprConverter& exprConverter) {
+  std::vector<TypedExprPtr> typedExprs;
+  typedExprs.reserve(expressions.size());
+  for (auto& expr : expressions) {
+    auto typedExpr = exprConverter.toVeloxExpr(expr);
+    auto field =
+        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);
+    if (field == nullptr) {
+      auto constant =
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(typedExpr);
+      VELOX_CHECK_NOT_NULL(
+          constant,
+          "Unexpected expression type: {}. Expected variable or constant.",
+          expr->_type);
+    }
+    typedExprs.emplace_back(std::move(typedExpr));
+  }
+  return typedExprs;
+}
+
 std::vector<ChannelIndex> toChannels(
     const RowTypePtr& type,
     const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
@@ -550,6 +594,48 @@ std::vector<ChannelIndex> toChannels(
     channels.emplace_back(channel);
   }
   return channels;
+}
+
+ChannelIndex exprToChannel(const core::ITypedExpr* expr, const TypePtr& type) {
+  if (auto field = dynamic_cast<const core::FieldAccessTypedExpr*>(expr)) {
+    return type->as<TypeKind::ROW>().getChildIdx(field->name());
+  }
+  if (dynamic_cast<const core::ConstantTypedExpr*>(expr)) {
+    return kConstantChannel;
+  }
+  VELOX_CHECK(false, "Expression must be field access or constant");
+  return 0; // not reached.
+}
+
+// Stores partitioned output channels.
+// For each 'kConstantChannel', there is an entry in 'constValues'.
+struct PartitionedOutputChannels {
+  std::vector<ChannelIndex> channels;
+  // Each vector holding a single value for a constant channel.
+  std::vector<VectorPtr> constValues;
+};
+
+PartitionedOutputChannels toChannels(
+    const RowTypePtr& rowType,
+    const std::vector<std::shared_ptr<const core::ITypedExpr>>& exprs,
+    memory::MemoryPool* pool) {
+  PartitionedOutputChannels output;
+  output.channels.reserve(exprs.size());
+  for (const auto& expr : exprs) {
+    auto channel = exprToChannel(expr.get(), rowType);
+    output.channels.push_back(channel);
+
+    // For constant channels create a base vector, add single value to it from
+    // our variant and add it to the list of constant expressions.
+    if (channel == kConstantChannel) {
+      output.constValues.emplace_back(
+          velox::BaseVector::create(expr->type(), 1, pool));
+      auto constExpr =
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr);
+      setCellFromVariant(output.constValues.back(), 0, constExpr->value());
+    }
+  }
+  return output;
 }
 
 template <typename T>
@@ -600,6 +686,12 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
   const auto type = toLocalExchangeType(node->type);
 
   const auto outputType = toRowType(node->partitioningScheme.outputLayout);
+  // Input layout from source, describing how data should be fed to our node.
+  // For all sources the layout should be the same, so we store only one (we
+  // use the 1st source for that).
+  // This layout and the output layout for the 1st source would be used to
+  // created the column mapping in the operator.
+  RowTypePtr inputTypeFromSource = toRowType(node->inputs[0]);
 
   if (isHashPartition(node)) {
     auto partitionKeys = toFieldExprs(
@@ -618,7 +710,8 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
         type,
         partitionFunctionFactory,
         outputType,
-        std::move(sourceNodes));
+        std::move(sourceNodes),
+        std::move(inputTypeFromSource));
   }
 
   if (isRoundRobinPartition(node)) {
@@ -632,12 +725,16 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
         type,
         partitionFunctionFactory,
         outputType,
-        std::move(sourceNodes));
+        std::move(sourceNodes),
+        std::move(inputTypeFromSource));
   }
 
   if (type == velox::core::LocalPartitionNode::Type::kGather) {
     return velox::core::LocalPartitionNode::gather(
-        node->id, outputType, std::move(sourceNodes));
+        node->id,
+        outputType,
+        std::move(sourceNodes),
+        std::move(inputTypeFromSource));
   }
 
   VELOX_UNSUPPORTED(
@@ -1001,13 +1098,12 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   for (const auto& entry : node->assignments) {
-    assignments.emplace(entry.first.name, toColumnHandle(entry.second));
+    assignments.emplace(entry.first.name, toColumnHandle(entry.second.get()));
   }
+  auto connectorTableHandle =
+      toConnectorTableHandle(node->table, exprConverter_, assignments);
   return std::make_shared<velox::core::TableScanNode>(
-      node->id,
-      rowType,
-      toConnectorTableHandle(node->table, exprConverter_),
-      assignments);
+      node->id, rowType, connectorTableHandle, assignments);
 }
 
 std::vector<std::shared_ptr<const FieldAccessTypedExpr>>
@@ -1075,6 +1171,57 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
       aggregates,
       aggrMasks,
       false, // ignoreNullKeys
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+}
+
+std::shared_ptr<const velox::core::GroupIdNode>
+VeloxQueryPlanConverter::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::GroupIdNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  // protocol::GroupIdNode.groupingSets uses output names for the grouping keys.
+  // protocol::GroupIdNode.groupingColumns maps output name of a grouping key to
+  // its input name.
+
+  // Example:
+  //  - GroupId[[orderstatus], [orderpriority]] => [orderstatus$gid:varchar(1),
+  //  orderpriority$gid:varchar(15), orderkey:bigint, groupid:bigint]
+  //      orderstatus$gid := orderstatus (10:20)
+  //      orderpriority$gid := orderpriority (10:35)
+  //
+  //  Here, groupingSets = [[orderstatus$gid], [orderpriority$gid]]
+  //    and groupingColumns = [orderstatus$gid => orderstatus, orderpriority$gid
+  //    => orderpriority]
+
+  // velox::core::GroupIdNode.groupingSets is defined using input fields.
+  // velox::core::GroupIdNode.outputGroupingKeyNames maps output name of a
+  // grouping key to the corresponding input field.
+
+  std::vector<std::vector<core::FieldAccessTypedExprPtr>> groupingSets;
+  groupingSets.reserve(node->groupingSets.size());
+  for (const auto& groupingSet : node->groupingSets) {
+    std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+    groupingKeys.reserve(groupingSet.size());
+    for (const auto& groupingKey : groupingSet) {
+      groupingKeys.emplace_back(std::make_shared<FieldAccessTypedExpr>(
+          stringToType(groupingKey.type),
+          node->groupingColumns.at(groupingKey).name));
+    }
+    groupingSets.emplace_back(std::move(groupingKeys));
+  }
+
+  std::map<std::string, core::FieldAccessTypedExprPtr> outputGroupingKeyNames;
+  for (const auto& [output, input] : node->groupingColumns) {
+    outputGroupingKeyNames.emplace(
+        output.name, exprConverter_.toVeloxExpr(input));
+  }
+
+  return std::make_shared<velox::core::GroupIdNode>(
+      node->id,
+      std::move(groupingSets),
+      std::move(outputGroupingKeyNames),
+      toVeloxExprs(node->aggregationArguments),
+      node->groupIdVariable.name,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -1365,6 +1512,10 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
           std::dynamic_pointer_cast<const protocol::AggregationNode>(node)) {
     return toVeloxQueryPlan(aggregation, tableWriteInfo, taskId);
   }
+  if (auto groupId =
+          std::dynamic_pointer_cast<const protocol::GroupIdNode>(node)) {
+    return toVeloxQueryPlan(groupId, tableWriteInfo, taskId);
+  }
   if (auto distinctLimit =
           std::dynamic_pointer_cast<const protocol::DistinctLimitNode>(node)) {
     return toVeloxQueryPlan(distinctLimit, tableWriteInfo, taskId);
@@ -1458,12 +1609,13 @@ velox::core::PlanFragment VeloxQueryPlanConverter::toVeloxQueryPlan(
       partitioningScheme.partitioning.handle.connectorHandle;
 
   auto partitioningKeys =
-      toFieldExprs(partitioningScheme.partitioning.arguments, exprConverter_);
+      toTypedExprs(partitioningScheme.partitioning.arguments, exprConverter_);
 
   auto sourceNode = toVeloxQueryPlan(fragment.root, tableWriteInfo, taskId);
   auto inputType = sourceNode->outputType();
 
-  auto keyChannels = toChannels(inputType, partitioningKeys);
+  PartitionedOutputChannels keyChannels =
+      toChannels(inputType, partitioningKeys, pool_);
   auto outputType = toRowType(partitioningScheme.outputLayout);
 
   if (auto systemPartitioningHandle =
@@ -1518,7 +1670,10 @@ velox::core::PlanFragment VeloxQueryPlanConverter::toVeloxQueryPlan(
             auto partitionFunctionFactory = [inputType,
                                              keyChannels](auto numPartitions) {
               return std::make_unique<velox::exec::HashPartitionFunction>(
-                  numPartitions, inputType, keyChannels);
+                  numPartitions,
+                  inputType,
+                  keyChannels.channels,
+                  keyChannels.constValues);
             };
 
             planFragment.planNode = std::make_shared<PartitionedOutputNode>(
@@ -1572,7 +1727,10 @@ velox::core::PlanFragment VeloxQueryPlanConverter::toVeloxQueryPlan(
                                      bucketToPartition,
                                      keyChannels](auto /* numPartitions */) {
       return std::make_unique<velox::connector::hive::HivePartitionFunction>(
-          numBuckets, bucketToPartition, keyChannels);
+          numBuckets,
+          bucketToPartition,
+          keyChannels.channels,
+          keyChannels.constValues);
     };
 
     planFragment.planNode = std::make_shared<PartitionedOutputNode>(

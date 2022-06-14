@@ -101,6 +101,7 @@ velox::VectorPtr readScalarBlock(
     case velox::TypeKind::REAL:
     case velox::TypeKind::VARCHAR:
     case velox::TypeKind::DATE:
+    case velox::TypeKind::INTERVAL_DAY_TIME:
       return std::make_shared<velox::FlatVector<U>>(
           pool,
           type,

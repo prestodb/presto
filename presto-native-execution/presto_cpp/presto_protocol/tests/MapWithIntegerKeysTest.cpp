@@ -16,7 +16,9 @@
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 
-TEST(MapWithIntegerKeysTest, basic) {
+class MapWithIntegerKeysTest : public ::testing::Test {};
+
+TEST_F(MapWithIntegerKeysTest, basic) {
   std::string str = R"(
         {
            "1": "abc", "2": "def", "3": "ghi"

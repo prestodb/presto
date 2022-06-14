@@ -32,7 +32,9 @@ dnf install -y libuuid-devel
 export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
-export COMPILER_FLAGS="-mavx2 -mfma -mavx -mf16c -masm=intel -mlzcnt"
+CPU_TARGET="${CPU_TARGET:-avx}"
+SOURCE_FILE="$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-helper-functions.sh"
+export COMPILER_FLAGS=$(source "$SOURCE_FILE" && echo -n $(get_cxx_flags $CPU_TARGET))
 
 (
   wget --max-redirect 3 https://download.libsodium.org/libsodium/releases/LATEST.tar.gz &&

@@ -45,7 +45,6 @@ all: release			#: Build the release version
 
 clean:					#: Delete all build artifacts
 	rm -rf $(BUILD_BASE_DIR)
-	rm -rf java/presto-native-tests/pom.xml
 
 velox-submodule:		#: Check out code for velox submodule
 	git submodule sync --recursive

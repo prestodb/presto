@@ -57,19 +57,6 @@ DEFINE_int32(
     37,
     "System memory available for Presto Server in Gb.");
 
-// AsyncDataCache is an implementation of MappedMemory that provides
-// caching that is fungible with non-cache allocations
-// (MappedMemory::Allocation).  This works like the OS, where memory
-// that is not used for anything else goes to caching and IO prefetch.
-DEFINE_bool(use_async_cache, false, "Use async data cache");
-
-// MmapAlllocator is an implementation of MappedMemory that should be
-// used as a backing allocator for AsyncDataCache. This provides
-// memory from different size classes with a guarantee of fixed
-// resident set size and no fragmentation. Memory is managed with mmap
-// and madvise and pages can migrate between size classes.
-DEFINE_bool(use_mmap_allocator, false, "Use mmap_allocator");
-
 // If non-0, AsyncDataCache uses this amount of local file system
 // space for backing cached data. This is useful if cached data comes
 // from disaggregated storage that is slower than local SSD.
@@ -171,6 +158,7 @@ void PrestoServer::run() {
 
   auto servicePort = systemConfig->httpServerHttpPort();
   nodeVersion_ = systemConfig->prestoVersion();
+  int httpExecThreads = systemConfig->httpExecThreads();
   environment_ = nodeConfig->nodeEnvironment();
   nodeId_ = nodeConfig->nodeId();
   address_ = nodeConfig->nodeIp(getLocalIp);
@@ -179,9 +167,7 @@ void PrestoServer::run() {
     address_ = fmt::format("[{}]", address_);
   }
 
-  if (FLAGS_use_async_cache) {
-    initializeAsyncCache();
-  }
+  initializeAsyncCache();
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
 
@@ -205,7 +191,9 @@ void PrestoServer::run() {
       30'000 /*milliseconds*/);
   announcer.start();
 
-  httpServer_ = std::make_unique<http::HttpServer>(socketAddress);
+  httpServer_ =
+      std::make_unique<http::HttpServer>(socketAddress, httpExecThreads);
+
   httpServer_->registerPost(
       "/v1/memory",
       [server = this](
@@ -275,6 +263,12 @@ void PrestoServer::run() {
     enableChecksum();
   }
 
+  if (systemConfig->enableVeloxTaskLogging()) {
+    if (auto listener = getTaskListiner()) {
+      exec::registerTaskListener(listener);
+    }
+  }
+
   LOG(INFO) << "STARTUP: Starting all periodic tasks...";
   PeriodicTaskManager periodicTaskManager(
       driverCPUExecutor(), httpServer_->getExecutor(), taskManager_.get());
@@ -335,6 +329,7 @@ void PrestoServer::run() {
               << pGlobalIOExecutor->numThreads();
   }
 }
+
 void PrestoServer::initializeAsyncCache() {
   auto nodeConfig = NodeConfig::instance();
   uint64_t memoryGb =
@@ -352,17 +347,12 @@ void PrestoServer::initializeAsyncCache() {
         cacheExecutor_.get());
   }
   auto memoryBytes = memoryGb << 30;
-  if (FLAGS_use_mmap_allocator) {
-    memory::MmapAllocatorOptions options = {memoryBytes};
-    auto allocator = std::make_unique<memory::MmapAllocator>(options);
-    mappedMemory_ = std::make_unique<cache::AsyncDataCache>(
-        std::move(allocator), memoryBytes, std::move(ssd));
-  } else {
-    mappedMemory_ = std::make_unique<cache::AsyncDataCache>(
-        memory::MappedMemory::createDefaultInstance(),
-        memoryBytes,
-        std::move(ssd));
-  }
+
+  memory::MmapAllocatorOptions options = {memoryBytes};
+  auto allocator = std::make_shared<memory::MmapAllocator>(options);
+  mappedMemory_ = std::make_shared<cache::AsyncDataCache>(
+      allocator, memoryBytes, std::move(ssd));
+
   memory::MappedMemory::setDefaultInstance(mappedMemory_.get());
 }
 
@@ -408,6 +398,10 @@ std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
   return [uri]() {
     return folly::SocketAddress(uri.hostname(), uri.port(), true);
   };
+}
+
+std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListiner() {
+  return nullptr;
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(
@@ -462,29 +456,12 @@ std::shared_ptr<velox::connector::Connector> PrestoServer::connectorWithCache(
     const std::string& connectorName,
     const std::string& catalogName,
     std::shared_ptr<const velox::Config> properties) {
-  const size_t cacheSize = properties->get(kCacheMaxCacheSize, 0);
-  if (dynamic_cast<cache::AsyncDataCache*>(mappedMemory_.get())) {
-    LOG(INFO) << "STARTUP: Using AsyncDataCache";
-    return facebook::velox::connector::getConnectorFactory(connectorName)
-        ->newConnector(
-            connectorName,
-            std::move(properties),
-            nullptr,
-            connectorIoExecutor_.get());
-
-  } else {
-    LOG(INFO) << "STARTUP: Using a SimpleLRUDataCache with size "
-              << (cacheSize << 20);
-    auto dataCache =
-        std::make_unique<velox::SimpleLRUDataCache>(cacheSize << 20);
-
-    return facebook::velox::connector::getConnectorFactory(connectorName)
-        ->newConnector(
-            connectorName,
-            std::move(properties),
-            std::move(dataCache),
-            connectorIoExecutor_.get());
-  }
+  VELOX_CHECK_NOT_NULL(
+      dynamic_cast<cache::AsyncDataCache*>(mappedMemory_.get()));
+  LOG(INFO) << "STARTUP: Using AsyncDataCache";
+  return facebook::velox::connector::getConnectorFactory(connectorName)
+      ->newConnector(
+          connectorName, std::move(properties), connectorIoExecutor_.get());
 }
 
 void PrestoServer::populateMemAndCPUInfo() {

@@ -58,7 +58,7 @@ public class TestHiveAggregationQueries
 
         assertQuery("SELECT linenumber = 2 AND quantity > 10, sum(quantity / 7) FROM lineitem GROUP BY 1");
 
-        // TODO Add queries with arbitrary(integer/smallint/tinyint), min_by and max_by when these get fixed.
+        // TODO Add queries with arbitrary(integer/smallint/tinyint) when these get fixed.
 
         assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.5) FROM orders");
         assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25), approx_percentile(totalprice, orderkey, 0.5) FROM orders");
@@ -76,6 +76,19 @@ public class TestHiveAggregationQueries
 
         // distinct limit
         assertQueryResultCount("SELECT orderkey FROM lineitem GROUP BY 1 LIMIT 17", 17);
+    }
+
+    @Test
+    public void testGroupingSets()
+    {
+        assertQuery("SELECT orderstatus, orderpriority, count(1), min(orderkey) FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))");
+        assertQuery("SELECT orderstatus, orderpriority, count(1), min(orderkey) FROM orders GROUP BY CUBE (orderstatus, orderpriority)");
+        assertQuery("SELECT orderstatus, orderpriority, count(1), min(orderkey) FROM orders GROUP BY ROLLUP (orderstatus, orderpriority)");
+
+        // With grouping expression.
+        assertQuery("SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))");
+        assertQuery("SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY CUBE (orderstatus, orderpriority)");
+        assertQuery("SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY ROLLUP (orderstatus, orderpriority)");
     }
 
     @Test
@@ -138,6 +151,18 @@ public class TestHiveAggregationQueries
         assertQuery("SELECT min(quantity), max(quantity) FROM lineitem");
         // timestamp
         assertQuery("SELECT min(from_unixtime(orderkey)), max(from_unixtime(orderkey)) FROM lineitem");
+    }
+
+    @Test
+    public void testMinMaxBy()
+    {
+        // TODO(spershin): Need to add use cases with non-numeric types when implemented.
+        // We use filters to make queries deterministic.
+        assertQuery("SELECT max_by(partkey, orderkey), max_by(quantity, orderkey), max_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
+        assertQuery("SELECT min_by(partkey, orderkey), min_by(quantity, orderkey), min_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
+
+        assertQuery("SELECT max_by(orderkey, extendedprice), max_by(orderkey, cast(extendedprice as REAL)) FROM lineitem");
+        assertQuery("SELECT min_by(orderkey, extendedprice), min_by(orderkey, cast(extendedprice as REAL)) FROM lineitem where shipmode='MAIL'");
     }
 
     @Test

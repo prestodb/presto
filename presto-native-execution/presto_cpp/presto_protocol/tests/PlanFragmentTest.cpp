@@ -25,15 +25,24 @@ using namespace facebook::presto;
 
 namespace {
 std::string getDataPath(const std::string& fileName) {
-  std::string current_path = fs::current_path().c_str();
-  if (boost::algorithm::ends_with(current_path, "fbcode")) {
-    return current_path + "/presto_cpp/presto_protocol/tests/data/" + fileName;
+  std::string currentPath = fs::current_path().c_str();
+  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
+    return currentPath + "/presto_cpp/presto_protocol/tests/data/" + fileName;
   }
-  if (boost::algorithm::ends_with(current_path, "fbsource")) {
-    return current_path +
-        "/third-party/presto_cpp/presto_protocol/tests/data/" + fileName;
+
+  if (boost::algorithm::ends_with(currentPath, "fbsource")) {
+    return currentPath + "/third-party/presto_cpp/presto_protocol/tests/data/" +
+        fileName;
   }
-  return current_path + "/data/" + fileName;
+
+  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
+  // directory. Hard-coded json files are not copied there and test fails with
+  // file not found. Fixing the path so that we can trigger these tests from
+  // CLion.
+  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
+  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
+
+  return currentPath + "/data/" + fileName;
 }
 
 template <typename T>
@@ -50,18 +59,20 @@ void testJsonRoundTripFile(const std::string& filename) {
 }
 } // namespace
 
-TEST(TestPlanNodes, TestExchangeNode) {
+class TestPlanNodes : public ::testing::Test {};
+
+TEST_F(TestPlanNodes, TestExchangeNode) {
   testJsonRoundTripFile<protocol::ExchangeNode>("ExchangeNode.json");
 }
 
-TEST(TestPlanNodes, TestFilterNode) {
+TEST_F(TestPlanNodes, TestFilterNode) {
   testJsonRoundTripFile<protocol::FilterNode>("FilterNode.json");
 }
 
-TEST(TestPlanNodes, TestOutputNode) {
+TEST_F(TestPlanNodes, TestOutputNode) {
   testJsonRoundTripFile<protocol::OutputNode>("OutputNode.json");
 }
 
-TEST(TestPlanNodes, TestValuesNode) {
+TEST_F(TestPlanNodes, TestValuesNode) {
   testJsonRoundTripFile<protocol::ValuesNode>("ValuesNode.json");
 }

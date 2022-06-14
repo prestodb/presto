@@ -17,6 +17,7 @@
 
 using namespace facebook::presto::protocol;
 
+namespace {
 void assertDataSize(
     DataSize dataSize,
     double value,
@@ -31,8 +32,11 @@ void assertDataSize(
   EXPECT_EQ(duplicate.getDataUnit(), unit);
   EXPECT_EQ(duplicate.toString(), serialized);
 }
+} // namespace
 
-TEST(DataSizeTest, basic) {
+class DataSizeTest : public ::testing::Test {};
+
+TEST_F(DataSizeTest, basic) {
   assertDataSize(DataSize(), 0, DataUnit::BYTE, "0.000000B");
   assertDataSize(DataSize("1kB"), 1, DataUnit::KILOBYTE, "1.000000kB");
   assertDataSize(DataSize("1MB"), 1, DataUnit::MEGABYTE, "1.000000MB");

@@ -43,11 +43,12 @@ class TypeSignatureParser : public antlr4::Parser {
     RuleType = 3,
     RuleSimple_type = 4,
     RuleVariable_type = 5,
-    RuleType_list = 6,
-    RuleRow_type = 7,
-    RuleMap_type = 8,
-    RuleArray_type = 9,
-    RuleIdentifier = 10
+    RuleDecimal_type = 6,
+    RuleType_list = 7,
+    RuleRow_type = 8,
+    RuleMap_type = 9,
+    RuleArray_type = 10,
+    RuleIdentifier = 11
   };
 
   explicit TypeSignatureParser(antlr4::TokenStream* input);
@@ -69,6 +70,7 @@ class TypeSignatureParser : public antlr4::Parser {
   class TypeContext;
   class Simple_typeContext;
   class Variable_typeContext;
+  class Decimal_typeContext;
   class Type_listContext;
   class Row_typeContext;
   class Map_typeContext;
@@ -119,6 +121,7 @@ class TypeSignatureParser : public antlr4::Parser {
     TypeContext(antlr4::ParserRuleContext* parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     Simple_typeContext* simple_type();
+    Decimal_typeContext* decimal_type();
     Variable_typeContext* variable_type();
     Array_typeContext* array_type();
     Map_typeContext* map_type();
@@ -158,6 +161,22 @@ class TypeSignatureParser : public antlr4::Parser {
   };
 
   Variable_typeContext* variable_type();
+
+  class Decimal_typeContext : public antlr4::ParserRuleContext {
+   public:
+    Decimal_typeContext(
+        antlr4::ParserRuleContext* parent,
+        size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode* WORD();
+    std::vector<antlr4::tree::TerminalNode*> NUMBER();
+    antlr4::tree::TerminalNode* NUMBER(size_t i);
+
+    virtual antlrcpp::Any accept(
+        antlr4::tree::ParseTreeVisitor* visitor) override;
+  };
+
+  Decimal_typeContext* decimal_type();
 
   class Type_listContext : public antlr4::ParserRuleContext {
    public:
@@ -232,6 +251,9 @@ class TypeSignatureParser : public antlr4::Parser {
   bool variable_typeSempred(
       Variable_typeContext* _localctx,
       size_t predicateIndex);
+  bool decimal_typeSempred(
+      Decimal_typeContext* _localctx,
+      size_t predicateIndex);
   bool row_typeSempred(Row_typeContext* _localctx, size_t predicateIndex);
   bool map_typeSempred(Map_typeContext* _localctx, size_t predicateIndex);
   bool array_typeSempred(Array_typeContext* _localctx, size_t predicateIndex);
@@ -255,6 +277,7 @@ class TypeSignatureParser : public antlr4::Parser {
 #define isArrayToken() (UpCase(Token()) == "ARRAY")
 #define isVarToken() \
   (UpCase(Token()) == "VARCHAR" || UpCase(Token()) == "VARBINARY")
+#define isDecimalToken() (UpCase(Token()) == "DECIMAL")
 
   struct Initializer {
     Initializer();

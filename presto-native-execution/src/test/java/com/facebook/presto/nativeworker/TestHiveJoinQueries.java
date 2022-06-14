@@ -96,7 +96,7 @@ public class TestHiveJoinQueries
     @Test
     public void testMergeJoin()
     {
-        String sql = "SELECT COUNT(*) FROM lineitem_bucketed a, orders_bucketed b WHERE a.orderkey = b.orderkey AND a.ds = '2021-12-20' AND b.ds = '2021-12-20' AND a.\"$bucket\" = 1 AND b.\"$bucket\" = 1";
+        String sql = "SELECT COUNT(*) FROM lineitem_bucketed a, orders_bucketed b WHERE a.orderkey = b.orderkey AND a.ds = '2021-12-20' AND b.ds = '2021-12-20'";
         assertQuery(mergeJoin(), sql, getSession(), sql);
     }
 

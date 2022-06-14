@@ -18,7 +18,9 @@
 
 using namespace facebook::presto::protocol;
 
-TEST(TestPrestoPrococol, TestTupleDomainSubfield) {
+class TestTupleDomain : public ::testing::Test {};
+
+TEST_F(TestTupleDomain, TestTupleDomainSubfield) {
   std::string str = R"(
         { "columnDomains":[ 
                 {
