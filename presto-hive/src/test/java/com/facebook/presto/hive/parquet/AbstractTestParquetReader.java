@@ -475,7 +475,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testMapOfArray()
+    public void testMapOfArrayValues()
             throws Exception
     {
         Iterable<List<Integer>> arrays = createNullableTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
@@ -485,6 +485,22 @@ public abstract class AbstractTestParquetReader
                 javaIntObjectInspector,
                 getStandardListObjectInspector(javaIntObjectInspector)),
                 values, values, mapType(INTEGER, new ArrayType(INTEGER)));
+    }
+
+    @Test
+    public void testMapOfArrayKeys()
+            throws Exception
+    {
+        Iterable<List<Integer>> mapKeys = createTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
+        Iterable<Integer> mapValues = intsBetween(0, 30_000);
+        Iterable<Map<List<Integer>, Integer>> testMaps = createTestMaps(mapKeys, mapValues);
+        tester.testRoundTrip(
+                getStandardMapObjectInspector(
+                        getStandardListObjectInspector(javaIntObjectInspector),
+                        javaIntObjectInspector),
+                testMaps,
+                testMaps,
+                mapType(new ArrayType(INTEGER), INTEGER));
     }
 
     @Test
