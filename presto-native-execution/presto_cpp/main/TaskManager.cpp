@@ -206,6 +206,11 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
           queryCtx->get<int32_t>(kMaxDriversPerTask.data(), maxDriversPerTask_);
       concurrentLifespans = queryCtx->get<int32_t>(
           kConcurrentLifespansPerTask.data(), concurrentLifespansPerTask_);
+      // Zero concurrent lifespans means 'unlimited'.
+      if (concurrentLifespans == 0) {
+        concurrentLifespans = std::numeric_limits<uint32_t>::max();
+      }
+
       execTask = std::make_shared<exec::Task>(
           taskId, planFragment, 0, std::move(queryCtx));
       prestoTask->task = execTask;

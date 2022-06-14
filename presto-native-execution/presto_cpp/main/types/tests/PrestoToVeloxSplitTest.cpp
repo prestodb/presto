@@ -44,6 +44,8 @@ protocol::ScheduledSplit makeHiveScheduledSplit() {
 }
 } // namespace
 
+class PrestoToVeloxSplitTest : public ::testing::Test {};
+
 TEST(PrestoToVeloxSplitTest, nullPartitionKey) {
   auto scheduledSplit = makeHiveScheduledSplit();
   auto hiveSplit = std::dynamic_pointer_cast<protocol::HiveSplit>(

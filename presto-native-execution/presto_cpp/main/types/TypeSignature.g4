@@ -2,7 +2,7 @@ grammar TypeSignature;
 
 @parser::header {
     #include <boost/algorithm/string.hpp>
-    #include "main/types/TypeSignatureTypeConverter.h"
+    #include "presto_cpp/main/types/TypeSignatureTypeConverter.h"
 }
 
 @parser::declarations {
@@ -12,6 +12,7 @@ grammar TypeSignature;
     #define isMapToken()         (UpCase(Token()) == "MAP")
     #define isArrayToken()       (UpCase(Token()) == "ARRAY")
     #define isVarToken()         (UpCase(Token()) == "VARCHAR" || UpCase(Token()) == "VARBINARY")
+    #define isDecimalToken()     (UpCase(Token()) == "DECIMAL")
 }
 
 start : type_spec EOF ;
@@ -27,6 +28,7 @@ named_type :
 
 type :
       simple_type
+    | decimal_type
     | variable_type
     | array_type
     | map_type
@@ -40,6 +42,10 @@ simple_type :
 variable_type :
       { isVarToken() }? WORD
     | { isVarToken() }? WORD '(' NUMBER* ')'
+    ;
+
+decimal_type :
+      { isDecimalToken() }? WORD '(' NUMBER* ',' NUMBER* ')'
     ;
 
 type_list :

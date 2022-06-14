@@ -35,6 +35,7 @@ std::unique_ptr<facebook::presto::test::HttpServerWrapper> makeDiscoveryServer(
     std::function<void()> onAnnouncement) {
   auto httpServer =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+
   httpServer->registerPut(
       R"(/v1/announcement/(.+))",
       [onAnnouncement](

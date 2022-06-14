@@ -79,8 +79,16 @@ class SystemConfig : public ConfigBase {
       "task.max-drivers-per-task"};
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
-  static constexpr int32_t kMaxDriversPerTaskDefault = 5;
+  static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
+  static constexpr std::string_view kEnableVeloxTaskLogging{
+      "enable_velox_task_logging"};
+  // Most server nodes today (May 2022) have at least 16 cores.
+  // Setting the default maximum drivers per task to this value will
+  // provide a better off-shelf experience.
+  static constexpr int32_t kMaxDriversPerTaskDefault = 16;
   static constexpr int32_t kConcurrentLifespansPerTaskDefault = 1;
+  static constexpr int32_t kHttpExecThreadsDefault = 8;
+  static constexpr bool kEnableVeloxTaskLoggingDefault = true;
 
   static SystemConfig* instance();
 
@@ -93,6 +101,10 @@ class SystemConfig : public ConfigBase {
   int32_t maxDriversPerTask() const;
 
   int32_t concurrentLifespansPerTask() const;
+
+  int32_t httpExecThreads() const;
+
+  bool enableVeloxTaskLogging() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

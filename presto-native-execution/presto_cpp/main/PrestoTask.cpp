@@ -51,6 +51,19 @@ protocol::ExecutionFailureInfo toPrestoError(std::exception_ptr ex) {
   }
 }
 
+protocol::RuntimeUnit toPrestoRuntimeUnit(RuntimeCounter::Unit unit) {
+  switch (unit) {
+    case RuntimeCounter::Unit::kNanos:
+      return protocol::RuntimeUnit::NANO;
+    case RuntimeCounter::Unit::kBytes:
+      return protocol::RuntimeUnit::BYTE;
+    case RuntimeCounter::Unit::kNone:
+      return protocol::RuntimeUnit::NONE;
+    default:
+      return protocol::RuntimeUnit::NONE;
+  }
+}
+
 void setTiming(
     const CpuWallTiming& timing,
     int64_t& count,
@@ -65,7 +78,12 @@ protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
     const RuntimeMetric& metric) {
   return protocol::RuntimeMetric{
-      name, metric.sum, metric.count, metric.min, metric.max};
+      name,
+      toPrestoRuntimeUnit(metric.unit),
+      metric.sum,
+      metric.count,
+      metric.min,
+      metric.max};
 }
 
 } // namespace
@@ -221,6 +239,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
       const auto& lastOperatorStats = pipeline.operatorStats.back();
 
       pipelineOut.pipelineId = firstOperatorStats.pipelineId;
+      pipelineOut.totalDrivers = firstOperatorStats.numDrivers;
       pipelineOut.rawInputPositions = firstOperatorStats.rawInputPositions;
       pipelineOut.rawInputDataSizeInBytes = firstOperatorStats.rawInputBytes;
       pipelineOut.processedInputPositions = firstOperatorStats.inputPositions;
@@ -255,8 +274,10 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
       opOut.operatorId = op.operatorId;
       opOut.operatorType = op.operatorType;
 
-      opOut.totalDrivers = op.numSplits;
+      opOut.totalDrivers = op.numDrivers;
       opOut.inputPositions = op.inputPositions;
+      opOut.sumSquaredInputPositions =
+          ((double)op.inputPositions) * op.inputPositions;
       opOut.inputDataSize =
           protocol::DataSize(op.inputBytes, protocol::DataUnit::BYTE);
       opOut.rawInputPositions = op.rawInputPositions;
@@ -319,13 +340,25 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
           taskRuntimeStats[statName] = stat.second;
         }
       }
+      if (op.numSplits != 0) {
+        const auto statName = fmt::format(
+            "{}.{}.{}", op.operatorType, op.planNodeId, "numSplits");
+        opOut.runtimeStats.emplace(
+            statName,
+            protocol::RuntimeMetric{
+                statName,
+                protocol::RuntimeUnit::NONE,
+                op.numSplits,
+                1,
+                op.numSplits,
+                op.numSplits});
+      }
 
       auto wallNanos = op.addInputTiming.wallNanos +
           op.getOutputTiming.wallNanos + op.finishTiming.wallNanos;
       auto cpuNanos = op.addInputTiming.cpuNanos + op.getOutputTiming.cpuNanos +
           op.finishTiming.cpuNanos;
 
-      pipelineOut.totalDrivers += op.numSplits;
       pipelineOut.totalScheduledTimeInNanos += wallNanos;
       pipelineOut.totalCpuTimeInNanos += cpuNanos;
       pipelineOut.totalBlockedTimeInNanos += op.blockedWallNanos;

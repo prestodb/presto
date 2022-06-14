@@ -18,7 +18,9 @@
 
 using namespace facebook::presto::protocol;
 
-TEST(ConstantExpressionTest, basic) {
+class ConstantExpressionTest : public ::testing::Test {};
+
+TEST_F(ConstantExpressionTest, basic) {
   std::string str = R"(
        {
            "@type":"constant",

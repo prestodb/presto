@@ -18,7 +18,9 @@
 
 using namespace facebook::presto::protocol;
 
-TEST(CallExpressionTest, basic) {
+class CallExpressionTest : public ::testing::Test {};
+
+TEST_F(CallExpressionTest, basic) {
   std::string str = R"(
           {
             "@type": "call",

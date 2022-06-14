@@ -71,6 +71,18 @@ int32_t SystemConfig::concurrentLifespansPerTask() const {
   }
 }
 
+int32_t SystemConfig::httpExecThreads() const {
+  auto threadsOpt = optionalProperty<int32_t>(std::string(kHttpExecThreads));
+  return threadsOpt.hasValue() ? threadsOpt.value() : kHttpExecThreadsDefault;
+}
+
+bool SystemConfig::enableVeloxTaskLogging() const {
+  auto loggingOpt =
+      optionalProperty<bool>(std::string(kEnableVeloxTaskLogging));
+  return loggingOpt.hasValue() ? loggingOpt.value()
+                               : kEnableVeloxTaskLoggingDefault;
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();

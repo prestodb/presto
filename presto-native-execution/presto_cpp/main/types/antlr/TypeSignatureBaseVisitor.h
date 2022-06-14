@@ -61,6 +61,11 @@ class TypeSignatureBaseVisitor : public TypeSignatureVisitor {
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any visitDecimal_type(
+      TypeSignatureParser::Decimal_typeContext* ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitType_list(
       TypeSignatureParser::Type_listContext* ctx) override {
     return visitChildren(ctx);
