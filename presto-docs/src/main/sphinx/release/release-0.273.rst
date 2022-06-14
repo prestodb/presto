@@ -4,6 +4,9 @@ Release 0.273
 
 .. warning::
 
+   There is a regression that results in failures for queries referencing columns with
+   special characters like # in their names and this is fixed in 0.273.1.
+
    There is a regression in query execution times due to way we are processing HdfsConfiguration
    and the issue is fixed in 0.273.2 release.
 
