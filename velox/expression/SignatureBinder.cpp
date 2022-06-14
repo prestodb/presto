@@ -15,6 +15,7 @@
  */
 #include "velox/expression/SignatureBinder.h"
 #include <boost/algorithm/string.hpp>
+#include "velox/expression/type_calculation/TypeCalculation.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::exec {
@@ -69,8 +70,21 @@ bool SignatureBinder::tryBind(
   auto it = bindings_.find(typeSignature.baseType());
   if (it == bindings_.end()) {
     // concrete type
-    if (boost::algorithm::to_upper_copy(typeSignature.baseType()) !=
-        actualType->kindName()) {
+    auto typeName = boost::algorithm::to_upper_copy(typeSignature.baseType());
+    if (isDecimalName(typeName)) {
+      VELOX_USER_FAIL("Use 'DECIMAL' in the signature.");
+    }
+    if (isDecimalKind(actualType->kind()) && isCommonDecimalName(typeName)) {
+      const auto& variables = typeSignature.variables();
+      VELOX_CHECK_EQ(variables.size(), 2);
+      int precision, scale;
+      getDecimalPrecisionScale(*actualType.get(), precision, scale);
+      variables_.emplace(variables[0], precision);
+      variables_.emplace(variables[1], scale);
+      return true;
+    }
+
+    if (typeName != actualType->kindName()) {
       return false;
     }
 
@@ -102,14 +116,22 @@ bool SignatureBinder::tryBind(
 }
 
 TypePtr SignatureBinder::tryResolveType(
-    const exec::TypeSignature& typeSignature) const {
-  return tryResolveType(typeSignature, bindings_);
+    const exec::TypeSignature& typeSignature) {
+  return tryResolveType(typeSignature, bindings_, variables_, constraints_);
+}
+
+std::string buildCalculation(
+    const std::string& variable,
+    const std::string& calculation) {
+  return fmt::format("{}={}", variable, calculation);
 }
 
 // static
 TypePtr SignatureBinder::tryResolveType(
     const exec::TypeSignature& typeSignature,
-    const std::unordered_map<std::string, TypePtr>& bindings) {
+    const std::unordered_map<std::string, TypePtr>& bindings,
+    std::unordered_map<std::string, int>& variables,
+    const std::unordered_map<std::string, std::string>& constraints) {
   const auto& params = typeSignature.parameters();
 
   std::vector<TypePtr> children;
@@ -126,6 +148,31 @@ TypePtr SignatureBinder::tryResolveType(
   if (it == bindings.end()) {
     // concrete type
     auto typeName = boost::algorithm::to_upper_copy(typeSignature.baseType());
+
+    if (isCommonDecimalName(typeName)) {
+      const auto& precisionVar = typeSignature.variables()[0];
+      const auto& scaleVar = typeSignature.variables()[1];
+      // check for constraints, else set defaults.
+      const auto& precisionConstraint = constraints.find(precisionVar);
+      const auto& scaleConstraint = constraints.find(scaleVar);
+
+      if (precisionConstraint == constraints.end()) {
+        VELOX_FAIL("Missing constraint for variable {}", precisionVar);
+      }
+      if (scaleConstraint == constraints.end()) {
+        VELOX_FAIL("Missing constraint for variable {}", scaleVar);
+      }
+
+      auto precisionCalculation =
+          buildCalculation(precisionVar, precisionConstraint->second);
+      expression::calculation::evaluate(precisionCalculation, variables);
+
+      auto scaleCalculation =
+          buildCalculation(scaleVar, scaleConstraint->second);
+      expression::calculation::evaluate(scaleCalculation, variables);
+
+      return DECIMAL(variables[precisionVar], variables[scaleVar]);
+    }
 
     if (auto type = getType(typeName, children)) {
       return type;

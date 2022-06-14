@@ -33,22 +33,36 @@ class SignatureBinder {
     for (auto& variable : signature.typeVariableConstants()) {
       bindings_.insert({variable.name(), nullptr});
     }
+    for (auto& variable : signature.variables()) {
+      if (!variable.constraint().empty()) {
+        constraints_.insert({variable.name(), variable.constraint()});
+      }
+      variables_.insert({variable.name(), -1});
+    }
   }
 
   // Returns true if successfully resolved all generic type names.
   bool tryBind();
 
   // Returns concrete return type or null if couldn't fully resolve.
-  TypePtr tryResolveReturnType() const {
+  TypePtr tryResolveReturnType() {
     return tryResolveType(signature_.returnType());
   }
 
-  TypePtr tryResolveType(const exec::TypeSignature& typeSignature) const;
+  TypePtr tryResolveType(const exec::TypeSignature& typeSignature);
 
+  static TypePtr tryResolveType(
+      const exec::TypeSignature& typeSignature,
+      const std::unordered_map<std::string, TypePtr>& bindings) {
+    std::unordered_map<std::string, int> variables;
+    return tryResolveType(typeSignature, bindings, variables);
+  }
   // Returns concrete return type or null if couldn't fully resolve.
   static TypePtr tryResolveType(
       const exec::TypeSignature& typeSignature,
-      const std::unordered_map<std::string, TypePtr>& bindings);
+      const std::unordered_map<std::string, TypePtr>& bindings,
+      std::unordered_map<std::string, int>& variables,
+      const std::unordered_map<std::string, std::string>& constraints = {});
 
  private:
   bool tryBind(
@@ -58,5 +72,7 @@ class SignatureBinder {
   const exec::FunctionSignature& signature_;
   const std::vector<TypePtr>& actualTypes_;
   std::unordered_map<std::string, TypePtr> bindings_;
+  std::unordered_map<std::string, int> variables_;
+  std::unordered_map<std::string, std::string> constraints_;
 };
 } // namespace facebook::velox::exec

@@ -24,14 +24,24 @@ namespace facebook::velox::exec {
 
 std::string sanitizeFunctionName(const std::string& name);
 
+inline bool isCommonDecimalName(const std::string& typeName) {
+  return (typeName == "DECIMAL");
+}
+
 // A type name (e.g. K or V in map(K, V)) and optionally constraints, e.g.
-// orderable, sortable, etc.
+// expression over the variable, etc.
 class TypeVariableConstraint {
  public:
   explicit TypeVariableConstraint(std::string name) : name_{std::move(name)} {}
+  TypeVariableConstraint(std::string name, std::string constraint)
+      : name_{std::move(name)}, constraint_{std::move(constraint)} {}
 
   const std::string& name() const {
     return name_;
+  }
+
+  const std::string& constraint() const {
+    return constraint_;
   }
 
   bool operator==(const TypeVariableConstraint& rhs) const {
@@ -40,6 +50,7 @@ class TypeVariableConstraint {
 
  private:
   const std::string name_;
+  const std::string constraint_;
 };
 
 // Base type (e.g. map) and optional parameters (e.g. K, V).
@@ -47,6 +58,13 @@ class TypeSignature {
  public:
   TypeSignature(std::string baseType, std::vector<TypeSignature> parameters)
       : baseType_{std::move(baseType)}, parameters_{std::move(parameters)} {}
+  TypeSignature(
+      std::string baseType,
+      std::vector<TypeSignature> parameters,
+      std::vector<std::string> variables)
+      : baseType_{std::move(baseType)},
+        parameters_{std::move(parameters)},
+        variables_{std::move(variables)} {}
 
   const std::string& baseType() const {
     return baseType_;
@@ -54,6 +72,10 @@ class TypeSignature {
 
   const std::vector<TypeSignature>& parameters() const {
     return parameters_;
+  }
+
+  const std::vector<std::string>& variables() const {
+    return variables_;
   }
 
   std::string toString() const;
@@ -65,6 +87,8 @@ class TypeSignature {
  private:
   const std::string baseType_;
   const std::vector<TypeSignature> parameters_;
+  // Decimals types have variables (precision, scale)
+  const std::vector<std::string> variables_;
 };
 
 class FunctionSignature {
@@ -87,8 +111,19 @@ class FunctionSignature {
       std::vector<TypeSignature> argumentTypes,
       bool variableArity);
 
+  FunctionSignature(
+      std::vector<TypeVariableConstraint> typeVariableConstants,
+      std::vector<TypeVariableConstraint> variables,
+      TypeSignature returnType,
+      std::vector<TypeSignature> argumentTypes,
+      bool variableArity);
+
   const std::vector<TypeVariableConstraint>& typeVariableConstants() const {
     return typeVariableConstants_;
+  }
+
+  const std::vector<TypeVariableConstraint>& variables() const {
+    return variables_;
   }
 
   const TypeSignature& returnType() const {
@@ -117,6 +152,7 @@ class FunctionSignature {
 
  private:
   const std::vector<TypeVariableConstraint> typeVariableConstants_;
+  const std::vector<TypeVariableConstraint> variables_;
   const TypeSignature returnType_;
   const std::vector<TypeSignature> argumentTypes_;
   const bool variableArity_;
@@ -183,6 +219,13 @@ class FunctionSignatureBuilder {
     return *this;
   }
 
+  FunctionSignatureBuilder& variableConstraint(
+      std::string name,
+      std::string constraint) {
+    variables_.emplace_back(name, constraint);
+    return *this;
+  }
+
   FunctionSignatureBuilder& returnType(const std::string& type) {
     returnType_.emplace(parseTypeSignature(type));
     return *this;
@@ -202,6 +245,7 @@ class FunctionSignatureBuilder {
 
  private:
   std::vector<TypeVariableConstraint> typeVariableConstants_;
+  std::vector<TypeVariableConstraint> variables_;
   std::optional<TypeSignature> returnType_;
   std::vector<TypeSignature> argumentTypes_;
   bool variableArity_{false};
@@ -264,7 +308,8 @@ struct hash<facebook::velox::exec::TypeVariableConstraint> {
   using result_type = std::size_t;
 
   result_type operator()(const argument_type& key) const noexcept {
-    return std::hash<std::string>{}(key.name());
+    return std::hash<std::string>{}(key.name()) * 31 +
+        std::hash<std::string>{}(key.constraint());
   }
 };
 
@@ -277,6 +322,9 @@ struct hash<facebook::velox::exec::TypeSignature> {
     size_t val = std::hash<std::string>{}(key.baseType());
     for (const auto& parameter : key.parameters()) {
       val = val * 31 + this->operator()(parameter);
+    }
+    for (const auto& variable : key.variables()) {
+      val = val * 31 + std::hash<std::string>{}(variable);
     }
     return val;
   }
@@ -296,6 +344,10 @@ struct hash<facebook::velox::exec::FunctionSignature> {
     size_t val = 0;
     for (const auto& constraint : key.typeVariableConstants()) {
       val = val * 31 + typeVariableConstraintHasher(constraint);
+    }
+
+    for (const auto& variable : key.variables()) {
+      val = val * 31 + typeVariableConstraintHasher(variable);
     }
 
     val = val * 31 + typeSignatureHasher(key.returnType());

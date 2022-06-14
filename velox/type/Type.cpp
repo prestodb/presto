@@ -121,6 +121,21 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
   return found->second;
 }
 
+void getDecimalPrecisionScale(const Type& type, int& precision, int& scale) {
+  VELOX_CHECK(isDecimalKind(type.kind()));
+  if (type.kind() == TypeKind::SHORT_DECIMAL) {
+    const ShortDecimalType* decimalType =
+        static_cast<const ShortDecimalType*>(&type);
+    precision = decimalType->precision();
+    scale = decimalType->scale();
+  } else {
+    const LongDecimalType* decimalType =
+        static_cast<const LongDecimalType*>(&type);
+    precision = decimalType->precision();
+    scale = decimalType->scale();
+  }
+}
+
 namespace {
 struct OpaqueSerdeRegistry {
   struct Entry {

@@ -37,6 +37,112 @@ void assertCannotResolve(
   ASSERT_FALSE(binder.tryBind());
 }
 
+TEST(SignatureBinderTest, decimals) {
+  // Decimal Add/Subtract.
+  {
+    auto signature =
+        exec::FunctionSignatureBuilder()
+            .returnType("decimal(r_precision, r_scale)")
+            .argumentType("decimal(a_precision, a_scale)")
+            .argumentType("DECIMAL(b_precision, b_scale)")
+            .variableConstraint(
+                "r_precision",
+                "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
+            .variableConstraint("r_scale", "max(a_scale, b_scale)")
+            .build();
+    ASSERT_EQ(
+        signature->argumentTypes()[0].toString(),
+        "decimal(a_precision, a_scale)");
+    ASSERT_EQ(
+        signature->argumentTypes()[1].toString(),
+        "DECIMAL(b_precision, b_scale)");
+    testSignatureBinder(
+        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, DECIMAL(12, 6));
+  }
+
+  // Decimal Multiply.
+  {
+    auto signature =
+        exec::FunctionSignatureBuilder()
+            .returnType("DECIMAL(r_precision, r_scale)")
+            .argumentType("decimal(a_precision, a_scale)")
+            .argumentType("decimal(b_precision, b_scale)")
+            .variableConstraint(
+                "r_precision", "min(38, a_precision + b_precision)")
+            .variableConstraint("r_scale", "a_scale + b_scale")
+            .build();
+
+    testSignatureBinder(
+        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, LONG_DECIMAL(21, 11));
+  }
+
+  // Decimal Divide.
+  {
+    auto signature =
+        exec::FunctionSignatureBuilder()
+            .returnType("DECIMAL(r_precision, r_scale)")
+            .argumentType("DECIMAL(a_precision, a_scale)")
+            .argumentType("DECIMAL(b_precision, b_scale)")
+            .variableConstraint(
+                "r_precision",
+                "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))")
+            .variableConstraint("r_scale", "max(a_scale, b_scale)")
+            .build();
+
+    testSignatureBinder(
+        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, SHORT_DECIMAL(18, 6));
+  }
+
+  // Decimal Modulus.
+  {
+    auto signature =
+        exec::FunctionSignatureBuilder()
+            .returnType("DECIMAL(r_precision, r_scale)")
+            .argumentType("DECIMAL(a_precision, a_scale)")
+            .argumentType("DECIMAL(b_precision, b_scale)")
+            .variableConstraint(
+                "r_precision",
+                "min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)")
+            .variableConstraint("r_scale", "max(a_scale, b_scale)")
+            .build();
+
+    testSignatureBinder(
+        signature,
+        {SHORT_DECIMAL(11, 5), SHORT_DECIMAL(10, 6)},
+        DECIMAL(10, 6));
+  }
+  // Error: missing constraint
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .returnType("decimal(r_precision, r_scale)")
+                         .argumentType("decimal(a_precision, a_scale)")
+                         .argumentType("DECIMAL(b_precision, b_scale)")
+                         .build();
+    const std::vector<TypePtr> argTypes{DECIMAL(11, 5), DECIMAL(10, 6)};
+    exec::SignatureBinder binder(*signature, argTypes);
+    ASSERT_TRUE(binder.tryBind());
+    try {
+      binder.tryResolveReturnType();
+      FAIL();
+    } catch (const VeloxRuntimeError& e) {
+      ASSERT_EQ(e.message(), "Missing constraint for variable r_precision");
+    }
+  }
+  // Error: Do not use short_decimal or long_decimal
+  {
+    try {
+      auto signature = exec::FunctionSignatureBuilder()
+                           .returnType("decimal(r_precision, r_scale)")
+                           .argumentType("short_decimal(a_precision, a_scale)")
+                           .argumentType("DECIMAL(b_precision, b_scale)")
+                           .build();
+      FAIL();
+    } catch (const VeloxUserError& e) {
+      ASSERT_EQ(e.message(), "Use 'DECIMAL' in the signature.");
+    }
+  }
+}
+
 TEST(SignatureBinderTest, generics) {
   // array(T), T -> boolean
   {
