@@ -16,6 +16,7 @@
 #include <folly/SocketAddress.h>
 #include <folly/Synchronized.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include <velox/exec/Task.h>
 #include "presto_cpp/main/CPUMon.h"
 #include "velox/common/memory/MappedMemory.h"
 #if __has_include("filesystem")
@@ -76,6 +77,8 @@ class PrestoServer {
  protected:
   virtual std::function<folly::SocketAddress()> discoveryAddressLookup();
 
+  virtual std::shared_ptr<velox::exec::TaskListener> getTaskListiner();
+
   void initializeAsyncCache();
 
   virtual std::vector<std::string> registerConnectors(
@@ -103,9 +106,8 @@ class PrestoServer {
   // Executor for async IO for connectors.
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
-  // Instance of AsyncDataCache used for all large allocations if
-  // --use_async_cache is on.
-  std::unique_ptr<velox::memory::MappedMemory> mappedMemory_;
+  // Instance of AsyncDataCache used for all large allocations.
+  std::shared_ptr<velox::memory::MappedMemory> mappedMemory_;
 
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;

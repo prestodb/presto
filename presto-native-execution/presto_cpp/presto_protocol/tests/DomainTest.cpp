@@ -18,7 +18,9 @@
 
 using namespace facebook::presto::protocol;
 
-TEST(DomainTest, basic) {
+class DomainTest : public ::testing::Test {};
+
+TEST_F(DomainTest, basic) {
   std::string str = R"(
         {
            "values":{

@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
 
@@ -27,15 +28,25 @@ using namespace facebook::velox;
 
 namespace {
 std::string getDataPath(const std::string& fileName) {
-  std::string current_path = fs::current_path().c_str();
-  if (boost::algorithm::ends_with(current_path, "fbcode")) {
-    return current_path + "/presto_cpp/main/types/tests/data/" + fileName;
+  std::string currentPath = fs::current_path().c_str();
+
+  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
+    return currentPath + "/presto_cpp/main/types/tests/data/" + fileName;
   }
-  if (boost::algorithm::ends_with(current_path, "fbsource")) {
-    return current_path + "/third-party/presto_cpp/main/types/tests/data/" +
+
+  if (boost::algorithm::ends_with(currentPath, "fbsource")) {
+    return currentPath + "/third-party/presto_cpp/main/types/tests/data/" +
         fileName;
   }
-  return current_path + "/data/" + fileName;
+
+  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
+  // directory. Hard-coded json files are not copied there and test fails with
+  // file not found. Fixing the path so that we can trigger these tests from
+  // CLion.
+  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
+  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
+
+  return currentPath + "/data/" + fileName;
 }
 
 std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
@@ -53,9 +64,11 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
 }
 } // namespace
 
+class PlanConverterTest : public ::testing::Test {};
+
 // Leaf stage plan for select regionkey, sum(1) from nation group by 1
 // Scan + Partial Agg + Repartitioning
-TEST(PlanConverterTest, scanAgg) {
+TEST_F(PlanConverterTest, scanAgg) {
   protocol::registerConnector("hive", "hive");
   assertToVeloxQueryPlan("ScanAgg.json");
 
@@ -64,17 +77,17 @@ TEST(PlanConverterTest, scanAgg) {
 }
 
 // Final Agg stage plan for select regionkey, sum(1) from nation group by 1
-TEST(PlanConverterTest, finalAgg) {
+TEST_F(PlanConverterTest, finalAgg) {
   assertToVeloxQueryPlan("FinalAgg.json");
 }
 
 // Last stage (output) plan for select regionkey, sum(1) from nation group by 1
-TEST(PlanConverterTest, output) {
+TEST_F(PlanConverterTest, output) {
   assertToVeloxQueryPlan("Output.json");
 }
 
 // Last stage plan for SELECT * FROM nation ORDER BY nationkey OFFSET 7 LIMIT 5.
-TEST(PlanConverterTest, offsetLimit) {
+TEST_F(PlanConverterTest, offsetLimit) {
   auto plan = assertToVeloxQueryPlan("OffsetLimit.json");
 
   // Look for Limit(offset = 7, count = 5) node

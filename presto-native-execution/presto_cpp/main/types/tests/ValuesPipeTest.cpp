@@ -32,19 +32,29 @@ using namespace facebook::velox;
 
 namespace {
 std::string getDataPath(const std::string& fileName) {
-  std::string current_path = fs::current_path().c_str();
-  if (boost::algorithm::ends_with(current_path, "fbcode")) {
-    return current_path + "/presto_cpp/main/types/tests/data/" + fileName;
+  std::string currentPath = fs::current_path().c_str();
+  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
+    return currentPath + "/presto_cpp/main/types/tests/data/" + fileName;
   }
-  if (boost::algorithm::ends_with(current_path, "fbsource")) {
-    return current_path + "/third-party/presto_cpp/main/types/tests/data/" +
+  if (boost::algorithm::ends_with(currentPath, "fbsource")) {
+    return currentPath + "/third-party/presto_cpp/main/types/tests/data/" +
         fileName;
   }
-  return current_path + "/data/" + fileName;
+
+  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
+  // directory. Hard-coded json files are not copied there and test fails with
+  // file not found. Fixing the path so that we can trigger these tests from
+  // CLion.
+  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
+  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
+
+  return currentPath + "/data/" + fileName;
 }
 } // namespace
 
-TEST(TestValues, valuesRowVector) {
+class TestValues : public ::testing::Test {};
+
+TEST_F(TestValues, valuesRowVector) {
   std::string str = slurp(getDataPath("ValuesNode.json"));
 
   json j = json::parse(str);
@@ -80,7 +90,7 @@ TEST(TestValues, valuesRowVector) {
   }
 }
 
-TEST(TestValues, valuesPlan) {
+TEST_F(TestValues, valuesPlan) {
   // select a, b from (VALUES (1, 'a'), (2, 'b'), (3, 'c')) as t (a, b) where a
   // = 1;
   //

@@ -25,6 +25,12 @@ void registerPrestoCppCounters() {
 
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterHTTPExecutorLatencyMs, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterNumHTTPRequest, facebook::velox::StatType::COUNT);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
 
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumQueryContexts, facebook::velox::StatType::AVG);

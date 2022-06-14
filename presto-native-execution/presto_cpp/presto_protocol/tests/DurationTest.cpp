@@ -41,7 +41,9 @@ void assertDuration(
   }
 }
 
-TEST(DurationTest, basic) {
+class DurationTest : public ::testing::Test {};
+
+TEST_F(DurationTest, basic) {
   assertDuration(Duration(), 0, TimeUnit::SECONDS, "0.00s");
   assertDuration("1.00d", 1, TimeUnit::DAYS);
   assertDuration("1.00m", 1, TimeUnit::MINUTES);
@@ -59,7 +61,7 @@ TEST(DurationTest, basic) {
   ASSERT_NEAR(d.getValue(TimeUnit::DAYS), 4.6296296296296295e-08, 0.0000000001);
 }
 
-TEST(DurationTest, chronoConversion) {
+TEST_F(DurationTest, chronoConversion) {
   Duration d("4 ms");
   assertDuration(d, 4, TimeUnit::MILLISECONDS, "4.00ms");
   EXPECT_EQ(d.asChronoDuration<std::chrono::nanoseconds>().count(), 4000000);

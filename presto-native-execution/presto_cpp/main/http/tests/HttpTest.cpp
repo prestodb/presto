@@ -385,3 +385,8 @@ TEST(HttpTest, outstandingRequests) {
   // Verify that Future's thenValue/thenError invoked.
   ASSERT_EQ(request->requestStatus, kStatusInvalid);
 }
+
+// Initialize singleton for the reporter
+folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
+  return new facebook::velox::DummyStatsReporter();
+});

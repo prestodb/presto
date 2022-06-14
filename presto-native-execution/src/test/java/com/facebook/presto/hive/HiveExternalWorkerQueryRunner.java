@@ -128,6 +128,7 @@ public class HiveExternalWorkerQueryRunner
                         // With Velox, we do not want Presto to replace the function with its SQL equivalent.
                         // To achieve that, we set inline-sql-functions to false.
                         .put("inline-sql-functions", "false")
+                        .put("use-alternative-function-signatures", "true")
                         .build(),
                 ImmutableMap.of(),
                 "legacy",
@@ -147,6 +148,7 @@ public class HiveExternalWorkerQueryRunner
                         Files.write(tempDirectoryPath.resolve("config.properties"),
                                 format("discovery.uri=%s\n" +
                                         "presto.version=testversion\n" +
+                                        "http_exec_threads=8\n" +
                                         "http-server.http.port=%d", discoveryUri, port).getBytes());
                         Files.write(tempDirectoryPath.resolve("node.properties"),
                                 format("node.id=%s\n" +
@@ -168,7 +170,7 @@ public class HiveExternalWorkerQueryRunner
                         }
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
-                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--novelox_exception_stacktrace", "--system_memory_gb=4", "--use_mmap_allocator", "--use_async_cache")
+                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--novelox_exception_stacktrace", "--system_memory_gb=4")
                                 .directory(tempDirectoryPath.toFile())
                                 .redirectErrorStream(true)
                                 .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
@@ -238,6 +240,12 @@ public class HiveExternalWorkerQueryRunner
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_partitioned")) {
             queryRunner.execute("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey VARCHAR) WITH (partitioned_by = ARRAY['regionkey'])");
             queryRunner.execute("INSERT INTO nation_partitioned SELECT nationkey, name, comment, cast(regionkey as VARCHAR) FROM tpch.tiny.nation");
+        }
+
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_partitioned_ds")) {
+            queryRunner.execute("CREATE TABLE nation_partitioned_ds(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey VARCHAR, ds VARCHAR) WITH (partitioned_by = ARRAY['ds'])");
+            queryRunner.execute("INSERT INTO nation_partitioned_ds SELECT nationkey, name, comment, cast(regionkey as VARCHAR), '2022-04-09' FROM tpch.tiny.nation");
+            queryRunner.execute("INSERT INTO nation_partitioned_ds SELECT nationkey, name, comment, cast(regionkey as VARCHAR), '2022-03-18' FROM tpch.tiny.nation");
         }
     }
 

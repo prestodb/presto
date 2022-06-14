@@ -33,6 +33,8 @@ class TypeSignatureTypeConverter : TypeSignatureBaseVisitor {
       TypeSignatureParser::TypeContext* ctx) override;
   virtual antlrcpp::Any visitSimple_type(
       TypeSignatureParser::Simple_typeContext* ctx) override;
+  virtual antlrcpp::Any visitDecimal_type(
+      TypeSignatureParser::Decimal_typeContext* ctx) override;
   virtual antlrcpp::Any visitVariable_type(
       TypeSignatureParser::Variable_typeContext* ctx) override;
   virtual antlrcpp::Any visitType_list(

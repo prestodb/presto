@@ -17,7 +17,10 @@
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <re2/re2.h>
+#include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/HttpConstants.h"
+#include "velox/common/base/StatsReporter.h"
+#include "velox/common/time/Timer.h"
 
 namespace facebook::presto::http {
 
@@ -25,6 +28,8 @@ class AbstractRequestHandler : public proxygen::RequestHandler {
  public:
   void onRequest(
       std::unique_ptr<proxygen::HTTPMessage> headers) noexcept override {
+    REPORT_ADD_STAT_VALUE(kCounterNumHTTPRequest, 1);
+    startTime_ = std::chrono::steady_clock::now();
     headers_ = std::move(headers);
     body_.clear();
   }
@@ -36,14 +41,21 @@ class AbstractRequestHandler : public proxygen::RequestHandler {
   void onUpgrade(proxygen::UpgradeProtocol proto) noexcept override {}
 
   void requestComplete() noexcept override {
+    REPORT_ADD_STAT_VALUE(
+        kCounterHTTPRequestLatencyMs,
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - startTime_)
+            .count());
     delete this;
   }
 
   void onError(proxygen::ProxygenError err) noexcept override {
+    REPORT_ADD_STAT_VALUE(kCounterNumHTTPRequestError, 1);
     delete this;
   }
 
  protected:
+  std::chrono::steady_clock::time_point startTime_;
   std::unique_ptr<proxygen::HTTPMessage> headers_;
   std::vector<std::unique_ptr<folly::IOBuf>> body_;
 };
@@ -200,7 +212,9 @@ class DispatchingRequestHandlerFactory
 
 class HttpServer {
  public:
-  explicit HttpServer(const folly::SocketAddress& httpAddress);
+  explicit HttpServer(
+      const folly::SocketAddress& httpAddress,
+      int httpExecThreads = 8);
 
   void start(
       std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess = nullptr,
@@ -281,6 +295,7 @@ class HttpServer {
 
  private:
   const folly::SocketAddress httpAddress_;
+  int httpExecThreads_;
   std::unique_ptr<DispatchingRequestHandlerFactory> handlerFactory_ =
       std::make_unique<DispatchingRequestHandlerFactory>();
   std::unique_ptr<proxygen::HTTPServer> server_;

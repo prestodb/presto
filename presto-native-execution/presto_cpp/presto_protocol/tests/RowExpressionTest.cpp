@@ -18,7 +18,9 @@
 
 using namespace facebook::presto::protocol;
 
-TEST(RowExpressionTest, constant) {
+class RowExpressionTest : public ::testing::Test {};
+
+TEST_F(RowExpressionTest, constant) {
   std::string str = R"(
         {
             "@type": "constant",   
@@ -42,7 +44,7 @@ TEST(RowExpressionTest, constant) {
   testJsonRoundtrip(j, p);
 }
 
-TEST(RowExpressionTest, call) {
+TEST_F(RowExpressionTest, call) {
   std::string str = R"(
         {
            "@type":"call",
@@ -90,7 +92,7 @@ TEST(RowExpressionTest, call) {
   testJsonRoundtrip(j, p);
 }
 
-TEST(RowExpressionTest, special) {
+TEST_F(RowExpressionTest, special) {
   std::string str = R"(
         {
              "@type":"special",
@@ -151,7 +153,7 @@ TEST(RowExpressionTest, special) {
   testJsonRoundtrip(j, p);
 }
 
-TEST(RowExpressionTest, variableReference) {
+TEST_F(RowExpressionTest, variableReference) {
   std::string str = R"(
         {
              "@type":"special",

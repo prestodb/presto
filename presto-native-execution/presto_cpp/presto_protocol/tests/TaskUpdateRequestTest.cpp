@@ -24,8 +24,10 @@
 using namespace facebook;
 using namespace facebook::presto::protocol;
 
+class TestPrestoProtocol : public ::testing::Test {};
+
 // TODO data/TaskUpdateRequest.1 is out of date. Needs to be re-generated.
-TEST(TestPrestoPrococol, DISABLED_TestAggregationNode) {
+TEST_F(TestPrestoProtocol, DISABLED_TestAggregationNode) {
   std::string str = slurp("data/TaskUpdateRequest.1");
 
   json j = json::parse(str);
@@ -58,7 +60,7 @@ TEST(TestPrestoPrococol, DISABLED_TestAggregationNode) {
 }
 
 // TODO data/TaskUpdateRequest.2 is out of date. Needs to be re-generated.
-TEST(TestPrestoPrococol, DISABLED_TestLimitNode) {
+TEST_F(TestPrestoProtocol, DISABLED_TestLimitNode) {
   std::string str = slurp("data/TaskUpdateRequest.2");
 
   json j = json::parse(str);

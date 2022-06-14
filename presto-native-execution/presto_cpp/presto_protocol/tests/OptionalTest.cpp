@@ -18,7 +18,9 @@
 
 using namespace facebook::presto::protocol;
 
-TEST(TestPrestoPrococol, TestOptionalPresent) {
+class TestPrestoProtocol : public ::testing::Test {};
+
+TEST_F(TestPrestoProtocol, TestOptionalPresent) {
   std::string str = R"( { "type": "ALL", "role": "My Role" })";
 
   json j = json::parse(str);
@@ -26,14 +28,13 @@ TEST(TestPrestoPrococol, TestOptionalPresent) {
 
   // Check some values ...
   ASSERT_EQ(p.type, SelectedRoleType::ALL);
-  ;
   ASSERT_NE(p.role, nullptr);
   ASSERT_EQ(*p.role, "My Role");
 
   testJsonRoundtrip(j, p);
 }
 
-TEST(TestPrestoPrococol, TestOptionalAbsent) {
+TEST_F(TestPrestoProtocol, TestOptionalAbsent) {
   std::string str = R"( { "type": "ALL" })";
 
   json j = json::parse(str);
@@ -41,7 +42,6 @@ TEST(TestPrestoPrococol, TestOptionalAbsent) {
 
   // Check some values ...
   ASSERT_EQ(p.type, SelectedRoleType::ALL);
-  ;
   ASSERT_EQ(p.role, nullptr);
 
   testJsonRoundtrip(j, p);

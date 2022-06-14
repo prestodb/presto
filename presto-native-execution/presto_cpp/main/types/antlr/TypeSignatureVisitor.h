@@ -51,6 +51,9 @@ class TypeSignatureVisitor : public antlr4::tree::AbstractParseTreeVisitor {
   virtual antlrcpp::Any visitVariable_type(
       TypeSignatureParser::Variable_typeContext* context) = 0;
 
+  virtual antlrcpp::Any visitDecimal_type(
+      TypeSignatureParser::Decimal_typeContext* context) = 0;
+
   virtual antlrcpp::Any visitType_list(
       TypeSignatureParser::Type_listContext* context) = 0;
 

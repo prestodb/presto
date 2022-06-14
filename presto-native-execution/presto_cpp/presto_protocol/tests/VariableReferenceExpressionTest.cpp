@@ -18,7 +18,9 @@
 
 using namespace facebook::presto::protocol;
 
-TEST(VariableReferenceExpressionTest, basic) {
+class VariableReferenceExpressionTest : public ::testing::Test {};
+
+TEST_F(VariableReferenceExpressionTest, basic) {
   std::string str = R"(
         {
             "@type":"variable",

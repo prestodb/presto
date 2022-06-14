@@ -28,6 +28,7 @@
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Type.h"
 
@@ -111,6 +112,7 @@ class TaskManagerTest : public testing::Test {
  protected:
   void SetUp() override {
     functions::prestosql::registerAllScalarFunctions();
+    parse::registerTypeResolver();
     exec::ExchangeSource::registerFactory(
         PrestoExchangeSource::createExchangeSource);
     if (!isRegisteredVectorSerde()) {

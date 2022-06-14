@@ -56,6 +56,7 @@ std::string mapScalarFunction(const std::string& name) {
       {"presto.default.$operator$equal", "eq"},
       {"presto.default.$operator$greater_than", "gt"},
       {"presto.default.$operator$greater_than_or_equal", "gte"},
+      {"presto.default.$operator$is_distinct_from", "distinct_from"},
       {"presto.default.$operator$less_than", "lt"},
       {"presto.default.$operator$less_than_or_equal", "lte"},
       {"presto.default.$operator$modulus", "mod"},
@@ -129,6 +130,9 @@ velox::variant VeloxExprConverter::getConstantValue(
           0);
     case TypeKind::DATE:
       return valueVector->as<velox::SimpleVector<velox::Date>>()->valueAt(0);
+    case TypeKind::INTERVAL_DAY_TIME:
+      return valueVector->as<velox::SimpleVector<velox::IntervalDayTime>>()
+          ->valueAt(0);
     case TypeKind::BOOLEAN:
       return valueVector->as<velox::SimpleVector<bool>>()->valueAt(0);
     case TypeKind::DOUBLE:
