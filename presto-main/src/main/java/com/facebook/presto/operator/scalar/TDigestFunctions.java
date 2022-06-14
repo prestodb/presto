@@ -17,7 +17,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -35,6 +34,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 public final class TDigestFunctions
 {
@@ -140,16 +140,25 @@ public final class TDigestFunctions
 
     @ScalarFunction(value = "construct_tdigest", visibility = EXPERIMENTAL)
     @Description("Create a TDigest by passing in its internal state.")
-    @SqlType("varbinary")
-    public static SqlVarbinary constructTDigest(
-            @SqlType("ARRAY<DOUBLE>") double[] centroidMeans,
-            @SqlType("ARRAY<DOUBLE>") double[] centroidWeights,
-            @SqlType("DOUBLE") double compression,
-            @SqlType("DOUBLE") double min,
-            @SqlType("DOUBLE") double max,
-            @SqlType("DOUBLE") double sum,
-            @SqlType("BIGINT") int count)
+    @SqlType("tdigest(double)")
+    public static Slice constructTDigest(
+            @SqlType("array(double)") Block centroidMeansBlock,
+            @SqlType("array(double)") Block centroidWeightsBlock,
+            @SqlType(StandardTypes.DOUBLE) double compression,
+            @SqlType(StandardTypes.DOUBLE) double min,
+            @SqlType(StandardTypes.DOUBLE) double max,
+            @SqlType(StandardTypes.DOUBLE) double sum,
+            @SqlType(StandardTypes.BIGINT) long count)
     {
+        double[] centroidMeans = new double[centroidMeansBlock.getPositionCount()];
+        for (int i = 0; i < centroidMeansBlock.getPositionCount(); i++) {
+            centroidMeans[i] = DOUBLE.getDouble(centroidMeansBlock, i);
+        }
+        double[] centroidWeights = new double[centroidWeightsBlock.getPositionCount()];
+        for (int i = 0; i < centroidWeightsBlock.getPositionCount(); i++) {
+            centroidWeights[i] = DOUBLE.getDouble(centroidWeightsBlock, i);
+        }
+
         TDigest tDigest = createTDigest(
                 centroidMeans,
                 centroidWeights,
@@ -157,9 +166,8 @@ public final class TDigestFunctions
                 min,
                 max,
                 sum,
-                count);
+                toIntExact(count));
 
-        SqlVarbinary result = new SqlVarbinary(tDigest.serialize().getBytes());
-        return result;
+        return tDigest.serialize();
     }
 }
