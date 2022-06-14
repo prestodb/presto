@@ -114,4 +114,10 @@ public final class ConstantExpression
     {
         return visitor.visitConstant(this, context);
     }
+
+    @Override
+    public RowExpression canonicalize()
+    {
+        return getSourceLocation().isPresent() ? new ConstantExpression(Optional.empty(), value, type) : this;
+    }
 }

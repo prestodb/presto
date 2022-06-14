@@ -77,6 +77,12 @@ public final class InputReferenceExpression
     }
 
     @Override
+    public RowExpression canonicalize()
+    {
+        return getSourceLocation().isPresent() ? new InputReferenceExpression(Optional.empty(), field, type) : this;
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

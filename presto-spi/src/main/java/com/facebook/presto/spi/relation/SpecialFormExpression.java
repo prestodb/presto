@@ -121,6 +121,12 @@ public class SpecialFormExpression
         return visitor.visitSpecialForm(this, context);
     }
 
+    @Override
+    public RowExpression canonicalize()
+    {
+        return getSourceLocation().isPresent() ? new SpecialFormExpression(Optional.empty(), form, returnType, arguments) : this;
+    }
+
     public enum Form
     {
         IF,

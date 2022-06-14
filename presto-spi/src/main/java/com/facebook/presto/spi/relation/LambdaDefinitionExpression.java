@@ -117,6 +117,12 @@ public final class LambdaDefinitionExpression
         return visitor.visitLambda(this, context);
     }
 
+    @Override
+    public RowExpression canonicalize()
+    {
+        return getSourceLocation().isPresent() ? new LambdaDefinitionExpression(Optional.empty(), argumentTypes, arguments, body) : this;
+    }
+
     private static void checkArgument(boolean condition, String message, Object... messageArgs)
     {
         if (!condition) {
