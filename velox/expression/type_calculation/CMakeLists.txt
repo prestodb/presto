@@ -13,10 +13,13 @@
 # limitations under the License.
 
 bison_target(
-  TypeCalculationParser TypeCalculation.y ${CMAKE_CURRENT_BINARY_DIR}/Parser.cpp
+  TypeCalculationParser TypeCalculation.yy
+  ${CMAKE_CURRENT_BINARY_DIR}/Parser.cpp
   DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/Parser.h)
-flex_target(TypeCalculationScanner TypeCalculation.l
+
+flex_target(TypeCalculationScanner TypeCalculation.ll
             ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp COMPILE_FLAGS "-Cf")
+
 add_flex_bison_dependency(TypeCalculationScanner TypeCalculationParser)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
