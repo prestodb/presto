@@ -95,6 +95,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
@@ -104,6 +105,7 @@ import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedEx
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_PLAN_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
@@ -1101,7 +1103,15 @@ public class PlanFragmenter
                         left.totalLifespans,
                         left.recoveryEligible && right.recoveryEligible);
             }
-            return GroupedExecutionProperties.notCapable();
+            throw new PrestoException(
+                    INVALID_PLAN_ERROR,
+                    format("When grouped execution can't be enabled, merge join plan is not valid." +
+                                    "%s is currently set to %s; left node grouped execution capable is %s and " +
+                                    "right node grouped execution capable is %s.",
+                            GROUPED_EXECUTION,
+                            groupedExecutionEnabled,
+                            left.currentNodeCapable,
+                            right.currentNodeCapable));
         }
 
         @Override
