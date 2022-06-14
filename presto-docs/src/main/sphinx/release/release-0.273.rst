@@ -7,6 +7,9 @@ Release 0.273
    There is a regression in query execution times due to way we are processing HdfsConfiguration
    and the issue is fixed in 0.273.2 release.
 
+   There is a regression caused by airlift SSL changes that results in some queries failing with
+   REMOTE_TASK_ERROR and the issue is fixed in 0.273.3.
+
 **Highlights**
 ==============
 * Add new Presto connector for Clickhouse.
