@@ -18,7 +18,9 @@
 
 using namespace facebook::presto::protocol;
 
-TEST(LifespanTest, taskWide) {
+class LifespanTest : public ::testing::Test {};
+
+TEST_F(LifespanTest, taskWide) {
   std::string str = R"("TaskWide")";
 
   json j = json::parse(str);
@@ -31,7 +33,7 @@ TEST(LifespanTest, taskWide) {
   testJsonRoundtrip(j, p);
 }
 
-TEST(LifespanTest, group) {
+TEST_F(LifespanTest, group) {
   std::string str = R"("Group1001")";
 
   json j = json::parse(str);

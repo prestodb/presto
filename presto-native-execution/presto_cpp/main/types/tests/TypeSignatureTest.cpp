@@ -49,6 +49,7 @@ TypePtr varchar() {
 TypePtr varchar(int size) {
   return typeFromString("VARCHAR");
 }
+
 TypePtr array(TypePtr type) {
   return arrayFromType(type);
 }
@@ -77,68 +78,75 @@ TypePtr map(TypePtr key, TypePtr value) {
   ASSERT_THROWS_CONTAINS_MESSAGE(parseTypeSignature(input)->toString();       \
                                  , exception, message)
 
-TEST(TestTypeSignature, sig01) {
+class TestTypeSignature : public ::testing::Test {};
+
+TEST_F(TestTypeSignature, sig01) {
   assertSignature("boolean", "BOOLEAN");
 }
 
-TEST(TestTypeSignature, sig02) {
+TEST_F(TestTypeSignature, sig02) {
   assertSignature("varchar", "VARCHAR");
 }
 
-TEST(TestTypeSignature, sig03) {
+TEST_F(TestTypeSignature, sig03) {
   assertEquals(parseTypeSignature("int"), parseTypeSignature("integer"));
 }
 
-TEST(TestTypeSignature, sig04) {
+TEST_F(TestTypeSignature, sig04) {
   assertSignature("array(bigint)", "ARRAY<BIGINT>");
 }
 
-TEST(TestTypeSignature, sig05) {
+TEST_F(TestTypeSignature, sig05) {
   assertEquals(
       parseTypeSignature("array(int)"), parseTypeSignature("array(integer)"));
 }
 
-TEST(TestTypeSignature, sig06) {
+TEST_F(TestTypeSignature, sig06) {
   assertSignature("array(array(bigint))", "ARRAY<ARRAY<BIGINT>>");
 }
 
-TEST(TestTypeSignature, sig07) {
+TEST_F(TestTypeSignature, sig07) {
   assertEquals(
       parseTypeSignature("array(array(int))"),
       parseTypeSignature("array(array(integer))"));
 }
 
-TEST(TestTypeSignature, sig08) {
+TEST_F(TestTypeSignature, sig08) {
   assertSignature("map(bigint,bigint)", "MAP<BIGINT,BIGINT>");
 }
-TEST(TestTypeSignature, sig09) {
+
+TEST_F(TestTypeSignature, sig09) {
   assertSignature("map(bigint,array(bigint))", "MAP<BIGINT,ARRAY<BIGINT>>");
 }
-TEST(TestTypeSignature, sig10) {
+
+TEST_F(TestTypeSignature, sig10) {
   assertSignature(
       "map(bigint,map(bigint,map(varchar,bigint)))",
       "MAP<BIGINT,MAP<BIGINT,MAP<VARCHAR,BIGINT>>>");
 }
 
-TEST(TestTypeSignature, sig11) {
+TEST_F(TestTypeSignature, sig11) {
   assertSignatureFail("blah()");
 }
-TEST(TestTypeSignature, sig12) {
+
+TEST_F(TestTypeSignature, sig12) {
   assertSignatureFail("array()");
 }
-TEST(TestTypeSignature, sig13) {
+
+TEST_F(TestTypeSignature, sig13) {
   assertSignatureFail("map()");
 }
-TEST(TestTypeSignature, sig14) {
+
+TEST_F(TestTypeSignature, sig14) {
   assertSignatureFail("x");
 }
 
-TEST(TestTypeSignature, sig16) {
+TEST_F(TestTypeSignature, sig16) {
   // ensure this is not treated as a row type
   assertSignatureFail("rowxxx(a)");
 }
 
-TEST(TestTypeSignature, TestRow01) {
+TEST_F(TestTypeSignature, TestRow01) {
   assertRowSignature(
       "row(a bigint,b bigint,c bigint)",
       rowSignature(
@@ -147,7 +155,7 @@ TEST(TestTypeSignature, TestRow01) {
           namedParameter("c", false, signature("bigint"))));
 }
 
-TEST(TestTypeSignature, TestRow02) {
+TEST_F(TestTypeSignature, TestRow02) {
   assertRowSignature(
       "row(a bigint,b array(bigint),c row(a bigint))",
       rowSignature(
@@ -160,7 +168,7 @@ TEST(TestTypeSignature, TestRow02) {
 }
 
 // row signature with named fields
-TEST(TestTypeSignature, row03) {
+TEST_F(TestTypeSignature, row03) {
   assertRowSignature(
       "row(a bigint,b varchar)",
       rowSignature(
@@ -168,7 +176,7 @@ TEST(TestTypeSignature, row03) {
           namedParameter("b", false, varchar())));
 }
 
-TEST(TestTypeSignature, row04) {
+TEST_F(TestTypeSignature, row04) {
   // Wondering about this test of '_varchar' ??
   // assertRowSignature(
   //        "row(__a__ bigint,_b@_: _varchar)",
@@ -176,7 +184,7 @@ TEST(TestTypeSignature, row04) {
   //        namedParameter("_b@_:", false, signature("_varchar"))));
 }
 
-TEST(TestTypeSignature, row05) {
+TEST_F(TestTypeSignature, row05) {
   assertRowSignature(
       "row(a bigint,b array(bigint),c row(a bigint))",
       rowSignature(
@@ -188,7 +196,7 @@ TEST(TestTypeSignature, row05) {
               rowSignature(namedParameter("a", false, signature("bigint"))))));
 }
 
-TEST(TestTypeSignature, row06) {
+TEST_F(TestTypeSignature, row06) {
   assertRowSignature(
       "row(a varchar(10),b row(a bigint))",
       rowSignature(
@@ -199,7 +207,7 @@ TEST(TestTypeSignature, row06) {
               rowSignature(namedParameter("a", false, signature("bigint"))))));
 }
 
-TEST(TestTypeSignature, row07) {
+TEST_F(TestTypeSignature, row07) {
   assertRowSignature(
       "array(row(col0 bigint,col1 double))",
       array(rowSignature(
@@ -207,7 +215,7 @@ TEST(TestTypeSignature, row07) {
           namedParameter("col1", false, signature("double")))));
 }
 
-TEST(TestTypeSignature, row08) {
+TEST_F(TestTypeSignature, row08) {
   assertRowSignature(
       "row(col0 array(row(col0 bigint,col1 double)))",
       rowSignature(namedParameter(
@@ -218,7 +226,7 @@ TEST(TestTypeSignature, row08) {
               namedParameter("col1", false, signature("double")))))));
 }
 
-TEST(TestTypeSignature, row09) {
+TEST_F(TestTypeSignature, row09) {
   // row with mixed fields
   assertRowSignature(
       "row(bigint,varchar)",
@@ -226,7 +234,7 @@ TEST(TestTypeSignature, row09) {
           unnamedParameter(signature("bigint")), unnamedParameter(varchar())));
 }
 
-TEST(TestTypeSignature, row10) {
+TEST_F(TestTypeSignature, row10) {
   assertRowSignature(
       "row(bigint,array(bigint),row(a bigint))",
       rowSignature(
@@ -236,7 +244,7 @@ TEST(TestTypeSignature, row10) {
               rowSignature(namedParameter("a", false, signature("bigint"))))));
 }
 
-TEST(TestTypeSignature, row11) {
+TEST_F(TestTypeSignature, row11) {
   assertRowSignature(
       "row(varchar(10),b row(bigint))",
       rowSignature(
@@ -247,7 +255,7 @@ TEST(TestTypeSignature, row11) {
               rowSignature(unnamedParameter(signature("bigint"))))));
 }
 
-TEST(TestTypeSignature, row12) {
+TEST_F(TestTypeSignature, row12) {
   assertRowSignature(
       "array(row(col0 bigint,double))",
       array(rowSignature(
@@ -255,7 +263,7 @@ TEST(TestTypeSignature, row12) {
           unnamedParameter(signature("double")))));
 }
 
-TEST(TestTypeSignature, row13) {
+TEST_F(TestTypeSignature, row13) {
   assertRowSignature(
       "row(col0 array(row(bigint,double)))",
       rowSignature(namedParameter(
@@ -266,20 +274,20 @@ TEST(TestTypeSignature, row13) {
               unnamedParameter(signature("double")))))));
 }
 
-TEST(TestTypeSignature, row14) {
+TEST_F(TestTypeSignature, row14) {
   assertRowSignature(
       "row(double double precision)",
       rowSignature(
           namedParameter("double", false, signature("double precision"))));
 }
 
-TEST(TestTypeSignature, row15) {
+TEST_F(TestTypeSignature, row15) {
   assertRowSignature(
       "row(double precision)",
       rowSignature(unnamedParameter(signature("double precision"))));
 }
 
-TEST(TestTypeSignature, row16) {
+TEST_F(TestTypeSignature, row16) {
   // preserve base name case
   assertRowSignature(
       "RoW(a bigint,b varchar)",
@@ -288,14 +296,14 @@ TEST(TestTypeSignature, row16) {
           namedParameter("b", false, varchar())));
 }
 
-TEST(TestTypeSignature, row17) {
+TEST_F(TestTypeSignature, row17) {
   // field type canonicalization
   assertEquals(
       parseTypeSignature("row(col iNt)"),
       parseTypeSignature("row(col integer)"));
 }
 
-// TEST(TestTypeSignature, row18) {
+// TEST_F(TestTypeSignature, row18) {
 // assertEquals(parseTypeSignature("row(a Int(p1))"), parseTypeSignature("row(a
 // integer(p1))"));
 
@@ -309,7 +317,7 @@ TEST(TestTypeSignature, row17) {
 // The TestSpacesXX tests all throw failures.  The parser succeeds by the
 // resulting types are not supported by Koski.
 //
-TEST(TestTypeSignature, spaces01) {
+TEST_F(TestTypeSignature, spaces01) {
   // named fields of types with spaces
   assertRowSignatureContainsThrows(
       "row(time time with time zone)",
@@ -319,16 +327,7 @@ TEST(TestTypeSignature, spaces01) {
       "Specified element is not found : TIME WITH TIME ZONE");
 }
 
-TEST(TestTypeSignature, spaces03) {
-  assertRowSignatureContainsThrows(
-      "row(interval interval day to second)",
-      rowSignature(namedParameter(
-          "interval", false, signature("interval day to second"))),
-      VeloxUserError,
-      "Specified element is not found : INTERVAL DAY TO SECOND");
-}
-
-TEST(TestTypeSignature, spaces04) {
+TEST_F(TestTypeSignature, spaces04) {
   assertRowSignatureContainsThrows(
       "row(interval interval year to month)",
       rowSignature(namedParameter(
@@ -337,14 +336,14 @@ TEST(TestTypeSignature, spaces04) {
       "Specified element is not found : INTERVAL YEAR TO MONTH");
 }
 
-TEST(TestTypeSignature, spaces05) {
+TEST_F(TestTypeSignature, spaces05) {
   assertRowSignature(
       "row(double double precision)",
       rowSignature(
           namedParameter("double", false, signature("double precision"))));
 }
 
-TEST(TestTypeSignature, spaces06) {
+TEST_F(TestTypeSignature, spaces06) {
   // unnamed fields of types with spaces
   assertRowSignatureContainsThrows(
       "row(time with time zone)",
@@ -353,15 +352,7 @@ TEST(TestTypeSignature, spaces06) {
       "Specified element is not found : TIME WITH TIME ZONE");
 }
 
-TEST(TestTypeSignature, spaces08) {
-  assertRowSignatureContainsThrows(
-      "row(interval day to second)",
-      rowSignature(unnamedParameter(signature("interval day to second"))),
-      VeloxUserError,
-      "Specified element is not found : INTERVAL DAY TO SECOND");
-}
-
-TEST(TestTypeSignature, spaces09) {
+TEST_F(TestTypeSignature, spaces09) {
   assertRowSignatureContainsThrows(
       "row(interval year to month)",
       rowSignature(unnamedParameter(signature("interval year to month"))),
@@ -369,13 +360,13 @@ TEST(TestTypeSignature, spaces09) {
       "Specified element is not found : INTERVAL YEAR TO MONTH");
 }
 
-TEST(TestTypeSignature, spaces10) {
+TEST_F(TestTypeSignature, spaces10) {
   assertRowSignature(
       "row(double precision)",
       rowSignature(unnamedParameter(signature("double precision"))));
 }
 
-TEST(TestTypeSignature, spaces11) {
+TEST_F(TestTypeSignature, spaces11) {
   assertRowSignatureContainsThrows(
       "row(array(time with time zone))",
       rowSignature(unnamedParameter(array(signature("time with time zone")))),
@@ -383,7 +374,7 @@ TEST(TestTypeSignature, spaces11) {
       "Specified element is not found : TIME WITH TIME ZONE");
 }
 
-TEST(TestTypeSignature, spaces13) {
+TEST_F(TestTypeSignature, spaces13) {
   // quoted field names
   assertRowSignatureContainsThrows(
       "row(\"time with time zone\" time with time zone,\"double\" double)",
@@ -395,10 +386,27 @@ TEST(TestTypeSignature, spaces13) {
       "Specified element is not found : TIME WITH TIME ZONE");
 }
 
-TEST(TestTypeSignature, functionType) {
+TEST_F(TestTypeSignature, functionType) {
   ASSERT_THROWS_CONTAINS_MESSAGE(
       parseTypeSignature("function(boolean,varchar(5),boolean)");
       ,
       VeloxUserError,
       "Failed to parse type [function(boolean,varchar(5),boolean)]");
+}
+
+TEST_F(TestTypeSignature, decimalType) {
+  assertSignature("decimal(10, 5)", "SHORT_DECIMAL(10,5)");
+  assertSignature("decimal(20,10)", "LONG_DECIMAL(20,10)");
+  ASSERT_THROWS_CONTAINS_MESSAGE(
+      parseTypeSignature("decimal");
+      , VeloxUserError, "Failed to parse type [decimal]");
+  ASSERT_THROWS_CONTAINS_MESSAGE(
+      parseTypeSignature("decimal()");
+      , VeloxUserError, "Failed to parse type [decimal()]");
+  ASSERT_THROWS_CONTAINS_MESSAGE(
+      parseTypeSignature("decimal(20)");
+      , VeloxUserError, "Failed to parse type [decimal(20)]");
+  ASSERT_THROWS_CONTAINS_MESSAGE(
+      parseTypeSignature("decimal(, 20)");
+      , VeloxUserError, "Failed to parse type [decimal(, 20)]");
 }

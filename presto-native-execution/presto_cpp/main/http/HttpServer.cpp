@@ -13,14 +13,15 @@
  */
 #include "presto_cpp/main/http/HttpServer.h"
 
-DEFINE_int32(http_exec_threads, 8, "Number of HTTP exec threads");
-
 namespace facebook::presto::http {
 
-HttpServer::HttpServer(const folly::SocketAddress& httpAddress)
+HttpServer::HttpServer(
+    const folly::SocketAddress& httpAddress,
+    int httpExecThreads)
     : httpAddress_(httpAddress),
+      httpExecThreads_(httpExecThreads),
       httpExecutor_{std::make_shared<folly::IOThreadPoolExecutor>(
-          FLAGS_http_exec_threads,
+          httpExecThreads,
           std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"))} {}
 
 proxygen::RequestHandler*
@@ -104,7 +105,7 @@ void HttpServer::start(
   // The 'threads' field is not used when we provide our own executor (see us
   // passing httpExecutor_ below) to the start() method. In that case we create
   // executor ourselves with exactly that number of threads.
-  options.threads = FLAGS_http_exec_threads;
+  options.threads = httpExecThreads_;
   options.idleTimeout = std::chrono::milliseconds(60'000);
   options.enableContentCompression = false;
   options.handlerFactories = proxygen::RequestHandlerChain()

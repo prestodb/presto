@@ -80,6 +80,16 @@ antlrcpp::Any TypeSignatureTypeConverter::visitSimple_type(
                      : typeFromString(ctx->TYPE_WITH_SPACES()->getText());
 }
 
+antlrcpp::Any TypeSignatureTypeConverter::visitDecimal_type(
+    TypeSignatureParser::Decimal_typeContext* ctx) {
+  if (ctx->NUMBER().size() != 2) {
+    VELOX_USER_FAIL("Invalid decimal type");
+  }
+  auto precision = ctx->NUMBER(0)->getText();
+  auto scale = ctx->NUMBER(1)->getText();
+  return DECIMAL(std::atoi(precision.c_str()), std::atoi(scale.c_str()));
+}
+
 antlrcpp::Any TypeSignatureTypeConverter::visitVariable_type(
     TypeSignatureParser::Variable_typeContext* ctx) {
   return typeFromString(ctx->WORD()->getText());

@@ -44,6 +44,7 @@ abstract class TestHiveQueries
         assertQuery("SELECT nationkey * 10, nationkey % 5, -nationkey, nationkey / 3 FROM nation");
         assertQuery("SELECT *, nationkey / 3 FROM nation");
         assertQuery("SELECT nationkey IS NULL FROM nation");
+        assertQuery("SELECT x IS DISTINCT FROM y, y IS NOT DISTINCT FROM x FROM (SELECT shipinstruct AS x, IF(shipinstruct='NONE', NULL, shipinstruct) AS y FROM lineitem)");
 
         assertQuery("SELECT rand() < 1, random() < 1 FROM nation", "SELECT true, true FROM nation");
 
@@ -95,6 +96,10 @@ abstract class TestHiveQueries
 
         // remaining filter
         assertQuery("SELECT count(*) FROM orders_ex WHERE contains(map_keys(quantity_by_linenumber), 1)");
+
+        // Double and float inequality filter
+        assertQuery("SELECT SUM(discount) FROM lineitem WHERE discount != 0.04");
+        assertQuery("SELECT SUM(discount_as_real) FROM lineitem WHERE discount_as_real != cast(0.1 as REAL)");
     }
 
     @Test
@@ -360,6 +365,14 @@ abstract class TestHiveQueries
         assertQuery("SELECT * from nation_partitioned", "SELECT nationkey, name, comment, cast(regionkey as VARCHAR) FROM nation");
         assertQuery("SELECT * from nation_partitioned WHERE regionkey='2'", "SELECT nationkey, name, comment, cast(regionkey as VARCHAR) FROM nation WHERE regionkey=2");
         assertQuery("SELECT * from nation_partitioned WHERE regionkey in ('2', '4')", "SELECT nationkey, name, comment, cast(regionkey as VARCHAR) FROM nation WHERE regionkey in (2, 4)");
+
+        assertQuery("SELECT nationkey,regionkey FROM nation_partitioned WHERE CAST(nationkey AS VARCHAR)=regionkey");
+
+        // This triggers output partitioning by a constant key.
+        assertQuery("SELECT T.nationkey FROM \n" +
+                "(SELECT nationkey FROM nation_partitioned_ds WHERE ds = '2022-04-09' GROUP BY nationkey, ds) T\n" +
+                "JOIN (SELECT nationkey FROM nation_partitioned_ds WHERE ds = '2022-03-18' GROUP BY nationkey, ds) U\n" +
+                "ON T.nationkey = U.nationkey");
     }
 
     @Test
@@ -499,8 +512,7 @@ abstract class TestHiveQueries
     @Test
     public void testSubqueries()
     {
-        // TODO(gaoge): Fix the broken test case
-        // assertQuery("SELECT name FROM nation WHERE regionkey = (SELECT max(regionkey) FROM region)");
+        assertQuery("SELECT name FROM nation WHERE regionkey = (SELECT max(regionkey) FROM region)");
 
         // Subquery returns zero rows.
         assertQuery("SELECT name FROM nation WHERE regionkey = (SELECT regionkey FROM region WHERE regionkey < 0)");
@@ -531,7 +543,9 @@ abstract class TestHiveQueries
         assertQuery("SELECT to_unixtime(from_unixtime(orderkey, '+01:00')), count(1) FROM orders GROUP BY 1");
         assertQuery("SELECT to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar), 'YYYY-MM-dd+HH:mm')), to_unixtime(parse_datetime(cast(1970 + nationkey as varchar) || '-01-02+00:' || cast(10 + (3 * nationkey) % 50 as varchar) || '+14:00', 'YYYY-MM-dd+HH:mmZZ')) FROM nation");
         assertQuery("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'");
-        assertQuery("select ARRAY[timestamp '2018-02-06 23:00:00.000 Australia/Melbourne', null, timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles']");
+        assertQuery("SELECT ARRAY[timestamp '2018-02-06 23:00:00.000 Australia/Melbourne', null, timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles']");
+
+        assertQuery("SELECT orderkey, year(from_unixtime(orderkey, '+01:00')), quarter(from_unixtime(orderkey, '-07:00')), month(from_unixtime(orderkey, '+00:00')), day(from_unixtime(orderkey, '-13:00')), day_of_week(from_unixtime(orderkey, '+03:00')), day_of_year(from_unixtime(orderkey, '-13:00')), year_of_week(from_unixtime(orderkey, '+14:00')), hour(from_unixtime(orderkey, '+01:00')), minute(from_unixtime(orderkey, '+01:00')), second(from_unixtime(orderkey, '-07:00')), millisecond(from_unixtime(orderkey, '+03:00')) FROM orders");
     }
 
     @Test
@@ -542,7 +556,6 @@ abstract class TestHiveQueries
         assertQuery("SELECT orderkey, from_unixtime(if (orderkey % 2 = 0, nan(), orderkey)) FROM orders");
         assertQuery("SELECT orderkey, from_unixtime(if (orderkey % 2 = 0, 3.87111e+37, orderkey)) FROM orders");
 
-        assertQuery("SELECT orderkey, hour(from_unixtime(orderkey, '+01:00')) FROM orders");
         assertQuery("SELECT orderkey, hour(from_unixtime(orderkey)), minute(from_unixtime(orderkey)), second(from_unixtime(orderkey)), millisecond(from_unixtime(orderkey)) FROM orders");
         assertQuery("SELECT orderkey, year(from_unixtime(orderkey)), quarter(from_unixtime(orderkey)), month(from_unixtime(orderkey)), day(from_unixtime(orderkey)) FROM orders");
         assertQuery("SELECT orderkey, day_of_week(from_unixtime(orderkey)), day_of_month(from_unixtime(orderkey)), day_of_year(from_unixtime(orderkey)), year_of_week(from_unixtime(orderkey)) FROM orders");

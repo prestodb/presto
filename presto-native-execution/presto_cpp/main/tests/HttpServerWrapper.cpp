@@ -36,4 +36,10 @@ void HttpServerWrapper::stop() {
     serverThread_.reset();
   }
 }
+
+// Initialize singleton for the reporter
+folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
+  return new facebook::velox::DummyStatsReporter();
+});
+
 } // namespace facebook::presto::test

@@ -29,6 +29,12 @@ constexpr folly::StringPiece kCounterDriverCPUExecutorLatencyMs{
 
 constexpr folly::StringPiece kCounterHTTPExecutorLatencyMs{
     "presto_cpp.http_executor_latency_ms"};
+constexpr folly::StringPiece kCounterNumHTTPRequest{
+    "presto_cpp.num_http_request"};
+constexpr folly::StringPiece kCounterNumHTTPRequestError{
+    "presto_cpp.num_http_request_error"};
+constexpr folly::StringPiece kCounterHTTPRequestLatencyMs{
+    "presto_cpp.http_request_latency_ms"};
 
 constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};

@@ -89,7 +89,8 @@
                 ]
               }
             ],
-            "partialAggregationsPushedDown":false
+            "partialAggregationsPushedDown":false,
+            "appendRowNumber":false
           }
         },
         "outputVariables":[
