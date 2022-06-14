@@ -1,0 +1,26 @@
+name: test native execution
+
+on:
+  pull_request:
+
+env:
+  # An envar that signals to tests we are executing in the CI environment
+  CONTINUOUS_INTEGRATION: true
+  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+  RETRY: .github/bin/retry
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: prestocpp/prestocpp-circleci:mikesh-20220331
+    env:
+      CC: /opt/rh/gcc-toolset-9/root/bin/gcc
+      CXX: /opt/rh/gcc-toolset-9/root/bin/g++
+    steps:
+      - name: Setup Environment
+        - run: source /opt/rh/gcc-toolset-9/enable
+      - name: Build
+        run: make -C presto-native-execution debug
