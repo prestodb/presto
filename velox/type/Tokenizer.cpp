@@ -145,7 +145,7 @@ std::unique_ptr<Subfield::PathElement> Tokenizer::matchUnquotedSubscript() {
 
 bool Tokenizer::isUnquotedPathCharacter(char c) {
   return c == ':' || c == '$' || c == '-' || c == '/' || c == '@' || c == '|' ||
-      isUnquotedSubscriptCharacter(c);
+      c == '#' || isUnquotedSubscriptCharacter(c);
 }
 
 bool Tokenizer::isUnquotedSubscriptCharacter(char c) {

@@ -15,7 +15,7 @@
  */
 
 #include "velox/type/Filter.h"
-#include "velox/type/tests/FilterBuilder.h"
+#include <velox/expression/ExprToSubfieldFilter.h>
 
 #include <cstdint>
 #include <limits>
@@ -25,8 +25,8 @@
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;
-using namespace facebook ::velox::common;
-using namespace facebook ::velox::common::test;
+using namespace facebook::velox::common;
+using namespace facebook::velox::exec;
 
 TEST(FilterTest, alwaysFalse) {
   AlwaysFalse alwaysFalse;

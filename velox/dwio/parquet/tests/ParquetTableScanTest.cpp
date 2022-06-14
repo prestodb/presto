@@ -19,7 +19,7 @@
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/type/tests/FilterBuilder.h"
+#include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 
 using namespace facebook::velox;
@@ -150,23 +150,23 @@ TEST_F(ParquetTableScanTest, basic) {
   // With filters
   assertSelectWithFilter(
       {"a"},
-      common::test::singleSubfieldFilter("a", common::test::lessThan(3)),
+      common::test::singleSubfieldFilter("a", exec::lessThan(3)),
       "SELECT a FROM tmp WHERE a < 3");
   assertSelectWithFilter(
       {"b"},
-      common::test::singleSubfieldFilter("a", common::test::lessThan(3)),
+      common::test::singleSubfieldFilter("a", exec::lessThan(3)),
       "SELECT b FROM tmp WHERE a < 3");
   assertSelectWithFilter(
       {"a", "b"},
-      common::test::singleSubfieldFilter("a", common::test::lessThan(3)),
+      common::test::singleSubfieldFilter("a", exec::lessThan(3)),
       "SELECT a, b FROM tmp WHERE a < 3");
   assertSelectWithFilter(
       {"b", "a"},
-      common::test::singleSubfieldFilter("a", common::test::lessThan(3)),
+      common::test::singleSubfieldFilter("a", exec::lessThan(3)),
       "SELECT b, a FROM tmp WHERE a < 3");
   assertSelectWithFilter(
       {"b"},
-      common::test::singleSubfieldFilter("a", common::test::lessThan(0)),
+      common::test::singleSubfieldFilter("a", exec::lessThan(0)),
       "SELECT b FROM tmp WHERE a < 0");
 
   // TODO: Add filter on b after double filters are supported
@@ -184,25 +184,25 @@ TEST_F(ParquetTableScanTest, basic) {
   // With filter and aggregation
   assertSelectWithFilterAndAgg(
       {"a"},
-      common::test::singleSubfieldFilter("a", common::test::lessThan(3)),
+      common::test::singleSubfieldFilter("a", exec::lessThan(3)),
       {"sum(a)"},
       {},
       "SELECT sum(a) FROM tmp WHERE a < 3");
   assertSelectWithFilterAndAgg(
       {"b"},
-      common::test::singleSubfieldFilter("a", common::test::lessThan(3)),
+      common::test::singleSubfieldFilter("a", exec::lessThan(3)),
       {"sum(b)"},
       {},
       "SELECT sum(b) FROM tmp WHERE a < 3");
   assertSelectWithFilterAndAgg(
       {"a", "b"},
-      common::test::singleSubfieldFilter("a", common::test::lessThan(3)),
+      common::test::singleSubfieldFilter("a", exec::lessThan(3)),
       {"min(a)", "max(b)"},
       {},
       "SELECT min(a), max(b) FROM tmp WHERE a < 3");
   assertSelectWithFilterAndAgg(
       {"b", "a"},
-      common::test::singleSubfieldFilter("a", common::test::lessThan(3)),
+      common::test::singleSubfieldFilter("a", exec::lessThan(3)),
       {"max(b)"},
       {"a"},
       "SELECT max(b), a FROM tmp WHERE a < 3 GROUP BY a");

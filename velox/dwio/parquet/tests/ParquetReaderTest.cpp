@@ -16,9 +16,9 @@
 
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
+#include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Type.h"
-#include "velox/type/tests/FilterBuilder.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/tests/VectorMaker.h"
 
@@ -237,7 +237,7 @@ TEST_F(ParquetReaderTest, readSampleEmptyRange) {
 TEST_F(ParquetReaderTest, readSampleBigintRangeFilter) {
   // a BETWEEN 16 AND 20
   FilterMap filters;
-  filters.insert({"a", common::test::between(16, 20)});
+  filters.insert({"a", exec::between(16, 20)});
 
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(5, 16), rangeVector<double>(5, 16)});
@@ -265,7 +265,7 @@ TEST_F(ParquetReaderTest, readSampleBigintValuesUsingBitmaskFilter) {
 TEST_F(ParquetReaderTest, readSampleEqualFilter) {
   // a = 16
   FilterMap filters;
-  filters.insert({"a", common::test::equal(16)});
+  filters.insert({"a", exec::equal(16)});
 
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(1, 16), rangeVector<double>(1, 16)});
@@ -304,7 +304,7 @@ TEST_F(ParquetReaderTest, dateRead) {
 TEST_F(ParquetReaderTest, dateFilter) {
   // date BETWEEN 5 AND 14
   FilterMap filters;
-  filters.insert({"date", common::test::between(5, 14)});
+  filters.insert({"date", exec::between(5, 14)});
 
   auto expected = vectorMaker_->rowVector({rangeVector<Date>(10, 5)});
 
@@ -346,8 +346,8 @@ TEST_F(ParquetReaderTest, intRead) {
 TEST_F(ParquetReaderTest, intMultipleFilters) {
   // int BETWEEN 102 AND 120 AND bigint BETWEEN 900 AND 1006
   FilterMap filters;
-  filters.insert({"int", common::test::between(102, 120)});
-  filters.insert({"bigint", common::test::between(900, 1006)});
+  filters.insert({"int", exec::between(102, 120)});
+  filters.insert({"bigint", exec::between(900, 1006)});
 
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int32_t>(5, 102), rangeVector<int64_t>(5, 1002)});
@@ -359,7 +359,7 @@ TEST_F(ParquetReaderTest, intMultipleFilters) {
 TEST_F(ParquetReaderTest, doubleFilters) {
   // b < 10.0
   FilterMap filters;
-  filters.insert({"b", common::test::lessThanDouble(10.0)});
+  filters.insert({"b", exec::lessThanDouble(10.0)});
 
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(9, 1), rangeVector<double>(9, 1)});
@@ -368,7 +368,7 @@ TEST_F(ParquetReaderTest, doubleFilters) {
       "sample.parquet", sampleSchema(), std::move(filters), expected);
 
   // b <= 10.0
-  filters.insert({"b", common::test::lessThanOrEqualDouble(10.0)});
+  filters.insert({"b", exec::lessThanOrEqualDouble(10.0)});
 
   expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(10, 1), rangeVector<double>(10, 1)});
@@ -377,7 +377,7 @@ TEST_F(ParquetReaderTest, doubleFilters) {
       "sample.parquet", sampleSchema(), std::move(filters), expected);
 
   // b between 10.0 and 14.0
-  filters.insert({"b", common::test::betweenDouble(10.0, 14.0)});
+  filters.insert({"b", exec::betweenDouble(10.0, 14.0)});
 
   expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(5, 10), rangeVector<double>(5, 10)});
@@ -386,7 +386,7 @@ TEST_F(ParquetReaderTest, doubleFilters) {
       "sample.parquet", sampleSchema(), std::move(filters), expected);
 
   // b > 14.0
-  filters.insert({"b", common::test::greaterThanDouble(14.0)});
+  filters.insert({"b", exec::greaterThanDouble(14.0)});
 
   expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(6, 15), rangeVector<double>(6, 15)});
@@ -395,7 +395,7 @@ TEST_F(ParquetReaderTest, doubleFilters) {
       "sample.parquet", sampleSchema(), std::move(filters), expected);
 
   // b >= 14.0
-  filters.insert({"b", common::test::greaterThanOrEqualDouble(14.0)});
+  filters.insert({"b", exec::greaterThanOrEqualDouble(14.0)});
 
   expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(7, 14), rangeVector<double>(7, 14)});
@@ -407,7 +407,7 @@ TEST_F(ParquetReaderTest, doubleFilters) {
 TEST_F(ParquetReaderTest, varcharFilters) {
   // name < 'CANADA'
   FilterMap filters;
-  filters.insert({"name", common::test::lessThan("CANADA")});
+  filters.insert({"name", exec::lessThan("CANADA")});
 
   auto expected = vectorMaker_->rowVector({
       vectorMaker_->flatVector<int64_t>({0, 1, 2}),
@@ -422,7 +422,7 @@ TEST_F(ParquetReaderTest, varcharFilters) {
       "nation.parquet", rowType, std::move(filters), expected);
 
   // name <= 'CANADA'
-  filters.insert({"name", common::test::lessThanOrEqual("CANADA")});
+  filters.insert({"name", exec::lessThanOrEqual("CANADA")});
 
   expected = vectorMaker_->rowVector({
       vectorMaker_->flatVector<int64_t>({0, 1, 2, 3}),
@@ -434,7 +434,7 @@ TEST_F(ParquetReaderTest, varcharFilters) {
       "nation.parquet", rowType, std::move(filters), expected);
 
   // name > UNITED KINGDOM
-  filters.insert({"name", common::test::greaterThan("UNITED KINGDOM")});
+  filters.insert({"name", exec::greaterThan("UNITED KINGDOM")});
 
   expected = vectorMaker_->rowVector({
       vectorMaker_->flatVector<int64_t>({21, 24}),
@@ -446,7 +446,7 @@ TEST_F(ParquetReaderTest, varcharFilters) {
       "nation.parquet", rowType, std::move(filters), expected);
 
   // name >= UNITED KINGDOM
-  filters.insert({"name", common::test::greaterThanOrEqual("UNITED KINGDOM")});
+  filters.insert({"name", exec::greaterThanOrEqual("UNITED KINGDOM")});
 
   expected = vectorMaker_->rowVector({
       vectorMaker_->flatVector<int64_t>({21, 23, 24}),
@@ -458,7 +458,7 @@ TEST_F(ParquetReaderTest, varcharFilters) {
       "nation.parquet", rowType, std::move(filters), expected);
 
   // name = 'CANADA'
-  filters.insert({"name", common::test::equal("CANADA")});
+  filters.insert({"name", exec::equal("CANADA")});
 
   expected = vectorMaker_->rowVector({
       vectorMaker_->flatVector<int64_t>({3}),
@@ -470,8 +470,7 @@ TEST_F(ParquetReaderTest, varcharFilters) {
       "nation.parquet", rowType, std::move(filters), expected);
 
   // name IN ('CANADA', 'UNITED KINGDOM')
-  filters.insert(
-      {"name", common::test::in({std::string("CANADA"), "UNITED KINGDOM"})});
+  filters.insert({"name", exec::in({std::string("CANADA"), "UNITED KINGDOM"})});
 
   expected = vectorMaker_->rowVector({
       vectorMaker_->flatVector<int64_t>({3, 23}),
@@ -485,8 +484,7 @@ TEST_F(ParquetReaderTest, varcharFilters) {
   // name IN ('UNITED STATES', 'CANADA', 'INDIA', 'RUSSIA')
   filters.insert(
       {"name",
-       common::test::in(
-           {std::string("UNITED STATES"), "INDIA", "CANADA", "RUSSIA"})});
+       exec::in({std::string("UNITED STATES"), "INDIA", "CANADA", "RUSSIA"})});
 
   expected = vectorMaker_->rowVector({
       vectorMaker_->flatVector<int64_t>({3, 8, 22, 24}),

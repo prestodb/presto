@@ -20,8 +20,7 @@
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/type/tests/FilterBuilder.h"
-#include "velox/type/tests/SubfieldFiltersBuilder.h"
+#include "velox/expression/ExprToSubfieldFilter.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
