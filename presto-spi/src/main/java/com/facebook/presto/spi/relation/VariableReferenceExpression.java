@@ -76,6 +76,12 @@ public final class VariableReferenceExpression
     }
 
     @Override
+    public RowExpression canonicalize()
+    {
+        return getSourceLocation().isPresent() ? new VariableReferenceExpression(Optional.empty(), name, type) : this;
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

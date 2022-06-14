@@ -124,4 +124,10 @@ public final class CallExpression
     {
         return visitor.visitCall(this, context);
     }
+
+    @Override
+    public RowExpression canonicalize()
+    {
+        return getSourceLocation().isPresent() ? new CallExpression(Optional.empty(), displayName, functionHandle, returnType, arguments) : this;
+    }
 }
