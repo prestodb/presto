@@ -205,7 +205,7 @@ public class TestCanonicalPlanGenerator
                 .collect(Collectors.toList());
         assertEquals(leafCanonicalPlans.size(), 2);
         assertEquals(leafCanonicalPlans.get(0), leafCanonicalPlans.get(1));
-        assertEquals(objectMapper.writeValueAsString(leafCanonicalPlans.get(0)).replaceAll("\"sourceLocation\":\\{[^\\}]*\\}", ""), objectMapper.writeValueAsString(leafCanonicalPlans.get(1)).replaceAll("\"sourceLocation\":\\{[^\\}]*\\}", ""));
+        assertEquals(objectMapper.writeValueAsString(leafCanonicalPlans.get(0)), objectMapper.writeValueAsString(leafCanonicalPlans.get(1)));
     }
 
     private void assertDifferentCanonicalLeafSubPlan(String sql1, String sql2)
@@ -217,7 +217,7 @@ public class TestCanonicalPlanGenerator
         Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), fragment2.getPartitioningScheme());
         assertTrue(canonicalPlan1.isPresent());
         assertTrue(canonicalPlan2.isPresent());
-        assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1).replaceAll("\"sourceLocation\":\\{[^\\}]*\\}", ""), objectMapper.writeValueAsString(canonicalPlan2).replaceAll("\"sourceLocation\":\\{[^\\}]*\\}", ""));
+        assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
     }
 
     // We add the following field test to make sure corresponding canonical class is still correct.

@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -276,7 +277,7 @@ public final class HiveTableLayoutHandle
         return ImmutableMap.builder()
                 .put("schemaTableName", schemaTableName)
                 .put("domainPredicate", domainPredicate)
-                .put("remainingPredicate", remainingPredicate)
+                .put("remainingPredicate", canonicalizeRowExpression(remainingPredicate))
                 .put("bucketFilter", bucketFilter)
                 .build();
     }
