@@ -119,14 +119,21 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
 
   // the start of the current output buffer
   const char* outputBufferPtr_{nullptr};
+
   // the size of the current output buffer
   size_t outputBufferLength_{0};
 
   // the size of the current chunk (in its compressed/encrypted form)
   size_t remainingLength_{0};
 
-  // the last buffer returned from the input
+  // The first byte in the range from last call to 'input_->Next()'.
+  const char* inputBufferStart_{nullptr};
+
+  // The first byte to return in Next. Not the same as inputBufferStart_ if
+  // there has been a BackUp().
   const char* inputBufferPtr_{nullptr};
+
+  // The first byte after the last range returned by 'input_->Next()'.
   const char* inputBufferPtrEnd_{nullptr};
 
   // bytes returned by this stream
