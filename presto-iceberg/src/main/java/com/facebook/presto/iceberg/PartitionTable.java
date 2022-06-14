@@ -53,7 +53,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
-import static com.facebook.presto.iceberg.Partition.toMap;
+import static com.facebook.presto.iceberg.Partition.convertBounds;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -177,8 +177,8 @@ public class PartitionTable
                             partitionStruct,
                             dataFile.recordCount(),
                             dataFile.fileSizeInBytes(),
-                            toMap(idToTypeMapping, dataFile.lowerBounds()),
-                            toMap(idToTypeMapping, dataFile.upperBounds()),
+                            convertBounds(idToTypeMapping, dataFile.lowerBounds()),
+                            convertBounds(idToTypeMapping, dataFile.upperBounds()),
                             dataFile.nullValueCounts(),
                             dataFile.columnSizes());
                     partitions.put(partitionWrapper, partition);
@@ -189,8 +189,8 @@ public class PartitionTable
                 partition.incrementFileCount();
                 partition.incrementRecordCount(dataFile.recordCount());
                 partition.incrementSize(dataFile.fileSizeInBytes());
-                partition.updateMin(toMap(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                partition.updateMax(toMap(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                partition.updateMin(convertBounds(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                partition.updateMax(convertBounds(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
                 partition.updateNullCount(dataFile.nullValueCounts());
             }
 

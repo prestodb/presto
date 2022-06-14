@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
-import static com.facebook.presto.iceberg.Partition.toMap;
+import static com.facebook.presto.iceberg.Partition.convertBounds;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -146,8 +146,8 @@ public class TableStatisticsMaker
                             dataFile.partition(),
                             dataFile.recordCount(),
                             dataFile.fileSizeInBytes(),
-                            toMap(idToTypeMapping, dataFile.lowerBounds()),
-                            toMap(idToTypeMapping, dataFile.upperBounds()),
+                            convertBounds(idToTypeMapping, dataFile.lowerBounds()),
+                            convertBounds(idToTypeMapping, dataFile.upperBounds()),
                             dataFile.nullValueCounts(),
                             dataFile.columnSizes());
                 }
@@ -155,8 +155,8 @@ public class TableStatisticsMaker
                     summary.incrementFileCount();
                     summary.incrementRecordCount(dataFile.recordCount());
                     summary.incrementSize(dataFile.fileSizeInBytes());
-                    updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                    updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                    updateSummaryMin(summary, partitionFields, convertBounds(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                    updateSummaryMax(summary, partitionFields, convertBounds(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
                     summary.updateNullCount(dataFile.nullValueCounts());
                     updateColumnSizes(summary, dataFile.columnSizes());
                 }

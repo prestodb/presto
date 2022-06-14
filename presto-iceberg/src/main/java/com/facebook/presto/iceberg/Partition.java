@@ -227,7 +227,7 @@ class Partition
                 this.nullCounts.merge(key, counts, Long::sum));
     }
 
-    public static Map<Integer, Object> toMap(Map<Integer, Type.PrimitiveType> idToTypeMapping, Map<Integer, ByteBuffer> idToMetricMap)
+    public static Map<Integer, Object> convertBounds(Map<Integer, Type.PrimitiveType> idToTypeMapping, Map<Integer, ByteBuffer> idToMetricMap)
     {
         if (idToMetricMap == null) {
             return null;
