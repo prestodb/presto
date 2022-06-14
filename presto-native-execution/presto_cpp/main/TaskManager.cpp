@@ -118,7 +118,7 @@ void getData(
       maxSize.getValue(protocol::DataUnit::BYTE),
       token,
       [taskId = taskId, bufferId = bufferId, promiseHolder](
-          std::vector<std::shared_ptr<exec::SerializedPage>>& pages,
+          std::vector<std::unique_ptr<folly::IOBuf>> pages,
           int64_t sequence) mutable {
         bool complete = pages.empty();
         int64_t nextSequence = sequence;
@@ -128,10 +128,10 @@ void getData(
           if (page) {
             VELOX_CHECK(!complete, "Received data after end marker");
             if (!iobuf) {
-              iobuf = page->getIOBuf();
+              iobuf = std::move(page);
               bytes = iobuf->length();
             } else {
-              auto next = page->getIOBuf();
+              auto next = std::move(page);
               bytes += next->length();
               iobuf->prev()->appendChain(std::move(next));
             }

@@ -184,6 +184,7 @@
         <module>presto-lark-sheets</module>
         <module>presto-test-coverage</module>
         <module>presto-hudi</module>
+        <module>presto-native-execution</module>
     </modules>
 
     <dependencyManagement>

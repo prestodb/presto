@@ -114,7 +114,7 @@ std::string getLocalIp() {
     boost::asio::ip::address addr = (it++)->endpoint().address();
     // simple check to see if the address is not ::
     if (addr.to_string().length() > 4) {
-      return fmt::format("[{}]", addr.to_string());
+      return fmt::format("{}", addr.to_string());
     }
   }
   VELOX_FAIL(
@@ -152,21 +152,28 @@ void PrestoServer::run() {
   folly::setUnsafeMutableGlobalIOExecutor(executor);
 
   auto systemConfig = SystemConfig::instance();
-  systemConfig->initialize(configDirectoryPath_ + "/config.properties");
   auto nodeConfig = NodeConfig::instance();
-  nodeConfig->initialize(configDirectoryPath_ + "/node.properties");
-
-  auto servicePort = systemConfig->httpServerHttpPort();
-  nodeVersion_ = systemConfig->prestoVersion();
-  int httpExecThreads = systemConfig->httpExecThreads();
-  environment_ = nodeConfig->nodeEnvironment();
-  nodeId_ = nodeConfig->nodeId();
-  address_ = nodeConfig->nodeIp(getLocalIp);
-  nodeLocation_ = nodeConfig->nodeLocation();
-  if (address_.find(':') != std::string::npos && address_.front() != '[') {
-    address_ = fmt::format("[{}]", address_);
+  int servicePort;
+  int httpExecThreads;
+  try {
+    systemConfig->initialize(configDirectoryPath_ + "/config.properties");
+    nodeConfig->initialize(configDirectoryPath_ + "/node.properties");
+    servicePort = systemConfig->httpServerHttpPort();
+    nodeVersion_ = systemConfig->prestoVersion();
+    httpExecThreads = systemConfig->httpExecThreads();
+    environment_ = nodeConfig->nodeEnvironment();
+    nodeId_ = nodeConfig->nodeId();
+    address_ = nodeConfig->nodeIp(getLocalIp);
+    // Add [] to an ipv6 address.
+    if (address_.find(':') != std::string::npos && address_.front() != '[') {
+      address_ = fmt::format("[{}]", address_);
+    }
+    nodeLocation_ = nodeConfig->nodeLocation();
+  } catch (const VeloxUserError& e) {
+    // VeloxUserError is always logged as an error.
+    // Avoid logging again.
+    exit(EXIT_FAILURE);
   }
-
   initializeAsyncCache();
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
@@ -393,11 +400,17 @@ void PrestoServer::stop() {
 }
 
 std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
-  auto uri = folly::Uri(SystemConfig::instance()->discoveryUri());
+  try {
+    auto uri = folly::Uri(SystemConfig::instance()->discoveryUri());
 
-  return [uri]() {
-    return folly::SocketAddress(uri.hostname(), uri.port(), true);
-  };
+    return [uri]() {
+      return folly::SocketAddress(uri.hostname(), uri.port(), true);
+    };
+  } catch (const VeloxUserError& e) {
+    // VeloxUserError is always logged as an error.
+    // Avoid logging again.
+    exit(EXIT_FAILURE);
+  }
 }
 
 std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListiner() {

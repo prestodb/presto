@@ -2,19 +2,20 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <artifactId>presto-root</artifactId>
-        <groupId>com.facebook.presto</groupId>
-        <version>0.274-SNAPSHOT</version>
-    </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>presto-native-tests</artifactId>
-    <name>presto-native-tests</name>
+    <parent>
+        <groupId>com.facebook.presto</groupId>
+        <artifactId>presto-root</artifactId>
+        <version>0.274-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>presto-native-execution</artifactId>
+    <name>presto-native-execution</name>
     <description>Presto - Tests for Native (C++) Worker</description>
 
     <properties>
-        <air.main.basedir>${project.basedir}</air.main.basedir>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
     </properties>
 
@@ -27,7 +28,6 @@
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
         </dependency>
-
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
@@ -100,5 +100,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
