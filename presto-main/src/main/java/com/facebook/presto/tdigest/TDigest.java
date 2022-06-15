@@ -566,32 +566,30 @@ public class TDigest
         return weightedAverage(mean[n - 1], z1, max, z2);
     }
 
-    public double trimmedMean(double l, double u)
+    public double trimmedMean(double lowerQuantileBound, double upperQuantileBound)
     {
-        checkArgument(l >= 0 && l <= 1, "l should be in [0,1], got %s", l);
-        checkArgument(u >= 0 && u <= 1, "u should be in [0,1], got %s", u);
+        checkArgument(lowerQuantileBound >= 0 && lowerQuantileBound <= 1, "lowerQuantileBound should be in [0,1], got %s", lowerQuantileBound);
+        checkArgument(upperQuantileBound >= 0 && upperQuantileBound <= 1, "upperQuantileBound should be in [0,1], got %s", upperQuantileBound);
 
         if (unmergedWeight > 0) {
             compress();
         }
 
-        if (activeCentroids == 0 || l >= u) {
+        if (activeCentroids == 0 || lowerQuantileBound >= upperQuantileBound) {
             return Double.NaN;
         }
 
-        if (l == 0 && u == 1) {
+        if (lowerQuantileBound == 0 && upperQuantileBound == 1) {
             return sum / totalWeight;
         }
 
-        double lowerIndex = l * totalWeight;
-        double upperIndex = u * totalWeight;
-
-        int n = activeCentroids;
+        double lowerIndex = lowerQuantileBound * totalWeight;
+        double upperIndex = upperQuantileBound * totalWeight;
 
         double weightSoFar = 0;
         double sumInBounds = 0;
         double weightInBounds = 0;
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < activeCentroids; i++) {
             if (weightSoFar < lowerIndex && lowerIndex <= weightSoFar + weight[i] && upperIndex <= weightSoFar + weight[i]) {
                 // lower and upper bounds are so close together that they are in the same weight interval
                 return mean[i];
