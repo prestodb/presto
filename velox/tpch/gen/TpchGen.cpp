@@ -105,6 +105,26 @@ std::string_view toTableName(Table table) {
   return ""; // make gcc happy.
 }
 
+Table fromTableName(std::string_view tableName) {
+  static std::unordered_map<std::string_view, Table> map{
+      {"part", Table::TBL_PART},
+      {"supplier", Table::TBL_SUPPLIER},
+      {"partsupp", Table::TBL_PARTSUPP},
+      {"customer", Table::TBL_CUSTOMER},
+      {"orders", Table::TBL_ORDERS},
+      {"lineitem", Table::TBL_LINEITEM},
+      {"nation", Table::TBL_NATION},
+      {"region", Table::TBL_REGION},
+  };
+
+  auto it = map.find(tableName);
+  if (it != map.end()) {
+    return it->second;
+  }
+  throw std::invalid_argument(
+      fmt::format("Invalid TPC-H table name: '{}'", tableName));
+}
+
 size_t getRowCount(Table table, size_t scaleFactor) {
   switch (table) {
     case Table::TBL_PART:
