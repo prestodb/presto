@@ -41,11 +41,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
+import static com.facebook.presto.iceberg.IcebergUtil.primitiveFieldTypes;
 import static com.facebook.presto.iceberg.Partition.convertBounds;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -90,9 +90,7 @@ public class TableStatisticsMaker
 
         List<Types.NestedField> columns = icebergTable.schema().columns();
 
-        Map<Integer, Type.PrimitiveType> idToTypeMapping = columns.stream()
-                .filter(column -> column.type().isPrimitiveType())
-                .collect(Collectors.toMap(Types.NestedField::fieldId, column -> column.type().asPrimitiveType()));
+        Map<Integer, Type.PrimitiveType> idToTypeMapping = primitiveFieldTypes(icebergTable.schema());
         List<PartitionField> partitionFields = icebergTable.spec().fields();
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()

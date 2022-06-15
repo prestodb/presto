@@ -33,6 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -440,7 +441,7 @@ public class TestAbstractIcebergSmoke
     public void testSchemaEvolution()
     {
         // TODO: Support schema evolution for PARQUET. Schema evolution should be id based.
-        testSchemaEvolution(getSession(), FileFormat.ORC);
+        testSchemaEvolution(getSession(), ORC);
     }
 
     private void testSchemaEvolution(Session session, FileFormat fileFormat)
@@ -615,7 +616,7 @@ public class TestAbstractIcebergSmoke
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
         test.accept(getSession(), FileFormat.PARQUET);
-        test.accept(getSession(), FileFormat.ORC);
+        test.accept(getSession(), ORC);
     }
 
     protected void dropTable(Session session, String table)
@@ -655,9 +656,24 @@ public class TestAbstractIcebergSmoke
                 " select true, 1, array['uno', 'dos', 'tres'], BIGINT '1', REAL '1.0', DOUBLE '1.0', map(array[1,2,3,4], array['ek','don','teen','char'])," +
                 " CAST(1.0 as DECIMAL(5,2))," +
                 " 'one', VARBINARY 'binary0/1values',\n" +
-                " (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), current_date", 1);
+                " (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), DATE '2022-06-15'", 1);
         MaterializedResult result = computeActual("SELECT * from test_nested_table");
         assertEquals(result.getRowCount(), 1);
+
+        assertQuery(session, "SHOW STATS FOR test_nested_table", "VALUES " +
+                "  ('bool', NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('int', NULL, 0e0, NULL, '1', '1'), " +
+                "  ('arr', NULL, " + (fileFormat == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                "  ('big', NULL, 0e0, NULL, '1', '1'), " +
+                "  ('rl', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                "  ('dbl', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                "  ('mp', NULL, " + (fileFormat == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                "  ('dec', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                "  ('vc', NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('vb', NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('str', NULL, " + (fileFormat == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                "  ('dt', NULL, 0e0, NULL, '2022-06-15', '2022-06-15'), " +
+                "  (NULL, NULL, NULL, 1e0, NULL, NULL)");
 
         dropTable(session, "test_nested_table");
 
@@ -685,6 +701,18 @@ public class TestAbstractIcebergSmoke
         result = computeActual("SELECT * from test_nested_table");
         assertEquals(result.getRowCount(), 1);
 
+        assertQuery(session, "SHOW STATS FOR test_nested_table", "VALUES " +
+                "  ('int', NULL, 0e0, NULL, '1', '1'), " +
+                "  ('arr', NULL, " + (fileFormat == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                "  ('big', NULL, 0e0, NULL, '1', '1'), " +
+                "  ('rl', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                "  ('dbl', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                "  ('mp', NULL, " + (fileFormat == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                "  ('dec', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                "  ('vc', NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('str', NULL, " + (fileFormat == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                "  (NULL, NULL, NULL, 1e0, NULL, NULL)");
+
         @Language("SQL") String createTable3 = "" +
                 "CREATE TABLE test_nested_table2 WITH (partitioning = ARRAY['int']) as select * from test_nested_table";
 
@@ -692,6 +720,8 @@ public class TestAbstractIcebergSmoke
 
         result = computeActual("SELECT * from test_nested_table2");
         assertEquals(result.getRowCount(), 1);
+
+        assertQuery(session, "SHOW STATS FOR test_nested_table2", "SHOW STATS FOR test_nested_table");
 
         dropTable(session, "test_nested_table");
         dropTable(session, "test_nested_table2");

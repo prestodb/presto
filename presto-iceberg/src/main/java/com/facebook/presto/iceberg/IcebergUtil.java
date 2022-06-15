@@ -36,18 +36,24 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.types.Type.PrimitiveType;
+import org.apache.iceberg.types.Types;
 
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Lists.reverse;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
@@ -178,5 +184,31 @@ public final class IcebergUtil
                     " as a location provider. Writing to Iceberg tables with custom location provider is not supported.");
         }
         return locationsFor(tableLocation, storageProperties);
+    }
+
+    public static Map<Integer, PrimitiveType> primitiveFieldTypes(Schema schema)
+    {
+        return primitiveFieldTypes(schema.columns())
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    }
+
+    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(List<Types.NestedField> nestedFields)
+    {
+        return nestedFields.stream()
+                .flatMap(IcebergUtil::primitiveFieldTypes);
+    }
+
+    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(Types.NestedField nestedField)
+    {
+        org.apache.iceberg.types.Type fieldType = nestedField.type();
+        if (fieldType.isPrimitiveType()) {
+            return Stream.of(new AbstractMap.SimpleEntry<>(nestedField.fieldId(), fieldType.asPrimitiveType()));
+        }
+
+        if (fieldType.isNestedType()) {
+            return primitiveFieldTypes(fieldType.asNestedType().fields());
+        }
+
+        throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 }
