@@ -13,11 +13,16 @@
  */
 package com.facebook.presto.common;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
+
 import java.util.Objects;
 
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class CatalogSchemaName
 {
     // TODO: Move out this class. Ideally this class should not be in presto-common module.
@@ -25,17 +30,20 @@ public final class CatalogSchemaName
     private final String catalogName;
     private final String schemaName;
 
+    @ThriftConstructor
     public CatalogSchemaName(String catalogName, String schemaName)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
         this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
     }
 
+    @ThriftField(1)
     public String getCatalogName()
     {
         return catalogName;
     }
 
+    @ThriftField(2)
     public String getSchemaName()
     {
         return schemaName;
