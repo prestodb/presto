@@ -20,6 +20,9 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class MergeJoinOperators
 {
@@ -49,7 +52,7 @@ public class MergeJoinOperators
                 rightOutputChannels,
                 leftJoinChannels,
                 rightJoinChannels,
-                new MergeInnerJoiner());
+                new InnerJoiner());
     }
 
     public OperatorFactory leftJoin(
@@ -73,7 +76,7 @@ public class MergeJoinOperators
                 rightOutputChannels,
                 leftJoinChannels,
                 rightJoinChannels,
-                new MergeLeftJoiner());
+                new LeftJoiner());
     }
 
     private OperatorFactory createMergeJoinFactory(
@@ -103,51 +106,32 @@ public class MergeJoinOperators
 
     public interface MergeJoiner
     {
-        void joinInnerRow(MergeJoinPageBuilder pageBuilder, Page left, int leftPosition, Page right, int rightPosition);
-
-        void joinLeftRow(MergeJoinPageBuilder pageBuilder, Page left, int leftPosition);
-
-        void joinRightRow(MergeJoinPageBuilder pageBuilder, Page right, int rightPosition);
-    }
-
-    public static class MergeInnerJoiner
-            implements MergeJoiner
-    {
-        @Override
-        public void joinInnerRow(MergeJoinPageBuilder pageBuilder, Page left, int leftPosition, Page right, int rightPosition)
-        {
-            pageBuilder.appendRow(left, leftPosition, right, rightPosition);
-        }
-
-        @Override
-        public void joinLeftRow(MergeJoinPageBuilder pageBuilder, Page left, int leftPosition)
-        {
-        }
-
-        @Override
-        public void joinRightRow(MergeJoinPageBuilder pageBuilder, Page right, int rightPosition)
-        {
+        default void joinRow(MergeJoinPageBuilder pageBuilder, Optional<Page> leftPage, int leftPosition, Optional<Page> rightPage, int rightPosition) {
+            checkArgument(leftPage.isPresent() || rightPage.isPresent(), "leftPage and rightPage can't be empty at the same time for Merge join");
         }
     }
 
-    public static class MergeLeftJoiner
+    public static class InnerJoiner
             implements MergeJoiner
     {
         @Override
-        public void joinInnerRow(MergeJoinPageBuilder pageBuilder, Page left, int leftPosition, Page right, int rightPosition)
+        public void joinRow(MergeJoinPageBuilder pageBuilder, Optional<Page> leftPage, int leftPosition, Optional<Page> rightPage, int rightPosition)
         {
-            pageBuilder.appendRow(left, leftPosition, right, rightPosition);
+            if (leftPage.isPresent() && rightPage.isPresent()) {
+                pageBuilder.appendRow(leftPage, leftPosition, rightPage, rightPosition);
+            }
         }
+    }
 
+    public static class LeftJoiner
+            implements MergeJoiner
+    {
         @Override
-        public void joinLeftRow(MergeJoinPageBuilder pageBuilder, Page left, int leftPosition)
+        public void joinRow(MergeJoinPageBuilder pageBuilder, Optional<Page> leftPage, int leftPosition, Optional<Page> rightPage, int rightPosition)
         {
-            pageBuilder.appendRowWithNullRight(left, leftPosition);
-        }
-
-        @Override
-        public void joinRightRow(MergeJoinPageBuilder pageBuilder, Page right, int rightPosition)
-        {
+            if (leftPage.isPresent()) {
+                pageBuilder.appendRow(leftPage, leftPosition, rightPage, rightPosition);
+            }
         }
     }
 }

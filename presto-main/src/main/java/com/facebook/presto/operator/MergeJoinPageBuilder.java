@@ -15,13 +15,16 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -70,45 +73,32 @@ public class MergeJoinPageBuilder
         pageBuilder.reset();
     }
 
-    public void appendRow(Page left, int leftPosition, Page right, int rightPosition)
-    {
-        pageBuilder.declarePosition();
-        appendRowPosition(left, leftPosition, leftChannels, 0);
-        appendRowPosition(right, rightPosition, rightChannels, leftChannels.size());
-    }
-
     /**
-     * append the left position for the left side and append nulls for the right side
+     *
+     * @param leftPage todo...
+     * @param leftPosition todo...
+     * @param rightPage todo...
+     * @param rightPosition todo...
      */
-    public void appendRowWithNullRight(Page left, int leftPosition)
+    public void appendRow(Optional<Page> leftPage, int leftPosition, Optional<Page> rightPage, int rightPosition)
     {
+        checkArgument(leftPage.isPresent() || rightPage.isPresent(), "leftPage and rightPage can't be empty at the same time in MergeJoinPageBuilder");
         pageBuilder.declarePosition();
-        appendRowPosition(left, leftPosition, leftChannels, 0);
-        appendNull(rightChannels, leftChannels.size());
+        appendRowPosition(leftPage, leftPosition, leftChannels, 0);
+        appendRowPosition(rightPage, rightPosition, rightChannels, leftChannels.size());
     }
 
-    /**
-     * append the right position for the right side and append nulls for the left side
-     */
-    public void appendRowWithNullLeft(Page right, int rightPosition)
-    {
-        pageBuilder.declarePosition();
-        appendNull(leftChannels, 0);
-        appendRowPosition(right, rightPosition, rightChannels, leftChannels.size());
-    }
-
-    private void appendRowPosition(Page page, int position, List<Integer> channels, int channelOffset)
+    private void appendRowPosition(Optional<Page> page, int position, List<Integer> channels, int channelOffset)
     {
         for (int i = 0; i < channels.size(); i++) {
             int offset = i + channelOffset;
-            types.get(offset).appendTo(page.getBlock(channels.get(i)), position, pageBuilder.getBlockBuilder(offset));
-        }
-    }
-
-    private void appendNull(List<Integer> channels, int channelOffset)
-    {
-        for (int i = 0; i < channels.size(); i++) {
-            pageBuilder.getBlockBuilder(i + channelOffset).appendNull();
+            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(offset);
+            if (page.isPresent()) {
+                types.get(offset).appendTo(page.get().getBlock(channels.get(i)), position, blockBuilder);
+            }
+            else {
+                blockBuilder.appendNull();
+            }
         }
     }
 }

@@ -492,10 +492,10 @@ public class TestMergeJoinOperator
         MergeJoinOperators.MergeJoiner mergeJoiner = null;
         switch (joinType) {
             case LEFT:
-                mergeJoiner = new MergeJoinOperators.MergeLeftJoiner();
+                mergeJoiner = new MergeJoinOperators.LeftJoiner();
                 break;
             case INNER:
-                mergeJoiner = new MergeJoinOperators.MergeInnerJoiner();
+                mergeJoiner = new MergeJoinOperators.InnerJoiner();
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported join type: " + joinType);
