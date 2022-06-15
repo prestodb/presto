@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.273.3-SNAPSHOT</version>
+        <version>0.273.3</version>
     </parent>
 
     <artifactId>presto-node-ttl-fetchers</artifactId>
