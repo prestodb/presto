@@ -29,7 +29,7 @@ class Scanner : public yyFlexLexer {
       std::istream& arg_yyin,
       std::ostream& arg_yyout,
       std::unordered_map<std::string, int>& values)
-      : yyFlexLexer(arg_yyin, arg_yyout), values_(values){};
+      : yyFlexLexer(&arg_yyin, &arg_yyout), values_(values){};
   int lex(Parser::semantic_type* yylval);
   void setValue(const std::string& varName, int value) {
     values_[varName] = value;
