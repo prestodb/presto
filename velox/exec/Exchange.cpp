@@ -85,8 +85,7 @@ class LocalExchangeSource : public ExchangeSource {
         // Since this lambda may outlive 'this', we need to capture a
         // shared_ptr to the current object (self).
         [self, requestedSequence, buffers, this](
-            std::vector<std::shared_ptr<SerializedPage>>& data,
-            int64_t sequence) {
+            std::vector<std::unique_ptr<folly::IOBuf>> data, int64_t sequence) {
           if (requestedSequence > sequence) {
             VLOG(2) << "Receives earlier sequence than requested: task "
                     << taskId_ << ", destination " << destination_
@@ -105,7 +104,9 @@ class LocalExchangeSource : public ExchangeSource {
               // Keep looping, there could be extra end markers.
               continue;
             }
-            pages.push_back(copyPage(*inputPage));
+            inputPage->unshare();
+            pages.push_back(
+                std::make_unique<SerializedPage>(std::move(inputPage)));
             inputPage = nullptr;
           }
           int64_t ackSequence;
@@ -134,14 +135,6 @@ class LocalExchangeSource : public ExchangeSource {
 
  private:
   static constexpr uint64_t kMaxBytes = 32 * 1024 * 1024; // 32 MB
-
-  // Copies the IOBufs from 'page' so that they no longer hold memory
-  // acounted in the producer Task.
-  static std::unique_ptr<SerializedPage> copyPage(SerializedPage& page) {
-    auto buf = page.getIOBuf();
-    buf->unshare();
-    return std::make_unique<SerializedPage>(std::move(buf));
-  }
 };
 
 std::unique_ptr<ExchangeSource> createLocalExchangeSource(

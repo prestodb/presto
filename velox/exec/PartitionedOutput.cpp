@@ -95,7 +95,7 @@ BlockingReason Destination::flush(
   return bufferManager.enqueue(
       taskId_,
       destination_,
-      std::make_shared<SerializedPage>(stream.getIOBuf()),
+      std::make_unique<SerializedPage>(stream.getIOBuf()),
       future);
 }
 

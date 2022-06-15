@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 #include "velox/exec/PartitionedOutputBufferManager.h"
+#include <velox/exec/Exchange.h>
 
 namespace facebook::velox::exec {
 
-void DestinationBuffer::getData(
+std::vector<std::unique_ptr<folly::IOBuf>> DestinationBuffer::getData(
     uint64_t maxBytes,
     int64_t sequence,
-    DataAvailableCallback notify,
-    std::vector<std::shared_ptr<SerializedPage>>& result) {
+    DataAvailableCallback notify) {
   VELOX_CHECK_GE(
       sequence, sequence_, "Get received for an already acknowledged item");
 
@@ -32,15 +32,16 @@ void DestinationBuffer::getData(
     notify_ = notify;
     notifySequence_ = std::min(notifySequence_, sequence);
     notifyMaxBytes_ = maxBytes;
-    return;
+    return {};
   }
   if (sequence - sequence_ == data_.size()) {
     notify_ = notify;
     notifySequence_ = sequence;
     notifyMaxBytes_ = maxBytes;
-    return;
+    return {};
   }
 
+  std::vector<std::unique_ptr<folly::IOBuf>> result;
   uint64_t resultBytes = 0;
   for (auto i = sequence - sequence_; i < data_.size(); i++) {
     // nullptr is used as end marker
@@ -49,12 +50,13 @@ void DestinationBuffer::getData(
       result.push_back(nullptr);
       break;
     }
-    result.push_back(data_[i]);
+    result.push_back(data_[i]->getIOBuf());
     resultBytes += data_[i]->size();
     if (resultBytes >= maxBytes) {
       break;
     }
   }
+  return result;
 }
 
 DataAvailable DestinationBuffer::getAndClearNotify() {
@@ -64,7 +66,7 @@ DataAvailable DestinationBuffer::getAndClearNotify() {
   DataAvailable result;
   result.callback = notify_;
   result.sequence = notifySequence_;
-  getData(notifyMaxBytes_, notifySequence_, nullptr, result.data);
+  result.data = getData(notifyMaxBytes_, notifySequence_, nullptr);
   notify_ = nullptr;
   notifySequence_ = 0;
   notifyMaxBytes_ = 0;
@@ -218,7 +220,7 @@ void PartitionedOutputBuffer::addBroadcastOutputBuffersLocked(int numBuffers) {
 
 BlockingReason PartitionedOutputBuffer::enqueue(
     int destination,
-    std::shared_ptr<SerializedPage> data,
+    std::unique_ptr<SerializedPage> data,
     ContinueFuture* future) {
   VELOX_CHECK(data);
   std::vector<DataAvailable> dataAvailableCallbacks;
@@ -231,13 +233,14 @@ BlockingReason PartitionedOutputBuffer::enqueue(
 
     totalSize_ += data->size();
     if (broadcast_) {
+      std::shared_ptr<SerializedPage> sharedData(data.release());
       for (auto& buffer : buffers_) {
-        buffer->enqueue(data);
+        buffer->enqueue(sharedData);
         dataAvailableCallbacks.emplace_back(buffer->getAndClearNotify());
       }
 
       if (!noMoreBroadcastBuffers_) {
-        dataToBroadcast_.emplace_back(data);
+        dataToBroadcast_.emplace_back(sharedData);
       }
     } else {
       auto buffer = buffers_[destination].get();
@@ -391,7 +394,7 @@ void PartitionedOutputBuffer::getData(
     uint64_t maxBytes,
     int64_t sequence,
     DataAvailableCallback notify) {
-  std::vector<std::shared_ptr<SerializedPage>> data;
+  std::vector<std::unique_ptr<folly::IOBuf>> data;
   std::vector<std::shared_ptr<SerializedPage>> freed;
   std::vector<ContinuePromise> promises;
   {
@@ -410,11 +413,11 @@ void PartitionedOutputBuffer::getData(
         sequence);
     freed = destinationBuffer->acknowledge(sequence, true);
     updateAfterAcknowledgeLocked(freed, promises);
-    destinationBuffer->getData(maxBytes, sequence, notify, data);
+    data = destinationBuffer->getData(maxBytes, sequence, notify);
   }
   releaseAfterAcknowledge(freed, promises);
   if (!data.empty()) {
-    notify(data, sequence);
+    notify(std::move(data), sequence);
   }
 }
 
@@ -469,7 +472,7 @@ uint64_t PartitionedOutputBufferManager::numBuffers() const {
 BlockingReason PartitionedOutputBufferManager::enqueue(
     const std::string& taskId,
     int destination,
-    std::shared_ptr<SerializedPage> data,
+    std::unique_ptr<SerializedPage> data,
     ContinueFuture* future) {
   return getBuffer(taskId)->enqueue(destination, std::move(data), future);
 }

@@ -109,14 +109,13 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
         maxBytes,
         sequence,
         [destination, sequence, expectedGroups, &receivedData](
-            std::vector<std::shared_ptr<SerializedPage>>& groups,
+            std::vector<std::unique_ptr<folly::IOBuf>> pages,
             int64_t inSequence) {
           EXPECT_FALSE(receivedData) << "for destination " << destination;
-          EXPECT_EQ(groups.size(), expectedGroups)
+          EXPECT_EQ(pages.size(), expectedGroups)
               << "for destination " << destination;
-          for (int i = 0; i < groups.size(); i++) {
-            EXPECT_TRUE(groups[i] != nullptr)
-                << "for destination " << destination;
+          for (const auto& page : pages) {
+            EXPECT_TRUE(page != nullptr) << "for destination " << destination;
           }
           EXPECT_EQ(inSequence, sequence) << "for destination " << destination;
           receivedData = true;
@@ -146,11 +145,11 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
   DataAvailableCallback
   receiveEndMarker(int destination, int64_t sequence, bool& receivedEndMarker) {
     return [destination, sequence, &receivedEndMarker](
-               std::vector<std::shared_ptr<SerializedPage>>& groups,
+               std::vector<std::unique_ptr<folly::IOBuf>> pages,
                int64_t inSequence) {
       EXPECT_FALSE(receivedEndMarker) << "for destination " << destination;
-      EXPECT_EQ(groups.size(), 1) << "for destination " << destination;
-      EXPECT_TRUE(groups[0] == nullptr) << "for destination " << destination;
+      EXPECT_EQ(pages.size(), 1) << "for destination " << destination;
+      EXPECT_TRUE(pages[0] == nullptr) << "for destination " << destination;
       EXPECT_EQ(inSequence, sequence) << "for destination " << destination;
       receivedEndMarker = true;
     };
@@ -195,13 +194,13 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
       bool& receivedData) {
     receivedData = false;
     return [destination, sequence, expectedGroups, &receivedData](
-               std::vector<std::shared_ptr<SerializedPage>>& groups,
+               std::vector<std::unique_ptr<folly::IOBuf>> pages,
                int64_t inSequence) {
       EXPECT_FALSE(receivedData) << "for destination " << destination;
-      EXPECT_EQ(groups.size(), expectedGroups)
+      EXPECT_EQ(pages.size(), expectedGroups)
           << "for destination " << destination;
       for (int i = 0; i < expectedGroups; i++) {
-        EXPECT_TRUE(groups[i] != nullptr) << "for destination " << destination;
+        EXPECT_TRUE(pages[i] != nullptr) << "for destination " << destination;
       }
       EXPECT_EQ(inSequence, sequence) << "for destination " << destination;
       receivedData = true;

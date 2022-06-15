@@ -25,18 +25,17 @@ namespace facebook::velox::exec {
 // sequence is the same as specified in BufferManager::getData call. The caller
 // is expected to advance sequence by the number of entries in groups and call
 // BufferManager::acknowledge.
-using DataAvailableCallback = std::function<void(
-    std::vector<std::shared_ptr<SerializedPage>>& pages,
-    int64_t sequence)>;
+using DataAvailableCallback = std::function<
+    void(std::vector<std::unique_ptr<folly::IOBuf>> pages, int64_t sequence)>;
 
 struct DataAvailable {
   DataAvailableCallback callback;
   int64_t sequence;
-  std::vector<std::shared_ptr<SerializedPage>> data;
+  std::vector<std::unique_ptr<folly::IOBuf>> data;
 
   void notify() {
     if (callback) {
-      callback(data, sequence);
+      callback(std::move(data), sequence);
     }
   }
 };
@@ -52,25 +51,21 @@ class DestinationBuffer {
     data_.push_back(std::move(data));
   }
 
-  // Copies data starting at 'sequence' into 'result', stopping after
-  // exceeding 'maxBytes'. If there is no data, 'notify' is installed
-  // so that this gets called when data is added.
-  void getData(
-      uint64_t maxBytes,
-      int64_t sequence,
-      DataAvailableCallback notify,
-      std::vector<std::shared_ptr<SerializedPage>>& result);
+  // Returns a shallow copy (folly::IOBuf::clone) of the data starting at
+  // 'sequence', stopping after exceeding 'maxBytes'. If there is no data,
+  // 'notify' is installed so that this gets called when data is added.
+  std::vector<std::unique_ptr<folly::IOBuf>>
+  getData(uint64_t maxBytes, int64_t sequence, DataAvailableCallback notify);
 
-  // Removes data from the queue. If 'fromGetData' we do not give a
-  // warning for the case where no data is removed, otherwise we
+  // Removes data from the queue and returns removed data. If 'fromGetData' we
+  // do not give a warning for the case where no data is removed, otherwise we
   // expect that data does get freed. We cannot assert that data gets
   // deleted because acknowledge messages can arrive out of order.
   std::vector<std::shared_ptr<SerializedPage>> acknowledge(
       int64_t sequence,
       bool fromGetData);
 
-  // Returns all data to be freed in 'freed' and their size in
-  // 'totalFreed'. 'this' can be destroyed after this.
+  // Removes all remaining data from the queue and returns the removed data.
   std::vector<std::shared_ptr<SerializedPage>> deleteResults();
 
   // Returns and clears the notify callback, if any, along with arguments for
@@ -108,7 +103,7 @@ class PartitionedOutputBuffer {
 
   BlockingReason enqueue(
       int destination,
-      std::shared_ptr<SerializedPage> data,
+      std::unique_ptr<SerializedPage> data,
       ContinueFuture* future);
 
   void noMoreData();
@@ -213,7 +208,7 @@ class PartitionedOutputBufferManager {
   BlockingReason enqueue(
       const std::string& taskId,
       int destination,
-      std::shared_ptr<SerializedPage> data,
+      std::unique_ptr<SerializedPage> data,
       ContinueFuture* future);
 
   void noMoreData(const std::string& taskId);
