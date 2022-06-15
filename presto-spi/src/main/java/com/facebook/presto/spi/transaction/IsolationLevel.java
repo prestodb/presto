@@ -13,17 +13,22 @@
  */
 package com.facebook.presto.spi.transaction;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
 import com.facebook.presto.spi.PrestoException;
 
 import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
 import static java.lang.String.format;
 
+@ThriftEnum
 public enum IsolationLevel
 {
-    SERIALIZABLE,
-    REPEATABLE_READ,
-    READ_COMMITTED,
-    READ_UNCOMMITTED;
+    SERIALIZABLE(0),
+    REPEATABLE_READ(1),
+    READ_COMMITTED(2),
+    READ_UNCOMMITTED(3);
+
+    private final int value;
 
     public boolean meetsRequirementOf(IsolationLevel requirement)
     {
@@ -45,6 +50,17 @@ public enum IsolationLevel
         }
 
         throw new AssertionError("Unhandled isolation level: " + this);
+    }
+
+    IsolationLevel(int value)
+    {
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
     }
 
     @Override
