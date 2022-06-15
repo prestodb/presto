@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.MergeJoinUtil.advanceRightToEndOfMatch;
 import static com.facebook.presto.operator.MergeJoinUtil.compareLeftAndRightPosition;
@@ -185,16 +186,17 @@ public class MergeJoinOperator
             int compareResult = compare();
 
             while (compareResult < 0) {
-                mergeJoiner.joinLeftRow(pageBuilder, leftPage, leftPosition);
-                if (advanceLeft() == leftPage.getPositionCount()) {
-                    resetLeft();
+                mergeJoiner.joinRow(pageBuilder, Optional.of(leftPage), leftPosition, Optional.empty(), -1);
+                leftPosition++;
+                if (leftPosition == leftPage.getPositionCount()) {
+                    leftPage = null;
                     return null;
                 }
                 compareResult = compare();
             }
 
             while (compareResult > 0) {
-                mergeJoiner.joinRightRow(pageBuilder, mergeJoinSource.peekPage(), mergeJoinSource.getCurrentPosition());
+                mergeJoiner.joinRow(pageBuilder, Optional.empty(), -1, Optional.of(mergeJoinSource.peekPage()), mergeJoinSource.getCurrentPosition());
                 if (mergeJoinSource.advancePosition() == mergeJoinSource.peekPage().getPositionCount()) {
                     mergeJoinSource.releasePage();
                     return null;
@@ -203,7 +205,13 @@ public class MergeJoinOperator
             }
 
             // advance through any join key matches that have nulls
-            while (consumeNulls(leftJoinChannels, leftPage, leftPosition, this::advanceLeft, mergeJoinSource::advancePosition)) {
+            while (consumeNulls(leftJoinChannels, leftPage, leftPosition, new Runnable() {
+                @Override
+                public void run()
+                {
+                    leftPosition++;
+                }
+            }, mergeJoinSource::advancePosition)) {
                 compareResult = compare();
             }
 
@@ -228,26 +236,16 @@ public class MergeJoinOperator
         return null;
     }
 
-    private void resetLeft()
-    {
-        leftPage = null;
-    }
-
-    private int advanceLeft()
-    {
-        leftPosition++;
-        return leftPosition;
-    }
-
     private Page joinRemainingLeftPositions()
     {
         while (true) {
             if (pageBuilder.isFull()) {
                 return buildOutput();
             }
-            mergeJoiner.joinLeftRow(pageBuilder, leftPage, leftPosition);
-            if (advanceLeft() == leftPage.getPositionCount()) {
-                resetLeft();
+            mergeJoiner.joinRow(pageBuilder, Optional.of(leftPage), leftPosition, Optional.empty(), -1);
+            leftPosition++;
+            if (leftPosition == leftPage.getPositionCount()) {
+                leftPage = null;
                 return null;
             }
         }
@@ -262,7 +260,7 @@ public class MergeJoinOperator
             for (Iterator<Page> it = rightPagesIterator; it.hasNext(); ) {
                 Page page = it.next();
                 for (int i = 0; i < page.getPositionCount(); i++) {
-                    mergeJoiner.joinInnerRow(pageBuilder, leftPage, leftPosition, page, i);
+                    mergeJoiner.joinRow(pageBuilder, Optional.of(leftPage), leftPosition, Optional.of(page), i);
                 }
                 if (pageBuilder.isFull()) {
                     return buildOutput();
@@ -273,8 +271,9 @@ public class MergeJoinOperator
             if (pageBuilder.isFull()) {
                 return buildOutput();
             }
-            if (advanceLeft() == leftPage.getPositionCount()) {
-                resetLeft();
+            leftPosition++;
+            if (leftPosition == leftPage.getPositionCount()) {
+                leftPage = null;
                 return null;
             }
         }
