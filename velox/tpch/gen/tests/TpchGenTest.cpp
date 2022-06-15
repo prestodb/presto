@@ -184,13 +184,16 @@ TEST(TpchGenTestOrders, batches) {
   EXPECT_EQ(10'000, rowVector1->size());
 
   auto orderKey = rowVector1->childAt(0)->asFlatVector<int64_t>();
+  auto orderTotalPrice = rowVector1->childAt(3)->asFlatVector<double>();
   auto orderDate = rowVector1->childAt(4)->asFlatVector<StringView>();
 
   EXPECT_EQ(1, orderKey->valueAt(0));
+  EXPECT_EQ(173665.47, orderTotalPrice->valueAt(0));
   EXPECT_EQ("1996-01-02"_sv, orderDate->valueAt(0));
   LOG(INFO) << rowVector1->toString(0);
 
   EXPECT_EQ(40'000, orderKey->valueAt(9999));
+  EXPECT_EQ(87784.83, orderTotalPrice->valueAt(9999));
   EXPECT_EQ("1995-01-30"_sv, orderDate->valueAt(9999));
   LOG(INFO) << rowVector1->toString(9999);
 
@@ -201,13 +204,16 @@ TEST(TpchGenTestOrders, batches) {
   EXPECT_EQ(10'000, rowVector2->size());
 
   orderKey = rowVector2->childAt(0)->asFlatVector<int64_t>();
+  orderTotalPrice = rowVector2->childAt(3)->asFlatVector<double>();
   orderDate = rowVector2->childAt(4)->asFlatVector<StringView>();
 
   EXPECT_EQ(40001, orderKey->valueAt(0));
+  EXPECT_EQ(100589.02, orderTotalPrice->valueAt(0));
   EXPECT_EQ("1995-02-25"_sv, orderDate->valueAt(0));
   LOG(INFO) << rowVector2->toString(0);
 
   EXPECT_EQ(80000, orderKey->valueAt(9999));
+  EXPECT_EQ(142775.84, orderTotalPrice->valueAt(9999));
   EXPECT_EQ("1995-12-15"_sv, orderDate->valueAt(9999));
   LOG(INFO) << rowVector2->toString(9999);
 }

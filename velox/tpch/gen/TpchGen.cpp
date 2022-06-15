@@ -77,6 +77,10 @@ std::vector<VectorPtr> allocateVectors(
   return vectors;
 }
 
+double decimalToDouble(int64_t value) {
+  return (double)value * 0.01;
+}
+
 } // namespace
 
 std::string_view toTableName(Table table) {
@@ -358,7 +362,7 @@ RowVectorPtr genTpchOrders(
     orderKeyVector->set(i, order.okey);
     custKeyVector->set(i, order.custkey);
     orderStatusVector->set(i, StringView(&order.orderstatus, 1));
-    totalPriceVector->set(i, order.totalprice);
+    totalPriceVector->set(i, decimalToDouble(order.totalprice));
     orderDateVector->set(i, StringView(order.odate, strlen(order.odate)));
     orderPriorityVector->set(
         i, StringView(order.opriority, strlen(order.opriority)));
@@ -425,10 +429,10 @@ RowVectorPtr genTpchLineItem(
 
       lineNumberVector->set(lineItemCount + l, line.lcnt);
 
-      quantityVector->set(lineItemCount + l, line.quantity);
-      extendedPriceVector->set(lineItemCount + l, line.eprice);
-      discountVector->set(lineItemCount + l, line.discount);
-      taxVector->set(lineItemCount + l, line.tax);
+      quantityVector->set(lineItemCount + l, decimalToDouble(line.quantity));
+      extendedPriceVector->set(lineItemCount + l, decimalToDouble(line.eprice));
+      discountVector->set(lineItemCount + l, decimalToDouble(line.discount));
+      taxVector->set(lineItemCount + l, decimalToDouble(line.tax));
 
       returnFlagVector->set(lineItemCount + l, StringView(line.rflag, 1));
       lineStatusVector->set(lineItemCount + l, StringView(line.lstatus, 1));
@@ -500,7 +504,7 @@ RowVectorPtr genTpchPart(
     typeVector->set(i, StringView(part.type, part.tlen));
     sizeVector->set(i, part.size);
     containerVector->set(i, StringView(part.container, strlen(part.container)));
-    retailPriceVector->set(i, part.retailprice);
+    retailPriceVector->set(i, decimalToDouble(part.retailprice));
     commentVector->set(i, StringView(part.comment, part.clen));
   }
   return std::make_shared<RowVector>(
@@ -540,7 +544,7 @@ RowVectorPtr genTpchSupplier(
     addressVector->set(i, StringView(supp.address, supp.alen));
     nationKeyVector->set(i, supp.nation_code);
     phoneVector->set(i, StringView(supp.phone, strlen(supp.phone)));
-    acctbalVector->set(i, supp.acctbal);
+    acctbalVector->set(i, decimalToDouble(supp.acctbal));
     commentVector->set(i, StringView(supp.comment, supp.clen));
   }
   return std::make_shared<RowVector>(
@@ -590,7 +594,7 @@ RowVectorPtr genTpchPartSupp(
       partKeyVector->set(partSuppCount, partSupp.partkey);
       suppKeyVector->set(partSuppCount, partSupp.suppkey);
       availQtyVector->set(partSuppCount, partSupp.qty);
-      supplyCostVector->set(partSuppCount, partSupp.scost);
+      supplyCostVector->set(partSuppCount, decimalToDouble(partSupp.scost));
       commentVector->set(
           partSuppCount, StringView(partSupp.comment, partSupp.clen));
 
@@ -645,7 +649,7 @@ RowVectorPtr genTpchCustomer(
     addressVector->set(i, StringView(cust.address, cust.alen));
     nationKeyVector->set(i, cust.nation_code);
     phoneVector->set(i, StringView(cust.phone, strlen(cust.phone)));
-    acctBalVector->set(i, cust.acctbal);
+    acctBalVector->set(i, decimalToDouble(cust.acctbal));
     mktSegmentVector->set(
         i, StringView(cust.mktsegment, strlen(cust.mktsegment)));
     commentVector->set(i, StringView(cust.comment, cust.clen));
