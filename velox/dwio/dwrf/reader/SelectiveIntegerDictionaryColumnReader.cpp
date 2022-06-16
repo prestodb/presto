@@ -25,7 +25,7 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
     StripeStreams& stripe,
     common::ScanSpec* scanSpec,
     uint32_t numBytes)
-    : SelectiveColumnReader(
+    : SelectiveIntegerColumnReader(
           std::move(requestedType),
           stripe,
           scanSpec,
@@ -96,30 +96,7 @@ void SelectiveIntegerDictionaryColumnReader::read(
 
   // lazy load dictionary only when it's needed
   ensureInitialized();
-
-  bool isDense = rows.back() == rows.size() - 1;
-  common::Filter* filter = scanSpec_->filter();
-  if (scanSpec_->keepValues()) {
-    if (scanSpec_->valueHook()) {
-      if (isDense) {
-        processValueHook<true>(rows, scanSpec_->valueHook());
-      } else {
-        processValueHook<false>(rows, scanSpec_->valueHook());
-      }
-      return;
-    }
-    if (isDense) {
-      processFilter<true>(filter, ExtractToReader(this), rows);
-    } else {
-      processFilter<false>(filter, ExtractToReader(this), rows);
-    }
-  } else {
-    if (isDense) {
-      processFilter<true>(filter, DropValues(), rows);
-    } else {
-      processFilter<false>(filter, DropValues(), rows);
-    }
-  }
+  readCommon<SelectiveIntegerDictionaryColumnReader>(rows);
 }
 
 void SelectiveIntegerDictionaryColumnReader::ensureInitialized() {

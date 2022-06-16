@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include "velox/dwio/dwrf/reader/SelectiveColumnReaderInternal.h"
+#include "velox/dwio/dwrf/reader/SelectiveIntegerColumnReader.h"
 
 namespace facebook::velox::dwrf {
 
-class SelectiveIntegerDirectColumnReader : public SelectiveColumnReader {
+class SelectiveIntegerDirectColumnReader : public SelectiveIntegerColumnReader {
  public:
   using ValueType = int64_t;
 
@@ -30,7 +30,7 @@ class SelectiveIntegerDirectColumnReader : public SelectiveColumnReader {
       StripeStreams& stripe,
       uint32_t numBytes,
       common::ScanSpec* scanSpec)
-      : SelectiveColumnReader(
+      : SelectiveIntegerColumnReader(
             std::move(requestedType),
             stripe,
             scanSpec,
@@ -69,27 +69,10 @@ class SelectiveIntegerDirectColumnReader : public SelectiveColumnReader {
   void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
       override;
 
- private:
   template <typename ColumnVisitor>
   void readWithVisitor(RowSet rows, ColumnVisitor visitor);
 
-  template <bool isDense, typename ExtractValues>
-  void processFilter(
-      common::Filter* filter,
-      ExtractValues extractValues,
-      RowSet rows);
-
-  template <bool isDence>
-  void processValueHook(RowSet rows, ValueHook* hook);
-
-  template <typename TFilter, bool isDense, typename ExtractValues>
-  void
-  readHelper(common::Filter* filter, RowSet rows, ExtractValues extractValues);
-
-  void getValues(RowSet rows, VectorPtr* result) override {
-    getIntValues(rows, nodeType_->type.get(), result);
-  }
-
+ private:
   std::unique_ptr<DirectDecoder</*isSigned*/ true>> ints;
 };
 
@@ -104,106 +87,6 @@ void SelectiveIntegerDirectColumnReader::readWithVisitor(
     ints->readWithVisitor<false>(nullptr, visitor);
   }
   readOffset_ += numRows;
-}
-
-template <typename TFilter, bool isDense, typename ExtractValues>
-void SelectiveIntegerDirectColumnReader::readHelper(
-    common::Filter* filter,
-    RowSet rows,
-    ExtractValues extractValues) {
-  switch (valueSize_) {
-    case 2:
-      readWithVisitor(
-          rows,
-          ColumnVisitor<int16_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
-      break;
-
-    case 4:
-      readWithVisitor(
-          rows,
-          ColumnVisitor<int32_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
-
-      break;
-
-    case 8:
-      readWithVisitor(
-          rows,
-          ColumnVisitor<int64_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
-      break;
-    default:
-      VELOX_FAIL("Unsupported valueSize_ {}", valueSize_);
-  }
-}
-
-template <bool isDense, typename ExtractValues>
-void SelectiveIntegerDirectColumnReader::processFilter(
-    common::Filter* filter,
-    ExtractValues extractValues,
-    RowSet rows) {
-  switch (filter ? filter->kind() : common::FilterKind::kAlwaysTrue) {
-    case common::FilterKind::kAlwaysTrue:
-      readHelper<common::AlwaysTrue, isDense>(filter, rows, extractValues);
-      break;
-    case common::FilterKind::kIsNull:
-      filterNulls<int64_t>(
-          rows,
-          true,
-          !std::is_same<decltype(extractValues), DropValues>::value);
-      break;
-    case common::FilterKind::kIsNotNull:
-      if (std::is_same<decltype(extractValues), DropValues>::value) {
-        filterNulls<int64_t>(rows, false, false);
-      } else {
-        readHelper<common::IsNotNull, isDense>(filter, rows, extractValues);
-      }
-      break;
-    case common::FilterKind::kBigintRange:
-      readHelper<common::BigintRange, isDense>(filter, rows, extractValues);
-      break;
-    case common::FilterKind::kBigintValuesUsingHashTable:
-      readHelper<common::BigintValuesUsingHashTable, isDense>(
-          filter, rows, extractValues);
-      break;
-    case common::FilterKind::kBigintValuesUsingBitmask:
-      readHelper<common::BigintValuesUsingBitmask, isDense>(
-          filter, rows, extractValues);
-      break;
-    default:
-      readHelper<common::Filter, isDense>(filter, rows, extractValues);
-      break;
-  }
-}
-
-template <bool isDense>
-void SelectiveIntegerDirectColumnReader::processValueHook(
-    RowSet rows,
-    ValueHook* hook) {
-  switch (hook->kind()) {
-    case aggregate::AggregationHook::kSumBigintToBigint:
-      readHelper<common::AlwaysTrue, isDense>(
-          &alwaysTrue(),
-          rows,
-          ExtractToHook<aggregate::SumHook<int64_t, int64_t>>(hook));
-      break;
-    case aggregate::AggregationHook::kBigintMax:
-      readHelper<common::AlwaysTrue, isDense>(
-          &alwaysTrue(),
-          rows,
-          ExtractToHook<aggregate::MinMaxHook<int64_t, false>>(hook));
-      break;
-    case aggregate::AggregationHook::kBigintMin:
-      readHelper<common::AlwaysTrue, isDense>(
-          &alwaysTrue(),
-          rows,
-          ExtractToHook<aggregate::MinMaxHook<int64_t, true>>(hook));
-      break;
-    default:
-      readHelper<common::AlwaysTrue, isDense>(
-          &alwaysTrue(), rows, ExtractToGenericHook(hook));
-  }
 }
 
 } // namespace facebook::velox::dwrf

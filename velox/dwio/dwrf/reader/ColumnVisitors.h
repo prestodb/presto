@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/common/base/Portability.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"
 
@@ -38,6 +39,7 @@ struct DropValues {
   template <typename V>
   void addValue(vector_size_t /*rowIndex*/, V /*value*/) {}
 
+  template <typename T>
   void addNull(vector_size_t /*rowIndex*/) {}
 
   HookType& hook() {
@@ -55,6 +57,7 @@ struct ExtractToReader {
     return true;
   }
 
+  template <typename T>
   void addNull(vector_size_t rowIndex);
 
   template <typename V>
@@ -82,6 +85,7 @@ class ExtractToHook {
     return hook_.acceptsNulls();
   }
 
+  template <typename T>
   void addNull(vector_size_t rowIndex) {
     hook_.addNull(rowIndex);
   }
@@ -110,6 +114,7 @@ class ExtractToGenericHook {
     return hook_->acceptsNulls();
   }
 
+  template <typename T>
   void addNull(vector_size_t rowIndex) {
     hook_->addNull(rowIndex);
   }
@@ -126,6 +131,9 @@ class ExtractToGenericHook {
  private:
   ValueHook* hook_;
 };
+
+template <typename T, typename TFilter, typename ExtractValues, bool isDense>
+class DictionaryColumnVisitor;
 
 // Template parameter for controlling filtering and action on a set of rows.
 template <typename T, typename TFilter, typename ExtractValues, bool isDense>
@@ -417,6 +425,9 @@ class ColumnVisitor {
     return reader_->outerNonNullRows();
   }
 
+  DictionaryColumnVisitor<T, TFilter, ExtractValues, isDense>
+  toDictionaryColumnVisitor();
+
  protected:
   TFilter& filter_;
   SelectiveColumnReader* reader_;
@@ -448,7 +459,7 @@ inline void ColumnVisitor<T, TFilter, ExtractValues, isDense>::addResult(
 
 template <typename T, typename TFilter, typename ExtractValues, bool isDense>
 inline void ColumnVisitor<T, TFilter, ExtractValues, isDense>::addNull() {
-  values_.addNull(rowIndex_);
+  values_.template addNull<T>(rowIndex_);
 }
 
 template <typename T, typename TFilter, typename ExtractValues, bool isDense>
@@ -458,8 +469,9 @@ inline void ColumnVisitor<T, TFilter, ExtractValues, isDense>::addOutputRow(
 }
 
 template <typename TReader>
+template <typename T>
 void ExtractToReader<TReader>::addNull(vector_size_t /*rowIndex*/) {
-  reader->template addNull<typename TReader::ValueType>();
+  reader->template addNull<T>();
 }
 
 enum FilterResult { kUnknown = 0x40, kSuccess = 0x80, kFailure = 0 };
@@ -993,6 +1005,13 @@ class DictionaryColumnVisitor
   const uint8_t width_;
 };
 
+template <typename T, typename TFilter, typename ExtractValues, bool isDense>
+DictionaryColumnVisitor<T, TFilter, ExtractValues, isDense>
+ColumnVisitor<T, TFilter, ExtractValues, isDense>::toDictionaryColumnVisitor() {
+  return DictionaryColumnVisitor<T, TFilter, ExtractValues, isDense>(
+      filter_, reader_, RowSet(rows_ + rowIndex_, numRows_), values_);
+}
+
 class SelectiveStringDictionaryColumnReader;
 
 template <typename TFilter, typename ExtractValues, bool isDense>
@@ -1234,6 +1253,7 @@ class ExtractStringDictionaryToGenericHook {
     return hook_->acceptsNulls();
   }
 
+  template <typename T>
   void addNull(vector_size_t rowIndex) {
     hook_->addNull(rowIndex);
   }

@@ -30,30 +30,7 @@ void SelectiveIntegerDirectColumnReader::read(
     const uint64_t* incomingNulls) {
   VELOX_WIDTH_DISPATCH(
       sizeOfIntKind(type_->kind()), prepareRead, offset, rows, incomingNulls);
-  bool isDense = rows.back() == rows.size() - 1;
-  common::Filter* filter =
-      scanSpec_->filter() ? scanSpec_->filter() : &alwaysTrue();
-  if (scanSpec_->keepValues()) {
-    if (scanSpec_->valueHook()) {
-      if (isDense) {
-        processValueHook<true>(rows, scanSpec_->valueHook());
-      } else {
-        processValueHook<false>(rows, scanSpec_->valueHook());
-      }
-      return;
-    }
-    if (isDense) {
-      processFilter<true>(filter, ExtractToReader(this), rows);
-    } else {
-      processFilter<false>(filter, ExtractToReader(this), rows);
-    }
-  } else {
-    if (isDense) {
-      processFilter<true>(filter, DropValues(), rows);
-    } else {
-      processFilter<false>(filter, DropValues(), rows);
-    }
-  }
+  readCommon<SelectiveIntegerDirectColumnReader>(rows);
 }
 
 } // namespace facebook::velox::dwrf
