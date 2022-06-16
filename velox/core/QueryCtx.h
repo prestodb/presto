@@ -120,16 +120,6 @@ class QueryCtx : public Context {
     return it->second.get();
   }
 
-  // Multiple logical servers (hosts) can be colocated in one
-  // process. This returns the logical host on behalf of which the
-  // Task referencing this is running. This is used as a key to select
-  // the appropriate host-level singleton resource for different
-  // purposes, e.g. memory or outgoing exchange buffers.
-  std::string host() const {
-    static std::string local = "local";
-    return get<std::string>("host", local);
-  }
-
   // Overrides the previous configuration. Note that this function is NOT
   // thread-safe and should probably only be used in tests.
   void setConfigOverridesUnsafe(
