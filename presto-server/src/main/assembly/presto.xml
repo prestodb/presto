@@ -208,5 +208,9 @@
             <directory>${project.build.directory}/dependency/presto-delta-${project.version}</directory>
             <outputDirectory>plugin/delta</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-hudi-${project.version}</directory>
+            <outputDirectory>plugin/hudi</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>
