@@ -36,7 +36,9 @@ import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
+import com.facebook.presto.hive.metastore.HiveMetastoreCacheStats;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
+import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
 import com.facebook.presto.spi.connector.Connector;
@@ -63,6 +65,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HudiModule
@@ -94,6 +97,8 @@ public class HudiModule
         binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(PartitionMutator.class).to(HivePartitionMutator.class).in(Scopes.SINGLETON);
+        binder.bind(MetastoreCacheStats.class).to(HiveMetastoreCacheStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(MetastoreCacheStats.class).as(generatedNameOf(MetastoreCacheStats.class, connectorId));
         binder.bind(MBeanServer.class).toInstance(new TestingMBeanServer());
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
