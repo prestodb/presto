@@ -20,6 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 public class IntegerStatistics
         implements RangeStatistics<Long>, Hashable
@@ -57,15 +58,38 @@ public class IntegerStatistics
         return hasMinimum ? minimum : null;
     }
 
+    public long getMinPrimitive()
+    {
+        checkState(hasMinimum);
+        return minimum;
+    }
+
     @Override
     public Long getMax()
     {
         return hasMaximum ? maximum : null;
     }
 
+    public long getMaxPrimitive()
+    {
+        checkState(hasMaximum);
+        return maximum;
+    }
+
     public Long getSum()
     {
         return hasSum ? sum : null;
+    }
+
+    public boolean hasSum()
+    {
+        return hasSum;
+    }
+
+    public long getSumPrimitive()
+    {
+        checkState(hasSum);
+        return sum;
     }
 
     @Override
