@@ -73,6 +73,9 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
+import com.facebook.presto.operator.MergeJoinOperators;
+import com.facebook.presto.operator.MergeJoinSinkOperator;
+import com.facebook.presto.operator.MergeJoinSourceManager;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinBridge;
 import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
@@ -186,6 +189,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -260,6 +264,7 @@ import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFilteri
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
+import static com.facebook.presto.SystemSessionProperties.isMergeJoinBufferEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOrderByAggregationSpillEnabled;
@@ -312,6 +317,7 @@ import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssig
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
@@ -370,6 +376,7 @@ public class LocalExecutionPlanner
     private final ObjectMapper objectMapper;
     private final boolean tableFinishOperatorMemoryTrackingEnabled;
     private final StandaloneSpillerFactory standaloneSpillerFactory;
+    private final MergeJoinOperators mergeJoinOperators;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -401,7 +408,8 @@ public class LocalExecutionPlanner
             DeterminismEvaluator determinismEvaluator,
             FragmentResultCacheManager fragmentResultCacheManager,
             ObjectMapper objectMapper,
-            StandaloneSpillerFactory standaloneSpillerFactory)
+            StandaloneSpillerFactory standaloneSpillerFactory,
+            MergeJoinOperators mergeJoinOperators)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -436,6 +444,7 @@ public class LocalExecutionPlanner
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
         this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
         this.standaloneSpillerFactory = requireNonNull(standaloneSpillerFactory, "standaloneSpillerFactory is null");
+        this.mergeJoinOperators = requireNonNull(mergeJoinOperators, "mergeJoinOperators is null");
     }
 
     public LocalExecutionPlan plan(
@@ -1822,6 +1831,131 @@ public class LocalExecutionPlanner
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
+        }
+
+        @Override
+        public PhysicalOperation visitMergeJoin(MergeJoinNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation leftSource = node.getLeft().accept(this, context);
+            LocalExecutionPlanContext rightContext = context.createSubContext();
+            PhysicalOperation rightSource = node.getRight().accept(this, rightContext);
+
+            checkState(leftSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION && rightSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
+                    "Both left and right side for merge join are expected to be GROUPED_EXECUTION");
+
+            // plan right side
+            MergeJoinSourceManager mergeJoinSourceManager = createMergeJoinSinkFactory(node, rightSource, rightContext, context);
+            OperatorFactory operator = createMergeJoin(node, leftSource, rightSource, mergeJoinSourceManager, context);
+
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
+            List<VariableReferenceExpression> outputVariables = node.getOutputVariables();
+            for (int i = 0; i < outputVariables.size(); i++) {
+                outputMappings.put(outputVariables.get(i), i);
+            }
+            return new PhysicalOperation(operator, outputMappings.build(), context, leftSource);
+        }
+
+        private OperatorFactory createMergeJoin(
+                MergeJoinNode node,
+                PhysicalOperation leftSource,
+                PhysicalOperation rightSource,
+                MergeJoinSourceManager mergeJoinSourceManager,
+                LocalExecutionPlanContext context)
+        {
+            List<Type> leftTypes = leftSource.getTypes();
+            List<VariableReferenceExpression> leftOutputVariables = node.getOutputVariables().stream()
+                    .filter(node.getLeft().getOutputVariables()::contains)
+                    .collect(toImmutableList());
+            List<Integer> leftOutputChannels = ImmutableList.copyOf(getChannelsForVariables(leftOutputVariables, leftSource.getLayout()));
+
+            List<Type> rightTypes = rightSource.getTypes();
+            List<VariableReferenceExpression> rightOutputVariables = node.getOutputVariables().stream()
+                    .filter(node.getRight().getOutputVariables()::contains)
+                    .collect(toImmutableList());
+            List<Integer> rightOutputChannels = ImmutableList.copyOf(getChannelsForVariables(rightOutputVariables, rightSource.getLayout()));
+
+            List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
+            List<VariableReferenceExpression> leftJoinKeys = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
+            List<Integer> leftJoinChannels = ImmutableList.copyOf(getChannelsForVariables(leftJoinKeys, leftSource.getLayout()));
+            List<VariableReferenceExpression> rightJoinKeys = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
+            List<Integer> rightJoinChannels = ImmutableList.copyOf(getChannelsForVariables(rightJoinKeys, rightSource.getLayout()));
+
+            switch (node.getType()) {
+                case INNER:
+                    return mergeJoinOperators.innerJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            mergeJoinSourceManager,
+                            leftSource.getTypes(),
+                            leftOutputChannels,
+                            rightTypes,
+                            rightOutputChannels,
+                            leftJoinChannels,
+                            rightJoinChannels);
+                case LEFT:
+                    return mergeJoinOperators.leftJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            mergeJoinSourceManager,
+                            leftSource.getTypes(),
+                            leftOutputChannels,
+                            rightTypes,
+                            rightOutputChannels,
+                            leftJoinChannels,
+                            rightJoinChannels);
+                case RIGHT:
+                    return mergeJoinOperators.rightJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            mergeJoinSourceManager,
+                            leftSource.getTypes(),
+                            leftOutputChannels,
+                            rightTypes,
+                            rightOutputChannels,
+                            leftJoinChannels,
+                            rightJoinChannels);
+                case FULL:
+                    return mergeJoinOperators.fullJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            mergeJoinSourceManager,
+                            leftSource.getTypes(),
+                            leftOutputChannels,
+                            rightTypes,
+                            rightOutputChannels,
+                            leftJoinChannels,
+                            rightJoinChannels);
+
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
+        }
+
+        private MergeJoinSourceManager createMergeJoinSinkFactory(
+                MergeJoinNode node,
+                PhysicalOperation rightSource,
+                LocalExecutionPlanContext rightContext,
+                LocalExecutionPlanContext context)
+        {
+            MergeJoinSourceManager mergeJoinSourceManager = new MergeJoinSourceManager(isMergeJoinBufferEnabled(context.getSession()));
+
+            ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
+            factoriesBuilder.addAll(rightSource.getOperatorFactories());
+
+            MergeJoinSinkOperator.MergeJoinSinkOperatorFactory mergeJoinSinkOperatorFactory = new MergeJoinSinkOperator.MergeJoinSinkOperatorFactory(
+                    rightContext.getNextOperatorId(),
+                    node.getId(),
+                    mergeJoinSourceManager);
+            factoriesBuilder.add(mergeJoinSinkOperatorFactory);
+
+            context.addDriverFactory(
+                    rightContext.isInputDriver(),
+                    false,
+                    factoriesBuilder.build(),
+                    rightContext.getDriverInstanceCount(),
+                    rightSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
+            return mergeJoinSourceManager;
         }
 
         @Override
