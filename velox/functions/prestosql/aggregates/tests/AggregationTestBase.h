@@ -18,6 +18,10 @@
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
+namespace facebook::velox::exec::test {
+class AssertQueryBuilder;
+}
+
 namespace facebook::velox::aggregate::test {
 
 class AggregationTestBase : public exec::test::OperatorTestBase {
@@ -61,14 +65,13 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
 
   /// Same as above, but allows to specify a set of projections to apply after
   /// the aggregation.
-  template <bool UseDuckDB = true>
   void testAggregations(
       std::function<void(exec::test::PlanBuilder&)> makeSource,
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& postAggregationProjections,
-      const std::string& duckDbSql,
-      const std::vector<RowVectorPtr>& expectedResult = {});
+      std::function<std::shared_ptr<exec::Task>(
+          exec::test::AssertQueryBuilder& builder)> assertResults);
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node.
