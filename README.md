@@ -81,11 +81,30 @@ git submodule update --init --recursive
 
 ### Setting up on macOS
 
-See [scripts/setup-macos.sh](scripts/setup-macos.sh)
+Once you have checked out Velox, On an Intel MacOS machine you can setup and then build like so :
+
+```shell
+$ ./scripts/setup-macos.sh 
+$ make
+```
+
+On an M1 MacOS machine you can build like so:
+
+```shell
+$ CPU_TARGET="arm64" ./scripts/setup-macos.sh
+$ CPU_TARGET="arm64" make
+```
+
+You can also produce intel binaries on an M1, just `CPU_TARGET="sse"` for the above.
 
 ### Setting up on Linux (Ubuntu 20.04 or later)
 
-See [scripts/setup-ubuntu.sh](scripts/setup-ubuntu.sh)
+Once you have checked out Velox, you can setup and build like so:
+
+```shell
+$ ./scripts/setup-ubuntu.sh 
+$ make
+```
 
 ### Building Velox
 
