@@ -19,7 +19,7 @@
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/Nulls.h"
 #include "velox/dwio/common/Adaptor.h"
-#include "velox/dwio/dwrf/common/DecoderUtil.h"
+#include "velox/dwio/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/common/IntDecoder.h"
 #include "velox/dwio/dwrf/common/IntEncoder.h"
 
@@ -273,7 +273,7 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
 
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
-    if (useFastPath<Visitor, hasNulls>(visitor)) {
+    if (dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
       fastPath<hasNulls>(nulls, visitor);
       return;
     }
@@ -326,7 +326,7 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
     constexpr bool hasFilter =
         !std::is_same<typename Visitor::FilterType, common::AlwaysTrue>::value;
     constexpr bool hasHook =
-        !std::is_same<typename Visitor::HookType, NoHook>::value;
+        !std::is_same<typename Visitor::HookType, dwio::common::NoHook>::value;
     auto rows = visitor.rows();
     auto numRows = visitor.numRows();
     auto rowsAsRange = folly::Range<const int32_t*>(rows, numRows);
@@ -334,7 +334,7 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
       raw_vector<int32_t>* innerVector = nullptr;
       auto outerVector = &visitor.outerNonNullRows();
       if (Visitor::dense) {
-        nonNullRowsFromDense(nulls, numRows, *outerVector);
+        dwio::common::nonNullRowsFromDense(nulls, numRows, *outerVector);
         if (outerVector->empty()) {
           visitor.setAllNull(hasFilter ? 0 : numRows);
           return;
@@ -346,7 +346,7 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
       } else {
         innerVector = &visitor.innerNonNullRows();
         int32_t tailSkip = -1;
-        auto anyNulls = nonNullRowsFromSparse < hasFilter,
+        auto anyNulls = dwio::common::nonNullRowsFromSparse < hasFilter,
              !hasFilter &&
             !hasHook >
                 (nulls,

@@ -15,6 +15,7 @@ add_executable(
   velox_dwio_common_test
   ChainedBufferTests.cpp
   DataBufferTests.cpp
+  DecoderUtilTest.cpp
   LoggedExceptionTest.cpp
   RetryTests.cpp
   TestBufferedInput.cpp

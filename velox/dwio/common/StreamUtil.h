@@ -24,11 +24,11 @@ namespace facebook::velox {
 using RowSet = folly::Range<const int32_t*>;
 } // namespace facebook::velox
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
-static inline void skipBytes(
+inline void skipBytes(
     uint64_t numBytes,
-    dwio::common::SeekableInputStream* input,
+    SeekableInputStream* input,
     const char*& bufferStart,
     const char*& bufferEnd) {
   // bufferStart and bufferEnd may be null if we haven't started reading yet.
@@ -41,9 +41,9 @@ static inline void skipBytes(
   bufferStart = bufferEnd;
 }
 
-static inline void readBytes(
+inline void readBytes(
     int64_t numBytes,
-    dwio::common::SeekableInputStream* input,
+    SeekableInputStream* input,
     void* bytes,
     const char*& bufferStart,
     const char*& bufferEnd) {
@@ -102,7 +102,7 @@ void rowLoop(
 template <typename T, typename TResult>
 inline void readContiguous(
     int32_t size,
-    dwio::common::SeekableInputStream& input,
+    SeekableInputStream& input,
     TResult* output,
     const char*& bufferStart,
     const char*& bufferEnd) {
@@ -151,7 +151,7 @@ template <typename T, typename SingleValue, typename SparseRange>
 inline void loopOverBuffers(
     folly::Range<const int32_t*> rows,
     int32_t initialRow,
-    dwio::common::SeekableInputStream& input,
+    SeekableInputStream& input,
     const char*& bufferStart,
     const char*& bufferEnd,
     SingleValue singleValue,
@@ -202,7 +202,7 @@ template <typename T, typename TResult>
 inline void readRows(
     folly::Range<const int32_t*> rows,
     int32_t initialRow,
-    dwio::common::SeekableInputStream& input,
+    SeekableInputStream& input,
     TResult* output,
     const char*& bufferStart,
     const char*& bufferEnd) {
@@ -225,4 +225,4 @@ inline void readRows(
       });
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

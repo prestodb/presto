@@ -25,8 +25,10 @@ add_library(
   CachedBufferedInput.cpp
   CacheInputStream.cpp
   ColumnSelector.cpp
+  Common.cpp
   DataBuffer.cpp
   DataSink.cpp
+  DecoderUtil.cpp
   DwioMetricsLog.cpp
   InputStream.cpp
   IoStatistics.cpp

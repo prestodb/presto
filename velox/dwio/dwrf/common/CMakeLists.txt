@@ -19,7 +19,6 @@ add_library(
   Compression.cpp
   Config.cpp
   DataBufferHolder.cpp
-  DecoderUtil.cpp
   Decryption.cpp
   DirectDecoder.cpp
   Encryption.cpp

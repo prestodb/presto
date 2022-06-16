@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include "velox/dwio/common/DecoderUtil.h"
 #include "velox/dwio/common/SeekableInputStream.h"
-#include "velox/dwio/dwrf/common/DecoderUtil.h"
-#include "velox/dwio/dwrf/common/StreamUtil.h"
+#include "velox/dwio/common/StreamUtil.h"
 
 namespace facebook::velox::dwrf {
 
@@ -64,7 +64,7 @@ class FloatingPointDecoder {
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
     if (std::is_same<TData, TRequested>::value &&
-        useFastPath<Visitor, hasNulls>(visitor)) {
+        dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
       fastPath<hasNulls>(nulls, visitor);
       return;
     }
@@ -107,7 +107,7 @@ class FloatingPointDecoder {
     constexpr bool filterOnly =
         std::is_same<typename Visitor::Extract, DropValues>::value;
     constexpr bool hasHook =
-        !std::is_same<typename Visitor::HookType, NoHook>::value;
+        !std::is_same<typename Visitor::HookType, dwio::common::NoHook>::value;
     int32_t numValues = 0;
     auto rows = visitor.rows();
     auto numRows = visitor.numRows();
@@ -116,14 +116,14 @@ class FloatingPointDecoder {
       auto outerVector = &visitor.outerNonNullRows();
       int32_t tailSkip = 0;
       if (Visitor::dense) {
-        nonNullRowsFromDense(nulls, numRows, *outerVector);
+        dwio::common::nonNullRowsFromDense(nulls, numRows, *outerVector);
         if (outerVector->empty()) {
           visitor.setAllNull(hasFilter ? 0 : numRows);
           return;
         }
       } else {
         innerVector = &visitor.innerNonNullRows();
-        auto anyNulls = nonNullRowsFromSparse < hasFilter,
+        auto anyNulls = dwio::common::nonNullRowsFromSparse < hasFilter,
              !hasFilter &&
             !hasHook >
                 (nulls,
@@ -141,7 +141,7 @@ class FloatingPointDecoder {
           return;
         }
       }
-      fixedWidthScan<TData, filterOnly, true>(
+      dwio::common::fixedWidthScan<TData, filterOnly, true>(
           innerVector ? folly::Range<const int32_t*>(*innerVector)
                       : folly::Range<const int32_t*>(rows, outerVector->size()),
           outerVector->data(),
@@ -155,7 +155,7 @@ class FloatingPointDecoder {
           visitor.hook());
       skip<false>(tailSkip, 0, nullptr);
     } else {
-      fixedWidthScan<TData, filterOnly, false>(
+      dwio::common::fixedWidthScan<TData, filterOnly, false>(
           folly::Range<const int32_t*>(rows, numRows),
           hasHook ? velox::iota(numRows, visitor.innerNonNullRows()) : nullptr,
           visitor.rawValues(numRows),

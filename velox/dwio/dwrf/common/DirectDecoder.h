@@ -17,7 +17,7 @@
 #pragma once
 
 #include "velox/common/base/Nulls.h"
-#include "velox/dwio/dwrf/common/DecoderUtil.h"
+#include "velox/dwio/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/common/IntDecoder.h"
 
 namespace facebook::velox::dwrf {
@@ -52,7 +52,7 @@ class DirectDecoder : public IntDecoder<isSigned> {
 
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
-    if (useFastPath<Visitor, hasNulls>(visitor)) {
+    if (dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
       fastPath<hasNulls>(nulls, visitor);
       return;
     }
@@ -102,7 +102,7 @@ class DirectDecoder : public IntDecoder<isSigned> {
     constexpr bool filterOnly =
         std::is_same<typename Visitor::Extract, DropValues>::value;
     constexpr bool hasHook =
-        !std::is_same<typename Visitor::HookType, NoHook>::value;
+        !std::is_same<typename Visitor::HookType, dwio::common::NoHook>::value;
 
     int32_t numValues = 0;
     auto rows = visitor.rows();
@@ -115,7 +115,7 @@ class DirectDecoder : public IntDecoder<isSigned> {
       raw_vector<int32_t>* innerVector = nullptr;
       auto outerVector = &visitor.outerNonNullRows();
       if (Visitor::dense) {
-        nonNullRowsFromDense(nulls, numRows, *outerVector);
+        dwio::common::nonNullRowsFromDense(nulls, numRows, *outerVector);
         numNonNull = outerVector->size();
         if (!numNonNull) {
           visitor.setAllNull(hasFilter ? 0 : numRows);
@@ -123,7 +123,7 @@ class DirectDecoder : public IntDecoder<isSigned> {
         }
       } else {
         innerVector = &visitor.innerNonNullRows();
-        auto anyNulls = nonNullRowsFromSparse < hasFilter,
+        auto anyNulls = dwio::common::nonNullRowsFromSparse < hasFilter,
              !hasFilter &&
             !hasHook >
                 (nulls,
@@ -151,7 +151,7 @@ class DirectDecoder : public IntDecoder<isSigned> {
         auto dataRows = innerVector
             ? folly::Range<const int*>(innerVector->data(), innerVector->size())
             : folly::Range<const int32_t*>(rows, outerVector->size());
-        processFixedWidthRun<T, filterOnly, true, Visitor::dense>(
+        dwio::common::processFixedWidthRun<T, filterOnly, true, Visitor::dense>(
             dataRows,
             0,
             dataRows.size(),
@@ -162,7 +162,7 @@ class DirectDecoder : public IntDecoder<isSigned> {
             visitor.filter(),
             visitor.hook());
       } else {
-        fixedWidthScan<T, filterOnly, true>(
+        dwio::common::fixedWidthScan<T, filterOnly, true>(
             innerVector
                 ? folly::Range<const int32_t*>(*innerVector)
                 : folly::Range<const int32_t*>(rows, outerVector->size()),
@@ -186,19 +186,20 @@ class DirectDecoder : public IntDecoder<isSigned> {
               folly::Range<const int32_t*>(rows, numRows),
               visitor.rawValues(numRows));
         }
-        processFixedWidthRun<T, filterOnly, false, Visitor::dense>(
-            rowsAsRange,
-            0,
-            rowsAsRange.size(),
-            hasHook ? velox::iota(numRows, visitor.innerNonNullRows())
-                    : nullptr,
-            visitor.rawValues(numRows),
-            hasFilter ? visitor.outputRows(numRows) : nullptr,
-            numValues,
-            visitor.filter(),
-            visitor.hook());
+        dwio::common::
+            processFixedWidthRun<T, filterOnly, false, Visitor::dense>(
+                rowsAsRange,
+                0,
+                rowsAsRange.size(),
+                hasHook ? velox::iota(numRows, visitor.innerNonNullRows())
+                        : nullptr,
+                visitor.rawValues(numRows),
+                hasFilter ? visitor.outputRows(numRows) : nullptr,
+                numValues,
+                visitor.filter(),
+                visitor.hook());
       } else {
-        fixedWidthScan<T, filterOnly, false>(
+        dwio::common::fixedWidthScan<T, filterOnly, false>(
             rowsAsRange,
             hasHook ? velox::iota(numRows, visitor.innerNonNullRows())
                     : nullptr,

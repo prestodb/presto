@@ -92,7 +92,7 @@ class WriterBase {
   }
 
   template <typename T>
-  void writeProto(const T& t, CompressionKind kind) {
+  void writeProto(const T& t, dwio::common::CompressionKind kind) {
     auto holder = context_->newDataBufferHolder();
     auto stream = context_->newStream(kind, *holder);
 

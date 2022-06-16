@@ -19,6 +19,7 @@
 #include <functional>
 #include <unordered_map>
 #include "folly/Conv.h"
+#include "velox/dwio/common/Common.h"
 #include "velox/dwio/dwrf/common/Common.h"
 
 namespace facebook::velox::dwrf {
@@ -78,7 +79,7 @@ class Config {
   }
 
   static Entry<WriterVersion> WRITER_VERSION;
-  static Entry<CompressionKind> COMPRESSION;
+  static Entry<dwio::common::CompressionKind> COMPRESSION;
   static Entry<int32_t> ZLIB_COMPRESSION_LEVEL;
   static Entry<int32_t> ZSTD_COMPRESSION_LEVEL;
   static Entry<uint64_t> COMPRESSION_BLOCK_SIZE;

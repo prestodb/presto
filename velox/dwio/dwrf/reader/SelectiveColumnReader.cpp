@@ -38,8 +38,8 @@ common::AlwaysTrue& alwaysTrue() {
   return alwaysTrue;
 }
 
-NoHook& noHook() {
-  static NoHook hook;
+dwio::common::NoHook& noHook() {
+  static dwio::common::NoHook hook;
   return hook;
 }
 

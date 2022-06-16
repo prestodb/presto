@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/DecoderUtil.h"
+#include "velox/dwio/common/DecoderUtil.h"
 #include "velox/common/base/Nulls.h"
 #include "velox/common/base/SimdUtil.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 int32_t nonNullRowsFromDense(
     const uint64_t* nulls,
@@ -246,4 +246,4 @@ template void scatterNonNulls(
     const int32_t* target,
     double* data);
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

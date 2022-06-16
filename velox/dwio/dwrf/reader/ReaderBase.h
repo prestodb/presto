@@ -171,10 +171,10 @@ class ReaderBase {
         : DEFAULT_COMPRESSION_BLOCK_SIZE;
   }
 
-  CompressionKind getCompressionKind() const {
+  dwio::common::CompressionKind getCompressionKind() const {
     return postScript_->has_compression()
-        ? static_cast<CompressionKind>(postScript_->compression())
-        : CompressionKind::CompressionKind_NONE;
+        ? static_cast<dwio::common::CompressionKind>(postScript_->compression())
+        : dwio::common::CompressionKind::CompressionKind_NONE;
   }
 
   WriterVersion getWriterVersion() const {

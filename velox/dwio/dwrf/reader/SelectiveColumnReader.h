@@ -502,10 +502,13 @@ class SelectiveColumnReaderFactory : public ColumnReaderFactory {
   std::shared_ptr<common::ScanSpec> const scanSpec_;
 };
 
+} // namespace facebook::velox::dwrf
+
+namespace facebook::velox::dwio::common {
 // Template parameter to indicate no hook in fast scan path. This is
 // referenced in decoders, thus needs to be declared in a header.
 struct NoHook : public ValueHook {
   void addValue(vector_size_t /*row*/, const void* /*value*/) override {}
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

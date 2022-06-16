@@ -148,7 +148,7 @@ class DwrfReaderShared : public dwio::common::Reader {
 
   virtual ~DwrfReaderShared() = default;
 
-  CompressionKind getCompression() const {
+  dwio::common::CompressionKind getCompression() const {
     return readerBase_->getCompressionKind();
   }
 

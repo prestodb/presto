@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/common/Common.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/writer/WriterContext.h"
 

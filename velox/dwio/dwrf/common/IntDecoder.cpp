@@ -109,15 +109,15 @@ void IntDecoder<isSigned>::bulkReadFixed(uint64_t size, T* result) {
   if (isSigned) {
     switch (numBytes) {
       case 2:
-        readContiguous<int16_t>(
+        dwio::common::readContiguous<int16_t>(
             size, *inputStream, result, bufferStart, bufferEnd);
         break;
       case 4:
-        readContiguous<int32_t>(
+        dwio::common::readContiguous<int32_t>(
             size, *inputStream, result, bufferStart, bufferEnd);
         break;
       case 8:
-        readContiguous<int64_t>(
+        dwio::common::readContiguous<int64_t>(
             size, *inputStream, result, bufferStart, bufferEnd);
         break;
       default:
@@ -126,15 +126,15 @@ void IntDecoder<isSigned>::bulkReadFixed(uint64_t size, T* result) {
   } else {
     switch (numBytes) {
       case 2:
-        readContiguous<uint16_t>(
+        dwio::common::readContiguous<uint16_t>(
             size, *inputStream, result, bufferStart, bufferEnd);
         break;
       case 4:
-        readContiguous<uint32_t>(
+        dwio::common::readContiguous<uint32_t>(
             size, *inputStream, result, bufferStart, bufferEnd);
         break;
       case 8:
-        readContiguous<uint64_t>(
+        dwio::common::readContiguous<uint64_t>(
             size, *inputStream, result, bufferStart, bufferEnd);
         break;
       default:
@@ -152,15 +152,15 @@ void IntDecoder<isSigned>::bulkReadRowsFixed(
   if (isSigned) {
     switch (numBytes) {
       case 2:
-        readRows<int16_t>(
+        dwio::common::readRows<int16_t>(
             rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
         break;
       case 4:
-        readRows<int32_t>(
+        dwio::common::readRows<int32_t>(
             rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
         break;
       case 8:
-        readRows<int64_t>(
+        dwio::common::readRows<int64_t>(
             rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
         break;
       default:
@@ -169,15 +169,15 @@ void IntDecoder<isSigned>::bulkReadRowsFixed(
   } else {
     switch (numBytes) {
       case 2:
-        readRows<uint16_t>(
+        dwio::common::readRows<uint16_t>(
             rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
         break;
       case 4:
-        readRows<uint32_t>(
+        dwio::common::readRows<uint32_t>(
             rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
         break;
       case 8:
-        readRows<uint64_t>(
+        dwio::common::readRows<uint64_t>(
             rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
         break;
       default:

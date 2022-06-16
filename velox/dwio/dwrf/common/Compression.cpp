@@ -16,6 +16,7 @@
 
 #include "velox/dwio/dwrf/common/Compression.h"
 
+#include "velox/dwio/common/Common.h"
 #include "velox/dwio/common/compression/LzoDecompressor.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/dwio/dwrf/common/PagedInputStream.h"
@@ -433,20 +434,20 @@ bool ZlibDecompressionStream::Next(const void** data, int32_t* size) {
 } // namespace
 
 std::unique_ptr<BufferedOutputStream> createCompressor(
-    CompressionKind kind,
+    dwio::common::CompressionKind kind,
     CompressionBufferPool& bufferPool,
     DataBufferHolder& bufferHolder,
     const Config& config,
     const Encrypter* encrypter) {
   std::unique_ptr<Compressor> compressor;
   switch (static_cast<int64_t>(kind)) {
-    case CompressionKind_NONE:
+    case dwio::common::CompressionKind_NONE:
       if (!encrypter) {
         return std::make_unique<BufferedOutputStream>(bufferHolder);
       }
       // compressor remain as nullptr
       break;
-    case CompressionKind_ZLIB: {
+    case dwio::common::CompressionKind_ZLIB: {
       int32_t zlibCompressionLevel = config.get(Config::ZLIB_COMPRESSION_LEVEL);
       compressor = std::make_unique<ZlibCompressor>(zlibCompressionLevel);
       XLOG_FIRST_N(INFO, 1) << fmt::format(
@@ -454,7 +455,7 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
           zlibCompressionLevel);
       break;
     }
-    case CompressionKind_ZSTD: {
+    case dwio::common::CompressionKind_ZSTD: {
       int32_t zstdCompressionLevel = config.get(Config::ZSTD_COMPRESSION_LEVEL);
       compressor = std::make_unique<ZstdCompressor>(zstdCompressionLevel);
       XLOG_FIRST_N(INFO, 1) << fmt::format(
@@ -462,9 +463,9 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
           zstdCompressionLevel);
       break;
     }
-    case CompressionKind_SNAPPY:
-    case CompressionKind_LZO:
-    case CompressionKind_LZ4:
+    case dwio::common::CompressionKind_SNAPPY:
+    case dwio::common::CompressionKind_LZO:
+    case dwio::common::CompressionKind_LZ4:
     default:
       DWIO_RAISE("compression codec");
   }
@@ -473,7 +474,7 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
 }
 
 std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
-    CompressionKind kind,
+    dwio::common::CompressionKind kind,
     std::unique_ptr<dwio::common::SeekableInputStream> input,
     uint64_t blockSize,
     MemoryPool& pool,
@@ -481,13 +482,13 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
     const Decrypter* decrypter) {
   std::unique_ptr<Decompressor> decompressor;
   switch (static_cast<int64_t>(kind)) {
-    case CompressionKind_NONE:
+    case dwio::common::CompressionKind_NONE:
       if (!decrypter) {
         return input;
       }
       // decompressor remain as nullptr
       break;
-    case CompressionKind_ZLIB:
+    case dwio::common::CompressionKind_ZLIB:
       if (!decrypter) {
         // When file is not encrypted, we can use zlib streaming codec to avoid
         // copying data
@@ -497,19 +498,19 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
       decompressor =
           std::make_unique<ZlibDecompressor>(blockSize, streamDebugInfo);
       break;
-    case CompressionKind_SNAPPY:
+    case dwio::common::CompressionKind_SNAPPY:
       decompressor =
           std::make_unique<SnappyDecompressor>(blockSize, streamDebugInfo);
       break;
-    case CompressionKind_LZO:
+    case dwio::common::CompressionKind_LZO:
       decompressor =
           std::make_unique<LzoDecompressor>(blockSize, streamDebugInfo);
       break;
-    case CompressionKind_LZ4:
+    case dwio::common::CompressionKind_LZ4:
       decompressor =
           std::make_unique<Lz4Decompressor>(blockSize, streamDebugInfo);
       break;
-    case CompressionKind_ZSTD:
+    case dwio::common::CompressionKind_ZSTD:
       decompressor =
           std::make_unique<ZstdDecompressor>(blockSize, streamDebugInfo);
       break;

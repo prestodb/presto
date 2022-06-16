@@ -21,7 +21,8 @@ namespace facebook::velox::dwrf {
 
 TEST(LayoutPlannerTests, Basic) {
   auto config = std::make_shared<Config>();
-  config->set(Config::COMPRESSION, CompressionKind::CompressionKind_NONE);
+  config->set(
+      Config::COMPRESSION, dwio::common::CompressionKind::CompressionKind_NONE);
   WriterContext context{
       config, facebook::velox::memory::getDefaultScopedMemoryPool()};
   // fake streams

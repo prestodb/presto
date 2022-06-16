@@ -221,12 +221,6 @@ target_link_libraries(
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
 
-add_executable(velox_dwio_decoder_util_test DecoderUtilTest.cpp)
-add_test(velox_dwio_decoder_util_test velox_dwio_decoder_util_test)
-
-target_link_libraries(velox_dwio_decoder_util_test ${VELOX_LINK_LIBS}
-                      ${FOLLY_WITH_DEPENDENCIES} ${TEST_LINK_LIBS})
-
 add_executable(velox_dwio_dwrf_decryption_test DecryptionTests.cpp)
 add_test(velox_dwio_dwrf_decryption_test velox_dwio_dwrf_decryption_test)
 

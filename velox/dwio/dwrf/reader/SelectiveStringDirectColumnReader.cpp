@@ -207,7 +207,7 @@ inline bool SelectiveStringDirectColumnReader::try8Consecutive(
 void SelectiveStringDirectColumnReader::extractSparse(
     const int32_t* rows,
     int32_t numRows) {
-  rowLoop(
+  dwio::common::rowLoop(
       rows,
       0,
       numRows,
@@ -328,11 +328,12 @@ void SelectiveStringDirectColumnReader::readWithVisitor(
     if (nullsInReadRange_) {
       if (TVisitor::dense) {
         returnReaderNulls_ = true;
-        nonNullRowsFromDense(nulls, rows.size(), outerNonNullRows_);
+        dwio::common::nonNullRowsFromDense(
+            nulls, rows.size(), outerNonNullRows_);
         extractSparse(rows.data(), outerNonNullRows_.size());
       } else {
         int32_t tailSkip = -1;
-        anyNulls_ = nonNullRowsFromSparse<false, true>(
+        anyNulls_ = dwio::common::nonNullRowsFromSparse<false, true>(
             nulls,
             rows,
             innerNonNullRows_,

@@ -367,7 +367,7 @@ uint64_t DwrfReaderShared::getMemoryUse(
   // Decompressors need buffers for each stream
   uint64_t decompressorMemory = 0;
   auto compression = readerBase.getCompressionKind();
-  if (compression != CompressionKind_NONE) {
+  if (compression != dwio::common::CompressionKind_NONE) {
     for (int32_t i = 0; i < footer.types_size(); i++) {
       if (cs.shouldReadNode(i)) {
         const proto::Type& type = footer.types(i);
@@ -375,7 +375,7 @@ uint64_t DwrfReaderShared::getMemoryUse(
             maxStreamsForType(type) * readerBase.getCompressionBlockSize();
       }
     }
-    if (compression == CompressionKind_SNAPPY) {
+    if (compression == dwio::common::CompressionKind_SNAPPY) {
       decompressorMemory *= 2; // Snappy decompressor uses a second buffer
     }
   }

@@ -19,7 +19,7 @@
 #include <algorithm>
 #include "velox/common/base/RawVector.h"
 #include "velox/common/process/ProcessBase.h"
-#include "velox/dwio/dwrf/common/StreamUtil.h"
+#include "velox/dwio/common/StreamUtil.h"
 
 namespace facebook::velox {
 // Same as in LazyVector.h.
@@ -31,7 +31,7 @@ static bool applyFilter(TFilter& filter, T value);
 } // namespace common
 } // namespace facebook::velox
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 inline int32_t firstNullIndex(const uint64_t* nulls, int32_t numRows) {
   int32_t first = -1;
@@ -167,7 +167,8 @@ void fixedWidthScan(
   constexpr int32_t kWidth = xsimd::batch<T>::size;
   constexpr bool is16 = sizeof(T) == 2;
   constexpr int32_t kStep = is16 ? 16 : 8;
-  constexpr bool hasFilter = !std::is_same<TFilter, common::AlwaysTrue>::value;
+  constexpr bool hasFilter =
+      !std::is_same<TFilter, velox::common::AlwaysTrue>::value;
   constexpr bool hasHook = !std::is_same<THook, NoHook>::value;
   auto rawValues = reinterpret_cast<T*>(voidValues);
   loopOverBuffers<T>(
@@ -186,7 +187,7 @@ void fixedWidthScan(
           }
           ++numValues;
         } else {
-          if (common::applyFilter(filter, value)) {
+          if (velox::common::applyFilter(filter, value)) {
             auto targetRow = scatter ? scatterRows[rowIndex] : rows[rowIndex];
             filterHits[numValues++] = targetRow;
             if (!filterOnly) {
@@ -392,7 +393,8 @@ template <typename Visitor, bool hasNulls>
 bool useFastPath(Visitor& visitor) {
   return process::hasAvx2() && Visitor::FilterType::deterministic &&
       Visitor::kHasBulkPath &&
-      (std::is_same<typename Visitor::FilterType, common::AlwaysTrue>::value ||
+      (std::is_same<typename Visitor::FilterType, velox::common::AlwaysTrue>::
+           value ||
        !hasNulls || !visitor.allowNulls()) &&
       (std::is_same<typename Visitor::HookType, NoHook>::value || !hasNulls ||
        Visitor::HookType::kSkipNulls);
@@ -446,7 +448,8 @@ void processFixedWidthRun(
     TFilter& filter,
     THook& hook) {
   constexpr int32_t kWidth = xsimd::batch<T>::size;
-  constexpr bool hasFilter = !std::is_same<TFilter, common::AlwaysTrue>::value;
+  constexpr bool hasFilter =
+      !std::is_same<TFilter, velox::common::AlwaysTrue>::value;
   constexpr bool hasHook = !std::is_same<THook, NoHook>::value;
   if (!hasFilter) {
     if (hasHook) {
@@ -498,4 +501,4 @@ void processFixedWidthRun(
   }
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common
