@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -37,11 +38,15 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.Intersect;
+import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
@@ -50,19 +55,29 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
@@ -71,6 +86,7 @@ import static com.facebook.presto.sql.ExpressionUtils.removeExpressionPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeGroupingElementPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSingleColumnPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSortItemPrefix;
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -78,68 +94,401 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Rewrites a query via {@link MaterializedViewQueryOptimizer#rewrite}, optimizing
+ * any "leaf queries" (queries which are made from a table, e.g. SELECT
+ * foo FROM t1 [ AS bar]) which can be optimized with an existing materialized view.
+ * A "leaf query" can be a subquery, but does not need to be.
+ */
 public class MaterializedViewQueryOptimizer
+        extends AstVisitor<Node, Void>
 {
+    private static final Logger logger = Logger.get(MaterializedViewQueryOptimizer.class);
 
-    public class QuerySpecificationRewriter
+    private static final QualifiedName MIN = QualifiedName.of("MIN");
+    private static final QualifiedName MAX = QualifiedName.of("MAX");
+    private static final QualifiedName SUM = QualifiedName.of("SUM");
+    private static final QualifiedName COUNT = QualifiedName.of("COUNT");
+    private static final Set<QualifiedName> SUPPORTED_FUNCTION_CALLS = ImmutableSet.of(MIN, MAX, SUM, COUNT);
+    private final LogicalRowExpressions logicalRowExpressions;
+    private final Metadata metadata;
+    private final Session session;
+    private final SqlParser sqlParser;
+    private final AccessControl accessControl;
+    private final RowExpressionDomainTranslator domainTranslator;
+    private final Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViewMap;
+
+    public MaterializedViewQueryOptimizer(
+            Metadata metadata,
+            Session session,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            RowExpressionDomainTranslator domainTranslator,
+            Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViewMap)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.session = requireNonNull(session, "session is null");
+        this.sqlParser = requireNonNull(sqlParser, "sql parser is null");
+        this.accessControl = requireNonNull(accessControl, "access control is null");
+        this.domainTranslator = requireNonNull(domainTranslator, "row expression domain translator is null");
+        this.baseTableToMaterializedViewMap = requireNonNull(baseTableToMaterializedViewMap, "base table to materialized view map is null");
+        FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+        logicalRowExpressions = new LogicalRowExpressions(
+                new RowExpressionDeterminismEvaluator(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager),
+                functionAndTypeManager);
+    }
+
+    public Query rewrite(Query node)
+    {
+        return (Query) process(node);
+    }
+
+    @Override
+    protected Node visitQuerySpecification(QuerySpecification node, Void context)
+    {
+        if (!node.getFrom().isPresent()) {
+            return node;
+        }
+        // If a query specification has a Table as a source, it can potentially be rewritten,
+        // so hand control over to LeafSubqueryVisitor via rewriteQuerySpecificationIfCompatible
+        Table baseTable;
+        Relation from = node.getFrom().get();
+        if (from instanceof Table) {
+            baseTable = (Table) from;
+            return rewriteQuerySpecificationIfCompatible(node, baseTable);
+        }
+
+        if (from instanceof AliasedRelation
+                && ((AliasedRelation) from).getRelation() instanceof Table) {
+            AliasedRelation aliasedRelation = (AliasedRelation) from;
+            baseTable = (Table) aliasedRelation.getRelation();
+            return rewriteQuerySpecificationIfCompatible(node, baseTable);
+        }
+
+        if (!node.getFrom().isPresent()) {
+            return node;
+        }
+
+        Relation newFrom = processSameType(from);
+        if (from == newFrom) {
+            return node;
+        }
+
+        if (node.getLocation().isPresent()) {
+            return new QuerySpecification(
+                    node.getLocation().get(),
+                    node.getSelect(),
+                    Optional.of(newFrom),
+                    node.getWhere(),
+                    node.getGroupBy(),
+                    node.getHaving(),
+                    node.getOrderBy(),
+                    node.getOffset(),
+                    node.getLimit());
+        }
+
+        return new QuerySpecification(
+                node.getSelect(),
+                Optional.of(newFrom),
+                node.getWhere(),
+                node.getGroupBy(),
+                node.getHaving(),
+                node.getOrderBy(),
+                node.getOffset(),
+                node.getLimit());
+    }
+
+    @Override
+    protected Node visitNode(Node node, Void context)
+    {
+        return node;
+    }
+
+    @Override
+    protected Node visitQuery(Query node, Void context)
+    {
+        QueryBody newQueryBody = processSameType(node.getQueryBody());
+        Optional<With> newWith = node.getWith().map(this::processSameType);
+        boolean withSame = !node.getWith().isPresent() || (node.getWith().orElseThrow(IllegalStateException::new) == newWith.get());
+        if (withSame && (node.getQueryBody() == newQueryBody)) {
+            return node;
+        }
+        if (node.getLocation().isPresent()) {
+            return new Query(
+                    node.getLocation().get(),
+                    newWith,
+                    newQueryBody,
+                    node.getOrderBy(),
+                    node.getOffset(),
+                    node.getLimit());
+        }
+        return new Query(
+                newWith,
+                newQueryBody,
+                node.getOrderBy(),
+                node.getOffset(),
+                node.getLimit());
+    }
+
+    @Override
+    protected Node visitUnion(Union node, Void context)
+    {
+        List<Relation> newRelations = processNodes(node.getRelations());
+        if (node.getRelations() == newRelations) {
+            return node;
+        }
+
+        if (node.getLocation().isPresent()) {
+            return new Union(
+                    node.getLocation().get(),
+                    newRelations,
+                    node.isDistinct());
+        }
+        return new Union(
+                newRelations,
+                node.isDistinct());
+    }
+
+    @Override
+    protected Node visitIntersect(Intersect node, Void context)
+    {
+        List<Relation> newRelations = processNodes(node.getRelations());
+        if (node.getRelations() == newRelations) {
+            return node;
+        }
+
+        if (node.getLocation().isPresent()) {
+            return new Intersect(
+                    node.getLocation().get(),
+                    newRelations,
+                    node.isDistinct());
+        }
+        return new Intersect(
+                newRelations,
+                node.isDistinct());
+    }
+
+    @Override
+    protected Node visitExcept(Except node, Void context)
+    {
+        Relation newLeft = processSameType(node.getLeft());
+        Relation newRight = processSameType(node.getRight());
+        if (newLeft == node.getLeft() && newRight == node.getRight()) {
+            return node;
+        }
+
+        if (node.getLocation().isPresent()) {
+            return new Except(
+                    node.getLocation().get(),
+                    newLeft,
+                    newRight,
+                    node.isDistinct());
+        }
+        return new Except(
+                newLeft,
+                newRight,
+                node.isDistinct());
+    }
+
+    @Override
+    protected Node visitLateral(Lateral node, Void context)
+    {
+        Query newQuery = processSameType(node.getQuery());
+        if (node.getQuery() == newQuery) {
+            return node;
+        }
+        if (node.getLocation().isPresent()) {
+            return new Lateral(
+                    node.getLocation().get(),
+                    newQuery);
+        }
+        return new Lateral(newQuery);
+    }
+
+    @Override
+    protected Node visitTableSubquery(TableSubquery node, Void context)
+    {
+        Query newQuery = processSameType(node.getQuery());
+        if (node.getQuery() == newQuery) {
+            return node;
+        }
+        if (node.getLocation().isPresent()) {
+            return new TableSubquery(node.getLocation().get(), processSameType(newQuery));
+        }
+        return new TableSubquery(processSameType(newQuery));
+    }
+
+    @Override
+    protected Node visitAliasedRelation(AliasedRelation node, Void context)
+    {
+        Relation newRelation = processSameType(node.getRelation());
+        if (node.getRelation() == newRelation) {
+            return node;
+        }
+        if (node.getLocation().isPresent()) {
+            return new AliasedRelation(
+                    node.getLocation().get(),
+                    processSameType(newRelation),
+                    node.getAlias(),
+                    node.getColumnNames());
+        }
+        return new AliasedRelation(
+                processSameType(newRelation),
+                node.getAlias(),
+                node.getColumnNames());
+    }
+
+    @Override
+    protected Node visitSampledRelation(SampledRelation node, Void context)
+    {
+        Relation newRelation = processSameType(node.getRelation());
+        if (node.getRelation() == newRelation) {
+            return node;
+        }
+        if (node.getLocation().isPresent()) {
+            return new SampledRelation(
+                    node.getLocation().get(),
+                    newRelation,
+                    node.getType(),
+                    node.getSamplePercentage());
+        }
+        return new SampledRelation(
+                newRelation,
+                node.getType(),
+                node.getSamplePercentage());
+    }
+
+    @Override
+    protected Node visitJoin(Join node, Void context)
+    {
+        Relation newLeft = processSameType(node.getLeft());
+        Relation newRight = processSameType(node.getRight());
+        if (node.getLeft() == newLeft && node.getRight() == newRight) {
+            return node;
+        }
+        if (node.getLocation().isPresent()) {
+            return new Join(
+                    node.getLocation().get(),
+                    node.getType(),
+                    newLeft,
+                    newRight,
+                    node.getCriteria());
+        }
+        return new Join(
+                node.getType(),
+                newLeft,
+                newRight,
+                node.getCriteria());
+    }
+
+    @Override
+    protected Node visitWith(With node, Void context)
+    {
+        List<WithQuery> newWithQueries = processNodes(node.getQueries());
+        if (node.getQueries() == newWithQueries) {
+            return node;
+        }
+        if (node.getLocation().isPresent()) {
+            return new With(
+                    node.getLocation().get(),
+                    node.isRecursive(),
+                    newWithQueries);
+        }
+        return new With(
+                node.isRecursive(),
+                newWithQueries);
+    }
+
+    @Override
+    protected Node visitWithQuery(WithQuery node, Void context)
+    {
+        Query newQuery = processSameType(node.getQuery());
+        if (node.getQuery() == newQuery) {
+            return node;
+        }
+        if (node.getLocation().isPresent()) {
+            return new WithQuery(
+                    node.getLocation().get(),
+                    node.getName(),
+                    processSameType(node.getQuery()),
+                    node.getColumnNames());
+        }
+        return new WithQuery(
+                node.getName(),
+                processSameType(node.getQuery()),
+                node.getColumnNames());
+    }
+
+    private <T extends Node> List<T> processNodes(List<T> nodes)
+    {
+        List<T> newNodes = new ArrayList<>();
+        boolean listsIdentical = true;
+
+        for (T node : nodes) {
+            T newNode = processSameType(node);
+            if (node != newNode) {
+                listsIdentical = false;
+            }
+            newNodes.add(newNode);
+        }
+        return listsIdentical ? nodes : newNodes;
+    }
+
+    private <T extends Node> T processSameType(T node)
+    {
+        return (T) process(node);
+    }
+
+    private QuerySpecification rewriteQuerySpecificationIfCompatible(QuerySpecification querySpecification, Table baseTable)
+    {
+        QualifiedObjectName tableName = createQualifiedObjectName(session, baseTable, baseTable.getName());
+        List<ConnectorMaterializedViewDefinition> linkedMaterializedViews = baseTableToMaterializedViewMap.getOrDefault(tableName, ImmutableList.of());
+
+        for (ConnectorMaterializedViewDefinition materializedViewDefinition : linkedMaterializedViews) {
+            Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
+            Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));
+
+            QuerySpecification rewritten = new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery).rewrite(querySpecification);
+
+            if (rewritten != querySpecification) {
+                session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT, NONE, 1);
+                return rewritten;
+            }
+        }
+        return querySpecification;
+    }
+
+    private class QuerySpecificationRewriter
             extends AstVisitor<Node, Void>
     {
-        private final Logger logger = Logger.get(MaterializedViewQueryOptimizer.class);
-
-        private final QualifiedName MIN = QualifiedName.of("MIN");
-        private final QualifiedName MAX = QualifiedName.of("MAX");
-        private final QualifiedName SUM = QualifiedName.of("SUM");
-        private final QualifiedName COUNT = QualifiedName.of("COUNT");
-        private final Set<QualifiedName> SUPPORTED_FUNCTION_CALLS = ImmutableSet.of(MIN, MAX, SUM, COUNT);
-
-        private final Metadata metadata;
-        private final Session session;
-        private final SqlParser sqlParser;
-        private final AccessControl accessControl;
-        private final RowExpressionDomainTranslator domainTranslator;
         private final Table materializedView;
         private final Query materializedViewQuery;
-        private final LogicalRowExpressions logicalRowExpressions;
 
         private MaterializedViewInfo materializedViewInfo;
         private Optional<Identifier> removablePrefix = Optional.empty();
         private Optional<Set<Expression>> expressionsInGroupBy = Optional.empty();
 
-        public QuerySpecificationRewriter(
-                Metadata metadata,
-                Session session,
-                SqlParser sqlParser,
-                AccessControl accessControl,
-                RowExpressionDomainTranslator domainTranslator,
+        QuerySpecificationRewriter(
                 Table materializedView,
                 Query materializedViewQuery)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.session = requireNonNull(session, "session is null");
-            this.sqlParser = requireNonNull(sqlParser, "sql parser is null");
-            this.accessControl = requireNonNull(accessControl, "access control is null");
-            this.domainTranslator = requireNonNull(domainTranslator, "row expression domain translator is null");
             this.materializedView = requireNonNull(materializedView, "materialized view is null");
             this.materializedViewQuery = requireNonNull(materializedViewQuery, "materialized view query is null");
-            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            logicalRowExpressions = new LogicalRowExpressions(
-                    new RowExpressionDeterminismEvaluator(functionAndTypeManager),
-                    new FunctionResolution(functionAndTypeManager),
-                    functionAndTypeManager);
         }
 
-        public Node rewrite(Node node)
+        public QuerySpecification rewrite(QuerySpecification querySpecification)
         {
             // TODO: Implement ways to handle non-optimizable query without throw/catch. https://github.com/prestodb/presto/issues/16541
             try {
                 MaterializedViewInformationExtractor materializedViewInformationExtractor = new MaterializedViewInformationExtractor();
                 materializedViewInformationExtractor.process(materializedViewQuery);
                 materializedViewInfo = materializedViewInformationExtractor.getMaterializedViewInfo();
-                return process(node);
+                return (QuerySpecification) process(querySpecification);
             }
-            catch (Exception ex) {
-                logger.warn("Failed to rewrite query with materialized view with following exception: %s", ex.getMessage());
-                return node;
+            catch (Exception e) {
+                logger.warn("Failed to rewrite query with materialized view with following exception: %s", e.getMessage());
+                return querySpecification;
             }
         }
 
@@ -167,7 +516,7 @@ public class MaterializedViewQueryOptimizer
         protected Node visitQuerySpecification(QuerySpecification node, Void context)
         {
             if (!node.getFrom().isPresent()) {
-                throw new IllegalStateException("Query with no From clause is not rewritable by materialized view");
+                throw new IllegalArgumentException("visitQuerySpecification should not be invoked for an empty FROM clause");
             }
             Relation relation = node.getFrom().get();
             if (relation instanceof AliasedRelation) {
@@ -175,7 +524,7 @@ public class MaterializedViewQueryOptimizer
                 relation = ((AliasedRelation) relation).getRelation();
             }
             if (!(relation instanceof Table)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Relation other than Table is not supported in query optimizer");
+                throw new IllegalArgumentException("visitQuerySpecification should not be invoked for a non-table FROM clause");
             }
             Table baseTable = (Table) relation;
             if (!removablePrefix.isPresent()) {

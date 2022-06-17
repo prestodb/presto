@@ -22,14 +22,15 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Query;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public class TestMaterializedViewCandidateExtractor
@@ -37,18 +38,22 @@ public class TestMaterializedViewCandidateExtractor
     private static final Session SESSION = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties())).build();
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = new MockMetadata();
+    private static final QualifiedObjectName VIEW_0 = nameOf("view0");
+    private static final QualifiedObjectName VIEW_1 = nameOf("view1");
+    private static final QualifiedObjectName VIEW_2 = nameOf("view2");
+    private static final QualifiedObjectName VIEW_3 = nameOf("view3");
+    private static final QualifiedObjectName VIEW_4 = nameOf("view4");
+    private static final QualifiedObjectName VIEW_5 = nameOf("view5");
 
     @Test
     public void testWithSimpleQuery()
     {
         String baseTable = "base_table_v0";
-        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.view0");
-
-        ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates = ImmutableSet.of(materializedViewName);
-
         String baseQuerySql = format("SELECT x, y From %s", baseTable);
-
-        assertCandidateMaterializedView(expectedMaterializedViewCandidates, baseQuerySql);
+        assertCandidateMaterializedView(
+                baseQuerySql,
+                ImmutableMap.of(
+                        nameOf(baseTable), ImmutableList.of(VIEW_0)));
     }
 
     @Test
@@ -56,7 +61,10 @@ public class TestMaterializedViewCandidateExtractor
     {
         String baseTable = "base_table_v0";
         String baseQuerySql = format("SELECT x, y From %s b1", baseTable);
-        assertCandidateMaterializedView(ImmutableSet.of(QualifiedObjectName.valueOf("catalog.schema.view0")), baseQuerySql);
+        assertCandidateMaterializedView(
+                baseQuerySql,
+                ImmutableMap.of(
+                        nameOf(baseTable), ImmutableList.of(VIEW_0)));
     }
 
     @Test
@@ -65,7 +73,11 @@ public class TestMaterializedViewCandidateExtractor
         String baseTable1 = "base_table1_v0";
         String baseTable2 = "base_table2_v0";
         String baseQuerySql = format("SELECT x, y FROM %s b1 JOIN %s b2 ON b1.id = b2.id", baseTable1, baseTable2);
-        assertCandidateMaterializedView(ImmutableSet.of(QualifiedObjectName.valueOf("catalog.schema.view0")), baseQuerySql);
+        assertCandidateMaterializedView(
+                baseQuerySql,
+                ImmutableMap.of(
+                        nameOf(baseTable1), ImmutableList.of(VIEW_0),
+                        nameOf(baseTable2), ImmutableList.of(VIEW_0)));
     }
 
     @Test
@@ -74,16 +86,24 @@ public class TestMaterializedViewCandidateExtractor
         String baseTable1 = "base_table_v1v2";
         String baseTable2 = "base_table_v2v3";
         String baseQuerySql = format("SELECT x, y FROM %s JOIN %s ON %s.id = %s.id", baseTable1, baseTable2, baseTable1, baseTable2);
-        assertCandidateMaterializedView(ImmutableSet.of(QualifiedObjectName.valueOf("catalog.schema.view2")), baseQuerySql);
+        assertCandidateMaterializedView(
+                baseQuerySql,
+                ImmutableMap.of(
+                        nameOf(baseTable1), ImmutableList.of(VIEW_1, VIEW_2),
+                        nameOf(baseTable2), ImmutableList.of(VIEW_2, VIEW_3)));
     }
 
     @Test
     public void testWithNoIntersection()
     {
         String baseTable1 = "base_table_v1v2";
-        String baseTable2 = "base_table_v3v4";
+        String baseTable2 = "base_table_v4v5";
         String baseQuerySql = format("SELECT x, y FROM %s JOIN %s ON %s.id = %s.id", baseTable1, baseTable2, baseTable1, baseTable2);
-        assertCandidateMaterializedView(ImmutableSet.of(), baseQuerySql);
+        assertCandidateMaterializedView(
+                baseQuerySql,
+                ImmutableMap.of(
+                        nameOf(baseTable1), ImmutableList.of(VIEW_1, VIEW_2),
+                        nameOf(baseTable2), ImmutableList.of(VIEW_4, VIEW_5)));
     }
 
     @Test
@@ -96,7 +116,12 @@ public class TestMaterializedViewCandidateExtractor
                 baseTable1,
                 baseTable2,
                 baseTable3);
-        assertCandidateMaterializedView(ImmutableSet.of(QualifiedObjectName.valueOf("catalog.schema.view1"), QualifiedObjectName.valueOf("catalog.schema.view2")), baseQuerySql);
+        assertCandidateMaterializedView(
+                baseQuerySql,
+                ImmutableMap.of(
+                        nameOf(baseTable1), ImmutableList.of(VIEW_1, VIEW_2, VIEW_3, VIEW_4),
+                        nameOf(baseTable2), ImmutableList.of(VIEW_1, VIEW_2, VIEW_3),
+                        nameOf(baseTable3), ImmutableList.of(VIEW_1, VIEW_2, VIEW_4)));
     }
 
     @Test
@@ -109,20 +134,30 @@ public class TestMaterializedViewCandidateExtractor
                 baseTable1,
                 baseTable2,
                 baseTable3);
-        assertCandidateMaterializedView(ImmutableSet.of(), baseQuerySql);
+        assertCandidateMaterializedView(
+                baseQuerySql,
+                ImmutableMap.of(
+                        nameOf(baseTable1), ImmutableList.of(VIEW_1, VIEW_2),
+                        nameOf(baseTable2), ImmutableList.of(VIEW_2, VIEW_3),
+                        nameOf(baseTable3), ImmutableList.of(VIEW_1, VIEW_3)));
     }
 
     private void assertCandidateMaterializedView(
-            ImmutableSet<QualifiedObjectName> expectedMaterializedViewCandidates,
-            String baseQuerySql)
+            String baseQuerySql, Map<QualifiedObjectName, List<QualifiedObjectName>> expectedMaterializedViewCandidates)
     {
         Query baseQuery = (Query) SQL_PARSER.createStatement(baseQuerySql);
 
         MaterializedViewCandidateExtractor materializedViewCandidateExtractor = new MaterializedViewCandidateExtractor(SESSION, METADATA);
         materializedViewCandidateExtractor.process(baseQuery);
-        Set<QualifiedObjectName> materializedViewCandidates = materializedViewCandidateExtractor.getMaterializedViewCandidates();
+        Map<QualifiedObjectName, List<QualifiedObjectName>> materializedViewCandidates = materializedViewCandidateExtractor.getMaterializedViewCandidatesForTable();
 
         assertEquals(materializedViewCandidates, expectedMaterializedViewCandidates);
+    }
+
+    private static QualifiedObjectName nameOf(String baseName)
+    {
+        checkArgument(!baseName.contains("."), "baseName cannot already be qualified");
+        return QualifiedObjectName.valueOf(format("catalog.schema.%s", baseName));
     }
 
     private static class MockMetadata
@@ -135,31 +170,21 @@ public class TestMaterializedViewCandidateExtractor
                 case "catalog.schema.base_table_v0":
                 case "catalog.schema.base_table1_v0":
                 case "catalog.schema.base_table2_v0":
-                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view0"));
+                    return ImmutableList.of(VIEW_0);
                 case "catalog.schema.base_table_v1v2":
-                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view1"), QualifiedObjectName.valueOf("catalog.schema.view2"));
+                    return ImmutableList.of(VIEW_1, VIEW_2);
                 case "catalog.schema.base_table_v2v3":
-                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view2"), QualifiedObjectName.valueOf("catalog.schema.view3"));
-                case "catalog.schema.base_table_v3v4":
-                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view4"), QualifiedObjectName.valueOf("catalog.schema.view5"));
+                    return ImmutableList.of(VIEW_2, VIEW_3);
+                case "catalog.schema.base_table_v4v5":
+                    return ImmutableList.of(VIEW_4, VIEW_5);
                 case "catalog.schema.base_table_v1v2v3v4":
-                    return ImmutableList.of(
-                            QualifiedObjectName.valueOf("catalog.schema.view1"),
-                            QualifiedObjectName.valueOf("catalog.schema.view2"),
-                            QualifiedObjectName.valueOf("catalog.schema.view3"),
-                            QualifiedObjectName.valueOf("catalog.schema.view4"));
+                    return ImmutableList.of(VIEW_1, VIEW_2, VIEW_3, VIEW_4);
                 case "catalog.schema.base_table_v1v2v3":
-                    return ImmutableList.of(
-                            QualifiedObjectName.valueOf("catalog.schema.view1"),
-                            QualifiedObjectName.valueOf("catalog.schema.view2"),
-                            QualifiedObjectName.valueOf("catalog.schema.view3"));
+                    return ImmutableList.of(VIEW_1, VIEW_2, VIEW_3);
                 case "catalog.schema.base_table_v1v2v4":
-                    return ImmutableList.of(
-                            QualifiedObjectName.valueOf("catalog.schema.view1"),
-                            QualifiedObjectName.valueOf("catalog.schema.view2"),
-                            QualifiedObjectName.valueOf("catalog.schema.view4"));
+                    return ImmutableList.of(VIEW_1, VIEW_2, VIEW_4);
                 case "catalog.schema.base_table_v1v3":
-                    return ImmutableList.of(QualifiedObjectName.valueOf("catalog.schema.view1"), QualifiedObjectName.valueOf("catalog.schema.view3"));
+                    return ImmutableList.of(VIEW_1, VIEW_3);
             }
             return ImmutableList.of();
         }
