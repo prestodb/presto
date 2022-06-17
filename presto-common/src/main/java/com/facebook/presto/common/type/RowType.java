@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.RowBlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -62,6 +63,11 @@ public class RowType
                 .collect(toList());
 
         return new RowType(fields);
+    }
+
+    public static RowType rowType(Field... field)
+    {
+        return from(Arrays.asList(field));
     }
 
     public static RowType withDefaultFieldNames(List<Type> types)
