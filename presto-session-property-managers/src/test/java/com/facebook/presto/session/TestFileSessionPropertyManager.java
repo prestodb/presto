@@ -15,7 +15,6 @@
 package com.facebook.presto.session;
 
 import com.facebook.airlift.testing.TempFile;
-import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
@@ -60,9 +59,7 @@ public class TestFileSessionPropertyManager
                 Optional.of(Pattern.compile("global.pipeline.user_.*")),
                 Optional.empty(),
                 Optional.empty(),
-                properties,
-                Optional.empty(),
-                Optional.empty());
+                properties);
 
         assertProperties(properties, spec);
     }
@@ -80,9 +77,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                properties,
-                Optional.empty(),
-                Optional.empty());
+                properties);
 
         assertProperties(properties, spec);
     }
@@ -99,9 +94,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of("PROPERTY1", "VALUE1"),
-                Optional.of("0.271"),
-                Optional.empty());
+                ImmutableMap.of("PROPERTY1", "VALUE1"));
         SessionMatchSpec spec2 = new SessionMatchSpec(
                 Optional.empty(),
                 Optional.empty(),
@@ -110,9 +103,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2"),
-                Optional.of("0.221"),
-                Optional.of("0.281"));
+                ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2"));
 
         assertProperties(ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2"), spec1, spec2);
     }
@@ -129,9 +120,7 @@ public class TestFileSessionPropertyManager
                 Optional.of(Pattern.compile("global.interactive.user_.*")),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of("PROPERTY", "VALUE"),
-                Optional.empty(),
-                Optional.empty());
+                ImmutableMap.of("PROPERTY", "VALUE"));
 
         assertProperties(ImmutableMap.of(), spec);
     }
@@ -149,9 +138,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.of(Pattern.compile("bar")),
                 Optional.empty(),
-                properties,
-                Optional.empty(),
-                Optional.empty());
+                properties);
 
         assertProperties(properties, spec);
     }
@@ -171,9 +158,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.of(Pattern.compile("bar")),
                 Optional.of(true),
-                overrideProperties,
-                Optional.of("0.272"),
-                Optional.empty());
+                overrideProperties);
 
         SessionMatchSpec specDefault = new SessionMatchSpec(
                 Optional.empty(),
@@ -183,9 +168,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.of(Pattern.compile("bar")),
                 Optional.empty(),
-                defaultProperties,
-                Optional.empty(),
-                Optional.empty());
+                defaultProperties);
 
         // PROPERTY1 should be an override property with the value from the default (non-override, higher precedence)
         // spec.
@@ -205,7 +188,7 @@ public class TestFileSessionPropertyManager
         try (TempFile tempFile = new TempFile()) {
             Path configurationFile = tempFile.path();
             Files.write(configurationFile, CODEC.toJsonBytes(Arrays.asList(spec)));
-            SessionPropertyConfigurationManager manager = new FileSessionPropertyManager(new FileSessionPropertyManagerConfig().setConfigFile(configurationFile.toFile()), new NodeVersion("0.271"));
+            SessionPropertyConfigurationManager manager = new FileSessionPropertyManager(new FileSessionPropertyManagerConfig().setConfigFile(configurationFile.toFile()));
             SystemSessionPropertyConfiguration propertyConfiguration = manager.getSystemSessionProperties(CONTEXT);
             assertEquals(propertyConfiguration.systemPropertyDefaults, defaultProperties);
             assertEquals(propertyConfiguration.systemPropertyOverrides, overrideProperties);
