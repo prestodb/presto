@@ -75,8 +75,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.crypto.DecryptionPropertiesFactory;
-import org.apache.parquet.crypto.FileDecryptionProperties;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -104,6 +102,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReade
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
@@ -314,11 +313,7 @@ public class IcebergPageSourceProvider
             // Lambda expression below requires final variable, so we define a new variable parquetDataSource.
             final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
             dataSource = parquetDataSource;
-            DecryptionPropertiesFactory cryptoFactory = DecryptionPropertiesFactory.loadFactory(configuration);
-            FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ?
-                    null : cryptoFactory.getFileDecryptionProperties(configuration, path);
-            Optional<InternalFileDecryptor> fileDecryptor = (fileDecryptionProperties == null) ?
-                    Optional.empty() : Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
+            Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor).getParquetMetadata());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();

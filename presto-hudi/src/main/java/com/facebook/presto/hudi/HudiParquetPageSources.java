@@ -41,8 +41,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.crypto.DecryptionPropertiesFactory;
-import org.apache.parquet.crypto.FileDecryptionProperties;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -62,6 +60,7 @@ import java.util.OptionalLong;
 
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
@@ -117,11 +116,7 @@ class HudiParquetPageSources
             // Lambda expression below requires final variable, so we define a new variable parquetDataSource.
             final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
             dataSource = parquetDataSource;
-            DecryptionPropertiesFactory cryptoFactory = DecryptionPropertiesFactory.loadFactory(configuration);
-            FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ?
-                    null : cryptoFactory.getFileDecryptionProperties(configuration, path);
-            Optional<InternalFileDecryptor> fileDecryptor = (fileDecryptionProperties == null) ?
-                    Optional.empty() : Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
+            Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor).getParquetMetadata());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
@@ -137,6 +132,7 @@ class HudiParquetPageSources
             final ParquetDataSource finalDataSource = dataSource;
             List<BlockMetaData> blocks = new ArrayList<>();
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
+
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
                 if (firstIndex.isPresent()) {
