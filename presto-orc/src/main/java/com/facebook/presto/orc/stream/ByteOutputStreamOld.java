@@ -31,20 +31,19 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
 
-public class ByteOutputStream
+public class ByteOutputStreamOld
         implements ValueOutputStream<ByteStreamCheckpoint>
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteOutputStream.class).instanceSize();
 
     private static final int MIN_REPEAT_SIZE = 3;
-    // A value outside of the range of a signed byte
+    // A value out side of the range of a signed byte
     private static final int UNMATCHABLE_VALUE = Integer.MAX_VALUE;
-    private static final int SEQUENCE_BUFFER_SIZE = 128;
 
     private final OrcOutputBuffer buffer;
     private final List<ByteStreamCheckpoint> checkpoints = new ArrayList<>();
 
-    private final byte[] sequenceBuffer = new byte[SEQUENCE_BUFFER_SIZE];
+    private final byte[] sequenceBuffer = new byte[128];
     private int size;
 
     private int runCount;
@@ -52,12 +51,12 @@ public class ByteOutputStream
 
     private boolean closed;
 
-    public ByteOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public ByteOutputStreamOld(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
         this(new OrcOutputBuffer(columnWriterOptions, dwrfEncryptor));
     }
 
-    public ByteOutputStream(OrcOutputBuffer buffer)
+    public ByteOutputStreamOld(OrcOutputBuffer buffer)
     {
         this.buffer = buffer;
     }
@@ -67,7 +66,7 @@ public class ByteOutputStream
         checkState(!closed);
 
         // flush if buffer is full
-        if (size == SEQUENCE_BUFFER_SIZE) {
+        if (size == sequenceBuffer.length) {
             flushSequence();
         }
 
@@ -99,7 +98,7 @@ public class ByteOutputStream
             runCount = MIN_REPEAT_SIZE;
             size = MIN_REPEAT_SIZE;
 
-            // note there is no reason to add the run values to the buffer since it is not used
+            // note there is no reason to add the run values to the buffer since is is not used
             // when in a run length sequence
         }
 
@@ -108,17 +107,18 @@ public class ByteOutputStream
 
     private void flushSequence()
     {
+        if (size == 0) {
+            return;
+        }
+
         if (runCount >= MIN_REPEAT_SIZE) {
             buffer.writeByte(runCount - MIN_REPEAT_SIZE);
             buffer.writeByte(lastValue);
         }
         else {
             buffer.writeByte(-size);
-            if (size == 1) {
-                buffer.writeByte(sequenceBuffer[0]);
-            }
-            else {
-                buffer.writeBytes(sequenceBuffer, 0, size);
+            for (int i = 0; i < size; i++) {
+                buffer.writeByte(sequenceBuffer[i]);
             }
         }
 
@@ -138,9 +138,7 @@ public class ByteOutputStream
     public void close()
     {
         closed = true;
-        if (size != 0) {
-            flushSequence();
-        }
+        flushSequence();
         buffer.close();
     }
 
