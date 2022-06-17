@@ -75,7 +75,7 @@ public class BooleanOutputStream
             return;
         }
 
-        checkArgument(count >= 0, "count is negative");
+        checkArgument(count > 0, "count must be positive");
 
         if (bitsInData != 0) {
             int bitsToWrite = Math.min(count, 8 - bitsInData);
