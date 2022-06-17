@@ -27,6 +27,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
+import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetSchemaConverter
@@ -41,7 +42,7 @@ public class TestParquetSchemaConverter
         GroupType keyValueValue = mapType.getType(0).asGroupType();
         assertThat(keyValueValue.isRepetition(REPEATED)).isTrue();
         Type keyType = keyValueValue.getType(0).asPrimitiveType();
-        assertThat(keyType.isRepetition(OPTIONAL)).isTrue();
+        assertThat(keyType.isRepetition(REQUIRED)).isTrue();
         PrimitiveType valueType = keyValueValue.getType(1).asPrimitiveType();
         assertThat(valueType.isRepetition(OPTIONAL)).isTrue();
 
@@ -52,7 +53,7 @@ public class TestParquetSchemaConverter
         keyValueValue = mapType.getType(0).asGroupType();
         assertThat(keyValueValue.isRepetition(REPEATED)).isTrue();
         keyType = keyValueValue.getType(0).asGroupType();
-        assertThat(keyType.isRepetition(OPTIONAL)).isTrue();
+        assertThat(keyType.isRepetition(REQUIRED)).isTrue();
         assertThat(keyType.asGroupType().getType(0).asPrimitiveType().isRepetition(OPTIONAL)).isTrue();
         assertThat(keyType.asGroupType().getType(1).asPrimitiveType().isRepetition(OPTIONAL)).isTrue();
         valueType = keyValueValue.getType(1).asPrimitiveType();
