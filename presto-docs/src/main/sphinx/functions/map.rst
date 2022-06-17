@@ -71,7 +71,7 @@ Map Functions
 
     Returns all the keys in the map ``x``.
 
-.. function:: map_normalize(x(varchar,double)) -> array(varchar,double)
+.. function:: map_normalize(x(varchar,double)) -> map(varchar,double)
 
     Returns the map with the same keys but all non-null values are scaled proportionally so that the sum of values becomes 1.
     Map entries with null values remain unchanged.
