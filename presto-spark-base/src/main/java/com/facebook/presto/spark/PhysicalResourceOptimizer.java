@@ -18,7 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.CollectSourceStats;
-import javafx.util.Pair;
+import com.facebook.presto.sql.planner.CollectSourceStats.Pair;
 import org.apache.spark.SparkContext;
 
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMultiplierForAutomaticResourceManagement;

@@ -22,12 +22,17 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import javafx.util.Pair;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public final class CollectSourceStats
 {
@@ -95,6 +100,32 @@ public final class CollectSourceStats
                 source.accept(this, context);
             }
             return null;
+        }
+    }
+
+    @Immutable
+    public static class Pair<K, V>
+    {
+        private final K key;
+        private final V value;
+
+        @JsonCreator
+        public Pair(@JsonProperty("key") K key, @JsonProperty("value") V value)
+        {
+            this.key = requireNonNull(key, "key is null");
+            this.value = requireNonNull(value, "value is null");
+        }
+
+        @JsonProperty
+        public K getKey()
+        {
+            return key;
+        }
+
+        @JsonProperty
+        public V getValue()
+        {
+            return value;
         }
     }
 }
