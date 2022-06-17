@@ -28,29 +28,30 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 
-public class BooleanOutputStream
+public class BooleanOutputStreamOld
         implements ValueOutputStream<BooleanStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanOutputStream.class).instanceSize();
-    private final ByteOutputStream byteOutputStream;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanOutputStreamOld.class).instanceSize();
+    private final ByteOutputStreamOld byteOutputStream;
     private final List<Integer> checkpointBitOffsets = new ArrayList<>();
 
     private int bitsInData;
     private int data;
     private boolean closed;
 
-    public BooleanOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public BooleanOutputStreamOld(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
-        this(new ByteOutputStream(columnWriterOptions, dwrfEncryptor));
+        this(new ByteOutputStreamOld(columnWriterOptions, dwrfEncryptor));
     }
 
-    public BooleanOutputStream(OrcOutputBuffer buffer)
+    public BooleanOutputStreamOld(OrcOutputBuffer buffer)
     {
-        this(new ByteOutputStream(buffer));
+        this(new ByteOutputStreamOld(buffer));
     }
 
-    public BooleanOutputStream(ByteOutputStream byteOutputStream)
+    public BooleanOutputStreamOld(ByteOutputStreamOld byteOutputStream)
     {
         this.byteOutputStream = byteOutputStream;
     }
@@ -71,11 +72,10 @@ public class BooleanOutputStream
 
     public void writeBooleans(int count, boolean value)
     {
+        checkArgument(count >= 0, "count is negative");
         if (count == 0) {
             return;
         }
-
-        checkArgument(count >= 0, "count is negative");
 
         if (bitsInData != 0) {
             int bitsToWrite = Math.min(count, 8 - bitsInData);
@@ -84,16 +84,20 @@ public class BooleanOutputStream
             }
 
             bitsInData += bitsToWrite;
-            if (bitsInData != 8) {
+            count -= bitsToWrite;
+            if (bitsInData == 8) {
+                flushData();
+            }
+            else {
                 // there were not enough bits to fill the current data
+                verify(count == 0);
                 return;
             }
-
-            count -= bitsToWrite;
-            flushData();
         }
 
         // at this point there should be no pending data
+        verify(bitsInData == 0);
+
         // write 8 bits at a time
         while (count >= 8) {
             if (value) {
