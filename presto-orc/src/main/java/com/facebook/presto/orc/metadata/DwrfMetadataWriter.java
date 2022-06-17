@@ -17,6 +17,8 @@ import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.proto.DwrfProto.RowIndexEntry;
 import com.facebook.presto.orc.proto.DwrfProto.Type;
@@ -222,20 +224,22 @@ public class DwrfMetadataWriter
                     .build());
         }
 
-        if (columnStatistics.getIntegerStatistics() != null) {
-            DwrfProto.IntegerStatistics.Builder integerStatistics = DwrfProto.IntegerStatistics.newBuilder()
-                    .setMinimum(columnStatistics.getIntegerStatistics().getMin())
-                    .setMaximum(columnStatistics.getIntegerStatistics().getMax());
-            if (columnStatistics.getIntegerStatistics().getSum() != null) {
-                integerStatistics.setSum(columnStatistics.getIntegerStatistics().getSum());
+        IntegerStatistics integerStatistics = columnStatistics.getIntegerStatistics();
+        if (integerStatistics != null) {
+            DwrfProto.IntegerStatistics.Builder dwrfIntegerStatistics = DwrfProto.IntegerStatistics.newBuilder()
+                    .setMinimum(integerStatistics.getMinPrimitive())
+                    .setMaximum(integerStatistics.getMaxPrimitive());
+            if (integerStatistics.hasSum()) {
+                dwrfIntegerStatistics.setSum(integerStatistics.getSumPrimitive());
             }
-            builder.setIntStatistics(integerStatistics.build());
+            builder.setIntStatistics(dwrfIntegerStatistics.build());
         }
 
-        if (columnStatistics.getDoubleStatistics() != null) {
+        DoubleStatistics doubleStatistics = columnStatistics.getDoubleStatistics();
+        if (doubleStatistics != null) {
             builder.setDoubleStatistics(DwrfProto.DoubleStatistics.newBuilder()
-                    .setMinimum(columnStatistics.getDoubleStatistics().getMin())
-                    .setMaximum(columnStatistics.getDoubleStatistics().getMax())
+                    .setMinimum(doubleStatistics.getMinPrimitive())
+                    .setMaximum(doubleStatistics.getMaxPrimitive())
                     .build());
         }
 
