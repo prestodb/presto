@@ -52,8 +52,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.crypto.DecryptionPropertiesFactory;
-import org.apache.parquet.crypto.FileDecryptionProperties;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -89,6 +87,7 @@ import static com.facebook.presto.delta.DeltaSessionProperties.isParquetBatchRea
 import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.checkSchemaMatch;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
@@ -226,9 +225,7 @@ public class DeltaPageSourceProvider
             // Lambda expression below requires final variable, so we define a new variable parquetDataSource.
             final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, stats);
             dataSource = parquetDataSource;
-            DecryptionPropertiesFactory cryptoFactory = DecryptionPropertiesFactory.loadFactory(configuration);
-            FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ? null : cryptoFactory.getFileDecryptionProperties(configuration, path);
-            Optional<InternalFileDecryptor> fileDecryptor = (fileDecryptionProperties == null) ? Optional.empty() : Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
+            Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor).getParquetMetadata());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();

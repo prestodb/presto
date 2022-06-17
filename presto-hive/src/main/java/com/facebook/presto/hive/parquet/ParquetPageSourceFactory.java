@@ -246,9 +246,7 @@ public class ParquetPageSourceFactory
             // Lambda expression below requires final variable, so we define a new variable parquetDataSource.
             final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, stats);
             dataSource = parquetDataSource;
-            DecryptionPropertiesFactory cryptoFactory = loadFactory(configuration);
-            FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ? null : cryptoFactory.getFileDecryptionProperties(configuration, path);
-            Optional<InternalFileDecryptor> fileDecryptor = (fileDecryptionProperties == null) ? Optional.empty() : Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
+            Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> parquetMetadataSource.getParquetMetadata(
                     parquetDataSource,
                     fileSize,
@@ -283,7 +281,6 @@ public class ParquetPageSourceFactory
                     }
                 }
             }
-
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
@@ -552,5 +549,12 @@ public class ParquetPageSourceFactory
             return getSubfieldType(messageType, pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield));
         }
         return getParquetType(prestoType, messageType, useParquetColumnNames, column, tableName, path);
+    }
+
+    public static Optional<InternalFileDecryptor> createDecryptor(Configuration configuration, Path path)
+    {
+        DecryptionPropertiesFactory cryptoFactory = loadFactory(configuration);
+        FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ? null : cryptoFactory.getFileDecryptionProperties(configuration, path);
+        return (fileDecryptionProperties == null) ? Optional.empty() : Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
     }
 }
