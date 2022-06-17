@@ -60,7 +60,7 @@ public class IntegerStatistics
 
     public long getMinPrimitive()
     {
-        checkState(hasMinimum);
+        checkState(hasMinimum, "minimum value is missing");
         return minimum;
     }
 
@@ -72,7 +72,7 @@ public class IntegerStatistics
 
     public long getMaxPrimitive()
     {
-        checkState(hasMaximum);
+        checkState(hasMaximum, "maximum value is missing");
         return maximum;
     }
 
