@@ -23,6 +23,11 @@
             "mapping": "f_bigint"
             },
             {
+                "name": "f_float",
+                "type": "REAL",
+                "mapping": "f_float"
+            },
+            {
             "name": "f_double",
             "type": "DOUBLE",
             "mapping": "f_double"

@@ -10,6 +10,11 @@
                   "default": null
               },
               {
+                  "name": "f_float",
+                  "type":["null", "float"],
+                  "default": null
+              },
+              {
                   "name": "f_double",
                   "type":["null", "double"],
                   "default": null
