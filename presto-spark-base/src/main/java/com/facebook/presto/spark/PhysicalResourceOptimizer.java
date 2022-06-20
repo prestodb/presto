@@ -18,8 +18,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.CollectSourceStats;
-import com.facebook.presto.sql.planner.CollectSourceStats.Pair;
 import org.apache.spark.SparkContext;
+
+import java.util.AbstractMap;
 
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMultiplierForAutomaticResourceManagement;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isResourceManagementDIRCUOptimized;
@@ -52,7 +53,7 @@ public class PhysicalResourceOptimizer
 
     public void optimize(Session session, SparkContext sparkContext)
     {
-        Pair<Double, Boolean> sourceStatistics = new CollectSourceStats(metadata, session).collectSourceStats(root);
+        AbstractMap.SimpleImmutableEntry<Double, Boolean> sourceStatistics = new CollectSourceStats(metadata, session).collectSourceStats(root);
 
         if (0 == sourceStatistics.getValue().compareTo(false)) {
             log.warn(String.format("Source missing statistics, skipping automatic resource tuning."));
@@ -74,6 +75,7 @@ public class PhysicalResourceOptimizer
         }
 
         int desiredExecutorCount = calculateExecutorCount(inputDataInGB, session, isCurrentQueryHourPlus);
+        log.info("SOURAV setting the desiredExecutorCount ==> " + desiredExecutorCount);
         sparkContext.conf().set("spark.dynamicAllocation.maxExecutors", Integer.toString(desiredExecutorCount));
     }
 
