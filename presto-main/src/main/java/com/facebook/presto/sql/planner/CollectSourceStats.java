@@ -22,17 +22,12 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.concurrent.Immutable;
-
+import java.util.AbstractMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-
-import static java.util.Objects.requireNonNull;
 
 public final class CollectSourceStats
 {
@@ -46,13 +41,13 @@ public final class CollectSourceStats
         this.session = session;
     }
 
-    public Pair<Double, Boolean> collectSourceStats(PlanNode root)
+    public AbstractMap.SimpleImmutableEntry<Double, Boolean> collectSourceStats(PlanNode root)
     {
         log.info("Sourav inside collectSourceStats");
         Visitor visitor = new Visitor();
         root.accept(visitor, null);
 
-        Pair<List<TableStatistics>, Boolean> sourceStatistics = visitor.getStatsForSources();
+        AbstractMap.SimpleImmutableEntry<List<TableStatistics>, Boolean> sourceStatistics = visitor.getStatsForSources();
 
         Iterator<TableStatistics> tableStatisticsIterator = sourceStatistics.getKey().iterator();
         Double totalSourceSize = 0.0;
@@ -61,7 +56,7 @@ public final class CollectSourceStats
             totalSourceSize = totalSourceSize + ts.getTotalSize().getValue();
         }
 
-        return new Pair<Double, Boolean>(totalSourceSize, sourceStatistics.getValue());
+        return new AbstractMap.SimpleImmutableEntry(totalSourceSize, sourceStatistics.getValue());
     }
 
     private class Visitor
@@ -70,9 +65,9 @@ public final class CollectSourceStats
         private final ImmutableList.Builder<TableStatistics> tableStatisticsBuilder = ImmutableList.builder();
         private Boolean isSourceMissingData = false;
 
-        public Pair<List<TableStatistics>, Boolean> getStatsForSources()
+        public AbstractMap.SimpleImmutableEntry<List<TableStatistics>, Boolean> getStatsForSources()
         {
-            return new Pair<>(tableStatisticsBuilder.build(), isSourceMissingData);
+            return new AbstractMap.SimpleImmutableEntry(tableStatisticsBuilder.build(), isSourceMissingData);
         }
 
         @Override
@@ -100,32 +95,6 @@ public final class CollectSourceStats
                 source.accept(this, context);
             }
             return null;
-        }
-    }
-
-    @Immutable
-    public static class Pair<K, V>
-    {
-        private final K key;
-        private final V value;
-
-        @JsonCreator
-        public Pair(@JsonProperty("key") K key, @JsonProperty("value") V value)
-        {
-            this.key = requireNonNull(key, "key is null");
-            this.value = requireNonNull(value, "value is null");
-        }
-
-        @JsonProperty
-        public K getKey()
-        {
-            return key;
-        }
-
-        @JsonProperty
-        public V getValue()
-        {
-            return value;
         }
     }
 }
