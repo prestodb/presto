@@ -1,8 +1,9 @@
 name: test native
-
+# test
 on:
   pull_request:
 
+# test
 env:
   MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
@@ -73,7 +74,7 @@ jobs:
       - name: Install presto-hive
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          mvn install ${MAVEN_FAST_INSTALL} -am -pl presto-hive
+          mvn install ${MAVEN_FAST_INSTALL} -DskipTests -am -pl presto-hive
 
       - name: Run e2e tests
         run: mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server -DDATA_DIR=/tmp/ -Duser.timezone=America/Bahia_Banderas

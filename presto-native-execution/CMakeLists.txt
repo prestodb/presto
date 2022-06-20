@@ -93,8 +93,6 @@ find_path(
   PATH_SUFFIXES antlr4-runtime)
 include_directories(SYSTEM ${ANTLR4_RUNTIME_INCLUDE_DIR})
 
-find_library(GMock gmock)
-
 find_library(GLOG glog)
 
 find_library(FMT fmt)
@@ -157,7 +155,8 @@ add_subdirectory(velox)
 if(PRESTO_ENABLE_TESTING)
   include(CTest) # include after project() but before add_subdirectory()
   include_directories(velox/third_party/googletest/googletest/include)
-  include_directories(veloxs/third_party/googletest/googlemock/include)
+else()
+  add_definitions(-DVELOX_DISABLE_GOOGLETEST)
 endif()
 
 add_subdirectory(presto_cpp)
