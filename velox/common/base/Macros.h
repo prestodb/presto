@@ -22,7 +22,14 @@
   _Pragma("clang diagnostic push");        \
   _Pragma("clang diagnostic ignored \"-Wdeprecated-declarations\"")
 #define VELOX_UNSUPPRESS_DEPRECATION_WARNING _Pragma("clang diagnostic pop");
+#define VELOX_SUPPRESS_RETURN_LOCAL_ADDR_WARNING
+#define VELOX_UNSUPPRESS_RETURN_LOCAL_ADDR_WARNING
 #else
 #define VELOX_SUPPRESS_DEPRECATION_WARNING
 #define VELOX_UNSUPPRESS_DEPRECATION_WARNING
+#define VELOX_SUPPRESS_RETURN_LOCAL_ADDR_WARNING \
+  _Pragma("GCC diagnostic push");                \
+  _Pragma("GCC diagnostic ignored \"-Wreturn-local-addr\"")
+#define VELOX_UNSUPPRESS_RETURN_LOCAL_ADDR_WARNING \
+  _Pragma("GCC diagnostic pop");
 #endif

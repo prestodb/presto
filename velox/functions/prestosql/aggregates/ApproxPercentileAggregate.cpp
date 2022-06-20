@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/Macros.h"
 #include "velox/common/base/RandomUtil.h"
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
@@ -438,7 +439,14 @@ class ApproxPercentileAggregate : public exec::Aggregate {
         accuracy != kMissingNormalizedValue) {
       checkSetAccuracy(accuracy);
     }
+    // If 'data' is inline, this function will return a local
+    // address. Assert data is not inline.
+    VELOX_DCHECK(!data.isInline());
+    // Some compilers cannot deduce that the StringView cannot be inline from
+    // the assert above. Suppress warning.
+    VELOX_SUPPRESS_RETURN_LOCAL_ADDR_WARNING
     return data.data() + stream.offset();
+    VELOX_UNSUPPRESS_RETURN_LOCAL_ADDR_WARNING
   }
 
   static constexpr double kMissingNormalizedValue = -1;
