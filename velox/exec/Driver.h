@@ -201,6 +201,8 @@ class Driver {
       std::unique_ptr<DriverCtx> driverCtx,
       std::vector<std::unique_ptr<Operator>>&& operators);
 
+  static void run(std::shared_ptr<Driver> self);
+
   static void enqueue(std::shared_ptr<Driver> instance);
 
   bool isOnThread() const {
@@ -238,7 +240,7 @@ class Driver {
 
   void setError(std::exception_ptr exception);
 
-  std::string toString() const;
+  std::string toString();
 
   DriverCtx* FOLLY_NONNULL driverCtx() const {
     return ctx_.get();
@@ -253,13 +255,11 @@ class Driver {
   void closeByTask();
 
  private:
-  static void run(std::shared_ptr<Driver> self);
-
   void enqueueInternal();
 
   StopReason runInternal(
       std::shared_ptr<Driver>& self,
-      std::shared_ptr<BlockingState>& blockingState);
+      std::shared_ptr<BlockingState>* FOLLY_NONNULL blockingState);
 
   void close();
 
@@ -323,8 +323,7 @@ struct DriverFactory {
       std::shared_ptr<ExchangeClient> exchangeClient,
       std::function<int(int pipelineId)> numDrivers);
 
-  std::shared_ptr<const core::PartitionedOutputNode> needsPartitionedOutput()
-      const {
+  std::shared_ptr<const core::PartitionedOutputNode> needsPartitionedOutput() {
     VELOX_CHECK(!planNodes.empty());
     if (auto partitionedOutputNode =
             std::dynamic_pointer_cast<const core::PartitionedOutputNode>(

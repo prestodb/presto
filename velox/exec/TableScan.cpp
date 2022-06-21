@@ -32,7 +32,8 @@ TableScan::TableScan(
           "TableScan"),
       tableHandle_(tableScanNode->tableHandle()),
       columnHandles_(tableScanNode->assignments()),
-      driverCtx_(driverCtx) {
+      driverCtx_(driverCtx),
+      blockingFuture_(false) {
   connector_ = connector::getConnector(tableHandle_->connectorId());
 }
 

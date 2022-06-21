@@ -239,7 +239,7 @@ void Driver::enqueueInternal() {
 
 StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
-    std::shared_ptr<BlockingState>& blockingState) {
+    std::shared_ptr<BlockingState>* blockingState) {
   auto queuedTime = (getCurrentTimeMicro() - queueTimeStartMicros_) * 1'000;
   // Update the next operator's queueTime.
   auto stop = closed_ ? StopReason::kTerminate : task()->enter(state_);
@@ -313,7 +313,7 @@ StopReason Driver::runInternal(
 
         blockingReason_ = op->isBlocked(&future);
         if (blockingReason_ != BlockingReason::kNotBlocked) {
-          blockingState = std::make_shared<BlockingState>(
+          *blockingState = std::make_shared<BlockingState>(
               self, std::move(future), op, blockingReason_);
           guard.notThrown();
           return StopReason::kBlock;
@@ -323,7 +323,7 @@ StopReason Driver::runInternal(
           nextOp = operators_[i + 1].get();
           blockingReason_ = nextOp->isBlocked(&future);
           if (blockingReason_ != BlockingReason::kNotBlocked) {
-            blockingState = std::make_shared<BlockingState>(
+            *blockingState = std::make_shared<BlockingState>(
                 self, std::move(future), nextOp, blockingReason_);
             guard.notThrown();
             return StopReason::kBlock;
@@ -366,7 +366,7 @@ StopReason Driver::runInternal(
               // before.
               blockingReason_ = op->isBlocked(&future);
               if (blockingReason_ != BlockingReason::kNotBlocked) {
-                blockingState = std::make_shared<BlockingState>(
+                *blockingState = std::make_shared<BlockingState>(
                     self, std::move(future), op, blockingReason_);
                 guard.notThrown();
                 return StopReason::kBlock;
@@ -411,7 +411,7 @@ StopReason Driver::runInternal(
 // static
 void Driver::run(std::shared_ptr<Driver> self) {
   std::shared_ptr<BlockingState> blockingState;
-  auto reason = self->runInternal(self, blockingState);
+  auto reason = self->runInternal(self, &blockingState);
   switch (reason) {
     case StopReason::kBlock:
       // Set the resume action outside of the Task so that, if the
@@ -561,7 +561,7 @@ void Driver::setError(std::exception_ptr exception) {
   task()->setError(exception);
 }
 
-std::string Driver::toString() const {
+std::string Driver::toString() {
   std::stringstream out;
   out << "{Driver: ";
   if (state_.isOnThread()) {
