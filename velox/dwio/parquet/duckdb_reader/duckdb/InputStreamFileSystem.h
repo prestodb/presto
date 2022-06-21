@@ -18,7 +18,7 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/dwio/common/InputStream.h"
-#include "velox/dwio/parquet/reader/duckdb/InputStreamFileHandle.h"
+#include "velox/dwio/parquet/duckdb_reader/duckdb/InputStreamFileHandle.h"
 #include "velox/external/duckdb/duckdb.hpp"
 
 #include <folly/Synchronized.h>
@@ -32,14 +32,15 @@ namespace facebook::velox::duckdb {
 // TODO: Work with DuckDB to directly support a InputStream API.
 class InputStreamFileSystem : public ::duckdb::FileSystem {
  public:
-  InputStreamFileSystem(std::unique_ptr<dwio::common::InputStream> stream)
+  explicit InputStreamFileSystem(
+      std::unique_ptr<dwio::common::InputStream> stream)
       : stream_(std::move(stream)) {}
 
   ~InputStreamFileSystem() override = default;
 
   // Arguments are not used as this only supports a specific InputStream
   std::unique_ptr<::duckdb::FileHandle> OpenFile(
-      const std::string& path,
+      const std::string& /* path */,
       uint8_t /*flags*/,
       ::duckdb::FileLockType /*lock = ::duckdb::FileLockType::NO_LOCK*/,
       ::duckdb::FileCompressionType /*compression =
@@ -54,7 +55,7 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
   }
 
   void Read(
-      ::duckdb::FileHandle& handle,
+      ::duckdb::FileHandle& /* handle */,
       void* buffer,
       int64_t nr_bytes,
       uint64_t location) override {
@@ -83,7 +84,7 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
     VELOX_NYI();
   }
 
-  int64_t GetFileSize(::duckdb::FileHandle& handle) override {
+  int64_t GetFileSize(::duckdb::FileHandle& /* handle */) override {
     return stream_->getLength();
   }
 

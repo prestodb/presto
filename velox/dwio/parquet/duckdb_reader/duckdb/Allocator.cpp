@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/parquet/reader/duckdb/Allocator.h"
+#include "velox/dwio/parquet/duckdb_reader/duckdb/Allocator.h"
 
 namespace facebook::velox::duckdb {
 

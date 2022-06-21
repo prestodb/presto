@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/parquet/reader/ParquetReader.h"
+#include "velox/dwio/parquet/duckdb_reader/ParquetReader.h"
 #include "velox/duckdb/conversion/DuckConversion.h"
 #include "velox/duckdb/conversion/DuckWrapper.h"
-#include "velox/dwio/parquet/reader/Statistics.h"
+#include "velox/dwio/parquet/duckdb_reader/Statistics.h"
 
-namespace facebook::velox::parquet {
+namespace facebook::velox::parquet::duckdb_reader {
 
 namespace {
 
@@ -350,12 +350,4 @@ std::unique_ptr<dwio::common::RowReader> ParquetReader::createRowReader(
   return std::make_unique<ParquetRowReader>(reader_, options, pool_);
 }
 
-void registerParquetReaderFactory() {
-  dwio::common::registerReaderFactory(std::make_shared<ParquetReaderFactory>());
-}
-
-void unregisterParquetReaderFactory() {
-  dwio::common::unregisterReaderFactory(dwio::common::FileFormat::PARQUET);
-}
-
-} // namespace facebook::velox::parquet
+} // namespace facebook::velox::parquet::duckdb_reader

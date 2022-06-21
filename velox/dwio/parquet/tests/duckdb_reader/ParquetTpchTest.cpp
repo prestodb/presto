@@ -15,9 +15,12 @@
  */
 
 #include <folly/init/Init.h>
+#include <vector>
+
 #include "velox/common/base/tests/Fs.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/dwio/parquet/reader/ParquetReader.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/duckdb_reader/ParquetReader.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -25,11 +28,10 @@
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 
-#include <vector>
-
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
+using namespace facebook::velox::parquet;
 
 static const int kNumDrivers = 4;
 
@@ -46,7 +48,7 @@ class ParquetTpchTest : public testing::Test {
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
     filesystems::registerLocalFileSystem();
-    parquet::registerParquetReaderFactory();
+    registerParquetReaderFactory();
 
     auto hiveConnector =
         connector::getConnectorFactory(
@@ -79,7 +81,7 @@ class ParquetTpchTest : public testing::Test {
 
   static void TearDownTestSuite() {
     connector::unregisterConnector(kHiveConnectorId);
-    parquet::unregisterParquetReaderFactory();
+    unregisterParquetReaderFactory();
   }
 
   std::shared_ptr<Task> assertQuery(

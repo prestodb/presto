@@ -16,14 +16,22 @@
 
 #pragma once
 
-#include "velox/dwio/common/Statistics.h"
+#include "velox/external/duckdb/duckdb.hpp"
 
-namespace facebook::velox::parquet {
+namespace facebook::velox::duckdb {
 
-class ColumnStatistics : public dwio::common::ColumnStatistics {
+class InputStreamFileSystem;
+
+// Implements the DuckDB FileHandle API
+class InputStreamFileHandle : public ::duckdb::FileHandle {
  public:
-  ColumnStatistics() {}
-  ~ColumnStatistics() override = default;
+  explicit InputStreamFileHandle(::duckdb::FileSystem& fileSystem)
+      : FileHandle(fileSystem, "") {}
+
+  ~InputStreamFileHandle() override {}
+
+ protected:
+  void Close() override {}
 };
 
-} // namespace facebook::velox::parquet
+} // namespace facebook::velox::duckdb
