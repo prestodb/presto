@@ -149,7 +149,7 @@ std::string DateTimeFormatter::format(
     } else {
       switch (token.pattern.specifier) {
         case DateTimeFormatSpecifier::ERA:
-          result += static_cast<signed>(calDate.year()) >= 0 ? "AD" : "BC";
+          result += static_cast<signed>(calDate.year()) > 0 ? "AD" : "BC";
           break;
 
         case DateTimeFormatSpecifier::CENTURY_OF_ERA: {
