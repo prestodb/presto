@@ -23,6 +23,7 @@ import com.facebook.airlift.stats.JmxGcMonitor;
 import com.facebook.airlift.stats.PauseMeter;
 import com.facebook.drift.client.ExceptionClassification;
 import com.facebook.drift.client.address.AddressSelector;
+import com.facebook.drift.client.guice.DriftClientBindingBuilder;
 import com.facebook.drift.codec.utils.DefaultThriftCodecsModule;
 import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
 import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
@@ -121,6 +122,7 @@ import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.LeaderResourceManagerAddressSelector;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.RaftConfig;
 import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
@@ -376,17 +378,26 @@ public class ServerMainModule
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
         binder.bind(SpoolingOutputBufferFactory.class).in(Scopes.SINGLETON);
 
-        binder.bind(RandomResourceManagerAddressSelector.class).in(Scopes.SINGLETON);
-        driftClientBinder(binder)
+        DriftClientBindingBuilder driftClientBinder = driftClientBinder(binder)
                 .bindDriftClient(ResourceManagerClient.class, ForResourceManager.class)
-                .withAddressSelector((addressSelectorBinder, annotation, prefix) ->
-                        addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(RandomResourceManagerAddressSelector.class))
                 .withExceptionClassifier(throwable -> {
                     if (throwable instanceof ResourceManagerInconsistentException) {
                         return new ExceptionClassification(Optional.of(true), DOWN);
                     }
                     return new ExceptionClassification(Optional.of(true), NORMAL);
                 });
+
+        RaftConfig raftConfig = buildConfigObject(RaftConfig.class);
+        if (raftConfig.isEnabled() && serverConfig.isCoordinator()) {
+            binder.bind(LeaderResourceManagerAddressSelector.class).in(Scopes.SINGLETON);
+            driftClientBinder.withAddressSelector((addressSelectorBinder, annotation, prefix) ->
+                    addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(LeaderResourceManagerAddressSelector.class));
+        }
+        else {
+            binder.bind(RandomResourceManagerAddressSelector.class).in(Scopes.SINGLETON);
+            driftClientBinder.withAddressSelector((addressSelectorBinder, annotation, prefix) ->
+                    addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(RandomResourceManagerAddressSelector.class));
+        }
 
         binder.bind(RandomCatalogServerAddressSelector.class).in(Scopes.SINGLETON);
         driftClientBinder(binder)
@@ -646,7 +657,6 @@ public class ServerMainModule
                 .addProperty("catalog_server", String.valueOf(serverConfig.isCatalogServer()))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
 
-        RaftConfig raftConfig = buildConfigObject(RaftConfig.class);
         if (serverConfig.isResourceManager() && raftConfig.isEnabled()) {
             serviceAnnouncementBuilder.addProperty("raftPort", String.valueOf(raftConfig.getPort()));
         }

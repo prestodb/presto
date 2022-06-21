@@ -1768,6 +1768,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.ratis</groupId>
+                <artifactId>ratis-thirdparty-misc</artifactId>
+                <version>0.7.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>${dep.kafka.version}</version>

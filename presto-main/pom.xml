@@ -459,6 +459,19 @@
             <artifactId>ratis-common</artifactId>
             <optional>true</optional>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.ratis</groupId>
+            <artifactId>ratis-client</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ratis</groupId>
+            <artifactId>ratis-thirdparty-misc</artifactId>
+            <optional>true</optional>
+        </dependency>
+
     </dependencies>
 
     <build>

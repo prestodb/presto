@@ -312,6 +312,12 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-client</artifactId>
+            <scope>compile</scope>
+        </dependency>
         
     </dependencies>
 

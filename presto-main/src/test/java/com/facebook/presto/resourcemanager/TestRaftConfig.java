@@ -31,7 +31,8 @@ public class TestRaftConfig
                 .setEnabled(false)
                 .setGroupId(null)
                 .setPort(0)
-                .setStorageDir(null));
+                .setStorageDir(null)
+                .setRequiredPeersActive(1));
     }
 
     @Test
@@ -42,13 +43,15 @@ public class TestRaftConfig
                 .put("raft.groupId", "testRaftGroupId1")
                 .put("raft.port", "6000")
                 .put("raft.isEnabled", "true")
+                .put("raft.required-peers-active", "2")
                 .build();
 
         RaftConfig expected = new RaftConfig()
                 .setEnabled(true)
                 .setGroupId("testRaftGroupId1")
                 .setPort(6000)
-                .setStorageDir("/tmp/raft-server");
+                .setStorageDir("/tmp/raft-server")
+                .setRequiredPeersActive(2);
 
         assertFullMapping(properties, expected);
     }

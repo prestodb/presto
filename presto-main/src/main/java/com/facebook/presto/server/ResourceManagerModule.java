@@ -29,6 +29,7 @@ import com.facebook.presto.resourcemanager.DistributedQueryResource;
 import com.facebook.presto.resourcemanager.DistributedResourceGroupInfoResource;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.RaftConfig;
+import com.facebook.presto.resourcemanager.RatisClient;
 import com.facebook.presto.resourcemanager.RatisServer;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
@@ -111,6 +112,7 @@ public class ResourceManagerModule
         RaftConfig raftConfig = buildConfigObject(RaftConfig.class);
         if (raftConfig.isEnabled()) {
             binder.bind(RatisServer.class).in(Scopes.SINGLETON);
+            binder.bind(RatisClient.class).in(Scopes.SINGLETON);
         }
     }
 

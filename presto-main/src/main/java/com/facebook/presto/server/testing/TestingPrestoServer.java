@@ -51,6 +51,9 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.resourcemanager.RaftConfig;
+import com.facebook.presto.resourcemanager.RatisClient;
+import com.facebook.presto.resourcemanager.RatisServer;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
@@ -170,6 +173,8 @@ public class TestingPrestoServer
     private final boolean coordinator;
     private final ServerInfoResource serverInfoResource;
     private final ResourceManagerClusterStateProvider clusterStateProvider;
+    private RatisServer ratisServer;
+    private RatisClient ratisClient;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -352,6 +357,7 @@ public class TestingPrestoServer
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
+        RaftConfig raftConfig = injector.getInstance(RaftConfig.class);
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = injector.getInstance(QueryManager.class);
@@ -365,6 +371,9 @@ public class TestingPrestoServer
             statsCalculator = injector.getInstance(StatsCalculator.class);
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
             clusterStateProvider = null;
+            if (raftConfig.isEnabled()) {
+                ratisClient = injector.getInstance(RatisClient.class);
+            }
         }
         else if (resourceManager) {
             dispatchManager = null;
@@ -376,6 +385,9 @@ public class TestingPrestoServer
             statsCalculator = null;
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
             clusterStateProvider = injector.getInstance(ResourceManagerClusterStateProvider.class);
+            if (raftConfig.isEnabled()) {
+                ratisServer = injector.getInstance(RatisServer.class);
+            }
         }
         else if (catalogServer) {
             dispatchManager = null;
@@ -458,6 +470,9 @@ public class TestingPrestoServer
         try {
             if (lifeCycleManager != null) {
                 lifeCycleManager.stop();
+            }
+            if (ratisServer != null) {
+                ratisServer.stop();
             }
         }
         catch (Exception e) {
@@ -793,5 +808,10 @@ public class TestingPrestoServer
     private static int driftServerPort(DriftServer server)
     {
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
+    }
+
+    public RatisClient getRatisClient()
+    {
+        return ratisClient;
     }
 }
