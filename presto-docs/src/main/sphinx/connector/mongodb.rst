@@ -261,3 +261,11 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
 .. note::
 
     Unfortunately, there is no way to represent ``_id`` fields more fancy like ``55b151633864d6438c61a9ce``.
+
+SQL support
+-----------
+
+ALTER TABLE
+^^^^^^^^^^^
+
+The connector supports ``ALTER TABLE RENAME TO`` operation. Other uses of ``ALTER TABLE`` are not supported.

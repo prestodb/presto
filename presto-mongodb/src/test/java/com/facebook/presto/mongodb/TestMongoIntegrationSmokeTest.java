@@ -19,6 +19,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.client.MongoCollection;
 import org.bson.Document;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -252,5 +253,21 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        assertUpdate("CREATE TABLE test_rename.tmp_rename_table (value bigint)");
+        MongoCollection<Document> collection = mongoQueryRunner.getMongoClient().getDatabase("test_rename").getCollection("tmp_rename_table");
+        collection.insertOne(new Document(ImmutableMap.of("value", 1)));
+        assertQuery("SHOW TABLES IN test_rename", "SELECT 'tmp_rename_table'");
+        assertQuery("SELECT value FROM test_rename.tmp_rename_table", "SELECT 1");
+
+        assertUpdate("ALTER TABLE test_rename.tmp_rename_table RENAME TO test_rename.tmp_rename_new_table");
+
+        assertQuery("SHOW TABLES IN test_rename", "SELECT 'tmp_rename_new_table'");
+        assertQuery("SELECT value FROM test_rename.tmp_rename_new_table", "SELECT 1");
+        assertUpdate("DROP TABLE test_rename.tmp_rename_new_table");
     }
 }
