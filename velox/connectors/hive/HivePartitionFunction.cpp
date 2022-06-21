@@ -214,7 +214,7 @@ void hashPrecomputed(
 HivePartitionFunction::HivePartitionFunction(
     int numBuckets,
     std::vector<int> bucketToPartition,
-    std::vector<ChannelIndex> keyChannels,
+    std::vector<column_index_t> keyChannels,
     const std::vector<VectorPtr>& constValues)
     : numBuckets_{numBuckets},
       bucketToPartition_{bucketToPartition},

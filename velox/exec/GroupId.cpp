@@ -29,7 +29,8 @@ GroupId::GroupId(
           "GroupId") {
   const auto& inputType = groupIdNode->sources()[0]->outputType();
 
-  std::unordered_map<std::string, ChannelIndex> inputToOutputGroupingKeyMapping;
+  std::unordered_map<std::string, column_index_t>
+      inputToOutputGroupingKeyMapping;
   for (const auto& [output, input] : groupIdNode->outputGroupingKeyNames()) {
     inputToOutputGroupingKeyMapping[input->name()] =
         outputType_->getChildIdx(output);
@@ -41,7 +42,7 @@ GroupId::GroupId(
   auto numGroupingKeys = groupIdNode->numGroupingKeys();
 
   for (const auto& groupingSet : groupIdNode->groupingSets()) {
-    std::vector<ChannelIndex> mappings(numGroupingKeys, kMissingGroupingKey);
+    std::vector<column_index_t> mappings(numGroupingKeys, kMissingGroupingKey);
     for (const auto& groupingKey : groupingSet) {
       auto outputChannel =
           inputToOutputGroupingKeyMapping.at(groupingKey->name());

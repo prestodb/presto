@@ -32,7 +32,7 @@ Limit::Limit(
 
   const auto numColumns = limitNode->outputType()->size();
   identityProjections_.reserve(numColumns);
-  for (ChannelIndex i = 0; i < numColumns; ++i) {
+  for (column_index_t i = 0; i < numColumns; ++i) {
     identityProjections_.emplace_back(i, i);
   }
 }

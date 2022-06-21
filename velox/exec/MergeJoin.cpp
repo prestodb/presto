@@ -83,7 +83,7 @@ void MergeJoin::initializeFilter(
   filter_ =
       std::make_unique<ExprSet>(std::move(filters), operatorCtx_->execCtx());
 
-  ChannelIndex filterChannel = 0;
+  column_index_t filterChannel = 0;
   std::vector<std::string> names;
   std::vector<TypePtr> types;
   auto numFields = filter_->expr(0)->distinctFields().size();
@@ -139,10 +139,10 @@ void MergeJoin::addInput(RowVectorPtr input) {
 
 // static
 int32_t MergeJoin::compare(
-    const std::vector<ChannelIndex>& keys,
+    const std::vector<column_index_t>& keys,
     const RowVectorPtr& batch,
     vector_size_t index,
-    const std::vector<ChannelIndex>& otherKeys,
+    const std::vector<column_index_t>& otherKeys,
     const RowVectorPtr& otherBatch,
     vector_size_t otherIndex) {
   for (auto i = 0; i < keys.size(); ++i) {
@@ -159,7 +159,7 @@ int32_t MergeJoin::compare(
 bool MergeJoin::findEndOfMatch(
     Match& match,
     const RowVectorPtr& input,
-    const std::vector<ChannelIndex>& keys) {
+    const std::vector<column_index_t>& keys) {
   if (match.complete) {
     return true;
   }

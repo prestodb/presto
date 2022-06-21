@@ -710,7 +710,7 @@ core::PartitionFunctionFactory createPartitionFunctionFactory(
           VELOX_UNREACHABLE();
         };
   } else {
-    std::vector<ChannelIndex> keyIndices;
+    std::vector<column_index_t> keyIndices;
     keyIndices.reserve(keys.size());
     for (const auto& key : keys) {
       keyIndices.push_back(inputType->getChildIdx(key));
@@ -1014,7 +1014,7 @@ std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
 // static
 std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
     const RowTypePtr& inputType,
-    ChannelIndex index) {
+    column_index_t index) {
   auto name = inputType->names()[index];
   auto type = inputType->childAt(index);
   return std::make_shared<core::FieldAccessTypedExpr>(type, name);
@@ -1036,7 +1036,7 @@ PlanBuilder::fields(
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
 PlanBuilder::fields(
     const RowTypePtr& inputType,
-    const std::vector<ChannelIndex>& indices) {
+    const std::vector<column_index_t>& indices) {
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields;
   for (auto& index : indices) {
     fields.push_back(field(inputType, index));
@@ -1045,7 +1045,7 @@ PlanBuilder::fields(
 }
 
 std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
-    ChannelIndex index) {
+    column_index_t index) {
   return field(planNode_->outputType(), index);
 }
 
@@ -1060,7 +1060,7 @@ PlanBuilder::fields(const std::vector<std::string>& names) {
 }
 
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
-PlanBuilder::fields(const std::vector<ChannelIndex>& indices) {
+PlanBuilder::fields(const std::vector<column_index_t>& indices) {
   return fields(planNode_->outputType(), indices);
 }
 

@@ -39,7 +39,7 @@ class Unnest : public Operator {
   bool isFinished() override;
 
  private:
-  std::vector<ChannelIndex> unnestChannels_;
+  std::vector<column_index_t> unnestChannels_;
 
   SelectivityVector inputRows_;
   std::vector<DecodedVector> unnestDecoded_;

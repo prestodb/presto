@@ -29,10 +29,10 @@ class GroupingSet {
  public:
   GroupingSet(
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
-      std::vector<ChannelIndex>&& preGroupedKeys,
+      std::vector<column_index_t>&& preGroupedKeys,
       std::vector<std::unique_ptr<Aggregate>>&& aggregates,
-      std::vector<std::optional<ChannelIndex>>&& aggrMaskChannels,
-      std::vector<std::vector<ChannelIndex>>&& channelLists,
+      std::vector<std::optional<column_index_t>>&& aggrMaskChannels,
+      std::vector<std::vector<column_index_t>>&& channelLists,
       std::vector<std::vector<VectorPtr>>&& constantLists,
       std::vector<TypePtr>&& intermediateTypes,
       bool ignoreNullKeys,
@@ -146,10 +146,10 @@ class GroupingSet {
   // groups.
   void extractSpillResult(const RowVectorPtr& result);
 
-  std::vector<ChannelIndex> keyChannels_;
+  std::vector<column_index_t> keyChannels_;
 
   /// A subset of grouping keys on which the input is clustered.
-  const std::vector<ChannelIndex> preGroupedKeyChannels_;
+  const std::vector<column_index_t> preGroupedKeyChannels_;
 
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
   const bool isGlobal_;
@@ -158,7 +158,7 @@ class GroupingSet {
   std::vector<std::unique_ptr<Aggregate>> aggregates_;
   AggregationMasks masks_;
   // Argument list for the corresponding element of 'aggregates_'.
-  const std::vector<std::vector<ChannelIndex>> channelLists_;
+  const std::vector<std::vector<column_index_t>> channelLists_;
   // Constant arguments to aggregates. Corresponds pairwise to
   // 'channelLists_'. This is used when channelLists_[i][j] ==
   // kConstantChannel.

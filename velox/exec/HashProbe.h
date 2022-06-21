@@ -86,7 +86,7 @@ class HashProbe : public Operator {
   // 'rowNumberMapping_'. Returns the number of passing rows.
   vector_size_t evalFilter(vector_size_t numRows);
 
-  void ensureLoadedIfNotAtEnd(ChannelIndex channel);
+  void ensureLoadedIfNotAtEnd(column_index_t channel);
 
   // TODO: Define batch size as bytes based on RowContainer row sizes.
   const uint32_t outputBatchSize_;
@@ -96,7 +96,7 @@ class HashProbe : public Operator {
   std::unique_ptr<HashLookup> lookup_;
 
   // Channel of probe keys in 'input_'.
-  std::vector<ChannelIndex> keyChannels_;
+  std::vector<column_index_t> keyChannels_;
 
   // True if the join can become a no-op starting with the next batch of input.
   bool canReplaceWithDynamicFilter_{false};

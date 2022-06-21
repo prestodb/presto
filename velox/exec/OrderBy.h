@@ -61,7 +61,7 @@ class OrderBy : public Operator {
   static const int32_t kBatchSizeInBytes{2 * 1024 * 1024};
 
   std::unique_ptr<RowContainer> data_;
-  std::vector<std::pair<ChannelIndex, core::SortOrder>> keyInfo_;
+  std::vector<std::pair<column_index_t, core::SortOrder>> keyInfo_;
 
   size_t numRows_ = 0;
   size_t numRowsReturned_ = 0;

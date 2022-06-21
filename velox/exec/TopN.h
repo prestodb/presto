@@ -90,7 +90,7 @@ class TopN : public Operator {
     }
 
    private:
-    std::vector<std::pair<ChannelIndex, core::SortOrder>> keyInfo_;
+    std::vector<std::pair<column_index_t, core::SortOrder>> keyInfo_;
     RowContainer* rowContainer_;
   };
 

@@ -674,10 +674,10 @@ class PlanBuilder {
  private:
   std::string nextPlanNodeId();
 
-  std::shared_ptr<const core::FieldAccessTypedExpr> field(ChannelIndex index);
+  std::shared_ptr<const core::FieldAccessTypedExpr> field(column_index_t index);
 
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields(
-      const std::vector<ChannelIndex>& indices);
+      const std::vector<column_index_t>& indices);
 
   std::shared_ptr<const core::FieldAccessTypedExpr> field(
       const std::string& name);
@@ -694,11 +694,11 @@ class PlanBuilder {
 
   static std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields(
       const RowTypePtr& inputType,
-      const std::vector<ChannelIndex>& indices);
+      const std::vector<column_index_t>& indices);
 
   static std::shared_ptr<const core::FieldAccessTypedExpr> field(
       const RowTypePtr& inputType,
-      ChannelIndex index);
+      column_index_t index);
 
   static std::shared_ptr<const core::FieldAccessTypedExpr> field(
       const RowTypePtr& inputType,

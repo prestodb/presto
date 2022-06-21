@@ -38,7 +38,7 @@ namespace common {
 // mutable by readers to reflect filter order and other adaptation.
 class ScanSpec {
  public:
-  static constexpr ChannelIndex kNoChannel = ~0;
+  static constexpr column_index_t kNoChannel = ~0;
 
   explicit ScanSpec(const Subfield::PathElement& element) {
     if (element.kind() == kNestedField) {
@@ -135,12 +135,12 @@ class ScanSpec {
 
   // Position in the RowVector returned by the top level scan. Applies
   // only to children of the root struct where projectOut_ is true.
-  ChannelIndex channel() const {
+  column_index_t channel() const {
     VELOX_CHECK(channel_ != kNoChannel);
     return channel_;
   }
 
-  void setChannel(ChannelIndex channel) {
+  void setChannel(column_index_t channel) {
     channel_ = channel;
   }
 
@@ -249,7 +249,7 @@ class ScanSpec {
   }
 
   // Returns the child which produces values for 'channel'. Throws if not found.
-  ScanSpec& getChildByChannel(ChannelIndex channel);
+  ScanSpec& getChildByChannel(column_index_t channel);
 
   std::string toString() const;
 
@@ -272,7 +272,7 @@ class ScanSpec {
   std::string fieldName_;
   // Ordinal position of the extracted value in the containing
   // RowVector. Set only when this describes a struct member.
-  ChannelIndex channel_ = kNoChannel;
+  column_index_t channel_ = kNoChannel;
 
   VectorPtr constantValue_;
   bool projectOut_ = false;

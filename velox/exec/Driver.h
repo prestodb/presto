@@ -229,9 +229,9 @@ class Driver {
 
   // Returns a subset of channels for which there are operators upstream from
   // filterSource that accept dynamically generated filters.
-  std::unordered_set<ChannelIndex> canPushdownFilters(
+  std::unordered_set<column_index_t> canPushdownFilters(
       const Operator* FOLLY_NONNULL filterSource,
-      const std::vector<ChannelIndex>& channels) const;
+      const std::vector<column_index_t>& channels) const;
 
   // Returns the Operator with 'planNodeId.' or nullptr if not
   // found. For example, hash join probe accesses the corresponding

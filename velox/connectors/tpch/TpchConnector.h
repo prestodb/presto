@@ -78,7 +78,7 @@ class TpchDataSource : public DataSource {
   void addSplit(std::shared_ptr<ConnectorSplit> split) override;
 
   void addDynamicFilter(
-      ChannelIndex /*outputChannel*/,
+      column_index_t /*outputChannel*/,
       const std::shared_ptr<common::Filter>& /*filter*/) override {
     VELOX_NYI("Dynamic filters not supported by TpchConnector.");
   }
@@ -106,9 +106,9 @@ class TpchDataSource : public DataSource {
   size_t tpchTableRowCount_{0};
   RowTypePtr outputType_;
 
-  // Mapping between output columns and their indices (channelIndex) in the
+  // Mapping between output columns and their indices (column_index_t) in the
   // dbgen generated datasets.
-  std::vector<ChannelIndex> outputColumnMappings_;
+  std::vector<column_index_t> outputColumnMappings_;
 
   std::shared_ptr<TpchConnectorSplit> currentSplit_;
 

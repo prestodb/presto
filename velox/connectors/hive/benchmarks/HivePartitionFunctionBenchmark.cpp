@@ -80,7 +80,7 @@ class HivePartitionFunctionBenchmark
       size_t bucketCount) {
     std::vector<int> bucketToPartition(bucketCount);
     std::iota(bucketToPartition.begin(), bucketToPartition.end(), 0);
-    std::vector<ChannelIndex> keyChannels;
+    std::vector<column_index_t> keyChannels;
     keyChannels.emplace_back(0);
     return std::make_unique<HivePartitionFunction>(
         bucketCount, bucketToPartition, keyChannels);

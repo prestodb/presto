@@ -30,10 +30,10 @@
 
 namespace facebook::velox {
 
-using ChannelIndex = uint32_t;
+using column_index_t = uint32_t;
 
-constexpr ChannelIndex kConstantChannel =
-    std::numeric_limits<ChannelIndex>::max();
+constexpr column_index_t kConstantChannel =
+    std::numeric_limits<column_index_t>::max();
 
 class RowVector : public BaseVector {
  public:
@@ -97,16 +97,16 @@ class RowVector : public BaseVector {
   }
 
   /// Get the child vector at a given offset.
-  VectorPtr& childAt(ChannelIndex index) {
+  VectorPtr& childAt(column_index_t index) {
     VELOX_USER_CHECK_LT(index, childrenSize_);
     return children_[index];
   }
 
-  const VectorPtr& childAt(ChannelIndex index) const {
+  const VectorPtr& childAt(column_index_t index) const {
     VELOX_USER_CHECK_LT(index, childrenSize_);
     return children_[index];
   }
-  const VectorPtr& loadedChildAt(ChannelIndex index) const {
+  const VectorPtr& loadedChildAt(column_index_t index) const {
     VELOX_USER_CHECK_LT(index, childrenSize_);
     auto& child = children_[index];
     if (child->encoding() == VectorEncoding::Simple::LAZY) {

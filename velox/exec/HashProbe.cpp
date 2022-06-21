@@ -31,7 +31,7 @@ std::shared_ptr<const RowType> makeTableType(
         keys) {
   std::vector<std::string> names;
   std::vector<TypePtr> types;
-  std::unordered_set<ChannelIndex> keyChannels(keys.size());
+  std::unordered_set<column_index_t> keyChannels(keys.size());
   names.reserve(type->size());
   types.reserve(type->size());
   for (const auto& key : keys) {
@@ -93,7 +93,7 @@ HashProbe::HashProbe(
     }
   }
 
-  for (ChannelIndex i = 0; i < outputType_->size(); ++i) {
+  for (column_index_t i = 0; i < outputType_->size(); ++i) {
     auto tableChannel = tableType->getChildIdxIfExists(outputType_->nameOf(i));
     if (tableChannel.has_value()) {
       tableResultProjections_.emplace_back(tableChannel.value(), i);
@@ -114,7 +114,7 @@ void HashProbe::initializeFilter(
   filter_ =
       std::make_unique<ExprSet>(std::move(filters), operatorCtx_->execCtx());
 
-  ChannelIndex filterChannel = 0;
+  column_index_t filterChannel = 0;
   std::vector<std::string> names;
   std::vector<TypePtr> types;
   auto numFields = filter_->expr(0)->distinctFields().size();
@@ -588,7 +588,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
   return numPassed;
 }
 
-void HashProbe::ensureLoadedIfNotAtEnd(ChannelIndex channel) {
+void HashProbe::ensureLoadedIfNotAtEnd(column_index_t channel) {
   if (core::isSemiJoin(joinType_) || core::isAntiJoin(joinType_) ||
       results_.atEnd()) {
     return;

@@ -92,10 +92,10 @@ class HashBuild final : public Operator {
   std::unique_ptr<BaseHashTable> table_;
 
   // Key channels in 'input_'
-  std::vector<ChannelIndex> keyChannels_;
+  std::vector<column_index_t> keyChannels_;
 
   // Non-key channels in 'input_'.
-  std::vector<ChannelIndex> dependentChannels_;
+  std::vector<column_index_t> dependentChannels_;
 
   // Corresponds 1:1 to 'dependentChannels_'.
   std::vector<std::unique_ptr<DecodedVector>> decoders_;

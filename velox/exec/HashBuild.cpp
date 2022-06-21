@@ -72,7 +72,7 @@ HashBuild::HashBuild(
 
   auto numKeys = joinNode->rightKeys().size();
   keyChannels_.reserve(numKeys);
-  folly::F14FastSet<ChannelIndex> keyChannelSet;
+  folly::F14FastSet<column_index_t> keyChannelSet;
   keyChannelSet.reserve(numKeys);
   std::vector<std::unique_ptr<VectorHasher>> keyHashers;
   keyHashers.reserve(numKeys);

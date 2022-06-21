@@ -291,7 +291,7 @@ bool testFilter(
   return true;
 }
 
-ScanSpec& ScanSpec::getChildByChannel(ChannelIndex channel) {
+ScanSpec& ScanSpec::getChildByChannel(column_index_t channel) {
   for (auto& child : children_) {
     if (child->channel_ == channel) {
       return *child;

@@ -23,7 +23,7 @@ namespace facebook::velox::exec {
 
 void deselectRowsWithNulls(
     const RowVector& input,
-    const std::vector<ChannelIndex>& channels,
+    const std::vector<column_index_t>& channels,
     SelectivityVector& rows,
     core::ExecCtx& execCtx) {
   bool anyChange = false;

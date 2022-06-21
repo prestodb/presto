@@ -199,12 +199,12 @@ class PartitionedOutput : public Operator {
   /// Collect all rows with null keys into nullRows_.
   void collectNullRows();
 
-  const std::vector<ChannelIndex> keyChannels_;
+  const std::vector<column_index_t> keyChannels_;
   const int numDestinations_;
   const bool replicateNullsAndAny_;
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
   // Empty if column order in the output is exactly the same as in input.
-  const std::vector<ChannelIndex> outputChannels_;
+  const std::vector<column_index_t> outputChannels_;
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   ContinueFuture future_;
   bool finished_{false};

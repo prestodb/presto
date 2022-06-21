@@ -38,7 +38,7 @@ AssignUniqueId::AssignUniqueId(
 
   const auto numColumns = planNode->outputType()->size();
   identityProjections_.reserve(numColumns - 1);
-  for (ChannelIndex i = 0; i < numColumns - 1; ++i) {
+  for (column_index_t i = 0; i < numColumns - 1; ++i) {
     identityProjections_.emplace_back(i, i);
   }
 

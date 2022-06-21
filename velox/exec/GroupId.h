@@ -41,8 +41,8 @@ class GroupId : public Operator {
   }
 
  private:
-  static constexpr ChannelIndex kMissingGroupingKey =
-      std::numeric_limits<ChannelIndex>::max();
+  static constexpr column_index_t kMissingGroupingKey =
+      std::numeric_limits<column_index_t>::max();
 
   bool finished_{false};
 
@@ -52,11 +52,11 @@ class GroupId : public Operator {
   /// list identifies the grouping key column in the output. Positions with
   /// kMissingGroupingKey correspond to grouping keys which are not included in
   /// the set.
-  std::vector<std::vector<ChannelIndex>> groupingKeyMappings_;
+  std::vector<std::vector<column_index_t>> groupingKeyMappings_;
 
   /// A list of input column indices corresponding to aggregation inputs. The
   /// position in the list identifies the column in the output.
-  std::vector<ChannelIndex> aggregationInputs_;
+  std::vector<column_index_t> aggregationInputs_;
 
   /// 'getOutput()' returns 'input_' for one grouping set at a time.
   /// 'groupingSetIndex_' contains the index of the grouping set to output in

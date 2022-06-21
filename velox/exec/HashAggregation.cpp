@@ -52,7 +52,7 @@ HashAggregation::HashAggregation(
     hashers.push_back(VectorHasher::create(key->type(), channel));
   }
 
-  std::vector<ChannelIndex> preGroupedChannels;
+  std::vector<column_index_t> preGroupedChannels;
   preGroupedChannels.reserve(aggregationNode->preGroupedKeys().size());
   for (const auto& key : aggregationNode->preGroupedKeys()) {
     auto channel = exprToChannel(key.get(), inputType);
@@ -62,16 +62,16 @@ HashAggregation::HashAggregation(
   auto numAggregates = aggregationNode->aggregates().size();
   std::vector<std::unique_ptr<Aggregate>> aggregates;
   aggregates.reserve(numAggregates);
-  std::vector<std::optional<ChannelIndex>> aggrMaskChannels;
+  std::vector<std::optional<column_index_t>> aggrMaskChannels;
   aggrMaskChannels.reserve(numAggregates);
   auto numMasks = aggregationNode->aggregateMasks().size();
-  std::vector<std::vector<ChannelIndex>> args;
+  std::vector<std::vector<column_index_t>> args;
   std::vector<std::vector<VectorPtr>> constantLists;
   std::vector<TypePtr> intermediateTypes;
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode->aggregates()[i];
 
-    std::vector<ChannelIndex> channels;
+    std::vector<column_index_t> channels;
     std::vector<VectorPtr> constants;
     std::vector<TypePtr> argTypes;
     for (auto& arg : aggregate->inputs()) {

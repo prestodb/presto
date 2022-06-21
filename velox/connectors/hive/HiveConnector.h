@@ -146,7 +146,7 @@ class HiveDataSource : public DataSource {
   void addSplit(std::shared_ptr<ConnectorSplit> split) override;
 
   void addDynamicFilter(
-      ChannelIndex outputChannel,
+      column_index_t outputChannel,
       const std::shared_ptr<common::Filter>& filter) override;
 
   RowVectorPtr next(uint64_t size) override;

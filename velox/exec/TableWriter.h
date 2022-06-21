@@ -64,7 +64,7 @@ class TableWriter : public Operator {
  private:
   void createDataSink();
 
-  std::vector<ChannelIndex> inputMapping_;
+  std::vector<column_index_t> inputMapping_;
   std::shared_ptr<const RowType> mappedType_;
   vector_size_t numWrittenRows_;
   bool finished_;

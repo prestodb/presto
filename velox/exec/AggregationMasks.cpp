@@ -19,7 +19,7 @@
 namespace facebook::velox::exec {
 
 AggregationMasks::AggregationMasks(
-    std::vector<std::optional<ChannelIndex>> maskChannels)
+    std::vector<std::optional<column_index_t>> maskChannels)
     : maskChannels_{std::move(maskChannels)} {
   for (const auto& maskChannel : maskChannels_) {
     if (maskChannel.has_value()) {

@@ -119,7 +119,7 @@ class DataSource {
   // Connector::createDataSource() that identifies the column this filter
   // applies to.
   virtual void addDynamicFilter(
-      ChannelIndex outputChannel,
+      column_index_t outputChannel,
       const std::shared_ptr<common::Filter>& filter) = 0;
 
   // Returns the number of input bytes processed so far.

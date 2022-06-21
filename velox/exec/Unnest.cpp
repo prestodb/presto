@@ -49,7 +49,7 @@ Unnest::Unnest(
         "Ordinality column should be BIGINT type.")
   }
 
-  ChannelIndex outputChannel = 0;
+  column_index_t outputChannel = 0;
   for (const auto& variable : unnestNode->replicateVariables()) {
     identityProjections_.emplace_back(
         inputType->getChildIdx(variable->name()), outputChannel++);

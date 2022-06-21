@@ -52,10 +52,10 @@ class MergeJoin : public Operator {
   RowVectorPtr doGetOutput();
 
   static int32_t compare(
-      const std::vector<ChannelIndex>& keys,
+      const std::vector<column_index_t>& keys,
       const RowVectorPtr& batch,
       vector_size_t index,
-      const std::vector<ChannelIndex>& otherKeys,
+      const std::vector<column_index_t>& otherKeys,
       const RowVectorPtr& otherBatch,
       vector_size_t otherIndex);
 
@@ -145,7 +145,7 @@ class MergeJoin : public Operator {
   bool findEndOfMatch(
       Match& match,
       const RowVectorPtr& input,
-      const std::vector<ChannelIndex>& keys);
+      const std::vector<column_index_t>& keys);
 
   /// Initialize 'output_' vector using 'ouputType_' and 'outputBatchSize_' if
   /// it is null.
@@ -342,8 +342,8 @@ class MergeJoin : public Operator {
   /// Number of join keys.
   const size_t numKeys_;
 
-  std::vector<ChannelIndex> leftKeys_;
-  std::vector<ChannelIndex> rightKeys_;
+  std::vector<column_index_t> leftKeys_;
+  std::vector<column_index_t> rightKeys_;
   std::vector<IdentityProjection> leftProjections_;
   std::vector<IdentityProjection> rightProjections_;
 

@@ -144,7 +144,7 @@ class VectorHasher {
   // reservePct to enableValueIds().
   static constexpr int32_t kNoLimit = -1;
 
-  VectorHasher(TypePtr type, ChannelIndex channel)
+  VectorHasher(TypePtr type, column_index_t channel)
       : channel_(channel), type_(std::move(type)), typeKind_(type_->kind()) {
     if (typeKind_ == TypeKind::BOOLEAN) {
       // We do not need samples to know the cardinality or limits of a bool
@@ -157,11 +157,11 @@ class VectorHasher {
 
   static std::unique_ptr<VectorHasher> create(
       TypePtr type,
-      ChannelIndex channel) {
+      column_index_t channel) {
     return std::make_unique<VectorHasher>(std::move(type), channel);
   }
 
-  ChannelIndex channel() const {
+  column_index_t channel() const {
     return channel_;
   }
 
@@ -528,7 +528,7 @@ class VectorHasher {
   template <TypeKind Kind>
   void hashValues(const SelectivityVector& rows, bool mix, uint64_t* result);
 
-  const ChannelIndex channel_;
+  const column_index_t channel_;
   const TypePtr type_;
   const TypeKind typeKind_;
 

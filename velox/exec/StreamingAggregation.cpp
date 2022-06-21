@@ -50,12 +50,12 @@ StreamingAggregation::StreamingAggregation(
 
   auto numAggregates = aggregationNode->aggregates().size();
   aggregates_.reserve(numAggregates);
-  std::vector<std::optional<ChannelIndex>> maskChannels;
+  std::vector<std::optional<column_index_t>> maskChannels;
   maskChannels.reserve(numAggregates);
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode->aggregates()[i];
 
-    std::vector<ChannelIndex> channels;
+    std::vector<column_index_t> channels;
     std::vector<VectorPtr> constants;
     std::vector<TypePtr> argTypes;
     for (auto& arg : aggregate->inputs()) {
@@ -111,7 +111,7 @@ namespace {
 // Compares a row in one vector with another row in another vector and returns
 // true if two rows match in all grouping key columns.
 bool equalKeys(
-    const std::vector<ChannelIndex>& keys,
+    const std::vector<column_index_t>& keys,
     const RowVectorPtr& batch,
     vector_size_t index,
     const RowVectorPtr& otherBatch,

@@ -21,8 +21,8 @@ namespace facebook::velox::exec {
 
 namespace {
 bool allAreSinglyReferenced(
-    const std::vector<ChannelIndex>& argList,
-    const std::unordered_map<ChannelIndex, int>& channelUseCount) {
+    const std::vector<column_index_t>& argList,
+    const std::unordered_map<column_index_t, int>& channelUseCount) {
   return std::all_of(argList.begin(), argList.end(), [&](auto channel) {
     return channelUseCount.find(channel)->second == 1;
   });
@@ -52,10 +52,10 @@ std::optional<std::string> makeSpillPath(
 
 GroupingSet::GroupingSet(
     std::vector<std::unique_ptr<VectorHasher>>&& hashers,
-    std::vector<ChannelIndex>&& preGroupedKeys,
+    std::vector<column_index_t>&& preGroupedKeys,
     std::vector<std::unique_ptr<Aggregate>>&& aggregates,
-    std::vector<std::optional<ChannelIndex>>&& aggrMaskChannels,
-    std::vector<std::vector<ChannelIndex>>&& channelLists,
+    std::vector<std::optional<column_index_t>>&& aggrMaskChannels,
+    std::vector<std::vector<column_index_t>>&& channelLists,
     std::vector<std::vector<VectorPtr>>&& constantLists,
     std::vector<TypePtr>&& intermediateTypes,
     bool ignoreNullKeys,
@@ -87,20 +87,20 @@ GroupingSet::GroupingSet(
   for (auto& hasher : hashers_) {
     keyChannels_.push_back(hasher->channel());
   }
-  std::unordered_map<ChannelIndex, int> channelUseCount;
-  for (const std::vector<ChannelIndex>& argList : channelLists_) {
-    for (ChannelIndex channel : argList) {
+  std::unordered_map<column_index_t, int> channelUseCount;
+  for (const std::vector<column_index_t>& argList : channelLists_) {
+    for (column_index_t channel : argList) {
       ++channelUseCount[channel];
     }
   }
-  for (const std::vector<ChannelIndex>& argList : channelLists_) {
+  for (const std::vector<column_index_t>& argList : channelLists_) {
     mayPushdown_.push_back(allAreSinglyReferenced(argList, channelUseCount));
   }
 }
 
 namespace {
 bool equalKeys(
-    const std::vector<ChannelIndex>& keys,
+    const std::vector<column_index_t>& keys,
     const RowVectorPtr& vector,
     vector_size_t index,
     vector_size_t otherIndex) {

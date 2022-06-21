@@ -25,7 +25,7 @@ class AggregationMasks {
   /// @param maskChannel Index of the 'mask' column for each aggregation.
   /// Aggregations without masks use std::nullopt.
   explicit AggregationMasks(
-      std::vector<std::optional<ChannelIndex>> maskChannels);
+      std::vector<std::optional<column_index_t>> maskChannels);
 
   /// Process the input batch and prepare selectivity vectors for each mask by
   /// removing masked rows.
@@ -37,8 +37,8 @@ class AggregationMasks {
   activeRows(int32_t aggregationIndex) const;
 
  private:
-  std::vector<std::optional<ChannelIndex>> maskChannels_;
-  std::unordered_map<ChannelIndex, SelectivityVector> maskedRows_;
+  std::vector<std::optional<column_index_t>> maskChannels_;
+  std::unordered_map<column_index_t, SelectivityVector> maskedRows_;
   DecodedVector decodedMask_;
 };
 } // namespace facebook::velox::exec

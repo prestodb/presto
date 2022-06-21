@@ -20,7 +20,7 @@ namespace facebook::velox::exec {
 HashPartitionFunction::HashPartitionFunction(
     int numPartitions,
     const RowTypePtr& inputType,
-    const std::vector<ChannelIndex>& keyChannels,
+    const std::vector<column_index_t>& keyChannels,
     const std::vector<VectorPtr>& constValues)
     : numPartitions_{numPartitions} {
   hashers_.reserve(keyChannels.size());

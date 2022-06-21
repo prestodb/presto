@@ -220,10 +220,10 @@ std::string Operator::toString() const {
   return out.str();
 }
 
-std::vector<ChannelIndex> toChannels(
+std::vector<column_index_t> toChannels(
     const RowTypePtr& rowType,
     const std::vector<std::shared_ptr<const core::ITypedExpr>>& exprs) {
-  std::vector<ChannelIndex> channels;
+  std::vector<column_index_t> channels;
   channels.reserve(exprs.size());
   for (const auto& expr : exprs) {
     auto channel = exprToChannel(expr.get(), rowType);
@@ -232,7 +232,9 @@ std::vector<ChannelIndex> toChannels(
   return channels;
 }
 
-ChannelIndex exprToChannel(const core::ITypedExpr* expr, const TypePtr& type) {
+column_index_t exprToChannel(
+    const core::ITypedExpr* expr,
+    const TypePtr& type) {
   if (auto field = dynamic_cast<const core::FieldAccessTypedExpr*>(expr)) {
     return type->as<TypeKind::ROW>().getChildIdx(field->name());
   }
@@ -243,7 +245,7 @@ ChannelIndex exprToChannel(const core::ITypedExpr* expr, const TypePtr& type) {
   return 0; // not reached.
 }
 
-std::vector<ChannelIndex> calculateOutputChannels(
+std::vector<column_index_t> calculateOutputChannels(
     const RowTypePtr& sourceOutputType,
     const RowTypePtr& targetInputType,
     const RowTypePtr& targetOutputType) {
@@ -253,7 +255,7 @@ std::vector<ChannelIndex> calculateOutputChannels(
       sourceOutputType->size() == targetInputType->size();
   const auto& outputNames = targetInputType->names();
 
-  std::vector<ChannelIndex> outputChannels;
+  std::vector<column_index_t> outputChannels;
   outputChannels.resize(outputNames.size());
   for (auto i = 0; i < outputNames.size(); i++) {
     outputChannels[i] = sourceOutputType->getChildIdx(outputNames[i]);

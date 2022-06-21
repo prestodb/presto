@@ -31,7 +31,7 @@ class HivePartitionFunctionTest : public ::testing::Test {
 
     std::vector<int> bucketToPartition(bucketCount);
     std::iota(bucketToPartition.begin(), bucketToPartition.end(), 0);
-    std::vector<ChannelIndex> keyChannels;
+    std::vector<column_index_t> keyChannels;
     keyChannels.emplace_back(0);
     connector::hive::HivePartitionFunction partitionFunction(
         bucketCount, bucketToPartition, keyChannels);
@@ -63,11 +63,11 @@ class HivePartitionFunctionTest : public ::testing::Test {
     std::vector<int> bucketToPartition(bucketCount);
     std::iota(bucketToPartition.begin(), bucketToPartition.end(), 0);
 
-    std::vector<ChannelIndex> keyChannelsNorm{0, 1, 2};
+    std::vector<column_index_t> keyChannelsNorm{0, 1, 2};
     connector::hive::HivePartitionFunction partitionFunctionNorm(
         bucketCount, bucketToPartition, keyChannelsNorm);
 
-    std::vector<ChannelIndex> keyChannelsConst{
+    std::vector<column_index_t> keyChannelsConst{
         0, kConstantChannel, kConstantChannel};
     connector::hive::HivePartitionFunction partitionFunctionConst(
         bucketCount, bucketToPartition, keyChannelsConst, constValues);
