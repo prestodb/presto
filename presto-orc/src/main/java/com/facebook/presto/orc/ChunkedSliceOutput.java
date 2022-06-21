@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -70,12 +69,12 @@ public final class ChunkedSliceOutput
         this.slice = Slices.wrappedBuffer(buffer);
     }
 
-    public List<Slice> getSlices()
+    public void writeTo(SliceOutput outputStream)
     {
-        return ImmutableList.<Slice>builder()
-                .addAll(closedSlices)
-                .add(Slices.copyOf(slice, 0, bufferPosition))
-                .build();
+        closedSlices.forEach(outputStream::writeBytes);
+        if (bufferPosition > 0) {
+            outputStream.writeBytes(slice, 0, bufferPosition);
+        }
     }
 
     @Override
