@@ -25,7 +25,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.useExternalPlanStatisticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
@@ -36,11 +36,11 @@ import static java.util.Objects.requireNonNull;
 public class HistoryBasedPlanStatisticsCalculator
         implements StatsCalculator
 {
-    private final Optional<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider;
+    private final Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider;
     private final Metadata metadata;
     private final StatsCalculator delegate;
 
-    public HistoryBasedPlanStatisticsCalculator(Optional<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider, Metadata metadata, StatsCalculator delegate)
+    public HistoryBasedPlanStatisticsCalculator(Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider, Metadata metadata, StatsCalculator delegate)
     {
         this.externalPlanStatisticsProvider = requireNonNull(externalPlanStatisticsProvider, "externalPlanStatisticsProvider is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -66,8 +66,9 @@ public class HistoryBasedPlanStatisticsCalculator
     private PlanStatistics getStatistics(PlanNode planNode, Session session, TypeProvider types, Lookup lookup)
     {
         planNode = removeGroupReferences(planNode, lookup);
-        if (externalPlanStatisticsProvider.isPresent() && useExternalPlanStatisticsEnabled(session)) {
-            return externalPlanStatisticsProvider.get().getStats(
+        ExternalPlanStatisticsProvider externalStatisticsProvider = externalPlanStatisticsProvider.get();
+        if (useExternalPlanStatisticsEnabled(session)) {
+            return externalStatisticsProvider.getStats(
                     planNode,
                     node -> jsonLogicalPlan(node, types, metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session),
                     tableScanNode -> metadata.getTableStatistics(
