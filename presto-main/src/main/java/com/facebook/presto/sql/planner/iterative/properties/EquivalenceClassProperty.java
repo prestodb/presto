@@ -138,11 +138,7 @@ public class EquivalenceClassProperty
     {
         requireNonNull(equivalenceClassProperty, "equivalenceClassProperty is null");
 
-        equivalenceClassProperty.equivalenceClasses.entrySet().forEach(eqClass -> {
-            final RowExpression head = eqClass.getKey();
-            List<RowExpression> members = eqClass.getValue();
-            members.forEach(member -> updateInternal(head, member));
-        });
+        equivalenceClassProperty.equivalenceClasses.forEach((head, members) -> members.forEach(member -> updateInternal(head, member)));
     }
 
     /**
@@ -161,7 +157,7 @@ public class EquivalenceClassProperty
         extractConjuncts(predicate).stream()
                 .filter(CallExpression.class::isInstance)
                 .map(CallExpression.class::cast)
-                .filter(e -> isVariableEqualVariableOrConstant(e))
+                .filter(this::isVariableEqualVariableOrConstant)
                 .forEach(e -> updateInternal(e.getArguments().get(0), e.getArguments().get(1)));
         return updated;
     }
@@ -174,10 +170,7 @@ public class EquivalenceClassProperty
             RowExpression e1 = ((CallExpression) expression).getArguments().get(0);
             RowExpression e2 = ((CallExpression) expression).getArguments().get(1);
 
-            if ((e1 instanceof VariableReferenceExpression && (e2 instanceof VariableReferenceExpression || e2 instanceof ConstantExpression))
-                    || ((e2 instanceof VariableReferenceExpression) && (e1 instanceof VariableReferenceExpression || e1 instanceof ConstantExpression))) {
-                return true;
-            }
+            return e1 instanceof VariableReferenceExpression && (e2 instanceof VariableReferenceExpression || e2 instanceof ConstantExpression) || e2 instanceof VariableReferenceExpression && e1 instanceof ConstantExpression;
         }
         return false;
     }
@@ -225,15 +218,10 @@ public class EquivalenceClassProperty
     private RowExpression pickNewHead(RowExpression head1, RowExpression head2)
     {
         //always use constant as the head
-        if (head1 instanceof ConstantExpression) {
-            return head1;
-        }
-        else if (head2 instanceof ConstantExpression) {
+        if (head2 instanceof ConstantExpression) {
             return head2;
         }
-        else {
-            return head1;
-        }
+        return head1;
     }
 
     //combine an equivalence class with head class

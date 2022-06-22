@@ -50,7 +50,7 @@ public class KeyProperty
     {
         requireNonNull(otherKeyProperty, "otherKeyProperty is null");
         return ((keys.isEmpty() && otherKeyProperty.keys.isEmpty()) ||
-                (otherKeyProperty.keys.stream().allMatch(k -> satisfiesKeyRequirement(k))));
+                (otherKeyProperty.keys.stream().allMatch(this::satisfiesKeyRequirement)));
     }
 
     /**
@@ -74,7 +74,7 @@ public class KeyProperty
     public void addKeys(Set<Key> keys)
     {
         requireNonNull(keys, "keys is null");
-        keys.stream().forEach(k -> addKey(k));
+        keys.forEach(this::addKey);
     }
 
     /**
@@ -169,11 +169,9 @@ public class KeyProperty
     {
         requireNonNull(inverseVariableMappings, "inverseVariableMappings is null");
         KeyProperty result = new KeyProperty();
-        keys.stream().forEach(key -> {
+        keys.forEach(key -> {
             Optional<Key> projectedKey = key.project(inverseVariableMappings);
-            if (projectedKey.isPresent()) {
-                result.addKey(projectedKey.get());
-            }
+            projectedKey.ifPresent(result::addKey);
         });
         return result;
     }
@@ -210,7 +208,7 @@ public class KeyProperty
     public String toString()
     {
         return toStringHelper(this)
-                .add("keys", String.join(",", keys.stream().map(Key::toString).collect(Collectors.toList())))
+                .add("keys", keys.stream().map(Key::toString).collect(Collectors.joining(",")))
                 .toString();
     }
 }
