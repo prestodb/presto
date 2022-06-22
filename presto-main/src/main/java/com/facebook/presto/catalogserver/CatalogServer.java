@@ -145,40 +145,49 @@ public class CatalogServer
      */
 
     @ThriftMethod
-    public boolean schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema)
+    public CatalogServerClient.MetadataEntry<Boolean> schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        return schemaExistsCache.getUnchecked(new CacheKey(session, schema));
+        CacheKey cacheKey = new CacheKey(session, schema);
+        boolean isCacheHit = isCacheHit(cacheKey, schemaExistsCache);
+        Boolean schemaExists = schemaExistsCache.getUnchecked(cacheKey);
+        return new CatalogServerClient.MetadataEntry<>(schemaExists, isCacheHit);
     }
 
     @ThriftMethod
-    public boolean catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
+    public CatalogServerClient.MetadataEntry<Boolean> catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        return catalogExistsCache.getUnchecked(new CacheKey(session, catalogName));
+        CacheKey cacheKey = new CacheKey(session, catalogName);
+        boolean isCacheHit = isCacheHit(cacheKey, catalogExistsCache);
+        Boolean catalogExists = catalogExistsCache.getUnchecked(new CacheKey(session, catalogName));
+        return new CatalogServerClient.MetadataEntry<>(catalogExists, isCacheHit);
     }
 
     @ThriftMethod
-    public String listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
+    public CatalogServerClient.MetadataEntry<String> listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<String> schemaNames = listSchemaNamesCache.getUnchecked(new CacheKey(session, catalogName));
+        CacheKey cacheKey = new CacheKey(session, catalogName);
+        boolean isCacheHit = isCacheHit(cacheKey, listSchemaNamesCache);
+        List<String> schemaNames = listSchemaNamesCache.getUnchecked(cacheKey);
         if (!schemaNames.isEmpty()) {
             try {
-                return objectMapper.writeValueAsString(schemaNames);
+                return new CatalogServerClient.MetadataEntry<>(objectMapper.writeValueAsString(schemaNames), isCacheHit);
             }
             catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
         }
-        return EMPTY_STRING;
+        return new CatalogServerClient.MetadataEntry<>(EMPTY_STRING, isCacheHit);
     }
 
     @ThriftMethod
-    public String getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table)
+    public CatalogServerClient.MetadataEntry<String> getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         CacheKey cacheKey = new CacheKey(session, table);
+        boolean isCacheHit = isCacheHit(cacheKey, getTableHandleCache);
         Optional<TableHandle> tableHandle = getTableHandleCache.getUnchecked(cacheKey);
         if (!tableHandle.isPresent()) {
             getTableHandleCache.refresh(cacheKey);
@@ -186,111 +195,131 @@ public class CatalogServer
         }
         if (tableHandle.isPresent()) {
             try {
-                return objectMapper.writeValueAsString(tableHandle.get());
+                return new CatalogServerClient.MetadataEntry<>(objectMapper.writeValueAsString(tableHandle.get()), isCacheHit);
             }
             catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
         }
-        return EMPTY_STRING;
+        return new CatalogServerClient.MetadataEntry<>(EMPTY_STRING, isCacheHit);
     }
 
     @ThriftMethod
-    public String listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
+    public CatalogServerClient.MetadataEntry<String> listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<QualifiedObjectName> tableList = listTablesCache.getUnchecked(new CacheKey(session, prefix));
+        CacheKey cacheKey = new CacheKey(session, prefix);
+        boolean isCacheHit = isCacheHit(cacheKey, listTablesCache);
+        List<QualifiedObjectName> tableList = listTablesCache.getUnchecked(cacheKey);
         if (!tableList.isEmpty()) {
             try {
-                return objectMapper.writeValueAsString(tableList);
+                return new CatalogServerClient.MetadataEntry<>(objectMapper.writeValueAsString(tableList), isCacheHit);
             }
             catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
         }
-        return EMPTY_STRING;
+        return new CatalogServerClient.MetadataEntry<>(EMPTY_STRING, isCacheHit);
     }
 
     @ThriftMethod
-    public String listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
+    public CatalogServerClient.MetadataEntry<String> listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<QualifiedObjectName> viewsList = listViewsCache.getUnchecked(new CacheKey(session, prefix));
+        CacheKey cacheKey = new CacheKey(session, prefix);
+        boolean isCacheHit = isCacheHit(cacheKey, listViewsCache);
+        List<QualifiedObjectName> viewsList = listViewsCache.getUnchecked(cacheKey);
         if (!viewsList.isEmpty()) {
             try {
-                return objectMapper.writeValueAsString(viewsList);
+                return new CatalogServerClient.MetadataEntry<>(objectMapper.writeValueAsString(viewsList), isCacheHit);
             }
             catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
         }
-        return EMPTY_STRING;
+        return new CatalogServerClient.MetadataEntry<>(EMPTY_STRING, isCacheHit);
     }
 
     @ThriftMethod
-    public String getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
+    public CatalogServerClient.MetadataEntry<String> getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Map<QualifiedObjectName, ViewDefinition> viewsMap = getViewsCache.getUnchecked(new CacheKey(session, prefix));
+        CacheKey cacheKey = new CacheKey(session, prefix);
+        boolean isCacheHit = isCacheHit(cacheKey, getViewsCache);
+        Map<QualifiedObjectName, ViewDefinition> viewsMap = getViewsCache.getUnchecked(cacheKey);
         if (!viewsMap.isEmpty()) {
             try {
-                return objectMapper.writeValueAsString(viewsMap);
+                return new CatalogServerClient.MetadataEntry<>(objectMapper.writeValueAsString(viewsMap), isCacheHit);
             }
             catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
         }
-        return EMPTY_STRING;
+        return new CatalogServerClient.MetadataEntry<>(EMPTY_STRING, isCacheHit);
     }
 
     @ThriftMethod
-    public String getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
+    public CatalogServerClient.MetadataEntry<String> getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Optional<ViewDefinition> viewDefinition = getViewCache.getUnchecked(new CacheKey(session, viewName));
+        CacheKey cacheKey = new CacheKey(session, viewName);
+        boolean isCacheHit = isCacheHit(cacheKey, getViewCache);
+        Optional<ViewDefinition> viewDefinition = getViewCache.getUnchecked(cacheKey);
         if (viewDefinition.isPresent()) {
             try {
-                return objectMapper.writeValueAsString(viewDefinition.get());
+                return new CatalogServerClient.MetadataEntry<>(objectMapper.writeValueAsString(viewDefinition.get()), isCacheHit);
             }
             catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
         }
-        return EMPTY_STRING;
+        return new CatalogServerClient.MetadataEntry<>(EMPTY_STRING, isCacheHit);
     }
 
     @ThriftMethod
-    public String getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
+    public CatalogServerClient.MetadataEntry<String> getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Optional<ConnectorMaterializedViewDefinition> connectorMaterializedViewDefinition = getMaterializedViewCache.getUnchecked(new CacheKey(session, viewName));
+        CacheKey cacheKey = new CacheKey(session, viewName);
+        boolean isCacheHit = isCacheHit(cacheKey, getMaterializedViewCache);
+        Optional<ConnectorMaterializedViewDefinition> connectorMaterializedViewDefinition = getMaterializedViewCache.getUnchecked(cacheKey);
         if (connectorMaterializedViewDefinition.isPresent()) {
             try {
-                return objectMapper.writeValueAsString(connectorMaterializedViewDefinition.get());
+                return new CatalogServerClient.MetadataEntry<>(objectMapper.writeValueAsString(connectorMaterializedViewDefinition.get()), isCacheHit);
             }
             catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
         }
-        return EMPTY_STRING;
+        return new CatalogServerClient.MetadataEntry<>(EMPTY_STRING, isCacheHit);
     }
 
     @ThriftMethod
-    public String getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName)
+    public CatalogServerClient.MetadataEntry<String> getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<QualifiedObjectName> referencedMaterializedViewsList = getReferencedMaterializedViewsCache.getUnchecked(new CacheKey(session, tableName));
+        CacheKey cacheKey = new CacheKey(session, tableName);
+        boolean isCacheHit = isCacheHit(cacheKey, getReferencedMaterializedViewsCache);
+        List<QualifiedObjectName> referencedMaterializedViewsList = getReferencedMaterializedViewsCache.getUnchecked(cacheKey);
         if (!referencedMaterializedViewsList.isEmpty()) {
             try {
-                return objectMapper.writeValueAsString(referencedMaterializedViewsList);
+                return new CatalogServerClient.MetadataEntry<>(objectMapper.writeValueAsString(referencedMaterializedViewsList), isCacheHit);
             }
             catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
         }
-        return EMPTY_STRING;
+        return new CatalogServerClient.MetadataEntry<>(EMPTY_STRING, isCacheHit);
     }
 
+    private static boolean isCacheHit(CacheKey cacheKey, LoadingCache loadingCache)
+    {
+        if (loadingCache.getIfPresent(cacheKey) != null) {
+            return true;
+        }
+        return false;
+    }
+    
     private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, long maximumSize)
     {
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();

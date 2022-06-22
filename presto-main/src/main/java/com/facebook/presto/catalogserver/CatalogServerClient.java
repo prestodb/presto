@@ -13,44 +13,94 @@
  */
 package com.facebook.presto.catalogserver;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.transaction.TransactionInfo;
 
+import java.util.Objects;
+
 @ThriftService("PrestoCatalogServer")
 public interface CatalogServerClient
 {
-    @ThriftMethod
-    boolean schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema);
+    @ThriftStruct
+    public static class MetadataEntry<T>
+    {
+        private final T returnValue;
+        private final boolean isCacheHit;
+
+        @ThriftConstructor
+        public MetadataEntry(T returnValue, boolean isCacheHit)
+        {
+            this.returnValue = returnValue;
+            this.isCacheHit = isCacheHit;
+        }
+
+        @ThriftField(1)
+        public T getReturnValue()
+        {
+            return returnValue;
+        }
+
+        @ThriftField(2)
+        public boolean getIsCacheHit()
+        {
+            return isCacheHit;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MetadataEntry metadataKey = (MetadataEntry) o;
+            return Objects.equals(returnValue, metadataKey.getReturnValue());
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(returnValue);
+        }
+    }
 
     @ThriftMethod
-    boolean catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName);
+    MetadataEntry<Boolean> schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema);
 
     @ThriftMethod
-    String listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName);
+    MetadataEntry<Boolean> catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName);
 
     @ThriftMethod
-    String getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table);
+    MetadataEntry<String> listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName);
 
     @ThriftMethod
-    String listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
+    MetadataEntry<String> getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table);
 
     @ThriftMethod
-    String listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
+    MetadataEntry<String> listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
 
     @ThriftMethod
-    String getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
+    MetadataEntry<String> listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
 
     @ThriftMethod
-    String getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName);
+    MetadataEntry<String> getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
 
     @ThriftMethod
-    String getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName);
+    MetadataEntry<String> getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName);
 
     @ThriftMethod
-    String getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName);
+    MetadataEntry<String> getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName);
+
+    @ThriftMethod
+    MetadataEntry<String> getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName);
 }

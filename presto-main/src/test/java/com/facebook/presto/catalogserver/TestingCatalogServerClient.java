@@ -23,62 +23,62 @@ class TestingCatalogServerClient
         implements CatalogServerClient
 {
     @Override
-    public boolean schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema)
+    public MetadataEntry<Boolean> schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema)
     {
-        return false;
+        return new MetadataEntry<>(false, false);
     }
 
     @Override
-    public boolean catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
+    public MetadataEntry<Boolean> catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
-        return true;
+        return new MetadataEntry<>(true, false);
     }
 
     @Override
-    public String listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
+    public MetadataEntry<String> listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
-        return "[\"information_schema\",\"tiny\",\"sf1\",\"sf100\",\"sf300\",\"sf1000\",\"sf3000\",\"sf10000\",\"sf30000\",\"sf100000\"]";
+        return new MetadataEntry<>("[\"information_schema\",\"tiny\",\"sf1\",\"sf100\",\"sf300\",\"sf1000\",\"sf3000\",\"sf10000\",\"sf30000\",\"sf100000\"]", false);
     }
 
     @Override
-    public String getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table)
+    public MetadataEntry<String> getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table)
     {
-        return "{\"connectorId\":\"$info_schema@system\",\"connectorHandle\":{\"@type\":\"$info_schema\",\"catalogName\":\"system\",\"schemaName\":\"information_schema\",\"tableName\":\"schemata\"},\"transaction\":{\"@type\":\"$info_schema\",\"transactionId\":\"ffe9ae3e-60de-4175-a0b5-d635767085fa\"}}";
+        return new MetadataEntry<>("{\"connectorId\":\"$info_schema@system\",\"connectorHandle\":{\"@type\":\"$info_schema\",\"catalogName\":\"system\",\"schemaName\":\"information_schema\",\"tableName\":\"schemata\"},\"transaction\":{\"@type\":\"$info_schema\",\"transactionId\":\"ffe9ae3e-60de-4175-a0b5-d635767085fa\"}}", false);
     }
 
     @Override
-    public String listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
+    public MetadataEntry<String> listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
-        return "[\"tpch.sf1.nation\"]";
+        return new MetadataEntry<>("[\"tpch.sf1.nation\"]", false);
     }
 
     @Override
-    public String listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
+    public MetadataEntry<String> listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
-        return "[\"hive.tpch.eric\",\"hive.tpch.eric2\"]";
+        return new MetadataEntry<>("[\"hive.tpch.eric\",\"hive.tpch.eric2\"]", false);
     }
 
     @Override
-    public String getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
+    public MetadataEntry<String> getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
-        return "{\"hive.tpch.eric\":{\"originalSql\":\"SELECT name\\nFROM\\n  tpch.sf1.nation\\n\",\"catalog\":\"hive\",\"schema\":\"tpch\",\"columns\":[],\"owner\":\"ericn576\",\"runAsInvoker\":false}}";
+        return new MetadataEntry<>("{\"hive.tpch.eric\":{\"originalSql\":\"SELECT name\\nFROM\\n  tpch.sf1.nation\\n\",\"catalog\":\"hive\",\"schema\":\"tpch\",\"columns\":[],\"owner\":\"ericn576\",\"runAsInvoker\":false}}", false);
     }
 
     @Override
-    public String getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
+    public MetadataEntry<String> getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
-        return "{\"originalSql\":\"SELECT name\\nFROM\\n  tpch.sf1.nation\\n\",\"catalog\":\"hive\",\"schema\":\"tpch\",\"columns\":[],\"owner\":\"ericn576\",\"runAsInvoker\":false}";
+        return new MetadataEntry<>("{\"originalSql\":\"SELECT name\\nFROM\\n  tpch.sf1.nation\\n\",\"catalog\":\"hive\",\"schema\":\"tpch\",\"columns\":[],\"owner\":\"ericn576\",\"runAsInvoker\":false}", false);
     }
 
     @Override
-    public String getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
+    public MetadataEntry<String> getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
-        return "{\"originalSql\":\"SELECT\\n  name\\n, nationkey\\nFROM\\n  test_customer_base\\n\",\"schema\":\"tpch\",\"table\":\"eric\",\"baseTables\":[{\"schema\":\"tpch\",\"table\":\"test_customer_base\"}],\"owner\":\"ericn576\",\"columnMapping\":[{\"viewColumn\":{\"tableName\":{\"schema\":\"tpch\",\"table\":\"eric\"},\"columnName\":\"name\",\"isDirectMapped\":true},\"baseTableColumns\":[{\"tableName\":{\"schema\":\"tpch\",\"table\":\"test_customer_base\"},\"columnName\":\"name\",\"isDirectMapped\":true}]}],\"baseTablesOnOuterJoinSide\":[],\"validRefreshColumns\":[\"nationkey\"]}";
+        return new MetadataEntry<>("{\"originalSql\":\"SELECT\\n  name\\n, nationkey\\nFROM\\n  test_customer_base\\n\",\"schema\":\"tpch\",\"table\":\"eric\",\"baseTables\":[{\"schema\":\"tpch\",\"table\":\"test_customer_base\"}],\"owner\":\"ericn576\",\"columnMapping\":[{\"viewColumn\":{\"tableName\":{\"schema\":\"tpch\",\"table\":\"eric\"},\"columnName\":\"name\",\"isDirectMapped\":true},\"baseTableColumns\":[{\"tableName\":{\"schema\":\"tpch\",\"table\":\"test_customer_base\"},\"columnName\":\"name\",\"isDirectMapped\":true}]}],\"baseTablesOnOuterJoinSide\":[],\"validRefreshColumns\":[\"nationkey\"]}", false);
     }
 
     @Override
-    public String getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName)
+    public MetadataEntry<String> getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName)
     {
-        return "[\"hive.tpch.test_customer_base\"]";
+        return new MetadataEntry<>("[\"hive.tpch.test_customer_base\"]", false);
     }
 }

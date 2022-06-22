@@ -60,7 +60,7 @@ public class TestCatalogServerResponse
     public void testSchemaExists()
             throws Exception
     {
-        boolean schemaExists = testingCatalogServerClient.schemaExists(null, null, null);
+        boolean schemaExists = testingCatalogServerClient.schemaExists(null, null, null).getReturnValue();
         boolean actualSchemaExists = false;
 
         assertEquals(schemaExists, actualSchemaExists);
@@ -70,7 +70,7 @@ public class TestCatalogServerResponse
     public void testCatalogExists()
             throws Exception
     {
-        boolean catalogExists = testingCatalogServerClient.catalogExists(null, null, null);
+        boolean catalogExists = testingCatalogServerClient.catalogExists(null, null, null).getReturnValue();
         boolean actualCatalogExists = true;
 
         assertEquals(catalogExists, actualCatalogExists);
@@ -80,7 +80,7 @@ public class TestCatalogServerResponse
     public void testListSchemaNames()
             throws Exception
     {
-        String schemaNamesJson = testingCatalogServerClient.listSchemaNames(null, null, null);
+        String schemaNamesJson = testingCatalogServerClient.listSchemaNames(null, null, null).getReturnValue();
         List<String> schemaNames = objectMapper.readValue(schemaNamesJson, new TypeReference<List<String>>() {});
         List<String> actualSchemaNames = new ArrayList<>(Arrays.asList("information_schema", "tiny", "sf1", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000"));
 
@@ -91,7 +91,7 @@ public class TestCatalogServerResponse
     public void testGetTableHandle()
             throws Exception
     {
-        String tableHandleJson = testingCatalogServerClient.getTableHandle(null, null, null);
+        String tableHandleJson = testingCatalogServerClient.getTableHandle(null, null, null).getReturnValue();
         TableHandle tableHandle = objectMapper.readValue(tableHandleJson, TableHandle.class);
         ConnectorId connectorId = new ConnectorId("$info_schema@system");
         ConnectorTableHandle connectorHandle = new InformationSchemaTableHandle("system", "information_schema", "schemata");
@@ -106,7 +106,7 @@ public class TestCatalogServerResponse
     public void testListTables()
             throws Exception
     {
-        String tableListJson = testingCatalogServerClient.listTables(null, null, null);
+        String tableListJson = testingCatalogServerClient.listTables(null, null, null).getReturnValue();
         List<QualifiedObjectName> tableList = objectMapper.readValue(tableListJson, new TypeReference<List<QualifiedObjectName>>() {});
         List<QualifiedObjectName> actualTableList = new ArrayList<>(Arrays.asList(new QualifiedObjectName("tpch", "sf1", "nation")));
 
@@ -117,7 +117,7 @@ public class TestCatalogServerResponse
     public void testListViews()
             throws Exception
     {
-        String viewsListJson = testingCatalogServerClient.listViews(null, null, null);
+        String viewsListJson = testingCatalogServerClient.listViews(null, null, null).getReturnValue();
         List<QualifiedObjectName> viewsList = objectMapper.readValue(viewsListJson, new TypeReference<List<QualifiedObjectName>>() {});
         List<QualifiedObjectName> actualViewsList = new ArrayList<>(Arrays.asList(new QualifiedObjectName("hive", "tpch", "eric"), new QualifiedObjectName("hive", "tpch", "eric2")));
 
@@ -128,7 +128,7 @@ public class TestCatalogServerResponse
     public void testGetViews()
             throws Exception
     {
-        String viewsMapJson = testingCatalogServerClient.getViews(null, null, null);
+        String viewsMapJson = testingCatalogServerClient.getViews(null, null, null).getReturnValue();
         Map<QualifiedObjectName, ViewDefinition> viewsMap = objectMapper.readValue(viewsMapJson, new TypeReference<Map<QualifiedObjectName, ViewDefinition>>() {});
         Map<QualifiedObjectName, ViewDefinition> actualViewsMap = new HashMap<>();
         QualifiedObjectName key = new QualifiedObjectName("hive", "tpch", "eric");
@@ -147,7 +147,7 @@ public class TestCatalogServerResponse
     public void testGetView()
             throws Exception
     {
-        String viewDefinitionJson = testingCatalogServerClient.getView(null, null, null);
+        String viewDefinitionJson = testingCatalogServerClient.getView(null, null, null).getReturnValue();
         ViewDefinition viewDefinition = objectMapper.readValue(viewDefinitionJson, ViewDefinition.class);
         ViewDefinition actualViewDefinition = new ViewDefinition("SELECT name\nFROM\n  tpch.sf1.nation\n", Optional.of("hive"), Optional.of("tpch"), new ArrayList<>(), Optional.of("ericn576"), false);
 
@@ -161,7 +161,7 @@ public class TestCatalogServerResponse
     public void testGetMaterializedView()
             throws Exception
     {
-        String connectorMaterializedViewDefinitionJson = testingCatalogServerClient.getMaterializedView(null, null, null);
+        String connectorMaterializedViewDefinitionJson = testingCatalogServerClient.getMaterializedView(null, null, null).getReturnValue();
         ConnectorMaterializedViewDefinition connectorMaterializedViewDefinition = objectMapper.readValue(connectorMaterializedViewDefinitionJson, ConnectorMaterializedViewDefinition.class);
         String originalSql = "SELECT\n  name\n, nationkey\nFROM\n  test_customer_base\n";
         String schema = "tpch";
@@ -190,7 +190,7 @@ public class TestCatalogServerResponse
     public void testGetReferencedMaterializedViews()
             throws Exception
     {
-        String referencedMaterializedViewsListJson = testingCatalogServerClient.getReferencedMaterializedViews(null, null, null);
+        String referencedMaterializedViewsListJson = testingCatalogServerClient.getReferencedMaterializedViews(null, null, null).getReturnValue();
         List<QualifiedObjectName> referencedMaterializedViewsList = objectMapper.readValue(referencedMaterializedViewsListJson, new TypeReference<List<QualifiedObjectName>>() {});
         List<QualifiedObjectName> actualReferencedMaterializedViewsList = new ArrayList<>(Arrays.asList(new QualifiedObjectName("hive", "tpch", "test_customer_base")));
 
