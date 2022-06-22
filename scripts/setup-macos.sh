@@ -100,7 +100,7 @@ function install_folly {
 }
 
 function install_ranges_v3 {
-  github_checkout ericniebler/range-v3 master
+  github_checkout ericniebler/range-v3 0.12.0
   cmake_install -DRANGES_ENABLE_WERROR=OFF -DRANGE_V3_TESTS=OFF -DRANGE_V3_EXAMPLES=OFF
 }
 
