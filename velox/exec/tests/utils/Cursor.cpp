@@ -20,13 +20,13 @@ namespace facebook::velox::exec::test {
 
 exec::BlockingReason TaskQueue::enqueue(
     RowVectorPtr vector,
-    exec::ContinueFuture* future) {
+    velox::ContinueFuture* future) {
   if (!vector) {
     std::lock_guard<std::mutex> l(mutex_);
     ++producersFinished_;
     if (consumerBlocked_) {
       consumerBlocked_ = false;
-      consumerPromise_.setValue(true);
+      consumerPromise_.setValue();
     }
     return exec::BlockingReason::kNotBlocked;
   }
@@ -43,10 +43,10 @@ exec::BlockingReason TaskQueue::enqueue(
   totalBytes_ += bytes;
   if (consumerBlocked_) {
     consumerBlocked_ = false;
-    consumerPromise_.setValue(true);
+    consumerPromise_.setValue();
   }
   if (totalBytes_ > maxBytes_) {
-    auto [unblockPromise, unblockFuture] = makeVeloxPromiseContract<bool>();
+    auto [unblockPromise, unblockFuture] = makeVeloxContinuePromiseContract();
     producerUnblockPromises_.emplace_back(std::move(unblockPromise));
     *future = std::move(unblockFuture);
     return exec::BlockingReason::kWaitForConsumer;
@@ -80,7 +80,7 @@ RowVectorPtr TaskQueue::dequeue() {
     }
     // outside of 'mutex_'
     for (auto& promise : mayContinue) {
-      promise.setValue(true);
+      promise.setValue();
     }
     if (vector) {
       return vector;
@@ -93,7 +93,7 @@ void TaskQueue::close() {
   std::lock_guard<std::mutex> l(mutex_);
   closed_ = true;
   for (auto& promise : producerUnblockPromises_) {
-    promise.setValue(true);
+    promise.setValue();
   }
   producerUnblockPromises_.clear();
 }
@@ -127,7 +127,7 @@ TaskCursor::TaskCursor(const CursorParameters& params)
       params.destination,
       std::move(queryCtx),
       // consumer
-      [queue](RowVectorPtr vector, exec::ContinueFuture* future) {
+      [queue](RowVectorPtr vector, velox::ContinueFuture* future) {
         if (!vector) {
           return queue->enqueue(nullptr, future);
         }

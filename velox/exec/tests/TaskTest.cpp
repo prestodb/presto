@@ -174,7 +174,7 @@ class TestSkewedJoinBridge : public exec::JoinBridge {
     notify(std::move(promises));
   }
 
-  std::optional<bool> buildFinishedOrFuture(exec::ContinueFuture* future) {
+  std::optional<bool> buildFinishedOrFuture(ContinueFuture* future) {
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK(!cancelled_, "Getting data after the build side is aborted");
     if (buildFinished_.has_value()) {
@@ -238,7 +238,7 @@ class TestSkewedJoinBuild : public exec::Operator {
     VELOX_FAIL("Last driver should not finish successfully.");
   }
 
-  exec::BlockingReason isBlocked(exec::ContinueFuture* future) override {
+  exec::BlockingReason isBlocked(ContinueFuture* future) override {
     if (!future_.valid()) {
       return exec::BlockingReason::kNotBlocked;
     }
@@ -251,7 +251,7 @@ class TestSkewedJoinBuild : public exec::Operator {
   }
 
  private:
-  exec::ContinueFuture future_{exec::ContinueFuture::makeEmpty()};
+  ContinueFuture future_{ContinueFuture::makeEmpty()};
   int64_t slowJoinBuildDelaySeconds_;
 };
 
@@ -280,7 +280,7 @@ class TestSkewedJoinProbe : public exec::Operator {
     return nullptr;
   }
 
-  exec::BlockingReason isBlocked(exec::ContinueFuture* future) override {
+  exec::BlockingReason isBlocked(ContinueFuture* future) override {
     auto joinBridge = operatorCtx_->task()->getCustomJoinBridge(
         operatorCtx_->driverCtx()->splitGroupId, planNodeId());
     auto buildFinished =

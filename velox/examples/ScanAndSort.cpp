@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
       readPlanFragment,
       /*destination=*/0,
       core::QueryCtx::createForTest(),
-      [](RowVectorPtr vector, exec::ContinueFuture*) {
+      [](RowVectorPtr vector, facebook::velox::ContinueFuture*) {
         if (vector) {
           LOG(INFO) << "Vector available after processing (scan + sort):";
           for (size_t i = 0; i < vector->size(); ++i) {

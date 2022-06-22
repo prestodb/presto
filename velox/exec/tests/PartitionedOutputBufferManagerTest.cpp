@@ -86,7 +86,7 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
       int destination,
       std::shared_ptr<const RowType> rowType,
       vector_size_t size) {
-    ContinueFuture future(false);
+    ContinueFuture future;
     auto blockingReason = bufferManager_->enqueue(
         taskId, destination, makeSerializedPage(rowType, size), &future);
     ASSERT_EQ(blockingReason, BlockingReason::kNotBlocked);
@@ -365,7 +365,7 @@ TEST_F(PartitionedOutputBufferManagerTest, errorInQueue) {
     std::lock_guard<std::mutex> l(queue->mutex());
     queue->setErrorLocked("error");
   }
-  ContinueFuture future(false);
+  ContinueFuture future;
   bool atEnd = false;
   EXPECT_THROW(auto page = queue->dequeue(&atEnd, &future), std::runtime_error);
 }

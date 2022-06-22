@@ -129,8 +129,6 @@ enum class BlockingReason {
 
 std::string blockingReasonToString(BlockingReason reason);
 
-using ContinueFuture = folly::SemiFuture<bool>;
-
 class BlockingState {
  public:
   BlockingState(

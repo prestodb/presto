@@ -94,7 +94,7 @@ class ExchangeQueue {
     queue_.push_back(std::move(page));
     if (!promises_.empty()) {
       // Resume one of the waiting drivers.
-      promises_.back().setValue(true);
+      promises_.back().setValue();
       promises_.pop_back();
     }
   }
@@ -166,7 +166,7 @@ class ExchangeQueue {
 
   void clearAllPromises() {
     for (auto& promise : promises_) {
-      promise.setValue(true);
+      promise.setValue();
     }
     promises_.clear();
   }

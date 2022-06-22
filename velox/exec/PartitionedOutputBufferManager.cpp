@@ -143,7 +143,7 @@ void releaseAfterAcknowledge(
     std::vector<ContinuePromise>& promises) {
   freed.clear();
   for (auto& promise : promises) {
-    promise.setValue(true);
+    promise.setValue();
   }
 }
 } // namespace
@@ -429,7 +429,7 @@ void PartitionedOutputBuffer::terminate() {
     outstandingPromises.swap(promises_);
   }
   for (auto& promise : outstandingPromises) {
-    promise.setValue(true);
+    promise.setValue();
   }
 }
 

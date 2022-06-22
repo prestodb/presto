@@ -267,7 +267,7 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
     getSplits(&splitFuture_);
   }
 
-  ContinueFuture dataFuture{false};
+  ContinueFuture dataFuture;
   currentPage_ = exchangeClient_->next(&atEnd_, &dataFuture);
   if (currentPage_ || atEnd_) {
     if (atEnd_ && noMoreSplits_) {
@@ -284,8 +284,7 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
     futures.push_back(std::move(splitFuture_));
     futures.push_back(std::move(dataFuture));
 
-    *future = folly::collectAny(futures).deferValue(
-        [](auto /*unused*/) { return true; });
+    *future = folly::collectAny(futures).unit();
   } else {
     // Block until data becomes available.
     *future = std::move(dataFuture);

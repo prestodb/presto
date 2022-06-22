@@ -90,14 +90,14 @@ class LocalMergeSource : public MergeSource {
    private:
     void notifyConsumers() {
       for (auto& promise : consumerPromises_) {
-        promise.setValue(true);
+        promise.setValue();
       }
       consumerPromises_.clear();
     }
 
     void notifyProducers() {
       for (auto& promise : producerPromises_) {
-        promise.setValue(true);
+        promise.setValue();
       }
       producerPromises_.clear();
     }
@@ -194,7 +194,7 @@ std::shared_ptr<MergeSource> MergeSource::createMergeExchangeSource(
 namespace {
 void notify(std::optional<ContinuePromise>& promise) {
   if (promise) {
-    promise->setValue(true);
+    promise->setValue();
     promise.reset();
   }
 }

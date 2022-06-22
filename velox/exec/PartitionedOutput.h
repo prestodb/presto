@@ -148,7 +148,6 @@ class PartitionedOutput : public Operator {
             planNode->inputType(),
             planNode->outputType(),
             planNode->outputType())),
-        future_(false),
         bufferManager_(PartitionedOutputBufferManager::getInstance()),
         maxBufferedBytes_(
             ctx->task->queryCtx()->config().maxPartitionedOutputBufferSize()),

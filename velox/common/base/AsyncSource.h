@@ -16,11 +16,13 @@
 
 #pragma once
 
+#include <folly/Unit.h>
+#include <folly/executors/QueuedImmediateExecutor.h>
+#include <folly/futures/Future.h>
 #include <functional>
 #include <memory>
 
-#include <folly/executors/QueuedImmediateExecutor.h>
-#include <folly/futures/Future.h>
+#include "velox/common/future/VeloxPromise.h"
 
 namespace facebook::velox {
 
@@ -52,7 +54,7 @@ class AsyncSource {
       std::lock_guard<std::mutex> l(mutex_);
       making_ = false;
       if (promise_) {
-        promise_->setValue(true);
+        promise_->setValue();
         promise_ = nullptr;
       }
     }
@@ -63,7 +65,7 @@ class AsyncSource {
   // makes it on the caller thread.
   std::unique_ptr<Item> move() {
     std::function<std::unique_ptr<Item>()> make = nullptr;
-    folly::SemiFuture<bool> wait(false);
+    ContinueFuture wait;
     {
       std::lock_guard<std::mutex> l(mutex_);
       if (item_) {
@@ -74,7 +76,7 @@ class AsyncSource {
         return nullptr;
       }
       if (making_) {
-        promise_ = std::make_unique<folly::Promise<bool>>();
+        promise_ = std::make_unique<ContinuePromise>();
         wait = promise_->getSemiFuture();
       } else {
         if (!make_) {
@@ -103,7 +105,7 @@ class AsyncSource {
   std::mutex mutex_;
   // True if 'prepare() is making the item.
   bool making_{false};
-  std::unique_ptr<folly::Promise<bool>> promise_;
+  std::unique_ptr<ContinuePromise> promise_;
   std::unique_ptr<Item> item_;
   std::function<std::unique_ptr<Item>()> make_;
 };

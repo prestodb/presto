@@ -72,7 +72,7 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
   auto& exec = folly::QueuedImmediateExecutor::instance();
   std::move(state->future_)
       .via(&exec)
-      .thenValue([state](bool /* unused */) {
+      .thenValue([state](auto&& /* unused */) {
         state->operator_->recordBlockingTime(state->sinceMicros_);
         auto driver = state->driver_;
         auto task = driver->task();
@@ -292,7 +292,7 @@ StopReason Driver::runInternal(
 
   try {
     int32_t numOperators = operators_.size();
-    ContinueFuture future(false);
+    ContinueFuture future;
 
     for (;;) {
       for (int32_t i = numOperators - 1; i >= 0; --i) {

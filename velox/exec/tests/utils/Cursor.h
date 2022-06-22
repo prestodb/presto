@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <velox/exec/Driver.h>
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Task.h"
 
@@ -54,9 +55,7 @@ class TaskQueue {
   };
 
   explicit TaskQueue(uint64_t maxBytes)
-      : pool_(memory::getDefaultScopedMemoryPool()),
-        maxBytes_(maxBytes),
-        consumerFuture_(false) {}
+      : pool_(memory::getDefaultScopedMemoryPool()), maxBytes_(maxBytes) {}
 
   void setNumProducers(int32_t n) {
     numProducers_ = n;
@@ -68,7 +67,7 @@ class TaskQueue {
   // realized when the producer may continue.
   exec::BlockingReason enqueue(
       RowVectorPtr vector,
-      exec::ContinueFuture* future);
+      velox::ContinueFuture* future);
 
   // Returns nullptr when all producers are at end. Otherwise blocks.
   RowVectorPtr dequeue();
@@ -95,7 +94,7 @@ class TaskQueue {
   std::vector<ContinuePromise> producerUnblockPromises_;
   bool consumerBlocked_ = false;
   ContinuePromise consumerPromise_;
-  folly::Future<bool> consumerFuture_;
+  ContinueFuture consumerFuture_;
   bool closed_ = false;
 };
 

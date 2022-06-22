@@ -223,7 +223,7 @@ void HashBuild::noMoreInput() {
   // the last to finish) can continue from the barrier and finish.
   peers.clear();
   for (auto& promise : promises) {
-    promise.setValue(true);
+    promise.setValue();
   }
 
   if (antiJoinHasNullKeys_) {

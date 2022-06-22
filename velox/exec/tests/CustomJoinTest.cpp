@@ -128,7 +128,7 @@ class CustomJoinBuild : public Operator {
     // the last to finish) can continue from the barrier and finish.
     peers.clear();
     for (auto& promise : promises) {
-      promise.setValue(true);
+      promise.setValue();
     }
 
     auto joinBridge = operatorCtx_->task()->getCustomJoinBridge(

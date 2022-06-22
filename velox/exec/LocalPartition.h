@@ -145,7 +145,7 @@ class LocalExchange : public SourceOperator {
  private:
   const int partition_;
   const std::shared_ptr<LocalExchangeQueue> queue_{nullptr};
-  ContinueFuture future_{false};
+  ContinueFuture future_;
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
 };
 

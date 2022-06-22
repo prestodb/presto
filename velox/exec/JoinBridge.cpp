@@ -16,11 +16,10 @@
 #include "velox/exec/JoinBridge.h"
 
 namespace facebook::velox::exec {
-
 // static
 void JoinBridge::notify(std::vector<ContinuePromise> promises) {
   for (auto& promise : promises) {
-    promise.setValue(true);
+    promise.setValue();
   }
 }
 

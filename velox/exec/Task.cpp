@@ -559,7 +559,7 @@ bool Task::addSplitWithSequence(
     }
   }
   if (promise) {
-    promise->setValue(false);
+    promise->setValue();
   }
   return added;
 }
@@ -574,7 +574,7 @@ void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
     }
   }
   if (promise) {
-    promise->setValue(false);
+    promise->setValue();
   }
 }
 
@@ -646,7 +646,7 @@ void Task::noMoreSplitsForGroup(
     }
   }
   for (auto& promise : promises) {
-    promise.setValue(false);
+    promise.setValue();
   }
 }
 
@@ -682,7 +682,7 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
   completionNotifier.notify();
 
   for (auto& promise : splitPromises) {
-    promise.setValue(false);
+    promise.setValue();
   }
 }
 
@@ -754,7 +754,7 @@ BlockingReason Task::getSplitOrFutureLocked(
     if (splitsStore.noMoreSplits) {
       return BlockingReason::kNotBlocked;
     }
-    auto [splitPromise, splitFuture] = makeVeloxPromiseContract<bool>(
+    auto [splitPromise, splitFuture] = makeVeloxContinuePromiseContract(
         fmt::format("Task::getSplitOrFuture {}", taskId_));
     future = std::move(splitFuture);
     splitsStore.splitPromises.push_back(std::move(splitPromise));
@@ -1114,7 +1114,7 @@ ContinueFuture Task::terminate(TaskState terminalState) {
   }
 
   for (auto& promise : splitPromises) {
-    promise.setValue(true);
+    promise.setValue();
   }
 
   for (auto& bridge : oldBridges) {
@@ -1126,10 +1126,10 @@ ContinueFuture Task::terminate(TaskState terminalState) {
 }
 
 ContinueFuture Task::makeFinishFutureLocked(const char* FOLLY_NONNULL comment) {
-  auto [promise, future] = makeVeloxPromiseContract<bool>(comment);
+  auto [promise, future] = makeVeloxContinuePromiseContract(comment);
 
   if (numThreads_ == 0) {
-    promise.setValue(true);
+    promise.setValue();
     return std::move(future);
   }
   threadFinishPromises_.push_back(std::move(promise));
@@ -1181,9 +1181,9 @@ ContinueFuture Task::stateChangeFuture(uint64_t maxWaitMicros) {
   // If 'this' is running, the future is realized on timeout or when
   // this no longer is running.
   if (not isRunningLocked()) {
-    return ContinueFuture(true);
+    return ContinueFuture();
   }
-  auto [promise, future] = makeVeloxPromiseContract<bool>(
+  auto [promise, future] = makeVeloxContinuePromiseContract(
       fmt::format("Task::stateChangeFuture {}", taskId_));
   stateChangePromises_.emplace_back(std::move(promise));
   if (maxWaitMicros) {
@@ -1484,7 +1484,7 @@ StopReason Task::shouldStop() {
 
 void Task::finishedLocked() {
   for (auto& promise : threadFinishPromises_) {
-    promise.setValue(true);
+    promise.setValue();
   }
   threadFinishPromises_.clear();
 }
@@ -1523,7 +1523,7 @@ void Task::TaskCompletionNotifier::activate(
 void Task::TaskCompletionNotifier::notify() {
   if (active_) {
     for (auto& promise : promises_) {
-      promise.setValue(true);
+      promise.setValue();
     }
     promises_.clear();
 

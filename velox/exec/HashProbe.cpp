@@ -622,7 +622,7 @@ void HashProbe::noMoreInput() {
     std::vector<std::shared_ptr<Driver>> peers;
     // The last Driver to hit HashProbe::finish is responsible for producing
     // non-matching build-side rows for the right join.
-    ContinueFuture future{false};
+    ContinueFuture future;
     if (!operatorCtx_->task()->allPeersFinished(
             planNodeId(), operatorCtx_->driver(), &future, promises, peers)) {
       return;

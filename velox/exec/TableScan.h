@@ -58,7 +58,7 @@ class TableScan : public SourceOperator {
       unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
           columnHandles_;
   DriverCtx* driverCtx_;
-  ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
+  ContinueFuture blockingFuture_;
   bool needNewSplit_ = true;
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;

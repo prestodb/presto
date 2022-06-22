@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <folly/Unit.h>
 #include <folly/init/Init.h>
+#include <velox/exec/Driver.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -255,14 +257,14 @@ class DriverTest : public OperatorTestBase {
               if (wakeupPromises_.empty()) {
                 break;
               }
-              wakeupPromises_.front().setValue(true);
+              wakeupPromises_.front().setValue();
               wakeupPromises_.pop_front();
             }
           }
         }
       });
     }
-    auto [promise, semiFuture] = makeVeloxPromiseContract<bool>("wakeup");
+    auto [promise, semiFuture] = makeVeloxContinuePromiseContract("wakeup");
     *future = std::move(semiFuture);
     wakeupPromises_.push_back(std::move(promise));
   }
@@ -298,7 +300,7 @@ class DriverTest : public OperatorTestBase {
   // State for registerForWakeup().
   std::mutex wakeupMutex_;
   std::thread wakeupThread_;
-  std::deque<folly::Promise<bool>> wakeupPromises_;
+  std::deque<ContinuePromise> wakeupPromises_;
   bool wakeupInitialized_{false};
   // Set to true when it is time to exit 'wakeupThread_'.
   std::atomic<bool> wakeupCancelled_{false};
@@ -306,8 +308,8 @@ class DriverTest : public OperatorTestBase {
   std::shared_ptr<const RowType> rowType_;
   std::mutex mutex_;
   std::vector<std::shared_ptr<Task>> tasks_;
-  ContinueFuture cancelFuture_{false};
-  std::unordered_map<int32_t, folly::Future<bool>> stateFutures_;
+  ContinueFuture cancelFuture_;
+  std::unordered_map<int32_t, ContinueFuture> stateFutures_;
 
   // Mutex for randomTask()
   std::mutex taskMutex_;
@@ -512,8 +514,7 @@ class TestingPauser : public Operator {
       int32_t sequence)
       : Operator(ctx, node->outputType(), id, node->id(), "Pauser"),
         test_(test),
-        counter_(sequence),
-        future_(false) {
+        counter_(sequence) {
     test_->registerTask(operatorCtx_->task());
   }
 
@@ -594,7 +595,7 @@ class TestingPauser : public Operator {
 
   // Counter deciding the next action in getOutput().
   int32_t counter_;
-  ContinueFuture future_{ContinueFuture::makeEmpty()};
+  ContinueFuture future_;
 };
 
 std::mutex TestingPauser ::pauseMutex_;

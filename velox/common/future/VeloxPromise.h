@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <folly/Unit.h>
 #include <folly/futures/Future.h>
 
 namespace facebook::velox {
@@ -60,15 +61,15 @@ class VeloxPromise : public folly::Promise<T> {
   std::string context_;
 };
 
+using ContinuePromise = VeloxPromise<folly::Unit>;
+using ContinueFuture = folly::SemiFuture<folly::Unit>;
+
 /// Equivalent of folly's makePromiseContract for VeloxPromise.
-template <class T>
-std::pair<VeloxPromise<T>, folly::SemiFuture<T>> makeVeloxPromiseContract(
-    const std::string& promiseContext = "") {
-  auto p = VeloxPromise<T>(promiseContext);
+static inline std::pair<ContinuePromise, ContinueFuture>
+makeVeloxContinuePromiseContract(const std::string& promiseContext = "") {
+  auto p = ContinuePromise(promiseContext);
   auto f = p.getSemiFuture();
   return std::make_pair(std::move(p), std::move(f));
 }
-
-using ContinuePromise = VeloxPromise<bool>;
 
 } // namespace facebook::velox
