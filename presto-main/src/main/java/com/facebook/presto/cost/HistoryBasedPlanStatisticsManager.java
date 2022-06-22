@@ -14,36 +14,37 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProviderFactory;
+import com.facebook.presto.spi.statistics.EmptyPlanStatisticsProvider;
+import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
 import com.google.inject.Inject;
-
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class HistoryBasedPlanStatisticsManager
 {
-    private Optional<ExternalPlanStatisticsProviderFactory> externalPlanStatisticsProviderFactory;
-    private Metadata metadata;
+    private ExternalPlanStatisticsProvider externalPlanStatisticsProvider;
+    private final Metadata metadata;
+    private boolean externalProviderAdded;
 
     @Inject
     public HistoryBasedPlanStatisticsManager(Metadata metadata)
     {
-        this.externalPlanStatisticsProviderFactory = Optional.empty();
+        this.externalPlanStatisticsProvider = EmptyPlanStatisticsProvider.getInstance();
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.externalProviderAdded = false;
     }
 
-    public void addExternalPlanStatisticsProviderFactory(ExternalPlanStatisticsProviderFactory externalPlanStatisticsProviderFactory)
+    public void addExternalPlanStatisticsProviderFactory(ExternalPlanStatisticsProvider externalPlanStatisticsProvider)
     {
-        if (this.externalPlanStatisticsProviderFactory.isPresent()) {
+        if (externalProviderAdded) {
             throw new IllegalStateException("externalPlanStatisticsProviderFactory can only be set once");
         }
-        this.externalPlanStatisticsProviderFactory = Optional.of(externalPlanStatisticsProviderFactory);
+        this.externalPlanStatisticsProvider = externalPlanStatisticsProvider;
+        externalProviderAdded = true;
     }
 
     public HistoryBasedPlanStatisticsCalculator getHistoryBasedPlanStatisticsCalculator(StatsCalculator delegate)
     {
-        return new HistoryBasedPlanStatisticsCalculator(
-                externalPlanStatisticsProviderFactory.map(factory -> factory.getExternalPlanStatisticsProvider()), metadata, delegate);
+        return new HistoryBasedPlanStatisticsCalculator(() -> externalPlanStatisticsProvider, metadata, delegate);
     }
 }

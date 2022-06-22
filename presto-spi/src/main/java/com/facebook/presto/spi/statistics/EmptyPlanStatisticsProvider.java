@@ -18,12 +18,25 @@ import com.facebook.presto.spi.plan.TableScanNode;
 
 import java.util.function.Function;
 
-public interface ExternalPlanStatisticsProvider
+public class EmptyPlanStatisticsProvider
+        implements ExternalPlanStatisticsProvider
 {
-    String getName();
+    private static final EmptyPlanStatisticsProvider SINGLETON = new EmptyPlanStatisticsProvider();
 
-    PlanStatistics getStats(
-            PlanNode plan,
-            Function<PlanNode, String> planPrinter,
-            Function<TableScanNode, TableStatistics> tableStatisticsProvider);
+    @Override
+    public String getName()
+    {
+        return "default";
+    }
+
+    @Override
+    public PlanStatistics getStats(PlanNode plan, Function<PlanNode, String> planPrinter, Function<TableScanNode, TableStatistics> tableStatisticsProvider)
+    {
+        return PlanStatistics.empty();
+    }
+
+    public static EmptyPlanStatisticsProvider getInstance()
+    {
+        return SINGLETON;
+    }
 }
