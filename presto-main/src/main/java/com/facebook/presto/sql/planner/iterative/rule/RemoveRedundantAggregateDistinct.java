@@ -20,6 +20,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
 
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -65,7 +66,7 @@ public class RemoveRedundantAggregateDistinct
                 node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 node.getSource(),
-                node.getAggregations().entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e ->
+                node.getAggregations().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e ->
                         (e.getValue().isDistinct() &&
                                 ((GroupReference) node.getSource()).getLogicalProperties().get().isDistinct(
                                         Stream.concat(node.getGroupingKeys().stream().map(VariableReferenceExpression.class::cast),

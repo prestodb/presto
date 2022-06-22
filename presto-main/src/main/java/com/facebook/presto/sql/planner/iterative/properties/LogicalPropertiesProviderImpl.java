@@ -74,7 +74,7 @@ public class LogicalPropertiesProviderImpl
     @Override
     public LogicalProperties getValuesProperties(ValuesNode valuesNode)
     {
-        LogicalPropertiesImpl sourceProps = new LogicalPropertiesImpl.NoPropagateBuilder(functionResolution).build();
+        LogicalPropertiesImpl sourceProps = new LogicalPropertiesImpl.DoNotPropagateBuilder(functionResolution).build();
         LogicalPropertiesImpl.PropagateAndLimitBuilder propagateAndLimitBuilder = new LogicalPropertiesImpl.PropagateAndLimitBuilder(sourceProps, valuesNode.getRows().size(), functionResolution);
         return propagateAndLimitBuilder.build();
     }
@@ -339,7 +339,7 @@ public class LogicalPropertiesProviderImpl
     @Override
     public LogicalProperties getDefaultProperties()
     {
-        LogicalPropertiesImpl.NoPropagateBuilder logicalPropsBuilder = new LogicalPropertiesImpl.NoPropagateBuilder(functionResolution);
+        LogicalPropertiesImpl.DoNotPropagateBuilder logicalPropsBuilder = new LogicalPropertiesImpl.DoNotPropagateBuilder(functionResolution);
         return logicalPropsBuilder.build();
     }
 }

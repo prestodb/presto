@@ -89,11 +89,11 @@ public final class AggregationNode
         checkArgument(preGroupedVariables.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedVariables), "Pre-grouped variables must be a subset of the grouping keys");
         this.preGroupedVariables = unmodifiableList(new ArrayList<>(preGroupedVariables));
 
-        ArrayList<VariableReferenceExpression> outputs = new ArrayList<>(groupingSets.getGroupingKeys());
-        hashVariable.ifPresent(outputs::add);
-        outputs.addAll(new ArrayList<>(aggregations.keySet()));
+        ArrayList<VariableReferenceExpression> keys = new ArrayList<>(groupingSets.getGroupingKeys());
+        hashVariable.ifPresent(keys::add);
+        keys.addAll(new ArrayList<>(aggregations.keySet()));
 
-        this.outputs = unmodifiableList(outputs);
+        this.outputs = unmodifiableList(keys);
     }
 
     /**
@@ -143,7 +143,7 @@ public final class AggregationNode
     @Override
     public List<PlanNode> getSources()
     {
-        return unmodifiableList(Collections.singletonList(source));
+        return Collections.singletonList(source);
     }
 
     @Override
@@ -269,17 +269,17 @@ public final class AggregationNode
 
     public static GroupingSetDescriptor globalAggregation()
     {
-        return singleGroupingSet(unmodifiableList(emptyList()));
+        return singleGroupingSet(emptyList());
     }
 
     public static GroupingSetDescriptor singleGroupingSet(List<VariableReferenceExpression> groupingKeys)
     {
         Set<Integer> globalGroupingSets;
         if (groupingKeys.isEmpty()) {
-            globalGroupingSets = unmodifiableSet(Collections.singleton(0));
+            globalGroupingSets = Collections.singleton(0);
         }
         else {
-            globalGroupingSets = unmodifiableSet(emptySet());
+            globalGroupingSets = emptySet();
         }
 
         return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
