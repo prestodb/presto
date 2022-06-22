@@ -63,7 +63,7 @@ public class Key
 
         //ideally this would be a simple subset operation but the "canonicalize" operation in UnliasSymbols inexplicably
         //clones VariableReferenceExpression's so two references to the same outputs might be made via different objects
-        return variables.stream().allMatch(vk -> keyRequirement.variables.stream().anyMatch(vr -> vk.equals(vr)));
+        return variables.stream().allMatch(vk -> keyRequirement.variables.stream().anyMatch(vk::equals));
     }
 
     /**
@@ -80,7 +80,7 @@ public class Key
     {
         requireNonNull(equivalenceClassProperty, "Equivalence class property must be provided.");
         Set<VariableReferenceExpression> unBoundVariables = new HashSet<>();
-        variables.stream().forEach(v -> {
+        variables.forEach(v -> {
             RowExpression eqHead = equivalenceClassProperty.getEquivalenceClassHead(v);
             if (!(eqHead instanceof ConstantExpression)) {
                 unBoundVariables.add((VariableReferenceExpression) eqHead);
@@ -115,7 +115,6 @@ public class Key
             mappedVariable = inverseVariableMappings.get(v);
             if (mappedVariable.isPresent()) {
                 mappedVariables.add(mappedVariable.get());
-                continue;
             }
             else {
                 return Optional.empty();
@@ -135,7 +134,7 @@ public class Key
     public Key concat(Key toConcatKey)
     {
         requireNonNull(toConcatKey, "Key must be provided.");
-        Set<VariableReferenceExpression> concatenatedVariables = new HashSet<VariableReferenceExpression>();
+        Set<VariableReferenceExpression> concatenatedVariables = new HashSet<>();
         concatenatedVariables.addAll(this.variables);
         concatenatedVariables.addAll(toConcatKey.variables);
         return new Key(concatenatedVariables);
@@ -145,7 +144,7 @@ public class Key
     public String toString()
     {
         return toStringHelper(this)
-                .add("variables", String.join(",", variables.stream().map(VariableReferenceExpression::toString).collect(Collectors.toList())))
+                .add("variables", variables.stream().map(VariableReferenceExpression::toString).collect(Collectors.joining(",")))
                 .toString();
     }
 }
