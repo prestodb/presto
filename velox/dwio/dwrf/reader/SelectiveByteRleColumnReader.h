@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <velox/type/Filter.h>
 #include "velox/dwio/dwrf/reader/SelectiveColumnReaderInternal.h"
 
 namespace facebook::velox::dwrf {
@@ -182,6 +183,10 @@ void SelectiveByteRleColumnReader::processFilter(
       break;
     case FilterKind::kBigintValuesUsingBitmask:
       readHelper<common::BigintValuesUsingBitmask, isDense>(
+          filter, rows, extractValues);
+      break;
+    case FilterKind::kNegatedBigintValuesUsingBitmask:
+      readHelper<common::NegatedBigintValuesUsingBitmask, isDense>(
           filter, rows, extractValues);
       break;
     default:

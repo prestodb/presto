@@ -231,10 +231,14 @@ class ColumnStats : public AbstractColumnStats {
     int32_t upperIndex;
     T lower = valueAtPct(startPct, &lowerIndex);
     T upper = valueAtPct(startPct + selectPct, &upperIndex);
-    if (upperIndex - lowerIndex < 1000 && ++counter_ % 10 < 3) {
+    if (upperIndex - lowerIndex < 1000 && ++counter_ % 10 <= 3) {
       std::vector<int64_t> in;
       for (auto i = lowerIndex; i <= upperIndex; ++i) {
         in.push_back(values_[i]);
+      }
+      // make sure we don't accidentally generate an AlwaysFalse filter
+      if (counter_ % 2 == 1 && selectPct < 100.0) {
+        return velox::common::createNegatedBigintValues(in, true);
       }
       return velox::common::createBigintValues(in, true);
     }

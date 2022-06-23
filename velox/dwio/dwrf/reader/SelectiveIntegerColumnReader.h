@@ -140,6 +140,14 @@ void SelectiveIntegerColumnReader::processFilter(
       readHelper<Reader, common::BigintValuesUsingBitmask, isDense>(
           filter, rows, extractValues);
       break;
+    case common::FilterKind::kNegatedBigintValuesUsingHashTable:
+      readHelper<Reader, common::NegatedBigintValuesUsingHashTable, isDense>(
+          filter, rows, extractValues);
+      break;
+    case common::FilterKind::kNegatedBigintValuesUsingBitmask:
+      readHelper<Reader, common::NegatedBigintValuesUsingBitmask, isDense>(
+          filter, rows, extractValues);
+      break;
     default:
       readHelper<Reader, common::Filter, isDense>(filter, rows, extractValues);
       break;
