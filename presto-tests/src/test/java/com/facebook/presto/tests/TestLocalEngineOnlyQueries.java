@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
+
 public class TestLocalEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
 {
-    public TestLocalEngineOnlyQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(TestLocalQueries::createLocalQueryRunner);
+        return TestLocalQueries.createLocalQueryRunner();
     }
 }

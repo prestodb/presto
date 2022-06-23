@@ -26,6 +26,8 @@ import io.airlift.slice.Slice;
 
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
+import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 
 public final class EnumCasts
@@ -35,7 +37,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType("T")
     public static Slice castVarcharToEnum(@TypeParameter("T") Type enumType, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
@@ -50,7 +52,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castEnumToVarchar(@SqlType("T") Slice value)
     {
@@ -58,7 +60,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BIGINT_ENUM)
     @SqlType("T")
     public static long castBigintToEnum(@TypeParameter("T") Type enumType, @SqlType(BIGINT) long value)
     {
@@ -66,7 +68,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BIGINT_ENUM)
     @SqlType("T")
     public static long castIntegerToEnum(@TypeParameter("T") Type enumType, @SqlType(StandardTypes.INTEGER) long value)
     {
@@ -74,7 +76,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BIGINT_ENUM)
     @SqlType("T")
     public static long castSmallintToEnum(@TypeParameter("T") Type enumType, @SqlType(StandardTypes.SMALLINT) long value)
     {
@@ -82,7 +84,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BIGINT_ENUM)
     @SqlType("T")
     public static long castTinyintToEnum(@TypeParameter("T") Type enumType, @SqlType(StandardTypes.TINYINT) long value)
     {
@@ -102,7 +104,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BIGINT_ENUM)
     @SqlType(BIGINT)
     public static long castEnumToBigint(@SqlType("T") long value)
     {

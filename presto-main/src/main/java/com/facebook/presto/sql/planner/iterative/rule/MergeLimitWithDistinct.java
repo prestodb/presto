@@ -33,17 +33,7 @@ public class MergeLimitWithDistinct
 
     private static final Pattern<LimitNode> PATTERN = limit()
             .with(source().matching(aggregation().capturedAs(CHILD)
-                    .matching(MergeLimitWithDistinct::isDistinct)));
-
-    /**
-     * Whether this node corresponds to a DISTINCT operation in SQL
-     */
-    private static boolean isDistinct(AggregationNode node)
-    {
-        return node.getAggregations().isEmpty() &&
-                node.getOutputVariables().size() == node.getGroupingKeys().size() &&
-                node.getOutputVariables().containsAll(node.getGroupingKeys());
-    }
+                    .matching(AggregationNode::isDistinct)));
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -58,6 +48,7 @@ public class MergeLimitWithDistinct
 
         return Result.ofPlanNode(
                 new DistinctLimitNode(
+                        parent.getSourceLocation(),
                         parent.getId(),
                         child.getSource(),
                         parent.getCount(),

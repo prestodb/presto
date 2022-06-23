@@ -42,11 +42,13 @@ public class TestVerifierConfig
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
                 .setSmartTeardown(false)
-                .setVerificationResubmissionLimit(2)
+                .setVerificationResubmissionLimit(6)
                 .setSetupOnMainClusters(true)
                 .setTeardownOnMainClusters(true)
                 .setSkipControl(false)
-                .setExplain(false));
+                .setSkipChecksum(false)
+                .setExplain(false)
+                .setConcurrentControlAndTest(false));
     }
 
     @Test
@@ -71,7 +73,9 @@ public class TestVerifierConfig
                 .put("setup-on-main-clusters", "false")
                 .put("teardown-on-main-clusters", "false")
                 .put("skip-control", "true")
+                .put("skip-checksum", "true")
                 .put("explain", "true")
+                .put("concurrent-control-and-test", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -92,7 +96,9 @@ public class TestVerifierConfig
                 .setSetupOnMainClusters(false)
                 .setTeardownOnMainClusters(false)
                 .setSkipControl(true)
-                .setExplain(true);
+                .setSkipChecksum(true)
+                .setExplain(true)
+                .setConcurrentControlAndTest(true);
 
         assertFullMapping(properties, expected);
     }

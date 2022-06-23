@@ -29,6 +29,8 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.tracing.NoopTracerProvider;
+import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -37,6 +39,7 @@ import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
@@ -57,6 +60,8 @@ public class LocalDispatchQueryFactory
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final ListeningExecutorService executor;
 
+    private final QueryPrerequisitesManager queryPrerequisitesManager;
+
     @Inject
     public LocalDispatchQueryFactory(
             QueryManager queryManager,
@@ -67,7 +72,8 @@ public class LocalDispatchQueryFactory
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             ClusterSizeMonitor clusterSizeMonitor,
-            DispatchExecutor dispatchExecutor)
+            DispatchExecutor dispatchExecutor,
+            QueryPrerequisitesManager queryPrerequisitesManager)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -80,6 +86,7 @@ public class LocalDispatchQueryFactory
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
         this.executor = requireNonNull(dispatchExecutor, "executorService is null").getExecutor();
+        this.queryPrerequisitesManager = requireNonNull(queryPrerequisitesManager, "queryPrerequisitesManager is null");
     }
 
     @Override
@@ -88,12 +95,15 @@ public class LocalDispatchQueryFactory
             String query,
             PreparedQuery preparedQuery,
             String slug,
+            int retryCount,
             ResourceGroupId resourceGroup,
             Optional<QueryType> queryType,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            Consumer<DispatchQuery> queryQueuer)
     {
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 query,
+                preparedQuery.getPrepareSql(),
                 session,
                 locationFactory.createQueryLocation(session.getQueryId()),
                 resourceGroup,
@@ -105,6 +115,7 @@ public class LocalDispatchQueryFactory
                 metadata,
                 warningCollector);
 
+        stateMachine.addStateChangeListener(new QueryStateTracingListener(stateMachine.getSession().getTracer().orElse(NoopTracerProvider.NOOP_TRACER)));
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
@@ -113,7 +124,7 @@ public class LocalDispatchQueryFactory
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector, queryType);
+            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
         });
 
         return new LocalDispatchQuery(
@@ -122,6 +133,9 @@ public class LocalDispatchQueryFactory
                 queryExecutionFuture,
                 clusterSizeMonitor,
                 executor,
-                queryManager::createQuery);
+                queryQueuer,
+                queryManager::createQuery,
+                retryCount > 0,
+                queryPrerequisitesManager);
     }
 }

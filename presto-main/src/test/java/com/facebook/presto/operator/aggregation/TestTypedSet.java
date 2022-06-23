@@ -200,6 +200,23 @@ public class TestTypedSet
     }
 
     @Test
+    public void testIsContainNullElements()
+    {
+        int elementCount = 100;
+        TypedSet typedSet = new TypedSet(BIGINT, elementCount, FUNCTION_NAME);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
+        assertEquals(typedSet.isContainNullElements(), false);
+        for (int i = 0; i < elementCount; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+            typedSet.add(blockBuilder, i);
+        }
+        assertEquals(typedSet.isContainNullElements(), false);
+        blockBuilder.appendNull();
+        typedSet.add(blockBuilder, blockBuilder.getPositionCount() - 1);
+        assertEquals(typedSet.isContainNullElements(), true);
+    }
+
+    @Test
     public void testBigintSimpleTypedSet()
     {
         List<Integer> expectedSetSizes = ImmutableList.of(1, 10, 100, 1000);

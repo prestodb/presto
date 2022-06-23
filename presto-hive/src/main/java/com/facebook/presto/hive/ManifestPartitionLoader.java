@@ -48,6 +48,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitS
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isManifestVerificationEnabled;
+import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
@@ -88,7 +89,7 @@ public class ManifestPartitionLoader
         this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
         this.session = requireNonNull(session, "session is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
@@ -103,7 +104,7 @@ public class ManifestPartitionLoader
 
         // TODO: Add support for more manifest versions
         // Verify the manifest version
-        verify(VERSION_1.equals(parameters.get(MANIFEST_VERSION)), format("Manifest version is not equal to %s", VERSION_1));
+        verify(VERSION_1.equals(parameters.get(MANIFEST_VERSION)), "Manifest version is not equal to %s", VERSION_1);
 
         List<String> fileNames = decompressFileNames(parameters.get(FILE_NAMES));
         List<Long> fileSizes = decompressFileSizes(parameters.get(FILE_SIZES));
@@ -113,7 +114,7 @@ public class ManifestPartitionLoader
 
         if (isManifestVerificationEnabled(session)) {
             // Verify that the file names and sizes in manifest are the same as listed by directory lister
-            validateManifest(partition, path, fileNames, fileSizes);
+            validateManifest(session, partition, path, fileNames, fileSizes);
         }
 
         ImmutableList.Builder<HiveFileInfo> fileListBuilder = ImmutableList.builder();
@@ -156,7 +157,7 @@ public class ManifestPartitionLoader
         int partitionDataColumnCount = partition.getPartition()
                 .map(p -> p.getColumns().size())
                 .orElse(table.getDataColumns().size());
-        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
+        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition(), partitionName);
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
@@ -175,20 +176,20 @@ public class ManifestPartitionLoader
                         partitionKeys,
                         partitionName,
                         partitionDataColumnCount,
-                        partition.getPartitionSchemaDifference(),
+                        partition.getTableToPartitionMapping(),
                         Optional.empty(),
                         partition.getRedundantColumnDomains()),
                 schedulerUsesHostAddresses,
                 partition.getEncryptionInformation());
     }
 
-    private void validateManifest(HivePartitionMetadata partition, Path path, List<String> manifestFileNames, List<Long> manifestFileSizes)
+    private void validateManifest(ConnectorSession session, HivePartitionMetadata partition, Path path, List<String> manifestFileNames, List<Long> manifestFileSizes)
             throws IOException
     {
         ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
-        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, false);
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, false, buildDirectoryContextProperties(session));
 
-        Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, namenodeStats, ignore -> true, hiveDirectoryContext);
+        Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, partition.getPartition(), namenodeStats, hiveDirectoryContext);
         int fileCount = 0;
         while (fileInfoIterator.hasNext()) {
             HiveFileInfo fileInfo = fileInfoIterator.next();

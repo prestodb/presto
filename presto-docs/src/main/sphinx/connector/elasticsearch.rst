@@ -290,6 +290,28 @@ as part of the table name, separated by a colon. For example:
 .. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
 
 
+Pass-through Queries
+--------------------
+
+The Elasticsearch connector allows you to embed any valid Elasticsearch query,
+that uses the `Elasticsearch Query DSL
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html>`_
+in your SQL query.
+
+The results can then be used in any SQL statement, wrapping the Elasticsearch
+query. The syntax extends the syntax of the enhanced Elasticsearch table names
+with the following::
+
+    SELECT * FROM es.default."<index>$query:<es-query>"
+
+The Elasticsearch query string ``es-query`` is base32-encoded to avoid having to
+deal with escaping quotes and case sensitivity issues in table identifiers.
+
+The result of these query tables is a table with a single row and a single
+column named ``result`` of type VARCHAR. It contains the JSON payload returned
+by Elasticsearch, and can be processed with the :doc:`built-in JSON functions
+</functions/json>`.
+
 AWS Authorization
 -----------------
 

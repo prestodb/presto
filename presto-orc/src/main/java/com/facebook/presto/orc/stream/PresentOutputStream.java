@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
-import com.facebook.presto.orc.metadata.Stream;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -29,7 +28,6 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.Math.toIntExact;
 
 public class PresentOutputStream
 {
@@ -45,9 +43,9 @@ public class PresentOutputStream
 
     private boolean closed;
 
-    public PresentOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public PresentOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
-        this.buffer = new OrcOutputBuffer(compressionParameters, dwrfEncryptor);
+        this.buffer = new OrcOutputBuffer(columnWriterOptions, dwrfEncryptor);
     }
 
     public void writeBoolean(boolean value)
@@ -102,21 +100,16 @@ public class PresentOutputStream
         return Optional.of(booleanOutputStream.getCheckpoints());
     }
 
-    public Optional<StreamDataOutput> getStreamDataOutput(int column)
+    public Optional<StreamDataOutput> getStreamDataOutput(int column, int sequence)
     {
         checkArgument(closed);
         if (booleanOutputStream == null) {
             return Optional.empty();
         }
-        StreamDataOutput streamDataOutput = booleanOutputStream.getStreamDataOutput(column);
-        // rewrite the DATA stream created by the boolean output stream to a PRESENT stream
-        Stream stream = new Stream(column, PRESENT, toIntExact(streamDataOutput.size()), streamDataOutput.getStream().isUseVInts());
-        return Optional.of(new StreamDataOutput(
-                sliceOutput -> {
-                    streamDataOutput.writeData(sliceOutput);
-                    return stream.getLength();
-                },
-                stream));
+
+        // get boolean output DATA stream as PRESENT stream
+        StreamDataOutput streamDataOutput = booleanOutputStream.getStreamDataOutput(column, sequence, PRESENT);
+        return Optional.of(streamDataOutput);
     }
 
     public long getBufferedBytes()

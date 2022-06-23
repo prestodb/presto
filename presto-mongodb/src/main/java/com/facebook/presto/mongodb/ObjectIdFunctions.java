@@ -15,6 +15,7 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
@@ -25,6 +26,7 @@ import io.airlift.slice.Slices;
 import org.bson.types.ObjectId;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
+import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -32,6 +34,7 @@ import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class ObjectIdFunctions
 {
@@ -51,6 +54,15 @@ public class ObjectIdFunctions
     public static Slice ObjectId(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
         return Slices.wrappedBuffer(new ObjectId(CharMatcher.is(' ').removeFrom(value.toStringUtf8())).toByteArray());
+    }
+
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice castToVarchar(@SqlType("ObjectId") Slice value)
+    {
+        String hexString = new ObjectId(value.getBytes()).toString();
+        return utf8Slice(hexString);
     }
 
     @ScalarOperator(EQUAL)

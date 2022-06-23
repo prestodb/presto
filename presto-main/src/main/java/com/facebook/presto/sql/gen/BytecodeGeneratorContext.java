@@ -14,11 +14,13 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 
@@ -83,7 +85,7 @@ public class BytecodeGeneratorContext
         return manager;
     }
 
-    public BytecodeNode generateCall(String name, BuiltInScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    public BytecodeNode generateCall(String name, JavaScalarFunctionImplementation function, List<BytecodeNode> arguments)
     {
         return generateCall(name, function, arguments, Optional.empty());
     }
@@ -93,13 +95,13 @@ public class BytecodeGeneratorContext
      */
     public BytecodeNode generateCall(
             String name,
-            BuiltInScalarFunctionImplementation function,
+            JavaScalarFunctionImplementation function,
             List<BytecodeNode> arguments,
             Optional<OutputBlockVariableAndType> outputBlockVariableAndType)
     {
         Optional<BytecodeNode> instance = Optional.empty();
-        if (function.getInstanceFactory().isPresent()) {
-            FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
+        if (function instanceof BuiltInScalarFunctionImplementation && ((BuiltInScalarFunctionImplementation) function).getInstanceFactory().isPresent()) {
+            FieldDefinition field = cachedInstanceBinder.getCachedInstance(((BuiltInScalarFunctionImplementation) function).getInstanceFactory().get());
             instance = Optional.of(scope.getThis().getField(field));
         }
         return generateInvocation(scope, name, function, instance, arguments, callSiteBinder, outputBlockVariableAndType);

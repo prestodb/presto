@@ -112,16 +112,21 @@ public class BasePlanTest
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
     }
 
+    protected void assertPlan(String sql, Session session, PlanMatchPattern pattern)
+    {
+        assertPlan(sql, session, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(true));
+    }
+
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
 
-        assertPlan(sql, stage, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), stage, pattern, optimizers);
     }
 
     protected void assertPlan(String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, Predicate<PlanOptimizer> optimizerPredicate)
@@ -130,12 +135,12 @@ public class BasePlanTest
                 .filter(optimizerPredicate)
                 .collect(toList());
 
-        assertPlan(sql, stage, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), stage, pattern, optimizers);
     }
 
-    protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    protected void assertPlan(String sql, Session session, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
-        queryRunner.inTransaction(transactionSession -> {
+        queryRunner.inTransaction(session, transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(
                     transactionSession,
                     sql,
@@ -171,7 +176,7 @@ public class BasePlanTest
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 getExpressionTranslator()); // To avoid assert plan failure not printing out plan (#12885)
 
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
@@ -193,6 +198,15 @@ public class BasePlanTest
         });
     }
 
+    protected void assertPlanValidatorWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, Consumer<Plan> planValidator)
+    {
+        queryRunner.inTransaction(session, transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            planValidator.accept(actualPlan);
+            return null;
+        });
+    }
+
     protected Plan plan(String sql)
     {
         return plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
@@ -207,6 +221,21 @@ public class BasePlanTest
     {
         try {
             return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Planning failed for SQL: " + sql, e);
+        }
+    }
+
+    protected Plan plan(String sql, LogicalPlanner.Stage stage, Session session)
+    {
+        return plan(sql, stage, true, session);
+    }
+
+    protected Plan plan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, Session session)
+    {
+        try {
+            return queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);

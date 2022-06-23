@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.base;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -41,7 +41,7 @@ public final class JsonUtils
 
         try {
             byte[] json = Files.readAllBytes(path);
-            ObjectMapper mapper = new ObjectMapperProvider().get()
+            ObjectMapper mapper = new JsonObjectMapperProvider().get()
                     .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
             return mapper.readValue(json, javaType);
         }

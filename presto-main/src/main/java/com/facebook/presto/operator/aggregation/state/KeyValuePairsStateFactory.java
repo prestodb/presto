@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.KeyValuePairs;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;

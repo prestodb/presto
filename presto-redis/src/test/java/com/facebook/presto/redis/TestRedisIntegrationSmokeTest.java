@@ -14,6 +14,7 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.redis.util.EmbeddedRedis;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -26,18 +27,14 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 public class TestRedisIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedRedis embeddedRedis;
+    private EmbeddedRedis embeddedRedis;
 
-    public TestRedisIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedRedis());
-    }
-
-    public TestRedisIntegrationSmokeTest(EmbeddedRedis embeddedRedis)
-    {
-        super(() -> createRedisQueryRunner(embeddedRedis, "string", ORDERS));
-        this.embeddedRedis = embeddedRedis;
+        embeddedRedis = createEmbeddedRedis();
+        return createRedisQueryRunner(embeddedRedis, "string", ORDERS);
     }
 
     @AfterClass(alwaysRun = true)

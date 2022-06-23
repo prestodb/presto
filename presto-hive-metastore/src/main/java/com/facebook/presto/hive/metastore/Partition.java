@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,9 +40,10 @@ public class Partition
     private final Storage storage;
     private final List<Column> columns;
     private final Map<String, String> parameters;
-    private final Optional<Integer> partitionVersion;
+    private final Optional<Long> partitionVersion;
     private final boolean eligibleToIgnore;
     private final boolean sealedPartition;
+    private final int createTime;
 
     @JsonCreator
     public Partition(
@@ -50,9 +53,10 @@ public class Partition
             @JsonProperty("storage") Storage storage,
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("parameters") Map<String, String> parameters,
-            @JsonProperty("partitionVersion") Optional<Integer> partitionVersion,
+            @JsonProperty("partitionVersion") Optional<Long> partitionVersion,
             @JsonProperty("eligibleToIgnore") boolean eligibleToIgnore,
-            @JsonProperty("sealedPartition") boolean sealedPartition)
+            @JsonProperty("sealedPartition") boolean sealedPartition,
+            @JsonProperty("createTime") int createTime)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -63,6 +67,7 @@ public class Partition
         this.partitionVersion = requireNonNull(partitionVersion, "partitionVersion is null");
         this.eligibleToIgnore = eligibleToIgnore;
         this.sealedPartition = sealedPartition;
+        this.createTime = createTime;
     }
 
     @JsonProperty
@@ -75,6 +80,12 @@ public class Partition
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonIgnore
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(databaseName, tableName);
     }
 
     @JsonProperty
@@ -102,7 +113,7 @@ public class Partition
     }
 
     @JsonProperty
-    public Optional<Integer> getPartitionVersion()
+    public Optional<Long> getPartitionVersion()
     {
         return partitionVersion;
     }
@@ -117,6 +128,12 @@ public class Partition
     public boolean isSealedPartition()
     {
         return sealedPartition;
+    }
+
+    @JsonProperty
+    public int getCreateTime()
+    {
+        return createTime;
     }
 
     @Override
@@ -148,13 +165,14 @@ public class Partition
                 Objects.equals(parameters, partition.parameters) &&
                 Objects.equals(partitionVersion, partition.partitionVersion) &&
                 Objects.equals(eligibleToIgnore, partition.eligibleToIgnore) &&
-                Objects.equals(sealedPartition, partition.sealedPartition);
+                Objects.equals(sealedPartition, partition.sealedPartition) &&
+                Objects.equals(createTime, partition.getCreateTime());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore, sealedPartition);
+        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore, sealedPartition, createTime);
     }
 
     public static Builder builder()
@@ -175,9 +193,10 @@ public class Partition
         private List<String> values;
         private List<Column> columns;
         private Map<String, String> parameters = ImmutableMap.of();
-        private Optional<Integer> partitionVersion = Optional.empty();
+        private Optional<Long> partitionVersion = Optional.empty();
         private boolean isEligibleToIgnore;
         private boolean isSealedPartition = true;
+        private int createTime;
 
         private Builder()
         {
@@ -194,6 +213,7 @@ public class Partition
             this.parameters = partition.getParameters();
             this.partitionVersion = partition.getPartitionVersion();
             this.isEligibleToIgnore = partition.isEligibleToIgnore();
+            this.createTime = partition.getCreateTime();
         }
 
         public Builder setDatabaseName(String databaseName)
@@ -237,7 +257,7 @@ public class Partition
             return this;
         }
 
-        public Builder setPartitionVersion(int partitionVersion)
+        public Builder setPartitionVersion(long partitionVersion)
         {
             this.partitionVersion = Optional.of(partitionVersion);
             return this;
@@ -255,9 +275,15 @@ public class Partition
             return this;
         }
 
+        public Builder setCreateTime(int createTime)
+        {
+            this.createTime = createTime;
+            return this;
+        }
+
         public Partition build()
         {
-            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition);
+            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition, createTime);
         }
     }
 }

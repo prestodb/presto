@@ -17,7 +17,8 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.node.NodeModule;
 import com.facebook.presto.resourceGroups.VariableMap;
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
+import com.facebook.presto.resourceGroups.reloading.ReloadingResourceGroupConfigurationManager;
+import com.facebook.presto.resourceGroups.reloading.ReloadingResourceGroupConfigurationManagerModule;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
@@ -54,6 +55,7 @@ public class H2ResourceGroupConfigurationManagerFactory
                     new JsonModule(),
                     new H2ResourceGroupsModule(),
                     new NodeModule(),
+                    new ReloadingResourceGroupConfigurationManagerModule(),
                     binder -> binder.bind(ResourceGroupConfigurationManagerContext.class).toInstance(context),
                     binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
@@ -62,7 +64,7 @@ public class H2ResourceGroupConfigurationManagerFactory
                     .setRequiredConfigurationProperties(config)
                     .quiet()
                     .initialize();
-            return injector.getInstance(DbResourceGroupConfigurationManager.class);
+            return injector.getInstance(ReloadingResourceGroupConfigurationManager.class);
         }
         catch (Exception e) {
             throwIfUnchecked(e);

@@ -39,9 +39,11 @@ public class TestKuduIntegrationDecimalColumns
             new TestDec(38, 28),
     };
 
-    public TestKuduIntegrationDecimalColumns()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunner("decimal"));
+        return KuduQueryRunnerFactory.createKuduQueryRunner("decimal");
     }
 
     @Test

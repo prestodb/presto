@@ -15,7 +15,9 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.kafka.encoder.RowEncoder;
+import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -47,18 +49,21 @@ public class KafkaPageSink
     private final ErrorCountingCallback errorCounter;
 
     public KafkaPageSink(
+            String schemaName,
             String topicName,
             List<KafkaColumnHandle> columns,
             RowEncoder keyEncoder,
             RowEncoder messageEncoder,
-            PlainTextKafkaProducerFactory producerFactory)
+            PlainTextKafkaProducerFactory producerFactory,
+            KafkaClusterMetadataSupplier supplier)
     {
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");
         this.keyEncoder = requireNonNull(keyEncoder, "keyEncoder is null");
         this.messageEncoder = requireNonNull(messageEncoder, "messageEncoder is null");
         requireNonNull(producerFactory, "producerFactory is null");
-        this.producer = producerFactory.create();
+        List<HostAddress> nodes = supplier.getNodes(schemaName);
+        this.producer = producerFactory.create(nodes);
         this.errorCounter = new ErrorCountingCallback();
     }
 

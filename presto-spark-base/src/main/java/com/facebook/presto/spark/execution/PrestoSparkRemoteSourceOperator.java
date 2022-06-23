@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorContext;
@@ -33,15 +34,19 @@ public class PrestoSparkRemoteSourceOperator
 {
     private final PlanNodeId sourceId;
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext systemMemoryContext;
     private final PrestoSparkPageInput pageInput;
+    private final boolean isFirstOperator;
 
     private boolean finished;
 
-    public PrestoSparkRemoteSourceOperator(PlanNodeId sourceId, OperatorContext operatorContext, PrestoSparkPageInput pageInput)
+    public PrestoSparkRemoteSourceOperator(PlanNodeId sourceId, OperatorContext operatorContext, PrestoSparkPageInput pageInput, boolean isFirstOperator)
     {
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.systemMemoryContext = operatorContext.localSystemMemoryContext();
         this.pageInput = requireNonNull(pageInput, "pageInput is null");
+        this.isFirstOperator = isFirstOperator;
     }
 
     @Override
@@ -69,7 +74,11 @@ public class PrestoSparkRemoteSourceOperator
             return null;
         }
 
-        Page page = pageInput.getNextPage();
+        Page page = pageInput.getNextPage(() -> {
+            updateMemoryContext();
+            return true;
+        });
+        updateMemoryContext();
         if (page == null) {
             finished = true;
             return null;
@@ -107,12 +116,35 @@ public class PrestoSparkRemoteSourceOperator
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void close()
+    {
+        systemMemoryContext.setBytes(0);
+    }
+
+    private void updateMemoryContext()
+    {
+        if (pageInput instanceof PrestoSparkDiskPageInput) {
+            long memorySize = 0;
+            PrestoSparkDiskPageInput diskPageInput = (PrestoSparkDiskPageInput) pageInput;
+            memorySize += diskPageInput.getStagingBroadcastTableSizeInBytes();
+
+            // Since the cache is shared, only the first PrestoSparkRemoteSourceOperator should report the cache memory
+            if (isFirstOperator) {
+                memorySize += diskPageInput.getRetainedSizeInBytes();
+            }
+
+            systemMemoryContext.setBytes(memorySize);
+        }
+    }
+
     public static class SparkRemoteSourceOperatorFactory
             implements SourceOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final PrestoSparkPageInput pageInput;
+        private boolean isFirstOperator = true;
 
         private boolean closed;
 
@@ -133,10 +165,14 @@ public class PrestoSparkRemoteSourceOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "operator factory is closed");
-            return new PrestoSparkRemoteSourceOperator(
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PrestoSparkRemoteSourceOperator.class.getSimpleName());
+            SourceOperator operator = new PrestoSparkRemoteSourceOperator(
                     planNodeId,
-                    driverContext.addOperatorContext(operatorId, planNodeId, PrestoSparkRemoteSourceOperator.class.getSimpleName()),
-                    pageInput);
+                    operatorContext,
+                    pageInput,
+                    isFirstOperator);
+            isFirstOperator = false;
+            return operator;
         }
 
         @Override

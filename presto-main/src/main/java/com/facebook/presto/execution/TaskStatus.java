@@ -59,7 +59,9 @@ public class TaskStatus
     private final Set<Lifespan> completedDriverGroups;
 
     private final int queuedPartitionedDrivers;
+    private final long queuedPartitionedSplitsWeight;
     private final int runningPartitionedDrivers;
+    private final long runningPartitionedSplitsWeight;
 
     private final double outputBufferUtilization;
     private final boolean outputBufferOverutilized;
@@ -73,6 +75,9 @@ public class TaskStatus
     private final long fullGcTimeInMillis;
 
     private final List<ExecutionFailureInfo> failures;
+
+    private final long totalCpuTimeInNanos;
+    private final long taskAgeInMillis;
 
     @JsonCreator
     @ThriftConstructor
@@ -93,7 +98,11 @@ public class TaskStatus
             @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
             @JsonProperty("peakNodeTotalMemoryReservationInBytes") long peakNodeTotalMemoryReservationInBytes,
             @JsonProperty("fullGcCount") long fullGcCount,
-            @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis)
+            @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis,
+            @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
+            @JsonProperty("taskAgeInMillis") long taskAgeInMillis,
+            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight)
     {
         this.taskInstanceIdLeastSignificantBits = taskInstanceIdLeastSignificantBits;
         this.taskInstanceIdMostSignificantBits = taskInstanceIdMostSignificantBits;
@@ -105,9 +114,13 @@ public class TaskStatus
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
+        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
+        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
 
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be positive");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
+        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
 
         this.outputBufferUtilization = outputBufferUtilization;
         this.outputBufferOverutilized = outputBufferOverutilized;
@@ -122,6 +135,8 @@ public class TaskStatus
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
         this.fullGcTimeInMillis = fullGcTimeInMillis;
+        this.totalCpuTimeInNanos = totalCpuTimeInNanos;
+        this.taskAgeInMillis = taskAgeInMillis;
     }
 
     @JsonProperty
@@ -153,7 +168,7 @@ public class TaskStatus
     }
 
     @JsonProperty
-    @ThriftField(5)
+    @ThriftField(value = 5, name = "selfUri")
     public URI getSelf()
     {
         return self;
@@ -243,6 +258,34 @@ public class TaskStatus
         return peakNodeTotalMemoryReservationInBytes;
     }
 
+    @JsonProperty
+    @ThriftField(18)
+    public long getTotalCpuTimeInNanos()
+    {
+        return totalCpuTimeInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(19)
+    public long getTaskAgeInMillis()
+    {
+        return taskAgeInMillis;
+    }
+
+    @JsonProperty
+    @ThriftField(20)
+    public long getQueuedPartitionedSplitsWeight()
+    {
+        return queuedPartitionedSplitsWeight;
+    }
+
+    @JsonProperty
+    @ThriftField(21)
+    public long getRunningPartitionedSplitsWeight()
+    {
+        return runningPartitionedSplitsWeight;
+    }
+
     @Override
     public String toString()
     {
@@ -270,7 +313,11 @@ public class TaskStatus
                 0,
                 0,
                 0,
-                0);
+                0,
+                0,
+                0,
+                0L,
+                0L);
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -292,6 +339,10 @@ public class TaskStatus
                 taskStatus.getSystemMemoryReservationInBytes(),
                 taskStatus.getPeakNodeTotalMemoryReservationInBytes(),
                 taskStatus.getFullGcCount(),
-                taskStatus.getFullGcTimeInMillis());
+                taskStatus.getFullGcTimeInMillis(),
+                taskStatus.getTotalCpuTimeInNanos(),
+                taskStatus.getTaskAgeInMillis(),
+                taskStatus.getQueuedPartitionedSplitsWeight(),
+                taskStatus.getRunningPartitionedSplitsWeight());
     }
 }

@@ -1,0 +1,8 @@
+presto_protocol.h     -diff -merge
+presto_protocol.h     linguist-generated=true
+presto_protocol.cpp   -diff -merge
+presto_protocol.cpp   linguist-generated=true
+presto_protocol.json  -diff -merge
+presto_protocol.json  linguist-generated=true
+presto_protocol.proto -diff -merge
+presto_protocol.proto linguist-generated=true

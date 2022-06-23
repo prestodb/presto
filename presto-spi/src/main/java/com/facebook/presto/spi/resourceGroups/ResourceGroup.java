@@ -95,4 +95,11 @@ public interface ResourceGroup
      * Whether to export statistics about this group and allow configuration via JMX.
      */
     void setJmxExport(boolean export);
+
+    ResourceGroupQueryLimits getPerQueryLimits();
+
+    /**
+     * The maximum resources a query can consume before being killed.
+     */
+    void setPerQueryLimits(ResourceGroupQueryLimits perQueryLimits);
 }

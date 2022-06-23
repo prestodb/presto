@@ -56,6 +56,7 @@ import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.type.StandardTypes.PARAMETRIC_TYPES;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -108,14 +109,16 @@ public class FunctionsParserHelper
         ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraints = ImmutableList.builder();
         for (TypeParameter typeParameter : typeParameters) {
             String name = typeParameter.value();
+            String variadicBound = typeParameter.boundedBy().isEmpty() ? null : typeParameter.boundedBy();
+            checkArgument(variadicBound == null || PARAMETRIC_TYPES.contains(variadicBound), "boundedBy must be a parametric type, got %s", variadicBound);
             if (orderableRequired.contains(name)) {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, false, true, null, false, typeParameter.boundedBy()));
+                typeVariableConstraints.add(new TypeVariableConstraint(name, false, true, variadicBound, false));
             }
             else if (comparableRequired.contains(name)) {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, true, false, null, false, typeParameter.boundedBy()));
+                typeVariableConstraints.add(new TypeVariableConstraint(name, true, false, variadicBound, false));
             }
             else {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, false, false, null, false, typeParameter.boundedBy()));
+                typeVariableConstraints.add(new TypeVariableConstraint(name, false, false, variadicBound, false));
             }
         }
         return typeVariableConstraints.build();

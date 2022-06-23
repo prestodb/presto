@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public interface QueryConfigurationOverrides
 {
@@ -36,4 +37,6 @@ public interface QueryConfigurationOverrides
     SessionPropertiesOverrideStrategy getSessionPropertiesOverrideStrategy();
 
     Map<String, String> getSessionPropertiesOverride();
+
+    Set<String> getSessionPropertiesToRemove();
 }

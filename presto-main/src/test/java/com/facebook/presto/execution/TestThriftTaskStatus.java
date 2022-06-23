@@ -26,6 +26,7 @@ import com.facebook.drift.protocol.TTransport;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.util.Failures;
@@ -47,6 +48,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestThriftTaskStatus
 {
     private static final ThriftCodecManager COMPILER_READ_CODEC_MANAGER = new ThriftCodecManager(new CompilerThriftCodecFactory(false));
@@ -65,7 +67,9 @@ public class TestThriftTaskStatus
     public static final URI SELF_URI = java.net.URI.create("fake://task/" + "1");
     public static final Set<Lifespan> LIFESPANS = ImmutableSet.of(Lifespan.taskWide(), Lifespan.driverGroup(100));
     public static final int QUEUED_PARTITIONED_DRIVERS = 100;
+    public static final long QUEUED_PARTITIONED_WEIGHT = SplitWeight.rawValueForStandardSplitCount(QUEUED_PARTITIONED_DRIVERS);
     public static final int RUNNING_PARTITIONED_DRIVERS = 200;
+    public static final long RUNNING_PARTITIONED_WEIGHT = SplitWeight.rawValueForStandardSplitCount(RUNNING_PARTITIONED_DRIVERS);
     public static final double OUTPUT_BUFFER_UTILIZATION = 99.9;
     public static final boolean OUTPUT_BUFFER_OVERUTILIZED = true;
     public static final int PHYSICAL_WRITTEN_DATA_SIZE_IN_BYTES = 1024 * 1024;
@@ -74,6 +78,8 @@ public class TestThriftTaskStatus
     public static final int PEAK_NODE_TOTAL_MEMORY_RESERVATION_IN_BYTES = 42 * 1024 * 1024;
     public static final int FULL_GC_COUNT = 10;
     public static final int FULL_GC_TIME_IN_MILLIS = 1001;
+    public static final int TOTAL_CPU_TIME_IN_NANOS = 1002;
+    public static final int TASK_AGE = 1003;
     public static final HostAddress REMOTE_HOST = HostAddress.fromParts("www.fake.invalid", 8080);
     private TaskStatus taskStatus;
 
@@ -127,7 +133,9 @@ public class TestThriftTaskStatus
         assertEquals(taskStatus.getSelf(), SELF_URI);
         assertEquals(taskStatus.getCompletedDriverGroups(), LIFESPANS);
         assertEquals(taskStatus.getQueuedPartitionedDrivers(), QUEUED_PARTITIONED_DRIVERS);
+        assertEquals(taskStatus.getQueuedPartitionedSplitsWeight(), QUEUED_PARTITIONED_WEIGHT);
         assertEquals(taskStatus.getRunningPartitionedDrivers(), RUNNING_PARTITIONED_DRIVERS);
+        assertEquals(taskStatus.getRunningPartitionedSplitsWeight(), RUNNING_PARTITIONED_WEIGHT);
         assertEquals(taskStatus.getOutputBufferUtilization(), OUTPUT_BUFFER_UTILIZATION);
         assertEquals(taskStatus.isOutputBufferOverutilized(), OUTPUT_BUFFER_OVERUTILIZED);
         assertEquals(taskStatus.getPhysicalWrittenDataSizeInBytes(), PHYSICAL_WRITTEN_DATA_SIZE_IN_BYTES);
@@ -135,6 +143,8 @@ public class TestThriftTaskStatus
         assertEquals(taskStatus.getPeakNodeTotalMemoryReservationInBytes(), PEAK_NODE_TOTAL_MEMORY_RESERVATION_IN_BYTES);
         assertEquals(taskStatus.getFullGcCount(), FULL_GC_COUNT);
         assertEquals(taskStatus.getFullGcTimeInMillis(), FULL_GC_TIME_IN_MILLIS);
+        assertEquals(taskStatus.getTotalCpuTimeInNanos(), TOTAL_CPU_TIME_IN_NANOS);
+        assertEquals(taskStatus.getTaskAgeInMillis(), TASK_AGE);
 
         List<ExecutionFailureInfo> failures = taskStatus.getFailures();
         assertEquals(failures.size(), 3);
@@ -195,7 +205,11 @@ public class TestThriftTaskStatus
                 SYSTEM_MEMORY_RESERVATION_IN_BYTES,
                 PEAK_NODE_TOTAL_MEMORY_RESERVATION_IN_BYTES,
                 FULL_GC_COUNT,
-                FULL_GC_TIME_IN_MILLIS);
+                FULL_GC_TIME_IN_MILLIS,
+                TOTAL_CPU_TIME_IN_NANOS,
+                TASK_AGE,
+                QUEUED_PARTITIONED_WEIGHT,
+                RUNNING_PARTITIONED_WEIGHT);
     }
 
     private List<ExecutionFailureInfo> getExecutionFailureInfos()

@@ -16,22 +16,26 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.SortNode;
 
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.topN;
 
 /**
- * Replace TopN node
- * 1. With its source when the subplan is at most one row
- * 2. With a Sort node when the subplan is guaranteed to produce fewer rows than N
+ * Removes top N operations where the input is provably at most one row.
  */
 public class RemoveRedundantTopN
         implements Rule<TopNNode>
 {
-    private static final Pattern<TopNNode> PATTERN = topN();
+    private static final Pattern<TopNNode> PATTERN = topN()
+            .matching(RemoveRedundantTopN::singleRowInput);
+
+    private static boolean singleRowInput(TopNNode node)
+    {
+        return (node.getStep() == TopNNode.Step.SINGLE &&
+                ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
+                ((GroupReference) node.getSource()).getLogicalProperties().get().isAtMostSingleRow());
+    }
 
     @Override
     public Pattern<TopNNode> getPattern()
@@ -42,12 +46,6 @@ public class RemoveRedundantTopN
     @Override
     public Result apply(TopNNode node, Captures captures, Context context)
     {
-        if (isAtMostScalar(node.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(node.getSource());
-        }
-        if (isAtMost(node.getSource(), context.getLookup(), node.getCount())) {
-            return Result.ofPlanNode(new SortNode(context.getIdAllocator().getNextId(), node.getSource(), node.getOrderingScheme(), false));
-        }
-        return Result.empty();
+        return Result.ofPlanNode(node.getSource());
     }
 }

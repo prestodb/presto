@@ -24,6 +24,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestJoinQueries;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.ResultWithQueryId;
@@ -35,7 +36,9 @@ import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
+import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
@@ -43,9 +46,11 @@ import static org.testng.Assert.assertEquals;
 public class TestHiveDistributedJoinQueriesWithDynamicFiltering
         extends AbstractTestJoinQueries
 {
-    public TestHiveDistributedJoinQueriesWithDynamicFiltering()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 
     @Override
@@ -53,7 +58,9 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
     {
         return Session.builder(super.getSession())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
     }
 
@@ -62,6 +69,8 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "false")
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "false")
                 .build();
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
@@ -79,6 +88,8 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "false")
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "false")
                 .build();
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
@@ -125,6 +136,20 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.AUTOMATIC.name())
                 .build();
         assertQuery(session, query, "SELECT null, 2, 2, 2");
+    }
+
+    @Test
+    public void testMixedJoin()
+    {
+        // Mixed join could produce conjunction dynamic filters, we should be able to extract them out when integrating with filter pushdown
+        assertQuery("SELECT * FROM\n" +
+                "lineitem l1 LEFT OUTER JOIN part p1\n" +
+                "ON l1.orderkey = p1.partkey AND p1.size = 47\n" +
+                "INNER JOIN orders o1 ON l1.orderkey = o1.orderkey\n" +
+                "AND o1.custkey = 397\n" +
+                "LEFT OUTER JOIN part p2\n" +
+                "ON p1.name = p2.name AND p1.partkey = p2.partkey\n" +
+                "WHERE o1.shippriority = 0");
     }
 
     private OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)

@@ -16,7 +16,6 @@ package com.facebook.presto.pinot;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
@@ -28,25 +27,26 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class PinotSessionProperties
 {
-    private static final String CONNECTION_TIMEOUT = "connection_timeout";
-    private static final String FORBID_BROKER_QUERIES = "forbid_broker_queries";
-    private static final String IGNORE_EMPTY_RESPONSES = "ignore_empty_responses";
-    private static final String RETRY_COUNT = "retry_count";
-    private static final String MARK_DATA_FETCH_EXCEPTIONS_AS_RETRIABLE = "mark_data_fetch_exceptions_as_retriable";
-    private static final String USE_DATE_TRUNC = "use_date_trunc";
-    private static final String USE_PINOT_SQL_FOR_BROKER_QUERIES = "use_pinot_sql_for_broker_queries";
-    private static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
-    private static final String PUSHDOWN_TOPN_BROKER_QUERIES = "pushdown_topn_broker_queries";
-
-    @VisibleForTesting
+    public static final String CONNECTION_TIMEOUT = "connection_timeout";
+    public static final String FORBID_BROKER_QUERIES = "forbid_broker_queries";
+    public static final String IGNORE_EMPTY_RESPONSES = "ignore_empty_responses";
+    public static final String RETRY_COUNT = "retry_count";
+    public static final String MARK_DATA_FETCH_EXCEPTIONS_AS_RETRIABLE = "mark_data_fetch_exceptions_as_retriable";
+    public static final String USE_DATE_TRUNC = "use_date_trunc";
+    public static final String USE_PINOT_SQL_FOR_BROKER_QUERIES = "use_pinot_sql_for_broker_queries";
+    public static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
+    public static final String PUSHDOWN_TOPN_BROKER_QUERIES = "pushdown_topn_broker_queries";
+    public static final String PUSHDOWN_PROJECT_EXPRESSIONS = "pushdown_project_expressions";
     public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
-
-    @VisibleForTesting
     public static final String NUM_SEGMENTS_PER_SPLIT = "num_segments_per_split";
+    public static final String TOPN_LARGE = "topn_large";
+    public static final String LIMIT_LARGE_FOR_SEGMENT = "limit_larger_for_segment";
+    public static final String OVERRIDE_DISTINCT_COUNT_FUNCTION = "override_distinct_count_function";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -106,6 +106,26 @@ public class PinotSessionProperties
         return session.getProperty(PUSHDOWN_TOPN_BROKER_QUERIES, Boolean.class);
     }
 
+    public static boolean getPushdownProjectExpressions(ConnectorSession session)
+    {
+        return session.getProperty(PUSHDOWN_PROJECT_EXPRESSIONS, Boolean.class);
+    }
+
+    public static int getTopNLarge(ConnectorSession session)
+    {
+        return session.getProperty(TOPN_LARGE, Integer.class);
+    }
+
+    public static int getLimitLargerForSegment(ConnectorSession session)
+    {
+        return session.getProperty(LIMIT_LARGE_FOR_SEGMENT, Integer.class);
+    }
+
+    public static String getOverrideDistinctCountFunction(ConnectorSession session)
+    {
+        return session.getProperty(OVERRIDE_DISTINCT_COUNT_FUNCTION, String.class);
+    }
+
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
@@ -140,6 +160,21 @@ public class PinotSessionProperties
                         "Max limit for non aggregate queries to the pinot broker",
                         pinotConfig.getNonAggregateLimitForBrokerQueries(),
                         false),
+                integerProperty(
+                        LIMIT_LARGE_FOR_SEGMENT,
+                        "Server query selection limit for large segment",
+                        pinotConfig.getLimitLargeForSegment(),
+                        false),
+                integerProperty(
+                        TOPN_LARGE,
+                        "Broker query group by limit",
+                        pinotConfig.getTopNLarge(),
+                        false),
+                stringProperty(
+                        OVERRIDE_DISTINCT_COUNT_FUNCTION,
+                        "Override distinct count function to another function name",
+                        pinotConfig.getOverrideDistinctCountFunction(),
+                        false),
                 booleanProperty(
                         USE_DATE_TRUNC,
                         "Use the new UDF dateTrunc in pinot that is more presto compatible",
@@ -154,6 +189,11 @@ public class PinotSessionProperties
                         PUSHDOWN_TOPN_BROKER_QUERIES,
                         "Push down order by to pinot broker for top queries",
                         pinotConfig.isPushdownTopNBrokerQueries(),
+                        false),
+                booleanProperty(
+                        PUSHDOWN_PROJECT_EXPRESSIONS,
+                        "Push down expressions in projection to Pinot broker",
+                        pinotConfig.isPushdownProjectExpressions(),
                         false),
                 new PropertyMetadata<>(
                         CONNECTION_TIMEOUT,

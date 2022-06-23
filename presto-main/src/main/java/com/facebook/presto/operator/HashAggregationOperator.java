@@ -343,18 +343,18 @@ public class HashAggregationOperator
         return finished;
     }
 
+    // This operator needs input from the upstream operator only when all of following conditions are true:
+    // - 1. It has not received finish() signal (more input to come).
+    // - 2. Current page has been processed.
+    // - 3. Aggregation builder has not been triggered or has finished processing.
+    // - 4. If this is partial aggregation then it must have not reached the memory limit.
     @Override
     public boolean needsInput()
     {
-        if (finishing || outputPages != null) {
-            return false;
-        }
-        else if (aggregationBuilder != null && aggregationBuilder.isFull()) {
-            return false;
-        }
-        else {
-            return unfinishedWork == null;
-        }
+        return !finishing
+                && unfinishedWork == null
+                && outputPages == null
+                && !partialAggregationReachedMemoryLimit();
     }
 
     @Override
@@ -365,43 +365,7 @@ public class HashAggregationOperator
         requireNonNull(page, "page is null");
         inputProcessed = true;
 
-        if (aggregationBuilder == null) {
-            // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause or DISTINCT because they are not yet implemented for spilling.
-            if (step.isOutputPartial() || !spillEnabled) {
-                aggregationBuilder = new InMemoryHashAggregationBuilder(
-                        accumulatorFactories,
-                        step,
-                        expectedGroups,
-                        groupByTypes,
-                        groupByChannels,
-                        hashChannel,
-                        operatorContext,
-                        maxPartialMemory,
-                        joinCompiler,
-                        true,
-                        useSystemMemory);
-            }
-            else {
-                verify(!useSystemMemory, "using system memory in spillable aggregations is not supported");
-                aggregationBuilder = new SpillableHashAggregationBuilder(
-                        accumulatorFactories,
-                        step,
-                        expectedGroups,
-                        groupByTypes,
-                        groupByChannels,
-                        hashChannel,
-                        operatorContext,
-                        memoryLimitForMerge,
-                        memoryLimitForMergeWithMemory,
-                        spillerFactory,
-                        joinCompiler);
-            }
-
-            // assume initial aggregationBuilder is not full
-        }
-        else {
-            checkState(!aggregationBuilder.isFull(), "Aggregation buffer is full");
-        }
+        initializeAggregationBuilderIfNeeded();
 
         // process the current page; save the unfinished work if we are waiting for memory
         unfinishedWork = aggregationBuilder.processPage(page);
@@ -459,8 +423,7 @@ public class HashAggregationOperator
                 }
             }
 
-            // only flush if we are finishing or the aggregation builder is full
-            if (!finishing && (aggregationBuilder == null || !aggregationBuilder.isFull())) {
+            if (!shouldFlush()) {
                 return null;
             }
 
@@ -503,6 +466,57 @@ public class HashAggregationOperator
         }
         operatorContext.localUserMemoryContext().setBytes(0);
         operatorContext.localRevocableMemoryContext().setBytes(0);
+    }
+
+    private void initializeAggregationBuilderIfNeeded()
+    {
+        if (aggregationBuilder != null) {
+            checkState(!aggregationBuilder.isFull(), "Aggregation buffer is full");
+            return;
+        }
+
+        if (step.isOutputPartial() || !spillEnabled) {
+            aggregationBuilder = new InMemoryHashAggregationBuilder(
+                    accumulatorFactories,
+                    step,
+                    expectedGroups,
+                    groupByTypes,
+                    groupByChannels,
+                    hashChannel,
+                    operatorContext,
+                    maxPartialMemory,
+                    joinCompiler,
+                    true,
+                    useSystemMemory);
+        }
+        else {
+            verify(!useSystemMemory, "using system memory in spillable aggregations is not supported");
+            aggregationBuilder = new SpillableHashAggregationBuilder(
+                    accumulatorFactories,
+                    step,
+                    expectedGroups,
+                    groupByTypes,
+                    groupByChannels,
+                    hashChannel,
+                    operatorContext,
+                    memoryLimitForMerge,
+                    memoryLimitForMergeWithMemory,
+                    spillerFactory,
+                    joinCompiler);
+        }
+    }
+
+    // Flush if one of the following is true:
+    // - received finish() signal (no more input to come).
+    // - it is a partial aggregation and has reached memory limit
+    private boolean shouldFlush()
+    {
+        return finishing || partialAggregationReachedMemoryLimit();
+    }
+
+    private boolean partialAggregationReachedMemoryLimit()
+    {
+        return aggregationBuilder != null && aggregationBuilder.isFull();
     }
 
     private Page getGlobalAggregationOutput()

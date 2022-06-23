@@ -28,13 +28,22 @@ public class QueryOutputMetadata
     private final Optional<String> connectorOutputMetadata;
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
-    public QueryOutputMetadata(String catalogName, String schema, String table, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
+    private final String serializedCommitOutput;
+
+    public QueryOutputMetadata(
+            String catalogName,
+            String schema,
+            String table,
+            Optional<String> connectorOutputMetadata,
+            Optional<Boolean> jsonLengthLimitExceeded,
+            String serializedCommitOutput)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.connectorOutputMetadata = requireNonNull(connectorOutputMetadata, "connectorOutputMetadata is null");
         this.jsonLengthLimitExceeded = requireNonNull(jsonLengthLimitExceeded, "jsonLengthLimitExceeded is null");
+        this.serializedCommitOutput = requireNonNull(serializedCommitOutput, "connectorCommitHandle is null");
     }
 
     @JsonProperty
@@ -65,5 +74,11 @@ public class QueryOutputMetadata
     public Optional<Boolean> getJsonLengthLimitExceeded()
     {
         return jsonLengthLimitExceeded;
+    }
+
+    @JsonProperty
+    public String getSerializedCommitOutput()
+    {
+        return serializedCommitOutput;
     }
 }

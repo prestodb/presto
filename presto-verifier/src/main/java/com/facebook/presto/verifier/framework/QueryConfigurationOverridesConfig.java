@@ -17,13 +17,16 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.NO_ACTION;
 
@@ -36,6 +39,7 @@ public class QueryConfigurationOverridesConfig
     private Optional<String> passwordOverride = Optional.empty();
     private SessionPropertiesOverrideStrategy sessionPropertiesOverrideStrategy = NO_ACTION;
     private Map<String, String> sessionPropertiesOverride = ImmutableMap.of();
+    private Set<String> sessionPropertiesToRemove = ImmutableSet.of();
 
     @Override
     public Optional<String> getCatalogOverride()
@@ -104,6 +108,23 @@ public class QueryConfigurationOverridesConfig
     public QueryConfigurationOverridesConfig setSessionPropertiesOverrideStrategy(SessionPropertiesOverrideStrategy sessionPropertiesOverrideStrategy)
     {
         this.sessionPropertiesOverrideStrategy = sessionPropertiesOverrideStrategy;
+        return this;
+    }
+
+    @Override
+    public Set<String> getSessionPropertiesToRemove()
+    {
+        return sessionPropertiesToRemove;
+    }
+
+    @Config("session-properties-removal")
+    public QueryConfigurationOverridesConfig setSessionPropertiesToRemove(String sessionPropertiesToRemove)
+    {
+        if (sessionPropertiesToRemove == null) {
+            return this;
+        }
+
+        this.sessionPropertiesToRemove = ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().split(sessionPropertiesToRemove));
         return this;
     }
 

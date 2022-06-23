@@ -27,8 +27,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import io.airlift.units.Duration;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Paths;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -84,9 +85,10 @@ import static org.testng.Assert.assertEquals;
 public class TestPrestoSparkLauncherIntegrationSmokeTest
 {
     private static final Logger log = Logger.get(TestPrestoSparkLauncherIntegrationSmokeTest.class);
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final ZoneId TIME_ZONE = ZoneId.of("America/Bahia_Banderas");
 
     private File tempDir;
+    private File sparkWorkDirectory;
 
     private DockerCompose dockerCompose;
     private Process composeProcess;
@@ -102,10 +104,12 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
     public void setUp()
             throws Exception
     {
-        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+        assertEquals(ZoneId.systemDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
         // the default temporary directory location on MacOS is not sharable to docker
         tempDir = new File("/tmp", randomUUID().toString());
         createDirectories(tempDir.toPath());
+        sparkWorkDirectory = new File(tempDir, "work");
+        createDirectories(sparkWorkDirectory.toPath());
 
         File composeYaml = extractResource("docker-compose.yml", tempDir);
         dockerCompose = new DockerCompose(composeYaml);
@@ -132,7 +136,8 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 hiveConnectorFactory,
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://127.0.0.1:9083",
-                        "hive.time-zone", TIME_ZONE.getID()));
+                        "hive.time-zone", TIME_ZONE.getId(),
+                        "hive.experimental-optimized-partition-update-serialization-enabled", "true"));
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
         // it may take some time for the docker container to start
         ensureHiveIsRunning(localQueryRunner, new Duration(10, MINUTES));
@@ -156,7 +161,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 // hadoop native cannot be run within the spark docker container
                 // the getnetgrent dependency is missing
                 "hive.dfs.require-hadoop-native", "false",
-                "hive.time-zone", TIME_ZONE.getID()));
+                "hive.time-zone", TIME_ZONE.getId()));
         storeProperties(new File(catalogDirectory, "tpch.properties"), ImmutableMap.of(
                 "connector.name", "tpch",
                 "tpch.splits-per-node", "4",
@@ -211,6 +216,27 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                             .map(value -> "'" + value + "'")
                             .collect(joining(",")),
                     table));
+        }
+    }
+
+    /**
+     * Spark has to deploy Presto on Spark package to every worker for every query.
+     * Unfortunately Spark doesn't try to eagerly delete application data from the workers, and after running
+     * a couple of queries the disk space utilization spikes.
+     * While this might not be an issue when testing locally the disk space is usually very limited on CI environments.
+     * To avoid issues when running on a CI environment we have to drop temporary application data eagerly after each test.
+     */
+    @AfterMethod(alwaysRun = true)
+    public void cleanupSparkWorkDirectory()
+            throws Exception
+    {
+        if (sparkWorkDirectory != null) {
+            // Docker containers are run with a different user id. Run "rm" in a container to avoid permission related issues.
+            int exitCode = dockerCompose.run(
+                    "-v", format("%s:/spark/work", sparkWorkDirectory.getAbsolutePath()),
+                    "spark-submit",
+                    "/bin/bash", "-c", "rm -rf /spark/work/*");
+            assertEquals(exitCode, 0);
         }
     }
 

@@ -20,15 +20,19 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray;
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
-import static com.facebook.presto.common.block.BlockUtil.countUsedPositions;
-import static com.facebook.presto.common.block.BlockUtil.ensureCapacity;
 import static com.facebook.presto.common.block.BlockUtil.getNum128Integers;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -41,6 +45,7 @@ public class Int128ArrayBlock
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int128ArrayBlock.class).instanceSize();
     public static final int INT128_BYTES = Long.BYTES + Long.BYTES;
+    public static final int SIZE_IN_BYTES_PER_POSITION = INT128_BYTES + Byte.BYTES;
 
     private final int positionOffset;
     private final int positionCount;
@@ -48,7 +53,6 @@ public class Int128ArrayBlock
     private final boolean[] valueIsNull;
     private final long[] values;
 
-    private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
     public Int128ArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
@@ -77,26 +81,31 @@ public class Int128ArrayBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = (INT128_BYTES + Byte.BYTES) * (long) positionCount;
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
 
     @Override
     public long getSizeInBytes()
     {
-        return sizeInBytes;
+        return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return (INT128_BYTES + Byte.BYTES) * (long) length;
+        return SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] usedPositions, int usedPositionCount)
     {
-        return (INT128_BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
+        return SIZE_IN_BYTES_PER_POSITION * (long) usedPositionCount;
     }
 
     @Override
@@ -112,13 +121,13 @@ public class Int128ArrayBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(values, sizeOf(values));
         if (valueIsNull != null) {
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -356,7 +365,34 @@ public class Int128ArrayBlock
     public Block appendNull()
     {
         boolean[] newValueIsNull = appendNullToIsNullArray(valueIsNull, positionOffset, positionCount);
-        long[] newValues = ensureCapacity(values, (positionOffset + positionCount + 1) * 2);
+        long[] newValues = ensureCapacity(values, (positionOffset + positionCount + 1) * 2, SMALL, PRESERVE);
         return new Int128ArrayBlock(positionOffset, positionCount + 1, newValueIsNull, newValues);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        Int128ArrayBlock other = (Int128ArrayBlock) obj;
+        return this.positionOffset == other.positionOffset &&
+                this.positionCount == other.positionCount &&
+                Arrays.equals(this.valueIsNull, other.valueIsNull) &&
+                Arrays.equals(this.values, other.values) &&
+                this.retainedSizeInBytes == other.retainedSizeInBytes;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(positionOffset,
+                positionCount,
+                Arrays.hashCode(valueIsNull),
+                Arrays.hashCode(values),
+                retainedSizeInBytes);
     }
 }

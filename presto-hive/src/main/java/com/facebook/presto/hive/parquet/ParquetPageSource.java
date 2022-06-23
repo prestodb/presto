@@ -14,9 +14,11 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
+import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.Field;
@@ -25,6 +27,7 @@ import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -33,7 +36,9 @@ import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetPageSource
@@ -45,20 +50,58 @@ public class ParquetPageSource
     private final List<Type> types;
     private final List<Optional<Field>> fields;
 
+    /**
+     * Indicates whether the column at each index should be populated with the
+     * indices of its rows
+     */
+    private final List<Boolean> rowIndexLocations;
+
     private int batchId;
     private long completedPositions;
     private boolean closed;
+
+    private final RuntimeStats runtimeStats;
 
     public ParquetPageSource(
             ParquetReader parquetReader,
             List<Type> types,
             List<Optional<Field>> fields,
-            List<String> columnNames)
+            List<String> columnNames,
+            RuntimeStats runtimeStats)
+    {
+        this(parquetReader, types, fields, nCopies(types.size(), false), columnNames, runtimeStats);
+    }
+
+    public ParquetPageSource(
+            ParquetReader parquetReader,
+            List<Type> types,
+            List<Optional<Field>> fields,
+            List<Boolean> rowIndexLocations,
+            List<String> columnNames,
+            RuntimeStats runtimeStats)
     {
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
+        this.rowIndexLocations = requireNonNull(rowIndexLocations, "rowIndexLocations is null");
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+
+        checkArgument(
+                types.size() == rowIndexLocations.size() && types.size() == fields.size(),
+                "types, rowIndexLocations, and fields must correspond one-to-one-to-one");
+        Streams.forEachPair(
+                rowIndexLocations.stream(),
+                fields.stream(),
+                (isIndexColumn, field) -> checkArgument(
+                        !(isIndexColumn && field.isPresent()),
+                        "Field info for row index column must be empty Optional"));
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     @Override
@@ -107,12 +150,17 @@ public class ParquetPageSource
 
             Block[] blocks = new Block[fields.size()];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                Optional<Field> field = fields.get(fieldId);
-                if (field.isPresent()) {
-                    blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
+                if (isIndexColumn(fieldId)) {
+                    blocks[fieldId] = getRowIndexColumn(parquetReader.lastBatchStartRow(), batchSize);
                 }
                 else {
-                    blocks[fieldId] = RunLengthEncodedBlock.create(types.get(fieldId), null, batchSize);
+                    Optional<Field> field = fields.get(fieldId);
+                    if (field.isPresent()) {
+                        blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
+                    }
+                    else {
+                        blocks[fieldId] = RunLengthEncodedBlock.create(types.get(fieldId), null, batchSize);
+                    }
                 }
             }
             return new Page(batchSize, blocks);
@@ -190,5 +238,19 @@ public class ParquetPageSource
             }
             loaded = true;
         }
+    }
+
+    private boolean isIndexColumn(int column)
+    {
+        return rowIndexLocations.get(column);
+    }
+
+    private static Block getRowIndexColumn(long baseIndex, int size)
+    {
+        long[] rowIndices = new long[size];
+        for (int position = 0; position < size; position++) {
+            rowIndices[position] = baseIndex + position;
+        }
+        return new LongArrayBlock(size, Optional.empty(), rowIndices);
     }
 }

@@ -30,12 +30,8 @@ import static org.testng.Assert.assertEquals;
 public class TestParquetDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    protected TestParquetDistributedQueries()
-    {
-        super(TestParquetDistributedQueries::createQueryRunner);
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Map<String, String> parquetProperties = ImmutableMap.<String, String>builder()
@@ -133,6 +129,6 @@ public class TestParquetDistributedQueries
     {
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
     }
 }

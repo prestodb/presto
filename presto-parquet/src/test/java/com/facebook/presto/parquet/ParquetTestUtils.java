@@ -61,11 +61,11 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.Progressable;
-import parquet.hadoop.ParquetOutputFormat;
-import parquet.schema.GroupType;
-import parquet.schema.MessageType;
-import parquet.schema.PrimitiveType;
-import parquet.schema.Types;
+import org.apache.parquet.hadoop.ParquetOutputFormat;
+import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 
 import java.io.File;
 import java.io.IOException;
@@ -113,8 +113,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableTimestampObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
-import static parquet.schema.Type.Repetition.REPEATED;
-import static parquet.schema.Type.Repetition.REQUIRED;
+import static org.apache.parquet.schema.Type.Repetition.REPEATED;
+import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 
 public class ParquetTestUtils
 {
@@ -406,10 +406,10 @@ public class ParquetTestUtils
                 if (!nullable) {
                     // Parquet writer in Hive by default writes all columns as NULLABLE. We want to change it to write NON-NULLABLE
                     // type by changing the MessageType (parquet schema type)
-                    List<parquet.schema.Type> types = messageType.getFields();
-                    List<parquet.schema.Type> newTypes = new ArrayList<>();
+                    List<org.apache.parquet.schema.Type> types = messageType.getFields();
+                    List<org.apache.parquet.schema.Type> newTypes = new ArrayList<>();
 
-                    for (parquet.schema.Type type : types) {
+                    for (org.apache.parquet.schema.Type type : types) {
                         newTypes.add(convertToRequiredType(type));
                     }
                     messageType = new MessageType("hive_schema", newTypes);
@@ -422,13 +422,13 @@ public class ParquetTestUtils
         }.getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
     }
 
-    private static parquet.schema.Type convertToRequiredType(parquet.schema.Type type)
+    private static org.apache.parquet.schema.Type convertToRequiredType(org.apache.parquet.schema.Type type)
     {
         if (type instanceof GroupType) {
             GroupType groupType = (GroupType) type;
-            List<parquet.schema.Type> fields = groupType.getFields();
-            List<parquet.schema.Type> newFields = new ArrayList<>();
-            for (parquet.schema.Type field : fields) {
+            List<org.apache.parquet.schema.Type> fields = groupType.getFields();
+            List<org.apache.parquet.schema.Type> newFields = new ArrayList<>();
+            for (org.apache.parquet.schema.Type field : fields) {
                 newFields.add(convertToRequiredType(field));
             }
             return new GroupType(REPEATED, groupType.getName(), newFields);
@@ -438,7 +438,7 @@ public class ParquetTestUtils
             Types.PrimitiveBuilder<PrimitiveType> builder = Types.primitive(primitiveType.getPrimitiveTypeName(), REQUIRED);
 
             if (primitiveType.getDecimalMetadata() != null) {
-                builder = builder.scale(primitiveType.getDecimalMetadata().getScale())
+                builder = (Types.PrimitiveBuilder<PrimitiveType>) builder.scale(primitiveType.getDecimalMetadata().getScale())
                         .precision(primitiveType.getDecimalMetadata().getPrecision());
             }
 

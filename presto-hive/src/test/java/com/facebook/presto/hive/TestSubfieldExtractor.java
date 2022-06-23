@@ -60,11 +60,11 @@ import static org.testng.Assert.assertTrue;
 
 public class TestSubfieldExtractor
 {
-    private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression("c_bigint", BIGINT);
-    private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression("c_bigint_array", new ArrayType(BIGINT));
-    private static final VariableReferenceExpression C_BIGINT_TO_BIGINT_MAP = new VariableReferenceExpression("c_bigint_to_bigint_map", mapType(BIGINT, BIGINT));
-    private static final VariableReferenceExpression C_VARCHAR_TO_BIGINT_MAP = new VariableReferenceExpression("c_varchar_to_bigint_map", mapType(VARCHAR, BIGINT));
-    private static final VariableReferenceExpression C_STRUCT = new VariableReferenceExpression("c_struct", RowType.from(ImmutableList.of(
+    private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression(Optional.empty(), "c_bigint", BIGINT);
+    private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression(Optional.empty(), "c_bigint_array", new ArrayType(BIGINT));
+    private static final VariableReferenceExpression C_BIGINT_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_bigint_to_bigint_map", mapType(BIGINT, BIGINT));
+    private static final VariableReferenceExpression C_VARCHAR_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_varchar_to_bigint_map", mapType(VARCHAR, BIGINT));
+    private static final VariableReferenceExpression C_STRUCT = new VariableReferenceExpression(Optional.empty(), "c_struct", RowType.from(ImmutableList.of(
             RowType.field("a", BIGINT),
             RowType.field("b", RowType.from(ImmutableList.of(RowType.field("x", BIGINT)))),
             RowType.field("c", new ArrayType(BIGINT)),

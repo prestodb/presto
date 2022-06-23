@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.base.security;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -54,6 +55,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameS
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -163,7 +165,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<Subfield> columnOrSubfieldNames)
     {
         // TODO: Implement column level permissions
         if (!checkTablePermission(identity, tableName, SELECT)) {
@@ -184,6 +186,14 @@ public class FileBasedAccessControl
     {
         if (!checkTablePermission(identity, tableName, DELETE)) {
             denyDeleteTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanTruncateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, DELETE)) {
+            denyTruncateTable(tableName.toString());
         }
     }
 

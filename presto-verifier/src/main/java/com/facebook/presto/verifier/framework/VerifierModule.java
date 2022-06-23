@@ -169,6 +169,13 @@ public class VerifierModule
 
     @Provides
     @Singleton
+    public static ScheduledExecutorService createScheduledExecutorService()
+    {
+        return newSingleThreadScheduledExecutor(daemonThreadsNamed("verifier-scheduled-executor-service"));
+    }
+
+    @Provides
+    @Singleton
     @ForTransactionManager
     public static ScheduledExecutorService createTransactionIdleCheckExecutor()
     {

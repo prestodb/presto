@@ -23,7 +23,6 @@ import com.facebook.presto.hive.S3SelectPushdown;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
@@ -105,11 +104,12 @@ public class InternalHiveSplitFactory
                 0,
                 fileInfo.getLength(),
                 fileInfo.getLength(),
+                fileInfo.getFileModifiedTime(),
                 readBucketNumber,
                 tableBucketNumber,
                 splittable,
                 fileInfo.getExtraFileInfo(),
-                ImmutableMap.of());
+                fileInfo.getCustomSplitInfo());
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
@@ -123,6 +123,7 @@ public class InternalHiveSplitFactory
                 split.getStart(),
                 split.getLength(),
                 file.getLen(),
+                file.getModificationTime(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 false,
@@ -136,6 +137,7 @@ public class InternalHiveSplitFactory
             long start,
             long length,
             long fileSize,
+            long fileModificationTime,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
             boolean splittable,
@@ -195,6 +197,7 @@ public class InternalHiveSplitFactory
                 start,
                 start + length,
                 fileSize,
+                fileModificationTime,
                 blocks,
                 readBucketNumber,
                 tableBucketNumber,

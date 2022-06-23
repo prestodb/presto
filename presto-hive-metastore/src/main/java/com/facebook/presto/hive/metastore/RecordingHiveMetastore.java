@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ForRecordingHiveMetastore;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -30,6 +31,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.Immutable;
@@ -64,6 +66,7 @@ public class RecordingHiveMetastore
 
     private final Cache<String, Optional<Database>> databaseCache;
     private final Cache<HiveTableName, Optional<Table>> tableCache;
+    private final Cache<HiveTableName, List<TableConstraint<String>>> tableConstraintsCache;
     private final Cache<String, Set<ColumnStatisticType>> supportedColumnStatisticsCache;
     private final Cache<HiveTableName, PartitionStatistics> tableStatisticsCache;
     private final Cache<Set<HivePartitionName>, Map<String, PartitionStatistics>> partitionStatisticsCache;
@@ -87,6 +90,7 @@ public class RecordingHiveMetastore
 
         databaseCache = createCache(metastoreClientConfig);
         tableCache = createCache(metastoreClientConfig);
+        tableConstraintsCache = createCache(metastoreClientConfig);
         supportedColumnStatisticsCache = createCache(metastoreClientConfig);
         tableStatisticsCache = createCache(metastoreClientConfig);
         partitionStatisticsCache = createCache(metastoreClientConfig);
@@ -108,12 +112,13 @@ public class RecordingHiveMetastore
     void loadRecording()
             throws IOException
     {
-        Recording recording = new ObjectMapperProvider().get().readValue(new File(recordingPath), Recording.class);
+        Recording recording = new JsonObjectMapperProvider().get().readValue(new File(recordingPath), Recording.class);
 
         allDatabases = recording.getAllDatabases();
         allRoles = recording.getAllRoles();
         databaseCache.putAll(toMap(recording.getDatabases()));
         tableCache.putAll(toMap(recording.getTables()));
+        tableConstraintsCache.putAll(toMap(recording.getTableConstraints()));
         supportedColumnStatisticsCache.putAll(toMap(recording.getSupportedColumnStatistics()));
         tableStatisticsCache.putAll(toMap(recording.getTableStatistics()));
         partitionStatisticsCache.putAll(toMap(recording.getPartitionStatistics()));
@@ -152,6 +157,7 @@ public class RecordingHiveMetastore
                 allRoles,
                 toPairs(databaseCache),
                 toPairs(tableCache),
+                toPairs(tableConstraintsCache),
                 toPairs(supportedColumnStatisticsCache),
                 toPairs(tableStatisticsCache),
                 toPairs(partitionStatisticsCache),
@@ -163,7 +169,7 @@ public class RecordingHiveMetastore
                 toPairs(partitionsByNamesCache),
                 toPairs(tablePrivilegesCache),
                 toPairs(roleGrantsCache));
-        new ObjectMapperProvider().get()
+        new JsonObjectMapperProvider().get()
                 .writerWithDefaultPrettyPrinter()
                 .writeValue(new File(recordingPath), recording);
     }
@@ -182,169 +188,175 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName)
     {
-        return loadValue(databaseCache, databaseName, () -> delegate.getDatabase(databaseName));
+        return loadValue(databaseCache, databaseName, () -> delegate.getDatabase(metastoreContext, databaseName));
     }
 
     @Override
-    public List<String> getAllDatabases()
+    public List<String> getAllDatabases(MetastoreContext metastoreContext)
     {
         if (replay) {
             return allDatabases.orElseThrow(() -> new PrestoException(NOT_FOUND, "Missing entry for all databases"));
         }
 
-        List<String> result = delegate.getAllDatabases();
+        List<String> result = delegate.getAllDatabases(metastoreContext);
         allDatabases = Optional.of(result);
         return result;
     }
 
     @Override
-    public Optional<Table> getTable(String databaseName, String tableName)
+    public Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        return loadValue(tableCache, hiveTableName(databaseName, tableName), () -> delegate.getTable(databaseName, tableName));
+        return loadValue(tableCache, hiveTableName(databaseName, tableName), () -> delegate.getTable(metastoreContext, databaseName, tableName));
+    }
+
+    public List<TableConstraint<String>> getTableConstraints(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return loadValue(tableConstraintsCache, hiveTableName(databaseName, tableName), () -> delegate.getTableConstraints(metastoreContext, databaseName, tableName));
     }
 
     @Override
-    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
+    public Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type)
     {
-        return loadValue(supportedColumnStatisticsCache, type.getTypeSignature().toString(), () -> delegate.getSupportedColumnStatistics(type));
+        return loadValue(supportedColumnStatisticsCache, type.getTypeSignature().toString(), () -> delegate.getSupportedColumnStatistics(metastoreContext, type));
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         return loadValue(
                 tableStatisticsCache,
                 hiveTableName(databaseName, tableName),
-                () -> delegate.getTableStatistics(databaseName, tableName));
+                () -> delegate.getTableStatistics(metastoreContext, databaseName, tableName));
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
     {
         return loadValue(
                 partitionStatisticsCache,
                 getHivePartitionNames(databaseName, tableName, partitionNames),
-                () -> delegate.getPartitionStatistics(databaseName, tableName, partitionNames));
+                () -> delegate.getPartitionStatistics(metastoreContext, databaseName, tableName, partitionNames));
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         verifyRecordingMode();
-        delegate.updateTableStatistics(databaseName, tableName, update);
+        delegate.updateTableStatistics(metastoreContext, databaseName, tableName, update);
     }
 
     @Override
-    public void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         verifyRecordingMode();
-        delegate.updatePartitionStatistics(databaseName, tableName, partitionName, update);
+        delegate.updatePartitionStatistics(metastoreContext, databaseName, tableName, partitionName, update);
     }
 
     @Override
-    public Optional<List<String>> getAllTables(String databaseName)
+    public Optional<List<String>> getAllTables(MetastoreContext metastoreContext, String databaseName)
     {
-        return loadValue(allTablesCache, databaseName, () -> delegate.getAllTables(databaseName));
+        return loadValue(allTablesCache, databaseName, () -> delegate.getAllTables(metastoreContext, databaseName));
     }
 
     @Override
-    public Optional<List<String>> getAllViews(String databaseName)
+    public Optional<List<String>> getAllViews(MetastoreContext metastoreContext, String databaseName)
     {
-        return loadValue(allViewsCache, databaseName, () -> delegate.getAllViews(databaseName));
+        return loadValue(allViewsCache, databaseName, () -> delegate.getAllViews(metastoreContext, databaseName));
     }
 
     @Override
-    public void createDatabase(Database database)
-    {
-        verifyRecordingMode();
-        delegate.createDatabase(database);
-    }
-
-    @Override
-    public void dropDatabase(String databaseName)
+    public void createDatabase(MetastoreContext metastoreContext, Database database)
     {
         verifyRecordingMode();
-        delegate.dropDatabase(databaseName);
+        delegate.createDatabase(metastoreContext, database);
     }
 
     @Override
-    public void renameDatabase(String databaseName, String newDatabaseName)
+    public void dropDatabase(MetastoreContext metastoreContext, String databaseName)
     {
         verifyRecordingMode();
-        delegate.renameDatabase(databaseName, newDatabaseName);
+        delegate.dropDatabase(metastoreContext, databaseName);
     }
 
     @Override
-    public void createTable(Table table, PrincipalPrivileges principalPrivileges)
+    public void renameDatabase(MetastoreContext metastoreContext, String databaseName, String newDatabaseName)
     {
         verifyRecordingMode();
-        delegate.createTable(table, principalPrivileges);
+        delegate.renameDatabase(metastoreContext, databaseName, newDatabaseName);
     }
 
     @Override
-    public void dropTable(String databaseName, String tableName, boolean deleteData)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         verifyRecordingMode();
-        delegate.dropTable(databaseName, tableName, deleteData);
+        return delegate.createTable(metastoreContext, table, principalPrivileges);
     }
 
     @Override
-    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData)
     {
         verifyRecordingMode();
-        delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges);
+        delegate.dropTable(metastoreContext, databaseName, tableName, deleteData);
     }
 
     @Override
-    public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public MetastoreOperationResult replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         verifyRecordingMode();
-        delegate.renameTable(databaseName, tableName, newDatabaseName, newTableName);
+        return delegate.replaceTable(metastoreContext, databaseName, tableName, newTable, principalPrivileges);
     }
 
     @Override
-    public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
+    public MetastoreOperationResult renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
         verifyRecordingMode();
-        delegate.addColumn(databaseName, tableName, columnName, columnType, columnComment);
+        return delegate.renameTable(metastoreContext, databaseName, tableName, newDatabaseName, newTableName);
     }
 
     @Override
-    public void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName)
+    public MetastoreOperationResult addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         verifyRecordingMode();
-        delegate.renameColumn(databaseName, tableName, oldColumnName, newColumnName);
+        return delegate.addColumn(metastoreContext, databaseName, tableName, columnName, columnType, columnComment);
     }
 
     @Override
-    public void dropColumn(String databaseName, String tableName, String columnName)
+    public MetastoreOperationResult renameColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
         verifyRecordingMode();
-        delegate.dropColumn(databaseName, tableName, columnName);
+        return delegate.renameColumn(metastoreContext, databaseName, tableName, oldColumnName, newColumnName);
     }
 
     @Override
-    public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
+    public MetastoreOperationResult dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
+    {
+        verifyRecordingMode();
+        return delegate.dropColumn(metastoreContext, databaseName, tableName, columnName);
+    }
+
+    @Override
+    public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
     {
         return loadValue(
                 partitionCache,
                 hivePartitionName(databaseName, tableName, partitionValues),
-                () -> delegate.getPartition(databaseName, tableName, partitionValues));
+                () -> delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues));
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(String databaseName, String tableName)
+    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         return loadValue(
                 partitionNamesCache,
                 hiveTableName(databaseName, tableName),
-                () -> delegate.getPartitionNames(databaseName, tableName));
+                () -> delegate.getPartitionNames(metastoreContext, databaseName, tableName));
     }
 
     @Override
     public List<String> getPartitionNamesByFilter(
+            MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
             Map<Column, Domain> partitionPredicates)
@@ -352,11 +364,12 @@ public class RecordingHiveMetastore
         return loadValue(
                 partitionNamesByFilterCache,
                 partitionFilter(databaseName, tableName, partitionPredicates).toString(),
-                () -> delegate.getPartitionNamesByFilter(databaseName, tableName, partitionPredicates));
+                () -> delegate.getPartitionNamesByFilter(metastoreContext, databaseName, tableName, partitionPredicates));
     }
 
     @Override
     public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(
+            MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
             Map<Column, Domain> partitionPredicates)
@@ -365,56 +378,56 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
     {
         return loadValue(
                 partitionsByNamesCache,
                 getHivePartitionNames(databaseName, tableName, ImmutableSet.copyOf(partitionNames)),
-                () -> delegate.getPartitionsByNames(databaseName, tableName, partitionNames));
+                () -> delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames));
     }
 
     @Override
-    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
+    public MetastoreOperationResult addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
         verifyRecordingMode();
-        delegate.addPartitions(databaseName, tableName, partitions);
+        return delegate.addPartitions(metastoreContext, databaseName, tableName, partitions);
     }
 
     @Override
-    public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
+    public void dropPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         verifyRecordingMode();
-        delegate.dropPartition(databaseName, tableName, parts, deleteData);
+        delegate.dropPartition(metastoreContext, databaseName, tableName, parts, deleteData);
     }
 
     @Override
-    public void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition)
+    public MetastoreOperationResult alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition)
     {
         verifyRecordingMode();
-        delegate.alterPartition(databaseName, tableName, partition);
+        return delegate.alterPartition(metastoreContext, databaseName, tableName, partition);
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal principal)
     {
         return loadValue(
                 tablePrivilegesCache,
                 new UserTableKey(principal, databaseName, tableName),
-                () -> delegate.listTablePrivileges(databaseName, tableName, principal));
+                () -> delegate.listTablePrivileges(metastoreContext, databaseName, tableName, principal));
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         verifyRecordingMode();
-        delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges);
+        delegate.grantTablePrivileges(metastoreContext, databaseName, tableName, grantee, privileges);
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         verifyRecordingMode();
-        delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges);
+        delegate.revokeTablePrivileges(metastoreContext, databaseName, tableName, grantee, privileges);
     }
 
     private Set<HivePartitionName> getHivePartitionNames(String databaseName, String tableName, Set<String> partitionNames)
@@ -425,52 +438,58 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void createRole(String role, String grantor)
+    public void createRole(MetastoreContext metastoreContext, String role, String grantor)
     {
         verifyRecordingMode();
-        delegate.createRole(role, grantor);
+        delegate.createRole(metastoreContext, role, grantor);
     }
 
     @Override
-    public void dropRole(String role)
+    public void dropRole(MetastoreContext metastoreContext, String role)
     {
         verifyRecordingMode();
-        delegate.dropRole(role);
+        delegate.dropRole(metastoreContext, role);
     }
 
     @Override
-    public Set<String> listRoles()
+    public Set<String> listRoles(MetastoreContext metastoreContext)
     {
         if (replay) {
             return allRoles.orElseThrow(() -> new PrestoException(NOT_FOUND, "Missing entry for roles"));
         }
 
-        Set<String> result = delegate.listRoles();
+        Set<String> result = delegate.listRoles(metastoreContext);
         allRoles = Optional.of(result);
         return result;
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    public void grantRoles(MetastoreContext metastoreContext, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
     {
         verifyRecordingMode();
-        delegate.grantRoles(roles, grantees, withAdminOption, grantor);
+        delegate.grantRoles(metastoreContext, roles, grantees, withAdminOption, grantor);
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    public void revokeRoles(MetastoreContext metastoreContext, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
     {
         verifyRecordingMode();
-        delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+        delegate.revokeRoles(metastoreContext, roles, grantees, adminOptionFor, grantor);
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    public Set<RoleGrant> listRoleGrants(MetastoreContext metastoreContext, PrestoPrincipal principal)
     {
         return loadValue(
                 roleGrantsCache,
                 principal,
-                () -> delegate.listRoleGrants(principal));
+                () -> delegate.listRoleGrants(metastoreContext, principal));
+    }
+
+    @Override
+    public void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
+    {
+        throw new UnsupportedOperationException("setPartitionLeases is not supported in RecordingHiveMetastore");
     }
 
     private <K, V> V loadValue(Cache<K, V> cache, K key, Supplier<V> valueSupplier)
@@ -499,6 +518,7 @@ public class RecordingHiveMetastore
         private final Optional<Set<String>> allRoles;
         private final List<Pair<String, Optional<Database>>> databases;
         private final List<Pair<HiveTableName, Optional<Table>>> tables;
+        private final List<Pair<HiveTableName, List<TableConstraint<String>>>> tableConstraints;
         private final List<Pair<String, Set<ColumnStatisticType>>> supportedColumnStatistics;
         private final List<Pair<HiveTableName, PartitionStatistics>> tableStatistics;
         private final List<Pair<Set<HivePartitionName>, Map<String, PartitionStatistics>>> partitionStatistics;
@@ -517,6 +537,7 @@ public class RecordingHiveMetastore
                 @JsonProperty("allRoles") Optional<Set<String>> allRoles,
                 @JsonProperty("databases") List<Pair<String, Optional<Database>>> databases,
                 @JsonProperty("tables") List<Pair<HiveTableName, Optional<Table>>> tables,
+                @JsonProperty("tableConstraints") List<Pair<HiveTableName, List<TableConstraint<String>>>> tableConstraints,
                 @JsonProperty("supportedColumnStatistics") List<Pair<String, Set<ColumnStatisticType>>> supportedColumnStatistics,
                 @JsonProperty("tableStatistics") List<Pair<HiveTableName, PartitionStatistics>> tableStatistics,
                 @JsonProperty("partitionStatistics") List<Pair<Set<HivePartitionName>, Map<String, PartitionStatistics>>> partitionStatistics,
@@ -533,6 +554,7 @@ public class RecordingHiveMetastore
             this.allRoles = allRoles;
             this.databases = databases;
             this.tables = tables;
+            this.tableConstraints = tableConstraints;
             this.supportedColumnStatistics = supportedColumnStatistics;
             this.tableStatistics = tableStatistics;
             this.partitionStatistics = partitionStatistics;
@@ -568,6 +590,12 @@ public class RecordingHiveMetastore
         public List<Pair<HiveTableName, Optional<Table>>> getTables()
         {
             return tables;
+        }
+
+        @JsonProperty
+        public List<Pair<HiveTableName, List<TableConstraint<String>>>> getTableConstraints()
+        {
+            return tableConstraints;
         }
 
         @JsonProperty

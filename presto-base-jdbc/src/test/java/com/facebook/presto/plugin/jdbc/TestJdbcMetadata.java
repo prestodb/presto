@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +26,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -37,6 +40,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.data.MapEntry.entry;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -86,9 +91,9 @@ public class TestJdbcMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(SESSION, tableHandle), ImmutableMap.of(
-                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true),
-                "text_short", new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true),
-                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true)));
+                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true, Optional.empty()),
+                "text_short", new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true, Optional.empty()),
+                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true, Optional.empty())));
 
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
@@ -128,6 +133,33 @@ public class TestJdbcMetadata
         unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
         unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "example", "unknown"));
         unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "unknown", "numbers"));
+    }
+
+    @Test
+    public void testListTableColumns()
+    {
+        SchemaTableName tpchOrders = new SchemaTableName("tpch", "orders");
+        ImmutableList<ColumnMetadata> tpchOrdersColumnMetadata = ImmutableList.of(
+                ColumnMetadata.builder().setName("orderkey").setType(BIGINT).setNullable(false).build(),
+                ColumnMetadata.builder().setName("custkey").setType(BIGINT).setNullable(true).build());
+
+        SchemaTableName tpchLineItem = new SchemaTableName("tpch", "lineitem");
+        ImmutableList<ColumnMetadata> tpchLineItemColumnMetadata = ImmutableList.of(
+                ColumnMetadata.builder().setName("orderkey").setType(BIGINT).setNullable(false).build(),
+                ColumnMetadata.builder().setName("partkey").setType(BIGINT).setNullable(true).build());
+
+        //List columns for a given schema and table
+        Map<SchemaTableName, List<ColumnMetadata>> tpchOrdersColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("tpch", "orders"));
+        assertThat(tpchOrdersColumns)
+                .containsOnly(
+                        entry(tpchOrders, tpchOrdersColumnMetadata));
+
+        //List columns for a given schema
+        Map<SchemaTableName, List<ColumnMetadata>> tpchColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("tpch"));
+        assertThat(tpchColumns)
+                .containsOnly(
+                        entry(tpchOrders, tpchOrdersColumnMetadata),
+                        entry(tpchLineItem, tpchLineItemColumnMetadata));
     }
 
     private void unknownTableMetadata(JdbcTableHandle tableHandle)
@@ -173,7 +205,7 @@ public class TestJdbcMetadata
     public void getColumnMetadata()
     {
         assertEquals(
-                metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", JDBC_VARCHAR, VARCHAR, true)),
+                metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", JDBC_VARCHAR, VARCHAR, true, Optional.empty())),
                 new ColumnMetadata("text", VARCHAR));
     }
 
@@ -196,7 +228,7 @@ public class TestJdbcMetadata
         assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
         assertEquals(layout.getColumns().get(1), new ColumnMetadata("x", VARCHAR));
 
-        JdbcColumnHandle columnHandle = new JdbcColumnHandle(CONNECTOR_ID, "x", JDBC_VARCHAR, VARCHAR, true);
+        JdbcColumnHandle columnHandle = new JdbcColumnHandle(CONNECTOR_ID, "x", JDBC_VARCHAR, VARCHAR, true, Optional.empty());
         metadata.dropColumn(SESSION, handle, columnHandle);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getColumns().size(), 1);

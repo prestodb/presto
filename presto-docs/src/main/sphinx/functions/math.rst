@@ -60,31 +60,6 @@ Mathematical Functions
 
     Returns the value of ``string`` interpreted as a base-``radix`` number.
 
-.. function:: inverse_normal_cdf(mean, sd, p) -> double
-
-    Compute the inverse of the Normal cdf with given mean and standard
-    deviation (sd) for the cumulative probability (p): P(N < n). The mean must be
-    a real value and the standard deviation must be a real and positive value.
-    The probability p must lie on the interval (0, 1).
-
-.. function:: normal_cdf(mean, sd, v) -> double
-
-    Compute the Normal cdf with given mean and standard deviation (sd):  P(N < v; mean, sd).
-    The mean and value v must be real values and the standard deviation must be a real
-    and positive value.
-
-.. function:: inverse_beta_cdf(a, b, p) -> double
-
-    Compute the inverse of the Beta cdf with given a, b parameters for the cumulative
-    probability (p): P(N < n). The a, b parameters must be positive real values.
-    The probability p must lie on the interval [0, 1].
-
-.. function:: beta_cdf(a, b, v) -> double
-
-    Compute the Beta cdf with given a, b parameters:  P(N < v; a, b).
-    The a, b parameters must be positive real numbers and value v must be a real value.
-    The value v must lie on the interval [0, 1].
-
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.
@@ -129,6 +104,18 @@ Mathematical Functions
 
     Returns a pseudo-random number between 0 and n (exclusive).
 
+.. function:: secure_rand() -> double
+
+    This is an alias for :func:`secure_random()`.
+
+.. function:: secure_random() -> double
+
+    Returns a cryptographically secure random value in the range 0.0 <= x < 1.0.
+
+.. function:: secure_random(lower, upper) -> [same as input]
+
+    Returns a cryptographically secure random value in the range lower <= x < upper, where lower < upper.
+
 .. function:: round(x) -> [same as input]
 
     Returns ``x`` rounded to the nearest integer.
@@ -166,7 +153,7 @@ Mathematical Functions
 .. function:: truncate(x, n) -> double
 
     Returns ``x`` truncated to ``n`` decimal places.
-    ``n`` can be negative to truncate ``n`` digits left of the decimal point. 
+    ``n`` can be negative to truncate ``n`` digits left of the decimal point.
 
     Example:
     ``truncate(REAL '12.333', -1)`` -> result is 10.0
@@ -183,6 +170,108 @@ Mathematical Functions
     Returns the bin number of ``x`` according to the bins specified by the
     array ``bins``. The ``bins`` parameter must be an array of doubles and is
     assumed to be in sorted ascending order.
+
+Probability Functions: cdf
+-----------------------
+
+.. function:: beta_cdf(a, b, value) -> double
+
+    Compute the Beta cdf with given a, b parameters:  P(N < value; a, b).
+    The a, b parameters must be positive real numbers and value must be a real value (all of type DOUBLE).
+    The value must lie on the interval [0, 1].
+
+.. function:: binomial_cdf(numberOfTrials, successProbability, value) -> double
+
+    Compute the Binomial cdf with given numberOfTrials and successProbability (for a single trial):  P(N < value).
+    The successProbability must be real value in [0, 1], numberOfTrials and value must be
+    positive integers with numberOfTrials greater or equal to value.
+
+.. function:: cauchy_cdf(median, scale, value) -> double
+
+    Compute the Cauchy cdf with given parameters median and scale (gamma): P(N; median, scale).
+    The scale parameter must be a positive double. The value parameter must be a double on the interval [0, 1].
+
+.. function:: chi_squared_cdf(df, value) -> double
+
+    Compute the Chi-square cdf with given df (degrees of freedom) parameter:  P(N < value; df).
+    The df parameter must be a positive real number, and value must be a non-negative real value (both of type DOUBLE).
+
+.. function:: laplace_cdf(mean, scale, value) -> double
+
+    Compute the Laplace cdf with given mean and scale parameters:  P(N < value; mean, scale).
+    The mean and value must be real values and the scale parameter must be a positive value (all of type DOUBLE).
+
+.. function:: normal_cdf(mean, sd, value) -> double
+
+    Compute the Normal cdf with given mean and standard deviation (sd):  P(N < value; mean, sd).
+    The mean and value must be real values and the standard deviation must be a real
+    and positive value (all of type DOUBLE).
+
+.. function:: poisson_cdf(lambda, value) -> double
+
+    Compute the Poisson cdf with given lambda (mean) parameter:  P(N <= value; lambda).
+    The lambda parameter must be a positive real number (of type DOUBLE) and value must be a non-negative integer.
+
+.. function:: weibull_cdf(a, b, value) -> double
+
+    Compute the Weibull cdf with given parameters a, b: P(N <= value). The ``a``
+    and ``b`` parameters must be positive doubles and ``value`` must also be a double.
+
+
+Probability Functions: inverse_cdf
+-----------------------
+
+.. function:: inverse_beta_cdf(a, b, p) -> double
+
+    Compute the inverse of the Beta cdf with given a, b parameters for the cumulative
+    probability (p): P(N < n). The a, b parameters must be positive real values (all of type DOUBLE).
+    The probability p must lie on the interval [0, 1].
+
+.. function:: inverse_binomial_cdf(numberOfTrials, successProbability, p) -> int
+
+    Compute the inverse of the Binomial cdf with given numberOfTrials and successProbability (of a single trial) the
+    cumulative probability (p):  P(N <= n).
+    The successProbability and p must be real values in [0, 1] and the numberOfTrials must be
+    a positive integer.
+
+.. function:: inverse_cauchy_cdf(median, scale, p) -> double
+
+    Compute the inverse of the Cauchy cdf with given parameters median and scale (gamma) for the probability p.
+    The scale parameter must be a positive double. The probability p must be a double on the interval [0, 1].
+
+.. function:: inverse_chi_squared_cdf(df, p) -> double
+
+    Compute the inverse of the Chi-square cdf with given df (degrees of freedom) parameter for the cumulative
+    probability (p): P(N < n). The df parameter must be positive real values.
+    The probability p must lie on the interval [0, 1].
+
+.. function:: inverse_laplace_cdf(mean, scale, p) -> double
+
+    Compute the inverse of the Laplace cdf with given mean and scale parameters
+    for the cumulative probability (p): P(N < n). The mean must be
+    a real value and the scale must be a positive real value (both of type DOUBLE).
+    The probability p must lie on the interval [0, 1].
+
+.. function:: inverse_normal_cdf(mean, sd, p) -> double
+
+    Compute the inverse of the Normal cdf with given mean and standard
+    deviation (sd) for the cumulative probability (p): P(N < n). The mean must be
+    a real value and the standard deviation must be a real and positive value (both of type DOUBLE).
+    The probability p must lie on the interval (0, 1).
+
+.. function:: inverse_poisson_cdf(lambda, p) -> integer
+
+    Compute the inverse of the Poisson cdf with given lambda (mean) parameter for the cumulative
+    probability (p). It returns the value of n so that: P(N <= n; lambda) = p.
+    The lambda parameter must be a positive real number (of type DOUBLE).
+    The probability p must lie on the interval [0, 1).
+
+.. function:: inverse_weibull_cdf(a, b, p) -> double
+
+    Compute the inverse of the Weibull cdf with given parameters ``a``, ``b`` for the probability ``p``.
+    The ``a``, ``b`` parameters must be positive double values. The probability ``p`` must be a double
+    on the interval [0, 1].
+
 
 Statistical Functions
 -----------------------

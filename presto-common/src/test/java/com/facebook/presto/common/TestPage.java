@@ -17,13 +17,18 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
+import com.facebook.presto.common.block.VariableWidthBlock;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.UUID;
+import java.util.stream.LongStream;
+
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static org.testng.Assert.assertEquals;
@@ -55,6 +60,15 @@ public class TestPage
     public void testGetRegionFromNoColumnPage()
     {
         assertEquals(new Page(100).getRegion(0, 10).getPositionCount(), 10);
+    }
+
+    @Test
+    public void testSizesForNoColumnPage()
+    {
+        Page page = new Page(100);
+        assertEquals(page.getSizeInBytes(), 0);
+        assertEquals(page.getLogicalSizeInBytes(), 0);
+        assertEquals(page.getRetainedSizeInBytes(), Page.INSTANCE_SIZE); // does not include the blocks[] array
     }
 
     @Test
@@ -120,6 +134,24 @@ public class TestPage
             assertEquals(page.getBlock(i).getLong(3), 2);
             assertEquals(page.getBlock(i).getLong(4), 5);
         }
+    }
+
+    @Test
+    public void testRetainedSizeIsCorrect()
+    {
+        BlockBuilder variableWidthBlockBuilder = VARCHAR.createBlockBuilder(null, 256);
+
+        LongStream.range(0, 100).forEach(value -> VARCHAR.writeString(variableWidthBlockBuilder, UUID.randomUUID().toString()));
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) variableWidthBlockBuilder.build();
+        Page page = new Page(
+                variableWidthBlock, // Original block
+                variableWidthBlock, // Same block twice
+                variableWidthBlock.getRegion(0, 50), // Block with same underlying slice
+                variableWidthBlockBuilder.getRegion(51, 25)); // Block with slice having same underlying base object/byte array
+        // Account for extra overhead of objects to be around 20%.
+        // Close attention should be paid when this needs to be updated to 2x or higher as that case may introduce double counting
+        double expectedMaximumSizeOfPage = variableWidthBlock.getRawSlice(0).getRetainedSize() * 1.2;
+        assertTrue(page.getRetainedSizeInBytes() < expectedMaximumSizeOfPage, "Expected slice & underlying object to be counted once");
     }
 
     private static Slice[] createExpectedValues(int positionCount)

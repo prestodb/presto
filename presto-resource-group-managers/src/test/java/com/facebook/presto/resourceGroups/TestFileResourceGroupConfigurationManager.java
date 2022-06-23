@@ -32,7 +32,6 @@ import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -101,9 +100,9 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroupId globalId = new ResourceGroupId("global");
         ResourceGroup global = new TestingResourceGroup(globalId);
         manager.configure(global, new SelectionContext<>(globalId, new VariableMap(ImmutableMap.of("USER", "user"))));
-        assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
-        assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
-        assertEquals(global.getHardCpuLimit(), new Duration(1, DAYS));
+        assertEquals(global.getPerQueryLimits().getExecutionTimeLimit(), Optional.of(new Duration(1, HOURS)));
+        assertEquals(global.getPerQueryLimits().getTotalMemoryLimit(), Optional.of(new DataSize(1, MEGABYTE)));
+        assertEquals(global.getPerQueryLimits().getCpuTimeLimit(), Optional.of(new Duration(1, HOURS)));
         assertEquals(global.getCpuQuotaGenerationMillisPerSecond(), 1000 * 24);
         assertEquals(global.getMaxQueuedQueries(), 1000);
         assertEquals(global.getHardConcurrencyLimit(), 100);
@@ -120,6 +119,9 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(sub.getSchedulingPolicy(), null);
         assertEquals(sub.getSchedulingWeight(), 5);
         assertEquals(sub.getJmxExport(), false);
+        assertEquals(sub.getPerQueryLimits().getExecutionTimeLimit(), Optional.empty());
+        assertEquals(sub.getPerQueryLimits().getTotalMemoryLimit(), Optional.empty());
+        assertEquals(sub.getPerQueryLimits().getCpuTimeLimit(), Optional.empty());
     }
 
     @Test

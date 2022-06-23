@@ -27,7 +27,7 @@ public class TestThriftBufferResult
     @Test
     public void testThriftSerializedPage()
     {
-        SerializedPage serializedPage = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0);
+        SerializedPage serializedPage = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0, 0);
         ThriftSerializedPage thriftSerializedPage = new ThriftSerializedPage((serializedPage));
         SerializedPage newSerializedPage = thriftSerializedPage.toSerializedPage();
         assertEquals(serializedPage, newSerializedPage);

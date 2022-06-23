@@ -14,9 +14,9 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.Stream;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -44,9 +44,9 @@ public class DecimalOutputStream
 
     private boolean closed;
 
-    public DecimalOutputStream(CompressionParameters compressionParameters)
+    public DecimalOutputStream(ColumnWriterOptions columnWriterOptions)
     {
-        this.buffer = new OrcOutputBuffer(compressionParameters, Optional.empty());
+        this.buffer = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
     }
 
     // todo rewrite without BigInteger
@@ -110,9 +110,9 @@ public class DecimalOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), true));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, DATA, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override

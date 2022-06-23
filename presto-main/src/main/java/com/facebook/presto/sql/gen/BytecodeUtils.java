@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.Binding;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
@@ -24,9 +26,9 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.sql.gen.InputReferenceCompiler.InputReferenceNode;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -44,11 +46,14 @@ import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.BLOCK_AND_POSITION;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention.STACK;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -182,7 +187,7 @@ public final class BytecodeUtils
     public static BytecodeNode generateInvocation(
             Scope scope,
             String name,
-            BuiltInScalarFunctionImplementation function,
+            JavaScalarFunctionImplementation function,
             Optional<BytecodeNode> instance,
             List<BytecodeNode> arguments,
             CallSiteBinder binder)
@@ -200,7 +205,7 @@ public final class BytecodeUtils
     public static BytecodeNode generateInvocation(
             Scope scope,
             String name,
-            BuiltInScalarFunctionImplementation function,
+            JavaScalarFunctionImplementation function,
             Optional<BytecodeNode> instance,
             List<BytecodeNode> arguments,
             CallSiteBinder binder,
@@ -211,7 +216,7 @@ public final class BytecodeUtils
                 .setDescription("invoke " + name);
 
         List<Class<?>> stackTypes = new ArrayList<>();
-        if (function.getInstanceFactory().isPresent()) {
+        if (function instanceof BuiltInScalarFunctionImplementation && ((BuiltInScalarFunctionImplementation) function).getInstanceFactory().isPresent()) {
             checkArgument(instance.isPresent());
         }
 
@@ -222,15 +227,15 @@ public final class BytecodeUtils
         int realParameterIndex = 0;
 
         // Go through all the choices in the function and then pick the best one
-        List<ScalarImplementationChoice> choices = function.getAllChoices();
-        ScalarImplementationChoice bestChoice = null;
-        for (ScalarImplementationChoice currentChoice : choices) {
+        List<ScalarFunctionImplementationChoice> choices = getAllScalarFunctionImplementationChoices(function);
+        ScalarFunctionImplementationChoice bestChoice = null;
+        for (ScalarFunctionImplementationChoice currentChoice : choices) {
             boolean isValid = true;
             for (int i = 0; i < arguments.size(); i++) {
                 if (currentChoice.getArgumentProperty(i).getArgumentType() != VALUE_TYPE) {
                     continue;
                 }
-                if (currentChoice.getArgumentProperty(i).getNullConvention() == NullConvention.BLOCK_AND_POSITION && !(arguments.get(i) instanceof InputReferenceNode)
+                if (currentChoice.getArgumentProperty(i).getNullConvention() == BLOCK_AND_POSITION && !(arguments.get(i) instanceof InputReferenceNode)
                         || currentChoice.getReturnPlaceConvention() == PROVIDED_BLOCKBUILDER && (!outputBlockVariableAndType.isPresent())) {
                     isValid = false;
                     break;
@@ -318,7 +323,7 @@ public final class BytecodeUtils
         }
         block.append(invoke(binding, name));
 
-        if (function.isNullable()) {
+        if (bestChoice.isNullable()) {
             switch (bestChoice.getReturnPlaceConvention()) {
                 case STACK:
                     block.append(unboxPrimitiveIfNecessary(scope, returnType));
@@ -450,6 +455,19 @@ public final class BytecodeUtils
                                 .getVariable(outputBlockVariable)
                                 .getVariable(tempValue)
                                 .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
+    }
+
+    public static List<ScalarFunctionImplementationChoice> getAllScalarFunctionImplementationChoices(JavaScalarFunctionImplementation function)
+    {
+        if (function instanceof BuiltInScalarFunctionImplementation) {
+            return ((BuiltInScalarFunctionImplementation) function).getAllChoices();
+        }
+        return ImmutableList.of(new ScalarFunctionImplementationChoice(
+                function.isNullable(),
+                function.getInvocationConvention().getArgumentConventions().stream().map(ArgumentProperty::valueTypeArgumentProperty).collect(toImmutableList()),
+                STACK,
+                function.getMethodHandle(),
+                Optional.empty()));
     }
 
     public static class OutputBlockVariableAndType

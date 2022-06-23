@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -22,6 +25,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 @Immutable
 public class NodeVersion
 {
@@ -29,12 +33,14 @@ public class NodeVersion
 
     private final String version;
 
+    @ThriftConstructor
     @JsonCreator
     public NodeVersion(@JsonProperty("version") String version)
     {
         this.version = requireNonNull(version, "version is null");
     }
 
+    @ThriftField(1)
     @JsonProperty
     public String getVersion()
     {

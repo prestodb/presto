@@ -70,10 +70,11 @@ public class TestProgressMonitor
     {
         List<Column> columns = ImmutableList.of(new Column("_col0", BigintType.BIGINT));
         return ImmutableList.<String>builder()
-                .add(newQueryResults(null, 1, null, null, "QUEUED"))
-                .add(newQueryResults(1, 2, columns, null, "RUNNING"))
+                .add(newQueryResults(null, 1, null, null, "WAITING_FOR_PREREQUISITES"))
+                .add(newQueryResults(null, 2, null, null, "QUEUED"))
                 .add(newQueryResults(1, 3, columns, null, "RUNNING"))
-                .add(newQueryResults(0, 4, columns, ImmutableList.of(ImmutableList.of(253161)), "RUNNING"))
+                .add(newQueryResults(1, 4, columns, null, "RUNNING"))
+                .add(newQueryResults(0, 5, columns, ImmutableList.of(ImmutableList.of(253161)), "RUNNING"))
                 .add(newQueryResults(null, null, columns, null, "FINISHED"))
                 .build();
     }
@@ -89,7 +90,11 @@ public class TestProgressMonitor
                 nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
                 data,
-                new StatementStats(state, state.equals("QUEUED"), true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                StatementStats.builder()
+                        .setState(state)
+                        .setWaitingForPrerequisites(state.equals("WAITING_FOR_PREREQUISITES"))
+                        .setScheduled(true)
+                        .build(),
                 null,
                 ImmutableList.of(),
                 null,
@@ -128,7 +133,7 @@ public class TestProgressMonitor
 
                 List<QueryStats> queryStatsList = progressMonitor.finish();
                 assertGreaterThanOrEqual(queryStatsList.size(), 5); // duplicate stats is possible
-                assertEquals(queryStatsList.get(0).getState(), "QUEUED");
+                assertEquals(queryStatsList.get(0).getState(), "WAITING_FOR_PREREQUISITES");
                 assertEquals(queryStatsList.get(queryStatsList.size() - 1).getState(), "FINISHED");
             }
         }

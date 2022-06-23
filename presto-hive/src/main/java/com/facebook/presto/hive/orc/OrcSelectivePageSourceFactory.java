@@ -16,7 +16,9 @@ package com.facebook.presto.hive.orc;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.predicate.FilterFunction;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -37,7 +39,6 @@ import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
-import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
@@ -46,8 +47,7 @@ import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcSelectiveRecordReader;
-import com.facebook.presto.orc.StripeMetadataSource;
-import com.facebook.presto.orc.TupleDomainFilter;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -144,7 +144,7 @@ public class OrcSelectivePageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
-    private final StripeMetadataSource stripeMetadataSource;
+    private final StripeMetadataSourceFactory stripeMetadataSourceFactory;
     private final TupleDomainFilterCache tupleDomainFilterCache;
 
     @Inject
@@ -156,7 +156,7 @@ public class OrcSelectivePageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
             TupleDomainFilterCache tupleDomainFilterCache)
     {
         this(
@@ -168,7 +168,7 @@ public class OrcSelectivePageSourceFactory
                 stats,
                 config.getDomainCompactionThreshold(),
                 orcFileTailSource,
-                stripeMetadataSource,
+                stripeMetadataSourceFactory,
                 tupleDomainFilterCache);
     }
 
@@ -181,7 +181,7 @@ public class OrcSelectivePageSourceFactory
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
             TupleDomainFilterCache tupleDomainFilterCache)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -192,7 +192,7 @@ public class OrcSelectivePageSourceFactory
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailCache is null");
-        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.stripeMetadataSourceFactory = requireNonNull(stripeMetadataSourceFactory, "stripeMetadataSourceFactory is null");
         this.tupleDomainFilterCache = requireNonNull(tupleDomainFilterCache, "tupleDomainFilterCache is null");
     }
 
@@ -214,7 +214,8 @@ public class OrcSelectivePageSourceFactory
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -250,11 +251,12 @@ public class OrcSelectivePageSourceFactory
                 stats,
                 domainCompactionThreshold,
                 orcFileTailSource,
-                stripeMetadataSource,
+                stripeMetadataSourceFactory,
                 hiveFileContext,
                 tupleDomainFilterCache,
                 encryptionInformation,
-                NO_ENCRYPTION));
+                NO_ENCRYPTION,
+                appendRowNumberEnabled));
     }
 
     public static ConnectorPageSource createOrcPageSource(
@@ -282,11 +284,12 @@ public class OrcSelectivePageSourceFactory
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
             HiveFileContext hiveFileContext,
             TupleDomainFilterCache tupleDomainFilterCache,
             Optional<EncryptionInformation> encryptionInformation,
-            DwrfEncryptionProvider dwrfEncryptionProvider)
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            boolean appendRowNumberEnabled)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
@@ -295,7 +298,11 @@ public class OrcSelectivePageSourceFactory
         DataSize streamBufferSize = getOrcStreamBufferSize(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
         DataSize maxReadBlockSize = getOrcMaxReadBlockSize(session);
-        OrcReaderOptions orcReaderOptions = new OrcReaderOptions(maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, isOrcZstdJniDecompressionEnabled(session));
+        OrcReaderOptions orcReaderOptions = new OrcReaderOptions(maxMergeDistance,
+                tinyStripeThreshold,
+                maxReadBlockSize,
+                isOrcZstdJniDecompressionEnabled(session),
+                appendRowNumberEnabled);
         boolean lazyReadSmallRanges = getOrcLazyReadSmallRanges(session);
 
         OrcDataSource orcDataSource;
@@ -328,12 +335,13 @@ public class OrcSelectivePageSourceFactory
                     orcDataSource,
                     orcEncoding,
                     orcFileTailSource,
-                    stripeMetadataSource,
+                    stripeMetadataSourceFactory,
                     systemMemoryUsage,
                     orcReaderOptions,
                     hiveFileContext.isCacheable(),
                     dwrfEncryptionProvider,
-                    dwrfKeyProvider);
+                    dwrfKeyProvider,
+                    hiveFileContext.getStats());
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader.getTypes(), path);
 
@@ -373,8 +381,8 @@ public class OrcSelectivePageSourceFactory
             // use column types from the current table schema; these types might be different from this partition's schema
             Map<VariableReferenceExpression, InputReferenceExpression> variableToInput = columnNames.keySet().stream()
                     .collect(toImmutableMap(
-                            hiveColumnIndex -> new VariableReferenceExpression(columnNames.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex)),
-                            hiveColumnIndex -> new InputReferenceExpression(inputs.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex))));
+                            hiveColumnIndex -> new VariableReferenceExpression(Optional.empty(), columnNames.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex)),
+                            hiveColumnIndex -> new InputReferenceExpression(Optional.empty(), inputs.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex))));
 
             Optional<BucketAdapter> bucketAdapter = bucketAdaptation.map(adaptation -> new BucketAdapter(
                     Arrays.stream(adaptation.getBucketColumnIndices())
@@ -410,7 +418,8 @@ public class OrcSelectivePageSourceFactory
                     recordReader,
                     reader.getOrcDataSource(),
                     systemMemoryUsage,
-                    stats);
+                    stats,
+                    hiveFileContext.getStats());
         }
         catch (Exception e) {
             try {

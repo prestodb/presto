@@ -20,10 +20,12 @@ import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
@@ -31,6 +33,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -41,6 +44,7 @@ import com.facebook.presto.sql.tree.GrantRoles;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -64,9 +68,12 @@ import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Use;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -75,9 +82,12 @@ public final class StatementUtils
     private StatementUtils() {}
 
     private static final Map<Class<? extends Statement>, QueryType> STATEMENT_QUERY_TYPES;
+    private static final List<Class<? extends Statement>> SESSION_TRANSACTION_CONTROL_TYPES;
 
     static {
         ImmutableMap.Builder<Class<? extends Statement>, QueryType> builder = ImmutableMap.builder();
+        ImmutableList.Builder<Class<? extends Statement>> sessionTransactionBuilder = ImmutableList.builder();
+
         builder.put(Query.class, QueryType.SELECT);
 
         builder.put(Explain.class, QueryType.EXPLAIN);
@@ -85,6 +95,7 @@ public final class StatementUtils
 
         builder.put(CreateTableAsSelect.class, QueryType.INSERT);
         builder.put(Insert.class, QueryType.INSERT);
+        builder.put(RefreshMaterializedView.class, QueryType.INSERT);
 
         builder.put(Delete.class, QueryType.DELETE);
 
@@ -106,6 +117,7 @@ public final class StatementUtils
         builder.put(CreateSchema.class, QueryType.DATA_DEFINITION);
         builder.put(DropSchema.class, QueryType.DATA_DEFINITION);
         builder.put(RenameSchema.class, QueryType.DATA_DEFINITION);
+        builder.put(CreateType.class, QueryType.DATA_DEFINITION);
         builder.put(AddColumn.class, QueryType.DATA_DEFINITION);
         builder.put(CreateTable.class, QueryType.DATA_DEFINITION);
         builder.put(RenameTable.class, QueryType.DATA_DEFINITION);
@@ -113,7 +125,10 @@ public final class StatementUtils
         builder.put(DropColumn.class, QueryType.DATA_DEFINITION);
         builder.put(DropTable.class, QueryType.DATA_DEFINITION);
         builder.put(CreateView.class, QueryType.DATA_DEFINITION);
+        builder.put(TruncateTable.class, QueryType.DATA_DEFINITION);
         builder.put(DropView.class, QueryType.DATA_DEFINITION);
+        builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
+        builder.put(DropMaterializedView.class, QueryType.DATA_DEFINITION);
         builder.put(CreateFunction.class, QueryType.DATA_DEFINITION);
         builder.put(AlterFunction.class, QueryType.DATA_DEFINITION);
         builder.put(DropFunction.class, QueryType.DATA_DEFINITION);
@@ -133,7 +148,19 @@ public final class StatementUtils
         builder.put(Revoke.class, QueryType.DATA_DEFINITION);
         builder.put(Prepare.class, QueryType.DATA_DEFINITION);
         builder.put(Deallocate.class, QueryType.DATA_DEFINITION);
+
+        sessionTransactionBuilder.add(Use.class);
+        sessionTransactionBuilder.add(SetSession.class);
+        sessionTransactionBuilder.add(ResetSession.class);
+        sessionTransactionBuilder.add(SetRole.class);
+        sessionTransactionBuilder.add(StartTransaction.class);
+        sessionTransactionBuilder.add(Commit.class);
+        sessionTransactionBuilder.add(Rollback.class);
+        sessionTransactionBuilder.add(Prepare.class);
+        sessionTransactionBuilder.add(Deallocate.class);
+
         STATEMENT_QUERY_TYPES = builder.build();
+        SESSION_TRANSACTION_CONTROL_TYPES = sessionTransactionBuilder.build();
     }
 
     public static Map<Class<? extends Statement>, QueryType> getAllQueryTypes()
@@ -149,5 +176,10 @@ public final class StatementUtils
     public static boolean isTransactionControlStatement(Statement statement)
     {
         return statement instanceof StartTransaction || statement instanceof Commit || statement instanceof Rollback;
+    }
+
+    public static boolean isSessionTransactionControlStatement(Class<? extends Statement> statement)
+    {
+        return SESSION_TRANSACTION_CONTROL_TYPES.contains(statement);
     }
 }

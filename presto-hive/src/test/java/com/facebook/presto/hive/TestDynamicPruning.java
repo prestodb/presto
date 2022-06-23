@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.testing.TempFile;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.StandardTypes;
@@ -26,6 +27,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -68,8 +71,8 @@ public class TestDynamicPruning
 {
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
-    private static final Column BUCKET_COLUMN = new Column("l_orderkey", HIVE_INT, Optional.empty());
-    private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty());
+    private static final Column BUCKET_COLUMN = new Column("l_orderkey", HIVE_INT, Optional.empty(), Optional.empty());
+    private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty());
     private static final HiveColumnHandle PARTITION_HIVE_COLUMN_HANDLE = new HiveColumnHandle(
             "ds",
             HIVE_STRING,
@@ -120,8 +123,8 @@ public class TestDynamicPruning
 
     private static ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, HiveClientConfig config, SplitContext splitContext, MetastoreClientConfig metastoreClientConfig, File outputFile)
     {
-        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), "2020-09-09"));
-        Map<Integer, Column> partitionSchemaDifference = ImmutableMap.of(1, new Column("ds", HIVE_STRING, Optional.empty()));
+        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), Optional.of("2020-09-09")));
+        Map<Integer, Column> partitionSchemaDifference = ImmutableMap.of(1, new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty()));
         HiveSplit split = new HiveSplit(
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -130,6 +133,7 @@ public class TestDynamicPruning
                 0,
                 outputFile.length(),
                 outputFile.length(),
+                Instant.now().toEpochMilli(),
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
@@ -143,14 +147,15 @@ public class TestDynamicPruning
                 OptionalInt.of(1),
                 NO_PREFERENCE,
                 getColumnHandles().size(),
-                partitionSchemaDifference,
+                TableToPartitionMapping.mapColumnsByIndex(partitionSchemaDifference),
                 Optional.empty(),
                 false,
                 Optional.empty(),
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
                 ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),
@@ -158,9 +163,10 @@ public class TestDynamicPruning
                 transaction,
                 Optional.of(new HiveTableLayoutHandle(
                         new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                        "path",
                         ImmutableList.of(PARTITION_HIVE_COLUMN_HANDLE),
                         getColumnHandles().stream()
-                                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty()))
+                                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty(), Optional.empty()))
                                 .collect(toImmutableList()),
                         ImmutableMap.of(),
                         TupleDomain.all(),
@@ -172,6 +178,7 @@ public class TestDynamicPruning
                         false,
                         "layout",
                         Optional.empty(),
+                        false,
                         false)));
         HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config, metastoreClientConfig), getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), splitContext);
@@ -239,6 +246,6 @@ public class TestDynamicPruning
 
     private static TestingConnectorSession getSession(HiveClientConfig config)
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
     }
 }

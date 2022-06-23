@@ -32,11 +32,18 @@ public class PagesSerdeFactory
 {
     private final BlockEncodingSerde blockEncodingSerde;
     private final boolean compressionEnabled;
+    private final boolean checksumEnabled;
 
     public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, boolean compressionEnabled)
     {
+        this(blockEncodingSerde, compressionEnabled, false);
+    }
+
+    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, boolean compressionEnabled, boolean checksumEnabled)
+    {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.compressionEnabled = compressionEnabled;
+        this.checksumEnabled = checksumEnabled;
     }
 
     public PagesSerde createPagesSerde()
@@ -102,9 +109,9 @@ public class PagesSerdeFactory
                             decompressor.decompress(input, output);
                         }
                     }),
-                    spillCipher);
+                    spillCipher, checksumEnabled);
         }
 
-        return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), spillCipher);
+        return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), spillCipher, checksumEnabled);
     }
 }

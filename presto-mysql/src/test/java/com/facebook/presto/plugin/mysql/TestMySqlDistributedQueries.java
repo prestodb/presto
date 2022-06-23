@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.mysql.MySqlOptions;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
@@ -45,13 +46,14 @@ public class TestMySqlDistributedQueries
     public TestMySqlDistributedQueries()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch"), MY_SQL_OPTIONS));
+        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch"), MY_SQL_OPTIONS);
     }
 
-    public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), TpchTable.getTables()));
-        this.mysqlServer = mysqlServer;
+        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @Override

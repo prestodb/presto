@@ -28,13 +28,13 @@ public class PrestoSparkTaskInputs
 {
     // fragmentId -> Iterator<[partitionId, page]>
     private final Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs;
-    private final Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs;
+    private final Map<String, Broadcast<?>> broadcastInputs;
     // For the COORDINATOR_ONLY fragment we first collect the inputs on the Driver
     private final Map<String, List<PrestoSparkSerializedPage>> inMemoryInputs;
 
     public PrestoSparkTaskInputs(
             Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs,
-            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Map<String, Broadcast<?>> broadcastInputs,
             Map<String, List<PrestoSparkSerializedPage>> inMemoryInputs)
     {
         this.shuffleInputs = unmodifiableMap(new HashMap<>(requireNonNull(shuffleInputs, "shuffleInputs is null")));
@@ -47,7 +47,7 @@ public class PrestoSparkTaskInputs
         return shuffleInputs;
     }
 
-    public Map<String, Broadcast<List<PrestoSparkSerializedPage>>> getBroadcastInputs()
+    public Map<String, Broadcast<?>> getBroadcastInputs()
     {
         return broadcastInputs;
     }

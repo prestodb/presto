@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore.glue.converter;
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.facebook.presto.hive.HiveBucketProperty;
+import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
@@ -40,7 +41,11 @@ import java.util.function.UnaryOperator;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isDeltaLakeTable;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.util.Memoizers.memoizeLast;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
@@ -66,33 +71,47 @@ public final class GlueToPrestoConverter
 
     public static Table convertTable(com.amazonaws.services.glue.model.Table glueTable, String dbName)
     {
-        requireNonNull(glueTable.getStorageDescriptor(), "Table StorageDescriptor is null");
-        StorageDescriptor sd = glueTable.getStorageDescriptor();
+        Map<String, String> tableParameters = convertParameters(glueTable.getParameters());
 
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(dbName)
                 .setTableName(glueTable.getName())
                 .setOwner(nullToEmpty(glueTable.getOwner()))
-                .setTableType(PrestoTableType.optionalValueOf(glueTable.getTableType()).orElse(OTHER))
-                .setDataColumns(convertColumns(sd.getColumns()))
-                .setParameters(convertParameters(glueTable.getParameters()))
+                // Athena treats missing table type as EXTERNAL_TABLE.
+                .setTableType(PrestoTableType.optionalValueOf(glueTable.getTableType()).orElse(EXTERNAL_TABLE))
+                .setParameters(tableParameters)
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
 
-        if (glueTable.getPartitionKeys() != null) {
-            tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys()));
+        StorageDescriptor sd = glueTable.getStorageDescriptor();
+        if (isIcebergTable(tableParameters) || (sd == null && isDeltaLakeTable(tableParameters))) {
+            // Iceberg and Delta Lake tables do not use the StorageDescriptor field, but we need to return a Table so the caller can check that
+            // the table is an Iceberg/Delta table and decide whether to redirect or fail.
+            tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty(), Optional.empty())));
+            tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
+            tableBuilder.getStorageBuilder().setLocation(sd.getLocation());
         }
         else {
-            tableBuilder.setPartitionColumns(ImmutableList.of());
+            if (sd == null) {
+                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
+            }
+            tableBuilder.setDataColumns(convertColumns(sd.getColumns()));
+            if (glueTable.getPartitionKeys() != null) {
+                tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys()));
+            }
+            else {
+                tableBuilder.setPartitionColumns(ImmutableList.of());
+            }
+
+            new StorageConverter().setConvertedStorage(sd, tableBuilder.getStorageBuilder());
         }
 
-        new StorageConverter().setConvertedStorage(sd, tableBuilder.getStorageBuilder());
         return tableBuilder.build();
     }
 
     private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn)
     {
-        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
+        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()), Optional.empty());
     }
 
     private static List<Column> convertColumns(List<com.amazonaws.services.glue.model.Column> glueColumns)

@@ -58,7 +58,7 @@ public class TestPrestoExceptionClassifier
 {
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
     private static final QueryActionStats QUERY_ACTION_STATS = new QueryActionStats(
-            Optional.of(new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, Optional.empty())),
+            Optional.of(new QueryStats("id", "", false, false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, Optional.empty())),
             Optional.empty());
 
     private final SqlExceptionClassifier classifier = PrestoExceptionClassifier.defaultBuilder().build();

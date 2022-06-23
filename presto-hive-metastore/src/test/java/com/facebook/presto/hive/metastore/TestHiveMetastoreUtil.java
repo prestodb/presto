@@ -13,18 +13,19 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Order;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.SkewedInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -35,8 +36,10 @@ import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
+import static org.apache.hadoop.hive.serde.serdeConstants.COLUMN_NAME_DELIMITER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -120,6 +123,7 @@ public class TestHiveMetastoreUtil
             TEST_STORAGE_DESCRIPTOR_WITH_UNSUPPORTED_FIELDS,
             ImmutableMap.of("k1", "v1", "k2", "v2", "k3", "v3"));
     private static final PartitionMutator TEST_PARTITION_VERSION_FETCHER = new HivePartitionMutator();
+    private static final ColumnConverter TEST_COLUMN_CONVERTER = new HiveColumnConverter();
 
     static {
         TEST_STORAGE_DESCRIPTOR_WITH_UNSUPPORTED_FIELDS.setSkewedInfo(new SkewedInfo(
@@ -131,17 +135,17 @@ public class TestHiveMetastoreUtil
     @Test
     public void testTableRoundTrip()
     {
-        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE, TEST_SCHEMA);
+        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE, TEST_SCHEMA, TEST_COLUMN_CONVERTER);
         PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
-        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, privileges);
+        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, privileges, TEST_COLUMN_CONVERTER);
         assertEquals(metastoreApiTable, TEST_TABLE);
     }
 
     @Test
     public void testPartitionRoundTrip()
     {
-        Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION, TEST_PARTITION_VERSION_FETCHER);
-        org.apache.hadoop.hive.metastore.api.Partition metastoreApiPartition = ThriftMetastoreUtil.toMetastoreApiPartition(partition);
+        Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION, TEST_PARTITION_VERSION_FETCHER, TEST_COLUMN_CONVERTER);
+        org.apache.hadoop.hive.metastore.api.Partition metastoreApiPartition = ThriftMetastoreUtil.toMetastoreApiPartition(partition, TEST_COLUMN_CONVERTER);
         assertEquals(metastoreApiPartition, TEST_PARTITION);
     }
 
@@ -149,7 +153,8 @@ public class TestHiveMetastoreUtil
     public void testHiveSchemaTable()
     {
         Properties expected = MetaStoreUtils.getTableMetadata(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
-        Properties actual = getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
+        expected.remove(COLUMN_NAME_DELIMITER);
+        Properties actual = getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA, TEST_COLUMN_CONVERTER));
         assertEquals(actual, expected);
     }
 
@@ -157,44 +162,56 @@ public class TestHiveMetastoreUtil
     public void testHiveSchemaPartition()
     {
         Properties expected = MetaStoreUtils.getPartitionMetadata(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS, TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
-        Properties actual = getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS, TEST_PARTITION_VERSION_FETCHER), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
+        expected.remove(COLUMN_NAME_DELIMITER);
+        Properties actual = getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS, TEST_PARTITION_VERSION_FETCHER, TEST_COLUMN_CONVERTER), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA, TEST_COLUMN_CONVERTER));
         assertEquals(actual, expected);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
     public void testTableRoundTripUnsupported()
     {
-        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA);
-        ThriftMetastoreUtil.toMetastoreApiTable(table, null);
+        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA, TEST_COLUMN_CONVERTER);
+        ThriftMetastoreUtil.toMetastoreApiTable(table, null, TEST_COLUMN_CONVERTER);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
     public void testPartitionRoundTripUnsupported()
     {
-        Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS, TEST_PARTITION_VERSION_FETCHER);
-        ThriftMetastoreUtil.toMetastoreApiPartition(partition);
+        Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS, TEST_PARTITION_VERSION_FETCHER, TEST_COLUMN_CONVERTER);
+        ThriftMetastoreUtil.toMetastoreApiPartition(partition, TEST_COLUMN_CONVERTER);
     }
 
     @Test
     public void testReconstructPartitionSchema()
     {
-        Column c1 = new Column("_c1", HIVE_STRING, Optional.empty());
-        Column c2 = new Column("_c2", HIVE_INT, Optional.empty());
-        Column c3 = new Column("_c3", HIVE_DOUBLE, Optional.empty());
-        Column c4 = new Column("_c4", HIVE_DATE, Optional.empty());
+        Column c1 = new Column("_c1", HIVE_STRING, Optional.empty(), Optional.empty());
+        Column c2 = new Column("_c2", HIVE_INT, Optional.empty(), Optional.empty());
+        Column c3 = new Column("_c3", HIVE_DOUBLE, Optional.empty(), Optional.empty());
+        Column c4 = new Column("_c4", HIVE_DATE, Optional.empty(), Optional.empty());
 
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(), 0, ImmutableMap.of()), ImmutableList.of());
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 0, ImmutableMap.of()), ImmutableList.of());
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 1, ImmutableMap.of()), ImmutableList.of(c1));
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 1, ImmutableMap.of()), ImmutableList.of(c1));
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 3, ImmutableMap.of(2, c3)), ImmutableList.of(c1, c2, c3));
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2, c3), 3, ImmutableMap.of(1, c4)), ImmutableList.of(c1, c4, c3));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(), 0, ImmutableMap.of(), Optional.empty()), ImmutableList.of());
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 0, ImmutableMap.of(), Optional.empty()), ImmutableList.of());
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 1, ImmutableMap.of(), Optional.empty()), ImmutableList.of(c1));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 1, ImmutableMap.of(), Optional.empty()), ImmutableList.of(c1));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 3, ImmutableMap.of(2, c3), Optional.empty()), ImmutableList.of(c1, c2, c3));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2, c3), 3, ImmutableMap.of(1, c4), Optional.empty()), ImmutableList.of(c1, c4, c3));
 
-        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(), 1, ImmutableMap.of()))
+        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(), 1, ImmutableMap.of(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of()))
+        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of(0, c2)))
+        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of(0, c2), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void testExtractPartitionValues()
+    {
+        String datePartition = "20201221";
+        String countryPartition = "united_states";
+        assertEquals(extractPartitionValues("datePartition=20201221/countryPartition=united_states", Optional.of(ImmutableList.of("datePartition", "countryPartition"))), ImmutableList.of(datePartition, countryPartition));
+        assertEquals(extractPartitionValues("countryPartition=united_states/datePartition=20201221", Optional.of(ImmutableList.of("datePartition", "countryPartition"))), ImmutableList.of(datePartition, countryPartition));
+        assertEquals(extractPartitionValues("datePartition=20201221/countryPartition=united_states"), ImmutableList.of(datePartition, countryPartition));
+        assertEquals(extractPartitionValues("countryPartition=united_states/datePartition=20201221"), ImmutableList.of(countryPartition, datePartition));
     }
 }

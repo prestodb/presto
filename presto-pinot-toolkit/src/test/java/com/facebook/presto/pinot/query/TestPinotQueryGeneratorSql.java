@@ -29,7 +29,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestPinotQueryGeneratorSql
         extends TestPinotQueryGenerator
@@ -82,42 +82,72 @@ public class TestPinotQueryGeneratorSql
     {
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
         TableScanNode tableScanNode = tableScan(planBuilder, pinotTable, regionId, city, fare);
-        AggregationNode agg = planBuilder.aggregation(
-                aggBuilder -> aggBuilder
+        AggregationNode aggregationNode = planBuilder.aggregation(
+                aggregationNodeBuilder -> aggregationNodeBuilder
                         .source(tableScanNode)
                         .singleGroupingSet(variable("city"), variable("regionid"))
                         .addAggregation(planBuilder.variable("sum_fare"), getRowExpression("sum(fare)", defaultSessionHolder))
                         .addAggregation(planBuilder.variable("count_regionid"), getRowExpression("count(regionid)", defaultSessionHolder)));
         testPinotQuery(
                 pinotConfig,
-                agg,
-                ImmutableList.of("SELECT city, regionId, sum(fare), count(regionId) FROM realtimeOnly GROUP BY city, regionId LIMIT 10000", "SELECT city, regionId, count(regionId), sum(fare) FROM realtimeOnly GROUP BY city, regionId LIMIT 10000"),
-                defaultSessionHolder,
-                ImmutableMap.of());
-        ProjectNode proj = planBuilder.project(
-                Assignments.builder()
-                        .put(variable("count_regionid"), variable("count_regionid"))
-                        .put(variable("city"), variable("city"))
-                        .put(variable("sum_fare"), variable("sum_fare"))
-                        .build(),
-                agg);
-        testPinotQuery(
-                pinotConfig,
-                proj,
-                "SELECT count(regionId), city, sum(fare) FROM realtimeOnly GROUP BY city, regionId LIMIT 10000",
+                aggregationNode,
+                ImmutableList.of("SELECT \"city\", \"regionId\", sum(\"fare\"), count(\"regionId\") FROM realtimeOnly GROUP BY \"city\", \"regionId\" LIMIT 10000", "SELECT \"city\", \"regionId\", count(\"regionId\"), sum(\"fare\") FROM realtimeOnly GROUP BY \"city\", \"regionId\" LIMIT 10000"),
                 defaultSessionHolder,
                 ImmutableMap.of());
 
-        proj = planBuilder.project(
+        ProjectNode project = planBuilder.project(
+                Assignments.builder()
+                        .put(variable("count_regionid"), variable("count_regionid"))
+                        .put(variable("city"), variable("city"))
+                        .put(variable("regionid"), variable("regionid"))
+                        .put(variable("sum_fare"), variable("sum_fare"))
+                        .build(),
+                aggregationNode);
+        testPinotQuery(
+                pinotConfig,
+                project,
+                "SELECT \"city\", \"regionId\", count(\"regionId\"), sum(\"fare\") FROM realtimeOnly GROUP BY \"city\", \"regionId\" LIMIT 10000",
+                defaultSessionHolder,
+                ImmutableMap.of());
+
+        project = planBuilder.project(
+            Assignments.builder()
+                    .put(variable("count_regionid"), variable("count_regionid"))
+                    .put(variable("regionid"), variable("regionid"))
+                    .put(variable("sum_fare"), variable("sum_fare"))
+                    .build(),
+                aggregationNode);
+        testPinotQuery(
+                pinotConfig,
+                project,
+                "SELECT \"city\", \"regionId\", count(\"regionId\"), sum(\"fare\") FROM realtimeOnly GROUP BY \"city\", \"regionId\" LIMIT 10000",
+                defaultSessionHolder,
+                ImmutableMap.of());
+
+        project = planBuilder.project(
+            Assignments.builder()
+                    .put(variable("count_regionid"), variable("count_regionid"))
+                    .put(variable("city"), variable("city"))
+                    .put(variable("sum_fare"), variable("sum_fare"))
+                    .build(),
+                aggregationNode);
+        testPinotQuery(
+                pinotConfig,
+                project,
+                "SELECT \"city\", \"regionId\", count(\"regionId\"), sum(\"fare\") FROM realtimeOnly GROUP BY \"city\", \"regionId\" LIMIT 10000",
+                defaultSessionHolder,
+                ImmutableMap.of());
+
+        project = planBuilder.project(
                 Assignments.builder()
                         .put(variable("sum_fare"), variable("sum_fare"))
                         .put(variable("count_regionid"), variable("count_regionid"))
                         .build(),
-                agg);
+                aggregationNode);
         testPinotQuery(
                 pinotConfig,
-                proj,
-                "SELECT sum(fare), count(regionId) FROM realtimeOnly GROUP BY city, regionId LIMIT 10000",
+                project,
+                "SELECT \"city\", \"regionId\", sum(\"fare\"), count(\"regionId\") FROM realtimeOnly GROUP BY \"city\", \"regionId\" LIMIT 10000",
                 defaultSessionHolder,
                 ImmutableMap.of());
     }
@@ -130,81 +160,91 @@ public class TestPinotQueryGeneratorSql
         SessionHolder sessionHolder = new SessionHolder(pinotConfig);
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
         TableScanNode tableScanNode = tableScan(planBuilder, pinotTable, city, fare);
-        AggregationNode agg = planBuilder.aggregation(
-                aggBuilder -> aggBuilder
+        AggregationNode aggregationNode = planBuilder.aggregation(
+                aggregationNodeBuilder -> aggregationNodeBuilder
                         .source(tableScanNode)
                         .singleGroupingSet(variable("city"))
                         .addAggregation(planBuilder.variable("sum_fare"), getRowExpression("sum(fare)", defaultSessionHolder)));
         testPinotQuery(
                 pinotConfig,
-                agg,
-                "SELECT city, sum(fare) FROM realtimeOnly GROUP BY city LIMIT 10000",
+                aggregationNode,
+                "SELECT \"city\", sum(\"fare\") FROM realtimeOnly GROUP BY \"city\" LIMIT 10000",
                 sessionHolder,
                 ImmutableMap.of());
 
         TopNNode topN = new TopNNode(
+                Optional.empty(),
                 planBuilder.getIdAllocator().getNextId(),
-                agg,
+                aggregationNode,
                 50L,
                 new OrderingScheme(ImmutableList.of(new Ordering(variable("city"), SortOrder.DESC_NULLS_FIRST))),
                 TopNNode.Step.SINGLE);
         testPinotQuery(
                 pinotConfig,
                 topN,
-                "SELECT city, sum(fare) FROM realtimeOnly GROUP BY city ORDER BY city DESC LIMIT 50",
+                "SELECT \"city\", sum(\"fare\") FROM realtimeOnly GROUP BY \"city\" ORDER BY \"city\" DESC LIMIT 50",
                 sessionHolder,
                 ImmutableMap.of());
 
         topN = new TopNNode(
+                Optional.empty(),
                 planBuilder.getIdAllocator().getNextId(),
-                agg,
+                aggregationNode,
                 1000L,
                 new OrderingScheme(ImmutableList.of(new Ordering(variable("sum_fare"), SortOrder.ASC_NULLS_FIRST))),
                 TopNNode.Step.SINGLE);
         testPinotQuery(
                 pinotConfig,
                 topN,
-                "SELECT city, sum(fare) FROM realtimeOnly GROUP BY city ORDER BY sum(fare) LIMIT 1000",
+                "SELECT \"city\", sum(\"fare\") FROM realtimeOnly GROUP BY \"city\" ORDER BY sum(\"fare\") LIMIT 1000",
                 sessionHolder,
                 ImmutableMap.of());
 
         topN = new TopNNode(
+                Optional.empty(),
                 planBuilder.getIdAllocator().getNextId(),
-                agg,
+                aggregationNode,
                 1000L,
                 new OrderingScheme(ImmutableList.of(new Ordering(variable("sum_fare"), SortOrder.ASC_NULLS_FIRST))),
                 TopNNode.Step.SINGLE);
         testPinotQuery(
                 pinotConfig,
                 topN,
-                "SELECT city, sum(fare) FROM realtimeOnly GROUP BY city ORDER BY sum(fare) LIMIT 1000",
+                "SELECT \"city\", sum(\"fare\") FROM realtimeOnly GROUP BY \"city\" ORDER BY sum(\"fare\") LIMIT 1000",
                 sessionHolder,
                 ImmutableMap.of());
     }
 
     @Test
-    public void testDefaultNoTopNPushdown()
+    public void testDefaultTopNPushdown()
     {
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
         TableScanNode tableScanNode = tableScan(planBuilder, pinotTable, city, fare);
-        AggregationNode agg = planBuilder.aggregation(
-                aggBuilder -> aggBuilder
+        AggregationNode aggregationNode = planBuilder.aggregation(
+                aggregationNodeBuilder -> aggregationNodeBuilder
                         .source(tableScanNode)
                         .singleGroupingSet(variable("city"))
                         .addAggregation(planBuilder.variable("sum_fare"), getRowExpression("sum(fare)", defaultSessionHolder)));
-        pinotConfig.setPushdownTopNBrokerQueries(false);
-        TopNNode topN = new TopNNode(planBuilder.getIdAllocator().getNextId(), agg, 1000,
+        pinotConfig.setPushdownTopNBrokerQueries(true);
+        TopNNode topN = new TopNNode(Optional.empty(), planBuilder.getIdAllocator().getNextId(), aggregationNode, 1000,
                 new OrderingScheme(ImmutableList.of(new Ordering(variable("sum_fare"), SortOrder.ASC_NULLS_FIRST))),
                 TopNNode.Step.SINGLE);
         Optional<PinotQueryGenerator.PinotQueryGeneratorResult> generatedQuery =
                 new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution)
                         .generate(topN, defaultSessionHolder.getConnectorSession());
-        assertFalse(generatedQuery.isPresent());
+        assertTrue(generatedQuery.isPresent());
         SessionHolder sessionHolder = new SessionHolder(pinotConfig);
         testPinotQuery(
                 pinotConfig,
-                agg,
-                "SELECT city, sum(fare) FROM realtimeOnly GROUP BY city LIMIT 10000",
+                aggregationNode,
+                "SELECT \"city\", sum(\"fare\") FROM realtimeOnly GROUP BY \"city\" LIMIT 10000",
+                sessionHolder,
+                ImmutableMap.of());
+
+        testPinotQuery(
+                pinotConfig,
+                topN,
+                "SELECT \"city\", sum(\"fare\") FROM realtimeOnly GROUP BY \"city\" ORDER BY sum(\"fare\") LIMIT 1000",
                 sessionHolder,
                 ImmutableMap.of());
     }
@@ -219,19 +259,19 @@ public class TestPinotQueryGeneratorSql
         testPinotQuery(
                 pinotConfig,
                 topN(planBuilder, 50L, ImmutableList.of("fare"), ImmutableList.of(false), tableScanNode),
-                "SELECT regionId, city, fare FROM realtimeOnly ORDER BY fare DESC LIMIT 50",
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly ORDER BY \"fare\" DESC LIMIT 50",
                 sessionHolder,
                 ImmutableMap.of());
         testPinotQuery(
                 pinotConfig,
                 topN(planBuilder, 50L, ImmutableList.of("fare", "city"), ImmutableList.of(true, false), tableScanNode),
-                "SELECT regionId, city, fare FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50",
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly ORDER BY \"fare\", \"city\" DESC LIMIT 50",
                 sessionHolder,
                 ImmutableMap.of());
         testPinotQuery(
                 pinotConfig,
                 topN(planBuilder, 50L, ImmutableList.of("city", "fare"), ImmutableList.of(false, true), tableScanNode),
-                "SELECT regionId, city, fare FROM realtimeOnly ORDER BY city DESC, fare LIMIT 50",
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly ORDER BY \"city\" DESC, \"fare\" LIMIT 50",
                 sessionHolder,
                 ImmutableMap.of());
 
@@ -239,7 +279,7 @@ public class TestPinotQueryGeneratorSql
         testPinotQuery(
                 pinotConfig,
                 project(planBuilder, topNNode, ImmutableList.of("regionid", "city")),
-                "SELECT regionId, city FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50",
+                "SELECT \"regionId\", \"city\" FROM realtimeOnly ORDER BY \"fare\", \"city\" DESC LIMIT 50",
                 sessionHolder,
                 ImmutableMap.of());
 
@@ -247,13 +287,13 @@ public class TestPinotQueryGeneratorSql
         testPinotQuery(
                 pinotConfig,
                 topN(planBuilder, 500L, ImmutableList.of("fare"), ImmutableList.of(false), tableScanNode),
-                "SELECT fare, city, regionId FROM realtimeOnly ORDER BY fare DESC LIMIT 500",
+                "SELECT \"fare\", \"city\", \"regionId\" FROM realtimeOnly ORDER BY \"fare\" DESC LIMIT 500",
                 sessionHolder,
                 ImmutableMap.of());
         testPinotQuery(
                 pinotConfig,
                 topN(planBuilder, 5000L, ImmutableList.of("fare", "city"), ImmutableList.of(true, false), tableScanNode),
-                "SELECT fare, city, regionId FROM realtimeOnly ORDER BY fare, city DESC LIMIT 5000",
+                "SELECT \"fare\", \"city\", \"regionId\" FROM realtimeOnly ORDER BY \"fare\", \"city\" DESC LIMIT 5000",
                 sessionHolder,
                 ImmutableMap.of());
     }
@@ -268,7 +308,14 @@ public class TestPinotQueryGeneratorSql
         testPinotQuery(
                 pinotConfig,
                 aggregationNode,
-                "SELECT regionId FROM realtimeOnly GROUP BY regionId LIMIT 10000",
+                "SELECT \"regionId\" FROM realtimeOnly GROUP BY \"regionId\" LIMIT 10000",
+                defaultSessionHolder,
+                ImmutableMap.of());
+        aggregationNode = planBuilder.aggregation(aggBuilder -> aggBuilder.source(tableScanNode).singleGroupingSet(variable("city"), variable("regionid")));
+        testPinotQuery(
+                pinotConfig,
+                aggregationNode,
+                "SELECT \"city\", \"regionId\" FROM realtimeOnly GROUP BY \"city\", \"regionId\" LIMIT 10000",
                 defaultSessionHolder,
                 ImmutableMap.of());
     }

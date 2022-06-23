@@ -244,7 +244,7 @@ public class EqualityInference
     }
 
     /**
-     * Returns the most preferrable expression to be used as the canonical expression
+     * Returns the most preferable expression to be used as the canonical expression
      */
     private static RowExpression getCanonical(Iterable<RowExpression> expressions)
     {
@@ -364,14 +364,14 @@ public class EqualityInference
         /**
          * Provides a convenience Iterable of RowExpression conjuncts which have not been added to the inference
          */
-        public Iterable<RowExpression> nonInferrableConjuncts(RowExpression expression)
+        public Iterable<RowExpression> nonInferableConjuncts(RowExpression expression)
         {
             return filter(extractConjuncts(expression), not(isInferenceCandidate()));
         }
 
-        public static Iterable<RowExpression> nonInferrableConjuncts(Metadata metadata, RowExpression expression)
+        public static Iterable<RowExpression> nonInferableConjuncts(Metadata metadata, RowExpression expression)
         {
-            return new Builder(metadata).nonInferrableConjuncts(expression);
+            return new Builder(metadata).nonInferableConjuncts(expression);
         }
 
         public Builder addEqualityInference(RowExpression... expressions)
@@ -492,6 +492,7 @@ public class EqualityInference
     private static CallExpression binaryOperation(FunctionAndTypeManager functionAndTypeManager, OperatorType type, RowExpression left, RowExpression right)
     {
         return call(
+                left.getSourceLocation(),
                 type.getFunctionName().getObjectName(),
                 functionAndTypeManager.resolveOperator(type, fromTypes(left.getType(), right.getType())),
                 BOOLEAN,

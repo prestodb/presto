@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -68,6 +69,11 @@ public class RowExpressionRewriteRuleSet
     public RowExpressionRewriteRuleSet(PlanRowExpressionRewriter rewriter)
     {
         this.rewriter = requireNonNull(rewriter, "rewriter is null");
+    }
+
+    public boolean isRewriterEnabled(Session session)
+    {
+        return true;
     }
 
     public Set<Rule<?>> rules()
@@ -139,6 +145,12 @@ public class RowExpressionRewriteRuleSet
             implements Rule<ProjectNode>
     {
         @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
+        @Override
         public Pattern<ProjectNode> getPattern()
         {
             return project();
@@ -158,7 +170,7 @@ public class RowExpressionRewriteRuleSet
             }
             Assignments assignments = builder.build();
             if (anyRewritten) {
-                return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments, projectNode.getLocality()));
+                return Result.ofPlanNode(new ProjectNode(projectNode.getSourceLocation(), projectNode.getId(), projectNode.getSource(), assignments, projectNode.getLocality()));
             }
             return Result.empty();
         }
@@ -167,6 +179,12 @@ public class RowExpressionRewriteRuleSet
     private final class SpatialJoinRowExpressionRewrite
             implements Rule<SpatialJoinNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<SpatialJoinNode> getPattern()
         {
@@ -183,6 +201,7 @@ public class RowExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new SpatialJoinNode(
+                    spatialJoinNode.getSourceLocation(),
                     spatialJoinNode.getId(),
                     spatialJoinNode.getType(),
                     spatialJoinNode.getLeft(),
@@ -198,6 +217,12 @@ public class RowExpressionRewriteRuleSet
     private final class JoinRowExpressionRewrite
             implements Rule<JoinNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<JoinNode> getPattern()
         {
@@ -218,6 +243,7 @@ public class RowExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new JoinNode(
+                    joinNode.getSourceLocation(),
                     joinNode.getId(),
                     joinNode.getType(),
                     joinNode.getLeft(),
@@ -235,6 +261,12 @@ public class RowExpressionRewriteRuleSet
     private final class WindowRowExpressionRewrite
             implements Rule<WindowNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<WindowNode> getPattern()
         {
@@ -270,6 +302,7 @@ public class RowExpressionRewriteRuleSet
             }
             if (anyRewritten) {
                 return Result.ofPlanNode(new WindowNode(
+                        windowNode.getSourceLocation(),
                         windowNode.getId(),
                         windowNode.getSource(),
                         windowNode.getSpecification(),
@@ -286,6 +319,12 @@ public class RowExpressionRewriteRuleSet
             implements Rule<ApplyNode>
     {
         @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
+        @Override
         public Pattern<ApplyNode> getPattern()
         {
             return applyNode();
@@ -301,6 +340,7 @@ public class RowExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new ApplyNode(
+                    applyNode.getSourceLocation(),
                     applyNode.getId(),
                     applyNode.getInput(),
                     applyNode.getSubquery(),
@@ -328,6 +368,12 @@ public class RowExpressionRewriteRuleSet
             implements Rule<FilterNode>
     {
         @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
+        @Override
         public Pattern<FilterNode> getPattern()
         {
             return filter();
@@ -342,13 +388,19 @@ public class RowExpressionRewriteRuleSet
             if (filterNode.getPredicate().equals(rewritten)) {
                 return Result.empty();
             }
-            return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
+            return Result.ofPlanNode(new FilterNode(filterNode.getSourceLocation(), filterNode.getId(), filterNode.getSource(), rewritten));
         }
     }
 
     private final class ValuesRowExpressionRewrite
             implements Rule<ValuesNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<ValuesNode> getPattern()
         {
@@ -372,7 +424,7 @@ public class RowExpressionRewriteRuleSet
                 rows.add(newRow.build());
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputVariables(), rows.build()));
+                return Result.ofPlanNode(new ValuesNode(valuesNode.getSourceLocation(), valuesNode.getId(), valuesNode.getOutputVariables(), rows.build()));
             }
             return Result.empty();
         }
@@ -381,6 +433,12 @@ public class RowExpressionRewriteRuleSet
     private final class AggregationRowExpressionRewrite
             implements Rule<AggregationNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<AggregationNode> getPattern()
         {
@@ -404,6 +462,7 @@ public class RowExpressionRewriteRuleSet
 
             if (changed) {
                 AggregationNode aggregationNode = new AggregationNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         node.getSource(),
                         rewrittenAggregation.build(),
@@ -421,6 +480,12 @@ public class RowExpressionRewriteRuleSet
     private final class TableFinishRowExpressionRewrite
             implements Rule<TableFinishNode>
     {
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
         @Override
         public Pattern<TableFinishNode> getPattern()
         {
@@ -440,6 +505,7 @@ public class RowExpressionRewriteRuleSet
 
             if (rewrittenStatisticsAggregation.isPresent()) {
                 return Result.ofPlanNode(new TableFinishNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         node.getSource(),
                         node.getTarget(),
@@ -472,6 +538,12 @@ public class RowExpressionRewriteRuleSet
             implements Rule<TableWriterNode>
     {
         @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
+        }
+
+        @Override
         public Pattern<TableWriterNode> getPattern()
         {
             return tableWriterNode();
@@ -490,6 +562,7 @@ public class RowExpressionRewriteRuleSet
 
             if (rewrittenStatisticsAggregation.isPresent()) {
                 return Result.ofPlanNode(new TableWriterNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         node.getSource(),
                         node.getTarget(),
@@ -498,6 +571,7 @@ public class RowExpressionRewriteRuleSet
                         node.getTableCommitContextVariable(),
                         node.getColumns(),
                         node.getColumnNames(),
+                        node.getNotNullColumnVariables(),
                         node.getTablePartitioningScheme(),
                         node.getPreferredShufflePartitioningScheme(),
                         rewrittenStatisticsAggregation));

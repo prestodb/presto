@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -72,6 +73,29 @@ public class TestRowBlock
             assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
             assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
         }
+    }
+
+    @Test
+    public void testFromFieldBlocksNoNullsDetection()
+    {
+        Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
+        Block fieldBlock = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
+
+        boolean[] rowIsNull = new boolean[fieldBlock.getPositionCount()];
+        Arrays.fill(rowIsNull, false);
+
+        // Blocks may discard the null mask during creation if no values are null
+        assertFalse(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull());
+        // Last position is null must retain the nulls mask
+        rowIsNull[rowIsNull.length - 1] = true;
+        assertTrue(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull());
+        // Empty blocks have no nulls and can also discard their null mask
+        assertFalse(fromFieldBlocks(0, Optional.of(new boolean[0]), new Block[]{emptyBlock}).mayHaveNull());
+
+        // Normal blocks should have null masks preserved
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+        Block hasNullsBlock = createBlockBuilderWithValues(fieldTypes, alternatingNullValues(generateTestRows(fieldTypes, 100))).build();
+        assertTrue(hasNullsBlock.mayHaveNull());
     }
 
     private int getExpectedEstimatedDataSize(List<Object> row)
@@ -241,7 +265,7 @@ public class TestRowBlock
         // null rows are handled by assertPositionValue
         requireNonNull(row, "row is null");
 
-        assertFalse(rowBlock.isNullUnchecked(internalPosition));
+        assertFalse(rowBlock.mayHaveNull() && rowBlock.isNullUnchecked(internalPosition));
         SingleRowBlock singleRowBlock = (SingleRowBlock) rowBlock.getBlockUnchecked(internalPosition);
         assertEquals(singleRowBlock.getPositionCount(), row.size());
 

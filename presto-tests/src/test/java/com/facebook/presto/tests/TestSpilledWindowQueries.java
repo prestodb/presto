@@ -13,16 +13,43 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
+import static com.facebook.presto.SystemSessionProperties.WINDOW_SPILL_ENABLED;
+
 public class TestSpilledWindowQueries
         extends AbstractTestWindowQueries
 {
-    public TestSpilledWindowQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(TestDistributedSpilledQueries::createQueryRunner);
+        return TestDistributedSpilledQueries.localCreateQueryRunner();
     }
 
-    protected TestSpilledWindowQueries(QueryRunnerSupplier supplier)
+    @Test
+    public void testDoesNotSpillWhenWindowSpillDisabled()
     {
-        super(supplier);
+        Session session = Session.builder(getSession())
+                .setSystemProperty(WINDOW_SPILL_ENABLED, "false")
+                // set this low so that if we ran with spill the query would fail
+                .setSystemProperty(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, "1B")
+                .build();
+
+        assertQuery(session,
+                "SELECT orderkey, orderstatus " +
+                        ", row_number() OVER (ORDER BY orderkey * 2) * " +
+                        "  row_number() OVER (ORDER BY orderkey DESC) + 100 " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES " +
+                        "(1, 'O', 110), " +
+                        "(2, 'O', 118), " +
+                        "(3, 'F', 124), " +
+                        "(4, 'O', 128), " +
+                        "(5, 'F', 130)");
     }
 }

@@ -48,9 +48,9 @@ public abstract class ForwardingSystemAccessControl
     protected abstract SystemAccessControl delegate();
 
     @Override
-    public void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
     {
-        delegate().checkCanSetUser(context, principal, userName);
+        delegate().checkCanSetUser(identity, context, principal, userName);
     }
 
     @Override
@@ -171,6 +171,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanDeleteFromTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanDeleteFromTable(identity, context, table);
+    }
+
+    @Override
+    public void checkCanTruncateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanTruncateTable(identity, context, table);
     }
 
     @Override

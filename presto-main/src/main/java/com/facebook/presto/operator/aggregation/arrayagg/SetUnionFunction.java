@@ -138,6 +138,12 @@ public class SetUnionFunction
         }
     }
 
+    @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
+    }
+
     public static void output(SetAggregationState state, BlockBuilder out)
     {
         SetOfValues set = state.get();

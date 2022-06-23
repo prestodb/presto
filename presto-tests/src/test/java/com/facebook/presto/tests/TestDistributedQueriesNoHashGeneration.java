@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestDistributedQueriesNoHashGeneration
         extends AbstractTestQueries
 {
-    public TestDistributedQueriesNoHashGeneration()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunnerBuilder.builder()
                 .setSingleCoordinatorProperty("optimizer.optimize-hash-generation", "false")
-                .build());
+                .build();
     }
 }

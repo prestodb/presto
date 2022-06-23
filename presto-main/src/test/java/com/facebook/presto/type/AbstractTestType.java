@@ -39,7 +39,9 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.common.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
@@ -205,10 +207,10 @@ public abstract class AbstractTestType
 
         if (type.isOrderable() && expectedStackValue != Boolean.TRUE) {
             Block greaterValue = toBlock(getGreaterValue(expectedStackValue));
-            assertTrue(ASC_NULLS_FIRST.compareBlockValue(type, block, position, greaterValue, 0) < 0);
-            assertTrue(ASC_NULLS_LAST.compareBlockValue(type, block, position, greaterValue, 0) < 0);
-            assertTrue(DESC_NULLS_FIRST.compareBlockValue(type, block, position, greaterValue, 0) > 0);
-            assertTrue(DESC_NULLS_LAST.compareBlockValue(type, block, position, greaterValue, 0) > 0);
+            assertLessThan(ASC_NULLS_FIRST.compareBlockValue(type, block, position, greaterValue, 0), 0);
+            assertLessThan(ASC_NULLS_LAST.compareBlockValue(type, block, position, greaterValue, 0), 0);
+            assertGreaterThan(DESC_NULLS_FIRST.compareBlockValue(type, block, position, greaterValue, 0), 0);
+            assertGreaterThan(DESC_NULLS_LAST.compareBlockValue(type, block, position, greaterValue, 0), 0);
         }
 
         if (type.getJavaType() == boolean.class) {

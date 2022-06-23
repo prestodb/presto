@@ -49,6 +49,7 @@ public class ClientSession
     private final Map<String, String> preparedStatements;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
+    private final Map<String, String> customHeaders;
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
@@ -85,7 +86,8 @@ public class ClientSession
             String transactionId,
             Duration clientRequestTimeout,
             boolean compressionDisabled,
-            Map<String, String> sessionFunctions)
+            Map<String, String> sessionFunctions,
+            Map<String, String> customHeaders)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -103,6 +105,7 @@ public class ClientSession
         this.preparedStatements = ImmutableMap.copyOf(requireNonNull(preparedStatements, "preparedStatements is null"));
         this.roles = ImmutableMap.copyOf(requireNonNull(roles, "roles is null"));
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
+        this.customHeaders = ImmutableMap.copyOf(requireNonNull(customHeaders, "customHeaders is null"));
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
         this.sessionFunctions = ImmutableMap.copyOf(requireNonNull(sessionFunctions, "sessionFunctions is null"));
@@ -133,6 +136,14 @@ public class ClientSession
             checkArgument(entry.getKey().indexOf('=') < 0, "Credential name must not contain '=': %s", entry.getKey());
             checkArgument(charsetEncoder.canEncode(entry.getKey()), "Credential name is not US_ASCII: %s", entry.getKey());
             checkArgument(charsetEncoder.canEncode(entry.getValue()), "Credential value is not US_ASCII: %s", entry.getValue());
+        }
+
+        // verify the custom headers are valid
+        for (Entry<String, String> entry : customHeaders.entrySet()) {
+            checkArgument(!entry.getKey().isEmpty(), "Custom header name is empty");
+            checkArgument(entry.getKey().indexOf('=') < 0, "Custom header must not contain '=': %s", entry.getKey());
+            checkArgument(charsetEncoder.canEncode(entry.getKey()), "Custom header name is not US_ASCII: %s", entry.getKey());
+            checkArgument(charsetEncoder.canEncode(entry.getValue()), "Custom header value is not US_ASCII: %s", entry.getValue());
         }
     }
 
@@ -214,6 +225,11 @@ public class ClientSession
         return extraCredentials;
     }
 
+    public Map<String, String> getCustomHeaders()
+    {
+        return customHeaders;
+    }
+
     public String getTransactionId()
     {
         return transactionId;
@@ -275,6 +291,7 @@ public class ClientSession
         private Map<String, String> preparedStatements;
         private Map<String, SelectedRole> roles;
         private Map<String, String> credentials;
+        private Map<String, String> customHeaders;
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
@@ -298,6 +315,7 @@ public class ClientSession
             preparedStatements = clientSession.getPreparedStatements();
             roles = clientSession.getRoles();
             credentials = clientSession.getExtraCredentials();
+            customHeaders = clientSession.getCustomHeaders();
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
@@ -331,6 +349,12 @@ public class ClientSession
         public Builder withCredentials(Map<String, String> credentials)
         {
             this.credentials = requireNonNull(credentials, "extraCredentials is null");
+            return this;
+        }
+
+        public Builder withCustomHeaders(Map<String, String> customHeaders)
+        {
+            this.customHeaders = requireNonNull(customHeaders, "customHeaders is null");
             return this;
         }
 
@@ -385,7 +409,8 @@ public class ClientSession
                     transactionId,
                     clientRequestTimeout,
                     compressionDisabled,
-                    sessionFunctions);
+                    sessionFunctions,
+                    customHeaders);
         }
     }
 }

@@ -35,6 +35,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -58,6 +59,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -71,6 +73,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -90,7 +93,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
@@ -100,6 +105,7 @@ import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedEx
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_PLAN_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
@@ -312,7 +318,7 @@ public class PlanFragmenter
         Partitioning newOutputPartitioning = outputPartitioningScheme.getPartitioning();
         if (outputPartitioningScheme.getPartitioning().getHandle().getConnectorId().isPresent()) {
             // Do not replace the handle if the source's output handle is a system one, e.g. broadcast.
-            newOutputPartitioning = newOutputPartitioning.withAlternativePartitiongingHandle(newOutputPartitioningHandle);
+            newOutputPartitioning = newOutputPartitioning.withAlternativePartitioningHandle(newOutputPartitioningHandle);
         }
         PlanFragment newFragment = new PlanFragment(
                 fragment.getId(),
@@ -541,7 +547,7 @@ public class PlanFragmenter
                     .map(PlanFragment::getId)
                     .collect(toImmutableList());
 
-            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.isEnsureSourceOrdering(), exchange.getOrderingScheme(), exchange.getType());
+            return new RemoteSourceNode(exchange.getSourceLocation(), exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.isEnsureSourceOrdering(), exchange.getOrderingScheme(), exchange.getType());
         }
 
         private PlanNode createRemoteMaterializedExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
@@ -587,6 +593,7 @@ public class PlanFragmenter
             }
 
             TableScanNode scan = createTemporaryTableScan(
+                    exchange.getSourceLocation(),
                     temporaryTableHandle,
                     exchange.getOutputVariables(),
                     variableToColumnMap,
@@ -596,6 +603,7 @@ public class PlanFragmenter
                     !exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                     "materialized remote exchange is not supported when replicateNullsAndAny is needed");
             TableFinishNode write = createTemporaryTableWrite(
+                    scan.getSourceLocation(),
                     temporaryTableHandle,
                     variableToColumnMap,
                     exchange.getOutputVariables(),
@@ -623,7 +631,7 @@ public class PlanFragmenter
                 checkArgument(argument instanceof ConstantExpression || argument instanceof VariableReferenceExpression, format("Expect argument to be ConstantExpression or VariableReferenceExpression, get %s (%s)", argument.getClass(), argument));
                 VariableReferenceExpression variable;
                 if (argument instanceof ConstantExpression) {
-                    variable = variableAllocator.newVariable("constant_partition", argument.getType());
+                    variable = variableAllocator.newVariable(argument.getSourceLocation(), "constant_partition", argument.getType());
                     constants.put(variable, argument);
                 }
                 else {
@@ -647,6 +655,7 @@ public class PlanFragmenter
         }
 
         private TableScanNode createTemporaryTableScan(
+                Optional<SourceLocation> sourceLocation,
                 TableHandle tableHandle,
                 List<VariableReferenceExpression> outputVariables,
                 Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
@@ -674,6 +683,7 @@ public class PlanFragmenter
                     .collect(toImmutableMap(identity(), variable -> columnHandles.get(outputColumns.get(variable).getName())));
 
             return new TableScanNode(
+                    sourceLocation,
                     idAllocator.getNextId(),
                     selectedLayout.getLayout().getNewTableHandle(),
                     outputVariables,
@@ -683,7 +693,7 @@ public class PlanFragmenter
         }
 
         private TableFinishNode createTemporaryTableWrite(
-                TableHandle tableHandle,
+                Optional<SourceLocation> sourceLocation, TableHandle tableHandle,
                 Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
                 List<VariableReferenceExpression> outputs,
                 List<List<VariableReferenceExpression>> inputs,
@@ -712,9 +722,9 @@ public class PlanFragmenter
                 sources = sources.stream()
                         .map(source -> {
                             Assignments.Builder assignments = Assignments.builder();
-                            source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getName(), variable.getType())));
+                            source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getSourceLocation(), variable.getName(), variable.getType())));
                             constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
-                            return new ProjectNode(idAllocator.getNextId(), source, assignments.build(), Locality.LOCAL);
+                            return new ProjectNode(source.getSourceLocation(), idAllocator.getNextId(), source, assignments.build(), Locality.LOCAL);
                         })
                         .collect(toImmutableList());
             }
@@ -738,6 +748,9 @@ public class PlanFragmenter
                     .map(variableToColumnMap::get)
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
+            Set<VariableReferenceExpression> outputNotNullColumnVariables = outputs.stream()
+                    .filter(variable -> variableToColumnMap.get(variable) != null && !(variableToColumnMap.get(variable).isNullable()))
+                    .collect(Collectors.toSet());
 
             SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
             InsertReference insertReference = new InsertReference(tableHandle, schemaTableName);
@@ -750,6 +763,7 @@ public class PlanFragmenter
                     Optional.empty());
 
             ExchangeNode writerRemoteSource = new ExchangeNode(
+                    sourceLocation,
                     idAllocator.getNextId(),
                     REPARTITION,
                     REMOTE_STREAMING,
@@ -787,11 +801,13 @@ public class PlanFragmenter
             if (isTableWriterMergeOperatorEnabled(session)) {
                 StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getFunctionAndTypeManager());
                 tableWriterMerge = new TableWriterMergeNode(
+                        sourceLocation,
                         idAllocator.getNextId(),
                         gatheringExchange(
                                 idAllocator.getNextId(),
                                 LOCAL,
                                 new TableWriterNode(
+                                        sourceLocation,
                                         idAllocator.getNextId(),
                                         writerSource,
                                         Optional.of(insertReference),
@@ -800,6 +816,7 @@ public class PlanFragmenter
                                         variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
                                         outputs,
                                         outputColumnNames,
+                                        outputNotNullColumnVariables,
                                         Optional.of(partitioningScheme),
                                         Optional.empty(),
                                         enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty())),
@@ -810,6 +827,7 @@ public class PlanFragmenter
             }
             else {
                 tableWriterMerge = new TableWriterNode(
+                        sourceLocation,
                         idAllocator.getNextId(),
                         writerSource,
                         Optional.of(insertReference),
@@ -818,12 +836,14 @@ public class PlanFragmenter
                         variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
                         outputs,
                         outputColumnNames,
+                        outputNotNullColumnVariables,
                         Optional.of(partitioningScheme),
                         Optional.empty(),
                         enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty());
             }
 
             return new TableFinishNode(
+                    sourceLocation,
                     idAllocator.getNextId(),
                     ensureSourceOrderingGatheringExchange(
                             idAllocator.getNextId(),
@@ -1066,6 +1086,35 @@ public class PlanFragmenter
         }
 
         @Override
+        public GroupedExecutionProperties visitMergeJoin(MergeJoinNode node, Void context)
+        {
+            GroupedExecutionProperties left = node.getLeft().accept(this, null);
+            GroupedExecutionProperties right = node.getRight().accept(this, null);
+
+            if (groupedExecutionEnabled && left.currentNodeCapable && right.currentNodeCapable) {
+                checkState(left.totalLifespans == right.totalLifespans, format("Mismatched number of lifespans on left(%s) and right(%s) side of join", left.totalLifespans, right.totalLifespans));
+                return new GroupedExecutionProperties(
+                        true,
+                        true,
+                        ImmutableList.<PlanNodeId>builder()
+                                .addAll(left.capableTableScanNodes)
+                                .addAll(right.capableTableScanNodes)
+                                .build(),
+                        left.totalLifespans,
+                        left.recoveryEligible && right.recoveryEligible);
+            }
+            throw new PrestoException(
+                    INVALID_PLAN_ERROR,
+                    format("When grouped execution can't be enabled, merge join plan is not valid." +
+                                    "%s is currently set to %s; left node grouped execution capable is %s and " +
+                                    "right node grouped execution capable is %s.",
+                            GROUPED_EXECUTION,
+                            groupedExecutionEnabled,
+                            left.currentNodeCapable,
+                            right.currentNodeCapable));
+        }
+
+        @Override
         public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
         {
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
@@ -1125,7 +1174,7 @@ public class PlanFragmenter
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
             boolean recoveryEligible = properties.isRecoveryEligible();
             WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
-            if (target instanceof CreateName || target instanceof InsertReference) {
+            if (target instanceof CreateName || target instanceof InsertReference || target instanceof RefreshMaterializedViewReference) {
                 recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PAGE_SINK_COMMIT);
             }
             else {
@@ -1294,6 +1343,7 @@ public class PlanFragmenter
 
             TableHandle newTableHandle = metadata.getAlternativeTableHandle(session, node.getTable(), fragmentPartitioningHandle);
             return new TableScanNode(
+                    node.getSourceLocation(),
                     node.getId(),
                     newTableHandle,
                     node.getOutputVariables(),

@@ -25,6 +25,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class TestFileFragmentResultCacheConfig
@@ -38,7 +39,9 @@ public class TestFileFragmentResultCacheConfig
                 .setBlockEncodingCompressionEnabled(false)
                 .setMaxCachedEntries(10_000)
                 .setCacheTtl(new Duration(2, DAYS))
-                .setMaxInFlightSize(new DataSize(1, GIGABYTE)));
+                .setMaxInFlightSize(new DataSize(1, GIGABYTE))
+                .setMaxSinglePagesSize(new DataSize(500, MEGABYTE))
+                .setMaxCacheSize(new DataSize(100, GIGABYTE)));
     }
 
     @Test
@@ -52,6 +55,8 @@ public class TestFileFragmentResultCacheConfig
                 .put("fragment-result-cache.max-cached-entries", "100000")
                 .put("fragment-result-cache.cache-ttl", "1d")
                 .put("fragment-result-cache.max-in-flight-size", "2GB")
+                .put("fragment-result-cache.max-single-pages-size", "200MB")
+                .put("fragment-result-cache.max-cache-size", "200GB")
                 .build();
 
         FileFragmentResultCacheConfig expected = new FileFragmentResultCacheConfig()
@@ -60,7 +65,9 @@ public class TestFileFragmentResultCacheConfig
                 .setBlockEncodingCompressionEnabled(true)
                 .setMaxCachedEntries(100000)
                 .setCacheTtl(new Duration(1, DAYS))
-                .setMaxInFlightSize(new DataSize(2, GIGABYTE));
+                .setMaxInFlightSize(new DataSize(2, GIGABYTE))
+                .setMaxSinglePagesSize(new DataSize(200, MEGABYTE))
+                .setMaxCacheSize(new DataSize(200, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

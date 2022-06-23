@@ -20,13 +20,12 @@ import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
+import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfWriterEncryption;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.WriterEncryptionGroup;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.KeyProvider;
@@ -39,9 +38,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.OrcFile.OrcTableProperties;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.orc.OrcConf;
 import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -60,6 +59,8 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static com.facebook.presto.hive.HiveSessionProperties.getCompressionLevel;
+import static com.facebook.presto.hive.HiveSessionProperties.getDwrfWriterStripeCacheMaxSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
@@ -69,6 +70,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWrit
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
+import static com.facebook.presto.hive.HiveSessionProperties.isDwrfWriterStripeCacheEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isExecutionBasedMemoryAccountingEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -92,7 +95,7 @@ public class OrcFileWriterFactory
     private final NodeVersion nodeVersion;
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
-    private final OrcWriterOptions orcWriterOptions;
+    private final OrcFileWriterConfig orcFileWriterConfig;
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
 
     @Inject
@@ -103,7 +106,7 @@ public class OrcFileWriterFactory
             NodeVersion nodeVersion,
             HiveClientConfig hiveClientConfig,
             FileFormatDataSourceStats readStats,
-            OrcFileWriterConfig config,
+            OrcFileWriterConfig orcFileWriterConfig,
             HiveDwrfEncryptionProvider dwrfEncryptionProvider)
     {
         this(
@@ -113,7 +116,7 @@ public class OrcFileWriterFactory
                 nodeVersion,
                 requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(),
                 readStats,
-                requireNonNull(config, "config is null").toOrcWriterOptions(),
+                orcFileWriterConfig,
                 dwrfEncryptionProvider);
     }
 
@@ -124,7 +127,7 @@ public class OrcFileWriterFactory
             NodeVersion nodeVersion,
             DateTimeZone hiveStorageTimeZone,
             FileFormatDataSourceStats readStats,
-            OrcWriterOptions orcWriterOptions,
+            OrcFileWriterConfig orcFileWriterConfig,
             HiveDwrfEncryptionProvider dwrfEncryptionProvider)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -133,7 +136,7 @@ public class OrcFileWriterFactory
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.readStats = requireNonNull(readStats, "stats is null");
-        this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
+        this.orcFileWriterConfig = requireNonNull(orcFileWriterConfig, "orcFileWriterConfig is null");
         this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "DwrfEncryptionProvider is null").toDwrfEncryptionProvider();
     }
 
@@ -220,12 +223,20 @@ public class OrcFileWriterFactory
                     fileColumnNames,
                     fileColumnTypes,
                     compression,
-                    orcWriterOptions
-                            .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
-                            .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
-                            .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
+                    orcFileWriterConfig
+                            .toOrcWriterOptionsBuilder()
+                            .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                                    .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
+                                    .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
+                                    .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
+                                    .build())
                             .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
-                            .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
+                            .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
+                            .withIgnoreDictionaryRowGroupSizes(isExecutionBasedMemoryAccountingEnabled(session))
+                            .withDwrfStripeCacheEnabled(isDwrfWriterStripeCacheEnabled(session))
+                            .withDwrfStripeCacheMaxSize(getDwrfWriterStripeCacheMaxSize(session))
+                            .withCompressionLevel(getCompressionLevel(session))
+                            .build(),
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
@@ -239,7 +250,7 @@ public class OrcFileWriterFactory
                     dwrfWriterEncryption));
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file", e);
+            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file. " + e.getMessage(), e);
         }
     }
 
@@ -292,10 +303,7 @@ public class OrcFileWriterFactory
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration, OrcEncoding orcEncoding)
     {
-        String compressionName = schema.getProperty(OrcTableProperties.COMPRESSION.getPropName());
-        if (compressionName == null) {
-            compressionName = configuration.get("hive.exec.orc.default.compress");
-        }
+        String compressionName = OrcConf.COMPRESS.getString(schema, configuration);
         if (compressionName == null) {
             return CompressionKind.ZLIB;
         }

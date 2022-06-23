@@ -29,7 +29,6 @@ import java.util.Optional;
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkFile;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadCatalogProperties;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadProperties;
-import static com.facebook.presto.spark.launcher.LauncherUtils.readFileUtf8;
 
 @Command(name = "presto-spark-launcher", description = "Presto on Spark launcher")
 public class PrestoSparkLauncherCommand
@@ -58,12 +57,12 @@ public class PrestoSparkLauncherCommand
                 packageSupplier,
                 loadProperties(checkFile(new File(clientOptions.config))),
                 loadCatalogProperties(new File(clientOptions.catalogs)),
+                "LOCAL",
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
-
-        String query = readFileUtf8(checkFile(new File(clientOptions.file)));
 
         try (PrestoSparkRunner runner = new PrestoSparkRunner(distribution)) {
             runner.run(
@@ -79,7 +78,10 @@ public class PrestoSparkLauncherCommand
                     ImmutableMap.of(),
                     ImmutableMap.of(),
                     Optional.empty(),
-                    query,
+                    Optional.of(clientOptions.file),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty());

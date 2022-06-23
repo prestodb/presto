@@ -338,6 +338,11 @@ public class TpchMetadata
                 .orElse(TableStatistics.empty());
     }
 
+    protected ColumnNaming getColumnNaming()
+    {
+        return columnNaming;
+    }
+
     private Map<TpchColumn<?>, List<Object>> getColumnValuesRestrictions(TpchTable<?> tpchTable, Constraint<ColumnHandle> constraint)
     {
         TupleDomain<ColumnHandle> constraintSummary = constraint.getSummary();
@@ -498,7 +503,7 @@ public class TpchMetadata
         return ImmutableList.of();
     }
 
-    private static String scaleFactorSchemaName(double scaleFactor)
+    protected static String scaleFactorSchemaName(double scaleFactor)
     {
         return "sf" + scaleFactor;
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.base.Strings;
 import org.intellij.lang.annotations.Language;
@@ -23,9 +24,11 @@ import static org.testng.Assert.assertTrue;
 public class TestTpchDistributedQueries
         extends AbstractTestQueries
 {
-    public TestTpchDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().build());
+        return TpchQueryRunnerBuilder.builder().build();
     }
 
     @Test

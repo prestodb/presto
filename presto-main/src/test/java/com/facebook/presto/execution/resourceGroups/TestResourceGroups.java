@@ -51,6 +51,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.reverse;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -62,17 +63,20 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testQueueFull()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(1);
         root.setHardConcurrencyLimit(1);
         MockManagedQueryExecution query1 = new MockManagedQueryExecution(0);
+        query1.startWaitingForPrerequisites();
         root.run(query1);
         assertEquals(query1.getState(), RUNNING);
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        query2.startWaitingForPrerequisites();
         root.run(query2);
         assertEquals(query2.getState(), QUEUED);
         MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
+        query3.startWaitingForPrerequisites();
         root.run(query3);
         assertEquals(query3.getState(), FAILED);
         assertEquals(query3.getThrowable().getMessage(), "Too many queued queries for \"root\"");
@@ -81,7 +85,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairEligibility()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -98,18 +102,23 @@ public class TestResourceGroups
         group3.setMaxQueuedQueries(4);
         group3.setHardConcurrencyLimit(1);
         MockManagedQueryExecution query1a = new MockManagedQueryExecution(0);
+        query1a.startWaitingForPrerequisites();
         group1.run(query1a);
         assertEquals(query1a.getState(), RUNNING);
         MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
+        query1b.startWaitingForPrerequisites();
         group1.run(query1b);
         assertEquals(query1b.getState(), QUEUED);
         MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
+        query2a.startWaitingForPrerequisites();
         group2.run(query2a);
         assertEquals(query2a.getState(), QUEUED);
         MockManagedQueryExecution query2b = new MockManagedQueryExecution(0);
+        query2b.startWaitingForPrerequisites();
         group2.run(query2b);
         assertEquals(query2b.getState(), QUEUED);
         MockManagedQueryExecution query3a = new MockManagedQueryExecution(0);
+        query3a.startWaitingForPrerequisites();
         group3.run(query3a);
         assertEquals(query3a.getState(), QUEUED);
 
@@ -136,7 +145,7 @@ public class TestResourceGroups
     @Test
     public void testSetSchedulingPolicy()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -149,15 +158,19 @@ public class TestResourceGroups
         group2.setMaxQueuedQueries(4);
         group2.setHardConcurrencyLimit(2);
         MockManagedQueryExecution query1a = new MockManagedQueryExecution(0);
+        query1a.startWaitingForPrerequisites();
         group1.run(query1a);
         assertEquals(query1a.getState(), RUNNING);
         MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
+        query1b.startWaitingForPrerequisites();
         group1.run(query1b);
         assertEquals(query1b.getState(), QUEUED);
         MockManagedQueryExecution query1c = new MockManagedQueryExecution(0);
+        query1c.startWaitingForPrerequisites();
         group1.run(query1c);
         assertEquals(query1c.getState(), QUEUED);
         MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
+        query2a.startWaitingForPrerequisites();
         group2.run(query2a);
         assertEquals(query2a.getState(), QUEUED);
 
@@ -178,7 +191,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairQueuing()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -191,15 +204,19 @@ public class TestResourceGroups
         group2.setMaxQueuedQueries(4);
         group2.setHardConcurrencyLimit(2);
         MockManagedQueryExecution query1a = new MockManagedQueryExecution(0);
+        query1a.startWaitingForPrerequisites();
         group1.run(query1a);
         assertEquals(query1a.getState(), RUNNING);
         MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
+        query1b.startWaitingForPrerequisites();
         group1.run(query1b);
         assertEquals(query1b.getState(), QUEUED);
         MockManagedQueryExecution query1c = new MockManagedQueryExecution(0);
+        query1c.startWaitingForPrerequisites();
         group1.run(query1c);
         assertEquals(query1c.getState(), QUEUED);
         MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
+        query2a.startWaitingForPrerequisites();
         group2.run(query2a);
         assertEquals(query2a.getState(), QUEUED);
 
@@ -220,19 +237,22 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testMemoryLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
         MockManagedQueryExecution query1 = new MockManagedQueryExecution(2);
+        query1.startWaitingForPrerequisites();
         root.run(query1);
         // Process the group to refresh stats
         root.processQueuedQueries();
         assertEquals(query1.getState(), RUNNING);
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        query2.startWaitingForPrerequisites();
         root.run(query2);
         assertEquals(query2.getState(), QUEUED);
         MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
+        query3.startWaitingForPrerequisites();
         root.run(query3);
         assertEquals(query3.getState(), QUEUED);
 
@@ -245,7 +265,7 @@ public class TestResourceGroups
     @Test
     public void testSubgroupMemoryLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(10, BYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
@@ -255,14 +275,17 @@ public class TestResourceGroups
         subgroup.setHardConcurrencyLimit(3);
 
         MockManagedQueryExecution query1 = new MockManagedQueryExecution(2);
+        query1.startWaitingForPrerequisites();
         subgroup.run(query1);
         // Process the group to refresh stats
         root.processQueuedQueries();
         assertEquals(query1.getState(), RUNNING);
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        query2.startWaitingForPrerequisites();
         subgroup.run(query2);
         assertEquals(query2.getState(), QUEUED);
         MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
+        query3.startWaitingForPrerequisites();
         subgroup.run(query3);
         assertEquals(query3.getState(), QUEUED);
 
@@ -275,7 +298,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testSoftCpuLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setSoftCpuLimit(new Duration(1, SECONDS));
         root.setHardCpuLimit(new Duration(2, SECONDS));
@@ -284,14 +307,17 @@ public class TestResourceGroups
         root.setHardConcurrencyLimit(2);
 
         MockManagedQueryExecution query1 = new MockManagedQueryExecution(1, "query_id", 1, new Duration(1, SECONDS));
+        query1.startWaitingForPrerequisites();
         root.run(query1);
         assertEquals(query1.getState(), RUNNING);
 
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        query2.startWaitingForPrerequisites();
         root.run(query2);
         assertEquals(query2.getState(), RUNNING);
 
         MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
+        query3.startWaitingForPrerequisites();
         root.run(query3);
         assertEquals(query3.getState(), QUEUED);
 
@@ -309,16 +335,18 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testHardCpuLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setHardCpuLimit(new Duration(1, SECONDS));
         root.setCpuQuotaGenerationMillisPerSecond(2000);
         root.setMaxQueuedQueries(1);
         root.setHardConcurrencyLimit(1);
         MockManagedQueryExecution query1 = new MockManagedQueryExecution(1, "query_id", 1, new Duration(2, SECONDS));
+        query1.startWaitingForPrerequisites();
         root.run(query1);
         assertEquals(query1.getState(), RUNNING);
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        query2.startWaitingForPrerequisites();
         root.run(query2);
         assertEquals(query2.getState(), QUEUED);
 
@@ -334,7 +362,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testPriorityScheduling()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(100);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -384,7 +412,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedScheduling()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -433,7 +461,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairScheduling()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(50);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -476,7 +504,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairSchedulingEqualWeights()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(50);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -535,7 +563,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairSchedulingNoStarvation()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(50);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -576,7 +604,7 @@ public class TestResourceGroups
     @Test
     public void testGetInfo()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -666,7 +694,7 @@ public class TestResourceGroups
     @Test
     public void testGetResourceGroupStateInfo()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(10);
@@ -734,7 +762,7 @@ public class TestResourceGroups
     @Test
     public void testGetStaticResourceGroupInfo()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
         root.setMaxQueuedQueries(100);
         root.setHardConcurrencyLimit(10);
@@ -811,7 +839,7 @@ public class TestResourceGroups
     @Test
     public void testGetBlockedQueuedQueries()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -896,7 +924,12 @@ public class TestResourceGroups
         int existingCount = existingQueries.size();
         Set<MockManagedQueryExecution> queries = new HashSet<>(existingQueries);
         for (int i = 0; i < count - existingCount; i++) {
-            MockManagedQueryExecution query = new MockManagedQueryExecution(0, group.getId().toString().replace(".", "") + Integer.toString(i), queryPriority ? i + 1 : 1);
+            MockManagedQueryExecution query = new MockManagedQueryExecution(
+                    0,
+                    group.getId().toString().replace(".", "") + Integer.toString(i),
+                    queryPriority ? i + 1 : 1,
+                    new Duration(0, MILLISECONDS),
+                    group.getId());
             queries.add(query);
             group.run(query);
         }

@@ -49,6 +49,8 @@ public class AlluxioCachingConfigurationProvider
             configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));
             configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
             configuration.set("alluxio.user.client.cache.eviction.retries", String.valueOf(alluxioCacheConfig.getEvictionRetries()));
+            configuration.set("alluxio.user.client.cache.evictor.class", alluxioCacheConfig.getEvictionPolicy().getClassName());
+            configuration.set("alluxio.user.client.cache.quota.enabled", String.valueOf(alluxioCacheConfig.isCacheQuotaEnabled()));
             configuration.set("sink.jmx.class", alluxioCacheConfig.getJmxClass());
             configuration.set("sink.jmx.domain", alluxioCacheConfig.getMetricsDomain());
             configuration.set("alluxio.conf.validation.enabled", String.valueOf(alluxioCacheConfig.isConfigValidationEnabled()));
@@ -59,6 +61,8 @@ public class AlluxioCachingConfigurationProvider
             else {
                 configuration.set("alluxio.user.client.cache.timeout.duration", "-1");
             }
+            configuration.set("alluxio.user.client.cache.shadow.enabled", String.valueOf(alluxioCacheConfig.isShadowCacheEnabled()));
+            configuration.set("alluxio.user.client.cache.shadow.window", String.valueOf(alluxioCacheConfig.getShadowCacheWindow().toMillis()));
         }
     }
 }

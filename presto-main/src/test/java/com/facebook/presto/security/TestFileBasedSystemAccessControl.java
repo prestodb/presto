@@ -61,7 +61,7 @@ public class TestFileBasedSystemAccessControl
     private static final Identity bob = new Identity("bob", Optional.empty());
     private static final Identity admin = new Identity("admin", Optional.empty());
     private static final Identity nonAsciiUser = new Identity("\u0194\u0194\u0194", Optional.empty());
-    private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "allowed-absent", "\u0200\u0200\u0200");
+    private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "\u0200\u0200\u0200");
     private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
     private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
@@ -74,41 +74,41 @@ public class TestFileBasedSystemAccessControl
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
 
         try {
-            accessControlManager.checkCanSetUser(context, Optional.empty(), alice.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
+            accessControlManager.checkCanSetUser(alice, context, Optional.empty(), alice.getUser());
+            throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(context, kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
-        accessControlManager.checkCanSetUser(context, kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
+        accessControlManager.checkCanSetUser(kerberosValidAlice, context, kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
+        accessControlManager.checkCanSetUser(kerberosValidNonAsciiUser, context, kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
         try {
-            accessControlManager.checkCanSetUser(context, kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
+            accessControlManager.checkCanSetUser(kerberosInvalidAlice, context, kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
+            throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(context, kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
+        accessControlManager.checkCanSetUser(kerberosValidShare, context, kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
         try {
-            accessControlManager.checkCanSetUser(context, kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
+            accessControlManager.checkCanSetUser(kerberosInValidShare, context, kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
+            throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(context, validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
-        accessControlManager.checkCanSetUser(context, validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
+        accessControlManager.checkCanSetUser(validSpecialRegexWildDot, context, validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
+        accessControlManager.checkCanSetUser(validSpecialRegexEndQuote, context, validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
         try {
-            accessControlManager.checkCanSetUser(context, invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
+            accessControlManager.checkCanSetUser(invalidSpecialRegex, context, invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
+            throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
         TransactionManager transactionManagerNoPatterns = createTestTransactionManager();
         AccessControlManager accessControlManagerNoPatterns = newAccessControlManager(transactionManager, "catalog.json");
-        accessControlManagerNoPatterns.checkCanSetUser(context, kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
+        accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice, context, kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
     }
 
     @Test
@@ -116,6 +116,24 @@ public class TestFileBasedSystemAccessControl
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    assertEquals(accessControlManager.filterCatalogs(admin, context, allCatalogs), allCatalogs);
+                    Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed");
+                    assertEquals(accessControlManager.filterCatalogs(alice, context, allCatalogs), aliceCatalogs);
+                    Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed");
+                    assertEquals(accessControlManager.filterCatalogs(bob, context, allCatalogs), bobCatalogs);
+                    Set<String> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0200\u0200\u0200");
+                    assertEquals(accessControlManager.filterCatalogs(nonAsciiUser, context, allCatalogs), nonAsciiUserCatalogs);
+                });
+    }
+
+    @Test
+    public void testCatalogOperationsReadOnly()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -152,6 +170,157 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
+    public void testSchemaRulesForCheckCanCreateSchema()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "file-based-system-access-schema.json");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanCreateSchema(transactionId, bob, context, new CatalogSchemaName("alice-catalog", "bob"));
+                    accessControlManager.checkCanCreateSchema(transactionId, bob, context, new CatalogSchemaName("bob-catalog", "bob"));
+                    accessControlManager.checkCanCreateSchema(transactionId, admin, context, new CatalogSchemaName("some-catalog", "some-schema"));
+                    accessControlManager.checkCanCreateSchema(transactionId, admin, context, new CatalogSchemaName("some-catalog", "bob"));
+                    accessControlManager.checkCanCreateSchema(transactionId, admin, context, new CatalogSchemaName("some-catalog", "alice"));
+                });
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(transactionId, bob, context, new CatalogSchemaName("alice-catalog", "alice"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(transactionId, bob, context, new CatalogSchemaName("bob-catalog", "alice"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(transactionId, bob, context, new CatalogSchemaName("secret-catalog", "secret"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(transactionId, alice, context, new CatalogSchemaName("secret-catalog", "secret"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(transactionId, admin, context, new CatalogSchemaName("secret-catalog", "secret"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(transactionId, alice, context, new CatalogSchemaName("alice-catalog", "alice"));
+        }));
+    }
+
+    @Test
+    public void testSchemaRulesForCheckCanDropSchema()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "file-based-system-access-schema.json");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanDropSchema(transactionId, bob, context, new CatalogSchemaName("alice-catalog", "bob"));
+                    accessControlManager.checkCanDropSchema(transactionId, bob, context, new CatalogSchemaName("bob-catalog", "bob"));
+                    accessControlManager.checkCanDropSchema(transactionId, admin, context, new CatalogSchemaName("some-catalog", "bob"));
+                    accessControlManager.checkCanDropSchema(transactionId, admin, context, new CatalogSchemaName("some-catalog", "alice"));
+                    accessControlManager.checkCanDropSchema(transactionId, admin, context, new CatalogSchemaName("some-catalog", "some-schema"));
+                });
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropSchema(transactionId, bob, context, new CatalogSchemaName("alice-catalog", "alice"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropSchema(transactionId, bob, context, new CatalogSchemaName("bob-catalog", "alice"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropSchema(transactionId, bob, context, new CatalogSchemaName("secret-catalog", "secret"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropSchema(transactionId, alice, context, new CatalogSchemaName("secret-catalog", "secret"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropSchema(transactionId, admin, context, new CatalogSchemaName("secret-catalog", "secret"));
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropSchema(transactionId, alice, context, new CatalogSchemaName("alice-catalog", "alice"));
+        }));
+    }
+
+    @Test
+    public void testSchemaRulesForCheckCanRenameSchema()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "file-based-system-access-schema.json");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanRenameSchema(transactionId, bob, context, new CatalogSchemaName("alice-catalog", "bob"), "some-schema");
+                    accessControlManager.checkCanRenameSchema(transactionId, bob, context, new CatalogSchemaName("bob-catalog", "bob"), "some-schema");
+                    accessControlManager.checkCanRenameSchema(transactionId, admin, context, new CatalogSchemaName("some-catalog", "bob"), "new-schema-name");
+                    accessControlManager.checkCanRenameSchema(transactionId, admin, context, new CatalogSchemaName("some-catalog", "alice"), "new-schema-name");
+                });
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRenameSchema(transactionId, bob, context, new CatalogSchemaName("alice-catalog", "alice"), "new-schema-name");
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRenameSchema(transactionId, bob, context, new CatalogSchemaName("bob-catalog", "alice"), "new-schema-name");
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRenameSchema(transactionId, bob, context, new CatalogSchemaName("secret-catalog", "secret"), "new-schema-name");
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRenameSchema(transactionId, alice, context, new CatalogSchemaName("secret-catalog", "secret"), "new-schema-name");
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRenameSchema(transactionId, admin, context, new CatalogSchemaName("secret-catalog", "secret"), "new-schema-name");
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRenameSchema(transactionId, alice, context, new CatalogSchemaName("alice-catalog", "alice"), "new-schema-name");
+        }));
+    }
+
+    @Test
+    public void testSchemaOperationsReadOnly()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    Set<String> aliceSchemas = ImmutableSet.of("schema");
+                    assertEquals(accessControlManager.filterSchemas(transactionId, alice, context, "alice-catalog", aliceSchemas), aliceSchemas);
+                    assertEquals(accessControlManager.filterSchemas(transactionId, bob, context, "alice-catalog", aliceSchemas), ImmutableSet.of());
+
+                    accessControlManager.checkCanShowSchemas(transactionId, alice, context, "alice-catalog");
+                });
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(transactionId, alice, context, aliceSchema);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropSchema(transactionId, alice, context, aliceSchema);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRenameSchema(transactionId, alice, context, aliceSchema, "new-schema");
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(transactionId, bob, context, aliceSchema);
+        }));
+    }
+
+    @Test
     public void testTableOperations()
     {
         TransactionManager transactionManager = createTestTransactionManager();
@@ -165,12 +334,61 @@ public class TestFileBasedSystemAccessControl
 
                     accessControlManager.checkCanCreateTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanDropTable(transactionId, alice, context, aliceTable);
+                    accessControlManager.checkCanTruncateTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of());
                     accessControlManager.checkCanInsertIntoTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanDeleteFromTable(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanAddColumns(transactionId, alice, context, aliceTable);
                     accessControlManager.checkCanRenameColumn(transactionId, alice, context, aliceTable);
                 });
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateTable(transactionId, bob, context, aliceTable);
+        }));
+    }
+
+    @Test
+    public void testTableOperationsReadOnly()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    Set<SchemaTableName> aliceTables = ImmutableSet.of(new SchemaTableName("schema", "table"));
+                    assertEquals(accessControlManager.filterTables(transactionId, alice, context, "alice-catalog", aliceTables), aliceTables);
+                    assertEquals(accessControlManager.filterTables(transactionId, bob, context, "alice-catalog", aliceTables), ImmutableSet.of());
+
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of());
+                });
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateTable(transactionId, alice, context, aliceTable);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropTable(transactionId, alice, context, aliceTable);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanTruncateTable(transactionId, alice, context, aliceTable);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanInsertIntoTable(transactionId, alice, context, aliceTable);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDeleteFromTable(transactionId, alice, context, aliceTable);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanAddColumns(transactionId, alice, context, aliceTable);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRenameColumn(transactionId, alice, context, aliceTable);
+        }));
+
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanCreateTable(transactionId, bob, context, aliceTable);
         }));
@@ -202,6 +420,47 @@ public class TestFileBasedSystemAccessControl
     public void testEverythingImplemented()
     {
         assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class);
+    }
+
+    @Test
+    public void testViewOperationsReadOnly()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, context, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanSetCatalogSessionProperty(transactionId, alice, context, "alice-catalog", "property");
+                });
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateView(transactionId, alice, context, aliceView);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropView(transactionId, alice, context, aliceView);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, context, aliceTable, ImmutableSet.of());
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, context, aliceView, ImmutableSet.of());
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanGrantTablePrivilege(transactionId, alice, context, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRevokeTablePrivilege(transactionId, alice, context, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateView(transactionId, bob, context, aliceView);
+        }));
     }
 
     @Test
@@ -249,6 +508,18 @@ public class TestFileBasedSystemAccessControl
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(transactionId, alice, context, aliceView);
                 });
+    }
+
+    @Test
+    public void testAllowModeIsRequired()
+    {
+        assertThrows(IllegalArgumentException.class, () -> newAccessControlManager(createTestTransactionManager(), "catalog_allow_unset.json"));
+    }
+
+    @Test
+    public void testAllowModeInvalidValue()
+    {
+        assertThrows(IllegalArgumentException.class, () -> newAccessControlManager(createTestTransactionManager(), "catalog_invalid_allow_value.json"));
     }
 
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)

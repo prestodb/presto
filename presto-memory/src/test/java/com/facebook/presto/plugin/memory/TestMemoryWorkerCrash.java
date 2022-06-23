@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import io.airlift.units.Duration;
@@ -28,9 +29,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class TestMemoryWorkerCrash
         extends AbstractTestQueryFramework
 {
-    protected TestMemoryWorkerCrash()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(MemoryQueryRunner::createQueryRunner);
+        return MemoryQueryRunner.createQueryRunner();
     }
 
     @Test

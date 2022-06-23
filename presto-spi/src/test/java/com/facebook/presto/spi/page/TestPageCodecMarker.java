@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.spi.page;
 
+import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.computeSerializedPageChecksum;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -83,5 +86,16 @@ public class TestPageCodecMarker
         for (PageCodecMarker marker : PageCodecMarker.values()) {
             assertTrue(allMarkersSummary.contains(marker.name()));
         }
+    }
+
+    @Test
+    public void testComputeCRC()
+    {
+        Slice data = utf8Slice("This is a random text");
+        long crc = computeSerializedPageChecksum(data, (byte) 4, 12444567, 4000000);
+        assertEquals(2052054343, crc);
+
+        crc = computeSerializedPageChecksum(data, (byte) 7, 255698989, 1);
+        assertEquals(60661043, crc);
     }
 }

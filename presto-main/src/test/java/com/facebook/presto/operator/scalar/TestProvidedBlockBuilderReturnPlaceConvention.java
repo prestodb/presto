@@ -21,8 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
@@ -43,10 +42,10 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
 import static com.facebook.presto.operator.scalar.TestProvidedBlockBuilderReturnPlaceConvention.FunctionWithProvidedBlockReturnPlaceConvention1.PROVIDED_BLOCKBUILDER_CONVENTION1;
 import static com.facebook.presto.operator.scalar.TestProvidedBlockBuilderReturnPlaceConvention.FunctionWithProvidedBlockReturnPlaceConvention2.PROVIDED_BLOCKBUILDER_CONVENTION2;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -192,13 +191,13 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
 
             return new BuiltInScalarFunctionImplementation(
                     ImmutableList.of(
-                            new ScalarImplementationChoice(
+                            new ScalarFunctionImplementationChoice(
                                     false,
                                     ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                                     ReturnPlaceConvention.STACK,
                                     methodHandleStack,
                                     Optional.empty()),
-                            new ScalarImplementationChoice(
+                            new ScalarFunctionImplementationChoice(
                                     false,
                                     ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                                     PROVIDED_BLOCKBUILDER,
@@ -312,13 +311,13 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
 
             return new BuiltInScalarFunctionImplementation(
                     ImmutableList.of(
-                            new ScalarImplementationChoice(
+                            new ScalarFunctionImplementationChoice(
                                     true,
                                     ImmutableList.of(valueTypeArgumentProperty(USE_BOXED_TYPE)),
                                     ReturnPlaceConvention.STACK,
                                     methodHandleStack,
                                     Optional.empty()),
-                            new ScalarImplementationChoice(
+                            new ScalarFunctionImplementationChoice(
                                     true,
                                     ImmutableList.of(valueTypeArgumentProperty(USE_BOXED_TYPE)),
                                     PROVIDED_BLOCKBUILDER,

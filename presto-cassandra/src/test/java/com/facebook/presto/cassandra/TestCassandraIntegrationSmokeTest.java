@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
@@ -30,6 +31,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
+import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_INSERT;
@@ -69,11 +71,6 @@ public class TestCassandraIntegrationSmokeTest
 
     private CassandraSession session;
 
-    public TestCassandraIntegrationSmokeTest()
-    {
-        super(CassandraQueryRunner::createCassandraQueryRunner);
-    }
-
     @BeforeClass
     public void setUp()
     {
@@ -91,6 +88,13 @@ public class TestCassandraIntegrationSmokeTest
     protected boolean isParameterizedVarcharSupported()
     {
         return false;
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createCassandraQueryRunner();
     }
 
     @Test

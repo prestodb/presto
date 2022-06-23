@@ -39,13 +39,13 @@ public class TestSortExpressionExtractor
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
     private static final Set<VariableReferenceExpression> BUILD_VARIABLES = ImmutableSet.of(
-            new VariableReferenceExpression("b1", BIGINT),
-            new VariableReferenceExpression("b2", BIGINT));
+            new VariableReferenceExpression(Optional.empty(), "b1", BIGINT),
+            new VariableReferenceExpression(Optional.empty(), "b2", BIGINT));
     private static final TypeProvider TYPES = TypeProvider.fromVariables(ImmutableList.of(
-            new VariableReferenceExpression("b1", BIGINT),
-            new VariableReferenceExpression("b2", BIGINT),
-            new VariableReferenceExpression("p1", BIGINT),
-            new VariableReferenceExpression("p2", BIGINT)));
+            new VariableReferenceExpression(Optional.empty(), "b1", BIGINT),
+            new VariableReferenceExpression(Optional.empty(), "b2", BIGINT),
+            new VariableReferenceExpression(Optional.empty(), "p1", BIGINT),
+            new VariableReferenceExpression(Optional.empty(), "p2", BIGINT)));
 
     @Test
     public void testGetSortExpression()
@@ -127,7 +127,7 @@ public class TestSortExpressionExtractor
     private static void assertGetSortExpression(Expression expression, String expectedSymbol, List<Expression> searchExpressions)
     {
         Optional<SortExpressionContext> expected = Optional.of(new SortExpressionContext(
-                new VariableReferenceExpression(expectedSymbol, BIGINT),
+                new VariableReferenceExpression(Optional.empty(), expectedSymbol, BIGINT),
                 searchExpressions.stream().map(e -> TRANSLATOR.translate(e, TYPES)).collect(toImmutableList())));
         Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(
                 BUILD_VARIABLES,

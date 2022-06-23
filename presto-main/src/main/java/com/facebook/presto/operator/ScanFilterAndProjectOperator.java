@@ -15,9 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -36,6 +38,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -46,11 +49,16 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_DATA_BYTES;
+import static com.facebook.presto.common.RuntimeMetricName.STORAGE_READ_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeUnit.BYTE;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +74,7 @@ public class ScanFilterAndProjectOperator
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
     private final PageProcessor pageProcessor;
+    private final SqlFunctionProperties sqlFunctionProperties;
     private final LocalMemoryContext pageSourceMemoryContext;
     private final LocalMemoryContext pageProcessorMemoryContext;
     private final LocalMemoryContext outputMemoryContext;
@@ -99,6 +108,7 @@ public class ScanFilterAndProjectOperator
         this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
         this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.sqlFunctionProperties = operatorContext.getSession().getSqlFunctionProperties();
         this.planNodeId = requireNonNull(sourceId, "sourceId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
@@ -137,9 +147,16 @@ public class ScanFilterAndProjectOperator
         this.split = split;
 
         Object splitInfo = split.getInfo();
-        if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
+        Map<String, String> infoMap = split.getInfoMap();
+
+        //Make the implicit assumption that if infoMap is populated we can use that instead of the raw object.
+        if (infoMap != null && !infoMap.isEmpty()) {
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(infoMap)));
         }
+        else if (splitInfo != null) {
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(splitInfo)));
+        }
+
         blocked.set(null);
 
         if (split.getConnectorSplit() instanceof EmptySplit) {
@@ -249,7 +266,7 @@ public class ScanFilterAndProjectOperator
     {
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !yieldSignal.isSet()) {
-            CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().getSqlFunctionProperties(), yieldSignal, cursor, pageBuilder);
+            CursorProcessorOutput output = cursorProcessor.process(sqlFunctionProperties, yieldSignal, cursor, pageBuilder);
             pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
 
             recordCursorInputStats(output.getProcessedRows());
@@ -282,9 +299,12 @@ public class ScanFilterAndProjectOperator
                 // update operator stats
                 page = recordProcessedInput(page);
 
-                Iterator<Optional<Page>> output = pageProcessor.process(operatorContext.getSession().getSqlFunctionProperties(), yieldSignal, pageProcessorMemoryContext, page);
+                Iterator<Optional<Page>> output = pageProcessor.process(sqlFunctionProperties, yieldSignal, pageProcessorMemoryContext, page);
                 mergingOutput.addInput(output);
             }
+
+            // stats update
+            recordInputStats();
 
             if (finishing) {
                 mergingOutput.finish();
@@ -313,8 +333,7 @@ public class ScanFilterAndProjectOperator
             Block loadedBlock = delegateLazyBlock.getLoadedBlock();
             delegateLazyBlock = null;
             // Position count already recorded for lazy blocks, input bytes are not
-            operatorContext.recordProcessedInput(loadedBlock.getSizeInBytes(), 0);
-            recordPageSourceRawInputStats();
+            recordInputStats();
             block.setBlock(loadedBlock);
         }
     }
@@ -331,13 +350,23 @@ public class ScanFilterAndProjectOperator
         readTimeNanos = endReadTimeNanos;
     }
 
-    private void recordPageSourceRawInputStats()
+    private void recordInputStats()
     {
         checkState(pageSource != null, "pageSource is null");
         long endCompletedBytes = pageSource.getCompletedBytes();
         long endCompletedPositions = pageSource.getCompletedPositions();
         long endReadTimeNanos = pageSource.getReadTimeNanos();
-        operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, endCompletedPositions - completedPositions, endReadTimeNanos - readTimeNanos);
+        long inputBytes = endCompletedBytes - completedBytes;
+        long inputBytesReadTime = endReadTimeNanos - readTimeNanos;
+        long positionCount = endCompletedPositions - completedPositions;
+        operatorContext.recordProcessedInput(inputBytes, positionCount);
+        operatorContext.recordRawInputWithTiming(inputBytes, positionCount, inputBytesReadTime);
+        RuntimeStats runtimeStats = pageSource.getRuntimeStats();
+        if (runtimeStats != null) {
+            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_TIME_NANOS, NANO, inputBytesReadTime);
+            runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_DATA_BYTES, BYTE, inputBytes);
+            operatorContext.updateStats(runtimeStats);
+        }
         completedBytes = endCompletedBytes;
         completedPositions = endCompletedPositions;
         readTimeNanos = endReadTimeNanos;
@@ -360,9 +389,6 @@ public class ScanFilterAndProjectOperator
                 blockSizeSum += block.getSizeInBytes();
             }
         }
-        // stats update
-        operatorContext.recordProcessedInput(blockSizeSum, page.getPositionCount());
-        recordPageSourceRawInputStats();
 
         return (blocks == null) ? page : new Page(page.getPositionCount(), blocks);
     }

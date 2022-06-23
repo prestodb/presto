@@ -18,50 +18,84 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.teradata.functions.DateFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.Token;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
 
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static java.time.format.SignStyle.NOT_NEGATIVE;
+import static java.time.temporal.ChronoField.AMPM_OF_DAY;
+import static java.time.temporal.ChronoField.DAY_OF_MONTH;
+import static java.time.temporal.ChronoField.HOUR_OF_AMPM;
+import static java.time.temporal.ChronoField.HOUR_OF_DAY;
+import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
+import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
+import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
+import static java.time.temporal.ChronoField.YEAR;
 
 public class DateFormatParser
 {
+    public enum Mode
+    {
+        // Do not require leading zero for parsing two position date fields (MM, DD, HH, HH24, MI, SS)
+        // E.g. "to_timestamp('1988/4/8 2:3:4','yyyy/mm/dd hh24:mi:ss')"
+        PARSER(1),
+
+        // Add leading zero for formatting single valued two position date fields (MM, DD, HH, HH24, MI, SS)
+        // E.g. "to_char(TIMESTAMP '1988-4-8 2:3:4','yyyy/mm/dd hh24:mi:ss')" evaluates to "1988/04/08 02:03:04"
+        FORMATTER(2);
+
+        private final int minTwoPositionFieldWidth;
+
+        public int getMinTwoPositionFieldWidth()
+        {
+            return minTwoPositionFieldWidth;
+        }
+
+        Mode(int value)
+        {
+            this.minTwoPositionFieldWidth = value;
+        }
+    }
+
     private DateFormatParser()
     {
     }
 
-    public static DateTimeFormatter createDateTimeFormatter(String format)
+    public static DateTimeFormatter createDateTimeFormatter(String format, Mode mode)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
+        boolean formatContainsHourOfAMPM = false;
         for (Token token : tokenize(format)) {
             switch (token.getType()) {
                 case DateFormat.TEXT:
                     builder.appendLiteral(token.getText());
                     break;
                 case DateFormat.DD:
-                    builder.appendDayOfMonth(2);
+                    builder.appendValue(DAY_OF_MONTH, mode.getMinTwoPositionFieldWidth(), 2, NOT_NEGATIVE);
                     break;
                 case DateFormat.HH24:
-                    builder.appendHourOfDay(2);
+                    builder.appendValue(HOUR_OF_DAY, mode.getMinTwoPositionFieldWidth(), 2, NOT_NEGATIVE);
                     break;
                 case DateFormat.HH:
-                    builder.appendHourOfHalfday(2);
+                    builder.appendValue(HOUR_OF_AMPM, mode.getMinTwoPositionFieldWidth(), 2, NOT_NEGATIVE);
+                    formatContainsHourOfAMPM = true;
                     break;
                 case DateFormat.MI:
-                    builder.appendMinuteOfHour(2);
+                    builder.appendValue(MINUTE_OF_HOUR, mode.getMinTwoPositionFieldWidth(), 2, NOT_NEGATIVE);
                     break;
                 case DateFormat.MM:
-                    builder.appendMonthOfYear(2);
+                    builder.appendValue(MONTH_OF_YEAR, mode.getMinTwoPositionFieldWidth(), 2, NOT_NEGATIVE);
                     break;
                 case DateFormat.SS:
-                    builder.appendSecondOfMinute(2);
+                    builder.appendValue(SECOND_OF_MINUTE, mode.getMinTwoPositionFieldWidth(), 2, NOT_NEGATIVE);
                     break;
                 case DateFormat.YY:
-                    builder.appendTwoDigitYear(2050);
+                    builder.appendValueReduced(YEAR, 2, 2, 2000);
                     break;
                 case DateFormat.YYYY:
-                    builder.appendYear(4, 4);
+                    builder.appendValue(YEAR, 4);
                     break;
                 case DateFormat.UNRECOGNIZED:
                 default:
@@ -70,9 +104,22 @@ public class DateFormatParser
                             String.format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
             }
         }
-
         try {
-            return builder.toFormatter();
+            // Append default values(0) for time fields(HH24, HH, MI, SS) because JSR-310 does not accept bare Date value as DateTime
+
+            if (formatContainsHourOfAMPM) {
+                // At the moment format does not allow to include AM/PM token, thus it was never possible to specify PM hours using 'HH' token in format
+                // Keep existing behaviour by defaulting to 0(AM) for AMPM_OF_DAY if format string contains 'HH'
+                builder.parseDefaulting(HOUR_OF_AMPM, 0)
+                        .parseDefaulting(AMPM_OF_DAY, 0);
+            }
+            else {
+                builder.parseDefaulting(HOUR_OF_DAY, 0);
+            }
+
+            return builder.parseDefaulting(MINUTE_OF_HOUR, 0)
+                    .parseDefaulting(SECOND_OF_MINUTE, 0)
+                    .toFormatter();
         }
         catch (UnsupportedOperationException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);

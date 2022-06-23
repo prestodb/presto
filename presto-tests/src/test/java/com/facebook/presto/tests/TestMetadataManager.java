@@ -131,6 +131,7 @@ public class TestMetadataManager
         dispatchManager.createQuery(
                 queryId,
                 "slug",
+                0,
                 new TestingSessionContext(TEST_SESSION),
                 "SELECT * FROM lineitem")
                 .get();

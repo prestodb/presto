@@ -48,12 +48,11 @@ Next, create a ``config.properties`` file:
     test.application-name=verifier-test
     test-id=1
 
-Download :maven_download:`verifier` and rename it to ``verifier``. To run the Verifier:
+Download :maven_download:`verifier` and rename it to ``verifier.jar``. To run the Verifier:
 
 .. code-block:: none
 
-    chmod +x verifier
-    ./verifier verify config.properties
+    java -Xmx1G -jar verifier.jar verify config.properties
 
 
 Verifier Procedures

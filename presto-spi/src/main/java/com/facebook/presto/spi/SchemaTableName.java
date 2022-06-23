@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -21,25 +24,40 @@ import java.util.Objects;
 import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
 import static java.util.Locale.ENGLISH;
 
+@ThriftStruct
 public class SchemaTableName
 {
     private final String schemaName;
     private final String tableName;
 
     @JsonCreator
+    @ThriftConstructor
     public SchemaTableName(@JsonProperty("schema") String schemaName, @JsonProperty("table") String tableName)
     {
         this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
         this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
     }
 
+    public static SchemaTableName valueOf(String schemaTableName)
+    {
+        checkNotEmpty(schemaTableName, "schemaTableName").toLowerCase(ENGLISH);
+
+        String[] parts = schemaTableName.split("\\.");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("SchemaTableName should have exactly 2 parts");
+        }
+        return new SchemaTableName(parts[0], parts[1]);
+    }
+
     @JsonProperty("schema")
+    @ThriftField(1)
     public String getSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty("table")
+    @ThriftField(2)
     public String getTableName()
     {
         return tableName;

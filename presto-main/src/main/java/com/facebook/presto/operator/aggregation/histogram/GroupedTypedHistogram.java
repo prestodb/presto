@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.histogram;
 
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.array.IntBigArray;
+import com.facebook.presto.common.array.LongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
@@ -267,10 +267,10 @@ public class GroupedTypedHistogram
      *
      * @param nodeReader - will be passed every non-null nodePointer
      */
-    private void iterateGroupNodes(long groupdId, NodeReader nodeReader)
+    private void iterateGroupNodes(long groupId, NodeReader nodeReader)
     {
         // while the index can be a long, the value is always an int
-        int currentPointer = (int) headPointers.get(groupdId);
+        int currentPointer = (int) headPointers.get(groupId);
         checkArgument(currentPointer != NULL, "valid group must have non-null head pointer");
 
         while (currentPointer != NULL) {

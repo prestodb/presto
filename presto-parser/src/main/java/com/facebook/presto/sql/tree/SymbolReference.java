@@ -24,10 +24,15 @@ public class SymbolReference
 {
     private final String name;
 
+    public SymbolReference(Optional<NodeLocation> nodeLocation, String name)
+    {
+        super(nodeLocation);
+        this.name = name;
+    }
+
     public SymbolReference(String name)
     {
-        super(Optional.empty());
-        this.name = name;
+        this(Optional.empty(), name);
     }
 
     public String getName()

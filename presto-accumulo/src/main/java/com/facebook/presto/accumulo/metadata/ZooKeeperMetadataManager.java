@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.accumulo.metadata;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.accumulo.AccumuloModule;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.common.type.Type;
@@ -54,7 +54,7 @@ public class ZooKeeperMetadataManager
         requireNonNull(typeManager, "typeManager is null");
 
         // Create JSON deserializer for the AccumuloTable
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new AccumuloModule.TypeDeserializer(typeManager)));
         mapper = objectMapperProvider.get();
 

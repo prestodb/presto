@@ -28,6 +28,7 @@ public class ThriftConnectorConfig
     private DataSize maxResponseSize = new DataSize(16, MEGABYTE);
     private int metadataRefreshThreads = 1;
     private int lookupRequestsConcurrency = 1;
+    private boolean useIdentityThriftHeaders;
 
     @NotNull
     @MinDataSize("1MB")
@@ -67,6 +68,18 @@ public class ThriftConnectorConfig
     public ThriftConnectorConfig setLookupRequestsConcurrency(int lookupRequestsConcurrency)
     {
         this.lookupRequestsConcurrency = lookupRequestsConcurrency;
+        return this;
+    }
+
+    public boolean getUseIdentityThriftHeader()
+    {
+        return useIdentityThriftHeaders;
+    }
+
+    @Config("presto-thrift.use-identity-thrift-headers")
+    public ThriftConnectorConfig setUseIdentityThriftHeader(boolean setIdentityThriftHeaders)
+    {
+        this.useIdentityThriftHeaders = setIdentityThriftHeaders;
         return this;
     }
 }

@@ -19,9 +19,11 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.google.common.base.Defaults;
 
 import java.lang.invoke.MethodHandle;
@@ -29,11 +31,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.gen.BytecodeUtils.getAllScalarFunctionImplementationChoices;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
@@ -54,7 +57,7 @@ public class InterpretedFunctionInvoker
 
     public Object invoke(FunctionHandle functionHandle, SqlFunctionProperties properties, List<Object> arguments)
     {
-        return invoke(functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle), properties, arguments);
+        return invoke(functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle), properties, arguments);
     }
 
     /**
@@ -62,9 +65,10 @@ public class InterpretedFunctionInvoker
      * <p>
      * Returns a value in the native container type corresponding to the declared SQL return type
      */
-    private Object invoke(BuiltInScalarFunctionImplementation function, SqlFunctionProperties properties, List<Object> arguments)
+    private Object invoke(JavaScalarFunctionImplementation function, SqlFunctionProperties properties, List<Object> arguments)
     {
-        MethodHandle method = function.getMethodHandle();
+        ScalarFunctionImplementationChoice choice = getAllScalarFunctionImplementationChoices(function).get(0);
+        MethodHandle method = choice.getMethodHandle();
 
         // handle function on instance method, to allow use of fields
         method = bindInstanceFactory(method, function);
@@ -75,15 +79,15 @@ public class InterpretedFunctionInvoker
         List<Object> actualArguments = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Object argument = arguments.get(i);
-            ArgumentProperty argumentProperty = function.getArgumentProperty(i);
+            ArgumentProperty argumentProperty = choice.getArgumentProperty(i);
             if (argumentProperty.getArgumentType() == VALUE_TYPE) {
-                if (function.getArgumentProperty(i).getNullConvention() == RETURN_NULL_ON_NULL) {
+                if (choice.getArgumentProperty(i).getNullConvention() == RETURN_NULL_ON_NULL) {
                     if (argument == null) {
                         return null;
                     }
                     actualArguments.add(argument);
                 }
-                else if (function.getArgumentProperty(i).getNullConvention() == USE_NULL_FLAG) {
+                else if (choice.getArgumentProperty(i).getNullConvention() == USE_NULL_FLAG) {
                     boolean isNull = argument == null;
                     if (isNull) {
                         argument = Defaults.defaultValue(method.type().parameterType(actualArguments.size()));
@@ -109,14 +113,19 @@ public class InterpretedFunctionInvoker
         }
     }
 
-    private static MethodHandle bindInstanceFactory(MethodHandle method, BuiltInScalarFunctionImplementation implementation)
+    private static MethodHandle bindInstanceFactory(MethodHandle method, JavaScalarFunctionImplementation implementation)
     {
-        if (!implementation.getInstanceFactory().isPresent()) {
+        if (!(implementation instanceof BuiltInScalarFunctionImplementation)) {
+            return method;
+        }
+
+        BuiltInScalarFunctionImplementation builtInImplementation = (BuiltInScalarFunctionImplementation) implementation;
+        if (!builtInImplementation.getInstanceFactory().isPresent()) {
             return method;
         }
 
         try {
-            return method.bindTo(implementation.getInstanceFactory().get().invoke());
+            return method.bindTo(builtInImplementation.getInstanceFactory().get().invoke());
         }
         catch (Throwable throwable) {
             throw propagate(throwable);

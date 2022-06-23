@@ -29,6 +29,6 @@ public class TestFunctionType
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
         Type function = functionAndTypeManager.getType(TypeSignature.parseTypeSignature("function<row(field double),bigint>"));
-        assertEquals(function.getDisplayName(), "function<row(field double),bigint>");
+        assertEquals(function.getDisplayName(), "function<row(\"field\" double),bigint>");
     }
 }

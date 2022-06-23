@@ -17,12 +17,13 @@ import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.Duration;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static java.lang.String.format;
 
 public class ExceededCpuLimitException
         extends PrestoException
 {
-    public ExceededCpuLimitException(Duration duration)
+    public ExceededCpuLimitException(Duration limit, String limitSource)
     {
-        super(EXCEEDED_CPU_LIMIT, "Exceeded CPU limit of " + duration.toString());
+        super(EXCEEDED_CPU_LIMIT, format("Exceeded CPU limit of %s defined at the %s level", limit, limitSource));
     }
 }

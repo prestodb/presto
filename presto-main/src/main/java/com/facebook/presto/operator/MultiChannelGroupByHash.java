@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.LongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
@@ -40,8 +40,8 @@ import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
+import static com.facebook.presto.util.Failures.checkArgument;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -222,6 +222,25 @@ public class MultiChannelGroupByHash
         }
 
         return new AddNonDictionaryPageWork(page);
+    }
+
+    @Override
+    public List<Page> getBufferedPages()
+    {
+        ImmutableList.Builder<Page> inputPages = ImmutableList.builder();
+        int numPages = channelBuilders.get(0).size();
+        for (int i = 0; i < numPages; i++) {
+            Block[] blocks = new Block[channels.length];
+            for (int channel = 0; channel < channels.length; channel++) {
+                blocks[channel] = ((BlockBuilder) channelBuilders.get(channel).get(i)).build();
+            }
+
+            Page page = new Page(blocks);
+            if (page.getPositionCount() > 0) {
+                inputPages.add(page);
+            }
+        }
+        return inputPages.build();
     }
 
     @Override

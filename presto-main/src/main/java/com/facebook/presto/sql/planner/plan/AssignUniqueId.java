@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.LogicalProperties;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -22,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -34,11 +38,12 @@ public class AssignUniqueId
 
     @JsonCreator
     public AssignUniqueId(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("idVariable") VariableReferenceExpression idVariable)
     {
-        super(id);
+        super(sourceLocation, id);
         this.source = requireNonNull(source, "source is null");
         this.idVariable = requireNonNull(idVariable, "idVariable is null");
     }
@@ -71,6 +76,13 @@ public class AssignUniqueId
     }
 
     @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getAssignUniqueIdProperties(this);
+    }
+
+    @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitAssignUniqueId(this, context);
@@ -80,6 +92,6 @@ public class AssignUniqueId
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
-        return new AssignUniqueId(getId(), Iterables.getOnlyElement(newChildren), idVariable);
+        return new AssignUniqueId(newChildren.get(0).getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), idVariable);
     }
 }

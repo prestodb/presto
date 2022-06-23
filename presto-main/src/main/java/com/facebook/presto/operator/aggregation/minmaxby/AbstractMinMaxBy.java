@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.minmaxby;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;
@@ -37,7 +38,6 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -129,13 +129,12 @@ public abstract class AbstractMinMaxBy
             stateSerializer = getStateSerializer(keyType, valueType);
         }
 
-        Type intermediateType = stateSerializer.getSerializedType();
-
         List<Type> inputTypes = ImmutableList.of(valueType, keyType);
+        Type intermediateType = overrideIntermediateType(inputTypes, stateSerializer.getSerializedType());
 
         CallSiteBinder binder = new CallSiteBinder();
         OperatorType operator = min ? LESS_THAN : GREATER_THAN;
-        MethodHandle compareMethod = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(operator, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle compareMethod = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(operator, fromTypes(keyType, keyType))).getMethodHandle();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -162,6 +161,11 @@ public abstract class AbstractMinMaxBy
                 valueType);
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType), valueType, true, false, factory);
+    }
+
+    protected Type overrideIntermediateType(List<Type> inputTypes, Type defaultIntermediateType)
+    {
+        return defaultIntermediateType;
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)

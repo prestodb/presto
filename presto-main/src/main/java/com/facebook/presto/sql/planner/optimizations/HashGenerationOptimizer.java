@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
@@ -165,7 +166,8 @@ public class HashGenerationOptimizer
         {
             Optional<HashComputation> groupByHash = Optional.empty();
             List<VariableReferenceExpression> groupingKeys = node.getGroupingKeys();
-            if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
+            if (!node.isStreamable() && !node.isSegmentedAggregationEligible() && !canSkipHashGeneration(node.getGroupingKeys())) {
+                // todo: for segmented aggregation, add optimizations for the fields that need to compute hash
                 groupByHash = computeHash(groupingKeys, functionAndTypeManager);
             }
 
@@ -177,6 +179,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new AggregationNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             node.getAggregations(),
@@ -221,7 +224,7 @@ public class HashGenerationOptimizer
             // that's functionally dependent on the distinct field in the set of distinct fields of the new node to be able to propagate it downstream.
             // Currently, such precomputed hashes will be dropped by this operation.
             return new PlanWithProperties(
-                    new DistinctLimitNode(node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctVariables(), Optional.of(hashVariable)),
+                    new DistinctLimitNode(node.getSourceLocation(), node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctVariables(), Optional.of(hashVariable)),
                     ImmutableMap.of(hashComputation.get(), hashVariable));
         }
 
@@ -242,7 +245,7 @@ public class HashGenerationOptimizer
             VariableReferenceExpression hashVariable = child.getRequiredHashVariable(hashComputation.get());
 
             return new PlanWithProperties(
-                    new MarkDistinctNode(node.getId(), child.getNode(), node.getMarkerVariable(), node.getDistinctVariables(), Optional.of(hashVariable)),
+                    new MarkDistinctNode(node.getSourceLocation(), node.getId(), child.getNode(), node.getMarkerVariable(), node.getDistinctVariables(), Optional.of(hashVariable)),
                     child.getHashVariables());
         }
 
@@ -263,6 +266,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new RowNumberNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             node.getPartitionBy(),
@@ -289,6 +293,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new TopNRowNumberNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             node.getSpecification(),
@@ -361,6 +366,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new JoinNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             node.getType(),
                             left.getNode(),
@@ -393,6 +399,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new SemiJoinNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             source.getNode(),
                             filteringSource.getNode(),
@@ -447,6 +454,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new IndexJoinNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             node.getType(),
                             probe.getNode(),
@@ -455,6 +463,18 @@ public class HashGenerationOptimizer
                             Optional.of(probeHashVariable),
                             Optional.of(indexHashVariable)),
                     allHashVariables);
+        }
+
+        @Override
+        public PlanWithProperties visitMergeJoin(MergeJoinNode node, HashComputationSet parentPreference)
+        {
+            PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(), true, new HashComputationSet());
+            PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(), true, new HashComputationSet());
+            verify(left.getHashVariables().isEmpty(), "left side of the merge join should not include hash variables");
+            verify(right.getHashVariables().isEmpty(), "right side of the merge join should not include hash variables");
+            return new PlanWithProperties(
+                    replaceChildren(node, ImmutableList.of(left.getNode(), right.getNode())),
+                    ImmutableMap.of());
         }
 
         @Override
@@ -475,6 +495,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new WindowNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             node.getSpecification(),
@@ -555,6 +576,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new ExchangeNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             node.getType(),
                             node.getScope(),
@@ -604,6 +626,7 @@ public class HashGenerationOptimizer
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = newVariableMapping.build();
             return new PlanWithProperties(
                     new UnionNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             newSources.build(),
                             ImmutableList.copyOf(outputsToInputs.keySet()),
@@ -639,20 +662,20 @@ public class HashGenerationOptimizer
                 allHashVariables.put(hashComputation, hashVariable);
             }
 
-            if (node.getLocality().equals(REMOTE)) {
+            if (node.getLocality().equals(REMOTE) && !hashAssignments.isEmpty()) {
                 // if the ProjectNode is remote, created a local projection with identity projection and hash
                 Assignments.Builder localProjectionAssignments = Assignments.builder();
                 child.getNode().getOutputVariables().forEach(variable -> localProjectionAssignments.put(variable, variable));
                 localProjectionAssignments.putAll(hashAssignments);
-                ProjectNode localProjectNode = new ProjectNode(idAllocator.getNextId(), child.getNode(), localProjectionAssignments.build(), LOCAL);
+                ProjectNode localProjectNode = new ProjectNode(child.getNode().getSourceLocation(), idAllocator.getNextId(), child.getNode(), localProjectionAssignments.build(), LOCAL);
 
                 // add identity projection for hash variable to remote projection
                 hashAssignments.keySet().forEach(variable -> newAssignments.put(variable, variable));
-                return new PlanWithProperties(new ProjectNode(idAllocator.getNextId(), localProjectNode, newAssignments.build(), REMOTE), allHashVariables);
+                return new PlanWithProperties(new ProjectNode(localProjectNode.getSourceLocation(), idAllocator.getNextId(), localProjectNode, newAssignments.build(), REMOTE), allHashVariables);
             }
 
             newAssignments.putAll(hashAssignments);
-            return new PlanWithProperties(new ProjectNode(node.getId(), child.getNode(), newAssignments.build(), node.getLocality()), allHashVariables);
+            return new PlanWithProperties(new ProjectNode(node.getSourceLocation(), node.getId(), child.getNode(), newAssignments.build(), node.getLocality()), allHashVariables);
         }
 
         @Override
@@ -666,6 +689,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new UnnestNode(
+                            node.getSourceLocation(),
                             node.getId(),
                             child.getNode(),
                             ImmutableList.<VariableReferenceExpression>builder()
@@ -763,7 +787,7 @@ public class HashGenerationOptimizer
                 }
             }
 
-            ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), planWithProperties.getNode(), assignments.build(), LOCAL);
+            ProjectNode projectNode = new ProjectNode(planWithProperties.node.getSourceLocation(), idAllocator.getNextId(), planWithProperties.getNode(), assignments.build(), LOCAL);
             return new PlanWithProperties(projectNode, outputHashVariables);
         }
 
@@ -873,7 +897,7 @@ public class HashGenerationOptimizer
     private static RowExpression orNullHashCode(RowExpression expression)
     {
         checkArgument(BIGINT.equals(expression.getType()), "expression should be BIGINT type");
-        return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, BIGINT, expression, constant(NULL_HASH_CODE, BIGINT));
+        return new SpecialFormExpression(expression.getSourceLocation(), SpecialFormExpression.Form.COALESCE, BIGINT, expression, constant(NULL_HASH_CODE, BIGINT));
     }
 
     private static class HashComputation

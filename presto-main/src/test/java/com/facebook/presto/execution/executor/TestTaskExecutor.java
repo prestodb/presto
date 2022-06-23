@@ -16,6 +16,9 @@ package com.facebook.presto.execution.executor;
 import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.version.EmbedVersion;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -28,6 +31,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -451,6 +455,41 @@ public class TestTaskExecutor
         }
     }
 
+    @Test
+    public void testTaskExecutorRunawaySplitInterrupt()
+            throws Exception
+    {
+        TaskExecutor taskExecutor = new TaskExecutor(
+                8,
+                16,
+                3,
+                4,
+                TASK_FAIR,
+                new Duration(1, SECONDS),
+                elements -> elements.stream()
+                        .anyMatch(element -> element.getFileName().equals("TestTaskExecutor.java")),
+                new Duration(1, SECONDS),
+                new EmbedVersion(new ServerConfig()),
+                new MultilevelSplitQueue(2),
+                Ticker.systemTicker());
+        taskExecutor.start();
+
+        try {
+            TaskId taskId = new TaskId("foo", 0, 0, 0);
+            TaskHandle taskHandle = taskExecutor.addTask(
+                    taskId, () -> 1.0,
+                    1,
+                    new Duration(1, TimeUnit.SECONDS),
+                    OptionalInt.of(1));
+            MockSplitRunner mockSplitRunner = new MockSplitRunner();
+            taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(mockSplitRunner));
+            mockSplitRunner.interrupted.get(60, TimeUnit.SECONDS);
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
     private void assertSplitStates(int endIndex, TestingJob[] splits)
     {
         // assert that splits up to and including endIndex are all started
@@ -571,6 +610,44 @@ public class TestTaskExecutor
         public Future<?> getCompletedFuture()
         {
             return completed;
+        }
+    }
+
+    private static class MockSplitRunner
+            implements SplitRunner
+    {
+        private SettableFuture<Boolean> interrupted = SettableFuture.create();
+
+        @Override
+        public boolean isFinished()
+        {
+            return interrupted.isDone();
+        }
+
+        @Override
+        public ListenableFuture<?> processFor(Duration duration)
+        {
+            while (true) {
+                try {
+                    Thread.sleep(1);
+                }
+                catch (InterruptedException e) {
+                    break;
+                }
+            }
+            interrupted.set(true);
+            return Futures.immediateFuture(null);
+        }
+
+        @Override
+        public String getInfo()
+        {
+            return "";
+        }
+
+        @Override
+        public void close()
+        {
         }
     }
 }

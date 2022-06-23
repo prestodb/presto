@@ -32,6 +32,12 @@ public interface StandardFunctionResolution
 
     FunctionHandle likeCharFunction(Type valueType);
 
+    boolean isLikeFunction(FunctionHandle functionHandle);
+
+    FunctionHandle likePatternFunction();
+
+    boolean isLikePatternFunction(FunctionHandle functionHandle);
+
     FunctionHandle arrayConstructor(List<? extends Type> argumentTypes);
 
     FunctionHandle arithmeticFunction(OperatorType operator, Type leftType, Type rightType);
@@ -41,6 +47,8 @@ public interface StandardFunctionResolution
     FunctionHandle comparisonFunction(OperatorType operator, Type leftType, Type rightType);
 
     boolean isComparisonFunction(FunctionHandle functionHandle);
+
+    boolean isEqualsFunction(FunctionHandle functionHandle);
 
     FunctionHandle betweenFunction(Type valueType, Type lowerBoundType, Type upperBoundType);
 
@@ -65,4 +73,12 @@ public interface StandardFunctionResolution
     boolean isMinFunction(FunctionHandle functionHandle);
 
     FunctionHandle minFunction(Type valueType);
+
+    boolean isApproximateCountDistinctFunction(FunctionHandle functionHandle);
+
+    FunctionHandle approximateCountDistinctFunction(Type valueType);
+
+    boolean isApproximateSetFunction(FunctionHandle functionHandle);
+
+    FunctionHandle approximateSetFunction(Type valueType);
 }

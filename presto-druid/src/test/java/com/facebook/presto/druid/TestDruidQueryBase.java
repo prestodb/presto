@@ -98,12 +98,12 @@ public class TestDruidQueryBase
 
     protected static final Map<VariableReferenceExpression, DruidQueryGeneratorContext.Selection> testInput =
             new ImmutableMap.Builder<VariableReferenceExpression, DruidQueryGeneratorContext.Selection>()
-                    .put(new VariableReferenceExpression("region.id", BIGINT), new DruidQueryGeneratorContext.Selection("region.Id", TABLE_COLUMN))
-                    .put(new VariableReferenceExpression("city", VARCHAR), new DruidQueryGeneratorContext.Selection("city", TABLE_COLUMN))
-                    .put(new VariableReferenceExpression("fare", DOUBLE), new DruidQueryGeneratorContext.Selection("fare", TABLE_COLUMN))
-                    .put(new VariableReferenceExpression("totalfare", DOUBLE), new DruidQueryGeneratorContext.Selection("(fare + trip)", DERIVED))
-                    .put(new VariableReferenceExpression("secondssinceepoch", BIGINT), new DruidQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN))
-                    .put(new VariableReferenceExpression("datetime", TIMESTAMP), new DruidQueryGeneratorContext.Selection("datetime", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression(Optional.empty(), "region.id", BIGINT), new DruidQueryGeneratorContext.Selection("region.Id", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression(Optional.empty(), "city", VARCHAR), new DruidQueryGeneratorContext.Selection("city", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression(Optional.empty(), "fare", DOUBLE), new DruidQueryGeneratorContext.Selection("fare", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression(Optional.empty(), "totalfare", DOUBLE), new DruidQueryGeneratorContext.Selection("(fare + trip)", DERIVED))
+                    .put(new VariableReferenceExpression(Optional.empty(), "secondssinceepoch", BIGINT), new DruidQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression(Optional.empty(), "datetime", TIMESTAMP), new DruidQueryGeneratorContext.Selection("datetime", TABLE_COLUMN))
                     .build();
 
     protected final TypeProvider typeProvider = TypeProvider.fromVariables(testInput.keySet());
@@ -137,7 +137,7 @@ public class TestDruidQueryBase
 
     protected TableScanNode tableScan(PlanBuilder planBuilder, DruidTableHandle connectorTableHandle, DruidColumnHandle... columnHandles)
     {
-        List<VariableReferenceExpression> variables = Arrays.stream(columnHandles).map(ch -> new VariableReferenceExpression(ch.getColumnName().toLowerCase(ENGLISH), ch.getColumnType())).collect(toImmutableList());
+        List<VariableReferenceExpression> variables = Arrays.stream(columnHandles).map(ch -> new VariableReferenceExpression(Optional.empty(), ch.getColumnName().toLowerCase(ENGLISH), ch.getColumnType())).collect(toImmutableList());
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
         for (int i = 0; i < variables.size(); ++i) {
             assignments.put(variables.get(i), columnHandles[i]);
@@ -148,6 +148,7 @@ public class TestDruidQueryBase
                 TestingTransactionHandle.create(),
                 Optional.empty());
         return new TableScanNode(
+                Optional.empty(),
                 planBuilder.getIdAllocator().getNextId(),
                 tableHandle,
                 variables,
@@ -177,7 +178,7 @@ public class TestDruidQueryBase
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         toProject.forEach((columnName, expression) -> {
             RowExpression rowExpression = getRowExpression(expression, sessionHolder);
-            VariableReferenceExpression variable = new VariableReferenceExpression(columnName, rowExpression.getType());
+            VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), columnName, rowExpression.getType());
             assignmentsBuilder.put(variable, rowExpression);
         });
         return planBuilder.project(assignmentsBuilder.build(), source);
@@ -196,20 +197,20 @@ public class TestDruidQueryBase
                 new SqlParser(),
                 typeProvider,
                 expression,
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 WarningCollector.NOOP);
         return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager, session);
     }
 
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)
     {
-        return new LimitNode(pb.getIdAllocator().getNextId(), source, count, FINAL);
+        return new LimitNode(Optional.empty(), pb.getIdAllocator().getNextId(), source, count, FINAL);
     }
 
     protected TopNNode topN(PlanBuilder pb, long count, List<String> orderingColumns, List<Boolean> ascending, PlanNode source)
     {
         ImmutableList<Ordering> ordering = IntStream.range(0, orderingColumns.size()).boxed().map(i -> new Ordering(variable(orderingColumns.get(i)), ascending.get(i) ? SortOrder.ASC_NULLS_FIRST : SortOrder.DESC_NULLS_FIRST)).collect(toImmutableList());
-        return new TopNNode(pb.getIdAllocator().getNextId(), source, count, new OrderingScheme(ordering), TopNNode.Step.SINGLE);
+        return new TopNNode(Optional.empty(), pb.getIdAllocator().getNextId(), source, count, new OrderingScheme(ordering), TopNNode.Step.SINGLE);
     }
 
     protected RowExpression getRowExpression(String sqlExpression, SessionHolder sessionHolder)

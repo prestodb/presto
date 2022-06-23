@@ -19,7 +19,6 @@ import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -53,17 +52,17 @@ public class QueryConfiguration
 
     public QueryConfiguration applyOverrides(QueryConfigurationOverrides overrides)
     {
-        Map<String, String> sessionProperties = this.sessionProperties;
+        Map<String, String> sessionProperties;
         if (overrides.getSessionPropertiesOverrideStrategy() == OVERRIDE) {
-            sessionProperties = overrides.getSessionPropertiesOverride();
+            sessionProperties = new HashMap<>(overrides.getSessionPropertiesOverride());
         }
-        else if (overrides.getSessionPropertiesOverrideStrategy() == SUBSTITUTE) {
-            sessionProperties = new HashMap<>(sessionProperties);
-            for (Entry<String, String> entry : overrides.getSessionPropertiesOverride().entrySet()) {
-                sessionProperties.put(entry.getKey(), entry.getValue());
+        else {
+            sessionProperties = new HashMap<>(this.sessionProperties);
+            if (overrides.getSessionPropertiesOverrideStrategy() == SUBSTITUTE) {
+                sessionProperties.putAll(overrides.getSessionPropertiesOverride());
             }
         }
-
+        overrides.getSessionPropertiesToRemove().forEach(sessionProperties::remove);
         return new QueryConfiguration(
                 overrides.getCatalogOverride().orElse(catalog),
                 overrides.getSchemaOverride().orElse(schema),

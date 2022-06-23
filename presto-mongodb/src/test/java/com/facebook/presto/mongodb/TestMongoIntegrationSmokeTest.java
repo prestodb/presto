@@ -15,6 +15,7 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,9 +42,11 @@ public class TestMongoIntegrationSmokeTest
 {
     private MongoQueryRunner mongoQueryRunner;
 
-    public TestMongoIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMongoQueryRunner(ORDERS));
+        return createMongoQueryRunner(ORDERS);
     }
 
     @BeforeClass
@@ -73,7 +76,8 @@ public class TestMongoIntegrationSmokeTest
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
-                ", ObjectId('ffffffffffffffffffffffff') _objectid";
+                ", ObjectId('ffffffffffffffffffffffff') _objectid" +
+                ", cast(ObjectId('ffffffffffffffffffffffff') as varchar) _objectid_string";
 
         assertUpdate(query, 1);
 
@@ -87,6 +91,7 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(4), true);
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
+        assertEquals(row.getField(8), "ffffffffffffffffffffffff");
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));

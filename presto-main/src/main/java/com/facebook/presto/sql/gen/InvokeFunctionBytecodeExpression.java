@@ -14,11 +14,13 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
@@ -34,19 +36,19 @@ import static java.util.Objects.requireNonNull;
 public class InvokeFunctionBytecodeExpression
         extends BytecodeExpression
 {
-    public static BytecodeExpression invokeFunction(Scope scope, CachedInstanceBinder cachedInstanceBinder, String name, BuiltInScalarFunctionImplementation function, BytecodeExpression... parameters)
+    public static BytecodeExpression invokeFunction(Scope scope, CachedInstanceBinder cachedInstanceBinder, String name, JavaScalarFunctionImplementation function, BytecodeExpression... parameters)
     {
         return invokeFunction(scope, cachedInstanceBinder, name, function, ImmutableList.copyOf(parameters));
     }
 
-    public static BytecodeExpression invokeFunction(Scope scope, CachedInstanceBinder cachedInstanceBinder, String name, BuiltInScalarFunctionImplementation function, List<BytecodeExpression> parameters)
+    public static BytecodeExpression invokeFunction(Scope scope, CachedInstanceBinder cachedInstanceBinder, String name, JavaScalarFunctionImplementation function, List<BytecodeExpression> parameters)
     {
         requireNonNull(scope, "scope is null");
         requireNonNull(function, "function is null");
 
         Optional<BytecodeNode> instance = Optional.empty();
-        if (function.getInstanceFactory().isPresent()) {
-            FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
+        if (function instanceof BuiltInScalarFunctionImplementation && ((BuiltInScalarFunctionImplementation) function).getInstanceFactory().isPresent()) {
+            FieldDefinition field = cachedInstanceBinder.getCachedInstance(((BuiltInScalarFunctionImplementation) function).getInstanceFactory().get());
             instance = Optional.of(scope.getThis().getField(field));
         }
         return new InvokeFunctionBytecodeExpression(scope, cachedInstanceBinder.getCallSiteBinder(), name, function, instance, parameters);
@@ -59,7 +61,7 @@ public class InvokeFunctionBytecodeExpression
             Scope scope,
             CallSiteBinder binder,
             String name,
-            BuiltInScalarFunctionImplementation function,
+            JavaScalarFunctionImplementation function,
             Optional<BytecodeNode> instance,
             List<BytecodeExpression> parameters)
     {

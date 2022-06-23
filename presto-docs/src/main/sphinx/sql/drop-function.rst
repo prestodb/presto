@@ -13,16 +13,16 @@ Synopsis
 Description
 -----------
 
-Drop an existing function.
+Drop existing functions that matches the given function name.
 
-When ``TEMPORARY`` is specified, a temporary function with the given signature is dropped.
+The optional parameter type list can be specified to narrow down
+the match to a specific function signature.
 
 The optional ``IF EXISTS`` clause causes the ``NOT_FOUND`` error
-to be suppressed if the function does not exists.
+to be suppressed if no matching function signature exists.
 
-Each ``DROP FUNCTION`` statement can only drop one function
-at a time. If multiple functions are matched by not specifying
-the parameter type list, the query would fail.
+When ``TEMPORARY`` is specified, temporary functions with matching
+criteria are dropped.
 
 
 Examples

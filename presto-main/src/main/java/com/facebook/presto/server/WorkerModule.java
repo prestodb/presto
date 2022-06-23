@@ -51,6 +51,10 @@ public class WorkerModule
         binder.bind(QueryManager.class).toInstance(newProxy(QueryManager.class, (proxy, method, args) -> {
             throw new UnsupportedOperationException();
         }));
+
+        binder.bind(NodeResourceStatusProvider.class).toInstance(newProxy(NodeResourceStatusProvider.class, (proxy, method, args) -> {
+            return true;
+        }));
     }
 
     @Provides

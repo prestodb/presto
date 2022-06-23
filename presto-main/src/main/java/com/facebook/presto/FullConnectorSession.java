@@ -26,7 +26,9 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isExploitConstraints;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
@@ -122,6 +124,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public Set<String> getClientTags()
+    {
+        return session.getClientTags();
+    }
+
+    @Override
     public SqlFunctionProperties getSqlFunctionProperties()
     {
         return sqlFunctionProperties;
@@ -147,6 +155,12 @@ public class FullConnectorSession
     public Optional<String> getSchema()
     {
         return session.getSchema();
+    }
+
+    @Override
+    public boolean isReadConstraints()
+    {
+        return isExploitConstraints(session);
     }
 
     @Override

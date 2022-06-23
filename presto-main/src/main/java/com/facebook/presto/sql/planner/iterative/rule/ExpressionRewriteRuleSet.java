@@ -130,7 +130,7 @@ public class ExpressionRewriteRuleSet
             if (projectNode.getAssignments().equals(assignments)) {
                 return Result.empty();
             }
-            return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments, projectNode.getLocality()));
+            return Result.ofPlanNode(new ProjectNode(projectNode.getSourceLocation(), projectNode.getId(), projectNode.getSource(), assignments, projectNode.getLocality()));
         }
     }
 
@@ -158,7 +158,9 @@ public class ExpressionRewriteRuleSet
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
                 Aggregation rewritten = new Aggregation(
-                        new CallExpression(aggregation.getCall().getDisplayName(),
+                        new CallExpression(
+                                aggregation.getCall().getSourceLocation(),
+                                aggregation.getCall().getDisplayName(),
                                 aggregation.getCall().getFunctionHandle(),
                                 aggregation.getCall().getType(),
                                 aggregation.getCall().getArguments()
@@ -178,6 +180,7 @@ public class ExpressionRewriteRuleSet
             }
             if (anyRewritten) {
                 return Result.ofPlanNode(new AggregationNode(
+                        aggregationNode.getSourceLocation(),
                         aggregationNode.getId(),
                         aggregationNode.getSource(),
                         aggregations.build(),
@@ -220,7 +223,7 @@ public class ExpressionRewriteRuleSet
             if (filterNode.getPredicate().equals(rewritten)) {
                 return Result.empty();
             }
-            return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
+            return Result.ofPlanNode(new FilterNode(filterNode.getSourceLocation(), filterNode.getId(), filterNode.getSource(), rewritten));
         }
     }
 
@@ -246,6 +249,7 @@ public class ExpressionRewriteRuleSet
             Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(castToExpression(x), context));
             if (!joinNode.getFilter().map(OriginalExpressionUtils::castToExpression).equals(filter)) {
                 return Result.ofPlanNode(new JoinNode(
+                        joinNode.getSourceLocation(),
                         joinNode.getId(),
                         joinNode.getType(),
                         joinNode.getLeft(),
@@ -302,7 +306,7 @@ public class ExpressionRewriteRuleSet
                 rows.add(newRow.build());
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputVariables(), rows.build()));
+                return Result.ofPlanNode(new ValuesNode(valuesNode.getSourceLocation(), valuesNode.getId(), valuesNode.getOutputVariables(), rows.build()));
             }
             return Result.empty();
         }
@@ -333,6 +337,7 @@ public class ExpressionRewriteRuleSet
             }
             verifySubquerySupported(subqueryAssignments);
             return Result.ofPlanNode(new ApplyNode(
+                    applyNode.getSourceLocation(),
                     applyNode.getId(),
                     applyNode.getInput(),
                     applyNode.getSubquery(),

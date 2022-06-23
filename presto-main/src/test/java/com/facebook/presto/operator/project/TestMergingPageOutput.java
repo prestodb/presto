@@ -30,6 +30,7 @@ import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.Math.toIntExact;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
@@ -44,7 +45,7 @@ public class TestMergingPageOutput
     {
         Page page = createSequencePage(TYPES, 10);
 
-        MergingPageOutput output = new MergingPageOutput(TYPES, page.getSizeInBytes(), Integer.MAX_VALUE, Integer.MAX_VALUE);
+        MergingPageOutput output = new MergingPageOutput(TYPES, page.getSizeInBytes(), PageProcessor.MAX_BATCH_SIZE, Integer.MAX_VALUE);
 
         assertTrue(output.needsInput());
         assertNull(output.getOutput());
@@ -144,6 +145,47 @@ public class TestMergingPageOutput
         output.addInput(createPagesIterator(splits.get(0), splits.get(1)));
         assertFalse(output.needsInput());
         assertPageEquals(types, output.getOutput(), page);
+    }
+
+    @Test
+    public void testPositionCountOnly()
+    {
+        int minRowCount = 256;
+        MergingPageOutput output = new MergingPageOutput(ImmutableList.of(), 1024 * 1024, minRowCount);
+
+        Page bufferedPage = new Page(minRowCount - 1);
+        output.addInput(createPagesIterator(bufferedPage));
+        assertEquals(output.getRetainedSizeInBytes(), MergingPageOutput.INSTANCE_SIZE); // no page builder or outputQueue items
+        assertNull(output.getOutput());
+        assertTrue(output.needsInput());
+
+        Page hugePage = new Page(PageProcessor.MAX_BATCH_SIZE * 2);
+        output.addInput(createPagesIterator(hugePage));
+        // Sufficiently large pages are passed through directly and not combined with pending counts
+        assertSame(output.getOutput(), hugePage);
+        assertNull(output.getOutput());
+
+        // Pages >= minRowCount are passed through, but combined with accumulated input
+        assertTrue(output.needsInput());
+        output.addInput(createPagesIterator(new Page(minRowCount)));
+        assertEquals(output.getOutput().getPositionCount(), minRowCount + bufferedPage.getPositionCount());
+        assertNull(output.getOutput());
+
+        // Small inputs accumulate until MAX_BATCH_SIZE is reached
+        int combinedPositions = 0;
+        while (combinedPositions + 100 < PageProcessor.MAX_BATCH_SIZE) {
+            combinedPositions += 100;
+            assertTrue(output.needsInput());
+            output.addInput(createPagesIterator(new Page(100)));
+            assertNull(output.getOutput());
+        }
+        assertTrue(output.needsInput());
+        combinedPositions += 100;
+        output.addInput(createPagesIterator(new Page(100)));
+        assertEquals(output.getOutput().getPositionCount(), PageProcessor.MAX_BATCH_SIZE);
+        output.finish();
+        assertEquals(output.getOutput().getPositionCount(), combinedPositions - PageProcessor.MAX_BATCH_SIZE);
+        assertTrue(output.isFinished());
     }
 
     private static Iterator<Optional<Page>> createPagesIterator(Page... pages)

@@ -15,8 +15,8 @@ package com.facebook.presto.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import org.apache.parquet.hadoop.ParquetWriter;
 import org.testng.annotations.Test;
-import parquet.hadoop.ParquetWriter;
 
 import java.util.Map;
 

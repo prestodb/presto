@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -59,20 +60,16 @@ import static org.testng.Assert.assertNotNull;
 public class TestRaptorIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    @SuppressWarnings("unused")
-    public TestRaptorIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(() -> createRaptorQueryRunner(
+        return createRaptorQueryRunner(
                 ImmutableMap.of(),
                 true,
                 false,
                 false,
-                ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
-    }
-
-    protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+                ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED"));
     }
 
     @Test
@@ -579,13 +576,13 @@ public class TestRaptorIntegrationSmokeTest
     {
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   c2 double,\n" +
+                        "   \"c1\" bigint,\n" +
+                        "   \"c2\" double,\n" +
                         "   \"c 3\" varchar,\n" +
                         "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar),\n" +
-                        "   c6 bigint,\n" +
-                        "   c7 timestamp\n" +
+                        "   \"c5\" map(bigint, varchar),\n" +
+                        "   \"c6\" bigint,\n" +
+                        "   \"c7\" timestamp\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   bucket_count = 32,\n" +
@@ -609,13 +606,13 @@ public class TestRaptorIntegrationSmokeTest
         // With organization enabled
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   c2 double,\n" +
+                        "   \"c1\" bigint,\n" +
+                        "   \"c2\" double,\n" +
                         "   \"c 3\" varchar,\n" +
                         "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar),\n" +
-                        "   c6 bigint,\n" +
-                        "   c7 timestamp\n" +
+                        "   \"c5\" map(bigint, varchar),\n" +
+                        "   \"c6\" bigint,\n" +
+                        "   \"c7\" timestamp\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   bucket_count = 32,\n" +
@@ -639,10 +636,10 @@ public class TestRaptorIntegrationSmokeTest
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   \"c\"\"1\" bigint,\n" +
-                        "   c2 double,\n" +
+                        "   \"c2\" double,\n" +
                         "   \"c 3\" varchar,\n" +
                         "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar)\n" +
+                        "   \"c5\" map(bigint, varchar)\n" +
                         ")",
                 getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table_default");
         assertUpdate(createTableSql);

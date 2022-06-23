@@ -18,8 +18,10 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
+
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.IntFunction;
 
@@ -31,8 +33,14 @@ import static java.util.Objects.requireNonNull;
 public class InterpretedHashGenerator
         implements HashGenerator
 {
-    private final List<Type> hashChannelTypes;
-    private final int[] hashChannels;
+    private final Type[] hashChannelTypes;
+    @Nullable
+    private final int[] hashChannels; // null value indicates that the identity channel mapping is used
+
+    public static InterpretedHashGenerator createPositionalWithTypes(List<Type> hashChannelTypes)
+    {
+        return new InterpretedHashGenerator(hashChannelTypes, null, true);
+    }
 
     public InterpretedHashGenerator(List<Type> hashChannelTypes, List<Integer> hashChannels)
     {
@@ -41,23 +49,43 @@ public class InterpretedHashGenerator
 
     public InterpretedHashGenerator(List<Type> hashChannelTypes, int[] hashChannels)
     {
-        this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");
-        this.hashChannelTypes = ImmutableList.copyOf(requireNonNull(hashChannelTypes, "hashChannelTypes is null"));
-        checkArgument(hashChannelTypes.size() == hashChannels.length);
+        this(hashChannelTypes, requireNonNull(hashChannels, "hashChannels is null"), false);
+    }
+
+    private InterpretedHashGenerator(List<Type> hashChannelTypes, @Nullable int[] hashChannels, boolean positional)
+    {
+        this.hashChannelTypes = requireNonNull(hashChannelTypes, "hashChannelTypes is null").toArray(new Type[0]);
+        if (positional) {
+            checkArgument(hashChannels == null, "hashChannels must be null");
+            this.hashChannels = null;
+        }
+        else {
+            requireNonNull(hashChannels, "hashChannels is null");
+            checkArgument(hashChannels.length == this.hashChannelTypes.length);
+            // simple positional indices are converted to null
+            this.hashChannels = isPositionalChannels(hashChannels) ? null : hashChannels;
+        }
     }
 
     @Override
     public long hashPosition(int position, Page page)
     {
-        return hashPosition(position, page::getBlock);
+        // Note: this code is duplicated for performance but must logically match hashPosition(position, IntFunction<Block> blockProvider)
+        long result = INITIAL_HASH_VALUE;
+        for (int i = 0; i < hashChannelTypes.length; i++) {
+            Block block = page.getBlock(hashChannels == null ? i : hashChannels[i]);
+            result = CombineHashFunction.getHash(result, TypeUtils.hashPosition(hashChannelTypes[i], block, position));
+        }
+        return result;
     }
 
     public long hashPosition(int position, IntFunction<Block> blockProvider)
     {
+        // Note: this code is duplicated for performance but must logically match hashPosition(position, Page page)
         long result = INITIAL_HASH_VALUE;
-        for (int i = 0; i < hashChannels.length; i++) {
-            Type type = hashChannelTypes.get(i);
-            result = CombineHashFunction.getHash(result, TypeUtils.hashPosition(type, blockProvider.apply(hashChannels[i]), position));
+        for (int i = 0; i < hashChannelTypes.length; i++) {
+            Block block = blockProvider.apply(hashChannels == null ? i : hashChannels[i]);
+            result = CombineHashFunction.getHash(result, TypeUtils.hashPosition(hashChannelTypes[i], block, position));
         }
         return result;
     }
@@ -67,7 +95,17 @@ public class InterpretedHashGenerator
     {
         return toStringHelper(this)
                 .add("hashChannelTypes", hashChannelTypes)
-                .add("hashChannels", hashChannels)
+                .add("hashChannels", hashChannels == null ? "<identity>" : Arrays.toString(hashChannels))
                 .toString();
+    }
+
+    private static boolean isPositionalChannels(int[] hashChannels)
+    {
+        for (int i = 0; i < hashChannels.length; i++) {
+            if (hashChannels[i] != i) {
+                return false;
+            }
+        }
+        return true;
     }
 }

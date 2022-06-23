@@ -56,8 +56,8 @@ public class PushPartialAggregationThroughJoin
 
     private static boolean isSupportedAggregationNode(AggregationNode aggregationNode)
     {
-        // Don't split streaming aggregations
-        if (aggregationNode.isStreamable()) {
+        // Don't split streaming aggregations or segmented aggregations
+        if (aggregationNode.isStreamable() || aggregationNode.isSegmentedAggregationEligible()) {
             return false;
         }
 
@@ -161,6 +161,7 @@ public class PushPartialAggregationThroughJoin
             List<VariableReferenceExpression> groupingKeys)
     {
         return new AggregationNode(
+                aggregation.getSourceLocation(),
                 aggregation.getId(),
                 source,
                 aggregation.getAggregations(),
@@ -179,6 +180,7 @@ public class PushPartialAggregationThroughJoin
             Context context)
     {
         JoinNode joinNode = new JoinNode(
+                child.getSourceLocation(),
                 child.getId(),
                 child.getType(),
                 leftChild,

@@ -27,9 +27,11 @@ public class TestKuduIntegrationHashPartitioning
 {
     private QueryRunner queryRunner;
 
-    public TestKuduIntegrationHashPartitioning()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunner("hash"));
+        return KuduQueryRunnerFactory.createKuduQueryRunner("hash");
     }
 
     @Test

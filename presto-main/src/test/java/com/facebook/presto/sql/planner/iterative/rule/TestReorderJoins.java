@@ -19,6 +19,7 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -44,6 +45,7 @@ import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -120,6 +122,7 @@ public class TestReorderJoins
     public void testReplicatesAndFlipsWhenOneTableMuchSmaller()
     {
         assertReorderJoins()
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "1PB")
                 .on(p ->
                         p.join(
                                 INNER,
@@ -503,6 +506,48 @@ public class TestReorderJoins
                         Optional.of(PARTITIONED),
                         values(ImmutableMap.of("A1", 0)),
                         values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testReorderAndReplicate()
+    {
+        int aRows = 10;
+        int bRows = 10_000;
+
+        PlanNodeStatsEstimate probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(aRows)
+                .addVariableStatistics(ImmutableMap.of(variable("A1", VARCHAR), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
+                .build();
+        PlanNodeStatsEstimate buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(bRows)
+                .addVariableStatistics(ImmutableMap.of(variable("B1", VARCHAR), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
+                .build();
+
+        // A table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
+        assertReorderJoins()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "10MB")
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", VARCHAR);
+                    VariableReferenceExpression b1 = p.variable("B1", VARCHAR);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
+                .overrideStats("valuesA", probeSideStatsEstimate)
+                .overrideStats("valuesB", buildSideStatsEstimate)
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
     }
 
     private RuleAssert assertReorderJoins()

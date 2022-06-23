@@ -22,8 +22,11 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.facebook.presto.jdbc.ConnectionProperties.CLIENT_TAGS;
+import static com.facebook.presto.jdbc.ConnectionProperties.CUSTOM_HEADERS;
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
+import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROTOCOLS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.QUERY_INTERCEPTORS;
 import static com.facebook.presto.jdbc.ConnectionProperties.SESSION_PROPERTIES;
@@ -256,6 +259,37 @@ public class TestPrestoDriverUri
     }
 
     @Test
+    public void testUriWithCustomHeaders()
+            throws SQLException, UnsupportedEncodingException
+    {
+        String customHeaders = "testHeaderKey:testHeaderValue";
+        String encodedCustomHeaders = URLEncoder.encode(customHeaders, StandardCharsets.UTF_8.toString());
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?customHeaders=" + encodedCustomHeaders);
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(CUSTOM_HEADERS.getKey()), customHeaders);
+    }
+
+    @Test
+    public void testUriWithClientTags()
+            throws SQLException
+    {
+        String clientTags = "c1,c2";
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?clientTags=" + clientTags);
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(CLIENT_TAGS.getKey()), clientTags);
+    }
+
+    @Test(expectedExceptions = SQLException.class)
+    public void assertNonAlphanumericClientTags()
+            throws SQLException
+    {
+        String clientTags = "d1,@d2,d3";
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?clientTags=" + clientTags);
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(CLIENT_TAGS.getKey()), clientTags);
+    }
+
+    @Test
     public void testUriWithSessionProperties()
             throws SQLException
     {
@@ -263,6 +297,16 @@ public class TestPrestoDriverUri
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?sessionProperties=" + sessionProperties);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(SESSION_PROPERTIES.getKey()), sessionProperties);
+    }
+
+    @Test
+    public void testUriWithHttpProtocols()
+            throws SQLException
+    {
+        String protocols = "h2,http/1.1";
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?protocols=" + protocols);
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(HTTP_PROTOCOLS.getKey()), protocols);
     }
 
     @Test
@@ -276,7 +320,7 @@ public class TestPrestoDriverUri
     }
 
     public static class TestForUriQueryInterceptor
-                implements QueryInterceptor
+            implements QueryInterceptor
     {}
 
     private static void assertUriPortScheme(PrestoDriverUri parameters, int port, String scheme)

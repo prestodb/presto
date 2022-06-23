@@ -18,6 +18,7 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
 import com.facebook.presto.hive.util.AsyncQueue;
 import com.facebook.presto.hive.util.AsyncQueue.BorrowResult;
+import com.facebook.presto.hive.util.SizeBasedSplitWeightProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -55,6 +56,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
+import static com.facebook.presto.hive.HiveSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.CLOSED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.FAILED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.INITIAL;
@@ -94,6 +97,7 @@ class HiveSplitSource
 
     private final CounterStat highMemorySplitSourceCounter;
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
+    private final HiveSplitWeightProvider splitWeightProvider;
 
     private HiveSplitSource(
             ConnectorSession session,
@@ -121,6 +125,7 @@ class HiveSplitSource
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.useRewindableSplitSource = useRewindableSplitSource;
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
+        this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
     }
 
     public static HiveSplitSource allAtOnce(
@@ -491,6 +496,7 @@ class HiveSplitSource
                         internalSplit.getStart(),
                         splitBytes,
                         internalSplit.getFileSize(),
+                        internalSplit.getFileModifiedTime(),
                         internalSplit.getPartitionInfo().getStorage(),
                         internalSplit.getPartitionKeys(),
                         block.getAddresses(),
@@ -498,14 +504,15 @@ class HiveSplitSource
                         internalSplit.getTableBucketNumber(),
                         internalSplit.getNodeSelectionStrategy(),
                         internalSplit.getPartitionInfo().getPartitionDataColumnCount(),
-                        internalSplit.getPartitionSchemaDifference(),
+                        internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getExtraFileInfo(),
                         cacheQuotaRequirement,
                         internalSplit.getEncryptionInformation(),
                         internalSplit.getCustomSplitInfo(),
-                        internalSplit.getPartitionInfo().getRedundantColumnDomains()));
+                        internalSplit.getPartitionInfo().getRedundantColumnDomains(),
+                        splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
 
                 internalSplit.increaseStart(splitBytes);
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -38,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -79,9 +81,9 @@ public class TestDecryption
 {
     private static final List<byte[]> A_KEYS = ImmutableList.of("key1a".getBytes(), "key2a".getBytes());
     private static final List<byte[]> B_KEYS = ImmutableList.of("key1b".getBytes(), "key2b".getBytes());
-    private static final StripeInformation A_STRIPE = new StripeInformation(1, 2, 3, 4, 5, A_KEYS);
-    private static final StripeInformation NO_KEYS_STRIPE = new StripeInformation(1, 2, 3, 4, 5, ImmutableList.of());
-    private static final StripeInformation B_STRIPE = new StripeInformation(1, 2, 3, 4, 5, B_KEYS);
+    private static final StripeInformation A_STRIPE = new StripeInformation(1, 2, 3, 4, 5, OptionalLong.empty(), A_KEYS);
+    private static final StripeInformation NO_KEYS_STRIPE = new StripeInformation(1, 2, 3, 4, 5, OptionalLong.empty(), ImmutableList.of());
+    private static final StripeInformation B_STRIPE = new StripeInformation(1, 2, 3, 4, 5, OptionalLong.empty(), B_KEYS);
 
     private static final OrcType ROW_TYPE = new OrcType(STRUCT, ImmutableList.of(1, 2, 4, 7), ImmutableList.of("col_int", "col_list", "col_map", "col_row"), Optional.empty(), Optional.empty(), Optional.empty());
     private static final OrcType ROW_TYPE2 = new OrcType(STRUCT, ImmutableList.of(8), ImmutableList.of("sub_row1"), Optional.empty(), Optional.empty(), Optional.empty());
@@ -155,11 +157,13 @@ public class TestDecryption
         return new Footer(
                 1,
                 2,
+                OptionalLong.empty(),
                 stripes,
                 types,
                 ImmutableList.of(),
                 ImmutableMap.of(),
-                encryption);
+                encryption,
+                Optional.empty());
     }
 
     @Test
@@ -209,21 +213,21 @@ public class TestDecryption
     {
         List<Stream> unencryptedStreams = ImmutableList.of(
                 new Stream(3, ROW_INDEX, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(15L)),
-                new Stream(4, ROW_INDEX, 5, true),
+                new Stream(4, DEFAULT_SEQUENCE_ID, ROW_INDEX, 5, true),
                 new Stream(3, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(45L)),
-                new Stream(4, DATA, 5, true));
+                new Stream(4, DEFAULT_SEQUENCE_ID, DATA, 5, true));
 
         List<Stream> group1Streams = ImmutableList.of(
-                new Stream(0, ROW_INDEX, 5, true),
+                new Stream(0, DEFAULT_SEQUENCE_ID, ROW_INDEX, 5, true),
                 new Stream(5, ROW_INDEX, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(25L)),
                 new Stream(0, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(30L)),
                 new Stream(5, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(55L)));
 
         List<Stream> group2Streams = ImmutableList.of(
                 new Stream(1, ROW_INDEX, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(5L)),
-                new Stream(2, ROW_INDEX, 5, true),
+                new Stream(2, DEFAULT_SEQUENCE_ID, ROW_INDEX, 5, true),
                 new Stream(1, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(35L)),
-                new Stream(2, DATA, 5, true));
+                new Stream(2, DEFAULT_SEQUENCE_ID, DATA, 5, true));
 
         Map<StreamId, DiskRange> actual = getDiskRanges(ImmutableList.of(unencryptedStreams, group1Streams, group2Streams));
 
@@ -492,7 +496,8 @@ public class TestDecryption
                         false),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingPlainKeyEncryptionLibrary()),
-                DwrfKeyProvider.of(ImmutableMap.of(0, Slices.utf8Slice("key"))));
+                DwrfKeyProvider.of(ImmutableMap.of(0, Slices.utf8Slice("key"))),
+                new RuntimeStats());
 
         int offset = 10;
         try (OrcSelectiveRecordReader recordReader = getSelectiveRecordReader(orcDataSource, orcReader, offset)) {
@@ -614,7 +619,7 @@ public class TestDecryption
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
-            writeOrcColumnsPresto(tempFile.getFile(), OrcTester.Format.DWRF, ZSTD, dwrfWriterEncryption, types, writtenValues, new OrcWriterStats());
+            writeOrcColumnsPresto(tempFile.getFile(), OrcTester.Format.DWRF, ZSTD, dwrfWriterEncryption, types, writtenValues, new NoOpOrcWriterStats());
 
             assertFileContentsPresto(
                     types,

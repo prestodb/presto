@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -42,9 +43,11 @@ public class TestJmxQueries
             .add("java.util.logging:type=Logging")
             .build();
 
-    public TestJmxQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(JmxQueryRunner::createJmxQueryRunner);
+        return JmxQueryRunner.createJmxQueryRunner();
     }
 
     @Test

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import io.airlift.slice.DynamicSliceOutput;
@@ -30,10 +31,10 @@ public class CompressedMetadataWriter
     private final MetadataWriter metadataWriter;
     private final OrcOutputBuffer buffer;
 
-    public CompressedMetadataWriter(MetadataWriter metadataWriter, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public CompressedMetadataWriter(MetadataWriter metadataWriter, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
         this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
-        this.buffer = new OrcOutputBuffer(compressionParameters, dwrfEncryptor);
+        this.buffer = new OrcOutputBuffer(columnWriterOptions, dwrfEncryptor);
     }
 
     public List<Integer> getOrcMetadataVersion()
@@ -41,12 +42,22 @@ public class CompressedMetadataWriter
         return metadataWriter.getOrcMetadataVersion();
     }
 
-    public Slice writePostscript(int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize)
+    public Slice writePostscript(int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize, Optional<DwrfStripeCacheData> dwrfStripeCacheData)
             throws IOException
     {
         // postscript is not compressed
         DynamicSliceOutput output = new DynamicSliceOutput(64);
-        metadataWriter.writePostscript(output, footerLength, metadataLength, compression, compressionBlockSize);
+        metadataWriter.writePostscript(output, footerLength, metadataLength, compression, compressionBlockSize, dwrfStripeCacheData);
+        return output.slice();
+    }
+
+    public Slice writeDwrfStripeCache(Optional<DwrfStripeCacheData> dwrfStripeCacheData)
+            throws IOException
+    {
+        // DWRF stripe cache is already compressed
+        int size = dwrfStripeCacheData.map(DwrfStripeCacheData::getDwrfStripeCacheSize).orElse(0);
+        DynamicSliceOutput output = new DynamicSliceOutput(size);
+        metadataWriter.writeDwrfStripeCache(output, dwrfStripeCacheData);
         return output.slice();
     }
 

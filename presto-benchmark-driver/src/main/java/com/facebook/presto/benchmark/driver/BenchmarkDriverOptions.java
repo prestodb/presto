@@ -109,6 +109,7 @@ public class BenchmarkDriverOptions
                 null,
                 clientRequestTimeout,
                 disableCompression,
+                ImmutableMap.of(),
                 ImmutableMap.of());
     }
 

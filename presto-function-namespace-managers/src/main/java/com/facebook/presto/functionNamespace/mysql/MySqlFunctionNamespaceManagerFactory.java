@@ -17,6 +17,7 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.functionNamespace.execution.SimpleAddressSqlFunctionExecutorsModule;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.google.inject.Injector;
@@ -45,7 +46,7 @@ public class MySqlFunctionNamespaceManagerFactory
     }
 
     @Override
-    public FunctionNamespaceManager<?> create(String catalogName, Map<String, String> config)
+    public FunctionNamespaceManager<?> create(String catalogName, Map<String, String> config, FunctionNamespaceManagerContext context)
     {
         try {
             Bootstrap app = new Bootstrap(

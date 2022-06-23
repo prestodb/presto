@@ -37,13 +37,13 @@ public class TestUnnestStatsRule
                         Optional.empty()))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2)
-                        .addVariableStatistics(new VariableReferenceExpression("some_map", mapType(VARCHAR, VARCHAR)), VariableStatsEstimate.builder().setAverageRowSize(100).build())
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "some_map", mapType(VARCHAR, VARCHAR)), VariableStatsEstimate.builder().setAverageRowSize(100).build())
                         .build())
                 .check(check -> check.equalTo(PlanNodeStatsEstimate.unknown()));
     }
 
     @Test
-    public void testUnntestStatsPopulated()
+    public void testUnnestStatsPopulated()
     {
         tester().assertStatsFor(
                 pb -> pb.unnest(
@@ -53,12 +53,12 @@ public class TestUnnestStatsRule
                         Optional.empty()))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1)
-                        .addVariableStatistics(new VariableReferenceExpression("some_map", mapType(VARCHAR, VARCHAR)), VariableStatsEstimate.builder().setAverageRowSize(100).build())
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "some_map", mapType(VARCHAR, VARCHAR)), VariableStatsEstimate.builder().setAverageRowSize(100).build())
                         .build())
                 .check(check -> check
                         .outputRowsCount(1)
-                        .variableStats(new VariableReferenceExpression("some_map", mapType(VARCHAR, VARCHAR)), assertion -> assertion.averageRowSize(100))
-                        .variableStats(new VariableReferenceExpression("key", VARCHAR), assertion -> assertion.averageRowSize(100))
-                        .variableStats(new VariableReferenceExpression("value", VARCHAR), assertion -> assertion.averageRowSize(100)));
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "some_map", mapType(VARCHAR, VARCHAR)), assertion -> assertion.averageRowSize(100))
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "key", VARCHAR), assertion -> assertion.averageRowSize(100))
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "value", VARCHAR), assertion -> assertion.averageRowSize(100)));
     }
 }

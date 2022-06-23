@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
 /**
@@ -21,8 +22,10 @@ import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 public class TestNonIterativeDistributedQueries
         extends AbstractTestQueries
 {
-    public TestNonIterativeDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().setSingleExtraProperty("experimental.iterative-optimizer-enabled", "false").build());
+        return TpchQueryRunnerBuilder.builder().setSingleExtraProperty("experimental.iterative-optimizer-enabled", "false").build();
     }
 }

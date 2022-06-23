@@ -13,16 +13,19 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.function.IntFunction;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -44,9 +47,13 @@ public final class SortedPositionLinks
     public static class FactoryBuilder
             implements PositionLinks.FactoryBuilder
     {
-        private final Int2ObjectMap<IntArrayList> positionLinks;
+        // Cache lambda instance for use with createIfAbsent that ensures the method resolves to computeIfAbsent(int, IntFunction<T>)
+        // instead of computeIfAbsent(int, Int2ObjectFunction<T>) which does (slightly) more work internally
+        private static final IntFunction<IntArrayList> NEW_INT_LIST = (ignored) -> new IntArrayList();
+
+        private final Int2ObjectOpenHashMap<IntArrayList> positionLinks;
         private final int size;
-        private final IntComparator comparator;
+        private final PositionComparator comparator;
         private final PagesHashStrategy pagesHashStrategy;
         private final AdaptiveLongBigArray addresses;
 
@@ -78,8 +85,7 @@ public final class SortedPositionLinks
             // make sure that from value is the smaller one
             if (comparator.compare(from, to) > 0) {
                 // _from_ is larger so, just add to current chain _to_
-                List<Integer> links = positionLinks.computeIfAbsent(to, key -> new IntArrayList());
-                links.add(from);
+                positionLinks.computeIfAbsent(to, NEW_INT_LIST).add(from);
                 return to;
             }
             else {
@@ -89,7 +95,7 @@ public final class SortedPositionLinks
                     links = new IntArrayList();
                 }
                 links.add(to);
-                checkState(positionLinks.putIfAbsent(from, links) == null, "sorted links is corrupted");
+                checkState(positionLinks.put(from, links) == null, "sorted links is corrupted");
                 return from;
             }
         }
@@ -108,31 +114,42 @@ public final class SortedPositionLinks
             ArrayPositionLinks.FactoryBuilder arrayPositionLinksFactoryBuilder = ArrayPositionLinks.builder(size);
             int[][] sortedPositionLinks = new int[size][];
 
-            for (Int2ObjectMap.Entry<IntArrayList> entry : positionLinks.int2ObjectEntrySet()) {
+            Iterator<Int2ObjectMap.Entry<IntArrayList>> iterator = positionLinks.int2ObjectEntrySet().fastIterator();
+            while (iterator.hasNext()) {
+                Int2ObjectOpenHashMap.Entry<IntArrayList> entry = iterator.next();
                 int key = entry.getIntKey();
-                IntArrayList positions = entry.getValue();
-                positions.sort(comparator);
+                IntArrayList positionsList = entry.getValue();
 
-                sortedPositionLinks[key] = new int[positions.size()];
-                for (int i = 0; i < positions.size(); i++) {
-                    sortedPositionLinks[key][i] = positions.get(i);
-                }
+                int[] positions = positionsList.toIntArray();
+                sortedPositionLinks[key] = positions;
 
-                // ArrayPositionsLinks.Builder::link builds position links from
-                // tail to head, so we must add them in descending order to have
-                // smallest element as a head
-                for (int i = positions.size() - 2; i >= 0; i--) {
-                    arrayPositionLinksFactoryBuilder.link(positions.get(i), positions.get(i + 1));
-                }
-
-                // add link from starting position to position links chain
-                if (!positions.isEmpty()) {
-                    arrayPositionLinksFactoryBuilder.link(key, positions.get(0));
+                if (positions.length > 0) {
+                    // Use the positionsList array for the merge sort temporary work buffer to avoid an extra redundant
+                    // copy. This works because we know that initially it has the same values as the array being sorted
+                    IntArrays.mergeSort(positions, 0, positions.length, comparator, positionsList.elements());
+                    // add link from starting position to position links chain
+                    arrayPositionLinksFactoryBuilder.link(key, positions[0]);
+                    // add links for the sorted internal elements
+                    for (int i = 0; i < positions.length - 1; i++) {
+                        arrayPositionLinksFactoryBuilder.link(positions[i], positions[i + 1]);
+                    }
                 }
             }
 
-            Factory arrayPositionLinksFactory = arrayPositionLinksFactoryBuilder.build();
+            return createFactory(sortedPositionLinks, arrayPositionLinksFactoryBuilder.build());
+        }
 
+        @Override
+        public boolean isEmpty()
+        {
+            return positionLinks.isEmpty();
+        }
+
+        // Separate static method to avoid embedding references to "this"
+        private static Factory createFactory(int[][] sortedPositionLinks, Factory arrayPositionLinksFactory)
+        {
+            requireNonNull(sortedPositionLinks, "sortedPositionLinks is null");
+            requireNonNull(arrayPositionLinksFactory, "arrayPositionLinksFactory is null");
             return new Factory()
             {
                 @Override
@@ -152,12 +169,6 @@ public final class SortedPositionLinks
                 }
             };
         }
-
-        @Override
-        public int size()
-        {
-            return positionLinks.size();
-        }
     }
 
     private final PositionLinks positionLinks;
@@ -172,10 +183,10 @@ public final class SortedPositionLinks
         this.sizeInBytes = INSTANCE_SIZE + positionLinks.getSizeInBytes() + sizeOfPositionLinks(sortedPositionLinks);
         requireNonNull(searchFunctions, "searchFunctions is null");
         checkState(!searchFunctions.isEmpty(), "Using sortedPositionLinks with no search functions");
-        this.searchFunctions = searchFunctions.stream().toArray(JoinFilterFunction[]::new);
+        this.searchFunctions = searchFunctions.toArray(new JoinFilterFunction[0]);
     }
 
-    private long sizeOfPositionLinks(int[][] sortedPositionLinks)
+    private static long sizeOfPositionLinks(int[][] sortedPositionLinks)
     {
         long retainedSize = sizeOf(sortedPositionLinks);
         for (int[] element : sortedPositionLinks) {
@@ -187,6 +198,12 @@ public final class SortedPositionLinks
     public static FactoryBuilder builder(int size, PagesHashStrategy pagesHashStrategy, AdaptiveLongBigArray addresses)
     {
         return new FactoryBuilder(size, pagesHashStrategy, addresses);
+    }
+
+    @Override
+    public long getSizeInBytes()
+    {
+        return sizeInBytes;
     }
 
     @Override
@@ -234,7 +251,7 @@ public final class SortedPositionLinks
         return true;
     }
 
-    private int findStartPositionForFunction(JoinFilterFunction searchFunction, int[] links, int startOffset, int probePosition, Page allProbeChannelsPage)
+    private static int findStartPositionForFunction(JoinFilterFunction searchFunction, int[] links, int startOffset, int probePosition, Page allProbeChannelsPage)
     {
         if (applySearchFunction(searchFunction, links, startOffset, probePosition, allProbeChannelsPage)) {
             // MAJOR HACK: if searchFunction is of shape `f(probe) > build_symbol` it is not fit for binary search below,
@@ -256,7 +273,7 @@ public final class SortedPositionLinks
     /**
      * Find the first element in position links that is NOT smaller than probePosition
      */
-    private int lowerBound(JoinFilterFunction searchFunction, int[] links, int first, int last, int probePosition, Page allProbeChannelsPage)
+    private static int lowerBound(JoinFilterFunction searchFunction, int[] links, int first, int last, int probePosition, Page allProbeChannelsPage)
     {
         int middle;
         int step;
@@ -275,23 +292,17 @@ public final class SortedPositionLinks
         return first;
     }
 
-    @Override
-    public long getSizeInBytes()
+    private static boolean applySearchFunction(JoinFilterFunction searchFunction, int[] links, int linkOffset, int probePosition, Page allProbeChannelsPage)
     {
-        return sizeInBytes;
+        return searchFunction.filter(links[linkOffset], probePosition, allProbeChannelsPage);
     }
 
-    private boolean applySearchFunction(JoinFilterFunction searchFunction, int[] links, int linkOffset, int probePosition, Page allProbeChannelsPage)
+    private static boolean applySearchFunction(JoinFilterFunction searchFunction, int buildPosition, int probePosition, Page allProbeChannelsPage)
     {
-        return applySearchFunction(searchFunction, links[linkOffset], probePosition, allProbeChannelsPage);
+        return searchFunction.filter(buildPosition, probePosition, allProbeChannelsPage);
     }
 
-    private boolean applySearchFunction(JoinFilterFunction searchFunction, long buildPosition, int probePosition, Page allProbeChannelsPage)
-    {
-        return searchFunction.filter((int) buildPosition, probePosition, allProbeChannelsPage);
-    }
-
-    private static class PositionComparator
+    private static final class PositionComparator
             implements IntComparator
     {
         private final PagesHashStrategy pagesHashStrategy;

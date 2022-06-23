@@ -73,6 +73,7 @@ public class RemoveEmptyDelete
     {
         return Result.ofPlanNode(
                 new ValuesNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         node.getOutputVariables(),
                         ImmutableList.of(ImmutableList.of(constant(0L, BIGINT)))));

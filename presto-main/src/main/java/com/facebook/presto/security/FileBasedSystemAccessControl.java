@@ -16,6 +16,8 @@ package com.facebook.presto.security;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
+import com.facebook.presto.plugin.base.security.SchemaAccessControlRule;
+import com.facebook.presto.security.CatalogAccessControlRule.AccessMode;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -40,9 +42,28 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static com.facebook.presto.security.CatalogAccessControlRule.AccessMode.ALL;
+import static com.facebook.presto.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static java.lang.String.format;
@@ -58,11 +79,13 @@ public class FileBasedSystemAccessControl
 
     private final List<CatalogAccessControlRule> catalogRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
+    private final Optional<List<SchemaAccessControlRule>> schemaRules;
 
-    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules, Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
+    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules, Optional<List<PrincipalUserMatchRule>> principalUserMatchRules, Optional<List<SchemaAccessControlRule>> schemaRules)
     {
         this.catalogRules = catalogRules;
         this.principalUserMatchRules = principalUserMatchRules;
+        this.schemaRules = schemaRules;
     }
 
     public static class Factory
@@ -121,16 +144,16 @@ public class FileBasedSystemAccessControl
             // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
             // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
             catalogRulesBuilder.add(new CatalogAccessControlRule(
-                    true,
+                    ALL,
                     Optional.of(Pattern.compile(".*")),
                     Optional.of(Pattern.compile("system"))));
 
-            return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getPrincipalUserMatchRules());
+            return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getPrincipalUserMatchRules(), rules.getSchemaRules());
         }
     }
 
     @Override
-    public void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
     {
         requireNonNull(principal, "principal is null");
         requireNonNull(userName, "userName is null");
@@ -171,7 +194,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanAccessCatalog(Identity identity, AccessControlContext context, String catalogName)
     {
-        if (!canAccessCatalog(identity, catalogName)) {
+        if (!canAccessCatalog(identity, catalogName, READ_ONLY)) {
             denyCatalogAccess(catalogName);
         }
     }
@@ -181,19 +204,19 @@ public class FileBasedSystemAccessControl
     {
         ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
         for (String catalog : catalogs) {
-            if (canAccessCatalog(identity, catalog)) {
+            if (canAccessCatalog(identity, catalog, READ_ONLY)) {
                 filteredCatalogs.add(catalog);
             }
         }
         return filteredCatalogs.build();
     }
 
-    private boolean canAccessCatalog(Identity identity, String catalogName)
+    private boolean canAccessCatalog(Identity identity, String catalogName, AccessMode requiredAccess)
     {
         for (CatalogAccessControlRule rule : catalogRules) {
-            Optional<Boolean> allowed = rule.match(identity.getUser(), catalogName);
-            if (allowed.isPresent()) {
-                return allowed.get();
+            Optional<AccessMode> accessMode = rule.match(identity.getUser(), catalogName);
+            if (accessMode.isPresent()) {
+                return accessMode.get().implies(requiredAccess);
             }
         }
         return false;
@@ -202,16 +225,25 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanCreateSchema(Identity identity, AccessControlContext context, CatalogSchemaName schema)
     {
+        if (!isSchemaOwner(identity, schema)) {
+            denyCreateSchema(schema.toString());
+        }
     }
 
     @Override
     public void checkCanDropSchema(Identity identity, AccessControlContext context, CatalogSchemaName schema)
     {
+        if (!isSchemaOwner(identity, schema)) {
+            denyDropSchema(schema.toString());
+        }
     }
 
     @Override
     public void checkCanRenameSchema(Identity identity, AccessControlContext context, CatalogSchemaName schema, String newSchemaName)
     {
+        if (!isSchemaOwner(identity, schema) || !isSchemaOwner(identity, new CatalogSchemaName(schema.getCatalogName(), newSchemaName))) {
+            denyRenameSchema(schema.toString(), newSchemaName);
+        }
     }
 
     @Override
@@ -222,7 +254,7 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<String> filterSchemas(Identity identity, AccessControlContext context, String catalogName, Set<String> schemaNames)
     {
-        if (!canAccessCatalog(identity, catalogName)) {
+        if (!canAccessCatalog(identity, catalogName, READ_ONLY)) {
             return ImmutableSet.of();
         }
 
@@ -232,16 +264,33 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanCreateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyCreateTable(table.toString());
+        }
     }
 
     @Override
     public void checkCanDropTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyDropTable(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanTruncateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyTruncateTable(table.toString());
+        }
     }
 
     @Override
     public void checkCanRenameTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyRenameTable(table.toString(), newTable.toString());
+        }
     }
 
     @Override
@@ -252,7 +301,7 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<SchemaTableName> filterTables(Identity identity, AccessControlContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
-        if (!canAccessCatalog(identity, catalogName)) {
+        if (!canAccessCatalog(identity, catalogName, READ_ONLY)) {
             return ImmutableSet.of();
         }
 
@@ -262,16 +311,25 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanAddColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyAddColumn(table.toString());
+        }
     }
 
     @Override
     public void checkCanDropColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyDropColumn(table.toString());
+        }
     }
 
     @Override
     public void checkCanRenameColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyRenameColumn(table.toString());
+        }
     }
 
     @Override
@@ -282,26 +340,41 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanInsertIntoTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyInsertTable(table.toString());
+        }
     }
 
     @Override
     public void checkCanDeleteFromTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyDeleteTable(table.toString());
+        }
     }
 
     @Override
     public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
+        if (!canAccessCatalog(identity, view.getCatalogName(), ALL)) {
+            denyCreateView(view.toString());
+        }
     }
 
     @Override
     public void checkCanDropView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
+        if (!canAccessCatalog(identity, view.getCatalogName(), ALL)) {
+            denyDropView(view.toString());
+        }
     }
 
     @Override
     public void checkCanCreateViewWithSelectFromColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> columns)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyCreateViewWithSelect(table.toString(), identity);
+        }
     }
 
     @Override
@@ -312,10 +385,35 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanGrantTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean withGrantOption)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyGrantTablePrivilege(privilege.toString(), table.toString());
+        }
     }
 
     @Override
     public void checkCanRevokeTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyRevokeTablePrivilege(privilege.toString(), table.toString());
+        }
+    }
+
+    private boolean isSchemaOwner(Identity identity, CatalogSchemaName schema)
+    {
+        if (!canAccessCatalog(identity, schema.getCatalogName(), ALL)) {
+            return false;
+        }
+
+        if (!schemaRules.isPresent()) {
+            return true;
+        }
+
+        for (SchemaAccessControlRule rule : schemaRules.get()) {
+            Optional<Boolean> owner = rule.match(identity.getUser(), schema.getSchemaName());
+            if (owner.isPresent()) {
+                return owner.get();
+            }
+        }
+        return false;
     }
 }

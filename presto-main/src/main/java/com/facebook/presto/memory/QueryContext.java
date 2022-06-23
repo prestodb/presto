@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
@@ -20,19 +21,24 @@ import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.context.MemoryReservationHandler;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -50,11 +56,13 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRoot
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static java.util.Map.Entry.comparingByValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -70,6 +78,7 @@ public class QueryContext
     private final ScheduledExecutorService yieldExecutor;
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
+    private final JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
@@ -83,10 +92,8 @@ public class QueryContext
     private long maxTotalMemory;
     @GuardedBy("this")
     private long peakNodeTotalMemory;
-
-    // TODO: Make max revocable memory be configurable by session property.
     @GuardedBy("this")
-    private final long maxRevocableMemory;
+    private long maxRevocableMemory;
 
     @GuardedBy("this")
     private long broadcastUsed;
@@ -101,6 +108,15 @@ public class QueryContext
     @GuardedBy("this")
     private long spillUsed;
 
+    @GuardedBy("this")
+    private boolean verboseExceededMemoryLimitErrorsEnabled;
+
+    @GuardedBy("this")
+    private boolean heapDumpOnExceededMemoryLimitEnabled;
+
+    @GuardedBy("this")
+    private Optional<String> heapDumpFilePath;
+
     public QueryContext(
             QueryId queryId,
             DataSize maxUserMemory,
@@ -112,7 +128,8 @@ public class QueryContext
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             DataSize maxSpill,
-            SpillSpaceTracker spillSpaceTracker)
+            SpillSpaceTracker spillSpaceTracker,
+            JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
@@ -125,6 +142,7 @@ public class QueryContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
+        this.memoryReservationSummaryJsonCodec = requireNonNull(memoryReservationSummaryJsonCodec, "memoryReservationSummaryJsonCodec is null");
         this.queryMemoryContext = new MemoryTrackingContext(
                 newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateUserMemory, this::tryUpdateUserMemory, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), GUARANTEED_MEMORY),
                 newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateRevocableMemory, this::tryReserveMemoryNotSupported, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), 0L),
@@ -172,6 +190,8 @@ public class QueryContext
     {
         if (delta >= 0) {
             enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
+            long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
+            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -257,6 +277,11 @@ public class QueryContext
         if (queryMemoryContext.getUserMemory() + delta > maxUserMemory) {
             return false;
         }
+
+        long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
+        if (totalMemory + delta > maxTotalMemory) {
+            return false;
+        }
         return memoryPool.tryReserve(queryId, allocationTag, delta);
     }
 
@@ -313,9 +338,20 @@ public class QueryContext
         return maxTotalMemory;
     }
 
+    public synchronized void setHeapDumpOnExceededMemoryLimitEnabled(boolean heapDumpOnExceededMemoryLimitEnabled)
+    {
+        this.heapDumpOnExceededMemoryLimitEnabled = heapDumpOnExceededMemoryLimitEnabled;
+    }
+
+    public synchronized void setHeapDumpFilePath(String heapDumpFilePath)
+    {
+        this.heapDumpFilePath = Optional.ofNullable(heapDumpFilePath);
+    }
+
     public TaskContext addTaskContext(
             TaskStateMachine taskStateMachine,
             Session session,
+            Optional<PlanNode> taskPlan,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
@@ -330,6 +366,7 @@ public class QueryContext
                 yieldExecutor,
                 session,
                 queryMemoryContext.newMemoryTrackingContext(),
+                taskPlan,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
@@ -359,24 +396,44 @@ public class QueryContext
         return taskContext;
     }
 
+    public Collection<TaskContext> getAllTaskContexts()
+    {
+        return ImmutableList.copyOf(taskContexts.values());
+    }
+
     public QueryId getQueryId()
     {
         return queryId;
     }
 
-    public synchronized void setMemoryLimits(DataSize queryMaxTaskMemory, DataSize queryMaxTotalTaskMemory, DataSize queryMaxBroadcastMemory)
+    public synchronized void setMemoryLimits(
+            DataSize queryMaxTaskMemory,
+            DataSize queryMaxTotalTaskMemory,
+            DataSize queryMaxBroadcastMemory,
+            DataSize queryMaxRevocableMemory)
     {
         // Don't allow session properties to increase memory beyond configured limits
         maxUserMemory = Math.min(maxUserMemory, queryMaxTaskMemory.toBytes());
         maxTotalMemory = Math.min(maxTotalMemory, queryMaxTotalTaskMemory.toBytes());
         maxBroadcastUsedMemory = Math.min(maxBroadcastUsedMemory, queryMaxBroadcastMemory.toBytes());
+        maxRevocableMemory = Math.min(maxRevocableMemory, queryMaxRevocableMemory.toBytes());
         //  Mark future memory limit updates as unnecessary
         memoryLimitsInitialized = true;
+    }
+
+    public synchronized void setVerboseExceededMemoryLimitErrorsEnabled(boolean verboseExceededMemoryLimitErrorsEnabled)
+    {
+        this.verboseExceededMemoryLimitErrorsEnabled = verboseExceededMemoryLimitErrorsEnabled;
     }
 
     public synchronized long getPeakNodeTotalMemory()
     {
         return peakNodeTotalMemory;
+    }
+
+    public synchronized void setPeakNodeTotalMemory(long peakNodeTotalMemoryInBytes)
+    {
+        this.peakNodeTotalMemory = peakNodeTotalMemoryInBytes;
     }
 
     private static class QueryMemoryReservationHandler
@@ -436,7 +493,7 @@ public class QueryContext
     private void enforceUserMemoryLimit(long allocated, long delta, long maxMemory)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 
@@ -446,7 +503,7 @@ public class QueryContext
         long totalMemory = allocated + delta;
         peakNodeTotalMemory = Math.max(totalMemory, peakNodeTotalMemory);
         if (totalMemory > maxMemory) {
-            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 
@@ -454,12 +511,12 @@ public class QueryContext
     private void enforceRevocableMemoryLimit(long allocated, long delta, long maxMemory)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 
     @GuardedBy("this")
-    private String getAdditionalFailureInfo(long allocated, long delta)
+    public String getAdditionalFailureInfo(long allocated, long delta)
     {
         Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations(queryId);
 
@@ -477,6 +534,17 @@ public class QueryContext
                 .collect(toImmutableMap(Entry::getKey, e -> succinctBytes(e.getValue())))
                 .toString();
 
-        return format("%s, Top Consumers: %s", additionalInfo, topConsumers);
+        String message = format("%s, Top Consumers: %s", additionalInfo, topConsumers);
+
+        if (verboseExceededMemoryLimitErrorsEnabled) {
+            List<TaskMemoryReservationSummary> memoryReservationSummaries = taskContexts.values().stream()
+                    .map(TaskContext::getMemoryReservationSummary)
+                    .filter(summary -> summary.getReservation().toBytes() > 0)
+                    .sorted(comparing(TaskMemoryReservationSummary::getReservation).reversed())
+                    .limit(3)
+                    .collect(toImmutableList());
+            message += ", Details: " + memoryReservationSummaryJsonCodec.toJson(memoryReservationSummaries);
+        }
+        return message;
     }
 }

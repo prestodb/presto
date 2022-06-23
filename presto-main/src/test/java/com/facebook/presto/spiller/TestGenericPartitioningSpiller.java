@@ -218,7 +218,7 @@ public class TestGenericPartitioningSpiller
     private static AggregatedMemoryContext mockMemoryContext(ScheduledExecutorService scheduledExecutor)
     {
         // It's important to use OperatorContext's system memory context, because it does additional bookkeeping.
-        return TestingOperatorContext.create(scheduledExecutor).newAggregateSystemMemoryContext();
+        return TestingOperatorContext.create(scheduledExecutor).aggregateSystemMemoryContext();
     }
 
     private static SpillContext mockSpillContext()

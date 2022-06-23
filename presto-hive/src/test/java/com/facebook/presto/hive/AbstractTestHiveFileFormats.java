@@ -53,7 +53,7 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
-import org.apache.hadoop.hive.serde2.SerDe;
+import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
@@ -118,6 +118,7 @@ import static com.facebook.presto.tests.StructuralTestUtil.decimalMapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.Iterables.filter;
@@ -571,7 +572,7 @@ public abstract class AbstractTestHiveFileFormats
             throws Exception
     {
         HiveOutputFormat<?, ?> outputFormat = newInstance(storageFormat.getOutputFormat(), HiveOutputFormat.class);
-        @SuppressWarnings("deprecation") SerDe serDe = newInstance(storageFormat.getSerDe(), SerDe.class);
+        Serializer serializer = newInstance(storageFormat.getSerDe(), Serializer.class);
 
         // filter out partition keys, which are not written to the file
         testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
@@ -579,7 +580,7 @@ public abstract class AbstractTestHiveFileFormats
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
         tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
-        serDe.initialize(new Configuration(), tableProperties);
+        serializer.initialize(new Configuration(), tableProperties);
 
         JobConf jobConf = configureCompression(new JobConf(), compressionCodec);
 
@@ -592,7 +593,7 @@ public abstract class AbstractTestHiveFileFormats
                 () -> {});
 
         try {
-            serDe.initialize(new Configuration(), tableProperties);
+            serializer.initialize(new Configuration(), tableProperties);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
                     ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
@@ -611,7 +612,7 @@ public abstract class AbstractTestHiveFileFormats
                     objectInspector.setStructFieldData(row, fields.get(i), writeValue);
                 }
 
-                Writable record = serDe.serialize(row, objectInspector);
+                Writable record = serializer.serialize(row, objectInspector);
                 recordWriter.write(record);
             }
         }
@@ -834,6 +835,9 @@ public abstract class AbstractTestHiveFileFormats
             this.writeValue = writeValue;
             this.expectedValue = expectedValue;
             this.partitionKey = partitionKey;
+            if (partitionKey) {
+                checkArgument(writeValue == null || writeValue instanceof String, "writeValue must either be null or a String value for partition keys");
+            }
         }
 
         public String getName()
@@ -854,6 +858,12 @@ public abstract class AbstractTestHiveFileFormats
         public Object getWriteValue()
         {
             return writeValue;
+        }
+
+        public HivePartitionKey toHivePartitionKey()
+        {
+            checkState(partitionKey, "%s is not a partition key", this);
+            return new HivePartitionKey(name, HIVE_DEFAULT_DYNAMIC_PARTITION.equals(writeValue) ? Optional.empty() : Optional.ofNullable((String) writeValue));
         }
 
         public Object getExpectedValue()

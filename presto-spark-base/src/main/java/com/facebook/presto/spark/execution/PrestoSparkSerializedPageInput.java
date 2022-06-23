@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.PagesSerde;
 
@@ -41,7 +42,7 @@ public class PrestoSparkSerializedPageInput
     }
 
     @Override
-    public Page getNextPage()
+    public Page getNextPage(UpdateMemory updateMemory)
     {
         PrestoSparkSerializedPage prestoSparkSerializedPage = null;
         synchronized (this) {

@@ -26,6 +26,40 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
+// Query time workflow chart. Left side shows query workflow. Right side shows
+// associated time durations with a query.
+//
+//      Create                                                                                      -----------
+//        |                                                                                         | waitingForPrerequisitesTime
+//        |                       Semantic Analyzing      -----------                               |
+//        |                               |               | semanticAnalyzingTime                   |
+//        V                               V               V                                         V
+//      Queued                       ACL Checking         -----------                               -----------
+//        |                               |               | columnAccessPermissionCheckingTime      | queuedTime
+//        V                               |               |                                         V
+//    Wait for Resources                  |               V                                         -----------
+//        |<------------------------------+               -----------                               | waitingForResourcesTime
+//        V                                                                                         V
+//    Dispatching                                                                                   -----------
+//        |                                                                                         | dispatchingTime
+//        V                                                                                         V
+//     Planning                                                                                     ----------------------------------
+//        |                                                                                         | executionTime     | planningTime
+//        |      Analysis Start                                                                     |                   |        -----------
+//        |         |                                                                               |                   |        | analysisTime
+//        |         V                                                                               |                   |        V
+//        |      Analysis End                                                                       |                   |        -----------
+//        V                                                                                         |                   V
+//     Starting                                                                                     |                   -----------
+//        |                                                                                         |
+//        V                                                                                         |
+//     Running                                                                                      |
+//        |                                                                                         |
+//        V                                                                                         |
+//    Finishing                                                                                     |                   -----------
+//        |                                                                                         |                   | finishingTime
+//        V                                                                                         V                   V
+//       End                                                                                        ----------------------------------
 public class QueryStateTimer
 {
     private final Ticker ticker;
@@ -33,14 +67,20 @@ public class QueryStateTimer
     private final DateTime createTime = DateTime.now();
 
     private final long createNanos;
+    private final AtomicReference<Long> beginQueuedNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginResourceWaitingNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginSemanticAnalyzingNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginColumnAccessPermissionCheckingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginDispatchingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginFinishingNanos = new AtomicReference<>();
     private final AtomicReference<Long> endNanos = new AtomicReference<>();
 
+    private final AtomicReference<Duration> waitingForPrerequisitesTime = new AtomicReference<>();
     private final AtomicReference<Duration> queuedTime = new AtomicReference<>();
     private final AtomicReference<Duration> resourceWaitingTime = new AtomicReference<>();
+    private final AtomicReference<Duration> semanticAnalyzingTime = new AtomicReference<>();
+    private final AtomicReference<Duration> columnAccessPermissionCheckingTime = new AtomicReference<>();
     private final AtomicReference<Duration> dispatchingTime = new AtomicReference<>();
     private final AtomicReference<Duration> executionTime = new AtomicReference<>();
     private final AtomicReference<Duration> planningTime = new AtomicReference<>();
@@ -62,6 +102,17 @@ public class QueryStateTimer
     // State transitions
     //
 
+    public void beginQueued()
+    {
+        beginQueued(tickerNanos());
+    }
+
+    private void beginQueued(long now)
+    {
+        waitingForPrerequisitesTime.compareAndSet(null, nanosSince(createNanos, now));
+        beginQueuedNanos.compareAndSet(null, now);
+    }
+
     public void beginWaitingForResources()
     {
         beginWaitingForResources(tickerNanos());
@@ -69,8 +120,42 @@ public class QueryStateTimer
 
     private void beginWaitingForResources(long now)
     {
-        queuedTime.compareAndSet(null, nanosSince(createNanos, now));
+        beginQueued(now);
+        queuedTime.compareAndSet(null, nanosSince(beginQueuedNanos, now));
         beginResourceWaitingNanos.compareAndSet(null, now);
+    }
+
+    public void beginSemanticAnalyzing()
+    {
+        beginSemanticAnalyzing(tickerNanos());
+    }
+
+    private void beginSemanticAnalyzing(long now)
+    {
+        beginSemanticAnalyzingNanos.compareAndSet(null, now);
+    }
+
+    public void beginColumnAccessPermissionChecking()
+    {
+        beginColumnAccessPermissionChecking(tickerNanos());
+    }
+
+    private void beginColumnAccessPermissionChecking(long now)
+    {
+        beginSemanticAnalyzing(now);
+        semanticAnalyzingTime.compareAndSet(null, nanosSince(beginSemanticAnalyzingNanos, now));
+        beginColumnAccessPermissionCheckingNanos.compareAndSet(null, now);
+    }
+
+    public void endColumnAccessPermissionChecking()
+    {
+        endColumnAccessPermissionChecking(tickerNanos());
+    }
+
+    private void endColumnAccessPermissionChecking(long now)
+    {
+        beginColumnAccessPermissionChecking(now);
+        columnAccessPermissionCheckingTime.compareAndSet(null, nanosSince(beginColumnAccessPermissionCheckingNanos, now));
     }
 
     public void beginDispatching()
@@ -183,20 +268,35 @@ public class QueryStateTimer
         return nanosSince(createNanos, tickerNanos());
     }
 
-    public Duration getQueuedTime()
+    public Duration getWaitingForPrerequisitesTime()
     {
-        Duration queuedTime = this.queuedTime.get();
-        if (queuedTime != null) {
-            return queuedTime;
+        Duration waitingForPrerequisitesTime = this.waitingForPrerequisitesTime.get();
+        if (waitingForPrerequisitesTime != null) {
+            return waitingForPrerequisitesTime;
         }
 
-        // if queue time is not set, the query is still queued
+        // if prerequisite wait time is not set, the query is still waiting for prerequisites to finish
         return getElapsedTime();
+    }
+
+    public Duration getQueuedTime()
+    {
+        return getDuration(queuedTime, beginQueuedNanos);
     }
 
     public Duration getResourceWaitingTime()
     {
         return getDuration(resourceWaitingTime, beginResourceWaitingNanos);
+    }
+
+    public Duration getSemanticAnalyzingTime()
+    {
+        return getDuration(semanticAnalyzingTime, beginSemanticAnalyzingNanos);
+    }
+
+    public Duration getColumnAccessPermissionCheckingTime()
+    {
+        return getDuration(columnAccessPermissionCheckingTime, beginColumnAccessPermissionCheckingNanos);
     }
 
     public Duration getDispatchingTime()

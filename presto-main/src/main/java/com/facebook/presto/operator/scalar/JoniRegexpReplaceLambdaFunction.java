@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -23,7 +22,6 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.facebook.presto.type.JoniRegexpType;
-import com.google.common.collect.ImmutableList;
 import io.airlift.joni.Matcher;
 import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
@@ -38,8 +36,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 @Description("replaces substrings matching a regular expression using a lambda function")
 public final class JoniRegexpReplaceLambdaFunction
 {
-    private final PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));
-
     @LiteralParameters("x")
     @SqlType("varchar")
     @SqlNullable
@@ -58,10 +54,7 @@ public final class JoniRegexpReplaceLambdaFunction
 
         // Prepare a BlockBuilder that will be used to create the target block
         // that will be passed to the lambda function.
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 0);
 
         int groupCount = pattern.numberOfCaptures();
         int appendPosition = 0;
@@ -93,7 +86,6 @@ public final class JoniRegexpReplaceLambdaFunction
                     blockBuilder.appendNull();
                 }
             }
-            pageBuilder.declarePositions(groupCount);
             Block target = blockBuilder.getRegion(blockBuilder.getPositionCount() - groupCount, groupCount);
 
             // Call the lambda function to replace the block, and append the result to output

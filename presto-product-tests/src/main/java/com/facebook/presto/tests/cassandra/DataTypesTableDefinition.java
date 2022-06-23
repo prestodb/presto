@@ -53,7 +53,7 @@ public class DataTypesTableDefinition
             try {
                 return ImmutableList.<List<Object>>of(
                         ImmutableList.of("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00"), false,
-                                BigDecimal.ZERO, Double.MIN_VALUE, Float.MIN_VALUE, LocalDate.fromYearMonthDay(1970, 1, 2), ImmutableSet.of(0),
+                                BigDecimal.ZERO, Double.MIN_VALUE, LocalDate.fromYearMonthDay(1970, 1, 2), Float.MIN_VALUE, ImmutableSet.of(0),
                                 Inet4Address.getByName("0.0.0.0"), Integer.MIN_VALUE, ImmutableList.of(0),
                                 ImmutableMap.of("a", 0, "\0", Integer.MIN_VALUE), ImmutableSet.of(0), Short.MIN_VALUE,
                                 "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),

@@ -16,6 +16,8 @@ package com.facebook.presto.orc.metadata;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import io.airlift.slice.Slice;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class OrcFileTail
@@ -27,6 +29,7 @@ public class OrcFileTail
     private final int footerSize;
     private final Slice metadataSlice;
     private final int metadataSize;
+    private final Optional<DwrfStripeCacheData> dwrfStripeCacheData;
 
     public OrcFileTail(
             HiveWriterVersion hiveWriterVersion,
@@ -35,7 +38,8 @@ public class OrcFileTail
             Slice footerSlice,
             int footerSize,
             Slice metadataSlice,
-            int metadataSize)
+            int metadataSize,
+            Optional<DwrfStripeCacheData> dwrfStripeCacheData)
     {
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         this.bufferSize = bufferSize;
@@ -44,6 +48,7 @@ public class OrcFileTail
         this.footerSize = footerSize;
         this.metadataSlice = requireNonNull(metadataSlice, "metadataSlice is null");
         this.metadataSize = metadataSize;
+        this.dwrfStripeCacheData = requireNonNull(dwrfStripeCacheData, "dwrfStripeCacheData is null");
     }
 
     public HiveWriterVersion getHiveWriterVersion()
@@ -79,5 +84,24 @@ public class OrcFileTail
     public int getMetadataSize()
     {
         return metadataSize;
+    }
+
+    public Optional<DwrfStripeCacheData> getDwrfStripeCacheData()
+    {
+        return dwrfStripeCacheData;
+    }
+
+    private int getDwrfStripeCacheSize()
+    {
+        int dwrfStripeCacheSize = 0;
+        if (dwrfStripeCacheData.isPresent()) {
+            dwrfStripeCacheSize = dwrfStripeCacheData.get().getDwrfStripeCacheSize();
+        }
+        return dwrfStripeCacheSize;
+    }
+
+    public int getTotalSize()
+    {
+        return getFooterSize() + getMetadataSize() + getDwrfStripeCacheSize();
     }
 }

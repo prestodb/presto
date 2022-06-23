@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.LogicalProperties;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -44,7 +47,9 @@ public class SemiJoinNode
     private final Map<String, VariableReferenceExpression> dynamicFilters;
 
     @JsonCreator
-    public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
+    public SemiJoinNode(
+            Optional<SourceLocation> sourceLocation,
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("filteringSource") PlanNode filteringSource,
             @JsonProperty("sourceJoinVariable") VariableReferenceExpression sourceJoinVariable,
@@ -55,7 +60,7 @@ public class SemiJoinNode
             @JsonProperty("distributionType") Optional<DistributionType> distributionType,
             @JsonProperty("dynamicFilters") Map<String, VariableReferenceExpression> dynamicFilters)
     {
-        super(id);
+        super(sourceLocation, id);
         this.source = requireNonNull(source, "source is null");
         this.filteringSource = requireNonNull(filteringSource, "filteringSource is null");
         this.sourceJoinVariable = requireNonNull(sourceJoinVariable, "sourceJoinVariable is null");
@@ -169,6 +174,7 @@ public class SemiJoinNode
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
         return new SemiJoinNode(
+                getSourceLocation(),
                 getId(),
                 newChildren.get(0),
                 newChildren.get(1),
@@ -181,9 +187,17 @@ public class SemiJoinNode
                 dynamicFilters);
     }
 
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getSemiJoinProperties(this);
+    }
+
     public SemiJoinNode withDistributionType(DistributionType distributionType)
     {
         return new SemiJoinNode(
+                getSourceLocation(),
                 getId(),
                 source,
                 filteringSource,

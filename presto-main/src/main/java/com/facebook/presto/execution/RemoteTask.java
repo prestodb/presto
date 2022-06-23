@@ -64,13 +64,15 @@ public interface RemoteTask
      */
     void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener);
 
-    ListenableFuture<?> whenSplitQueueHasSpace(int threshold);
+    ListenableFuture<?> whenSplitQueueHasSpace(long weightThreshold);
 
     void cancel();
 
     void abort();
 
-    int getPartitionedSplitCount();
+    PartitionedSplitsInfo getPartitionedSplitsInfo();
 
-    int getQueuedPartitionedSplitCount();
+    PartitionedSplitsInfo getQueuedPartitionedSplitsInfo();
+
+    int getUnacknowledgedPartitionedSplitCount();
 }

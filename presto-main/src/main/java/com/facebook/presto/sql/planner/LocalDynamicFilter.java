@@ -29,6 +29,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,20 +45,20 @@ import static java.util.stream.Collectors.toMap;
 public class LocalDynamicFilter
 {
     // Mapping from dynamic filter ID to its probe variables.
-    private final Multimap<String, VariableReferenceExpression> probeVariables;
+    private final Multimap<String, DynamicFilterPlaceholder> probeVariables;
 
     // Mapping from dynamic filter ID to its build channel indices.
     private final Map<String, Integer> buildChannels;
 
     private final SettableFuture<TupleDomain<VariableReferenceExpression>> resultFuture;
 
-    // The resulting predicate for local dynamic filtering.
-    private TupleDomain<String> result;
+    // Number of build-side partitions to be collected.
+    private final int partitionCount;
 
-    // Number of partitions left to be processed.
-    private int partitionsLeft;
+    // The resulting predicates from each build-side partition.
+    private final List<TupleDomain<String>> partitions;
 
-    public LocalDynamicFilter(Multimap<String, VariableReferenceExpression> probeVariables, Map<String, Integer> buildChannels, int partitionCount)
+    public LocalDynamicFilter(Multimap<String, DynamicFilterPlaceholder> probeVariables, Map<String, Integer> buildChannels, int partitionCount)
     {
         this.probeVariables = requireNonNull(probeVariables, "probeVariables is null");
         this.buildChannels = requireNonNull(buildChannels, "buildChannels is null");
@@ -65,21 +66,21 @@ public class LocalDynamicFilter
 
         this.resultFuture = SettableFuture.create();
 
-        this.result = TupleDomain.none();
-        this.partitionsLeft = partitionCount;
+        this.partitionCount = partitionCount;
+        this.partitions = new ArrayList<>(partitionCount);
     }
 
     private synchronized void addPartition(TupleDomain<String> tupleDomain)
     {
         // Called concurrently by each DynamicFilterSourceOperator instance (when collection is over).
-        partitionsLeft -= 1;
-        verify(partitionsLeft >= 0);
+        verify(partitions.size() < partitionCount);
         // NOTE: may result in a bit more relaxed constraint if there are multiple columns and multiple rows.
         // See the comment at TupleDomain::columnWiseUnion() for more details.
-        result = TupleDomain.columnWiseUnion(result, tupleDomain);
-        if (partitionsLeft == 0) {
+        partitions.add(tupleDomain);
+        if (partitions.size() == partitionCount) {
             // No more partitions are left to be processed.
-            verify(resultFuture.set(convertTupleDomain(result)), "dynamic filter result is provided more than once");
+            TupleDomain<VariableReferenceExpression> result = convertTupleDomain(TupleDomain.columnWiseUnion(partitions));
+            verify(resultFuture.set(result), "dynamic filter result is provided more than once");
         }
     }
 
@@ -94,8 +95,9 @@ public class LocalDynamicFilter
         for (Map.Entry<String, Domain> entry : result.getDomains().get().entrySet()) {
             Domain domain = entry.getValue();
             // Store all matching variables for each build channel index.
-            for (VariableReferenceExpression probeVariable : probeVariables.get(entry.getKey())) {
-                builder.put(probeVariable, domain);
+            for (DynamicFilterPlaceholder placeholder : probeVariables.get(entry.getKey())) {
+                Domain updatedDomain = placeholder.applyComparison(domain);
+                builder.put((VariableReferenceExpression) placeholder.getInput(), updatedDomain);
             }
         }
         return TupleDomain.withColumnDomains(builder.build());
@@ -110,21 +112,20 @@ public class LocalDynamicFilter
                 .findAll();
 
         // Mapping from probe-side dynamic filters' IDs to their matching probe variables.
-        ImmutableMultimap.Builder<String, VariableReferenceExpression> probeVariablesBuilder = ImmutableMultimap.builder();
+        ImmutableMultimap.Builder<String, DynamicFilterPlaceholder> probeVariablesBuilder = ImmutableMultimap.builder();
         for (FilterNode filterNode : filterNodes) {
             DynamicFilterExtractResult extractResult = extractDynamicFilters(filterNode.getPredicate());
             for (DynamicFilterPlaceholder placeholder : extractResult.getDynamicConjuncts()) {
                 if (placeholder.getInput() instanceof VariableReferenceExpression) {
                     // Add descriptors that match the local dynamic filter (from the current join node).
                     if (joinDynamicFilters.contains(placeholder.getId())) {
-                        VariableReferenceExpression probeVariable = (VariableReferenceExpression) placeholder.getInput();
-                        probeVariablesBuilder.put(placeholder.getId(), probeVariable);
+                        probeVariablesBuilder.put(placeholder.getId(), placeholder);
                     }
                 }
             }
         }
 
-        Multimap<String, VariableReferenceExpression> probeVariables = probeVariablesBuilder.build();
+        Multimap<String, DynamicFilterPlaceholder> probeVariables = probeVariablesBuilder.build();
         PlanNode buildNode = planNode.getBuild();
         Map<String, Integer> buildChannels = planNode.getDynamicFilters().entrySet().stream()
                 // Skip build channels that don't match local probe dynamic filters.
@@ -172,8 +173,8 @@ public class LocalDynamicFilter
         return toStringHelper(this)
                 .add("probeVariables", probeVariables)
                 .add("buildChannels", buildChannels)
-                .add("result", result)
-                .add("partitionsLeft", partitionsLeft)
+                .add("partitionCount", partitionCount)
+                .add("partitions", partitions)
                 .toString();
     }
 }

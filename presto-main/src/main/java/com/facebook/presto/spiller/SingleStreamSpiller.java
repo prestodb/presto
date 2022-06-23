@@ -42,8 +42,9 @@ public interface SingleStreamSpiller
     }
 
     /**
-     * Returns list of previously spilled Pages as a single stream. Pages are in the same order
-     * as they were spilled. Method requires the issued spill request to be completed.
+     * Returns list of previously spilled Pages as a single stream. Commits the spill file automatically
+     * if not committed. Pages are in the same order as they were spilled. Method requires the
+     * issued spill request to be completed.
      */
     Iterator<Page> getSpilledPages();
 
@@ -53,9 +54,16 @@ public interface SingleStreamSpiller
     long getSpilledPagesInMemorySize();
 
     /**
-     * Initiates read of previously spilled pages. The returned {@link Future} will be complete once all pages are read.
+     * Initiates read of previously spilled pages. Commits the spill file automatically if not committed
+     * The returned {@link Future} will be complete once all pages are read.
      */
     ListenableFuture<List<Page>> getAllSpilledPages();
+
+    /**
+     * Commit the spill file. Once committed, the spill file can no longer be modified
+     * If the spill file is already committed, invoking this method has no effect
+     */
+    void commit();
 
     /**
      * Close releases/removes all underlying resources used during spilling

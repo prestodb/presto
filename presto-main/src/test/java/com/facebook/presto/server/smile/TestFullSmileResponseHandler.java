@@ -16,6 +16,8 @@ package com.facebook.presto.server.smile;
 import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.testing.TestingResponse;
+import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.json.smile.SmileCodecFactory;
 import com.facebook.presto.server.smile.FullSmileResponseHandler.SmileResponse;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

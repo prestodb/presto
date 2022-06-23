@@ -50,7 +50,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -88,7 +87,9 @@ public class PrestoConnection
     private final String user;
     private final boolean compressionDisabled;
     private final Map<String, String> extraCredentials;
+    private final Map<String, String> customHeaders;
     private final Map<String, String> sessionProperties;
+    private final Properties connectionProperties;
     private final Optional<String> applicationNamePrefix;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
@@ -111,10 +112,13 @@ public class PrestoConnection
         this.compressionDisabled = uri.isCompressionDisabled();
 
         this.extraCredentials = uri.getExtraCredentials();
+        this.customHeaders = uri.getCustomHeaders();
         this.sessionProperties = new ConcurrentHashMap<>(uri.getSessionProperties());
+        this.connectionProperties = uri.getProperties();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        uri.getClientTags().ifPresent(tags -> clientInfo.put("ClientTags", tags));
 
-        timeZoneId.set(TimeZone.getDefault().getID());
+        timeZoneId.set(uri.getTimeZoneId());
         locale.set(Locale.getDefault());
 
         this.queryInterceptorInstances = ImmutableList.copyOf(uri.getQueryInterceptors());
@@ -547,6 +551,16 @@ public class PrestoConnection
         return schema.get();
     }
 
+    public Properties getConnectionProperties()
+    {
+        Properties properties = new Properties();
+        for (Map.Entry<Object, Object> entry : connectionProperties.entrySet()) {
+            properties.setProperty((String) entry.getKey(), (String) entry.getValue());
+        }
+
+        return properties;
+    }
+
     public String getTimeZoneId()
     {
         return timeZoneId.get();
@@ -664,6 +678,12 @@ public class PrestoConnection
         return ImmutableMap.copyOf(sessionProperties);
     }
 
+    @VisibleForTesting
+    public Map<String, String> getCustomHeaders()
+    {
+        return ImmutableMap.copyOf(customHeaders);
+    }
+
     ServerInfo getServerInfo()
             throws SQLException
     {
@@ -742,17 +762,18 @@ public class PrestoConnection
                 transactionId.get(),
                 timeout,
                 compressionDisabled,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                customHeaders);
 
         return queryExecutor.startQuery(session, sql);
     }
 
     void updateSession(StatementClient client)
     {
-        client.getSetSessionProperties().forEach(sessionProperties::put);
+        sessionProperties.putAll(client.getSetSessionProperties());
         client.getResetSessionProperties().forEach(sessionProperties::remove);
 
-        client.getAddedPreparedStatements().forEach(preparedStatements::put);
+        preparedStatements.putAll(client.getAddedPreparedStatements());
         client.getDeallocatedPreparedStatements().forEach(preparedStatements::remove);
 
         client.getSetCatalog().ifPresent(catalog::set);

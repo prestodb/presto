@@ -112,7 +112,9 @@ public class WindowFilterPushDown
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node, metadata.getFunctionAndTypeManager())) {
-                return new RowNumberNode(idAllocator.getNextId(),
+                return new RowNumberNode(
+                        rewrittenSource.getSourceLocation(),
+                        idAllocator.getNextId(),
                         rewrittenSource,
                         node.getPartitionBy(),
                         getOnlyElement(node.getWindowFunctions().keySet()),
@@ -187,7 +189,7 @@ public class WindowFilterPushDown
             TupleDomain<VariableReferenceExpression> tupleDomain = extractionResult.getTupleDomain();
 
             if (!isEqualRange(tupleDomain, rowNumberVariable, upperBound)) {
-                return new FilterNode(filterNode.getId(), source, filterNode.getPredicate());
+                return new FilterNode(filterNode.getSourceLocation(), filterNode.getId(), source, filterNode.getPredicate());
             }
 
             // Remove the row number domain because it is absorbed into the node
@@ -204,7 +206,7 @@ public class WindowFilterPushDown
             if (newPredicate.equals(TRUE_CONSTANT)) {
                 return source;
             }
-            return new FilterNode(filterNode.getId(), source, newPredicate);
+            return new FilterNode(filterNode.getSourceLocation(), filterNode.getId(), source, newPredicate);
         }
 
         private static boolean isEqualRange(TupleDomain<VariableReferenceExpression> tupleDomain, VariableReferenceExpression variable, long upperBound)
@@ -233,12 +235,12 @@ public class WindowFilterPushDown
 
             Range span = values.getRanges().getSpan();
 
-            if (span.getHigh().isUpperUnbounded()) {
+            if (span.isHighUnbounded()) {
                 return OptionalInt.empty();
             }
 
             verify(rowNumberDomain.getType().equals(BIGINT));
-            long upperBound = (Long) span.getHigh().getValue();
+            long upperBound = (Long) span.getHighBoundedValue();
             if (span.getHigh().getBound() == BELOW) {
                 upperBound--;
             }
@@ -254,12 +256,14 @@ public class WindowFilterPushDown
             if (node.getMaxRowCountPerPartition().isPresent()) {
                 newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().get(), newRowCountPerPartition);
             }
-            return new RowNumberNode(node.getId(), node.getSource(), node.getPartitionBy(), node.getRowNumberVariable(), Optional.of(newRowCountPerPartition), node.getHashVariable());
+            return new RowNumberNode(node.getSourceLocation(), node.getId(), node.getSource(), node.getPartitionBy(), node.getRowNumberVariable(), Optional.of(newRowCountPerPartition), node.getHashVariable());
         }
 
         private TopNRowNumberNode convertToTopNRowNumber(WindowNode windowNode, int limit)
         {
-            return new TopNRowNumberNode(idAllocator.getNextId(),
+            return new TopNRowNumberNode(
+                    windowNode.getSourceLocation(),
+                    idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
                     getOnlyElement(windowNode.getCreatedVariable()),

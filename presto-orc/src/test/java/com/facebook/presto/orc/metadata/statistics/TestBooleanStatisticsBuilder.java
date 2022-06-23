@@ -95,12 +95,12 @@ public class TestBooleanStatisticsBuilder
     }
 
     @Test
-    public void testMinAverageValueBytes()
+    public void testTotalValueBytes()
     {
-        assertMinAverageValueBytes(0L, ImmutableList.of());
-        assertMinAverageValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(true));
-        assertMinAverageValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(false));
-        assertMinAverageValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(true, true, false, true));
+        assertTotalValueBytes(0L, ImmutableList.of());
+        assertTotalValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(true));
+        assertTotalValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(false));
+        assertTotalValueBytes(4 * BOOLEAN_VALUE_BYTES, ImmutableList.of(true, true, false, true));
     }
 
     private void assertMergedBooleanStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, int trueValueCount)

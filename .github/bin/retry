@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+x() {
+    echo "+ $*" >&2
+    "$@"
+}
+
+max_retry_time_seconds=$(( 30 * 60 ))
+retry_delay_seconds=10
+
+END=$(( $(date +%s) + ${max_retry_time_seconds} ))
+
+while (( $(date +%s) < $END )); do
+    x "$@" && exit 0
+    sleep "${retry_delay_seconds}"
+done
+
+echo "$0: retrying [$*] timed out" >&2
+exit 1

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConstantProperty;
@@ -151,7 +151,7 @@ public class TestLocalProperties
     }
 
     @Test
-    public void testNormalizeSingleSmbolGroup()
+    public void testNormalizeSingleSymbolGroup()
     {
         List<LocalProperty<String>> localProperties = builder().grouped("a").build();
         assertNormalize(localProperties, Optional.of(grouped("a")));
@@ -697,7 +697,7 @@ public class TestLocalProperties
     public void testJsonSerialization()
             throws Exception
     {
-        ObjectMapper mapper = new ObjectMapperProvider().get()
+        ObjectMapper mapper = new JsonObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
                         .addDeserializer(ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
                         {
@@ -705,7 +705,7 @@ public class TestLocalProperties
                             public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                                     throws IOException
                             {
-                                return new ObjectMapperProvider().get().readValue(jsonParser, TestingColumnHandle.class);
+                                return new JsonObjectMapperProvider().get().readValue(jsonParser, TestingColumnHandle.class);
                             }
                         }));
 

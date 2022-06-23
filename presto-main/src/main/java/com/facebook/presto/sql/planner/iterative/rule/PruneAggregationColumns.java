@@ -50,6 +50,7 @@ public class PruneAggregationColumns
         // PruneAggregationSourceColumns will subsequently project off any newly unused inputs.
         return Optional.of(
                 new AggregationNode(
+                        aggregationNode.getSourceLocation(),
                         aggregationNode.getId(),
                         aggregationNode.getSource(),
                         prunedAggregations,

@@ -14,6 +14,7 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.StaticBodyGenerator;
 import com.facebook.airlift.http.client.StringResponseHandler;
@@ -29,6 +30,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import com.google.common.net.HttpHeaders;
 import org.apache.pinot.spi.data.Schema;
 
@@ -51,7 +53,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_HTTP_ERROR;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_INSTANCE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNEXPECTED_RESPONSE;
@@ -63,6 +64,9 @@ import static org.apache.pinot.spi.utils.builder.TableNameBuilder.extractRawTabl
 public class PinotClusterInfoFetcher
 {
     private static final Logger log = Logger.get(PinotClusterInfoFetcher.class);
+    private static final String HTTPS_SCHEME = "https";
+    private static final String HTTP_SCHEME = "http";
+
     private static final String APPLICATION_JSON = "application/json";
     private static final Pattern BROKER_PATTERN = Pattern.compile("Broker_(.*)_(\\d+)");
 
@@ -193,27 +197,31 @@ public class PinotClusterInfoFetcher
 
     private String sendHttpGetToController(String path)
     {
+        final URI controllerPathUri = HttpUriBuilder
+                .uriBuilder()
+                .scheme(pinotConfig.isUseSecureConnection() ? HTTPS_SCHEME : HTTP_SCHEME)
+                .hostAndPort(HostAndPort.fromString(pinotConfig.getControllerUrl()))
+                .appendPath(path)
+                .build();
         return doHttpActionWithHeaders(
-                Request.builder().prepareGet().setUri(URI.create(String.format("http://%s/%s", getControllerUrl(), path))),
+                Request.builder().prepareGet().setUri(controllerPathUri),
                 Optional.empty(),
                 Optional.ofNullable(pinotConfig.getControllerRestService()));
     }
 
     private String sendHttpGetToBroker(String table, String path)
     {
+        final String hostPort = pinotConfig.isUseProxy() ? pinotConfig.getControllerUrl() : getBrokerHost(table);
+        final URI brokerPathUri = HttpUriBuilder
+                .uriBuilder()
+                .scheme(pinotConfig.isUseSecureConnection() ? HTTPS_SCHEME : HTTP_SCHEME)
+                .hostAndPort(HostAndPort.fromString(hostPort))
+                .appendPath(path)
+                .build();
         return doHttpActionWithHeaders(
-                Request.builder().prepareGet().setUri(URI.create(String.format("http://%s/%s", getBrokerHost(table), path))),
+                Request.builder().prepareGet().setUri(brokerPathUri),
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    private String getControllerUrl()
-    {
-        List<String> controllerUrls = pinotConfig.getControllerUrls();
-        if (controllerUrls.isEmpty()) {
-            throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "No pinot controllers specified");
-        }
-        return controllerUrls.get(ThreadLocalRandom.current().nextInt(controllerUrls.size()));
     }
 
     public static class GetTables
@@ -456,12 +464,12 @@ public class PinotClusterInfoFetcher
 
         @JsonCreator
         public TimeBoundary(
-                @JsonProperty String timeColumnName,
-                @JsonProperty String timeColumnValue)
+                @JsonProperty String timeColumn,
+                @JsonProperty String timeValue)
         {
-            if (timeColumnName != null && timeColumnValue != null) {
-                offlineTimePredicate = Optional.of(format("%s < %s", timeColumnName, timeColumnValue));
-                onlineTimePredicate = Optional.of(format("%s >= %s", timeColumnName, timeColumnValue));
+            if (timeColumn != null && timeValue != null) {
+                offlineTimePredicate = Optional.of(format("%s < '%s'", timeColumn, timeValue));
+                onlineTimePredicate = Optional.of(format("%s >= '%s'", timeColumn, timeValue));
             }
             else {
                 onlineTimePredicate = Optional.empty();

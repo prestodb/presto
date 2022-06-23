@@ -39,6 +39,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
@@ -56,22 +57,30 @@ public class MockExchangeRequestProcessor
         implements TestingHttpClient.Processor
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
-    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(CacheLoader.from(MockBuffer::new));
 
     private final DataSize expectedMaxSize;
+    private final PagesSerde pagesSerde;
+    private final Function<byte[], byte[]> dataChanger;
 
     private final List<DataSize> requestMaxSizes = synchronizedList(new ArrayList<>());
 
     public MockExchangeRequestProcessor(DataSize expectedMaxSize)
     {
+        this(expectedMaxSize, testingPagesSerde(), in -> in);
+    }
+
+    public MockExchangeRequestProcessor(DataSize expectedMaxSize, PagesSerde pagesSerde, Function<byte[], byte[]> dataChanger)
+    {
         this.expectedMaxSize = expectedMaxSize;
+        this.pagesSerde = pagesSerde;
+        this.dataChanger = dataChanger;
     }
 
     public void addPage(URI location, Page page)
     {
-        buffers.getUnchecked(location).addPage(page);
+        buffers.getUnchecked(location).addPage(page, pagesSerde);
     }
 
     public void setComplete(URI location)
@@ -102,7 +111,7 @@ public class MockExchangeRequestProcessor
         if (!result.getSerializedPages().isEmpty()) {
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(64);
             PagesSerdeUtil.writeSerializedPages(sliceOutput, result.getSerializedPages());
-            bytes = sliceOutput.slice().getBytes();
+            bytes = dataChanger.apply(sliceOutput.slice().getBytes());
             status = HttpStatus.OK;
         }
         else {
@@ -166,10 +175,10 @@ public class MockExchangeRequestProcessor
             completed.set(true);
         }
 
-        public synchronized void addPage(Page page)
+        public synchronized void addPage(Page page, PagesSerde pagesSerde)
         {
             checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
-            serializedPages.add(PAGES_SERDE.serialize(page));
+            serializedPages.add(pagesSerde.serialize(page));
         }
 
         public BufferResult getPages(long sequenceId, DataSize maxSize)

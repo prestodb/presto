@@ -121,7 +121,8 @@ public class TestTableFinishOperator
                         true),
                 descriptor,
                 session,
-                TABLE_COMMIT_CONTEXT_CODEC);
+                TABLE_COMMIT_CONTEXT_CODEC,
+                false);
         DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
@@ -201,7 +202,8 @@ public class TestTableFinishOperator
                         true),
                 descriptor,
                 session,
-                TABLE_COMMIT_CONTEXT_CODEC);
+                TABLE_COMMIT_CONTEXT_CODEC,
+                false);
         DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();

@@ -57,6 +57,7 @@ public class TextRenderer
         output.append(indentString(level))
                 .append("- ")
                 .append(node.getName())
+                .append(node.getSourceLocation().isPresent() ? "(" + node.getSourceLocation().get().toString() + ")" : "")
                 .append(node.getIdentifier())
                 .append(" => [")
                 .append(node.getOutputs().stream()

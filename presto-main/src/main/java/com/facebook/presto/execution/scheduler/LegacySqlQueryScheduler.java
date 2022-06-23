@@ -19,6 +19,7 @@ import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.PartialResultQueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.RemoteTask;
@@ -72,6 +73,9 @@ import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
+import static com.facebook.presto.SystemSessionProperties.getPartialResultsCompletionRatioThreshold;
+import static com.facebook.presto.SystemSessionProperties.getPartialResultsMaxExecutionTimeMultiplier;
+import static com.facebook.presto.SystemSessionProperties.isPartialResultsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRuntimeOptimizerEnabled;
 import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.StageExecutionState.ABORTED;
@@ -139,6 +143,8 @@ public class LegacySqlQueryScheduler
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean scheduling = new AtomicBoolean();
 
+    private final PartialResultQueryTaskTracker partialResultQueryTaskTracker;
+
     public static LegacySqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
             ExecutionPolicy executionPolicy,
@@ -159,7 +165,8 @@ public class LegacySqlQueryScheduler
             PlanVariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            PartialResultQueryManager partialResultQueryManager)
     {
         LegacySqlQueryScheduler sqlQueryScheduler = new LegacySqlQueryScheduler(
                 locationFactory,
@@ -181,7 +188,8 @@ public class LegacySqlQueryScheduler
                 variableAllocator,
                 planChecker,
                 metadata,
-                sqlParser);
+                sqlParser,
+                partialResultQueryManager);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -206,7 +214,8 @@ public class LegacySqlQueryScheduler
             PlanVariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            PartialResultQueryManager partialResultQueryManager)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -246,6 +255,7 @@ public class LegacySqlQueryScheduler
                 .forEach(execution -> this.stageExecutions.put(execution.getStageExecution().getStageExecutionId().getStageId(), execution));
 
         this.maxConcurrentMaterializations = getMaxConcurrentMaterializations(session);
+        this.partialResultQueryTaskTracker = new PartialResultQueryTaskTracker(partialResultQueryManager, getPartialResultsCompletionRatioThreshold(session), getPartialResultsMaxExecutionTimeMultiplier(session), warningCollector);
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -328,7 +338,7 @@ public class LegacySqlQueryScheduler
         ImmutableList.Builder<StageExecutionAndScheduler> stages = ImmutableList.builder();
 
         for (StreamingPlanSection childSection : section.getChildren()) {
-            ExchangeLocationsConsumer childLocationsConsumer = (fragmentId, tasks, noMoreExhchangeLocations) -> {};
+            ExchangeLocationsConsumer childLocationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) -> {};
             stages.addAll(createStageExecutions(
                     sectionExecutionFactory,
                     childLocationsConsumer,
@@ -403,7 +413,7 @@ public class LegacySqlQueryScheduler
                 sectionStageExecutions.stream()
                         .map(executionInfos -> executionInfos.stream()
                                 .collect(toImmutableList()))
-                        .map(executionPolicy::createExecutionSchedule)
+                        .map(stages -> executionPolicy.createExecutionSchedule(session, stages))
                         .forEach(sectionExecutionSchedules::add);
 
                 while (sectionExecutionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
@@ -421,6 +431,14 @@ public class LegacySqlQueryScheduler
                         // perform some scheduling work
                         ScheduleResult result = stageExecutionAndScheduler.getStageScheduler()
                                 .schedule();
+
+                        // Track leaf tasks if partial results are enabled
+                        if (isPartialResultsEnabled(session) && stageExecutionAndScheduler.getStageExecution().getFragment().isLeaf()) {
+                            for (RemoteTask task : result.getNewTasks()) {
+                                partialResultQueryTaskTracker.trackTask(task);
+                                task.addFinalTaskInfoListener(partialResultQueryTaskTracker::recordTaskFinish);
+                            }
+                        }
 
                         // modify parent and children based on the results of the scheduling
                         if (result.isFinished()) {
@@ -493,6 +511,9 @@ public class LegacySqlQueryScheduler
             }
 
             scheduling.set(false);
+
+            // Inform the tracker that task scheduling has completed
+            partialResultQueryTaskTracker.completeTaskScheduling();
 
             if (!getSectionsReadyForExecution().isEmpty()) {
                 startScheduling();

@@ -283,9 +283,9 @@ setup outlined below:
 
     ```
     presto-product-tests/conf/docker/singlenode/compose.sh up -d hadoop-master
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d mysql
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d postgres
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d cassandra
+    presto-product-tests/conf/docker/singlenode-mysql/compose.sh up -d mysql
+    presto-product-tests/conf/docker/singlenode-postgresql/compose.sh up -d postgres
+    presto-product-tests/conf/docker/singlenode-cassandra/compose.sh up -d cassandra
     ```
     
     Tip: To display container logs run:

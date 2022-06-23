@@ -19,6 +19,7 @@ import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -51,9 +52,21 @@ import static org.testng.Assert.assertTrue;
 public class TestDataVerification
         extends AbstractVerificationTest
 {
+    private static VerificationSettings concurrentControlAndTestSettings;
+    private static VerificationSettings skipControlSettings;
+
     public TestDataVerification()
             throws Exception
     {
+    }
+
+    @BeforeClass
+    public static void beforeClass()
+    {
+        concurrentControlAndTestSettings = new VerificationSettings();
+        concurrentControlAndTestSettings.concurrentControlAndTest = Optional.of(true);
+        skipControlSettings = new VerificationSettings();
+        skipControlSettings.skipControl = Optional.of(true);
     }
 
     @Test
@@ -65,6 +78,32 @@ public class TestDataVerification
 
         getQueryRunner().execute("CREATE TABLE success_test (x double)");
         event = runVerification("INSERT INTO success_test SELECT 1.0", "INSERT INTO success_test SELECT 1.00001");
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
+    public void testSuccessSkipControl()
+    {
+        Optional<VerifierQueryEvent> event = runVerification("SELECT 1.0", "SELECT 1.00001", skipControlSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
+
+        getQueryRunner().execute("CREATE TABLE success_skip_control (x double)");
+        event = runVerification("INSERT INTO success_skip_control SELECT 1.0", "INSERT INTO success_skip_control SELECT 1.00001", skipControlSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
+    }
+
+    @Test
+    public void testSuccessConcurrentTestAndControl()
+    {
+        Optional<VerifierQueryEvent> event = runVerification("SELECT 1.0", "SELECT 1.00001", concurrentControlAndTestSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+
+        getQueryRunner().execute("CREATE TABLE success_concurrent_test_and_control (x double)");
+        event = runVerification("INSERT INTO success_concurrent_test_and_control SELECT 1.0", "INSERT INTO success_concurrent_test_and_control SELECT 1.00001", concurrentControlAndTestSettings);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
@@ -89,6 +128,24 @@ public class TestDataVerification
         Optional<VerifierQueryEvent> event = runVerification(
                 "SELECT 1 x",
                 "SELECT 1 x UNION ALL SELECT 1 x");
+        assertTrue(event.isPresent());
+        assertEvent(
+                event.get(),
+                FAILED,
+                Optional.of(DETERMINISTIC),
+                Optional.of("ROW_COUNT_MISMATCH"),
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n\n" +
+                        "ROW COUNT MISMATCH\n" +
+                        "Control 1 rows, Test 2 rows\n"));
+    }
+
+    @Test
+    public void testRowCountMismatchConcurrentControlAndTest()
+    {
+        Optional<VerifierQueryEvent> event = runVerification(
+                "SELECT 1 x",
+                "SELECT 1 x UNION ALL SELECT 1 x",
+                concurrentControlAndTestSettings);
         assertTrue(event.isPresent());
         assertEvent(
                 event.get(),
@@ -284,7 +341,7 @@ public class TestDataVerification
 
         assertTrue(event.isPresent());
         assertEquals(event.get().getStatus(), FAILED_RESOLVED.name());
-        assertEquals(event.get().getErrorCode(), "PRESTO(COMPILER_ERROR)");
+        assertEquals(event.get().getErrorCode(), "PRESTO(GENERATED_BYTECODE_TOO_LARGE)");
         assertNotNull(event.get().getControlQueryInfo().getChecksumQuery());
         assertNotNull(event.get().getControlQueryInfo().getChecksumQueryId());
         assertNotNull(event.get().getTestQueryInfo().getChecksumQuery());
@@ -307,6 +364,17 @@ public class TestDataVerification
             Optional<String> expectedErrorCode,
             Optional<String> expectedErrorMessageRegex)
     {
+        assertEvent(event, expectedStatus, expectedDeterminismAnalysis, expectedErrorCode, expectedErrorMessageRegex, true);
+    }
+
+    private void assertEvent(
+            VerifierQueryEvent event,
+            EventStatus expectedStatus,
+            Optional<DeterminismAnalysis> expectedDeterminismAnalysis,
+            Optional<String> expectedErrorCode,
+            Optional<String> expectedErrorMessageRegex,
+            boolean isControlQueryExecuted)
+    {
         assertEquals(event.getSuite(), SUITE);
         assertEquals(event.getTestId(), TEST_ID);
         assertEquals(event.getName(), NAME);
@@ -322,8 +390,10 @@ public class TestDataVerification
         }
 
         if (event.getStatus().equals(SUCCEEDED.name())) {
-            QueryType queryType = QueryType.of(getSqlParser().createStatement(event.getControlQueryInfo().getOriginalQuery(), PARSING_OPTIONS));
-            assertSuccessQueryInfo(queryType, event.getControlQueryInfo());
+            QueryType queryType = QueryType.of(getSqlParser().createStatement(event.getTestQueryInfo().getOriginalQuery(), PARSING_OPTIONS));
+            if (isControlQueryExecuted) {
+                assertSuccessQueryInfo(queryType, event.getControlQueryInfo());
+            }
             assertSuccessQueryInfo(queryType, event.getTestQueryInfo());
         }
     }
@@ -359,6 +429,8 @@ public class TestDataVerification
             assertEquals(queryInfo.getSetupQueries().size(), 1);
             assertEquals(queryInfo.getSetupQueryIds().size(), 1);
         }
+
+        assertNotNull(queryInfo.getOutputTableName());
 
         assertNotNull(queryInfo.getCpuTimeSecs());
         assertNotNull(queryInfo.getWallTimeSecs());

@@ -23,7 +23,10 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.LOG_FORMATTED_QUERY_ENABLED;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
@@ -97,5 +100,34 @@ public class TestQueryPreparer
         catch (SemanticException e) {
             assertEquals(e.getCode(), INVALID_PARAMETER_USAGE);
         }
+    }
+
+    @Test
+    public void testFormattedQuery()
+    {
+        Session prepareSession = testSessionBuilder()
+                .setSystemProperty(LOG_FORMATTED_QUERY_ENABLED, "true")
+                .build();
+
+        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(
+                prepareSession,
+                "PREPARE test FROM SELECT * FROM foo where col1 = ?",
+                WarningCollector.NOOP);
+        assertEquals(preparedQuery.getFormattedQuery(), Optional.of("-- Formatted Query:\n" +
+                "PREPARE test FROM\n" +
+                "   SELECT *\n" +
+                "   FROM\n" +
+                "     foo\n" +
+                "   WHERE (col1 = ?)\n"));
+
+        preparedQuery = QUERY_PREPARER.prepareQuery(
+                prepareSession,
+                "PREPARE test FROM SELECT * FROM foo",
+                WarningCollector.NOOP);
+        assertEquals(preparedQuery.getFormattedQuery(), Optional.of("-- Formatted Query:\n" +
+                "PREPARE test FROM\n" +
+                "   SELECT *\n" +
+                "   FROM\n" +
+                "     foo\n"));
     }
 }

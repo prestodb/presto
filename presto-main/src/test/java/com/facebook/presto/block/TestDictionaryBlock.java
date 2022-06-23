@@ -17,16 +17,23 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
+import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.stream.IntStream;
+
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -42,6 +49,44 @@ public class TestDictionaryBlock
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
         assertEquals(dictionaryBlock.getSizeInBytes(), dictionaryBlock.getDictionary().getSizeInBytes() + (100 * SIZE_OF_INT));
+    }
+
+    @Test
+    public void testNonCachedLogicalBytes()
+    {
+        int numEntries = 10;
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, numEntries);
+
+        // Over allocate dictionary indexes but only use the required limit.
+        int[] dictionaryIndexes = new int[numEntries + 10];
+        Arrays.fill(dictionaryIndexes, 1);
+        blockBuilder.appendNull();
+        dictionaryIndexes[0] = 0;
+
+        String string = "";
+        for (int i = 1; i < numEntries; i++) {
+            string += "a";
+            VARCHAR.writeSlice(blockBuilder, utf8Slice(string));
+            dictionaryIndexes[i] = numEntries - i;
+        }
+
+        // A dictionary block of size 10, 1st element -> null, 2nd element size -> 9....9th element size -> 1
+        // Pass different maxChunkSize and different offset and verify if it computes the chunk lengths correctly.
+        Block elementBlock = blockBuilder.build();
+        DictionaryBlock block = new DictionaryBlock(numEntries, elementBlock, dictionaryIndexes);
+        int elementSize = Integer.BYTES + Byte.BYTES;
+
+        long size = block.getRegionLogicalSizeInBytes(0, 1);
+        assertEquals(size, 0 + 1 * elementSize);
+
+        size = block.getRegionLogicalSizeInBytes(0, numEntries);
+        assertEquals(size, 45 + numEntries * elementSize);
+
+        size = block.getRegionLogicalSizeInBytes(1, 2);
+        assertEquals(size, 9 + 8 + 2 * elementSize);
+
+        size = block.getRegionLogicalSizeInBytes(9, 1);
+        assertEquals(size, 1 + 1 * elementSize);
     }
 
     @Test
@@ -302,6 +347,91 @@ public class TestDictionaryBlock
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, dictionaryPositionCount);
         for (int position = 0; position < dictionaryPositionCount; position++) {
             assertEquals(dictionaryBlock.getEstimatedDataSizeForStats(position), expectedValues[position % positionCount].length());
+        }
+    }
+
+    @Test
+    public void testDictionarySizeMethods()
+    {
+        // fixed width block
+        Block fixedWidthBlock = new IntArrayBlock(100, Optional.empty(), IntStream.range(0, 100).toArray());
+        assertDictionarySizeMethods(fixedWidthBlock);
+        // variable width block
+        Block variableWidthBlock = createSlicesBlock(createExpectedValues(fixedWidthBlock.getPositionCount()));
+        assertDictionarySizeMethods(variableWidthBlock);
+
+        // sparse dictionary block from getPositions
+        assertDictionarySizeMethods(fixedWidthBlock.getPositions(IntStream.range(0, 50).toArray(), 0, 50));
+        assertDictionarySizeMethods(variableWidthBlock.getPositions(IntStream.range(0, 50).toArray(), 0, 50));
+
+        // nested sparse dictionary block via constructor
+        assertDictionarySizeMethods(new DictionaryBlock(fixedWidthBlock, IntStream.range(0, 50).toArray()));
+        assertDictionarySizeMethods(new DictionaryBlock(variableWidthBlock, IntStream.range(0, 50).toArray()));
+        // compact dictionary block via getPositions
+        int[] positions = createCompactRepeatingIdsRange(fixedWidthBlock.getPositionCount());
+        assertDictionarySizeMethods(fixedWidthBlock.getPositions(positions, 0, positions.length));
+        assertDictionarySizeMethods(variableWidthBlock.getPositions(positions, 0, positions.length));
+        // nested compact dictionary block via constructor
+        assertDictionarySizeMethods(new DictionaryBlock(fixedWidthBlock, createCompactRepeatingIdsRange(fixedWidthBlock.getPositionCount())));
+        assertDictionarySizeMethods(new DictionaryBlock(variableWidthBlock, createCompactRepeatingIdsRange(variableWidthBlock.getPositionCount())));
+    }
+
+    private static int[] createCompactRepeatingIdsRange(int positions)
+    {
+        int[] ids = new int[positions * 2];
+        for (int i = 0; i < ids.length; i++) {
+            ids[i] = i % positions;
+        }
+        return ids;
+    }
+
+    private static void assertDictionarySizeMethods(Block block)
+    {
+        int positions = block.getPositionCount();
+
+        int[] allIds = IntStream.range(0, positions).toArray();
+        assertEquals(new DictionaryBlock(block, allIds).getSizeInBytes(), block.getSizeInBytes() + (Integer.BYTES * (long) positions));
+
+        if (positions > 0) {
+            int firstHalfLength = positions / 2;
+            int secondHalfLength = positions - firstHalfLength;
+            int[] firstHalfIds = IntStream.range(0, firstHalfLength).toArray();
+            int[] secondHalfIds = IntStream.range(firstHalfLength, positions).toArray();
+
+            // No positions getPositionSizeInBytes
+            boolean[] selectedPositions = new boolean[positions];
+            assertEquals(new DictionaryBlock(block, allIds).getPositionsSizeInBytes(selectedPositions, 0), 0);
+            // Single position getPositionSizeInBytes
+            selectedPositions[0] = true;
+            assertEquals(
+                    new DictionaryBlock(block, allIds).getPositionsSizeInBytes(selectedPositions, 1),
+                    block.getPositionsSizeInBytes(selectedPositions, 1) + Integer.BYTES);
+            // Single position getSizeInBytes
+            assertEquals(
+                    new DictionaryBlock(block, new int[]{0}).getSizeInBytes(),
+                    block.getPositionsSizeInBytes(selectedPositions, 1) + Integer.BYTES);
+
+            // All positions getPositionSizeInBytes
+            Arrays.fill(selectedPositions, true);
+            assertEquals(
+                    new DictionaryBlock(block, allIds).getPositionsSizeInBytes(selectedPositions, positions),
+                    block.getSizeInBytes() + (Integer.BYTES * (long) positions));
+
+            // Half selected getSizeInBytes
+            assertEquals(
+                    new DictionaryBlock(block, firstHalfIds).getSizeInBytes(),
+                    block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
+            assertEquals(
+                    new DictionaryBlock(block, secondHalfIds).getSizeInBytes(),
+                    block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
+
+            // Half selected getRegionSizeInBytes
+            assertEquals(
+                    new DictionaryBlock(block, allIds).getRegionSizeInBytes(0, firstHalfLength),
+                    block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
+            assertEquals(
+                    new DictionaryBlock(block, allIds).getRegionSizeInBytes(firstHalfLength, secondHalfLength),
+                    block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
         }
     }
 

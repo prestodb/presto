@@ -139,6 +139,7 @@ public class JdbcComputePushdown
 
             JdbcTableLayoutHandle oldTableLayoutHandle = (JdbcTableLayoutHandle) oldTableHandle.getLayout().get();
             JdbcTableLayoutHandle newTableLayoutHandle = new JdbcTableLayoutHandle(
+                    session.getSqlFunctionProperties(),
                     oldConnectorTable,
                     oldTableLayoutHandle.getTupleDomain(),
                     jdbcExpression.getTranslated());
@@ -150,14 +151,16 @@ public class JdbcComputePushdown
                     Optional.of(newTableLayoutHandle));
 
             TableScanNode newTableScanNode = new TableScanNode(
+                    oldTableScanNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     tableHandle,
                     oldTableScanNode.getOutputVariables(),
                     oldTableScanNode.getAssignments(),
+                    oldTableScanNode.getTableConstraints(),
                     oldTableScanNode.getCurrentConstraint(),
                     oldTableScanNode.getEnforcedConstraint());
 
-            return new FilterNode(idAllocator.getNextId(), newTableScanNode, node.getPredicate());
+            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newTableScanNode, node.getPredicate());
         }
     }
 }

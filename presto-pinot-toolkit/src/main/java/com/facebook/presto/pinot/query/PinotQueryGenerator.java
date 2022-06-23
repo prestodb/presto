@@ -16,6 +16,7 @@ package com.facebook.presto.pinot.query;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.JsonType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.pinot.PinotColumnHandle;
@@ -95,7 +96,6 @@ public class PinotQueryGenerator
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution standardFunctionResolution;
     private final PinotFilterExpressionConverter pinotFilterExpressionConverter;
-    private final PinotProjectExpressionConverter pinotProjectExpressionConverter;
 
     @Inject
     public PinotQueryGenerator(
@@ -109,7 +109,6 @@ public class PinotQueryGenerator
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "function metadata manager is null");
         this.standardFunctionResolution = requireNonNull(standardFunctionResolution, "standardFunctionResolution is null");
         this.pinotFilterExpressionConverter = new PinotFilterExpressionConverter(this.typeManager, this.functionMetadataManager, standardFunctionResolution);
-        this.pinotProjectExpressionConverter = new PinotProjectExpressionConverter(typeManager, standardFunctionResolution);
     }
 
     public static class PinotQueryGeneratorResult
@@ -296,6 +295,7 @@ public class PinotQueryGenerator
             requireNonNull(context, "context is null");
             Map<VariableReferenceExpression, Selection> newSelections = new HashMap<>();
             LinkedHashSet<VariableReferenceExpression> newOutputs = new LinkedHashSet<>();
+            PinotProjectExpressionConverter pinotProjectExpressionConverter = new PinotProjectExpressionConverter(typeManager, functionMetadataManager, standardFunctionResolution, session);
             node.getOutputVariables().forEach(variable -> {
                 RowExpression expression = node.getAssignments().get(variable);
                 PinotExpression pinotExpression = expression.accept(
@@ -488,7 +488,7 @@ public class PinotQueryGenerator
         {
             List<AggregationColumnNode> aggregationColumnNodes = computeAggregationNodes(node);
 
-            // Make two passes over the aggregatinColumnNodes: In the first pass identify all the variables that will be used
+            // Make two passes over the aggregationColumnNodes: In the first pass identify all the variables that will be used
             // Then pass that context to the source
             // And finally, in the second pass actually generate the PQL
 
@@ -499,7 +499,7 @@ public class PinotQueryGenerator
                     case GROUP_BY: {
                         GroupByColumnNode groupByColumn = (GroupByColumnNode) expression;
                         VariableReferenceExpression groupByInputColumn = getVariableReference(groupByColumn.getInputColumn());
-                        checkState(groupByInputColumn.getType() instanceof FixedWidthType || groupByInputColumn.getType() instanceof VarcharType);
+                        checkState(groupByInputColumn.getType() instanceof FixedWidthType || groupByInputColumn.getType() instanceof VarcharType || groupByInputColumn.getType() instanceof JsonType);
                         variablesInAggregation.add(groupByInputColumn);
                         break;
                     }
@@ -576,7 +576,7 @@ public class PinotQueryGenerator
         @Override
         public PinotQueryGeneratorContext visitLimit(LimitNode node, PinotQueryGeneratorContext context)
         {
-            checkSupported(!node.isPartial(), String.format("pinot query generator cannot handle partial limit"));
+            checkSupported(!node.isPartial(), "pinot query generator cannot handle partial limit");
             checkSupported(!forbidBrokerQueries, "Cannot push limit in segment mode");
             context = node.getSource().accept(this, context);
             requireNonNull(context, "context is null");
@@ -626,7 +626,7 @@ public class PinotQueryGenerator
                 LinkedHashSet<VariableReferenceExpression> outputs,
                 Set<VariableReferenceExpression> hiddenColumnSet)
         {
-            VariableReferenceExpression hidden = new VariableReferenceExpression(UUID.randomUUID().toString(), BigintType.BIGINT);
+            VariableReferenceExpression hidden = new VariableReferenceExpression(Optional.empty(), UUID.randomUUID().toString(), BigintType.BIGINT);
             selections.put(hidden, new Selection("count(*)", DERIVED));
             outputs.add(hidden);
             hiddenColumnSet.add(hidden);

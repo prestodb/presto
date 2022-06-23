@@ -42,6 +42,7 @@ public class InternalCommunicationConfig
     private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
     private CommunicationProtocol taskCommunicationProtocol = CommunicationProtocol.HTTP;
     private CommunicationProtocol serverInfoCommunicationProtocol = CommunicationProtocol.HTTP;
+    private boolean memoizeDeadNodesEnabled;
 
     public boolean isHttpsRequired()
     {
@@ -233,6 +234,19 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setServerInfoCommunicationProtocol(CommunicationProtocol serverInfoCommunicationProtocol)
     {
         this.serverInfoCommunicationProtocol = serverInfoCommunicationProtocol;
+        return this;
+    }
+
+    public boolean isMemoizeDeadNodesEnabled()
+    {
+        return memoizeDeadNodesEnabled;
+    }
+
+    @Config("internal-communication.memoize-dead-nodes-enabled")
+    @ConfigDescription("Enables memoizing dead nodes in discovery node manger")
+    public InternalCommunicationConfig setMemoizeDeadNodesEnabled(boolean memoizeDeadNodesEnabled)
+    {
+        this.memoizeDeadNodesEnabled = memoizeDeadNodesEnabled;
         return this;
     }
 }

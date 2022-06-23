@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.predicate;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockJsonSerde;
@@ -595,7 +595,7 @@ public class TestTupleDomain
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
-        ObjectMapper mapper = new ObjectMapperProvider().get()
+        ObjectMapper mapper = new JsonObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
                         .addDeserializer(ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
                         {
@@ -603,7 +603,7 @@ public class TestTupleDomain
                             public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                                     throws IOException
                             {
-                                return new ObjectMapperProvider().get().readValue(jsonParser, TestingColumnHandle.class);
+                                return new JsonObjectMapperProvider().get().readValue(jsonParser, TestingColumnHandle.class);
                             }
                         })
                         .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))

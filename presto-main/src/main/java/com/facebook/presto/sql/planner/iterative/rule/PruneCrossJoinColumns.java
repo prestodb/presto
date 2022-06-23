@@ -52,6 +52,7 @@ public class PruneCrossJoinColumns
         outputVariableBuilder.addAll(newRight.orElse(joinNode.getRight()).getOutputVariables());
 
         return Optional.of(new JoinNode(
+                joinNode.getSourceLocation(),
                 idAllocator.getNextId(),
                 joinNode.getType(),
                 newLeft.orElse(joinNode.getLeft()),

@@ -107,7 +107,7 @@ General Aggregate Functions
 
 .. function:: reduce_agg(inputValue T, initialState S, inputFunction(S,T,S), combineFunction(S,S,S)) -> S
 
-    Reduces all input values into a single value. ```inputFunction`` will be invoked
+    Reduces all input values into a single value. ``inputFunction`` will be invoked
     for each input value. In addition to taking the input value, ``inputFunction``
     takes the current state, initially ``initialState``, and returns the new state.
     ``combineFunction`` will be invoked to combine two states into a new state.
@@ -754,7 +754,7 @@ where :math:`f(x)` is the partial density function of :math:`x`.
     or string type.
 
     The function uses the stream summary data structure proposed in the paper
-    `Efficient computation of frequent and top-k elements in data streams <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_ by A.Metwalley, D.Agrawl and A.Abbadi.
+    `Efficient computation of frequent and top-k elements in data streams <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_ by A.Metwally, D.Agrawal and A.Abbadi.
 
 
 ---------------------------

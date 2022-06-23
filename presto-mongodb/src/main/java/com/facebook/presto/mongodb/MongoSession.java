@@ -272,33 +272,11 @@ public class MongoSession
             }
             else {
                 Document rangeConjuncts = new Document();
-                if (!range.getLow().isLowerUnbounded()) {
-                    switch (range.getLow().getBound()) {
-                        case ABOVE:
-                            rangeConjuncts.put(GT_OP, translateValue(range.getLow().getValue(), type));
-                            break;
-                        case EXACTLY:
-                            rangeConjuncts.put(GTE_OP, translateValue(range.getLow().getValue(), type));
-                            break;
-                        case BELOW:
-                            throw new IllegalArgumentException("Low Marker should never use BELOW bound: " + range);
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
-                    }
+                if (!range.isLowUnbounded()) {
+                    rangeConjuncts.put(range.isLowInclusive() ? GTE_OP : GT_OP, translateValue(range.getLowBoundedValue(), type));
                 }
-                if (!range.getHigh().isUpperUnbounded()) {
-                    switch (range.getHigh().getBound()) {
-                        case ABOVE:
-                            throw new IllegalArgumentException("High Marker should never use ABOVE bound: " + range);
-                        case EXACTLY:
-                            rangeConjuncts.put(LTE_OP, translateValue(range.getHigh().getValue(), type));
-                            break;
-                        case BELOW:
-                            rangeConjuncts.put(LT_OP, translateValue(range.getHigh().getValue(), type));
-                            break;
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
-                    }
+                if (!range.isHighUnbounded()) {
+                    rangeConjuncts.put(range.isHighInclusive() ? LTE_OP : LT_OP, translateValue(range.getHighBoundedValue(), type));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 verify(!rangeConjuncts.isEmpty());

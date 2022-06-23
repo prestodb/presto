@@ -17,10 +17,11 @@ import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
+import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -88,15 +89,18 @@ public class TempFileWriter
                     LZ4,
                     Optional.empty(),
                     NO_ENCRYPTION,
-                    new OrcWriterOptions()
+                    OrcWriterOptions.builder()
                             .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
-                            .withStripeMinSize(new DataSize(64, MEGABYTE))
-                            .withDictionaryMaxMemory(new DataSize(1, MEGABYTE)),
+                            .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                                    .withStripeMinSize(new DataSize(64, MEGABYTE))
+                                    .build())
+                            .withDictionaryMaxMemory(new DataSize(1, MEGABYTE))
+                            .build(),
                     ImmutableMap.of(),
                     UTC,
                     false,
                     OrcWriteValidationMode.BOTH,
-                    new OrcWriterStats());
+                    new NoOpOrcWriterStats());
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);

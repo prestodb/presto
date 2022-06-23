@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.util.MergeSortedPages.PageWithPosition;
 
-import java.io.Closeable;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
@@ -35,7 +34,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * stream of Pages can have interleaved positions with same hash value.
  */
 public class MergeHashSort
-        implements Closeable
 {
     private final AggregatedMemoryContext memoryContext;
 
@@ -49,7 +47,7 @@ public class MergeHashSort
      */
     public WorkProcessor<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<WorkProcessor<Page>> channels, DriverYieldSignal driverYieldSignal)
     {
-        InterpretedHashGenerator hashGenerator = createHashGenerator(keyTypes);
+        InterpretedHashGenerator hashGenerator = InterpretedHashGenerator.createPositionalWithTypes(keyTypes);
         return mergeSortedPages(
                 channels,
                 createHashPageWithPositionComparator(hashGenerator),
@@ -59,12 +57,6 @@ public class MergeHashSort
                 true,
                 memoryContext,
                 driverYieldSignal);
-    }
-
-    @Override
-    public void close()
-    {
-        memoryContext.close();
     }
 
     private static BiPredicate<PageBuilder, PageWithPosition> keepSameHashValuesWithinSinglePage(InterpretedHashGenerator hashGenerator)
@@ -85,14 +77,5 @@ public class MergeHashSort
 
             return Long.compare(leftHash, rightHash);
         };
-    }
-
-    private static InterpretedHashGenerator createHashGenerator(List<Type> keyTypes)
-    {
-        int[] hashChannels = new int[keyTypes.size()];
-        for (int i = 0; i < keyTypes.size(); i++) {
-            hashChannels[i] = i;
-        }
-        return new InterpretedHashGenerator(keyTypes, hashChannels);
     }
 }

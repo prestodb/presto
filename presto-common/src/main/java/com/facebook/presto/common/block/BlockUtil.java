@@ -196,12 +196,28 @@ public final class BlockUtil
         return Arrays.copyOfRange(array, index, index + length);
     }
 
-    static int countUsedPositions(boolean[] positions)
+    static int countSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase)
     {
+        checkArrayRange(offsets, offsetBase, positions.length);
         int used = 0;
-        for (boolean position : positions) {
-            if (position) {
-                used++;
+        for (int i = 0; i < positions.length; i++) {
+            int offsetStart = offsets[offsetBase + i];
+            int offsetEnd = offsets[offsetBase + i + 1];
+            used += ((positions[i] ? 1 : 0) * (offsetEnd - offsetStart));
+        }
+        return used;
+    }
+
+    static int countAndMarkSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase, boolean[] elementPositions)
+    {
+        checkArrayRange(offsets, offsetBase, positions.length);
+        int used = 0;
+        for (int i = 0; i < positions.length; i++) {
+            int offsetStart = offsets[offsetBase + i];
+            int offsetEnd = offsets[offsetBase + i + 1];
+            if (positions[i]) {
+                used += (offsetEnd - offsetStart);
+                Arrays.fill(elementPositions, offsetStart, offsetEnd, true);
             }
         }
         return used;
@@ -254,70 +270,6 @@ public final class BlockUtil
         return newOffsets;
     }
 
-    /**
-     * Returns a byte array of size capacity if the input buffer is null or smaller than the capacity.
-     * If the input buffer is not null, the original values in buffer will be preserved.
-     */
-    public static byte[] ensureCapacity(byte[] buffer, int capacity)
-    {
-        if (buffer == null) {
-            buffer = new byte[capacity];
-        }
-        else if (buffer.length < capacity) {
-            buffer = Arrays.copyOf(buffer, capacity);
-        }
-
-        return buffer;
-    }
-
-    /**
-     * Returns a short array of size capacity if the input buffer is null or smaller than the capacity.
-     * If the input buffer is not null, the original values in buffer will be preserved.
-     */
-    public static short[] ensureCapacity(short[] buffer, int capacity)
-    {
-        if (buffer == null) {
-            buffer = new short[capacity];
-        }
-        else if (buffer.length < capacity) {
-            buffer = Arrays.copyOf(buffer, capacity);
-        }
-
-        return buffer;
-    }
-
-    /**
-     * Returns an int array of size capacity if the input buffer is null or smaller than the capacity.
-     * If the input buffer is not null, the original values in buffer will be preserved.
-     */
-    public static int[] ensureCapacity(int[] buffer, int capacity)
-    {
-        if (buffer == null) {
-            buffer = new int[capacity];
-        }
-        else if (buffer.length < capacity) {
-            buffer = Arrays.copyOf(buffer, capacity);
-        }
-
-        return buffer;
-    }
-
-    /**
-     * Returns a long array of size capacity if the input buffer is null or smaller than the capacity.
-     * If the input buffer is not null, the original values in buffer will be preserved.
-     */
-    public static long[] ensureCapacity(long[] buffer, int capacity)
-    {
-        if (buffer == null) {
-            buffer = new long[capacity];
-        }
-        else if (buffer.length < capacity) {
-            buffer = Arrays.copyOf(buffer, capacity);
-        }
-
-        return buffer;
-    }
-
     public static int getNum128Integers(int length)
     {
         int num128Integers = length / SIZE_OF_LONG / 2;
@@ -325,5 +277,26 @@ public final class BlockUtil
             throw new IllegalArgumentException(format("length %d must be a multiple of 16.", length));
         }
         return num128Integers;
+    }
+
+    /**
+     * Returns the input blocks array if all blocks are already loaded, otherwise returns a new blocks array with all blocks loaded
+     */
+    static Block[] ensureBlocksAreLoaded(Block[] blocks)
+    {
+        for (int i = 0; i < blocks.length; i++) {
+            Block loaded = blocks[i].getLoadedBlock();
+            if (loaded != blocks[i]) {
+                // Transition to new block creation mode after the first newly loaded block is encountered
+                Block[] loadedBlocks = blocks.clone();
+                loadedBlocks[i++] = loaded;
+                for (; i < blocks.length; i++) {
+                    loadedBlocks[i] = blocks[i].getLoadedBlock();
+                }
+                return loadedBlocks;
+            }
+        }
+        // No newly loaded blocks
+        return blocks;
     }
 }

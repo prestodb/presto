@@ -15,6 +15,7 @@ package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -35,6 +36,7 @@ public class TestingResourceGroup
     private int schedulingWeight;
     private SchedulingPolicy policy;
     private boolean jmxExport;
+    private ResourceGroupQueryLimits resourceGroupQueryLimits;
 
     public TestingResourceGroup(ResourceGroupId id)
     {
@@ -165,5 +167,17 @@ public class TestingResourceGroup
     public void setJmxExport(boolean export)
     {
         jmxExport = export;
+    }
+
+    @Override
+    public ResourceGroupQueryLimits getPerQueryLimits()
+    {
+        return resourceGroupQueryLimits;
+    }
+
+    @Override
+    public void setPerQueryLimits(ResourceGroupQueryLimits perQueryLimits)
+    {
+        this.resourceGroupQueryLimits = perQueryLimits;
     }
 }

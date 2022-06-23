@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.server.thrift;
 
+import com.facebook.airlift.json.Codec;
 import com.facebook.drift.codec.ThriftCodec;
-import com.facebook.presto.server.codec.Codec;
+
+import java.io.InputStream;
+import java.io.OutputStream;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -39,6 +42,7 @@ public class ThriftCodecWrapper<T>
         verify(codec instanceof ThriftCodecWrapper);
         return ((ThriftCodecWrapper<T>) codec).thriftCodec;
     }
+
     @Override
     public byte[] toBytes(T instance)
     {
@@ -47,6 +51,18 @@ public class ThriftCodecWrapper<T>
 
     @Override
     public T fromBytes(byte[] bytes)
+    {
+        throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public void writeBytes(OutputStream output, T instance)
+    {
+        throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public T readBytes(InputStream input)
     {
         throw new UnsupportedOperationException("Operation not supported");
     }

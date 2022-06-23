@@ -72,11 +72,6 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     protected boolean supportsViews()
     {
         return true;
@@ -338,6 +333,16 @@ public abstract class AbstractTestDistributedQueries
         assertFalse(getQueryRunner().tableExists(session, table));
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Regexp matching interrupted", timeOut = 30_000)
+    public void testRunawayRegexAnalyzerTimeout()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.QUERY_ANALYZER_TIMEOUT, "1s")
+                .build();
+
+        computeActual(session, "select REGEXP_EXTRACT('runaway_regex-is-evaluated-infinitely - xxx\"}', '.*runaway_(.*?)+-+xxx.*')");
+    }
+
     @Test
     public void testInsertIntoNotNullColumn()
     {
@@ -345,8 +350,8 @@ public abstract class AbstractTestDistributedQueries
 
         String catalog = getSession().getCatalog().get();
         String createTableStatement = "CREATE TABLE " + catalog + ".tpch.test_not_null_with_insert (\n" +
-                "   column_a date,\n" +
-                "   column_b date NOT NULL\n" +
+                "   \"column_a\" date,\n" +
+                "   \"column_b\" date NOT NULL\n" +
                 ")";
         assertUpdate("CREATE TABLE test_not_null_with_insert (column_a DATE, column_b DATE NOT NULL)");
         assertQuery(
@@ -360,9 +365,9 @@ public abstract class AbstractTestDistributedQueries
         assertQuery(
                 "SHOW CREATE TABLE test_not_null_with_insert",
                 "VALUES 'CREATE TABLE " + catalog + ".tpch.test_not_null_with_insert (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL,\n" +
-                        "   column_c bigint NOT NULL\n" +
+                        "   \"column_a\" date,\n" +
+                        "   \"column_b\" date NOT NULL,\n" +
+                        "   \"column_c\" bigint NOT NULL\n" +
                         ")'");
 
         assertQueryFails("INSERT INTO test_not_null_with_insert (column_b) VALUES (date '2012-12-31')", "(?s).*column_c.*null.*");
@@ -931,6 +936,12 @@ public abstract class AbstractTestDistributedQueries
     public void testLargeQuerySuccess()
     {
         assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
+    }
+
+    @Test
+    public void testExtraLargeQuerySuccess()
+    {
+        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(1000, "1 = 1")), "SELECT true");
     }
 
     @Test

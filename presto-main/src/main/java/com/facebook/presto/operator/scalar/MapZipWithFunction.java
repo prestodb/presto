@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.NotSupportedException;
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -35,7 +34,6 @@ import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
@@ -43,24 +41,23 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.lang.Math.max;
 
 public final class MapZipWithFunction
         extends SqlScalarFunction
 {
     public static final MapZipWithFunction MAP_ZIP_WITH_FUNCTION = new MapZipWithFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapZipWithFunction.class, "mapZipWith", Type.class, Type.class, Type.class, MapType.class, MethodHandle.class, MethodHandle.class, MethodHandle.class, Object.class, Block.class, Block.class, MapZipWithLambda.class);
-    private static final MethodHandle STATE_FACTORY = methodHandle(MapZipWithFunction.class, "createState", MapType.class);
-
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapZipWithFunction.class, "mapZipWith", Type.class, Type.class, Type.class, MapType.class, MethodHandle.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class, MapZipWithLambda.class);
     private MapZipWithFunction()
     {
         super(new Signature(
@@ -103,9 +100,9 @@ public final class MapZipWithFunction
                 ImmutableList.of(
                         TypeSignatureParameter.of(keyType.getTypeSignature()),
                         TypeSignatureParameter.of(outputValueType.getTypeSignature())));
-        MethodHandle keyNativeHashCode = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyNativeHashCode = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-        MethodHandle keyNativeEquals = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyNativeEquals = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
         MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
         MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
 
@@ -115,13 +112,7 @@ public final class MapZipWithFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(MapZipWithLambda.class)),
-                METHOD_HANDLE.bindTo(keyType).bindTo(inputValueType1).bindTo(inputValueType2).bindTo(outputMapType).bindTo(keyNativeHashCode).bindTo(keyBlockNativeEquals).bindTo(keyBlockHashCode),
-                Optional.of(STATE_FACTORY.bindTo(outputMapType)));
-    }
-
-    public static Object createState(MapType mapType)
-    {
-        return new PageBuilder(ImmutableList.of(mapType));
+                METHOD_HANDLE.bindTo(keyType).bindTo(inputValueType1).bindTo(inputValueType2).bindTo(outputMapType).bindTo(keyNativeHashCode).bindTo(keyBlockNativeEquals).bindTo(keyBlockHashCode));
     }
 
     public static Block mapZipWith(
@@ -132,7 +123,6 @@ public final class MapZipWithFunction
             MethodHandle keyNativeHashCode,
             MethodHandle keyBlockNativeEquals,
             MethodHandle keyBlockHashCode,
-            Object state,
             Block leftBlock,
             Block rightBlock,
             MapZipWithLambda function)
@@ -140,12 +130,7 @@ public final class MapZipWithFunction
         SingleMapBlock leftMapBlock = (SingleMapBlock) leftBlock;
         SingleMapBlock rightMapBlock = (SingleMapBlock) rightBlock;
         Type outputValueType = outputMapType.getValueType();
-
-        PageBuilder pageBuilder = (PageBuilder) state;
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder mapBlockBuilder = outputMapType.createBlockBuilder(null, max(leftMapBlock.getPositionCount(), rightMapBlock.getPositionCount()) / 2);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
 
         // seekKey() can take non-trivial time when key is complicated value, such as a long VARCHAR or ROW.
@@ -175,7 +160,6 @@ public final class MapZipWithFunction
             catch (Throwable throwable) {
                 // Restore pageBuilder into a consistent state.
                 mapBlockBuilder.closeEntry();
-                pageBuilder.declarePosition();
 
                 throwIfUnchecked(throwable);
                 throw new RuntimeException(throwable);
@@ -198,7 +182,6 @@ public final class MapZipWithFunction
                 catch (Throwable throwable) {
                     // Restore pageBuilder into a consistent state.
                     mapBlockBuilder.closeEntry();
-                    pageBuilder.declarePosition();
 
                     throwIfUnchecked(throwable);
                     throw new RuntimeException(throwable);
@@ -210,7 +193,6 @@ public final class MapZipWithFunction
         }
 
         mapBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
         return outputMapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }
 

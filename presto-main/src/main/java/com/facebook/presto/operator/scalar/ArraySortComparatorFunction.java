@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
@@ -24,7 +23,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
@@ -38,15 +36,11 @@ import static com.facebook.presto.util.Failures.checkCondition;
 @Description("Sorts the given array with a lambda comparator.")
 public final class ArraySortComparatorFunction
 {
-    private final PageBuilder pageBuilder;
     private static final int INITIAL_LENGTH = 128;
     private List<Integer> positions = Ints.asList(new int[INITIAL_LENGTH]);
 
     @TypeParameter("T")
-    public ArraySortComparatorFunction(@TypeParameter("T") Type elementType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
-    }
+    public ArraySortComparatorFunction(@TypeParameter("T") Type elementType) {}
 
     @TypeParameter("T")
     @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
@@ -172,18 +166,13 @@ public final class ArraySortComparatorFunction
 
     private Block computeResultBlock(Type type, Block block, int arrayLength)
     {
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, arrayLength);
 
         for (int i = 0; i < arrayLength; ++i) {
             type.appendTo(block, positions.get(i), blockBuilder);
         }
-        pageBuilder.declarePositions(arrayLength);
 
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - arrayLength, arrayLength);
+        return blockBuilder.build();
     }
 
     private static int comparatorResult(Long result)

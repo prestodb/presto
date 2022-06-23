@@ -22,7 +22,7 @@ public enum WriteConcernType
     ACKNOWLEDGED(WriteConcern.ACKNOWLEDGED),
     FSYNC_SAFE(WriteConcern.FSYNC_SAFE),
     FSYNCED(WriteConcern.FSYNCED),
-    JOURNAL_SAFEY(WriteConcern.JOURNAL_SAFE),
+    JOURNAL_SAFE(WriteConcern.JOURNAL_SAFE),
     JOURNALED(WriteConcern.JOURNALED),
     MAJORITY(WriteConcern.MAJORITY),
     NORMAL(WriteConcern.NORMAL),

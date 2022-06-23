@@ -135,7 +135,7 @@ class LimitQueryDeterminismAnalyzer
                     return NOT_RUN;
                 }
             }
-            query = new Query(with, query.getQueryBody(), query.getOrderBy(), query.getLimit());
+            query = new Query(with, query.getQueryBody(), query.getOrderBy(), query.getOffset(), query.getLimit());
         }
 
         if (query.getQueryBody() instanceof QuerySpecification) {
@@ -157,7 +157,7 @@ class LimitQueryDeterminismAnalyzer
             return DETERMINISTIC;
         }
         Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
-        Query newLimitQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), newLimit);
+        Query newLimitQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), query.getOffset(), newLimit);
         return analyzeLimitNoOrderBy(newLimitQuery, limit);
     }
 
@@ -233,7 +233,9 @@ class LimitQueryDeterminismAnalyzer
                                     querySpecification.getGroupBy(),
                                     querySpecification.getHaving(),
                                     orderBy,
+                                    querySpecification.getOffset(),
                                     newLimit),
+                            Optional.empty(),
                             Optional.empty(),
                             Optional.empty()),
                     orderByKeys,
@@ -248,7 +250,9 @@ class LimitQueryDeterminismAnalyzer
                         querySpecification.getGroupBy(),
                         querySpecification.getHaving(),
                         Optional.empty(),
+                        querySpecification.getOffset(),
                         newLimit),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
         return analyzeLimitNoOrderBy(newLimitQuery, limit);

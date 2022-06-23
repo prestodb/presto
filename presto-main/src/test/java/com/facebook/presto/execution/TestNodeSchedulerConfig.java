@@ -21,6 +21,10 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.RANDOM;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.TTL;
+import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.CONSISTENT_HASHING;
+import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.MODULAR_HASHING;
 
 public class TestNodeSchedulerConfig
 {
@@ -32,7 +36,11 @@ public class TestNodeSchedulerConfig
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
                 .setMaxPendingSplitsPerTask(10)
-                .setIncludeCoordinator(true));
+                .setMaxUnacknowledgedSplitsPerTask(500)
+                .setIncludeCoordinator(true)
+                .setNodeSelectionHashStrategy(MODULAR_HASHING)
+                .setMinVirtualNodeCount(1000)
+                .setResourceAwareSchedulingStrategy(RANDOM));
     }
 
     @Test
@@ -43,7 +51,11 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.min-candidates", "11")
                 .put("node-scheduler.include-coordinator", "false")
                 .put("node-scheduler.max-pending-splits-per-task", "11")
+                .put("node-scheduler.max-unacknowledged-splits-per-task", "501")
                 .put("node-scheduler.max-splits-per-node", "101")
+                .put("node-scheduler.node-selection-hash-strategy", "CONSISTENT_HASHING")
+                .put("node-scheduler.consistent-hashing-min-virtual-node-count", "2000")
+                .put("experimental.resource-aware-scheduling-strategy", "TTL")
                 .build();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
@@ -51,7 +63,11 @@ public class TestNodeSchedulerConfig
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(101)
                 .setMaxPendingSplitsPerTask(11)
-                .setMinCandidates(11);
+                .setMaxUnacknowledgedSplitsPerTask(501)
+                .setMinCandidates(11)
+                .setNodeSelectionHashStrategy(CONSISTENT_HASHING)
+                .setMinVirtualNodeCount(2000)
+                .setResourceAwareSchedulingStrategy(TTL);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

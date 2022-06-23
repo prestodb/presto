@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Perform basic validations on the Web UI Javascript code
+# Perform basic validations on the Web UI JavaScript code
 #
 # 1. Validate that the generated files that have been checked in to the webapp folder are in sync
 #    with the source.

@@ -14,12 +14,14 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.SourceLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,9 +34,11 @@ public final class InputReferenceExpression
 
     @JsonCreator
     public InputReferenceExpression(
+            @JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation,
             @JsonProperty("field") int field,
             @JsonProperty("type") Type type)
     {
+        super(sourceLocation);
         requireNonNull(type, "type is null");
 
         this.field = field;
@@ -70,6 +74,12 @@ public final class InputReferenceExpression
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitInputReference(this, context);
+    }
+
+    @Override
+    public RowExpression canonicalize()
+    {
+        return getSourceLocation().isPresent() ? new InputReferenceExpression(Optional.empty(), field, type) : this;
     }
 
     @Override

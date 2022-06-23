@@ -45,6 +45,7 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -232,6 +233,33 @@ public final class StreamPropertyDerivations
                     // the probe can contain nulls in any stream so we can't say anything about the
                     // partitioning but the other properties of the probe will be maintained.
                     return probeProperties.withUnspecifiedPartitioning();
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
+        }
+
+        @Override
+        public StreamProperties visitMergeJoin(MergeJoinNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties leftProperties = inputProperties.get(0);
+            StreamProperties rightProperties = inputProperties.get(1);
+            List<VariableReferenceExpression> outputs = node.getOutputVariables();
+
+            switch (node.getType()) {
+                case INNER:
+                    return leftProperties
+                            .translate(column -> PropertyDerivations.filterOrRewrite(outputs, node.getCriteria(), column));
+                case LEFT:
+                    return leftProperties
+                            .translate(column -> PropertyDerivations.filterIfMissing(outputs, column));
+                case RIGHT:
+                    return rightProperties
+                            .translate(column -> PropertyDerivations.filterIfMissing(outputs, column));
+                case FULL:
+                    // the left can contain nulls in any stream so we can't say anything about the
+                    // partitioning, and nulls from the right are produced from a extra new stream
+                    // so we will always have multiple streams.
+                    return new StreamProperties(MULTIPLE, Optional.empty(), false);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
@@ -659,9 +687,9 @@ public final class StreamPropertyDerivations
         private StreamProperties unordered(boolean unordered)
         {
             if (unordered) {
-                ActualProperties updatedProperies = null;
+                ActualProperties updatedProperties = null;
                 if (otherActualProperties != null) {
-                    updatedProperies = ActualProperties.builderFrom(otherActualProperties)
+                    updatedProperties = ActualProperties.builderFrom(otherActualProperties)
                             .unordered(true)
                             .build();
                 }
@@ -669,7 +697,7 @@ public final class StreamPropertyDerivations
                         distribution,
                         partitioningColumns,
                         false,
-                        updatedProperies);
+                        updatedProperties);
             }
             return this;
         }

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.IntBigArray;
+import com.facebook.presto.common.array.LongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
@@ -162,6 +162,14 @@ public class BigintGroupByHash
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         return new AddPageWork(page.getBlock(hashChannel));
+    }
+
+    @Override
+    public List<Page> getBufferedPages()
+    {
+        // This method is left unimplemented since it is not invoked from anywhere within code.
+        // Add an implementation, if needed in future
+        throw new UnsupportedOperationException("BigIntGroupByHash does not support getBufferedPages");
     }
 
     @Override

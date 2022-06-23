@@ -25,12 +25,14 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.BooleanStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.CountStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
@@ -43,6 +45,8 @@ import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
@@ -52,6 +56,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -75,6 +80,7 @@ import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
@@ -83,13 +89,13 @@ import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.STATIC_METADATA;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public class OrcWriteValidation
 {
@@ -109,6 +115,16 @@ public class OrcWriteValidation
     private final List<ColumnStatistics> fileStatistics;
     private final int stringStatisticsLimitInBytes;
 
+    // keeps mapping from the map key node to the map node
+    private final Map<Integer, Integer> flattenedKeyToMapNodes;
+
+    // keeps mapping from the map node to all its value nodes
+    private final Map<Integer, Set<Integer>> flattenedMapToValueNodes;
+
+    // keeps all flat map value nodes
+    private final Set<Integer> flattenedValueNodes;
+
+    // all values passed into this constructor are collected by the writer
     private OrcWriteValidation(
             List<Integer> version,
             CompressionKind compression,
@@ -119,7 +135,9 @@ public class OrcWriteValidation
             Map<Long, List<RowGroupStatistics>> rowGroupStatistics,
             Map<Long, StripeStatistics> stripeStatistics,
             List<ColumnStatistics> fileStatistics,
-            int stringStatisticsLimitInBytes)
+            int stringStatisticsLimitInBytes,
+            Set<Integer> flattenedNodes,
+            List<OrcType> orcTypes)
     {
         this.version = version;
         this.compression = compression;
@@ -131,6 +149,9 @@ public class OrcWriteValidation
         this.stripeStatistics = stripeStatistics;
         this.fileStatistics = fileStatistics;
         this.stringStatisticsLimitInBytes = stringStatisticsLimitInBytes;
+        this.flattenedKeyToMapNodes = getFlattenedKeyToMapNodes(flattenedNodes, orcTypes);
+        this.flattenedValueNodes = getFlattenedValueNodes(flattenedNodes, orcTypes);
+        this.flattenedMapToValueNodes = getFlattenedMapToValueNodes(flattenedNodes, orcTypes);
     }
 
     public List<Integer> getVersion()
@@ -220,15 +241,11 @@ public class OrcWriteValidation
         requireNonNull(actualRowGroupStatistics, "actualRowGroupStatistics is null");
         List<RowGroupStatistics> expectedRowGroupStatistics = rowGroupStatistics.get(stripeOffset);
         if (expectedRowGroupStatistics == null) {
-            throw new OrcCorruptionException(orcDataSourceId, "Unexpected stripe at offset %s", stripeOffset);
+            throw new OrcCorruptionException(orcDataSourceId, "Missing row group column statistics for stripe at offset %s", stripeOffset);
         }
 
         int rowGroupCount = expectedRowGroupStatistics.size();
         for (Entry<StreamId, List<RowGroupIndex>> entry : actualRowGroupStatistics.entrySet()) {
-            // TODO: Remove once the Presto writer supports flat map
-            if (entry.getKey().getSequence() > 0) {
-                throw new OrcCorruptionException(orcDataSourceId, "Unexpected sequence ID for column %s at offset %s", entry.getKey().getColumn(), stripeOffset);
-            }
             if (entry.getValue().size() != rowGroupCount) {
                 throw new OrcCorruptionException(orcDataSourceId, "Unexpected row group count stripe in at offset %s", stripeOffset);
             }
@@ -238,35 +255,146 @@ public class OrcWriteValidation
             RowGroupStatistics expectedRowGroup = expectedRowGroupStatistics.get(rowGroupIndex);
             if (expectedRowGroup.getValidationMode() != HASHED) {
                 Map<Integer, ColumnStatistics> expectedStatistics = expectedRowGroup.getColumnStatistics();
-                Set<Integer> actualColumns = actualRowGroupStatistics.keySet().stream()
-                        .map(StreamId::getColumn)
-                        .collect(Collectors.toSet());
-                if (!expectedStatistics.keySet().equals(actualColumns)) {
+                Map<Integer, ColumnStatistics> actualStatistics = aggregateRowGroupStatisticsFromRowIndex(orcDataSourceId, actualRowGroupStatistics, stripeOffset, rowGroupIndex);
+
+                // remove empty row group stats for empty flat maps
+                expectedStatistics = adjustRowGroupStatisticsForFlatMaps(orcDataSourceId, stripeOffset, expectedStatistics);
+                actualStatistics = adjustRowGroupStatisticsForFlatMaps(orcDataSourceId, stripeOffset, actualStatistics);
+
+                Set<Integer> actualColumns = actualStatistics.keySet();
+                Set<Integer> expectedColumns = expectedStatistics.keySet();
+
+                if (!expectedColumns.equals(actualColumns)) {
                     throw new OrcCorruptionException(orcDataSourceId, "Unexpected column in row group %s in stripe at offset %s", rowGroupIndex, stripeOffset);
                 }
+
                 for (Entry<StreamId, List<RowGroupIndex>> entry : actualRowGroupStatistics.entrySet()) {
-                    ColumnStatistics actual = entry.getValue().get(rowGroupIndex).getColumnStatistics();
-                    ColumnStatistics expected = expectedStatistics.get(entry.getKey().getColumn());
+                    int column = entry.getKey().getColumn();
+                    ColumnStatistics actual = actualStatistics.get(column);
+                    ColumnStatistics expected = expectedStatistics.get(column);
                     validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
                 }
             }
 
             if (expectedRowGroup.getValidationMode() != DETAILED) {
-                RowGroupStatistics actualRowGroup = buildActualRowGroupStatistics(rowGroupIndex, actualRowGroupStatistics);
-                if (expectedRowGroup.getHash() != actualRowGroup.getHash()) {
+                Map<Integer, ColumnStatistics> actualStatistics = aggregateRowGroupStatisticsFromRowIndex(orcDataSourceId, actualRowGroupStatistics, stripeOffset, rowGroupIndex);
+                actualStatistics = adjustRowGroupStatisticsForFlatMaps(orcDataSourceId, stripeOffset, actualStatistics);
+                RowGroupStatistics actualRowGroup = new RowGroupStatistics(BOTH, actualStatistics);
+                RowGroupStatistics adjustedExpectedRowGroup = new RowGroupStatistics(BOTH, adjustRowGroupStatisticsForFlatMaps(orcDataSourceId, stripeOffset, expectedRowGroup.getColumnStatistics()));
+                if (adjustedExpectedRowGroup.getHash() != actualRowGroup.getHash()) {
                     throw new OrcCorruptionException(orcDataSourceId, "Checksum mismatch for row group %s in stripe at offset %s", rowGroupIndex, stripeOffset);
                 }
             }
         }
     }
 
-    private static RowGroupStatistics buildActualRowGroupStatistics(int rowGroupIndex, Map<StreamId, List<RowGroupIndex>> actualRowGroupStatistics)
+    private Map<Integer, ColumnStatistics> adjustRowGroupStatisticsForFlatMaps(OrcDataSourceId orcDataSourceId, long stripeOffset, Map<Integer, ColumnStatistics> stats)
     {
-        return new RowGroupStatistics(
-                BOTH,
-                actualRowGroupStatistics.entrySet()
-                        .stream()
-                        .collect(Collectors.toMap(entry -> entry.getKey().getColumn(), entry -> entry.getValue().get(rowGroupIndex).getColumnStatistics())));
+        if (this.flattenedKeyToMapNodes.isEmpty()) {
+            return stats;
+        }
+
+        // The only reliable way to detect that a flat map doesn't have non-null & non-empty
+        // values is to check the stripe stats for the key node. If it has 0 number of values
+        // it means that this flat map writer didn't write anything.
+        StripeStatistics stripeStats = this.stripeStatistics.get(stripeOffset);
+        if (stripeStats == null) {
+            throw new OrcCorruptionException(orcDataSourceId, "Could not find stripe statistics for a stripe at offset %s", stripeOffset);
+        }
+
+        List<ColumnStatistics> allStripeColumnStatistics = stripeStats.getColumnStatistics();
+        Set<Integer> excludedNodes = new HashSet<>();
+        for (Entry<Integer, Integer> keyToMapNodeEntry : flattenedKeyToMapNodes.entrySet()) {
+            int keyNode = keyToMapNodeEntry.getKey();
+
+            ColumnStatistics stripeColumnStat = allStripeColumnStatistics.get(keyNode);
+            if (stripeColumnStat.getNumberOfValues() == 0) {
+                // This flat map column writer didn't write any key/value.
+                // Go over all value nodes for this flat map and check that they
+                // have 0 values before marking them as excluded.
+                Integer mapNode = keyToMapNodeEntry.getValue();
+                Set<Integer> valueNodes = flattenedMapToValueNodes.get(mapNode);
+                for (int valueNode : valueNodes) {
+                    ColumnStatistics valueColumnStat = allStripeColumnStatistics.get(valueNode);
+                    if (valueColumnStat.getNumberOfValues() != 0) {
+                        throw new OrcCorruptionException(
+                                orcDataSourceId,
+                                "Stripe at offset %s has unexpected flat map value node column stats with non-zero number of values",
+                                stripeOffset);
+                    }
+                    excludedNodes.add(valueNode);
+                }
+            }
+        }
+
+        // return original stats excluding the flat map value stats for empty flat maps
+        return stats.entrySet().stream()
+                .filter(e -> !excludedNodes.contains(e.getKey()))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    }
+
+    private Map<Integer, ColumnStatistics> aggregateRowGroupStatisticsFromRowIndex(
+            OrcDataSourceId orcDataSourceId,
+            Map<StreamId, List<RowGroupIndex>> actualRowGroupStatistics,
+            long stripeOffset,
+            int rowGroupIndex)
+    {
+        // flattened nodes might have multiple ROW_INDEX with the same column, but different sequences
+        // aggregate such statistics before the validation
+        Map<Integer, List<ColumnStatistics>> actualColumnStatisticsByColumn = new HashMap<>();
+        for (Entry<StreamId, List<RowGroupIndex>> entry : actualRowGroupStatistics.entrySet()) {
+            int column = entry.getKey().getColumn();
+            ColumnStatistics actual = entry.getValue().get(rowGroupIndex).getColumnStatistics();
+            List<ColumnStatistics> aggregateStats = actualColumnStatisticsByColumn.computeIfAbsent(column, (key) -> new ArrayList<>());
+            aggregateStats.add(actual);
+
+            // Regular nodes have only 1 ColumnStatistics in the ROW_INDEX, flattened nodes
+            // might have zero or more column statistics.
+            if (aggregateStats.size() != 1 && !flattenedValueNodes.contains(column)) {
+                throw new OrcCorruptionException(
+                        orcDataSourceId,
+                        "Unexpected multiple column statistics for node %s in row group %s in stripe at offset %s",
+                        column,
+                        rowGroupIndex,
+                        stripeOffset);
+            }
+        }
+
+        return actualColumnStatisticsByColumn.entrySet().stream()
+                .collect(Collectors.toMap(Entry::getKey, entry -> mergeColumnStatistics(entry.getValue())));
+    }
+
+    private Map<Integer, Integer> getFlattenedKeyToMapNodes(Set<Integer> flattenedNodes, List<OrcType> orcTypes)
+    {
+        ImmutableMap.Builder<Integer, Integer> keyNodeToMapNode = ImmutableMap.builder();
+        flattenedNodes.forEach(mapNodeIndex -> keyNodeToMapNode.put(orcTypes.get(mapNodeIndex).getFieldTypeIndex(0), mapNodeIndex));
+        return keyNodeToMapNode.build();
+    }
+
+    private Map<Integer, Set<Integer>> getFlattenedMapToValueNodes(Set<Integer> flattenedNodes, List<OrcType> orcTypes)
+    {
+        ImmutableMap.Builder<Integer, Set<Integer>> keyNodeToMapNode = ImmutableMap.builder();
+        flattenedNodes.forEach(mapNodeIndex -> keyNodeToMapNode.put(mapNodeIndex, getFlattenedValueNodes(ImmutableSet.of(mapNodeIndex), orcTypes)));
+        return keyNodeToMapNode.build();
+    }
+
+    private Set<Integer> getFlattenedValueNodes(Set<Integer> flattenedNodes, List<OrcType> orcTypes)
+    {
+        ImmutableSet.Builder<Integer> valueNodes = ImmutableSet.builder();
+        List<Integer> stack = new ArrayList<>();
+
+        for (Integer mapNodeIndex : flattenedNodes) {
+            int valueNodeIndex = orcTypes.get(mapNodeIndex).getFieldTypeIndex(1); // get map.value node index
+            stack.add(valueNodeIndex);
+
+            while (!stack.isEmpty()) {
+                int nodeIndex = stack.remove(stack.size() - 1);
+                valueNodes.add(nodeIndex);
+                OrcType orcType = orcTypes.get(nodeIndex);
+                stack.addAll(orcType.getFieldTypeIndexes());
+            }
+        }
+        return valueNodes.build();
     }
 
     public void validateRowGroupStatistics(
@@ -284,19 +412,29 @@ public class OrcWriteValidation
             throw new OrcCorruptionException(orcDataSourceId, "Unexpected row group %s in stripe at offset %s", rowGroupIndex, stripeOffset);
         }
 
+        // exclude stats for flat map keys because they are not present in the row group stats
+        ImmutableList.Builder<ColumnStatistics> actualAdjusted = ImmutableList.builder();
+        ImmutableMap.Builder<Integer, ColumnStatistics> actualAdjustedByNode = ImmutableMap.builder();
+        for (int i = 1; i < actual.size(); i++) {
+            if (!flattenedKeyToMapNodes.containsKey(i)) {
+                actualAdjusted.add(actual.get(i));
+                actualAdjustedByNode.put(i, actual.get(i));
+            }
+        }
+
         RowGroupStatistics expectedRowGroup = rowGroups.get(rowGroupIndex);
-        RowGroupStatistics actualRowGroup = new RowGroupStatistics(BOTH, IntStream.range(1, actual.size()).boxed().collect(toImmutableMap(identity(), actual::get)));
+        RowGroupStatistics actualRowGroup = new RowGroupStatistics(BOTH, actualAdjustedByNode.build());
 
         if (expectedRowGroup.getValidationMode() != HASHED) {
             Map<Integer, ColumnStatistics> expectedByColumnIndex = expectedRowGroup.getColumnStatistics();
 
             // new writer does not write row group stats for column zero (table row column)
             List<ColumnStatistics> expected = IntStream.range(1, actual.size())
+                    .filter(column -> !flattenedKeyToMapNodes.containsKey(column))
                     .mapToObj(expectedByColumnIndex::get)
                     .collect(toImmutableList());
-            actual = actual.subList(1, actual.size());
 
-            validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
+            validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actualAdjusted.build(), expected);
         }
 
         if (expectedRowGroup.getValidationMode() != DETAILED) {
@@ -356,7 +494,8 @@ public class OrcWriteValidation
         requireNonNull(expectedColumnStatistics, "expectedColumnStatistics is null");
 
         if (actualColumnStatistics.getNumberOfValues() != expectedColumnStatistics.getNumberOfValues()) {
-            throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected number of values in %s statistics", name);
+            String failureMessage = format("Actual Values %s does not match expected values %s", actualColumnStatistics, expectedColumnStatistics);
+            throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: %s in %s statistics", failureMessage, name);
         }
 
         if (!Objects.equals(actualColumnStatistics.getBooleanStatistics(), expectedColumnStatistics.getBooleanStatistics())) {
@@ -481,16 +620,17 @@ public class OrcWriteValidation
             return new WriteChecksumBuilder(types.build());
         }
 
-        public void addStripe(int rowCount)
+        public void addStripe(long rowCount)
         {
-            longSlice.setInt(0, rowCount);
-            stripeHash.update(longBuffer, 0, Integer.BYTES);
+            longSlice.setLong(0, rowCount);
+            stripeHash.update(longBuffer, 0, Long.BYTES);
         }
 
         public void addPage(Page page)
         {
             requireNonNull(page, "page is null");
-            checkArgument(page.getChannelCount() == columnHashes.size(), "invalid page");
+            // When append row number is set to true, the page will have an additional block appended at the end
+            checkArgument(page.getChannelCount() >= columnHashes.size(), "invalid page");
 
             for (int channel = 0; channel < columnHashes.size(); channel++) {
                 Type type = types.get(channel);
@@ -555,6 +695,16 @@ public class OrcWriteValidation
                 }
             }
 
+            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP_MICROSECONDS)) {
+                // A flaw in ORC encoding makes it impossible to represent timestamp
+                // between 1969-12-31 23:59:59.000000, exclusive, and 1970-01-01 00:00:00.000000, exclusive.
+                // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
+                long micros = TIMESTAMP_MICROSECONDS.getLong(block, position);
+                if (micros > -1_000_000 && micros < 0) {
+                    return AbstractLongType.hash(micros + 1_000_000);
+                }
+            }
+
             return type.hash(block, position);
         }
 
@@ -604,7 +754,7 @@ public class OrcWriteValidation
             ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
             // if there are no rows, there will be no stats
             if (rowCount > 0) {
-                statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null));
+                statisticsBuilders.add(new ColumnStatistics(rowCount, null));
                 columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
             }
             return statisticsBuilders.build();
@@ -677,7 +827,7 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (TIMESTAMP.equals(type)) {
+            else if (TIMESTAMP.equals(type) || TIMESTAMP_MICROSECONDS.equals(type)) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
@@ -741,28 +891,6 @@ public class OrcWriteValidation
         {
             output.add(statisticsBuilder.buildColumnStatistics());
             fieldBuilders.forEach(fieldBuilders -> fieldBuilders.build(output));
-        }
-    }
-
-    private static class CountStatisticsBuilder
-            implements StatisticsBuilder
-    {
-        private long rowCount;
-
-        @Override
-        public void addBlock(Type type, Block block)
-        {
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                if (!block.isNull(position)) {
-                    rowCount++;
-                }
-            }
-        }
-
-        @Override
-        public ColumnStatistics buildColumnStatistics()
-        {
-            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null);
         }
     }
 
@@ -842,6 +970,8 @@ public class OrcWriteValidation
         private final Map<Long, StripeStatistics> stripeStatistics = new HashMap<>();
         private List<ColumnStatistics> fileStatistics;
         private long retainedSize = INSTANCE_SIZE;
+        private Set<Integer> flattenedNodes;
+        private List<OrcType> orcTypes;
 
         public OrcWriteValidationBuilder(OrcWriteValidationMode validationMode, List<Type> types)
         {
@@ -888,7 +1018,7 @@ public class OrcWriteValidation
             return this;
         }
 
-        public OrcWriteValidationBuilder addStripe(int rowCount)
+        public OrcWriteValidationBuilder addStripe(long rowCount)
         {
             checksum.addStripe(rowCount);
             return this;
@@ -925,6 +1055,16 @@ public class OrcWriteValidation
             this.fileStatistics = fileStatistics;
         }
 
+        public void setFlattenedNodes(Set<Integer> flattenedNodes)
+        {
+            this.flattenedNodes = flattenedNodes;
+        }
+
+        public void setOrcTypes(List<OrcType> orcTypes)
+        {
+            this.orcTypes = orcTypes;
+        }
+
         public OrcWriteValidation build()
         {
             return new OrcWriteValidation(
@@ -937,7 +1077,9 @@ public class OrcWriteValidation
                     rowGroupStatisticsByStripe,
                     stripeStatistics,
                     fileStatistics,
-                    stringStatisticsLimitInBytes);
+                    stringStatisticsLimitInBytes,
+                    flattenedNodes,
+                    orcTypes);
         }
     }
 }

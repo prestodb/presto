@@ -18,12 +18,15 @@ import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
+import com.facebook.presto.common.RuntimeMetric;
+import com.facebook.presto.common.RuntimeUnit;
 import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.io.PrintStream;
+import java.util.Comparator;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -148,6 +151,17 @@ Spilled: 20GB
         printQueryInfo(client.currentStatusInfo(), warningsPrinter);
     }
 
+    private String autoFormatMetricValue(RuntimeUnit unit, long value)
+    {
+        if (unit == RuntimeUnit.NANO) {
+            return formatTime(Duration.succinctNanos(value));
+        }
+        if (unit == RuntimeUnit.BYTE) {
+            return formatDataSize(bytes(value), true);
+        }
+        return formatCount(value); // NONE
+    }
+
     public void printFinalInfo()
     {
         Duration wallTime = nanosSince(start);
@@ -214,6 +228,17 @@ Spilled: 20GB
             // Spilled Data: 20GB
             if (stats.getSpilledBytes() > 0) {
                 reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
+            }
+
+            // bytesFromCache: sum=2K count=2 min=1K max=1K
+            if (stats.getRuntimeStats() != null) {
+                stats.getRuntimeStats().getMetrics().values().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
+                        metric -> reprintLine(format("%s: sum=%s count=%s min=%s max=%s",
+                                metric.getName(),
+                                autoFormatMetricValue(metric.getUnit(), metric.getSum()),
+                                formatCount(metric.getCount()),
+                                autoFormatMetricValue(metric.getUnit(), metric.getMin()),
+                                autoFormatMetricValue(metric.getUnit(), metric.getMax()))));
             }
         }
 
@@ -314,6 +339,16 @@ Spilled: 20GB
                 // Spilled Data: 20GB
                 if (stats.getSpilledBytes() > 0) {
                     reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
+                }
+
+                if (stats.getRuntimeStats() != null) {
+                    stats.getRuntimeStats().getMetrics().values().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
+                            metric -> reprintLine(format("%s: sum=%s count=%s min=%s max=%s",
+                                    metric.getName(),
+                                    autoFormatMetricValue(metric.getUnit(), metric.getSum()),
+                                    formatCount(metric.getCount()),
+                                    autoFormatMetricValue(metric.getUnit(), metric.getMin()),
+                                    autoFormatMetricValue(metric.getUnit(), metric.getMax()))));
                 }
             }
 

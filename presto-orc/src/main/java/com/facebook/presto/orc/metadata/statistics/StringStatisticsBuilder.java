@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.common.block.Block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -62,24 +62,24 @@ public class StringStatisticsBuilder
     }
 
     @Override
-    public void addValue(Slice value)
+    public void addValue(Block block, int position)
     {
-        requireNonNull(value, "value is null");
-
+        requireNonNull(block, "block is null");
+        int sliceLength = block.getSliceLength(position);
         if (nonNullValueCount == 0) {
             checkState(minimum == null && maximum == null);
-            minimum = value;
-            maximum = value;
+            Slice minMaxSlice = block.getSlice(position, 0, sliceLength);
+            minimum = minMaxSlice;
+            maximum = minMaxSlice;
         }
-        else if (minimum != null && value.compareTo(minimum) <= 0) {
-            minimum = value;
+        else if (minimum != null && block.bytesCompare(position, 0, sliceLength, minimum, 0, minimum.length()) <= 0) {
+            minimum = block.getSlice(position, 0, sliceLength);
         }
-        else if (maximum != null && value.compareTo(maximum) >= 0) {
-            maximum = value;
+        else if (maximum != null && block.bytesCompare(position, 0, sliceLength, maximum, 0, maximum.length()) >= 0) {
+            maximum = block.getSlice(position, 0, sliceLength);
         }
-
         nonNullValueCount++;
-        sum = addExact(sum, value.length());
+        sum = addExact(sum, sliceLength);
     }
 
     /**
@@ -124,18 +124,11 @@ public class StringStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<StringStatistics> stringStatistics = buildStringStatistics();
-        stringStatistics.ifPresent(s -> verify(nonNullValueCount > 0));
-        return new ColumnStatistics(
-                nonNullValueCount,
-                stringStatistics.map(s -> STRING_VALUE_BYTES_OVERHEAD + sum / nonNullValueCount).orElse(0L),
-                null,
-                null,
-                null,
-                stringStatistics.orElse(null),
-                null,
-                null,
-                null,
-                null);
+        if (stringStatistics.isPresent()) {
+            verify(nonNullValueCount > 0);
+            return new StringColumnStatistics(nonNullValueCount, null, stringStatistics.get());
+        }
+        return new ColumnStatistics(nonNullValueCount, null);
     }
 
     public static Optional<StringStatistics> mergeStringStatistics(List<ColumnStatistics> stats)

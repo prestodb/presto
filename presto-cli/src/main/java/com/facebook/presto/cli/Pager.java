@@ -163,10 +163,10 @@ public class Pager
 
     private static Pager createNullPager()
     {
-        return new Pager(uncloseableOutputStream(System.out), null);
+        return new Pager(unclosableOutputStream(System.out), null);
     }
 
-    private static OutputStream uncloseableOutputStream(OutputStream out)
+    private static OutputStream unclosableOutputStream(OutputStream out)
     {
         return new FilterOutputStream(out)
         {

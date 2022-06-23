@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.project;
 
-import com.facebook.presto.array.ReferenceCountMap;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.array.ReferenceCountMap;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
@@ -139,6 +139,10 @@ public class PageProcessor
             if (selectedPositions.size() != page.getPositionCount()) {
                 return WorkProcessor.create(new ProjectSelectedPositions(properties, yieldSignal, memoryContext, page, selectedPositions));
             }
+        }
+        else if (projections.isEmpty()) {
+            // retained memory for empty page is negligible
+            return WorkProcessor.of(new Page(page.getPositionCount()));
         }
 
         return WorkProcessor.create(new ProjectSelectedPositions(properties, yieldSignal, memoryContext, page, positionsRange(0, page.getPositionCount())));

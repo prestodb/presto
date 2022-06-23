@@ -34,11 +34,6 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
 {
-    protected AbstractTestEngineOnlyQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     @Test
     public void testTimeLiterals()
     {

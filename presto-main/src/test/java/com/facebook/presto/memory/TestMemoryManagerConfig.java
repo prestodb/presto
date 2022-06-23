@@ -40,7 +40,8 @@ public class TestMemoryManagerConfig
                 .setMaxQueryMemory(new DataSize(20, GIGABYTE))
                 .setSoftMaxQueryMemory(new DataSize(20, GIGABYTE))
                 .setMaxQueryTotalMemory(new DataSize(40, GIGABYTE))
-                .setSoftMaxQueryTotalMemory(new DataSize(40, GIGABYTE)));
+                .setSoftMaxQueryTotalMemory(new DataSize(40, GIGABYTE))
+                .setTableFinishOperatorMemoryTrackingEnabled(false));
     }
 
     @Test
@@ -53,6 +54,7 @@ public class TestMemoryManagerConfig
                 .put("query.soft-max-memory", "1GB")
                 .put("query.max-total-memory", "3GB")
                 .put("query.soft-max-total-memory", "2GB")
+                .put("table-finish-operator-memory-tracking-enabled", "true")
                 .build();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
@@ -61,7 +63,8 @@ public class TestMemoryManagerConfig
                 .setMaxQueryMemory(new DataSize(2, GIGABYTE))
                 .setSoftMaxQueryMemory(new DataSize(1, GIGABYTE))
                 .setMaxQueryTotalMemory(new DataSize(3, GIGABYTE))
-                .setSoftMaxQueryTotalMemory(new DataSize(2, GIGABYTE));
+                .setSoftMaxQueryTotalMemory(new DataSize(2, GIGABYTE))
+                .setTableFinishOperatorMemoryTrackingEnabled(true);
 
         assertFullMapping(properties, expected);
     }

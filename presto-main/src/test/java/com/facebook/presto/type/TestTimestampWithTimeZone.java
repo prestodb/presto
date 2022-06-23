@@ -40,6 +40,22 @@ public class TestTimestampWithTimeZone
         functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
                 TIME,
                 "03:04:05.321");
+
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321123 +07:09' as time)",
+                TIME,
+                sqlTimeOf(3, 4, 5, 321, session));
+
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321123 +07:09' as time)",
+                TIME,
+                "03:04:05.321");
+
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321123456 +07:09' as time)",
+                TIME,
+                sqlTimeOf(3, 4, 5, 321, session));
+
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321123456 +07:09' as time)",
+                TIME,
+                "03:04:05.321");
     }
 
     @Test
@@ -54,6 +70,18 @@ public class TestTimestampWithTimeZone
         functionAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000 Asia/Kathmandu' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
                 "10:00:00.000 Asia/Kathmandu");
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000123 Europe/Warsaw' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "10:00:00.000 Europe/Warsaw");
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000123 Asia/Kathmandu' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "10:00:00.000 Asia/Kathmandu");
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000123456 Europe/Warsaw' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "10:00:00.000 Europe/Warsaw");
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000123456 Asia/Kathmandu' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "10:00:00.000 Asia/Kathmandu");
     }
 
     @Test
@@ -64,8 +92,24 @@ public class TestTimestampWithTimeZone
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
 
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321123 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321123456 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+
         // This TZ had switch in 2014, so if we test for 2014 and used unpacked value we would use wrong shift
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 Pacific/Bougainville' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321123 Pacific/Bougainville' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321123456 Pacific/Bougainville' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
     }

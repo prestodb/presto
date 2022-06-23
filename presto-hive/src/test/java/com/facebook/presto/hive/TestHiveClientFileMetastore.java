@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveSplitManager.OBJECT_NOT_READABLE;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
@@ -72,8 +73,8 @@ public class TestHiveClientFileMetastore
         File baseDir = new File(tempDir, "metastore");
         HiveClientConfig hiveConfig = new HiveClientConfig();
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
-        HdfsConfigurationInitializer updator = new HdfsConfigurationInitializer(hiveConfig, metastoreClientConfig);
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updator, ImmutableSet.of());
+        HdfsConfigurationInitializer updater = new HdfsConfigurationInitializer(hiveConfig, metastoreClientConfig);
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updater, ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
     }
@@ -107,6 +108,12 @@ public class TestHiveClientFileMetastore
     public void testTransactionDeleteInsert()
     {
         // FileHiveMetastore has various incompatibilities
+    }
+
+    @Override
+    public void testTableConstraints()
+    {
+        // FileHiveMetastore has no support for table constraints
     }
 
     @Test
@@ -171,7 +178,7 @@ public class TestHiveClientFileMetastore
         doCreateEmptyTable(tableName, ORC, columns);
 
         ExtendedHiveMetastore metastoreClient = getMetastoreClient();
-        Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastoreClient.getTable(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         List<String> firstPartitionValues = ImmutableList.of("2020-01-01");
@@ -186,16 +193,16 @@ public class TestHiveClientFileMetastore
                 .stream()
                 .map(partitionName -> new PartitionWithStatistics(createDummyPartition(table, partitionName), partitionName, PartitionStatistics.empty()))
                 .collect(toImmutableList());
-        metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
-        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> EMPTY_TABLE_STATISTICS);
-        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> EMPTY_TABLE_STATISTICS);
+        metastoreClient.addPartitions(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), partitions);
+        metastoreClient.updatePartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> EMPTY_TABLE_STATISTICS);
+        metastoreClient.updatePartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> EMPTY_TABLE_STATISTICS);
 
         List<PartitionWithStatistics> partitionsNotReadable = ImmutableList.of(thirdPartitionName)
                 .stream()
                 .map(partitionName -> new PartitionWithStatistics(createDummyPartition(table, partitionName, dynamicPartitionParameters), partitionName, PartitionStatistics.empty()))
                 .collect(toImmutableList());
-        metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitionsNotReadable);
-        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), thirdPartitionName, currentStatistics -> EMPTY_TABLE_STATISTICS);
+        metastoreClient.addPartitions(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), partitionsNotReadable);
+        metastoreClient.updatePartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), thirdPartitionName, currentStatistics -> EMPTY_TABLE_STATISTICS);
     }
 
     private Partition createDummyPartition(Table table, String partitionName, Map<String, String> dynamicPartitionParameters)

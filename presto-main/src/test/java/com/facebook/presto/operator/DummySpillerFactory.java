@@ -57,6 +57,11 @@ public class DummySpillerFactory
             }
 
             @Override
+            public void commit()
+            {
+            }
+
+            @Override
             public void close()
             {
                 spills.clear();

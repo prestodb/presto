@@ -37,6 +37,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
@@ -118,15 +119,19 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
+import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
@@ -149,7 +154,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -188,7 +193,7 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, List<Expression> parameters)
+    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters)
     {
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(expression, Scope.create());
@@ -214,7 +219,7 @@ public class ExpressionInterpreter
             Metadata metadata,
             Session session,
             Set<NodeRef<Expression>> columnReferences,
-            List<Expression> parameters)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         requireNonNull(columnReferences, "columnReferences is null");
 
@@ -299,16 +304,15 @@ public class ExpressionInterpreter
         @Override
         protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
         {
-            Type returnType = type(node);
-            Optional<Object> maybeEnumValue = tryResolveEnumLiteral(node, returnType);
-            if (maybeEnumValue.isPresent()) {
-                return maybeEnumValue.get();
-            }
-
             Type type = type(node.getBase());
             // if there is no type for the base of Dereference, it must be QualifiedName
             if (type == null) {
                 return node;
+            }
+
+            Type returnType = type(node);
+            if (isEnumType(type) && isEnumType(returnType)) {
+                return resolveEnumLiteral(node, returnType);
             }
 
             Object base = process(node.getBase(), context);
@@ -350,7 +354,7 @@ public class ExpressionInterpreter
             // ExpressionInterpreter should only be invoked after planning.
             // As a result, this method should be unreachable.
             // However, RelationPlanner.visitUnnest and visitValues invokes evaluateConstantExpression.
-            return ((VariableResolver) context).getValue(variable(node.getValue(), type(node)));
+            return ((VariableResolver) context).getValue(variable(getSourceLocation(node), node.getValue(), type(node)));
         }
 
         @Override
@@ -362,7 +366,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSymbolReference(SymbolReference node, Object context)
         {
-            return ((VariableResolver) context).getValue(variable(node.getName(), type(node)));
+            return ((VariableResolver) context).getValue(variable(getSourceLocation(node), node.getName(), type(node)));
         }
 
         @Override
@@ -550,7 +554,7 @@ public class ExpressionInterpreter
                 if (!isDeterministic(expression) || visitedExpression.add(expression)) {
                     operandsBuilder.add(expression);
                 }
-                // TODO: Replace this logic with an anlyzer which specifies whether it evaluates to null
+                // TODO: Replace this logic with an analyzer which specifies whether it evaluates to null
                 if (expression instanceof Literal && !(expression instanceof NullLiteral)) {
                     break;
                 }
@@ -691,7 +695,7 @@ public class ExpressionInterpreter
                     return value;
                 case MINUS:
                     FunctionHandle operatorHandle = metadata.getFunctionAndTypeManager().resolveOperator(OperatorType.NEGATION, fromTypes(types(node.getValue())));
-                    MethodHandle handle = metadata.getFunctionAndTypeManager().getBuiltInScalarFunctionImplementation(operatorHandle).getMethodHandle();
+                    MethodHandle handle = metadata.getFunctionAndTypeManager().getJavaScalarFunctionImplementation(operatorHandle).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == SqlFunctionProperties.class) {
                         handle = handle.bindTo(connectorSession.getSqlFunctionProperties());
@@ -809,8 +813,8 @@ public class ExpressionInterpreter
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             Type commonType = functionAndTypeManager.getCommonSuperType(firstType, secondType).get();
 
-            FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType.getTypeSignature(), commonType.getTypeSignature());
-            FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType.getTypeSignature(), commonType.getTypeSignature());
+            FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType, commonType);
+            FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -938,25 +942,28 @@ public class ExpressionInterpreter
 
             Object result;
 
-            switch (functionMetadata.getImplementationType()) {
-                case BUILTIN:
-                    result = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
-                    break;
-                case SQL:
-                    Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle), metadata, session.getSqlFunctionProperties(), node.getArguments());
-                    ExpressionInterpreter functionInterpreter = new ExpressionInterpreter(
-                            function,
-                            metadata,
-                            session,
-                            getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyList(), WarningCollector.NOOP),
-                            optimize);
-                    result = functionInterpreter.visitor.process(function, context);
-                    break;
-                case THRIFT:
-                    // do not interpret remote functions on coordinator
+            FunctionImplementationType implementationType = functionMetadata.getImplementationType();
+            if (implementationType.isExternal()) {
+                // do not interpret remote functions on coordinator
+                return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
+            }
+            else if (implementationType.equals(JAVA)) {
+                result = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
+            }
+            else {
+                checkState(implementationType.equals(SQL));
+                Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle), metadata, new PlanVariableAllocator(), session.getSqlFunctionProperties(), node.getArguments());
+                ExpressionInterpreter functionInterpreter = new ExpressionInterpreter(
+                        function,
+                        metadata,
+                        session,
+                        getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyMap(), WarningCollector.NOOP),
+                        optimize);
+                result = functionInterpreter.visitor.process(function, context);
+                if (result instanceof FunctionCall) {
+                    // Cannot interpret function to constant
                     return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
-                default:
-                    throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
+                }
             }
 
             if (optimize && !isSerializable(result, type(node))) {
@@ -1142,7 +1149,7 @@ public class ExpressionInterpreter
                 return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
-            FunctionHandle operator = metadata.getFunctionAndTypeManager().lookupCast(CAST, sourceType.getTypeSignature(), targetType.getTypeSignature());
+            FunctionHandle operator = metadata.getFunctionAndTypeManager().lookupCast(CAST, sourceType, targetType);
 
             try {
                 Object castedValue = functionInvoker.invoke(operator, session.getSqlFunctionProperties(), ImmutableList.of(value));

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -82,6 +83,7 @@ public class PushTableWriteThroughUnion
 
         return Result.ofPlanNode(
                 new UnionNode(
+                        writerNode.getSourceLocation(),
                         context.getIdAllocator().getNextId(),
                         rewrittenSources.build(),
                         ImmutableList.copyOf(mappings.keySet()),
@@ -110,7 +112,7 @@ public class PushTableWriteThroughUnion
             }
         }
         sourceMappings.add(outputMappings.build());
-        SymbolMapper symbolMapper = new SymbolMapper(mappings.build());
+        SymbolMapper symbolMapper = new SymbolMapper(mappings.build(), WarningCollector.NOOP);
         return symbolMapper.map(writerNode, unionNode.getSources().get(source), context.getIdAllocator().getNextId());
     }
 

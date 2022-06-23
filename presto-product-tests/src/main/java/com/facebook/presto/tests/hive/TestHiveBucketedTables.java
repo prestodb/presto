@@ -86,8 +86,28 @@ public class TestHiveBucketedTables
 
         onHive().executeQuery(format("ALTER TABLE %s NOT CLUSTERED", tableName));
 
+        assertThat(query(format("SELECT count(DISTINCT n_nationkey), count(*) FROM %s", tableName)))
+                .hasRowsCount(1)
+                .contains(row(25, 50));
+
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
                 .containsExactly(row(2));
+    }
+
+    @Test(groups = {BIG_QUERY})
+    public void testAllowMultipleFilesPerBucket()
+    {
+        String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
+        for (int i = 0; i < 3; i++) {
+            populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert'");
+        }
+
+        assertThat(query(format("SELECT count(DISTINCT n_nationkey), count(*) FROM %s", tableName)))
+                .hasRowsCount(1)
+                .contains(row(25, 75));
+
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
+                .containsExactly(row(3));
     }
 
     @Test(groups = {BIG_QUERY})

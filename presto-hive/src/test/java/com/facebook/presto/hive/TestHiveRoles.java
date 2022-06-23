@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,9 +42,11 @@ import static org.testng.Assert.assertEquals;
 public class TestHiveRoles
         extends AbstractTestQueryFramework
 {
-    protected TestHiveRoles()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(HiveQueryRunner::createQueryRunner);
+        return HiveQueryRunner.createQueryRunner();
     }
 
     @AfterMethod

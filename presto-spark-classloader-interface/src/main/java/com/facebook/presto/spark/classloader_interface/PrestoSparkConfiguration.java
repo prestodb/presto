@@ -26,24 +26,29 @@ public class PrestoSparkConfiguration
     private final Map<String, String> configProperties;
     private final String pluginsDirectoryPath;
     private final Map<String, Map<String, String>> catalogProperties;
+    private final String metadataStorageType;
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
     private final Optional<Map<String, Map<String, String>>> functionNamespaceProperties;
+    private final Optional<Map<String, Map<String, String>>> tempStorageProperties;
 
     public PrestoSparkConfiguration(
             Map<String, String> configProperties,
             String pluginsDirectoryPath,
             Map<String, Map<String, String>> catalogProperties,
+            String metadataStorageType,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
-            Optional<Map<String, Map<String, String>>> functionNamespaceProperties)
+            Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
+            Optional<Map<String, Map<String, String>>> tempStorageProperties)
     {
         this.configProperties = unmodifiableMap(new HashMap<>(requireNonNull(configProperties, "configProperties is null")));
         this.pluginsDirectoryPath = requireNonNull(pluginsDirectoryPath, "pluginsDirectoryPath is null");
         this.catalogProperties = unmodifiableMap(requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
+        this.metadataStorageType = requireNonNull(metadataStorageType, "metadataStorageType is null");
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null")
@@ -51,6 +56,9 @@ public class PrestoSparkConfiguration
         this.sessionPropertyConfigurationProperties = requireNonNull(sessionPropertyConfigurationProperties, "sessionPropertyConfigurationProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.functionNamespaceProperties = requireNonNull(functionNamespaceProperties, "functionNamespaceProperties is null")
+                .map(map -> map.entrySet().stream()
+                        .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
+        this.tempStorageProperties = requireNonNull(tempStorageProperties, "tempStorageProperties is null")
                 .map(map -> map.entrySet().stream()
                         .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
     }
@@ -68,6 +76,11 @@ public class PrestoSparkConfiguration
     public Map<String, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
+    }
+
+    public String getMetadataStorageType()
+    {
+        return metadataStorageType;
     }
 
     public Optional<Map<String, String>> getEventListenerProperties()
@@ -88,5 +101,10 @@ public class PrestoSparkConfiguration
     public Optional<Map<String, Map<String, String>>> getFunctionNamespaceProperties()
     {
         return functionNamespaceProperties;
+    }
+
+    public Optional<Map<String, Map<String, String>>> getTempStorageProperties()
+    {
+        return tempStorageProperties;
     }
 }

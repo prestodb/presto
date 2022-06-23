@@ -33,7 +33,6 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -45,6 +44,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -114,7 +114,7 @@ public class StatisticsAggregationPlanner
     private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticType statisticType, VariableReferenceExpression input, boolean useOriginalExpression)
     {
         // This is transitional. Will migrate to only using VariableReferenceExpression when supported by all the planner rules.
-        RowExpression inputExpression = useOriginalExpression ? castToRowExpression(new SymbolReference(input.getName())) : input;
+        RowExpression inputExpression = useOriginalExpression ? castToRowExpression(createSymbolReference(input)) : input;
         switch (statisticType) {
             case MIN_VALUE:
                 return createAggregation("min", inputExpression, input.getType(), input.getType());
@@ -144,6 +144,7 @@ public class StatisticsAggregationPlanner
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         new CallExpression(
+                                input.getSourceLocation(),
                                 functionName,
                                 functionHandle,
                                 outputType,

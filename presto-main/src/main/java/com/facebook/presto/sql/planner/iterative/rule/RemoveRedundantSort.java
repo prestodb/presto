@@ -15,16 +15,26 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.SortNode;
 
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.sort;
 
+/**
+ * Removes sort operations where the input is provably at most one row.
+ */
 public class RemoveRedundantSort
         implements Rule<SortNode>
 {
-    private static final Pattern<SortNode> PATTERN = sort();
+    private static final Pattern<SortNode> PATTERN = sort()
+            .matching(RemoveRedundantSort::singleRowInput);
+
+    private static boolean singleRowInput(SortNode node)
+    {
+        return ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
+                ((GroupReference) node.getSource()).getLogicalProperties().get().isAtMostSingleRow();
+    }
 
     @Override
     public Pattern<SortNode> getPattern()
@@ -35,9 +45,6 @@ public class RemoveRedundantSort
     @Override
     public Result apply(SortNode node, Captures captures, Context context)
     {
-        if (isAtMostScalar(node.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(node.getSource());
-        }
-        return Result.empty();
+        return Result.ofPlanNode(node.getSource());
     }
 }

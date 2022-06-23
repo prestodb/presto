@@ -39,7 +39,8 @@ public class TestNodeMemoryConfig
                 .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
                 .setSoftMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
                 .setHeapHeadroom(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
-                .setReservedPoolEnabled(true));
+                .setReservedPoolEnabled(true)
+                .setVerboseExceededMemoryLimitErrorsEnabled(true));
     }
 
     @Test
@@ -53,6 +54,7 @@ public class TestNodeMemoryConfig
                 .put("query.soft-max-total-memory-per-node", "2GB")
                 .put("memory.heap-headroom-per-node", "1GB")
                 .put("experimental.reserved-pool-enabled", "false")
+                .put("memory.verbose-exceeded-memory-limit-errors-enabled", "false")
                 .build();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
@@ -62,7 +64,8 @@ public class TestNodeMemoryConfig
                 .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
                 .setSoftMaxQueryTotalMemoryPerNode(new DataSize(2, GIGABYTE))
                 .setHeapHeadroom(new DataSize(1, GIGABYTE))
-                .setReservedPoolEnabled(false);
+                .setReservedPoolEnabled(false)
+                .setVerboseExceededMemoryLimitErrorsEnabled(false);
 
         assertFullMapping(properties, expected);
     }
@@ -78,6 +81,7 @@ public class TestNodeMemoryConfig
                 .put("query.soft-max-total-memory-per-node", "2GB")
                 .put("memory.heap-headroom-per-node", "1GB")
                 .put("experimental.reserved-pool-enabled", "false")
+                .put("memory.verbose-exceeded-memory-limit-errors-enabled", "false")
                 .build();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
@@ -87,7 +91,8 @@ public class TestNodeMemoryConfig
                 .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
                 .setSoftMaxQueryTotalMemoryPerNode(new DataSize(2, GIGABYTE))
                 .setHeapHeadroom(new DataSize(1, GIGABYTE))
-                .setReservedPoolEnabled(false);
+                .setReservedPoolEnabled(false)
+                .setVerboseExceededMemoryLimitErrorsEnabled(false);
 
         assertFullMapping(properties, expected);
     }

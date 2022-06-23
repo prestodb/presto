@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.Stream;
+import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import org.openjdk.jol.info.ClassLayout;
@@ -36,13 +37,14 @@ public class ByteOutputStream
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteOutputStream.class).instanceSize();
 
     private static final int MIN_REPEAT_SIZE = 3;
-    // A value out side of the range of a signed byte
+    // A value outside of the range of a signed byte
     private static final int UNMATCHABLE_VALUE = Integer.MAX_VALUE;
+    private static final int SEQUENCE_BUFFER_SIZE = 128;
 
     private final OrcOutputBuffer buffer;
     private final List<ByteStreamCheckpoint> checkpoints = new ArrayList<>();
 
-    private final byte[] sequenceBuffer = new byte[128];
+    private final byte[] sequenceBuffer = new byte[SEQUENCE_BUFFER_SIZE];
     private int size;
 
     private int runCount;
@@ -50,9 +52,9 @@ public class ByteOutputStream
 
     private boolean closed;
 
-    public ByteOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public ByteOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
-        this(new OrcOutputBuffer(compressionParameters, dwrfEncryptor));
+        this(new OrcOutputBuffer(columnWriterOptions, dwrfEncryptor));
     }
 
     public ByteOutputStream(OrcOutputBuffer buffer)
@@ -65,7 +67,7 @@ public class ByteOutputStream
         checkState(!closed);
 
         // flush if buffer is full
-        if (size == sequenceBuffer.length) {
+        if (size == SEQUENCE_BUFFER_SIZE) {
             flushSequence();
         }
 
@@ -97,7 +99,7 @@ public class ByteOutputStream
             runCount = MIN_REPEAT_SIZE;
             size = MIN_REPEAT_SIZE;
 
-            // note there is no reason to add the run values to the buffer since is is not used
+            // note there is no reason to add the run values to the buffer since it is not used
             // when in a run length sequence
         }
 
@@ -106,18 +108,17 @@ public class ByteOutputStream
 
     private void flushSequence()
     {
-        if (size == 0) {
-            return;
-        }
-
         if (runCount >= MIN_REPEAT_SIZE) {
             buffer.writeByte(runCount - MIN_REPEAT_SIZE);
             buffer.writeByte(lastValue);
         }
         else {
             buffer.writeByte(-size);
-            for (int i = 0; i < size; i++) {
-                buffer.writeByte(sequenceBuffer[i]);
+            if (size == 1) {
+                buffer.writeByte(sequenceBuffer[0]);
+            }
+            else {
+                buffer.writeBytes(sequenceBuffer, 0, size);
             }
         }
 
@@ -137,7 +138,9 @@ public class ByteOutputStream
     public void close()
     {
         closed = true;
-        flushSequence();
+        if (size != 0) {
+            flushSequence();
+        }
         buffer.close();
     }
 
@@ -149,9 +152,14 @@ public class ByteOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), false));
+        return getStreamDataOutput(column, sequence, DATA);
+    }
+
+    public StreamDataOutput getStreamDataOutput(int column, int sequence, StreamKind streamKind)
+    {
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, streamKind, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override

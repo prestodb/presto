@@ -18,11 +18,13 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -43,6 +45,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrat
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -98,12 +101,14 @@ import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializa
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getPartialMergePushdownStrategy;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
+import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedIndexJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExactPartitioningPreferred;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isPreferDistributedUnion;
+import static com.facebook.presto.SystemSessionProperties.isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
@@ -140,6 +145,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class AddExchanges
@@ -147,17 +153,19 @@ public class AddExchanges
 {
     private final SqlParser parser;
     private final Metadata metadata;
+    private final PartitioningProviderManager partitioningProviderManager;
 
-    public AddExchanges(Metadata metadata, SqlParser parser)
+    public AddExchanges(Metadata metadata, SqlParser parser, PartitioningProviderManager partitioningProviderManager)
     {
-        this.metadata = metadata;
-        this.parser = parser;
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.parser = requireNonNull(parser, "parser is null");
+        this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, session), PreferredProperties.any());
+        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager), PreferredProperties.any());
         return result.getNode();
     }
 
@@ -177,8 +185,13 @@ public class AddExchanges
         private final String partitioningProviderCatalog;
         private final int hashPartitionCount;
         private final ExchangeMaterializationStrategy exchangeMaterializationStrategy;
+        private final PartitioningProviderManager partitioningProviderManager;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, Session session)
+        public Rewriter(
+                PlanNodeIdAllocator idAllocator,
+                PlanVariableAllocator variableAllocator,
+                Session session,
+                PartitioningProviderManager partitioningProviderManager)
         {
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
@@ -193,6 +206,7 @@ public class AddExchanges
             this.partitioningProviderCatalog = getPartitioningProviderCatalog(session);
             this.hashPartitionCount = getHashPartitionCount(session);
             this.exchangeMaterializationStrategy = getExchangeMaterializationStrategy(session);
+            this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         }
 
         @Override
@@ -437,6 +451,7 @@ public class AddExchanges
                 // add exchange + push function to child
                 child = withDerivedProperties(
                         new TopNRowNumberNode(
+                                node.getSourceLocation(),
                                 idAllocator.getNextId(),
                                 child.getNode(),
                                 node.getSpecification(),
@@ -504,6 +519,7 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
                                 new SortNode(
+                                        source.getSourceLocation(),
                                         idAllocator.getNextId(),
                                         source,
                                         node.getOrderingScheme(),
@@ -528,7 +544,7 @@ public class AddExchanges
 
             if (!child.getProperties().isSingleNode()) {
                 child = withDerivedProperties(
-                        new LimitNode(idAllocator.getNextId(), child.getNode(), node.getCount(), PARTIAL),
+                        new LimitNode(child.getNode().getSourceLocation(), idAllocator.getNextId(), child.getNode(), node.getCount(), PARTIAL),
                         child.getProperties());
 
                 child = withDerivedProperties(
@@ -549,7 +565,7 @@ public class AddExchanges
                         gatheringExchange(
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
-                                new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctVariables(), node.getHashVariable())),
+                                new DistinctLimitNode(child.getNode().getSourceLocation(), idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctVariables(), node.getHashVariable())),
                         child.getProperties());
             }
 
@@ -598,15 +614,42 @@ public class AddExchanges
                     !source.getProperties().isCompatibleTablePartitioningWith(shufflePartitioningScheme.get().getPartitioning(), false, metadata, session) &&
                     !(source.getProperties().isRefinedPartitioningOver(shufflePartitioningScheme.get().getPartitioning(), false, metadata, session) &&
                             canPushdownPartialMerge(source.getNode(), partialMergePushdownStrategy))) {
+                PartitioningScheme exchangePartitioningScheme = shufflePartitioningScheme.get();
+                if (node.getTablePartitioningScheme().isPresent() && isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(session)) {
+                    int writerThreadsPerNode = getTaskPartitionedWriterCount(session);
+                    int bucketCount = getBucketCount(node.getTablePartitioningScheme().get().getPartitioning().getHandle());
+                    int[] bucketToPartition = new int[bucketCount];
+                    for (int i = 0; i < bucketCount; i++) {
+                        bucketToPartition[i] = i / writerThreadsPerNode;
+                    }
+                    exchangePartitioningScheme = exchangePartitioningScheme.withBucketToPartition(Optional.of(bucketToPartition));
+                }
+
                 source = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
                                 source.getNode(),
-                                shufflePartitioningScheme.get()),
+                                exchangePartitioningScheme),
                         source.getProperties());
             }
             return rebaseAndDeriveProperties(node, source);
+        }
+
+        private int getBucketCount(PartitioningHandle partitioning)
+        {
+            ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioning);
+            return partitioningProvider.getBucketCount(
+                    partitioning.getTransactionHandle().orElse(null),
+                    session.toConnectorSession(),
+                    partitioning.getConnectorHandle());
+        }
+
+        private ConnectorNodePartitioningProvider getPartitioningProvider(PartitioningHandle partitioning)
+        {
+            ConnectorId connectorId = partitioning.getConnectorId()
+                    .orElseThrow(() -> new IllegalArgumentException("Unexpected partitioning: " + partitioning));
+            return partitioningProviderManager.getPartitioningProvider(connectorId);
         }
 
         private PlanWithProperties planTableScan(TableScanNode node, RowExpression predicate)
@@ -673,6 +716,7 @@ public class AddExchanges
             if (child instanceof ExchangeNode) {
                 ExchangeNode exchangeNode = (ExchangeNode) child;
                 gather = new ExchangeNode(
+                        exchangeNode.getSourceLocation(),
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE_STREAMING,
@@ -843,7 +887,9 @@ public class AddExchanges
 
         private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
         {
-            JoinNode result = new JoinNode(node.getId(),
+            JoinNode result = new JoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
                     node.getType(),
                     newLeft.getNode(),
                     newRight.getNode(),
@@ -1158,6 +1204,7 @@ public class AddExchanges
 
                 ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = outputToSourcesMapping.build();
                 UnionNode newNode = new UnionNode(
+                        node.getSourceLocation(),
                         node.getId(),
                         partitionedSources.build(),
                         ImmutableList.copyOf(outputsToInputs.keySet()),
@@ -1214,6 +1261,7 @@ public class AddExchanges
                         // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
                         return new PlanWithProperties(
                                 new ExchangeNode(
+                                        node.getSourceLocation(),
                                         idAllocator.getNextId(),
                                         REPARTITION,
                                         REMOTE_STREAMING,
@@ -1233,6 +1281,7 @@ public class AddExchanges
                 // We should consider supporting multiple table scans, at least for Presto on Spark where
                 // it could be easier to implement and round robin exchanges are much more expensive.
                 result = new ExchangeNode(
+                        node.getSourceLocation(),
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE_STREAMING,
@@ -1252,6 +1301,7 @@ public class AddExchanges
                             .collect(toImmutableList());
 
                     result = new ExchangeNode(
+                            node.getSourceLocation(),
                             idAllocator.getNextId(),
                             GATHER,
                             REMOTE_STREAMING,
@@ -1275,7 +1325,7 @@ public class AddExchanges
 
                 // add local union for all unpartitioned inputs
                 ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = mappings.build();
-                result = new UnionNode(node.getId(), singleNodeChildren, ImmutableList.copyOf(outputsToInputs.keySet()), fromListMultimap(outputsToInputs));
+                result = new UnionNode(node.getSourceLocation(), node.getId(), singleNodeChildren, ImmutableList.copyOf(outputsToInputs.keySet()), fromListMultimap(outputsToInputs));
             }
             else {
                 throw new IllegalStateException("both singleNodeChildren distributedChildren are empty");

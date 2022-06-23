@@ -48,7 +48,7 @@ public class TestProcedureCreation
     }
 
     @Test
-    public void shouldThrowExceptionWhenArgumentNameRepeates()
+    public void shouldThrowExceptionWhenArgumentNameRepeats()
     {
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
                 new Procedure.Argument("name", VARCHAR, false, null),

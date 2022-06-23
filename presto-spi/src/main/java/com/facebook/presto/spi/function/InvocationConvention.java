@@ -33,6 +33,11 @@ public class InvocationConvention
         return returnConvention;
     }
 
+    public List<InvocationArgumentConvention> getArgumentConventions()
+    {
+        return argumentConventionList;
+    }
+
     public InvocationArgumentConvention getArgumentConvention(int index)
     {
         return argumentConventionList.get(index);

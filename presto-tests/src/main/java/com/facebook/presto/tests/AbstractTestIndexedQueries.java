@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.tpch.TpchIndexSpec;
 import com.facebook.presto.tests.tpch.TpchIndexSpec.Builder;
@@ -33,11 +34,6 @@ public abstract class AbstractTestIndexedQueries
             .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey", "custkey"))
             .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderstatus", "shippriority"))
             .build();
-
-    protected AbstractTestIndexedQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
 
     @Test
     public void testExampleSystemTable()
@@ -68,6 +64,26 @@ public abstract class AbstractTestIndexedQueries
     public void testBasicIndexJoin()
     {
         assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT *\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "JOIN orders o\n" +
+                "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testBasicIndexJoinWithSpillEnabled()
+    {
+        // spill is not supported for index join, but it shares the lookup join operator
+        // with non-index join.  Make sure no errors are thrown when running index joins
+        // when spill is enabled.
+        assertQuery(Session.builder(getSession())
+                        .setSystemProperty("spill_enabled", "true")
+                        .setSystemProperty("join_spill_enabled", "true")
+                        .build(),
+                "" +
                 "SELECT *\n" +
                 "FROM (\n" +
                 "  SELECT *\n" +

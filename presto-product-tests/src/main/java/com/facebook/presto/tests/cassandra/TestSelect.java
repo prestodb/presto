@@ -23,6 +23,7 @@ import io.prestodb.tempto.internal.query.CassandraQueryExecutor;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
@@ -43,10 +44,13 @@ import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
+import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.REAL;
+import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
+import static java.sql.JDBCType.TINYINT;
 import static java.sql.JDBCType.VARBINARY;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -170,27 +174,27 @@ public class TestSelect
     {
         // NOTE: DECIMAL is treated like DOUBLE
         QueryResult query = query(format(
-                "SELECT a, b, bl, bo, d, do, f, fr, i, integer, l, m, s, t, ti, tu, u, v, vari FROM %s.%s.%s",
+                "SELECT a, b, bl, bo, d, do, dt, f, fr, i, integer, l, m, s, si, t, ti, ts, tu, u, v, vari FROM %s.%s.%s",
                 CONNECTOR_NAME, KEY_SPACE, CASSANDRA_ALL_TYPES.getName()));
 
         assertThat(query)
-                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, VARCHAR, VARCHAR,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TIMESTAMP, VARCHAR, VARCHAR,
+                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, VARCHAR,
+                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(
-                        row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE,
+                        row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
                                 Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
-                                "[0]", "\0", Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
+                                "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "\0", String.valueOf(Long.MIN_VALUE)),
                         row("the quick brown fox jumped over the lazy dog", 9223372036854775807L, "01234".getBytes(),
-                                true, new Double("99999999999999999999999999999999999999"), Double.MAX_VALUE,
+                                true, new Double("99999999999999999999999999999999999999"), Double.MAX_VALUE, Date.valueOf("9999-12-31"),
                                 Float.MAX_VALUE, "[4,5,6,7]", "255.255.255.255", Integer.MAX_VALUE, "[4,5,6]",
-                                "{\"a\":1,\"b\":2}", "[4,5,6]", "this is a text value", Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
+                                "{\"a\":1,\"b\":2}", "[4,5,6]", Short.MAX_VALUE, "this is a text value", Byte.MAX_VALUE, Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "abc", String.valueOf(Long.MAX_VALUE)),
                         row("def", null, null, null, null, null, null, null, null, null, null, null,
-                                null, null, null, null, null, null, null));
+                                null, null, null, null, null, null, null, null, null, null));
     }
 
     @Test(groups = CASSANDRA)
@@ -251,17 +255,17 @@ public class TestSelect
                 new Duration(1, MINUTES));
 
         QueryResult query = query(format(
-                "SELECT a, b, bl, bo, d, do, f, fr, i, integer, l, m, s, t, ti, tu, u, v, vari FROM %s.%s.%s WHERE a = '\0'",
+                "SELECT a, b, bl, bo, d, do, dt, f, fr, i, integer, l, m, s, si, t, ti, ts, tu, u, v, vari FROM %s.%s.%s WHERE a = '\0'",
                 CONNECTOR_NAME, KEY_SPACE, materializedViewName));
 
         assertThat(query)
-                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, REAL, VARCHAR, VARCHAR,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TIMESTAMP, VARCHAR, VARCHAR,
+                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, VARCHAR,
+                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(
-                        row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE,
+                        row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
                                 Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
-                                "[0]", "\0", Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
+                                "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "\0", String.valueOf(Long.MIN_VALUE)));
 

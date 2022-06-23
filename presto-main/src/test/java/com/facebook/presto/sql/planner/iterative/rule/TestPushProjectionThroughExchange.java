@@ -129,7 +129,7 @@ public class TestPushProjectionThroughExchange
                                     .addSource(
                                             p.values(a, b, h))
                                     .addInputsSet(a, b, h)
-                                    .fixedHashDistributionParitioningScheme(
+                                    .fixedHashDistributionPartitioningScheme(
                                             ImmutableList.of(a, b, h),
                                             ImmutableList.of(b),
                                             h)));

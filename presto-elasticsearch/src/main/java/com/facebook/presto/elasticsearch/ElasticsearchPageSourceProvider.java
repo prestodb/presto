@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -27,6 +31,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -34,11 +39,13 @@ public class ElasticsearchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final ElasticsearchClient client;
+    private final Type jsonType;
 
     @Inject
-    public ElasticsearchPageSourceProvider(ElasticsearchClient client)
+    public ElasticsearchPageSourceProvider(ElasticsearchClient client, TypeManager typeManager)
     {
         this.client = requireNonNull(client, "client is null");
+        this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
 
     @Override
@@ -54,6 +61,10 @@ public class ElasticsearchPageSourceProvider
         requireNonNull(layout, "layout is null");
         ElasticsearchTableLayoutHandle layoutHandle = (ElasticsearchTableLayoutHandle) layout;
         ElasticsearchSplit elasticsearchSplit = (ElasticsearchSplit) split;
+
+        if (layoutHandle.getTable().getType().equals(QUERY)) {
+            return new PassthroughQueryPageSource(client, layoutHandle.getTable(), jsonType);
+        }
 
         if (columns.isEmpty()) {
             return new CountQueryPageSource(client, session, layoutHandle.getTable(), elasticsearchSplit);

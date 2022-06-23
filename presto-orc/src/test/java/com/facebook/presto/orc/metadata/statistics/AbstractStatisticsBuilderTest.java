@@ -68,14 +68,14 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.empty()), 0);
     }
 
-    public void assertMinAverageValueBytes(long expectedAverageValueBytes, List<T> values)
+    public void assertTotalValueBytes(long expectedTotalValueBytes, List<T> values)
     {
         // test add value
         B statisticsBuilder = statisticsBuilderSupplier.get();
         for (T value : values) {
             adder.accept(statisticsBuilder, value);
         }
-        assertEquals(statisticsBuilder.buildColumnStatistics().getMinAverageValueSizeInBytes(), expectedAverageValueBytes);
+        assertEquals(statisticsBuilder.buildColumnStatistics().getTotalValueSizeInBytes(), expectedTotalValueBytes);
 
         // test merge
         statisticsBuilder = statisticsBuilderSupplier.get();
@@ -89,7 +89,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
             adder.accept(statisticsBuilder, values.get(i));
         }
         ColumnStatistics secondStats = statisticsBuilder.buildColumnStatistics();
-        assertEquals(mergeColumnStatistics(ImmutableList.of(firstStats, secondStats)).getMinAverageValueSizeInBytes(), expectedAverageValueBytes);
+        assertEquals(mergeColumnStatistics(ImmutableList.of(firstStats, secondStats)).getTotalValueSizeInBytes(), expectedTotalValueBytes);
     }
 
     public void assertMinMaxValues(T expectedMin, T expectedMax)
@@ -171,7 +171,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
     static List<ColumnStatistics> insertEmptyColumnStatisticsAt(List<ColumnStatistics> statisticsList, int index, long numberOfValues)
     {
         List<ColumnStatistics> newStatisticsList = new ArrayList<>(statisticsList);
-        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, 0, null, null, null, null, null, null, null, null));
+        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, null));
         return newStatisticsList;
     }
 

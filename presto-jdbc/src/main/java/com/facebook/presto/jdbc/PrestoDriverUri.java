@@ -21,17 +21,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.TimeZone;
 
 import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_CREDENTIALS_PATH_KEY;
 import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_OAUTH_SCOPES_KEY;
@@ -45,8 +48,11 @@ import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.client.OkHttpUtil.tokenAuth;
 import static com.facebook.presto.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static com.facebook.presto.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
+import static com.facebook.presto.jdbc.ConnectionProperties.CLIENT_TAGS;
+import static com.facebook.presto.jdbc.ConnectionProperties.CUSTOM_HEADERS;
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
+import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROTOCOLS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
@@ -63,6 +69,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWO
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.TIMEZONE_ID;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -146,10 +153,37 @@ final class PrestoDriverUri
         return properties;
     }
 
+    public String getTimeZoneId()
+            throws SQLException
+    {
+        Optional<String> timezone = TIMEZONE_ID.getValue(properties);
+
+        if (timezone.isPresent()) {
+            List<String> timeZoneIds = Arrays.asList(TimeZone.getAvailableIDs());
+            if (!timeZoneIds.contains(timezone.get())) {
+                throw new SQLException("Specified timeZoneId is not supported: " + timezone.get());
+            }
+            return timezone.get();
+        }
+        return TimeZone.getDefault().getID();
+    }
+
     public Map<String, String> getExtraCredentials()
             throws SQLException
     {
         return EXTRA_CREDENTIALS.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public Map<String, String> getCustomHeaders()
+            throws SQLException
+    {
+        return CUSTOM_HEADERS.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public Optional<String> getClientTags()
+            throws SQLException
+    {
+        return CLIENT_TAGS.getValue(properties);
     }
 
     public Map<String, String> getSessionProperties()
@@ -170,6 +204,12 @@ final class PrestoDriverUri
         return DISABLE_COMPRESSION.getValue(properties).orElse(false);
     }
 
+    public Optional<List<Protocol>> getProtocols()
+            throws SQLException
+    {
+        return HTTP_PROTOCOLS.getValue(properties);
+    }
+
     public void setupClient(OkHttpClient.Builder builder)
             throws SQLException
     {
@@ -177,6 +217,9 @@ final class PrestoDriverUri
             setupCookieJar(builder);
             setupSocksProxy(builder, SOCKS_PROXY.getValue(properties));
             setupHttpProxy(builder, HTTP_PROXY.getValue(properties));
+
+            // add user specified protocols to okhttp3 client if specified
+            getProtocols().ifPresent(builder::protocols);
 
             // TODO: fix Tempto to allow empty passwords
             String password = PASSWORD.getValue(properties).orElse("");

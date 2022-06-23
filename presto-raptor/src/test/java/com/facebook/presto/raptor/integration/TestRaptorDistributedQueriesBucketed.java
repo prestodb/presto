@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.integration;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
@@ -20,9 +21,11 @@ import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunn
 public class TestRaptorDistributedQueriesBucketed
         extends TestRaptorDistributedQueries
 {
-    public TestRaptorDistributedQueriesBucketed()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
+        return createRaptorQueryRunner(ImmutableMap.of(), true, true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED"));
     }
 
     @Override

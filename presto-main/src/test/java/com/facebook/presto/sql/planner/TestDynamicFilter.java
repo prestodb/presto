@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -25,6 +26,10 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -38,6 +43,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 
 public class TestDynamicFilter
         extends BasePlanTest
@@ -62,6 +68,37 @@ public class TestDynamicFilter
     }
 
     @Test
+    public void testRightEquiJoin()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o RIGHT JOIN lineitem l ON l.orderkey = o.orderkey",
+                anyTree(
+                        join(
+                                RIGHT,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                exchange(
+                                        project(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+    }
+
+    @Test
+    public void testRightEquiJoinWithLeftExpression()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o RIGHT JOIN lineitem l ON l.orderkey + 1 = o.orderkey",
+                anyTree(
+                        join(
+                                RIGHT,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "expr")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("expr", expression("LINEITEM_OK + BIGINT '1'")),
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+    }
+
+    @Test
     public void testEmptyJoinCriteria()
     {
         assertPlan(
@@ -74,10 +111,24 @@ public class TestDynamicFilter
     }
 
     @Test
+    public void testCrossJoinInequalityWithCast()
+    {
+        assertPlan("SELECT o.comment, l.comment FROM orders o, lineitem l WHERE o.comment < l.comment",
+                anyTree(filter("O_COMMENT < CAST(L_COMMENT AS varchar(79))",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("orders", ImmutableMap.of("O_COMMENT", "comment")),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_COMMENT", "comment")))))));
+    }
+
+    @Test
     public void testJoin()
     {
         assertPlan(
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
+                noJoinReordering(),
                 anyTree(
                         join(
                                 INNER,
@@ -95,6 +146,7 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE cast(l.orderkey as int) = cast(o.orderkey as int)",
+                noJoinReordering(),
                 anyTree(
                         node(
                                 JoinNode.class,
@@ -111,6 +163,7 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey AND l.partkey = o.custkey",
+                noJoinReordering(),
                 anyTree(
                         join(
                                 INNER,
@@ -130,6 +183,7 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey ORDER BY l.orderkey ASC, o.orderkey ASC",
+                noJoinReordering(),
                 anyTree(
                         join(
                                 INNER,
@@ -189,6 +243,7 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT 1 FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey",
+                noJoinReordering(),
                 anyTree(
                         anyNot(
                                 FilterNode.class,
@@ -209,6 +264,7 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT part.partkey from part JOIN (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) ON part.partkey = lineitem.orderkey",
+                noJoinReordering(),
                 anyTree(
                         join(
                                 INNER,
@@ -404,5 +460,13 @@ public class TestDynamicFilter
                                 exchange(
                                         project(
                                                 tableScan("part", ImmutableMap.of("K2", "partkey", "V2", "size")))))));
+    }
+
+    private Session noJoinReordering()
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                .build();
     }
 }

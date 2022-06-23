@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.TestHiveUtil.createTestingFileHiveMetastore;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -68,7 +69,7 @@ public final class HiveBenchmarkQueryRunner
         // add hive
         File hiveDir = new File(tempDir, "hive_data");
         ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
-        metastore.createDatabase(Database.builder()
+        metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
                 .setDatabaseName("tpch")
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)

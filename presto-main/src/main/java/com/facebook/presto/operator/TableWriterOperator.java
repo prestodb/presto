@@ -14,6 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -25,12 +28,14 @@ import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.PageSinkContext;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.PageSinkManager;
@@ -49,6 +54,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -57,6 +63,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.createStatisticsPage;
+import static com.facebook.presto.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -79,6 +86,7 @@ public class TableWriterOperator
         private final TaskMetadataContext taskMetadataContext;
         private final ExecutionWriterTarget target;
         private final List<Integer> columnChannels;
+        private final List<String> notNullChannelColumnNames;
         private final Session session;
         private final OperatorFactory statisticsAggregationOperatorFactory;
         private final List<Type> types;
@@ -94,6 +102,7 @@ public class TableWriterOperator
                 TaskMetadataContext taskMetadataContext,
                 ExecutionWriterTarget writerTarget,
                 List<Integer> columnChannels,
+                List<String> notNullChannelColumnNames,
                 Session session,
                 OperatorFactory statisticsAggregationOperatorFactory,
                 List<Type> types,
@@ -103,10 +112,13 @@ public class TableWriterOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
+            this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             this.metadataUpdaterManager = requireNonNull(metadataUpdaterManager, "metadataUpdaterManager is null");
             this.taskMetadataContext = requireNonNull(taskMetadataContext, "taskMetadataContext is null");
-            checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
+            checkArgument(
+                    writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle || writerTarget instanceof RefreshMaterializedViewHandle,
+                    "writerTarget must be CreateHandle or InsertHandle or RefreshMaterializedViewHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
@@ -126,6 +138,7 @@ public class TableWriterOperator
                     context,
                     createPageSink(),
                     columnChannels,
+                    notNullChannelColumnNames,
                     statisticsAggregationOperator,
                     types,
                     statisticsCpuTimerEnabled,
@@ -152,6 +165,9 @@ public class TableWriterOperator
             if (target instanceof InsertHandle) {
                 return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkContextBuilder.build());
             }
+            if (target instanceof RefreshMaterializedViewHandle) {
+                return pageSinkManager.createPageSink(session, ((RefreshMaterializedViewHandle) target).getHandle(), pageSinkContextBuilder.build());
+            }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
 
@@ -163,6 +179,10 @@ public class TableWriterOperator
 
             if (handle instanceof InsertHandle) {
                 return ((InsertHandle) handle).getHandle().getConnectorId();
+            }
+
+            if (handle instanceof RefreshMaterializedViewHandle) {
+                return ((RefreshMaterializedViewHandle) handle).getHandle().getConnectorId();
             }
 
             throw new UnsupportedOperationException("Unhandled target type: " + handle.getClass().getName());
@@ -177,7 +197,20 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, metadataUpdaterManager, taskMetadataContext, target, columnChannels, session, statisticsAggregationOperatorFactory, types, tableCommitContextCodec, pageSinkCommitStrategy);
+            return new TableWriterOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    pageSinkManager,
+                    metadataUpdaterManager,
+                    taskMetadataContext,
+                    target,
+                    columnChannels,
+                    notNullChannelColumnNames,
+                    session,
+                    statisticsAggregationOperatorFactory,
+                    types,
+                    tableCommitContextCodec,
+                    pageSinkCommitStrategy);
         }
     }
 
@@ -190,6 +223,7 @@ public class TableWriterOperator
     private final LocalMemoryContext pageSinkMemoryContext;
     private final ConnectorPageSink pageSink;
     private final List<Integer> columnChannels;
+    private final List<String> notNullChannelColumnNames;
     private final AtomicLong pageSinkPeakMemoryUsage = new AtomicLong();
     private final Operator statisticAggregationOperator;
     private final List<Type> types;
@@ -208,10 +242,13 @@ public class TableWriterOperator
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final PageSinkCommitStrategy pageSinkCommitStrategy;
 
+    private final Supplier<TableWriterInfo> tableWriterInfoSupplier;
+
     public TableWriterOperator(
             OperatorContext operatorContext,
             ConnectorPageSink pageSink,
             List<Integer> columnChannels,
+            List<String> notNullChannelColumnNames,
             Operator statisticAggregationOperator,
             List<Type> types,
             boolean statisticsCpuTimerEnabled,
@@ -219,15 +256,18 @@ public class TableWriterOperator
             PageSinkCommitStrategy pageSinkCommitStrategy)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext(TableWriterOperator.class.getSimpleName());
+        this.pageSinkMemoryContext = operatorContext.localSystemMemoryContext();
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
-        this.operatorContext.setInfoSupplier(this::getInfo);
+        this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
+        checkArgument(columnChannels.size() == notNullChannelColumnNames.size(), "columnChannels and notNullColumnNames have different sizes");
         this.statisticAggregationOperator = requireNonNull(statisticAggregationOperator, "statisticAggregationOperator is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.pageSinkCommitStrategy = requireNonNull(pageSinkCommitStrategy, "pageSinkCommitStrategy is null");
+        this.tableWriterInfoSupplier = createTableWriterInfoSupplier(pageSinkPeakMemoryUsage, statisticsTiming, pageSink);
+        this.operatorContext.setInfoSupplier(tableWriterInfoSupplier);
     }
 
     @Override
@@ -285,7 +325,12 @@ public class TableWriterOperator
 
         Block[] blocks = new Block[columnChannels.size()];
         for (int outputChannel = 0; outputChannel < columnChannels.size(); outputChannel++) {
-            blocks[outputChannel] = page.getBlock(columnChannels.get(outputChannel));
+            Block block = page.getBlock(columnChannels.get(outputChannel));
+            String columnName = notNullChannelColumnNames.get(outputChannel);
+            if (columnName != null) {
+                verifyBlockHasNoNulls(block, columnName);
+            }
+            blocks[outputChannel] = block;
         }
 
         OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
@@ -299,6 +344,18 @@ public class TableWriterOperator
         blocked = allAsList(blockedOnAggregation, blockedOnWrite);
         rowCount += page.getPositionCount();
         updateWrittenBytes();
+    }
+
+    private void verifyBlockHasNoNulls(Block block, String columnName)
+    {
+        if (!block.mayHaveNull()) {
+            return;
+        }
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                throw new PrestoException(CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName);
+            }
+        }
     }
 
     @Override
@@ -395,7 +452,7 @@ public class TableWriterOperator
             }
         }
         closer.register(statisticAggregationOperator);
-        closer.register(() -> pageSinkMemoryContext.close());
+        closer.register(() -> pageSinkMemoryContext.setBytes(0));
         closer.close();
     }
 
@@ -422,13 +479,22 @@ public class TableWriterOperator
     @VisibleForTesting
     TableWriterInfo getInfo()
     {
-        return new TableWriterInfo(
+        return tableWriterInfoSupplier.get();
+    }
+
+    private static Supplier<TableWriterInfo> createTableWriterInfoSupplier(AtomicLong pageSinkPeakMemoryUsage, OperationTiming statisticsTiming, ConnectorPageSink pageSink)
+    {
+        requireNonNull(pageSinkPeakMemoryUsage, "pageSinkPeakMemoryUsage is null");
+        requireNonNull(statisticsTiming, "statisticsTiming is null");
+        requireNonNull(pageSink, "pageSink is null");
+        return () -> new TableWriterInfo(
                 pageSinkPeakMemoryUsage.get(),
                 succinctNanos(statisticsTiming.getWallNanos()),
                 succinctNanos(statisticsTiming.getCpuNanos()),
                 succinctNanos(pageSink.getValidationCpuNanos()));
     }
 
+    @ThriftStruct
     public static class TableWriterInfo
             implements Mergeable<TableWriterInfo>, OperatorInfo
     {
@@ -438,6 +504,7 @@ public class TableWriterOperator
         private final Duration validationCpuTime;
 
         @JsonCreator
+        @ThriftConstructor
         public TableWriterInfo(
                 @JsonProperty("pageSinkPeakMemoryUsage") long pageSinkPeakMemoryUsage,
                 @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
@@ -451,24 +518,28 @@ public class TableWriterOperator
         }
 
         @JsonProperty
+        @ThriftField(1)
         public long getPageSinkPeakMemoryUsage()
         {
             return pageSinkPeakMemoryUsage;
         }
 
         @JsonProperty
+        @ThriftField(2)
         public Duration getStatisticsWallTime()
         {
             return statisticsWallTime;
         }
 
         @JsonProperty
+        @ThriftField(3)
         public Duration getStatisticsCpuTime()
         {
             return statisticsCpuTime;
         }
 
         @JsonProperty
+        @ThriftField(4)
         public Duration getValidationCpuTime()
         {
             return validationCpuTime;

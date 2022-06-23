@@ -27,13 +27,16 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import java.util.Optional;
 
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_BINARY;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_COMPACT;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_FB_COMPACT;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
+import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -48,25 +51,30 @@ public class ServerInfoResource
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
+    private final boolean resourceManager;
     private final StaticCatalogStore catalogStore;
     private final GracefulShutdownHandler shutdownHandler;
     private final long startTime = System.nanoTime();
+    private final NodeResourceStatusProvider nodeResourceStatusProvider;
+    private NodeState nodeState = ACTIVE;
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.resourceManager = serverConfig.isResourceManager();
         this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
+        this.nodeResourceStatusProvider = requireNonNull(nodeResourceStatusProvider, "nodeResourceStatusProvider is null");
     }
 
     @GET
-    @Produces(APPLICATION_JSON)
+    @Produces({APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public ServerInfo getInfo()
     {
-        boolean starting = !catalogStore.areCatalogsLoaded();
+        boolean starting = resourceManager ? true : !catalogStore.areCatalogsLoaded();
         return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
     }
 
@@ -85,11 +93,14 @@ public class ServerInfoResource
                 return Response.ok().build();
             case ACTIVE:
             case INACTIVE:
-                throw new WebApplicationException(Response
-                        .status(BAD_REQUEST)
-                        .type(MediaType.TEXT_PLAIN)
-                        .entity(format("Invalid state transition to %s", state))
-                        .build());
+                if (shutdownHandler.isShutdownRequested()) {
+                    return Response.status(BAD_REQUEST)
+                            .type(TEXT_PLAIN)
+                            .entity("Cluster is shutting down")
+                            .build();
+                }
+                nodeState = state;
+                return Response.ok().build();
             default:
                 return Response.status(BAD_REQUEST)
                         .type(TEXT_PLAIN)
@@ -100,15 +111,18 @@ public class ServerInfoResource
 
     @GET
     @Path("state")
-    @Produces(APPLICATION_JSON)
+    @Produces({APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     @RolesAllowed(ADMIN)
     public NodeState getServerState()
     {
         if (shutdownHandler.isShutdownRequested()) {
             return SHUTTING_DOWN;
         }
+        else if (!nodeResourceStatusProvider.hasResources()) {
+            return INACTIVE;
+        }
         else {
-            return ACTIVE;
+            return nodeState;
         }
     }
 

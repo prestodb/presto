@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
@@ -89,10 +89,10 @@ public class LongOutputStreamV2
 
     private boolean closed;
 
-    public LongOutputStreamV2(CompressionParameters compressionParameters, boolean signed, StreamKind streamKind)
+    public LongOutputStreamV2(ColumnWriterOptions columnWriterOptions, boolean signed, StreamKind streamKind)
     {
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
-        this.buffer = new OrcOutputBuffer(compressionParameters, Optional.empty());
+        this.buffer = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
         this.signed = signed;
     }
 
@@ -628,7 +628,7 @@ public class LongOutputStreamV2
         patchLength = gapIdx;
 
         // if the element to be patched is the first and only element then
-        // max gap will be 0, but to store the gap as 0 we need atleast 1 bit
+        // max gap will be 0, but to store the gap as 0 we need at least 1 bit
         if (maxGap == 0 && patchLength != 0) {
             patchGapWidth = 1;
         }
@@ -748,15 +748,15 @@ public class LongOutputStreamV2
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, streamKind, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override
     public long getBufferedBytes()
     {
-        return buffer.estimateOutputDataSize() + (Long.BYTES * numLiterals);
+        return buffer.estimateOutputDataSize() + (Long.BYTES * (long) numLiterals);
     }
 
     @Override

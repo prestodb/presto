@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -24,6 +25,7 @@ import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -71,6 +73,8 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
+    private final AtomicLong additionalCpuNanos = new AtomicLong();
+
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
     private final AtomicReference<SettableFuture<?>> memoryFuture;
@@ -81,11 +85,14 @@ public class OperatorContext
     private final OperationTiming finishTiming = new OperationTiming();
 
     private final OperatorSpillContext spillContext;
-    private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
+    private final AtomicReference<Supplier<? extends OperatorInfo>> infoSupplier = new AtomicReference<>();
 
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
     private final AtomicLong peakSystemMemoryReservation = new AtomicLong();
     private final AtomicLong peakTotalMemoryReservation = new AtomicLong();
+    private final RuntimeStats runtimeStats = new RuntimeStats();
+
+    private final AtomicLong currentTotalMemoryReservationInBytes = new AtomicLong();
 
     @GuardedBy("this")
     private boolean memoryRevokingRequested;
@@ -124,6 +131,11 @@ public class OperatorContext
         return operatorId;
     }
 
+    public PlanNodeId getPlanNodeId()
+    {
+        return planNodeId;
+    }
+
     public String getOperatorType()
     {
         return operatorType;
@@ -142,6 +154,16 @@ public class OperatorContext
     public boolean isDone()
     {
         return driverContext.isDone();
+    }
+
+    void updateStats(RuntimeStats stats)
+    {
+        runtimeStats.update(stats);
+    }
+
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     void recordAddInput(OperationTimer operationTimer, Page page)
@@ -204,6 +226,11 @@ public class OperatorContext
         physicalWrittenDataSize.getAndAdd(sizeInBytes);
     }
 
+    public void recordAdditionalCpu(long cpuTimeNanos)
+    {
+        this.additionalCpuNanos.getAndAdd(cpuTimeNanos);
+    }
+
     public void recordBlocked(ListenableFuture<?> blocked)
     {
         requireNonNull(blocked, "blocked is null");
@@ -234,6 +261,10 @@ public class OperatorContext
         return revocableMemoryFuture.get();
     }
 
+    // Create a new LocalMemoryContext if either of the following are true
+    // 1. you need more than one memory context for the operator (calls to setBytes that should be aggregated rather than override each other)
+    // 2. you want to use a different allocation tag
+    // Otherwise call localSystemMemoryContext() to use the LocalMemoryContext already associated with the operator
     // caller should close this context as it's a new context
     public LocalMemoryContext newLocalSystemMemoryContext(String allocationTag)
     {
@@ -270,10 +301,10 @@ public class OperatorContext
         return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), memoryFuture, this::updateTaskRevocableMemoryReservation, false);
     }
 
-    // caller should close this context as it's a new context
-    public AggregatedMemoryContext newAggregateSystemMemoryContext()
+    // caller shouldn't close this context as it's managed by the OperatorContext
+    public AggregatedMemoryContext aggregateSystemMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
     }
 
     // listen to all memory allocations and update the peak memory reservations accordingly
@@ -285,12 +316,18 @@ public class OperatorContext
         peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
         peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
         peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+        currentTotalMemoryReservationInBytes.set(totalMemory);
+    }
+
+    public long getCurrentTotalMemoryReservationInBytes()
+    {
+        return currentTotalMemoryReservationInBytes.get();
     }
 
     // listen to revocable memory allocations and call any listeners waiting on task memory allocation
     private void updateTaskRevocableMemoryReservation()
     {
-        driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool().onTaskMemoryReserved(driverContext.getTaskId());
+        driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool().onTaskRevocableMemoryReserved(driverContext.getTaskId());
     }
 
     public long getReservedRevocableBytes()
@@ -324,6 +361,13 @@ public class OperatorContext
         // reset memory revocation listener so that OperatorContext doesn't hold any references to Driver instance
         synchronized (this) {
             memoryRevocationRequestListener = null;
+        }
+
+        // memoize the result of and then clear any reference to the original suppliers (which might otherwise retain operators or other large objects)
+        Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
+        if (infoSupplier != null) {
+            OperatorInfo info = infoSupplier.get();
+            this.infoSupplier.set(info == null ? null : Suppliers.ofInstance(info));
         }
 
         operatorMemoryContext.close();
@@ -408,7 +452,7 @@ public class OperatorContext
         }
     }
 
-    public void setInfoSupplier(Supplier<OperatorInfo> infoSupplier)
+    public void setInfoSupplier(Supplier<? extends OperatorInfo> infoSupplier)
     {
         requireNonNull(infoSupplier, "infoProvider is null");
         this.infoSupplier.set(infoSupplier);
@@ -447,7 +491,7 @@ public class OperatorContext
 
     public OperatorStats getOperatorStats()
     {
-        Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
+        Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
         OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
 
         long inputPositionsCount = inputPositions.getTotalCount();
@@ -481,6 +525,7 @@ public class OperatorContext
 
                 succinctBytes(physicalWrittenDataSize.get()),
 
+                succinctNanos(additionalCpuNanos.get()),
                 succinctNanos(blockedWallNanos.get()),
 
                 finishTiming.getCalls(),
@@ -499,7 +544,8 @@ public class OperatorContext
                 succinctBytes(spillContext.getSpilledBytes()),
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
-                info);
+                info,
+                runtimeStats);
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)

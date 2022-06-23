@@ -40,14 +40,14 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
+import org.apache.parquet.format.Statistics;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
+import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-import parquet.hadoop.ParquetOutputFormat;
-import parquet.hadoop.codec.CodecConfig;
-import parquet.hadoop.metadata.CompressionCodecName;
-import parquet.schema.MessageType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -79,6 +79,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.RowType.field;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -87,7 +88,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.hive.parquet.ParquetTester.insertNullEvery;
 import static com.facebook.presto.hive.parquet.ParquetTester.testSingleRead;
-import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetColumnPresto;
+import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetFileFromPresto;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
@@ -119,13 +120,17 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaShortObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
+import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.testng.Assert.assertEquals;
-import static parquet.schema.MessageTypeParser.parseMessageType;
 
 public abstract class AbstractTestParquetReader
 {
     private static final int MAX_PRECISION_INT32 = (int) maxPrecision(4);
     private static final int MAX_PRECISION_INT64 = (int) maxPrecision(8);
+
+    private Logger parquetLogger;
 
     private final ParquetTester tester;
 
@@ -138,7 +143,10 @@ public abstract class AbstractTestParquetReader
     public void setUp()
     {
         assertEquals(DateTimeZone.getDefault(), HIVE_STORAGE_TIME_ZONE);
-        setParquetLogging();
+
+        // Parquet has excessive logging at INFO level
+        parquetLogger = Logger.getLogger("org.apache.parquet.hadoop");
+        parquetLogger.setLevel(Level.WARNING);
     }
 
     @Test
@@ -205,10 +213,10 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testCustomSchemaArrayOfStucts()
+    public void testCustomSchemaArrayOfStructs()
             throws Exception
     {
-        MessageType customSchemaArrayOfStucts = parseMessageType("message ParquetSchema { " +
+        MessageType customSchemaArrayOfStructs = parseMessageType("message ParquetSchema { " +
                 "  optional group self (LIST) { " +
                 "    repeated group self_tuple { " +
                 "      optional int64 a; " +
@@ -227,11 +235,11 @@ public abstract class AbstractTestParquetReader
         Type structType = RowType.from(asList(field("a", BIGINT), field("b", BOOLEAN), field("c", VARCHAR)));
         tester.testSingleLevelArrayRoundTrip(
                 getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, asList(javaLongObjectInspector, javaBooleanObjectInspector, javaStringObjectInspector))),
-                values, values, "self", new ArrayType(structType), Optional.of(customSchemaArrayOfStucts));
+                values, values, "self", new ArrayType(structType), Optional.of(customSchemaArrayOfStructs));
     }
 
     @Test
-    public void testSingleLevelSchemaArrayOfStucts()
+    public void testSingleLevelSchemaArrayOfStructs()
             throws Exception
     {
         Iterable<Long> aValues = limit(cycle(asList(1L, null, 3L, 5L, null, null, null, 7L, 11L, null, 13L, 17L)), 30_000);
@@ -467,7 +475,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testMapOfArray()
+    public void testMapOfArrayValues()
             throws Exception
     {
         Iterable<List<Integer>> arrays = createNullableTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
@@ -477,6 +485,22 @@ public abstract class AbstractTestParquetReader
                 javaIntObjectInspector,
                 getStandardListObjectInspector(javaIntObjectInspector)),
                 values, values, mapType(INTEGER, new ArrayType(INTEGER)));
+    }
+
+    @Test
+    public void testMapOfArrayKeys()
+            throws Exception
+    {
+        Iterable<List<Integer>> mapKeys = createTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
+        Iterable<Integer> mapValues = intsBetween(0, 30_000);
+        Iterable<Map<List<Integer>, Integer>> testMaps = createTestMaps(mapKeys, mapValues);
+        tester.testRoundTrip(
+                getStandardMapObjectInspector(
+                        getStandardListObjectInspector(javaIntObjectInspector),
+                        javaIntObjectInspector),
+                testMaps,
+                testMaps,
+                mapType(new ArrayType(INTEGER), INTEGER));
     }
 
     @Test
@@ -794,6 +818,15 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    public void testSmallIntSequence()
+            throws Exception
+    {
+        List<Short> values = Stream.of(1, 2, 3, 4, 5)
+                .map(value -> value.shortValue()).collect(Collectors.toList());
+        tester.testRoundTrip(javaShortObjectInspector, limit(cycle(values), 30_000), SMALLINT);
+    }
+
+    @Test
     public void testLongSequence()
             throws Exception
     {
@@ -871,7 +904,7 @@ public abstract class AbstractTestParquetReader
         ContiguousSet<Long> longValues = longsBetween(1_000_000, 1_001_000);
         ImmutableList.Builder<SqlTimestamp> expectedValues = new ImmutableList.Builder<>();
         for (Long value : longValues) {
-            expectedValues.add(new SqlTimestamp(value / 1000L, UTC_KEY));
+            expectedValues.add(new SqlTimestamp(value / 1000L, UTC_KEY, MILLISECONDS));
         }
         tester.testRoundTrip(javaTimestampObjectInspector, longValues, expectedValues.build(), TIMESTAMP, parquetSchema);
     }
@@ -884,7 +917,7 @@ public abstract class AbstractTestParquetReader
         ContiguousSet<Long> longValues = longsBetween(1_000_000, 1_001_000);
         ImmutableList.Builder<SqlTimestamp> expectedValues = new ImmutableList.Builder<>();
         for (Long value : longValues) {
-            expectedValues.add(new SqlTimestamp(value, UTC_KEY));
+            expectedValues.add(new SqlTimestamp(value, UTC_KEY, MILLISECONDS));
         }
         tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), TIMESTAMP, Optional.of(parquetSchema));
     }
@@ -1527,16 +1560,6 @@ public abstract class AbstractTestParquetReader
         };
     }
 
-    // parquet has excessive logging at INFO level, set them to WARNING
-    private void setParquetLogging()
-    {
-        Logger.getLogger(ParquetOutputFormat.class.getName()).setLevel(Level.WARNING);
-        Logger.getLogger(CodecConfig.class.getName()).setLevel(Level.WARNING);
-        // these logging classes are not public, use class name directly
-        Logger.getLogger("parquet.hadoop.InternalParquetRecordWriter").setLevel(Level.WARNING);
-        Logger.getLogger("parquet.hadoop.ColumnChunkPageWriteStore").setLevel(Level.WARNING);
-    }
-
     @Test
     public void testStructMaxReadBytes()
             throws Exception
@@ -1554,6 +1577,16 @@ public abstract class AbstractTestParquetReader
                 structValues,
                 structType,
                 maxReadBlockSize);
+    }
+
+    @Test
+    public void testNullableNullCount()
+    {
+        PrimitiveType primitiveType = new PrimitiveType(OPTIONAL, BINARY, "testColumn");
+        Statistics statistics = new Statistics();
+        assertEquals(MetadataReader.readStats(statistics, primitiveType.getPrimitiveTypeName()).getNumNulls(), -1);
+        statistics.setNull_count(10);
+        assertEquals(MetadataReader.readStats(statistics, primitiveType.getPrimitiveTypeName()).getNumNulls(), 10);
     }
 
     @Test
@@ -1592,18 +1625,20 @@ public abstract class AbstractTestParquetReader
 
             List<String> columnNames = singletonList("column1");
             List<Type> columnTypes = singletonList(INTEGER);
-            writeParquetColumnPresto(tempFile.getFile(),
+            writeParquetFileFromPresto(tempFile.getFile(),
                     columnTypes,
                     columnNames,
                     readValues,
                     10,
                     CompressionCodecName.GZIP);
+            long tempFileCreationTime = System.currentTimeMillis();
 
             testSingleRead(new Iterable<?>[] {values},
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 1);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 0);
 
@@ -1611,7 +1646,8 @@ public abstract class AbstractTestParquetReader
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 1);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 1);
 
@@ -1619,7 +1655,8 @@ public abstract class AbstractTestParquetReader
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 1);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 2);
 
@@ -1629,7 +1666,8 @@ public abstract class AbstractTestParquetReader
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 2);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 2);
 
@@ -1637,9 +1675,33 @@ public abstract class AbstractTestParquetReader
                     columnNames,
                     columnTypes,
                     parquetMetadataSource,
-                    tempFile.getFile());
+                    tempFile.getFile(),
+                    tempFileCreationTime);
             assertEquals(parquetFileMetadataCache.stats().missCount(), 2);
             assertEquals(parquetFileMetadataCache.stats().hitCount(), 3);
+
+            // change the modification time, and set it into a new HiveFileContext to invalidate this cache
+            // the cache will hit the first time(with its last modification time), but will be invalidated and not returned
+            // the real metadata result will be gotten from the delegate i.e. MetadataReader
+            long tempFileModificationTime = System.currentTimeMillis();
+            testSingleRead(new Iterable<?>[] {values},
+                    columnNames,
+                    columnTypes,
+                    parquetMetadataSource,
+                    tempFile.getFile(),
+                    tempFileModificationTime);
+            assertEquals(parquetFileMetadataCache.stats().missCount(), 2);
+            assertEquals(parquetFileMetadataCache.stats().hitCount(), 4);
+
+            //because the cache is invalidated above, the miss count will be incremented
+            testSingleRead(new Iterable<?>[] {values},
+                    columnNames,
+                    columnTypes,
+                    parquetMetadataSource,
+                    tempFile.getFile(),
+                    tempFileModificationTime);
+            assertEquals(parquetFileMetadataCache.stats().missCount(), 3);
+            assertEquals(parquetFileMetadataCache.stats().hitCount(), 4);
         }
     }
 
@@ -1912,7 +1974,7 @@ public abstract class AbstractTestParquetReader
         return timestamp;
     }
 
-    private static SqlTimestamp intToSqlTimestamp(Integer input)
+    protected static SqlTimestamp intToSqlTimestamp(Integer input)
     {
         if (input == null) {
             return null;

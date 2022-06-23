@@ -16,6 +16,7 @@ package com.facebook.presto.kafka;
 import com.facebook.presto.kafka.encoder.DispatchingRowEncoderFactory;
 import com.facebook.presto.kafka.encoder.EncoderColumnHandle;
 import com.facebook.presto.kafka.encoder.RowEncoder;
+import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -42,12 +43,14 @@ public class KafkaPageSinkProvider
 {
     private final DispatchingRowEncoderFactory encoderFactory;
     private final PlainTextKafkaProducerFactory producerFactory;
+    private final KafkaClusterMetadataSupplier kafkaClusterMetadataSupplier;
 
     @Inject
-    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, PlainTextKafkaProducerFactory producerFactory)
+    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, PlainTextKafkaProducerFactory producerFactory, KafkaClusterMetadataSupplier kafkaClusterMetadataSupplier)
     {
         this.encoderFactory = requireNonNull(encoderFactory, "encoderFactory is null");
         this.producerFactory = requireNonNull(producerFactory, "producerFactory is null");
+        this.kafkaClusterMetadataSupplier = requireNonNull(kafkaClusterMetadataSupplier, "kafkaClusterMetadataSupplier is null");
     }
 
     @Override
@@ -89,11 +92,13 @@ public class KafkaPageSinkProvider
                 messageColumns.build());
 
         return new KafkaPageSink(
+                handle.getSchemaName(),
                 handle.getTopicName(),
                 handle.getColumns(),
                 keyEncoder,
                 messageEncoder,
-                producerFactory);
+                producerFactory,
+                kafkaClusterMetadataSupplier);
     }
 
     private Optional<String> getDataSchema(Optional<String> dataSchemaLocation)

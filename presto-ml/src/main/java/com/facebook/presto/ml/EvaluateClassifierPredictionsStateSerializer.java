@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
@@ -35,7 +35,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 public class EvaluateClassifierPredictionsStateSerializer
         implements AccumulatorStateSerializer<EvaluateClassifierPredictionsState>
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final ObjectMapper OBJECT_MAPPER = new JsonObjectMapperProvider().get();
     private static final String TRUE_POSITIVES = "truePositives";
     private static final String FALSE_POSITIVES = "falsePositives";
     private static final String FALSE_NEGATIVES = "falseNegatives";

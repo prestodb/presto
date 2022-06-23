@@ -27,6 +27,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
@@ -49,7 +50,6 @@ import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -122,15 +122,15 @@ public class TestHiveSplitManager
     private static final HiveType LONT_DECIMAL = HiveType.valueOf("decimal(38,10)");
     private static final HiveType SHORT_DECIMAL = HiveType.valueOf("decimal(10,0)");
     private static final List<Column> COLUMNS = ImmutableList.of(
-            new Column("t_tinyint", HIVE_BYTE, Optional.empty()),
-            new Column("t_smallint", HIVE_SHORT, Optional.empty()),
-            new Column("t_int", HIVE_INT, Optional.empty()),
-            new Column("t_bigint", HIVE_LONG, Optional.empty()),
-            new Column("t_float", HIVE_FLOAT, Optional.empty()),
-            new Column("t_double", HIVE_DOUBLE, Optional.empty()),
-            new Column("t_short_decimal", SHORT_DECIMAL, Optional.empty()),
-            new Column("t_long_decimal", LONT_DECIMAL, Optional.empty()),
-            new Column("t_date", HIVE_DATE, Optional.empty()));
+            new Column("t_tinyint", HIVE_BYTE, Optional.empty(), Optional.empty()),
+            new Column("t_smallint", HIVE_SHORT, Optional.empty(), Optional.empty()),
+            new Column("t_int", HIVE_INT, Optional.empty(), Optional.empty()),
+            new Column("t_bigint", HIVE_LONG, Optional.empty(), Optional.empty()),
+            new Column("t_float", HIVE_FLOAT, Optional.empty(), Optional.empty()),
+            new Column("t_double", HIVE_DOUBLE, Optional.empty(), Optional.empty()),
+            new Column("t_short_decimal", SHORT_DECIMAL, Optional.empty(), Optional.empty()),
+            new Column("t_long_decimal", LONT_DECIMAL, Optional.empty(), Optional.empty()),
+            new Column("t_date", HIVE_DATE, Optional.empty(), Optional.empty()));
     private static final String PARTITION_VALUE = "2020-01-01";
     private static final String PARTITION_NAME = "ds=2020-01-01";
     private static final Table TEST_TABLE = new Table(
@@ -146,7 +146,7 @@ public class TestHiveSplitManager
                     ImmutableMap.of(),
                     ImmutableMap.of()),
             COLUMNS,
-            ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty())),
+            ImmutableList.of(new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty())),
             ImmutableMap.of(),
             Optional.empty(),
             Optional.empty());
@@ -470,7 +470,8 @@ public class TestHiveSplitManager
                         ImmutableMap.of(),
                         Optional.empty(),
                         false,
-                        true),
+                        true,
+                        0),
                 PARTITION_NAME,
                 partitionStatistics);
 
@@ -489,8 +490,11 @@ public class TestHiveSplitManager
                 false,
                 false,
                 true,
+                true,
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionsPerScan(),
+                false,
+                10_000,
                 FUNCTION_AND_TYPE_MANAGER,
                 new HiveLocationService(hdfsEnvironment),
                 FUNCTION_RESOLUTION,
@@ -498,6 +502,7 @@ public class TestHiveSplitManager
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 executor,
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, executor),
@@ -506,7 +511,8 @@ public class TestHiveSplitManager
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
-                new HiveFileRenamer());
+                new HiveFileRenamer(),
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),
@@ -520,7 +526,6 @@ public class TestHiveSplitManager
                 hiveClientConfig.getMaxOutstandingSplitsSize(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
@@ -545,9 +550,10 @@ public class TestHiveSplitManager
 
         ConnectorSplitSource splitSource = splitManager.getSplits(
                 new HiveTransactionHandle(),
-                new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties()),
+                new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties()),
                 new HiveTableLayoutHandle(
                         new SchemaTableName("test_schema", "test_table"),
+                        "test_path",
                         ImmutableList.of(partitionColumn),
                         COLUMNS,
                         ImmutableMap.of(),
@@ -563,6 +569,7 @@ public class TestHiveSplitManager
                         false,
                         "layout",
                         Optional.empty(),
+                        false,
                         false),
                 SPLIT_SCHEDULING_CONTEXT);
         List<Set<ColumnHandle>> actualRedundantColumnDomains = splitSource.getNextBatch(NOT_PARTITIONED, 100).get().getSplits().stream()
@@ -602,19 +609,19 @@ public class TestHiveSplitManager
         }
 
         @Override
-        public Optional<Table> getTable(String databaseName, String tableName)
+        public Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
         {
             return Optional.of(table);
         }
 
         @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
         {
             return ImmutableMap.of(partitionWithStatistics.getPartitionName(), Optional.of(partitionWithStatistics.getPartition()));
         }
 
         @Override
-        public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+        public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
         {
             return ImmutableMap.of(partitionWithStatistics.getPartitionName(), partitionWithStatistics.getStatistics());
         }
@@ -624,7 +631,7 @@ public class TestHiveSplitManager
             implements DirectoryLister
     {
         @Override
-        public Iterator<HiveFileInfo> list(ExtendedFileSystem fileSystem, Table table, Path path, NamenodeStats namenodeStats, PathFilter pathFilter, HiveDirectoryContext hiveDirectoryContext)
+        public Iterator<HiveFileInfo> list(ExtendedFileSystem fileSystem, Table table, Path path, Optional<Partition> partition, NamenodeStats namenodeStats, HiveDirectoryContext hiveDirectoryContext)
         {
             try {
                 return ImmutableList.of(

@@ -16,6 +16,7 @@ package com.facebook.presto.spark.node;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.sql.planner.NodePartitionMap;
@@ -37,7 +38,7 @@ public class PrestoSparkNodePartitioningManager
     @Inject
     public PrestoSparkNodePartitioningManager(PartitioningProviderManager partitioningProviderManager)
     {
-        super(new PrestoSparkNodeScheduler(), partitioningProviderManager);
+        super(new PrestoSparkNodeScheduler(), partitioningProviderManager, new NodeSelectionStats());
     }
 
     @Override

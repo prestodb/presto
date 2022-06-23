@@ -64,10 +64,11 @@ contents:
 The config file is specified in JSON format.
 
 * It contains the rules defining which catalog can be accessed by which user (see Catalog Rules below).
+* The schema access rules defining which schema can be accessed by which user (see Schema Rules below).
 * The principal rules specifying what principals can identify as what users (see Principal Rules below).
 
-This plugin currently only supports catalog access control rules and principal
-rules. If you want to limit access on a system level in any other way, you
+This plugin currently supports catalog access control rules, schema access control rules
+and principal rules. If you want to limit access on a system level in any other way, you
 must implement a custom SystemAccessControl plugin
 (see :doc:`/develop/system-access-control`).
 
@@ -93,16 +94,23 @@ following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
-* ``allow`` (required): boolean indicating whether a user has access to the catalog
+* ``allow`` (required): string indicating whether a user has access to the catalog.
+  This value can be ``all``, ``read-only`` or ``none``, and defaults to ``none``.
+  Setting this value to ``read-only`` has the same behavior as the ``read-only``
+  system access control plugin.
 
 .. note::
 
     By default, all users have access to the ``system`` catalog. You can
     override this behavior by adding a rule.
 
+    Boolean ``true`` and ``false`` are also supported as legacy values for ``allow``,
+    to support backwards compatibility.  ``true`` maps to ``all``, and ``false`` maps to ``none``.
+
 For example, if you want to allow only the user ``admin`` to access the
 ``mysql`` and the ``system`` catalog, allow all users to access the ``hive``
-catalog, and deny all other access, you can use the following rules:
+catalog, allow the user ``alice`` read-only access to the ``postgresql`` catalog,
+and deny all other access, you can use the following rules:
 
 .. code-block:: json
 
@@ -111,15 +119,63 @@ catalog, and deny all other access, you can use the following rules:
         {
           "user": "admin",
           "catalog": "(mysql|system)",
-          "allow": true
+          "allow": "all"
         },
         {
           "catalog": "hive",
-          "allow": true
+          "allow": "all"
+        },
+        {
+          "user": "alice",
+          "catalog": "postgresql",
+          "allow": "read-only"
         },
         {
           "catalog": "system",
-          "allow": false
+          "allow": "none"
+        }
+      ]
+    }
+
+Schema Rules
+------------
+
+These rules allow you to grant ownership of a schema. Having ownership of an
+schema allows users to execute ``DROP SCHEMA``, ``ALTER SCHEMA`` and
+``CREATE SCHEMA``. The user is granted ownership of a schema, based on
+the first matching rule read from top to bottom. If no rule matches, ownership
+is not granted. Each rule is composed of the following fields:
+
+* ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
+* ``owner`` (required): boolean indicating whether the user is to be considered
+  an owner of the schema. Defaults to ``false``.
+
+For example, to provide ownership of all schemas to user ``admin``, treat all
+users as owners of ``default`` schema and prevent user ``guest`` from ownership
+of any schema, you can use the following rules:
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "allow": true
+        }
+      ],
+      "schemas": [
+        {
+          "user": "admin",
+          "schema": ".*",
+          "owner": true
+        },
+        {
+          "user": "guest",
+          "owner": false
+        },
+        {
+          "schema": "default",
+          "owner": true
         }
       ]
     }
@@ -173,7 +229,7 @@ and Kerberos authentication:
       ]
     }
 
-If you want to allow users to use the extractly same name as their Kerberos principal
+If you want to allow users to use exactly the same name as their Kerberos principal
 name, and allow ``alice`` and ``bob`` to use a group principal named as
 ``group@example.net``, you can use the following rules.
 

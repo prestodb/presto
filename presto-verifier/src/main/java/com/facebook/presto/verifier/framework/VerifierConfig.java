@@ -46,11 +46,13 @@ public class VerifierConfig
     private double relativeErrorMargin = 1e-4;
     private double absoluteErrorMargin = 1e-12;
     private boolean smartTeardown;
-    private int verificationResubmissionLimit = 2;
+    private int verificationResubmissionLimit = 6;
 
     private boolean setupOnMainClusters = true;
     private boolean teardownOnMainClusters = true;
     private boolean skipControl;
+    private boolean skipChecksum;
+    private boolean concurrentControlAndTest;
 
     private boolean explain;
 
@@ -305,6 +307,19 @@ public class VerifierConfig
         return this;
     }
 
+    @ConfigDescription("Skip checksum, only run control and test queries.")
+    @Config("skip-checksum")
+    public VerifierConfig setSkipChecksum(boolean skipChecksum)
+    {
+        this.skipChecksum = skipChecksum;
+        return this;
+    }
+
+    public boolean isSkipChecksum()
+    {
+        return skipChecksum;
+    }
+
     public boolean isExplain()
     {
         return explain;
@@ -315,6 +330,19 @@ public class VerifierConfig
     public VerifierConfig setExplain(boolean explain)
     {
         this.explain = explain;
+        return this;
+    }
+
+    public boolean isConcurrentControlAndTest()
+    {
+        return concurrentControlAndTest;
+    }
+
+    @ConfigDescription("Run control and test query concurrently")
+    @Config("concurrent-control-and-test")
+    public VerifierConfig setConcurrentControlAndTest(boolean concurrentControlAndTest)
+    {
+        this.concurrentControlAndTest = concurrentControlAndTest;
         return this;
     }
 }

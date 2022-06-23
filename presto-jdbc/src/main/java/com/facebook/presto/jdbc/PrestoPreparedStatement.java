@@ -74,6 +74,7 @@ public class PrestoPreparedStatement
     private final Map<Integer, String> parameters = new HashMap<>();
     private final String statementName;
     private final String originalSql;
+    private boolean isClosed;
 
     PrestoPreparedStatement(PrestoConnection connection, String statementName, String sql)
             throws SQLException
@@ -88,8 +89,12 @@ public class PrestoPreparedStatement
     public void close()
             throws SQLException
     {
+        if (isClosed) {
+            return;
+        }
         super.execute(format("DEALLOCATE PREPARE %s", statementName));
         super.close();
+        isClosed = true;
     }
 
     @Override

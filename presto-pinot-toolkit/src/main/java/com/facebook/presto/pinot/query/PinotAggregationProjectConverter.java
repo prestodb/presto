@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.pinot.PinotException;
 import com.facebook.presto.pinot.PinotSessionProperties;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -27,9 +28,8 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTimeZone;
 
-import java.util.List;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Optional;
 
@@ -43,12 +43,6 @@ import static java.util.Objects.requireNonNull;
 public class PinotAggregationProjectConverter
         extends PinotProjectExpressionConverter
 {
-    // Pinot does not support modulus yet
-    private static final Map<String, String> PRESTO_TO_PINOT_OPERATORS = ImmutableMap.of(
-            "-", "SUB",
-            "+", "ADD",
-            "*", "MULT",
-            "/", "DIV");
     private static final String FROM_UNIXTIME = "from_unixtime";
 
     private static final Map<String, String> PRESTO_TO_PINOT_ARRAY_AGGREGATIONS = ImmutableMap.<String, String>builder()
@@ -58,8 +52,6 @@ public class PinotAggregationProjectConverter
             .put("array_sum", "arraySum")
             .build();
 
-    private final FunctionMetadataManager functionMetadataManager;
-    private final ConnectorSession session;
     private final VariableReferenceExpression arrayVariableHint;
 
     public PinotAggregationProjectConverter(TypeManager typeManager, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution standardFunctionResolution, ConnectorSession session)
@@ -69,9 +61,7 @@ public class PinotAggregationProjectConverter
 
     public PinotAggregationProjectConverter(TypeManager typeManager, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution standardFunctionResolution, ConnectorSession session, VariableReferenceExpression arrayVariableHint)
     {
-        super(typeManager, standardFunctionResolution);
-        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
-        this.session = requireNonNull(session, "session is null");
+        super(typeManager, functionMetadataManager, standardFunctionResolution, session);
         this.arrayVariableHint = arrayVariableHint;
     }
 
@@ -80,11 +70,15 @@ public class PinotAggregationProjectConverter
             CallExpression call,
             Map<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> context)
     {
-        Optional<PinotExpression> basicCallHandlingResult = basicCallHandling(call, context);
-        if (basicCallHandlingResult.isPresent()) {
-            return basicCallHandlingResult.get();
+        FunctionHandle functionHandle = call.getFunctionHandle();
+        if (standardFunctionResolution.isCastFunction(functionHandle)) {
+            return handleCast(call, context);
         }
-        FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(call.getFunctionHandle());
+        if (standardFunctionResolution.isNotFunction(functionHandle) || standardFunctionResolution.isBetweenFunction(functionHandle)) {
+            throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Unsupported function in pinot aggregation: " + functionHandle);
+        }
+
+        FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(functionHandle);
         Optional<OperatorType> operatorTypeOptional = functionMetadata.getOperatorType();
         if (operatorTypeOptional.isPresent()) {
             OperatorType operatorType = operatorTypeOptional.get();
@@ -186,7 +180,7 @@ public class PinotAggregationProjectConverter
         switch (timeConversion.getDisplayName().toLowerCase(ENGLISH)) {
             case FROM_UNIXTIME:
                 inputColumn = timeConversion.getArguments().get(0).accept(this, context).getDefinition();
-                inputTimeZone = timeConversion.getArguments().size() > 1 ? getStringFromConstant(timeConversion.getArguments().get(1)) : DateTimeZone.UTC.getID();
+                inputTimeZone = timeConversion.getArguments().size() > 1 ? getStringFromConstant(timeConversion.getArguments().get(1)) : ZoneId.of("UTC").getId();
                 inputFormat = "seconds";
                 break;
             default:
@@ -202,29 +196,6 @@ public class PinotAggregationProjectConverter
         }
 
         return derived("dateTrunc(" + inputColumn + "," + inputFormat + ", " + inputTimeZone + ", " + getStringFromConstant(intervalParameter) + ")");
-    }
-
-    private PinotExpression handleArithmeticExpression(
-            CallExpression expression,
-            OperatorType operatorType,
-            Map<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> context)
-    {
-        List<RowExpression> arguments = expression.getArguments();
-        if (arguments.size() == 1) {
-            String prefix = operatorType == OperatorType.NEGATION ? "-" : "";
-            return derived(prefix + arguments.get(0).accept(this, context).getDefinition());
-        }
-        if (arguments.size() == 2) {
-            PinotExpression left = arguments.get(0).accept(this, context);
-            PinotExpression right = arguments.get(1).accept(this, context);
-            String prestoOperator = operatorType.getOperator();
-            String pinotOperator = PRESTO_TO_PINOT_OPERATORS.get(prestoOperator);
-            if (pinotOperator == null) {
-                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Unsupported binary expression " + prestoOperator);
-            }
-            return derived(format("%s(%s, %s)", pinotOperator, left.getDefinition(), right.getDefinition()));
-        }
-        throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("Don't know how to interpret %s as an arithmetic expression", expression));
     }
 
     private PinotExpression handleFunction(

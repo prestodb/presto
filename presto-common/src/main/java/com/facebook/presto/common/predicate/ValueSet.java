@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.util.Collection;
+import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 
@@ -65,7 +66,7 @@ public interface ValueSet
         throw new IllegalArgumentException("Cannot create discrete ValueSet with non-comparable type: " + type);
     }
 
-    static ValueSet copyOf(Type type, Collection<Object> values)
+    static ValueSet copyOf(Type type, Collection<?> values)
     {
         if (type.isOrderable()) {
             return SortedRangeSet.copyOf(type, values.stream()
@@ -81,6 +82,11 @@ public interface ValueSet
     static ValueSet ofRanges(Range first, Range... rest)
     {
         return SortedRangeSet.of(first, rest);
+    }
+
+    static ValueSet ofRanges(List<Range> ranges)
+    {
+        return SortedRangeSet.of(ranges);
     }
 
     static ValueSet copyOfRanges(Type type, Collection<Range> ranges)

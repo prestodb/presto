@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -75,5 +76,13 @@ public interface ConnectorPageSource
     default CompletableFuture<?> isBlocked()
     {
         return NOT_BLOCKED;
+    }
+
+    /**
+     * Returns the stats of this page source accumulated so far.
+     */
+    default RuntimeStats getRuntimeStats()
+    {
+        return null;
     }
 }

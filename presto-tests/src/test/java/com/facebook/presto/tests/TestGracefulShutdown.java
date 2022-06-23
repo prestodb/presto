@@ -18,6 +18,7 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.server.testing.TestingPrestoServer.TestShutdownAction;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -25,6 +26,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -32,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.execution.QueryState.FINISHED;
-import static com.facebook.presto.memory.TestMemoryManager.createQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -47,6 +48,8 @@ public class TestGracefulShutdown
             .setCatalog("tpch")
             .setSchema("tiny")
             .build();
+    private static final String COORDINATOR = "coordinator";
+    private static final String WORKER = "worker";
 
     private ListeningExecutorService executor;
 
@@ -62,35 +65,47 @@ public class TestGracefulShutdown
         executor.shutdownNow();
     }
 
-    @Test(timeOut = SHUTDOWN_TIMEOUT_MILLIS)
-    public void testShutdown()
+    @DataProvider(name = "testServerInfo")
+    public static Object[][] testServerInfo()
+    {
+        return new Object[][] {
+                {WORKER, ImmutableMap.<String, String>builder()
+                        .put("node-scheduler.include-coordinator", "false")
+                        .put("shutdown.grace-period", "10s")
+                        .build()},
+                {COORDINATOR, ImmutableMap.<String, String>builder()
+                        .put("node-scheduler.include-coordinator", "false")
+                        .put("shutdown.grace-period", "10s")
+                        .build()},
+                {COORDINATOR, ImmutableMap.<String, String>builder()
+                        .put("node-scheduler.include-coordinator", "true")
+                        .put("shutdown.grace-period", "10s")
+                        .build()}
+        };
+    }
+
+    @Test(timeOut = SHUTDOWN_TIMEOUT_MILLIS, dataProvider = "testServerInfo")
+    public void testShutdown(String serverInstanceType, Map<String, String> properties)
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("node-scheduler.include-coordinator", "false")
-                .put("shutdown.grace-period", "10s")
-                .build();
-
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             List<ListenableFuture<?>> queryFutures = new ArrayList<>();
             for (int i = 0; i < 5; i++) {
                 queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
             }
-
-            TestingPrestoServer worker = queryRunner.getServers()
+            boolean isCoordinatorInstance = serverInstanceType.equals(COORDINATOR);
+            TestingPrestoServer testServer = queryRunner.getServers()
                     .stream()
-                    .filter(server -> !server.isCoordinator())
+                    .filter(server -> server.isCoordinator() == isCoordinatorInstance)
                     .findFirst()
                     .get();
-
-            TaskManager taskManager = worker.getTaskManager();
-
-            // wait until tasks show up on the worker
-            while (taskManager.getAllTaskInfo().isEmpty()) {
-                MILLISECONDS.sleep(500);
+            if (!isCoordinatorInstance) {
+                TaskManager taskManager = testServer.getTaskManager();
+                while (taskManager.getAllTaskInfo().isEmpty()) {
+                    MILLISECONDS.sleep(500);
+                }
             }
-
-            worker.getGracefulShutdownHandler().requestShutdown();
+            testServer.getGracefulShutdownHandler().requestShutdown();
 
             Futures.allAsList(queryFutures).get();
 
@@ -99,13 +114,13 @@ public class TestGracefulShutdown
                 assertEquals(info.getState(), FINISHED);
             }
 
-            TestShutdownAction shutdownAction = (TestShutdownAction) worker.getShutdownAction();
+            TestShutdownAction shutdownAction = (TestShutdownAction) testServer.getShutdownAction();
             shutdownAction.waitForShutdownComplete(SHUTDOWN_TIMEOUT_MILLIS);
-            assertTrue(shutdownAction.isWorkerShutdown());
+            assertTrue(shutdownAction.isShutdown());
         }
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test(timeOut = SHUTDOWN_TIMEOUT_MILLIS)
     public void testCoordinatorShutdown()
             throws Exception
     {
@@ -117,6 +132,25 @@ public class TestGracefulShutdown
                     .get();
 
             coordinator.getGracefulShutdownHandler().requestShutdown();
+            TestShutdownAction shutdownAction = (TestShutdownAction) coordinator.getShutdownAction();
+            shutdownAction.waitForShutdownComplete(SHUTDOWN_TIMEOUT_MILLIS);
+            assertTrue(shutdownAction.isShutdown());
+        }
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 2, properties);
+
+        try {
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
+            return queryRunner;
+        }
+        catch (Exception e) {
+            queryRunner.close();
+            throw e;
         }
     }
 }

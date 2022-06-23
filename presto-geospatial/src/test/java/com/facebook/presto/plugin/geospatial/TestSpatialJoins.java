@@ -14,17 +14,21 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.hive.ColumnConverterProvider;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HivePlugin;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.spi.security.PrincipalType;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableSet;
@@ -81,12 +85,8 @@ public class TestSpatialJoins
         return sql.toString();
     }
 
-    public TestSpatialJoins()
-    {
-        super(() -> createQueryRunner());
-    }
-
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder()
@@ -104,7 +104,8 @@ public class TestSpatialJoins
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(Database.builder()
+        ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
+        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, columnConverterProvider), Database.builder()
                 .setDatabaseName("default")
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
@@ -227,7 +228,7 @@ public class TestSpatialJoins
     }
 
     @Test
-    public void tesDistributedSpatialJoinIntersects()
+    public void testDistributedSpatialJoinIntersects()
     {
         assertUpdate(format("CREATE TABLE intersects_partitioning AS " +
                 "SELECT spatial_partitioning(ST_GeometryFromText(wkt)) as v " +

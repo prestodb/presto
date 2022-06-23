@@ -15,7 +15,6 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import com.google.common.primitives.Longs;
-import org.apache.hive.common.util.BloomFilter;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;

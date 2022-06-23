@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.ShortBigArray;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.IntBigArray;
+import com.facebook.presto.common.array.ShortBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
 import it.unimi.dsi.fastutil.longs.LongArrayList;

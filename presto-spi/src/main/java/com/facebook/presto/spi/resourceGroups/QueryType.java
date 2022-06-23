@@ -13,13 +13,31 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
+@ThriftEnum
 public enum QueryType
 {
-    DATA_DEFINITION,
-    DELETE,
-    DESCRIBE,
-    EXPLAIN,
-    ANALYZE,
-    INSERT,
-    SELECT
+    DATA_DEFINITION(1),
+    DELETE(2),
+    DESCRIBE(3),
+    EXPLAIN(4),
+    ANALYZE(5),
+    INSERT(6),
+    SELECT(7),
+    /**/;
+
+    private final int value;
+
+    private QueryType(int value)
+    {
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
+    }
 }

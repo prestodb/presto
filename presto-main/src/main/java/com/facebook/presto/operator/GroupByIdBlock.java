@@ -19,7 +19,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -63,9 +64,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
-        return block.getPositionsSizeInBytes(positions);
+        return block.getPositionsSizeInBytes(positions, usedPositionCount);
     }
 
     @Override
@@ -141,6 +142,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        block.writeBytesTo(position, offset, length, sliceOutput);
+    }
+
+    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         block.writePositionTo(position, blockBuilder);
@@ -183,6 +190,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return block.mayHaveNull();
+    }
+
+    @Override
     public int getPositionCount()
     {
         return block.getPositionCount();
@@ -192,6 +205,12 @@ public class GroupByIdBlock
     public long getSizeInBytes()
     {
         return block.getSizeInBytes();
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return block.fixedSizeInBytesPerPosition();
     }
 
     @Override
@@ -207,10 +226,10 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(block, block.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

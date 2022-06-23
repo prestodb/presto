@@ -46,10 +46,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getTempStorageSpillerBufferSize;
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterators.transform;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -69,6 +72,7 @@ public class TempStorageSingleStreamSpiller
     private final Closer closer = Closer.create();
 
     private boolean writable = true;
+    private boolean committed;
     private final TempDataSink dataSink;
     private TempStorageHandle tempStorageHandle;
     private int bufferedBytes;
@@ -83,8 +87,7 @@ public class TempStorageSingleStreamSpiller
             SpillerStats spillerStats,
             SpillContext spillContext,
             LocalMemoryContext memoryContext,
-            Optional<SpillCipher> spillCipher,
-            int maxBufferSizeInBytes)
+            Optional<SpillCipher> spillCipher)
     {
         this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
         this.serde = requireNonNull(serde, "serde is null");
@@ -95,14 +98,16 @@ public class TempStorageSingleStreamSpiller
         this.spillCipher = requireNonNull(spillCipher, "spillCipher is null");
         checkState(!spillCipher.isPresent() || !spillCipher.get().isDestroyed(), "spillCipher is already destroyed");
         this.spillCipher.ifPresent(cipher -> closer.register(cipher::destroy));
-        this.maxBufferSizeInBytes = maxBufferSizeInBytes;
 
         Session session = spillContext.getSession();
         this.tempDataOperationContext = new TempDataOperationContext(
                 session.getSource(),
                 session.getQueryId().getId(),
                 session.getClientInfo(),
+                Optional.of(session.getClientTags()),
                 session.getIdentity());
+
+        this.maxBufferSizeInBytes = toIntExact(getTempStorageSpillerBufferSize(session).toBytes());
 
         try {
             dataSink = tempStorage.create(tempDataOperationContext);
@@ -141,10 +146,29 @@ public class TempStorageSingleStreamSpiller
         return executor.submit(() -> ImmutableList.copyOf(getSpilledPages()));
     }
 
+    @Override
+    public void commit()
+    {
+        if (committed) {
+            return;
+        }
+
+        try {
+            if (!bufferedPages.isEmpty()) {
+                flushBufferedPages();
+            }
+            tempStorageHandle = dataSink.commit();
+            committed = true;
+        }
+        catch (IOException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to commit spill file", e);
+        }
+    }
+
     private void writePages(Iterator<Page> pageIterator)
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
-
+        checkState(!committed, "Spilling no longer allowed. Spill file is already committed");
         while (pageIterator.hasNext()) {
             Page page = pageIterator.next();
             spilledPagesInMemorySize += page.getSizeInBytes();
@@ -156,14 +180,13 @@ public class TempStorageSingleStreamSpiller
                         localSpillContext.updateBytes(pageSize);
                         spillerStats.addToTotalSpilledBytes(pageSize);
                         PageDataOutput pageDataOutput = new PageDataOutput(serializedPage);
-                        bufferedBytes += pageDataOutput.size();
+                        bufferedBytes += toIntExact(pageDataOutput.size());
                         bufferedPages.add(pageDataOutput);
                         if (bufferedBytes > maxBufferSizeInBytes) {
                             flushBufferedPages();
                         }
                     });
         }
-
         memoryContext.setBytes(bufferedBytes + dataSink.getRetainedSizeInBytes());
     }
 
@@ -171,16 +194,16 @@ public class TempStorageSingleStreamSpiller
     {
         checkState(writable, "Repeated reads are disallowed to prevent potential resource leaks");
         writable = false;
-
         try {
-            if (!bufferedPages.isEmpty()) {
-                flushBufferedPages();
+            if (!committed) {
+                commit();
             }
-            tempStorageHandle = dataSink.commit();
 
+            checkState(committed, "Cannot read pages since spill file is not committed");
             InputStream input = closer.register(tempStorage.open(tempDataOperationContext, tempStorageHandle));
-            Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input));
-            return closeWhenExhausted(pages, input);
+            Iterator<Page> deserializedPages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input));
+            Iterator<Page> compactPages = transform(deserializedPages, Page::compact);
+            return closeWhenExhausted(compactPages, input);
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);

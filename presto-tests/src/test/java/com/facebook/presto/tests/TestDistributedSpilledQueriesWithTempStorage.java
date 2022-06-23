@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 
@@ -24,12 +25,14 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 public class TestDistributedSpilledQueriesWithTempStorage
         extends TestDistributedSpilledQueries
 {
-    public TestDistributedSpilledQueriesWithTempStorage()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(TestDistributedSpilledQueriesWithTempStorage::createQueryRunner);
+        return localCreateQueryRunner();
     }
 
-    public static DistributedQueryRunner createQueryRunner()
+    public static DistributedQueryRunner localCreateQueryRunner()
             throws Exception
     {
         Session defaultSession = testSessionBuilder()
@@ -37,7 +40,6 @@ public class TestDistributedSpilledQueriesWithTempStorage
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2")
                 .setSystemProperty(SystemSessionProperties.SPILL_ENABLED, "true")
-                .setSystemProperty(SystemSessionProperties.JOIN_SPILL_ENABLED, "true")
                 .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
                 .setSystemProperty(SystemSessionProperties.USE_MARK_DISTINCT, "false")
                 .build();

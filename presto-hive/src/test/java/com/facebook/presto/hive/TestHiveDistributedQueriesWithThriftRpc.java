@@ -13,26 +13,28 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static io.airlift.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedQueriesWithThriftRpc
         extends AbstractTestDistributedQueries
 {
-    public TestHiveDistributedQueriesWithThriftRpc()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(
+        return HiveQueryRunner.createQueryRunner(
                 getTables(),
                 ImmutableMap.of(
                         "internal-communication.task-communication-protocol", "THRIFT",
                         "internal-communication.server-info-communication-protocol", "THRIFT"),
                 ImmutableMap.of(),
-                Optional.empty()));
+                Optional.empty());
     }
 
     @Override

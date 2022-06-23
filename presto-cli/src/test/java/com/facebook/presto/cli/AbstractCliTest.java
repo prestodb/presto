@@ -83,6 +83,7 @@ public abstract class AbstractCliTest
                 null,
                 new Duration(2, MINUTES),
                 true,
+                ImmutableMap.of(),
                 ImmutableMap.of());
     }
 

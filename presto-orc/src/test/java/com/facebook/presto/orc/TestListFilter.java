@@ -14,8 +14,9 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.PositionalFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.PositionalFilter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.reader.ListFilter;
 import com.google.common.collect.ImmutableList;
@@ -65,6 +66,29 @@ public class TestListFilter
 
         assertPositionalFilter(ImmutableMap.of(
                 2, BigintRange.of(25, 50, false)), data);
+    }
+
+    @Test
+    public void testArrayFilterCodeOverflowBug()
+    {
+        Integer[][] data = new Integer[ROW_COUNT][];
+        for (int i = 0; i < data.length; i++) {
+            data[i] = new Integer[100];
+            for (int j = 0; j < data[i].length; j++) {
+                data[i][j] = j;
+            }
+        }
+
+        // build filters checking for exact value from the data
+        ImmutableMap.Builder<Integer, TupleDomainFilter> filters = ImmutableMap.builder();
+
+        // ListFilter allows up to 64 filters
+        for (int j = 1; j <= 64; j++) {
+            long value = j - 1;
+            filters.put(j, BigintRange.of(value, value, false));
+        }
+
+        assertPositionalFilter(filters.build(), data);
     }
 
     private void assertPositionalFilter(Map<Integer, TupleDomainFilter> filters, Integer[][] data)
@@ -187,15 +211,15 @@ public class TestListFilter
         int[] lengths = Arrays.stream(data).mapToInt(v -> v.length).toArray();
         filter.populateElementFilters(data.length, null, lengths, Arrays.stream(lengths).sum());
 
-        int[] nestedLenghts = Arrays.stream(data).flatMap(Arrays::stream).mapToInt(v -> v.length).toArray();
-        ((ListFilter) filter.getChild()).populateElementFilters(Arrays.stream(lengths).sum(), null, nestedLenghts, Arrays.stream(nestedLenghts).sum());
+        int[] nestedLengths = Arrays.stream(data).flatMap(Arrays::stream).mapToInt(v -> v.length).toArray();
+        ((ListFilter) filter.getChild()).populateElementFilters(Arrays.stream(lengths).sum(), null, nestedLengths, Arrays.stream(nestedLengths).sum());
 
         return filter;
     }
 
     private static StreamDescriptor makeStreamDescriptor(int levels)
     {
-        DummyOrcDataSource orcDataSource = new DummyOrcDataSource();
+        NoopOrcDataSource orcDataSource = NoopOrcDataSource.INSTANCE;
 
         OrcType intType = new OrcType(INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
         OrcType listType = new OrcType(LIST, ImmutableList.of(1), ImmutableList.of("item"), Optional.empty(), Optional.empty(), Optional.empty());
@@ -221,50 +245,6 @@ public class TestListFilter
     private interface TestFilter2
     {
         boolean test(int i, int j, Integer value);
-    }
-
-    private static class DummyOrcDataSource
-            implements OrcDataSource
-    {
-        @Override
-        public OrcDataSourceId getId()
-        {
-            return null;
-        }
-
-        @Override
-        public long getReadBytes()
-        {
-            return 0;
-        }
-
-        @Override
-        public long getReadTimeNanos()
-        {
-            return 0;
-        }
-
-        @Override
-        public long getSize()
-        {
-            return 0;
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer)
-        {
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-        {
-        }
-
-        @Override
-        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
-        {
-            return null;
-        }
     }
 
     private static final class RowAndColumn

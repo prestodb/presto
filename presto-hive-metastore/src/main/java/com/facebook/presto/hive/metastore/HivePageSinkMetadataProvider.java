@@ -28,14 +28,16 @@ public class HivePageSinkMetadataProvider
     private final SchemaTableName schemaTableName;
     private final Optional<Table> table;
     private final Map<List<String>, Optional<Partition>> modifiedPartitions;
+    private final MetastoreContext metastoreContext;
 
-    public HivePageSinkMetadataProvider(HivePageSinkMetadata pageSinkMetadata, ExtendedHiveMetastore delegate)
+    public HivePageSinkMetadataProvider(HivePageSinkMetadata pageSinkMetadata, ExtendedHiveMetastore delegate, MetastoreContext metastoreContext)
     {
         requireNonNull(pageSinkMetadata, "pageSinkMetadata is null");
         this.delegate = delegate;
         this.schemaTableName = pageSinkMetadata.getSchemaTableName();
         this.table = pageSinkMetadata.getTable();
         this.modifiedPartitions = pageSinkMetadata.getModifiedPartitions();
+        this.metastoreContext = requireNonNull(metastoreContext, "metastoreContext is null");
     }
 
     public Optional<Table> getTable()
@@ -51,7 +53,7 @@ public class HivePageSinkMetadataProvider
         }
         Optional<Partition> modifiedPartition = modifiedPartitions.get(partitionValues);
         if (modifiedPartition == null) {
-            return delegate.getPartition(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues);
+            return delegate.getPartition(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues);
         }
         else {
             return modifiedPartition;

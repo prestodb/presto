@@ -51,6 +51,7 @@ public final class ByteStreamCheckpoint
         return inputStreamCheckpoint;
     }
 
+    @Override
     public List<Integer> toPositionList(boolean compressed)
     {
         return ImmutableList.<Integer>builder()

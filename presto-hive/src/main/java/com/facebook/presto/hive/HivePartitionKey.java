@@ -17,9 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Objects;
+import javax.annotation.Nullable;
 
-import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import java.util.Objects;
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -29,18 +31,16 @@ public final class HivePartitionKey
             ClassLayout.parseClass(String.class).instanceSize() * 2;
 
     private final String name;
+    @Nullable
     private final String value;
 
     @JsonCreator
     public HivePartitionKey(
             @JsonProperty("name") String name,
-            @JsonProperty("value") String value)
+            @JsonProperty("value") Optional<String> value)
     {
-        requireNonNull(name, "name is null");
-        requireNonNull(value, "value is null");
-
-        this.name = name;
-        this.value = value.equals(HIVE_DEFAULT_DYNAMIC_PARTITION) ? "\\N" : value;
+        this.name = requireNonNull(name, "name is null");
+        this.value = requireNonNull(value, "value is null").orElse(null);
     }
 
     @JsonProperty
@@ -50,14 +50,14 @@ public final class HivePartitionKey
     }
 
     @JsonProperty
-    public String getValue()
+    public Optional<String> getValue()
     {
-        return value;
+        return Optional.ofNullable(value);
     }
 
     public int getEstimatedSizeInBytes()
     {
-        return INSTANCE_SIZE + name.length() * Character.BYTES + value.length() * Character.BYTES;
+        return INSTANCE_SIZE + name.length() * Character.BYTES + (value == null ? 0 : value.length() * Character.BYTES);
     }
 
     @Override

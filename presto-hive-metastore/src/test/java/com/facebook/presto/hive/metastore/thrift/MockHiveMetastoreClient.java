@@ -14,7 +14,9 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,25 +24,34 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
+import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
+import org.apache.hadoop.hive.metastore.api.LockRequest;
+import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.PrimaryKeysResponse;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
+import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
+import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
+import org.apache.hadoop.hive.metastore.api.UnlockRequest;
 import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
@@ -52,20 +63,40 @@ public class MockHiveMetastoreClient
     public static final String TEST_DATABASE = "testdb";
     public static final String BAD_DATABASE = "baddb";
     public static final String TEST_TABLE = "testtbl";
+    public static final String TEST_TABLE_WITH_CONSTRAINTS = "testtbl_constraints";
+    public static final Map<String, List<FieldSchema>> SCHEMA_MAP = ImmutableMap.of(
+            TEST_DATABASE + TEST_TABLE, ImmutableList.of(new FieldSchema("key", "string", null)),
+            TEST_DATABASE + TEST_TABLE_WITH_CONSTRAINTS, ImmutableList.of(new FieldSchema("c1", "string", "Primary Key"), new FieldSchema("c2", "string", "Unique Key")));
+    public static final List<SQLPrimaryKey> TEST_PRIMARY_KEY = ImmutableList.of(new SQLPrimaryKey(TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c1", 0, "", true, false, true));
+    public static final List<SQLUniqueConstraint> TEST_UNIQUE_CONSTRAINT = ImmutableList.of(new SQLUniqueConstraint("", TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c2", 1, "", true, false, true));
+    public static final String TEST_TOKEN = "token";
+    public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
     public static final String TEST_PARTITION1 = "key=testpartition1";
     public static final String TEST_PARTITION2 = "key=testpartition2";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
     public static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
-    public static final int PARTITION_VERSION = 1000;
-    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION1 = new PartitionNameWithVersion(TEST_PARTITION1, PARTITION_VERSION);
-    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION2 = new PartitionNameWithVersion(TEST_PARTITION2, PARTITION_VERSION);
+    public static final long PARTITION_VERSION = 1000;
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION1 = new PartitionNameWithVersion(TEST_PARTITION1, Optional.of(PARTITION_VERSION));
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION2 = new PartitionNameWithVersion(TEST_PARTITION2, Optional.of(PARTITION_VERSION));
     public static final List<String> TEST_ROLES = ImmutableList.of("testrole");
     public static final List<RolePrincipalGrant> TEST_ROLE_GRANTS = ImmutableList.of(
             new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
             new RolePrincipalGrant("role2", "role1", ROLE, true, 0, "grantor2", ROLE));
 
     private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
-            new StorageDescriptor(ImmutableList.of(), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
+            new StorageDescriptor(
+                    ImmutableList.of(
+                            new FieldSchema("col_bigint", "bigint", "comment"),
+                            new FieldSchema("col_string", "string", "comment")),
+                    "",
+                    null,
+                    null,
+                    false,
+                    0,
+                    new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()),
+                    null,
+                    null,
+                    ImmutableMap.of());
 
     private final AtomicInteger accessCount = new AtomicInteger();
     private boolean throwException;
@@ -91,6 +122,12 @@ public class MockHiveMetastoreClient
     }
 
     @Override
+    public String getDelegationToken(String owner, String renewer)
+    {
+        return TEST_TOKEN;
+    }
+
+    @Override
     public List<String> getAllTables(String dbName)
     {
         accessCount.incrementAndGet();
@@ -100,7 +137,7 @@ public class MockHiveMetastoreClient
         if (!dbName.equals(TEST_DATABASE)) {
             return ImmutableList.of(); // As specified by Hive specification
         }
-        return ImmutableList.of(TEST_TABLE);
+        return ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS);
     }
 
     @Override
@@ -125,9 +162,10 @@ public class MockHiveMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
+        if (!dbName.equals(TEST_DATABASE) || (!tableName.equals(TEST_TABLE) && !tableName.equals(TEST_TABLE_WITH_CONSTRAINTS))) {
             throw new NoSuchObjectException();
         }
+
         return new Table(
                 TEST_TABLE,
                 TEST_DATABASE,
@@ -136,7 +174,7 @@ public class MockHiveMetastoreClient
                 0,
                 0,
                 DEFAULT_STORAGE_DESCRIPTOR,
-                ImmutableList.of(new FieldSchema("key", "string", null)),
+                SCHEMA_MAP.get(dbName + tableName),
                 null,
                 "",
                 "",
@@ -243,7 +281,7 @@ public class MockHiveMetastoreClient
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION_VALUES1, TEST_PARTITION_VALUES2).contains(partitionValues)) {
             throw new NoSuchObjectException();
         }
-        return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
+        return new Partition(partitionValues, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
     }
 
     @Override
@@ -404,5 +442,42 @@ public class MockHiveMetastoreClient
     public void setUGI(String userName)
     {
         // No-op
+    }
+
+    @Override
+    public LockResponse checkLock(CheckLockRequest request)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public LockResponse lock(LockRequest request)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void unlock(UnlockRequest request)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    public Optional<PrimaryKeysResponse> getPrimaryKey(String dbName, String tableName)
+    {
+        accessCount.incrementAndGet();
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE_WITH_CONSTRAINTS)) {
+            throw new UnsupportedOperationException();
+        }
+        return Optional.of(new PrimaryKeysResponse(TEST_PRIMARY_KEY));
+    }
+
+    @Override
+    public Optional<UniqueConstraintsResponse> getUniqueConstraints(String catName, String dbName, String tableName)
+    {
+        accessCount.incrementAndGet();
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE_WITH_CONSTRAINTS)) {
+            throw new UnsupportedOperationException();
+        }
+        return Optional.of(new UniqueConstraintsResponse(TEST_UNIQUE_CONSTRAINT));
     }
 }

@@ -95,12 +95,8 @@ public class TestHivePushdownFilterQueries
 
             "FROM lineitem)\n";
 
-    protected TestHivePushdownFilterQueries()
-    {
-        super(TestHivePushdownFilterQueries::createQueryRunner);
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),

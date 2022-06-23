@@ -109,9 +109,21 @@ public abstract class CachingFileSystem
     }
 
     @Override
+    public long getDefaultBlockSize(Path path)
+    {
+        return dataTier.getDefaultBlockSize(path);
+    }
+
+    @Override
     public short getDefaultReplication()
     {
         return dataTier.getDefaultReplication();
+    }
+
+    @Override
+    public short getDefaultReplication(Path path)
+    {
+        return dataTier.getDefaultReplication(path);
     }
 
     @Override
@@ -228,6 +240,13 @@ public abstract class CachingFileSystem
             throws IOException
     {
         return dataTier.getContentSummary(path);
+    }
+
+    @Override
+    public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path path)
+            throws IOException
+    {
+        return dataTier.listLocatedStatus(path);
     }
 
     @Override

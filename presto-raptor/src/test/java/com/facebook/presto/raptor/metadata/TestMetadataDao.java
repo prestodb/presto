@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static org.testng.Assert.assertEquals;
@@ -38,7 +39,7 @@ public class TestMetadataDao
     @BeforeMethod
     public void setup()
     {
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dummyHandle = dbi.open();
         dao = dbi.onDemand(MetadataDao.class);
         createTablesWithRetry(dbi);

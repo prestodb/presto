@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
@@ -26,9 +27,11 @@ import static io.airlift.tpch.TpchTable.getTables;
 public class TestHiveSpillingWithExchangeMaterialization
         extends AbstractTestQueryFramework
 {
-    public TestHiveSpillingWithExchangeMaterialization()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMaterializingAndSpillingQueryRunner(getTables()));
+        return createMaterializingAndSpillingQueryRunner(getTables());
     }
 
     @Test

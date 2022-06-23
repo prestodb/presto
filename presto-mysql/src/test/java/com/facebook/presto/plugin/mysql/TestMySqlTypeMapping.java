@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.mysql.MySqlOptions;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -71,13 +72,14 @@ public class TestMySqlTypeMapping
     public TestMySqlTypeMapping()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch"), MY_SQL_OPTIONS));
+        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch"), MY_SQL_OPTIONS);
     }
 
-    private TestMySqlTypeMapping(TestingMySqlServer mysqlServer)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of()));
-        this.mysqlServer = mysqlServer;
+        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)

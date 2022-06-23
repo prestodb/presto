@@ -43,6 +43,17 @@ public class TestDefaultWarningCollector
     }
 
     @Test
+    public void testAddingSameTypeWarnings()
+    {
+        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig(), WarningHandlingLevel.NORMAL);
+        warningCollector.add(new PrestoWarning(new WarningCode(1, "1"), "warning 1-1"));
+        warningCollector.add(new PrestoWarning(new WarningCode(1, "1"), "warning 1-2"));
+        warningCollector.add(new PrestoWarning(new WarningCode(2, "2"), "warning 2"));
+        warningCollector.add(new PrestoWarning(new WarningCode(3, "3"), "warning 3"));
+        assertEquals(warningCollector.getWarnings().size(), 4);
+    }
+
+    @Test
     public void testWarningSuppress()
     {
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig(), WarningHandlingLevel.SUPPRESS);

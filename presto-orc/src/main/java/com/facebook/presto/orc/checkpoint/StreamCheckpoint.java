@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc.checkpoint;
 
+import java.util.List;
+
 public interface StreamCheckpoint
 {
+    List<Integer> toPositionList(boolean compressed);
 }

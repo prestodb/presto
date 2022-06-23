@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.ConnectorId;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.connector.ConnectorCommitHandle.EMPTY_COMMIT_OUTPUT;
 import static org.testng.Assert.assertEquals;
 
 public class TestOutput
@@ -26,7 +27,11 @@ public class TestOutput
     @Test
     public void testRoundTrip()
     {
-        Output expected = new Output(new ConnectorId("connectorId"), "schema", "table");
+        Output expected = new Output(
+                new ConnectorId("connectorId"),
+                "schema",
+                "table",
+                EMPTY_COMMIT_OUTPUT);
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);

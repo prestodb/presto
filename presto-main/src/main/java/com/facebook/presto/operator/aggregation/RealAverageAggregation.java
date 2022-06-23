@@ -49,9 +49,9 @@ public class RealAverageAggregation
     public static final RealAverageAggregation REAL_AVERAGE_AGGREGATION = new RealAverageAggregation();
     private static final String NAME = "avg";
 
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "input", LongState.class, DoubleState.class, long.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(RealAverageAggregation.class, "combine", LongState.class, DoubleState.class, LongState.class, DoubleState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "output", LongState.class, DoubleState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "input", DoubleState.class, LongState.class, long.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(RealAverageAggregation.class, "combine", DoubleState.class, LongState.class, DoubleState.class, LongState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "output", DoubleState.class, LongState.class, BlockBuilder.class);
 
     protected RealAverageAggregation()
     {
@@ -85,13 +85,13 @@ public class RealAverageAggregation
                 OUTPUT_FUNCTION,
                 ImmutableList.of(
                         new AccumulatorStateDescriptor(
-                                longStateInterface,
-                                longStateSerializer,
-                                StateCompiler.generateStateFactory(longStateInterface, classLoader)),
-                        new AccumulatorStateDescriptor(
                                 doubleStateInterface,
                                 doubleStateSerializer,
-                                StateCompiler.generateStateFactory(doubleStateInterface, classLoader))),
+                                StateCompiler.generateStateFactory(doubleStateInterface, classLoader)),
+                        new AccumulatorStateDescriptor(
+                                longStateInterface,
+                                longStateSerializer,
+                                StateCompiler.generateStateFactory(longStateInterface, classLoader))),
                 REAL);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
@@ -99,8 +99,8 @@ public class RealAverageAggregation
                 NAME,
                 ImmutableList.of(REAL),
                 ImmutableList.of(
-                        longStateSerializer.getSerializedType(),
-                        doubleStateSerializer.getSerializedType()),
+                        doubleStateSerializer.getSerializedType(),
+                        longStateSerializer.getSerializedType()),
                 REAL,
                 true,
                 false,
@@ -112,19 +112,19 @@ public class RealAverageAggregation
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(LongState count, DoubleState sum, long value)
+    public static void input(DoubleState sum, LongState count, long value)
     {
         count.setLong(count.getLong() + 1);
         sum.setDouble(sum.getDouble() + intBitsToFloat((int) value));
     }
 
-    public static void combine(LongState count, DoubleState sum, LongState otherCount, DoubleState otherSum)
+    public static void combine(DoubleState sum, LongState count, DoubleState otherSum, LongState otherCount)
     {
         count.setLong(count.getLong() + otherCount.getLong());
         sum.setDouble(sum.getDouble() + otherSum.getDouble());
     }
 
-    public static void output(LongState count, DoubleState sum, BlockBuilder out)
+    public static void output(DoubleState sum, LongState count, BlockBuilder out)
     {
         if (count.getLong() == 0) {
             out.appendNull();

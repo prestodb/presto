@@ -37,8 +37,6 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -70,8 +68,9 @@ public class FeaturesConfig
     private double memoryCostWeight = 10;
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
-    private JoinDistributionType joinDistributionType = PARTITIONED;
-    private DataSize joinMaxBroadcastTableSize;
+    private JoinDistributionType joinDistributionType = JoinDistributionType.AUTOMATIC;
+    private DataSize joinMaxBroadcastTableSize = new DataSize(100, MEGABYTE);
+    private boolean sizeBasedJoinDistributionTypeEnabled = true;
     private boolean colocatedJoinsEnabled = true;
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
@@ -81,23 +80,32 @@ public class FeaturesConfig
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
     private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
+    private boolean queryLimitSpillEnabled;
     private SingleStreamSpillerChoice singleStreamSpillerChoice = SingleStreamSpillerChoice.LOCAL_FILE;
     private String spillerTempStorage = "local";
     private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
-    private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
+    private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
+    private boolean useHistoryBasedPlanStatistics;
+    private boolean useExternalPlanStatistics;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
-    private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
+    private DataSize writerMinSize = new DataSize(32, MEGABYTE);
     private boolean optimizedScaleWriterProducerBuffer;
     private boolean optimizeMetadataQueries;
+    private boolean optimizeMetadataQueriesIgnoreStats;
+    private int optimizeMetadataQueriesCallThreshold = 100;
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
+    private boolean optimizeCaseExpressionPredicate;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
+    private boolean exchangeChecksumEnabled;
     private boolean legacyArrayAgg;
+    private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
+    private boolean useAlternativeFunctionSignatures;
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
@@ -108,6 +116,8 @@ public class FeaturesConfig
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
+    private boolean optimizeJoinsWithEmptySources;
+    private boolean logFormattedQueryEnabled;
 
     private boolean dictionaryAggregation;
 
@@ -118,8 +128,16 @@ public class FeaturesConfig
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
-    private boolean joinSpillingEnabled;
-    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private boolean joinSpillingEnabled = true;
+    private boolean aggregationSpillEnabled = true;
+    private boolean distinctAggregationSpillEnabled = true;
+    private boolean dedupBasedDistinctAggregationSpillEnabled;
+    private boolean distinctAggregationLargeBlockSpillEnabled;
+    private DataSize distinctAggregationLargeBlockSizeThreshold = new DataSize(50, MEGABYTE);
+    private boolean orderByAggregationSpillEnabled = true;
+    private boolean windowSpillEnabled = true;
+    private boolean orderBySpillEnabled = true;
+    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -135,14 +153,19 @@ public class FeaturesConfig
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
+    private boolean exploitConstraints;
     private boolean preferPartialAggregation = true;
+    private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
+    private double partialAggregationByteReductionThreshold = 0.5;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
+    private Duration queryAnalyzerTimeout = new Duration(3, MINUTES);
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
+    private int dynamicFilteringRangeRowLimitPerDriver;
 
     private boolean fragmentResultCachingEnabled;
 
@@ -171,12 +194,42 @@ public class FeaturesConfig
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
+    private boolean checkAccessControlWithSubfields;
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
+
+    private boolean spoolingOutputBufferEnabled;
+    private DataSize spoolingOutputBufferThreshold = new DataSize(8, MEGABYTE);
+    private String spoolingOutputBufferTempStorage = "local";
 
     private String warnOnNoTableLayoutFilter = "";
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
+
+    private boolean enforceFixedDistributionForOutputOperator;
+    private boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+
+    private boolean partialResultsEnabled;
+    private double partialResultsCompletionRatioThreshold = 0.5;
+    private double partialResultsMaxExecutionTimeMultiplier = 2.0;
+
+    private boolean offsetClauseEnabled;
+    private boolean materializedViewDataConsistencyEnabled = true;
+
+    private boolean queryOptimizationWithMaterializedViewEnabled;
+    private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
+    private boolean verboseRuntimeStatsEnabled;
+    private boolean hashBasedDistinctLimitEnabled;
+    private int hashBasedDistinctLimitThreshold = 10000;
+
+    private boolean streamingForPartialAggregationEnabled;
+    private boolean preferMergeJoin;
+    private boolean segmentedAggregationEnabled;
+
+    private int maxStageCountForEagerScheduling = 25;
+    private boolean quickDistinctLimitEnabled;
+
+    private double hyperloglogStandardErrorWarningThreshold = 0.004;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -237,13 +290,28 @@ public class FeaturesConfig
     {
         ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
         ORDER_BY_REVOCABLE_BYTES, // When spilling is triggered, revoke tasks by most allocated revocable memory to least allocated revocable memory
-        PER_TASK_MEMORY_THRESHOLD // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
+        PER_TASK_MEMORY_THRESHOLD, // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
     }
 
     public enum SingleStreamSpillerChoice
     {
         LOCAL_FILE,
         TEMP_STORAGE
+    }
+
+    public enum PartialAggregationStrategy
+    {
+        ALWAYS, // Always do partial aggregation
+        NEVER, // Never do partial aggregation
+        AUTOMATIC // Let the optimizer decide for each aggregation
+    }
+
+    public enum AggregationIfToFilterRewriteStrategy
+    {
+        DISABLED,
+        FILTER_WITH_IF, // Rewrites AGG(IF(condition, expr)) to AGG(IF(condition, expr)) FILTER (WHERE condition).
+        UNWRAP_IF_SAFE, // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition) if it is safe to do so.
+        UNWRAP_IF // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition).
     }
 
     public double getCpuCostWeight()
@@ -354,6 +422,19 @@ public class FeaturesConfig
         return legacyLogFunction;
     }
 
+    @Config("use-alternative-function-signatures")
+    @ConfigDescription("Override intermediate aggregation type of some aggregation functions to be compatible with Velox")
+    public FeaturesConfig setUseAlternativeFunctionSignatures(boolean value)
+    {
+        this.useAlternativeFunctionSignatures = value;
+        return this;
+    }
+
+    public boolean isUseAlternativeFunctionSignatures()
+    {
+        return useAlternativeFunctionSignatures;
+    }
+
     @Config("deprecated.group-by-uses-equal")
     public FeaturesConfig setGroupByUsesEqualTo(boolean value)
     {
@@ -390,6 +471,18 @@ public class FeaturesConfig
         return legacyMapSubscript;
     }
 
+    @Config("reduce-agg-for-complex-types-enabled")
+    public FeaturesConfig setReduceAggForComplexTypesEnabled(boolean reduceAggForComplexTypesEnabled)
+    {
+        this.reduceAggForComplexTypesEnabled = reduceAggForComplexTypesEnabled;
+        return this;
+    }
+
+    public boolean isReduceAggForComplexTypesEnabled()
+    {
+        return reduceAggForComplexTypesEnabled;
+    }
+
     public JoinDistributionType getJoinDistributionType()
     {
         return joinDistributionType;
@@ -402,6 +495,7 @@ public class FeaturesConfig
         return this;
     }
 
+    @NotNull
     public DataSize getJoinMaxBroadcastTableSize()
     {
         return joinMaxBroadcastTableSize;
@@ -412,6 +506,18 @@ public class FeaturesConfig
     {
         this.joinMaxBroadcastTableSize = joinMaxBroadcastTableSize;
         return this;
+    }
+
+    @Config("optimizer.size-based-join-distribution-type-enabled")
+    public FeaturesConfig setSizeBasedJoinDistributionTypeEnabled(boolean considerTableSize)
+    {
+        this.sizeBasedJoinDistributionTypeEnabled = considerTableSize;
+        return this;
+    }
+
+    public boolean isSizeBasedJoinDistributionTypeEnabled()
+    {
+        return sizeBasedJoinDistributionTypeEnabled;
     }
 
     public boolean isGroupedExecutionEnabled()
@@ -466,13 +572,13 @@ public class FeaturesConfig
         return this;
     }
 
+    @Min(0)
     public int getConcurrentLifespansPerTask()
     {
         return concurrentLifespansPerTask;
     }
 
     @Config("concurrent-lifespans-per-task")
-    @Min(0)
     @ConfigDescription("Experimental: Default number of lifespans that run in parallel on each task when grouped execution is enabled")
     // When set to zero, a limit is not imposed on the number of lifespans that run in parallel
     public FeaturesConfig setConcurrentLifespansPerTask(int concurrentLifespansPerTask)
@@ -546,6 +652,19 @@ public class FeaturesConfig
         return this;
     }
 
+    @Config("experimental.query-limit-spill-enabled")
+    @ConfigDescription("Spill whenever the total memory used by the query (including revocable and non-revocable memory) exceeds maxTotalMemoryPerNode")
+    public FeaturesConfig setQueryLimitSpillEnabled(boolean queryLimitSpillEnabled)
+    {
+        this.queryLimitSpillEnabled = queryLimitSpillEnabled;
+        return this;
+    }
+
+    public boolean isQueryLimitSpillEnabled()
+    {
+        return queryLimitSpillEnabled;
+    }
+
     public SingleStreamSpillerChoice getSingleStreamSpillerChoice()
     {
         return singleStreamSpillerChoice;
@@ -608,6 +727,30 @@ public class FeaturesConfig
     public FeaturesConfig setMaxReorderedJoins(int maxReorderedJoins)
     {
         this.maxReorderedJoins = maxReorderedJoins;
+        return this;
+    }
+
+    public boolean isUseHistoryBasedPlanStatistics()
+    {
+        return useHistoryBasedPlanStatistics;
+    }
+
+    @Config("optimizer.use-history-based-plan-statistics")
+    public FeaturesConfig setUseHistoryBasedPlanStatistics(boolean useHistoryBasedPlanStatistics)
+    {
+        this.useHistoryBasedPlanStatistics = useHistoryBasedPlanStatistics;
+        return this;
+    }
+
+    public boolean isUseExternalPlanStatistics()
+    {
+        return useExternalPlanStatistics;
+    }
+
+    @Config("optimizer.use-external-plan-statistics")
+    public FeaturesConfig setUseExternalPlanStatistics(boolean useExternalPlanStatistics)
+    {
+        this.useExternalPlanStatistics = useExternalPlanStatistics;
         return this;
     }
 
@@ -679,10 +822,36 @@ public class FeaturesConfig
     }
 
     @Config("optimizer.optimize-metadata-queries")
-    @ConfigDescription("Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)")
+    @ConfigDescription("Enable optimization for metadata queries if the resulting partitions are not empty according to the partition stats")
     public FeaturesConfig setOptimizeMetadataQueries(boolean optimizeMetadataQueries)
     {
         this.optimizeMetadataQueries = optimizeMetadataQueries;
+        return this;
+    }
+
+    public boolean isOptimizeMetadataQueriesIgnoreStats()
+    {
+        return optimizeMetadataQueriesIgnoreStats;
+    }
+
+    @Config("optimizer.optimize-metadata-queries-ignore-stats")
+    @ConfigDescription("Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)")
+    public FeaturesConfig setOptimizeMetadataQueriesIgnoreStats(boolean optimizeMetadataQueriesIgnoreStats)
+    {
+        this.optimizeMetadataQueriesIgnoreStats = optimizeMetadataQueriesIgnoreStats;
+        return this;
+    }
+
+    public int getOptimizeMetadataQueriesCallThreshold()
+    {
+        return optimizeMetadataQueriesCallThreshold;
+    }
+
+    @Config("optimizer.optimize-metadata-queries-call-threshold")
+    @ConfigDescription("The threshold number of service calls to metastore, used in optimization for metadata queries")
+    public FeaturesConfig setOptimizeMetadataQueriesCallThreshold(int optimizeMetadataQueriesCallThreshold)
+    {
+        this.optimizeMetadataQueriesCallThreshold = optimizeMetadataQueriesCallThreshold;
         return this;
     }
 
@@ -698,6 +867,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isExploitConstraints()
+    {
+        return exploitConstraints;
+    }
+
+    @Config("optimizer.exploit-constraints")
+    public FeaturesConfig setExploitConstraints(boolean value)
+    {
+        this.exploitConstraints = value;
+        return this;
+    }
+
     public boolean isPreferPartialAggregation()
     {
         return preferPartialAggregation;
@@ -710,6 +891,30 @@ public class FeaturesConfig
         return this;
     }
 
+    public PartialAggregationStrategy getPartialAggregationStrategy()
+    {
+        return partialAggregationStrategy;
+    }
+
+    @Config("optimizer.partial-aggregation-strategy")
+    public FeaturesConfig setPartialAggregationStrategy(PartialAggregationStrategy partialAggregationStrategy)
+    {
+        this.partialAggregationStrategy = partialAggregationStrategy;
+        return this;
+    }
+
+    public double getPartialAggregationByteReductionThreshold()
+    {
+        return partialAggregationByteReductionThreshold;
+    }
+
+    @Config("optimizer.partial-aggregation-byte-reduction-threshold")
+    public FeaturesConfig setPartialAggregationByteReductionThreshold(double partialAggregationByteReductionThreshold)
+    {
+        this.partialAggregationByteReductionThreshold = partialAggregationByteReductionThreshold;
+        return this;
+    }
+
     public boolean isOptimizeTopNRowNumber()
     {
         return optimizeTopNRowNumber;
@@ -719,6 +924,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeTopNRowNumber(boolean optimizeTopNRowNumber)
     {
         this.optimizeTopNRowNumber = optimizeTopNRowNumber;
+        return this;
+    }
+
+    public boolean isOptimizeCaseExpressionPredicate()
+    {
+        return optimizeCaseExpressionPredicate;
+    }
+
+    @Config("optimizer.optimize-case-expression-predicate")
+    public FeaturesConfig setOptimizeCaseExpressionPredicate(boolean optimizeCaseExpressionPredicate)
+    {
+        this.optimizeCaseExpressionPredicate = optimizeCaseExpressionPredicate;
         return this;
     }
 
@@ -820,10 +1037,108 @@ public class FeaturesConfig
         return this;
     }
 
-    @AssertTrue(message = "If " + JOIN_SPILL_ENABLED + " is set to true, spilling must be enabled " + SPILL_ENABLED)
-    public boolean isSpillEnabledIfJoinSpillingIsEnabled()
+    @Config("experimental.aggregation-spill-enabled")
+    @ConfigDescription("Spill aggregations if spill is enabled")
+    public FeaturesConfig setAggregationSpillEnabled(boolean aggregationSpillEnabled)
     {
-        return !isJoinSpillingEnabled() || isSpillEnabled();
+        this.aggregationSpillEnabled = aggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isAggregationSpillEnabled()
+    {
+        return aggregationSpillEnabled;
+    }
+
+    @Config("experimental.distinct-aggregation-spill-enabled")
+    @ConfigDescription("Spill distinct aggregations if aggregation spill is enabled")
+    public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
+    {
+        this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isDistinctAggregationSpillEnabled()
+    {
+        return distinctAggregationSpillEnabled;
+    }
+
+    @Config("experimental.dedup-based-distinct-aggregation-spill-enabled")
+    @ConfigDescription("Dedup input data for Distinct Aggregates before spilling")
+    public FeaturesConfig setDedupBasedDistinctAggregationSpillEnabled(boolean dedupBasedDistinctAggregationSpillEnabled)
+    {
+        this.dedupBasedDistinctAggregationSpillEnabled = dedupBasedDistinctAggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isDedupBasedDistinctAggregationSpillEnabled()
+    {
+        return dedupBasedDistinctAggregationSpillEnabled;
+    }
+
+    @Config("experimental.distinct-aggregation-large-block-spill-enabled")
+    @ConfigDescription("Spill large block to a separate spill file")
+    public FeaturesConfig setDistinctAggregationLargeBlockSpillEnabled(boolean distinctAggregationLargeBlockSpillEnabled)
+    {
+        this.distinctAggregationLargeBlockSpillEnabled = distinctAggregationLargeBlockSpillEnabled;
+        return this;
+    }
+
+    public boolean isDistinctAggregationLargeBlockSpillEnabled()
+    {
+        return distinctAggregationLargeBlockSpillEnabled;
+    }
+
+    @Config("experimental.distinct-aggregation-large-block-size-threshold")
+    @ConfigDescription("Block size threshold beyond which it will be spilled into a separate spill file")
+    public FeaturesConfig setDistinctAggregationLargeBlockSizeThreshold(DataSize distinctAggregationLargeBlockSizeThreshold)
+    {
+        this.distinctAggregationLargeBlockSizeThreshold = distinctAggregationLargeBlockSizeThreshold;
+        return this;
+    }
+
+    public DataSize getDistinctAggregationLargeBlockSizeThreshold()
+    {
+        return distinctAggregationLargeBlockSizeThreshold;
+    }
+
+    @Config("experimental.order-by-aggregation-spill-enabled")
+    @ConfigDescription("Spill order-by aggregations if aggregation spill is enabled")
+    public FeaturesConfig setOrderByAggregationSpillEnabled(boolean orderByAggregationSpillEnabled)
+    {
+        this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isOrderByAggregationSpillEnabled()
+    {
+        return orderByAggregationSpillEnabled;
+    }
+
+    @Config("experimental.window-spill-enabled")
+    @ConfigDescription("Enable Window Operator Spilling if spill is enabled")
+    public FeaturesConfig setWindowSpillEnabled(boolean windowSpillEnabled)
+    {
+        this.windowSpillEnabled = windowSpillEnabled;
+        return this;
+    }
+
+    public boolean isWindowSpillEnabled()
+    {
+        return windowSpillEnabled;
+    }
+
+    @Config("experimental.order-by-spill-enabled")
+    @ConfigDescription("Enable Order-by Operator Spilling if spill is enabled")
+    public FeaturesConfig setOrderBySpillEnabled(boolean orderBySpillEnabled)
+    {
+        this.orderBySpillEnabled = orderBySpillEnabled;
+        return this;
+    }
+
+    public boolean isOrderBySpillEnabled()
+    {
+        return orderBySpillEnabled;
     }
 
     public boolean isIterativeOptimizerEnabled()
@@ -859,6 +1174,19 @@ public class FeaturesConfig
     public FeaturesConfig setIterativeOptimizerTimeout(Duration timeout)
     {
         this.iterativeOptimizerTimeout = timeout;
+        return this;
+    }
+
+    public Duration getQueryAnalyzerTimeout()
+    {
+        return this.queryAnalyzerTimeout;
+    }
+
+    @Config("planner.query-analyzer-timeout")
+    @ConfigDescription("Maximum running time for the query analyzer in case the processing takes too long or is stuck in an infinite loop.")
+    public FeaturesConfig setQueryAnalyzerTimeout(Duration timeout)
+    {
+        this.queryAnalyzerTimeout = timeout;
         return this;
     }
 
@@ -1046,6 +1374,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public int getDynamicFilteringRangeRowLimitPerDriver()
+    {
+        return dynamicFilteringRangeRowLimitPerDriver;
+    }
+
+    @Config("experimental.dynamic-filtering-range-row-limit-per-driver")
+    @ConfigDescription("Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering")
+    public FeaturesConfig setDynamicFilteringRangeRowLimitPerDriver(int dynamicFilteringRangeRowLimitPerDriver)
+    {
+        this.dynamicFilteringRangeRowLimitPerDriver = dynamicFilteringRangeRowLimitPerDriver;
+        return this;
+    }
+
     public boolean isFragmentResultCachingEnabled()
     {
         return fragmentResultCachingEnabled;
@@ -1076,10 +1417,22 @@ public class FeaturesConfig
         return exchangeCompressionEnabled;
     }
 
+    public boolean isExchangeChecksumEnabled()
+    {
+        return exchangeChecksumEnabled;
+    }
+
     @Config("exchange.compression-enabled")
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
         this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        return this;
+    }
+
+    @Config("exchange.checksum-enabled")
+    public FeaturesConfig setExchangeChecksumEnabled(boolean exchangeChecksumEnabled)
+    {
+        this.exchangeChecksumEnabled = exchangeChecksumEnabled;
         return this;
     }
 
@@ -1267,7 +1620,6 @@ public class FeaturesConfig
     }
 
     @Config("max-concurrent-materializations")
-    @Min(1)
     @ConfigDescription("The maximum number of materializing plan sections that can run concurrently")
     public FeaturesConfig setMaxConcurrentMaterializations(int maxConcurrentMaterializations)
     {
@@ -1275,6 +1627,7 @@ public class FeaturesConfig
         return this;
     }
 
+    @Min(1)
     public int getMaxConcurrentMaterializations()
     {
         return maxConcurrentMaterializations;
@@ -1467,6 +1820,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isCheckAccessControlWithSubfields()
+    {
+        return checkAccessControlWithSubfields;
+    }
+
+    @Config("check-access-control-with-subfields")
+    public FeaturesConfig setCheckAccessControlWithSubfields(boolean checkAccessControlWithSubfields)
+    {
+        this.checkAccessControlWithSubfields = checkAccessControlWithSubfields;
+        return this;
+    }
+
     public boolean isSkipRedundantSort()
     {
         return skipRedundantSort;
@@ -1488,6 +1853,299 @@ public class FeaturesConfig
     public FeaturesConfig setAllowWindowOrderByLiterals(boolean value)
     {
         this.isAllowWindowOrderByLiterals = value;
+        return this;
+    }
+
+    public boolean isEnforceFixedDistributionForOutputOperator()
+    {
+        return enforceFixedDistributionForOutputOperator;
+    }
+
+    @Config("enforce-fixed-distribution-for-output-operator")
+    public FeaturesConfig setEnforceFixedDistributionForOutputOperator(boolean enforceFixedDistributionForOutputOperator)
+    {
+        this.enforceFixedDistributionForOutputOperator = enforceFixedDistributionForOutputOperator;
+        return this;
+    }
+
+    public boolean isEmptyJoinOptimization()
+    {
+        return optimizeJoinsWithEmptySources;
+    }
+
+    @Config("optimizer.optimize-joins-with-empty-sources")
+    public FeaturesConfig setEmptyJoinOptimization(boolean value)
+    {
+        this.optimizeJoinsWithEmptySources = value;
+        return this;
+    }
+
+    public boolean isLogFormattedQueryEnabled()
+    {
+        return logFormattedQueryEnabled;
+    }
+
+    @Config("log-formatted-query-enabled")
+    @ConfigDescription("Log formatted prepared query instead of raw query when enabled")
+    public FeaturesConfig setLogFormattedQueryEnabled(boolean logFormattedQueryEnabled)
+    {
+        this.logFormattedQueryEnabled = logFormattedQueryEnabled;
+        return this;
+    }
+
+    public boolean isSpoolingOutputBufferEnabled()
+    {
+        return spoolingOutputBufferEnabled;
+    }
+
+    @Config("spooling-output-buffer-enabled")
+    public FeaturesConfig setSpoolingOutputBufferEnabled(boolean value)
+    {
+        this.spoolingOutputBufferEnabled = value;
+        return this;
+    }
+
+    public DataSize getSpoolingOutputBufferThreshold()
+    {
+        return spoolingOutputBufferThreshold;
+    }
+
+    @Config("spooling-output-buffer-threshold")
+    public FeaturesConfig setSpoolingOutputBufferThreshold(DataSize spoolingOutputBufferThreshold)
+    {
+        this.spoolingOutputBufferThreshold = spoolingOutputBufferThreshold;
+        return this;
+    }
+
+    public String getSpoolingOutputBufferTempStorage()
+    {
+        return spoolingOutputBufferTempStorage;
+    }
+
+    @Config("spooling-output-buffer-temp-storage")
+    public FeaturesConfig setSpoolingOutputBufferTempStorage(String spoolingOutputBufferTempStorage)
+    {
+        this.spoolingOutputBufferTempStorage = spoolingOutputBufferTempStorage;
+        return this;
+    }
+
+    public boolean isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled()
+    {
+        return prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+    }
+
+    @Config("spark.assign-bucket-to-partition-for-partitioned-table-write-enabled")
+    public FeaturesConfig setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled)
+    {
+        this.prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled = prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+        return this;
+    }
+
+    public boolean isPartialResultsEnabled()
+    {
+        return partialResultsEnabled;
+    }
+
+    @Config("partial-results-enabled")
+    @ConfigDescription("Enable returning partial results. Please note that queries might not read all the data when this is enabled.")
+    public FeaturesConfig setPartialResultsEnabled(boolean partialResultsEnabled)
+    {
+        this.partialResultsEnabled = partialResultsEnabled;
+        return this;
+    }
+
+    public double getPartialResultsCompletionRatioThreshold()
+    {
+        return partialResultsCompletionRatioThreshold;
+    }
+
+    @Config("partial-results-completion-ratio-threshold")
+    @ConfigDescription("Minimum query completion ratio threshold for partial results")
+    public FeaturesConfig setPartialResultsCompletionRatioThreshold(double partialResultsCompletionRatioThreshold)
+    {
+        this.partialResultsCompletionRatioThreshold = partialResultsCompletionRatioThreshold;
+        return this;
+    }
+
+    public double getPartialResultsMaxExecutionTimeMultiplier()
+    {
+        return partialResultsMaxExecutionTimeMultiplier;
+    }
+
+    @Config("partial-results-max-execution-time-multiplier")
+    @ConfigDescription("This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time")
+    public FeaturesConfig setPartialResultsMaxExecutionTimeMultiplier(double partialResultsMaxExecutionTimeMultiplier)
+    {
+        this.partialResultsMaxExecutionTimeMultiplier = partialResultsMaxExecutionTimeMultiplier;
+        return this;
+    }
+
+    public boolean isOffsetClauseEnabled()
+    {
+        return offsetClauseEnabled;
+    }
+
+    @Config("offset-clause-enabled")
+    @ConfigDescription("Enable support for OFFSET clause")
+    public FeaturesConfig setOffsetClauseEnabled(boolean offsetClauseEnabled)
+    {
+        this.offsetClauseEnabled = offsetClauseEnabled;
+        return this;
+    }
+
+    public boolean isMaterializedViewDataConsistencyEnabled()
+    {
+        return materializedViewDataConsistencyEnabled;
+    }
+
+    @Config("materialized-view-data-consistency-enabled")
+    @ConfigDescription("When enabled and reading from materialized view, partition stitching is applied to achieve data consistency")
+    public FeaturesConfig setMaterializedViewDataConsistencyEnabled(boolean materializedViewDataConsistencyEnabled)
+    {
+        this.materializedViewDataConsistencyEnabled = materializedViewDataConsistencyEnabled;
+        return this;
+    }
+
+    public boolean isQueryOptimizationWithMaterializedViewEnabled()
+    {
+        return queryOptimizationWithMaterializedViewEnabled;
+    }
+
+    @Config("query-optimization-with-materialized-view-enabled")
+    @ConfigDescription("Experimental: Enable query optimization using materialized view. It only supports simple query formats for now.")
+    public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
+    {
+        this.queryOptimizationWithMaterializedViewEnabled = value;
+        return this;
+    }
+
+    public boolean isVerboseRuntimeStatsEnabled()
+    {
+        return verboseRuntimeStatsEnabled;
+    }
+
+    @Config("verbose-runtime-stats-enabled")
+    @ConfigDescription("Enable logging all runtime stats.")
+    public FeaturesConfig setVerboseRuntimeStatsEnabled(boolean value)
+    {
+        this.verboseRuntimeStatsEnabled = value;
+        return this;
+    }
+
+    public AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy()
+    {
+        return aggregationIfToFilterRewriteStrategy;
+    }
+
+    @Config("optimizer.aggregation-if-to-filter-rewrite-strategy")
+    @ConfigDescription("Set the strategy used to rewrite AGG IF to AGG FILTER")
+    public FeaturesConfig setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy strategy)
+    {
+        this.aggregationIfToFilterRewriteStrategy = strategy;
+        return this;
+    }
+
+    public boolean isHashBasedDistinctLimitEnabled()
+    {
+        return hashBasedDistinctLimitEnabled;
+    }
+
+    @Config("hash-based-distinct-limit-enabled")
+    @ConfigDescription("Enable fast hash-based distinct limit")
+    public FeaturesConfig setHashBasedDistinctLimitEnabled(boolean hashBasedDistinctLimitEnabled)
+    {
+        this.hashBasedDistinctLimitEnabled = hashBasedDistinctLimitEnabled;
+        return this;
+    }
+
+    @Config("hash-based-distinct-limit-threshold")
+    @ConfigDescription("Threshold for fast hash-based distinct limit")
+    public FeaturesConfig setHashBasedDistinctLimitThreshold(int hashBasedDistinctLimitThreshold)
+    {
+        this.hashBasedDistinctLimitThreshold = hashBasedDistinctLimitThreshold;
+        return this;
+    }
+
+    public int getHashBasedDistinctLimitThreshold()
+    {
+        return hashBasedDistinctLimitThreshold;
+    }
+
+    public boolean isStreamingForPartialAggregationEnabled()
+    {
+        return streamingForPartialAggregationEnabled;
+    }
+
+    @Config("streaming-for-partial-aggregation-enabled")
+    public FeaturesConfig setStreamingForPartialAggregationEnabled(boolean streamingForPartialAggregationEnabled)
+    {
+        this.streamingForPartialAggregationEnabled = streamingForPartialAggregationEnabled;
+        return this;
+    }
+
+    public int getMaxStageCountForEagerScheduling()
+    {
+        return maxStageCountForEagerScheduling;
+    }
+
+    @Min(1)
+    @Config("execution-policy.max-stage-count-for-eager-scheduling")
+    @ConfigDescription("When execution policy is set to adaptive, this number determines when to switch to phased execution.")
+    public FeaturesConfig setMaxStageCountForEagerScheduling(int maxStageCountForEagerScheduling)
+    {
+        this.maxStageCountForEagerScheduling = maxStageCountForEagerScheduling;
+        return this;
+    }
+
+    public double getHyperloglogStandardErrorWarningThreshold()
+    {
+        return hyperloglogStandardErrorWarningThreshold;
+    }
+
+    @Config("hyperloglog-standard-error-warning-threshold")
+    @ConfigDescription("aggregation functions can produce low-precision results when the max standard error lower than this value.")
+    public FeaturesConfig setHyperloglogStandardErrorWarningThreshold(double hyperloglogStandardErrorWarningThreshold)
+    {
+        this.hyperloglogStandardErrorWarningThreshold = hyperloglogStandardErrorWarningThreshold;
+        return this;
+    }
+
+    public boolean isPreferMergeJoin()
+    {
+        return preferMergeJoin;
+    }
+
+    @Config("optimizer.prefer-merge-join")
+    @ConfigDescription("Prefer merge join for sorted join inputs, e.g., tables pre-sorted, pre-partitioned by join columns." +
+            "To make it work, the connector needs to guarantee and expose the data properties of the underlying table.")
+    public FeaturesConfig setPreferMergeJoin(boolean preferMergeJoin)
+    {
+        this.preferMergeJoin = preferMergeJoin;
+        return this;
+    }
+
+    public boolean isSegmentedAggregationEnabled()
+    {
+        return segmentedAggregationEnabled;
+    }
+
+    @Config("optimizer.segmented-aggregation-enabled")
+    public FeaturesConfig setSegmentedAggregationEnabled(boolean segmentedAggregationEnabled)
+    {
+        this.segmentedAggregationEnabled = segmentedAggregationEnabled;
+        return this;
+    }
+
+    public boolean isQuickDistinctLimitEnabled()
+    {
+        return quickDistinctLimitEnabled;
+    }
+
+    @Config("optimizer.quick-distinct-limit-enabled")
+    @ConfigDescription("Enable quick distinct limit queries that give results as soon as a new distinct value is found")
+    public FeaturesConfig setQuickDistinctLimitEnabled(boolean quickDistinctLimitEnabled)
+    {
+        this.quickDistinctLimitEnabled = quickDistinctLimitEnabled;
         return this;
     }
 }

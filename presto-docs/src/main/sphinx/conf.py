@@ -79,7 +79,7 @@ project = u'Presto'
 version = get_version()
 release = version
 
-exclude_patterns = ['_build', 'rest*']
+exclude_patterns = ['_build']
 
 highlight_language = 'sql'
 

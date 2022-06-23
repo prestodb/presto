@@ -247,7 +247,9 @@ public class HivePartialAggregationPushdown
             }
 
             HiveTableLayoutHandle oldTableLayoutHandle = (HiveTableLayoutHandle) oldTableHandle.getLayout().get();
-            HiveTableLayoutHandle newTableLayoutHandle = new HiveTableLayoutHandle(oldTableLayoutHandle.getSchemaTableName(),
+            HiveTableLayoutHandle newTableLayoutHandle = new HiveTableLayoutHandle(
+                    oldTableLayoutHandle.getSchemaTableName(),
+                    oldTableLayoutHandle.getTablePath(),
                     oldTableLayoutHandle.getPartitionColumns(),
                     oldTableLayoutHandle.getDataColumns(),
                     oldTableLayoutHandle.getTableParameters(),
@@ -261,7 +263,8 @@ public class HivePartialAggregationPushdown
                     oldTableLayoutHandle.isPushdownFilterEnabled(),
                     oldTableLayoutHandle.getLayoutString(),
                     oldTableLayoutHandle.getRequestedColumns(),
-                    true);
+                    true,
+                    oldTableLayoutHandle.isAppendRowNumberEnabled());
 
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
@@ -269,12 +272,13 @@ public class HivePartialAggregationPushdown
                     oldTableHandle.getTransaction(),
                     Optional.of(newTableLayoutHandle));
 
-            return Optional.of(new
-                    TableScanNode(
+            return Optional.of(new TableScanNode(
+                    oldTableScanNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     newTableHandle,
                     ImmutableList.copyOf(partialAggregationNode.getOutputVariables()),
                     ImmutableMap.copyOf(assignments),
+                    oldTableScanNode.getTableConstraints(),
                     oldTableScanNode.getCurrentConstraint(),
                     oldTableScanNode.getEnforcedConstraint()));
         }

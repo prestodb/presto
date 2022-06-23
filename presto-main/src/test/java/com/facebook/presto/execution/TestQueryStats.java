@@ -14,12 +14,15 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.RuntimeMetric;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -29,6 +32,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -37,6 +41,10 @@ import static org.testng.Assert.assertEquals;
 
 public class TestQueryStats
 {
+    private static final String TEST_METRIC_NAME = "test_metric";
+    private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 10, 2, 9, 1);
+    private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 3, 2);
+
     private static final List<OperatorStats> OPERATOR_SUMMARIES = ImmutableList.of(
             new OperatorStats(
                     10,
@@ -62,6 +70,7 @@ public class TestQueryStats
                     succinctBytes(116L),
                     117L,
                     succinctBytes(118L),
+                    new Duration(1000, NANOSECONDS),
                     new Duration(119, NANOSECONDS),
                     120L,
                     new Duration(121, NANOSECONDS),
@@ -75,7 +84,8 @@ public class TestQueryStats
                     succinctBytes(129L),
                     succinctBytes(130L),
                     Optional.empty(),
-                    null),
+                    null,
+                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1)))),
             new OperatorStats(
                     20,
                     201,
@@ -100,6 +110,7 @@ public class TestQueryStats
                     succinctBytes(216L),
                     217L,
                     succinctBytes(218L),
+                    new Duration(2000, NANOSECONDS),
                     new Duration(219, NANOSECONDS),
                     220L,
                     new Duration(221, NANOSECONDS),
@@ -113,7 +124,8 @@ public class TestQueryStats
                     succinctBytes(229L),
                     succinctBytes(230L),
                     Optional.empty(),
-                    null),
+                    null,
+                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2)))),
             new OperatorStats(
                     30,
                     301,
@@ -138,6 +150,7 @@ public class TestQueryStats
                     succinctBytes(316L),
                     317L,
                     succinctBytes(318L),
+                    new Duration(3000, NANOSECONDS),
                     new Duration(319, NANOSECONDS),
                     320L,
                     new Duration(321, NANOSECONDS),
@@ -151,16 +164,20 @@ public class TestQueryStats
                     succinctBytes(329L),
                     succinctBytes(330L),
                     Optional.empty(),
-                    null));
+                    null,
+                    new RuntimeStats()));
 
-    private static final QueryStats EXPECTED = new QueryStats(
+    static final QueryStats EXPECTED = new QueryStats(
             new DateTime(1),
             new DateTime(2),
             new DateTime(3),
             new DateTime(4),
             new Duration(6, NANOSECONDS),
+            new Duration(7, NANOSECONDS),
             new Duration(5, NANOSECONDS),
             new Duration(31, NANOSECONDS),
+            new Duration(15, NANOSECONDS),
+            new Duration(15, NANOSECONDS),
             new Duration(32, NANOSECONDS),
             new Duration(41, NANOSECONDS),
             new Duration(7, NANOSECONDS),
@@ -180,6 +197,7 @@ public class TestQueryStats
             16,
 
             17.0,
+            43.0,
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
             new DataSize(20, BYTE),
@@ -223,7 +241,8 @@ public class TestQueryStats
                     106,
                     107)),
 
-            OPERATOR_SUMMARIES);
+            OPERATOR_SUMMARIES,
+            new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_2))));
 
     @Test
     public void testJson()
@@ -236,7 +255,7 @@ public class TestQueryStats
         assertExpectedQueryStats(actual);
     }
 
-    private static void assertExpectedQueryStats(QueryStats actual)
+    static void assertExpectedQueryStats(QueryStats actual)
     {
         assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
         assertEquals(actual.getExecutionStartTime(), new DateTime(2, UTC));
@@ -246,6 +265,8 @@ public class TestQueryStats
         assertEquals(actual.getElapsedTime(), new Duration(6, NANOSECONDS));
         assertEquals(actual.getQueuedTime(), new Duration(5, NANOSECONDS));
         assertEquals(actual.getResourceWaitingTime(), new Duration(31, NANOSECONDS));
+        assertEquals(actual.getSemanticAnalyzingTime(), new Duration(15, NANOSECONDS));
+        assertEquals(actual.getColumnAccessPermissionCheckingTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getDispatchingTime(), new Duration(32, NANOSECONDS));
         assertEquals(actual.getExecutionTime(), new Duration(41, NANOSECONDS));
         assertEquals(actual.getAnalysisTime(), new Duration(7, NANOSECONDS));
@@ -305,5 +326,17 @@ public class TestQueryStats
         assertEquals(gcStatistics.getMaxFullGcSec(), 105);
         assertEquals(gcStatistics.getTotalFullGcSec(), 106);
         assertEquals(gcStatistics.getAverageFullGcSec(), 107);
+
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_2));
+    }
+
+    private static void assertRuntimeMetricEquals(RuntimeMetric m1, RuntimeMetric m2)
+    {
+        assertEquals(m1.getName(), m2.getName());
+        assertEquals(m1.getUnit(), m2.getUnit());
+        assertEquals(m1.getSum(), m2.getSum());
+        assertEquals(m1.getCount(), m2.getCount());
+        assertEquals(m1.getMax(), m2.getMax());
+        assertEquals(m1.getMin(), m2.getMin());
     }
 }
