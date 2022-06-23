@@ -28,7 +28,7 @@
 #include "velox/common/base/SimdUtil.h"
 #include "velox/type/StringView.h"
 
-namespace facebook ::velox::common {
+namespace facebook::velox::common {
 
 enum class FilterKind {
   kAlwaysFalse,

@@ -258,6 +258,12 @@ inline std::unique_ptr<common::Filter> in(
   return common::createBigintValues(values, nullAllowed);
 }
 
+inline std::unique_ptr<common::Filter> notIn(
+    const std::vector<int64_t>& values,
+    bool nullAllowed = false) {
+  return common::createNegatedBigintValues(values, nullAllowed);
+}
+
 inline std::unique_ptr<common::BytesValues> in(
     const std::vector<std::string>& values,
     bool nullAllowed = false) {
