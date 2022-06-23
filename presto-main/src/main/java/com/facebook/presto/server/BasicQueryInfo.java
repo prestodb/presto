@@ -42,6 +42,7 @@ import java.util.Optional;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.server.BasicQueryStats.immediateFailureQueryStats;
+import static com.facebook.presto.util.QueryInfoUtils.computeQueryHash;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -61,6 +62,7 @@ public class BasicQueryInfo
     private final boolean scheduled;
     private final URI self;
     private final String query;
+    private final String queryHash;
     private final BasicQueryStats queryStats;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
@@ -99,6 +101,7 @@ public class BasicQueryInfo
         this.scheduled = scheduled;
         this.self = requireNonNull(self, "self is null");
         this.query = requireNonNull(query, "query is null");
+        this.queryHash = computeQueryHash(query);
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.warnings = requireNonNull(warnings, "warnings is null");
@@ -233,12 +236,19 @@ public class BasicQueryInfo
 
     @ThriftField(9)
     @JsonProperty
+    public String getQueryHash()
+    {
+        return queryHash;
+    }
+
+    @ThriftField(10)
+    @JsonProperty
     public BasicQueryStats getQueryStats()
     {
         return queryStats;
     }
 
-    @ThriftField(10)
+    @ThriftField(11)
     @Nullable
     @JsonProperty
     public ErrorType getErrorType()
@@ -246,7 +256,7 @@ public class BasicQueryInfo
         return errorType;
     }
 
-    @ThriftField(11)
+    @ThriftField(12)
     @Nullable
     @JsonProperty
     public ErrorCode getErrorCode()
@@ -254,7 +264,7 @@ public class BasicQueryInfo
         return errorCode;
     }
 
-    @ThriftField(12)
+    @ThriftField(13)
     @Nullable
     @JsonProperty
     public ExecutionFailureInfo getFailureInfo()
@@ -262,21 +272,21 @@ public class BasicQueryInfo
         return failureInfo;
     }
 
-    @ThriftField(13)
+    @ThriftField(14)
     @JsonProperty
     public Optional<QueryType> getQueryType()
     {
         return queryType;
     }
 
-    @ThriftField(14)
+    @ThriftField(15)
     @JsonProperty
     public List<PrestoWarning> getWarnings()
     {
         return warnings;
     }
 
-    @ThriftField(15)
+    @ThriftField(16)
     @JsonProperty
     public Optional<String> getPreparedQuery()
     {

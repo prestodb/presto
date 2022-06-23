@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.util.QueryInfoUtils.computeQueryHash;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +56,7 @@ public class QueryInfo
     private final URI self;
     private final List<String> fieldNames;
     private final String query;
+    private final String queryHash;
     // expand the original query to a more accurate one if the data flow indicated by the original query is too obscure.
     private final Optional<String> expandedQuery;
     private final Optional<String> preparedQuery;
@@ -158,6 +160,7 @@ public class QueryInfo
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
+        this.queryHash = computeQueryHash(query);
         this.expandedQuery = expandedQuery;
         this.preparedQuery = preparedQuery;
         this.queryStats = queryStats;
@@ -236,6 +239,12 @@ public class QueryInfo
     public String getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public String getQueryHash()
+    {
+        return queryHash;
     }
 
     @JsonProperty
