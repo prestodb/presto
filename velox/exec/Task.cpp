@@ -182,6 +182,74 @@ memory::MappedMemory* FOLLY_NONNULL Task::addOperatorMemory(
   return mappedMemory.get();
 }
 
+RowVectorPtr Task::next() {
+  VELOX_CHECK_EQ(
+      core::ExecutionStrategy::kUngrouped,
+      planFragment_.executionStrategy,
+      "Single-threaded execution supports only ungrouped execution");
+
+  if (!splitPlanNodeIds_.empty()) {
+    for (const auto& id : splitPlanNodeIds_) {
+      VELOX_CHECK(
+          splitsStates_[id].noMoreSplits,
+          "Single-threaded execution requires all splits to be added before calling Task::next().");
+    }
+  }
+
+  VELOX_CHECK_EQ(state_, kRunning, "Task has already finished processing.");
+
+  // On first call, create the Driver.
+  if (driverFactories_.empty()) {
+    VELOX_CHECK_NULL(
+        consumerSupplier_,
+        "Single-threaded execution doesn't support delivering results to a callback");
+
+    LocalPlanner::plan(planFragment_, nullptr, &driverFactories_, 1);
+
+    // Only one pipeline is supported in single-threaded execution.
+    VELOX_CHECK_EQ(
+        1,
+        driverFactories_.size(),
+        "Single-threaded execution doesn't support multi-pipeline query plans yet.");
+    VELOX_CHECK(driverFactories_[0]->supportsSingleThreadedExecution());
+
+    exchangeClients_.resize(1);
+
+    const auto& factory = driverFactories_[0];
+    numDriversPerSplitGroup_ += factory->numDrivers;
+    numTotalDrivers_ += factory->numTotalDrivers;
+    taskStats_.pipelineStats.emplace_back(
+        factory->inputDriver, factory->outputDriver);
+
+    // Create the only driver.
+    auto self = shared_from_this();
+    std::vector<std::shared_ptr<Driver>> drivers;
+    createSplitGroupStateLocked(self, 0);
+    createDriversLocked(self, 0, drivers);
+
+    drivers_ = std::move(drivers);
+  }
+
+  VELOX_CHECK_EQ(1, drivers_.size());
+  auto driver = drivers_[0];
+
+  std::shared_ptr<BlockingState> blockingState;
+  auto result = driver->next(blockingState);
+  if (result) {
+    return result;
+  }
+
+  VELOX_CHECK_NULL(
+      blockingState,
+      "Single-threaded execution doesn't support blocking pipelines yet.");
+
+  if (error()) {
+    std::rethrow_exception(error());
+  }
+
+  return nullptr;
+}
+
 void Task::start(
     std::shared_ptr<Task> self,
     uint32_t maxDrivers,
@@ -258,8 +326,7 @@ void Task::start(
   for (auto pipeline = 0; pipeline < numPipelines; ++pipeline) {
     auto& factory = self->driverFactories_[pipeline];
 
-    auto partitionedOutputNode = factory->needsPartitionedOutput();
-    if (partitionedOutputNode) {
+    if (auto partitionedOutputNode = factory->needsPartitionedOutput()) {
       self->numDriversInPartitionedOutput_ = factory->numDrivers;
       VELOX_CHECK(
           !self->hasPartitionedOutput_,

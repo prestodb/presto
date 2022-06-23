@@ -158,7 +158,7 @@ void Driver::enqueue(std::shared_ptr<Driver> driver) {
 
 Driver::Driver(
     std::unique_ptr<DriverCtx> ctx,
-    std::vector<std::unique_ptr<Operator>>&& operators)
+    std::vector<std::unique_ptr<Operator>> operators)
     : ctx_(std::move(ctx)), operators_(std::move(operators)) {
   curOpIndex_ = operators_.size() - 1;
   // Operators need access to their Driver for adaptation.
@@ -230,6 +230,23 @@ void Driver::pushdownFilters(int operatorIndex) {
   op->clearDynamicFilters();
 }
 
+RowVectorPtr Driver::next(std::shared_ptr<BlockingState>& blockingState) {
+  enqueueInternal();
+
+  auto self = shared_from_this();
+  RowVectorPtr result;
+  auto stop = runInternal(self, blockingState, result);
+
+  // We get kBlock if 'result' was produced; kAtEnd if pipeline has finished
+  // processing and no more results will be produced; kAlreadyTerminated on
+  // error.
+  VELOX_CHECK(
+      stop == StopReason::kBlock || stop == StopReason::kAtEnd ||
+      stop == StopReason::kAlreadyTerminated);
+
+  return result;
+}
+
 void Driver::enqueueInternal() {
   VELOX_CHECK(!state_.isEnqueued);
   state_.isEnqueued = true;
@@ -239,7 +256,8 @@ void Driver::enqueueInternal() {
 
 StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
-    std::shared_ptr<BlockingState>* blockingState) {
+    std::shared_ptr<BlockingState>& blockingState,
+    RowVectorPtr& result) {
   auto queuedTime = (getCurrentTimeMicro() - queueTimeStartMicros_) * 1'000;
   // Update the next operator's queueTime.
   auto stop = closed_ ? StopReason::kTerminate : task()->enter(state_);
@@ -313,7 +331,7 @@ StopReason Driver::runInternal(
 
         blockingReason_ = op->isBlocked(&future);
         if (blockingReason_ != BlockingReason::kNotBlocked) {
-          *blockingState = std::make_shared<BlockingState>(
+          blockingState = std::make_shared<BlockingState>(
               self, std::move(future), op, blockingReason_);
           guard.notThrown();
           return StopReason::kBlock;
@@ -323,7 +341,7 @@ StopReason Driver::runInternal(
           nextOp = operators_[i + 1].get();
           blockingReason_ = nextOp->isBlocked(&future);
           if (blockingReason_ != BlockingReason::kNotBlocked) {
-            *blockingState = std::make_shared<BlockingState>(
+            blockingState = std::make_shared<BlockingState>(
                 self, std::move(future), nextOp, blockingReason_);
             guard.notThrown();
             return StopReason::kBlock;
@@ -366,7 +384,7 @@ StopReason Driver::runInternal(
               // before.
               blockingReason_ = op->isBlocked(&future);
               if (blockingReason_ != BlockingReason::kNotBlocked) {
-                *blockingState = std::make_shared<BlockingState>(
+                blockingState = std::make_shared<BlockingState>(
                     self, std::move(future), op, blockingReason_);
                 guard.notThrown();
                 return StopReason::kBlock;
@@ -380,12 +398,18 @@ StopReason Driver::runInternal(
           }
         } else {
           // A sink (last) operator, after getting unblocked, gets
-          // control here so it can advance. If it is again blocked,
-          // this will be detected when trying to add input and we
+          // control here, so it can advance. If it is again blocked,
+          // this will be detected when trying to add input, and we
           // will come back here after this is again on thread.
           {
             CpuWallTimer timer(op->stats().getOutputTiming);
-            op->getOutput();
+            result = op->getOutput();
+            if (result) {
+              // This code path is used only in single-threaded execution.
+              blockingReason_ = BlockingReason::kWaitForConsumer;
+              guard.notThrown();
+              return StopReason::kBlock;
+            }
           }
           if (op->isFinished()) {
             guard.notThrown();
@@ -411,7 +435,13 @@ StopReason Driver::runInternal(
 // static
 void Driver::run(std::shared_ptr<Driver> self) {
   std::shared_ptr<BlockingState> blockingState;
-  auto reason = self->runInternal(self, &blockingState);
+  RowVectorPtr nullResult;
+  auto reason = self->runInternal(self, blockingState, nullResult);
+
+  // When Driver runs on an executor, the last operator (sink) must not produce
+  // any results.
+  VELOX_CHECK_NULL(nullResult);
+
   switch (reason) {
     case StopReason::kBlock:
       // Set the resume action outside of the Task so that, if the

@@ -17,19 +17,43 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/Cursor.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/parse/TypeResolver.h"
-#include "velox/vector/tests/VectorTestBase.h"
 
 using namespace facebook::velox;
 
-class TaskTest : public testing::Test, public test::VectorTestBase {
+namespace facebook::velox::exec::test {
+class TaskTest : public HiveConnectorTestBase {
  protected:
-  static void SetUpTestCase() {
-    functions::prestosql::registerAllScalarFunctions();
-    parse::registerTypeResolver();
+  static std::pair<std::shared_ptr<exec::Task>, std::vector<RowVectorPtr>>
+  executeSingleThreaded(
+      core::PlanFragment plan,
+      const std::vector<std::string>& filePaths /**/ = {}) {
+    auto task = std::make_shared<exec::Task>(
+        "single.execution.task.0", plan, 0, std::make_shared<core::QueryCtx>());
+
+    if (!filePaths.empty()) {
+      for (const auto& filePath : filePaths) {
+        task->addSplit("0", exec::Split(makeHiveConnectorSplit(filePath)));
+      }
+      task->noMoreSplits("0");
+    }
+
+    std::vector<RowVectorPtr> results;
+    for (;;) {
+      auto result = task->next();
+      if (!result) {
+        break;
+      }
+
+      result->loadedVector();
+      results.push_back(result);
+    }
+
+    VELOX_CHECK(waitForTaskCompletion(task.get()));
+
+    return {task, results};
   }
 };
 
@@ -41,7 +65,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
       0,
       100);
 
-  auto plan = exec::test::PlanBuilder()
+  auto plan = PlanBuilder()
                   .tableScan(ROW({"a", "b"}, {INTEGER(), DOUBLE()}))
                   .project({"a * a", "b + b"})
                   .planFragment();
@@ -90,7 +114,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
 
   // Try to add split for a Values source node.
   plan =
-      exec::test::PlanBuilder()
+      PlanBuilder()
           .values({makeRowVector(ROW({"a", "b"}, {INTEGER(), DOUBLE()}), 10)})
           .project({"a * a", "b + b"})
           .planFragment();
@@ -105,12 +129,12 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
 }
 
 TEST_F(TaskTest, duplicatePlanNodeIds) {
-  auto plan = exec::test::PlanBuilder()
+  auto plan = PlanBuilder()
                   .tableScan(ROW({"a", "b"}, {INTEGER(), DOUBLE()}))
                   .hashJoin(
                       {"a"},
                       {"a1"},
-                      exec::test::PlanBuilder()
+                      PlanBuilder()
                           .tableScan(ROW({"a1", "b1"}, {INTEGER(), DOUBLE()}))
                           .planNode(),
                       "",
@@ -315,8 +339,7 @@ class TestSkewedJoinBridgeTranslator
 
   std::unique_ptr<exec::JoinBridge> toJoinBridge(
       const core::PlanNodePtr& node) override {
-    if (auto joinNode =
-            std::dynamic_pointer_cast<const TestSkewedJoinNode>(node)) {
+    if (std::dynamic_pointer_cast<const TestSkewedJoinNode>(node)) {
       return std::make_unique<TestSkewedJoinBridge>();
     }
     return nullptr;
@@ -346,7 +369,7 @@ class TestSkewedJoinBridgeTranslator
 // 5. If not handled correctly, the futures that are tried to be cleaned will
 // execute the error block chained in the future, that tries to set error in the
 // task. Setting error requires to acquire the same task lock again.
-// 6. Since we use immediate executor to execute these futures, a dead lock
+// 6. Since we use immediate executor to execute these futures, a deadlock
 // happens.
 TEST_F(TaskTest, testTerminateDeadlock) {
   const int64_t kSlowJoinBuildDelaySeconds = 2;
@@ -360,19 +383,16 @@ TEST_F(TaskTest, testTerminateDeadlock) {
   auto rightBatch = makeRowVector(
       {makeFlatVector<int32_t>(10, [](auto row) { return row; })});
 
-  auto planNodeIdGenerator =
-      std::make_shared<exec::test::PlanNodeIdGenerator>();
-  auto leftNode = exec::test::PlanBuilder(planNodeIdGenerator)
-                      .values({leftBatch}, true)
-                      .planNode();
-  auto rightNode = exec::test::PlanBuilder(planNodeIdGenerator)
-                       .values({rightBatch}, true)
-                       .planNode();
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto leftNode =
+      PlanBuilder(planNodeIdGenerator).values({leftBatch}, true).planNode();
+  auto rightNode =
+      PlanBuilder(planNodeIdGenerator).values({rightBatch}, true).planNode();
 
-  exec::test::CursorParameters params;
+  CursorParameters params;
   params.maxDrivers = 2;
   params.planNode =
-      exec::test::PlanBuilder(planNodeIdGenerator)
+      PlanBuilder(planNodeIdGenerator)
           .addNode([&leftNode, &rightNode, &kSlowJoinBuildDelaySeconds](
                        std::string id, core::PlanNodePtr /* input */) {
             return std::make_shared<TestSkewedJoinNode>(
@@ -384,7 +404,7 @@ TEST_F(TaskTest, testTerminateDeadlock) {
           .project({"c0"})
           .planNode();
 
-  auto cursor = std::make_unique<exec::test::TaskCursor>(params);
+  auto cursor = std::make_unique<TaskCursor>(params);
 
   folly::via(cursor->task()->queryCtx()->executor(), [&]() {
     // We abort after all but last join bridges finish execution. We do this
@@ -399,3 +419,73 @@ TEST_F(TaskTest, testTerminateDeadlock) {
 
   VELOX_ASSERT_THROW(cursor->moveNext(), "Aborted for external error");
 }
+
+TEST_F(TaskTest, singleThreadedExecution) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  // Filter + Project.
+  auto plan = PlanBuilder()
+                  .values({data, data})
+                  .filter("c0 < 100")
+                  .project({"c0 + 5"})
+                  .planFragment();
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>(100, [](auto row) { return row + 5; }),
+  });
+
+  {
+    auto [task, results] = executeSingleThreaded(plan);
+    assertEqualResults({expectedResult, expectedResult}, results);
+  }
+
+  // Project + Aggregation.
+  plan = PlanBuilder()
+             .values({data, data})
+             .project({"c0 % 5 as k", "c0"})
+             .singleAggregation({"k"}, {"sum(c0)", "avg(c0)"})
+             .planFragment();
+
+  expectedResult = makeRowVector({
+      makeFlatVector<int64_t>({0, 1, 2, 3, 4}),
+      makeFlatVector<int64_t>(
+          {995 * 200,
+           995 * 200 + 400,
+           995 * 200 + 800,
+           995 * 200 + 1200,
+           995 * 200 + 1600}),
+      makeFlatVector<double>(
+          {995 / 2.0,
+           995 / 2.0 + 1,
+           995 / 2.0 + 2,
+           995 / 2.0 + 3,
+           995 / 2.0 + 4}),
+  });
+
+  {
+    auto [task, results] = executeSingleThreaded(plan);
+    assertEqualResults({expectedResult}, results);
+  }
+
+  // Project + Aggregation over TableScan.
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, {data, data});
+
+  plan = PlanBuilder()
+             .tableScan(asRowType(data->type()))
+             .project({"c0 % 5 as k", "c0"})
+             .singleAggregation({"k"}, {"sum(c0)", "avg(c0)"})
+             .planFragment();
+
+  {
+    auto [task, results] = executeSingleThreaded(plan, {filePath->path});
+    assertEqualResults({expectedResult}, results);
+  }
+
+  // Query failure.
+  plan = PlanBuilder().values({data, data}).project({"c0 / 0"}).planFragment();
+  VELOX_ASSERT_THROW(executeSingleThreaded(plan), "division by zero");
+}
+} // namespace facebook::velox::exec::test

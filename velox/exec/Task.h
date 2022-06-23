@@ -118,6 +118,17 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t maxDrivers,
       uint32_t concurrentSplitGroups = 1);
 
+  /// Single-threaded execution API. Runs the query and returns results one
+  /// batch at a time. Returns nullptr if query evaluation is finished and no
+  /// more data will be produced. Throws an exception if query execution
+  /// failed.
+  ///
+  /// This API is available only for single-pipeline query plans. The caller is
+  /// required to add all the necessary splits and signal no-more-splits before
+  /// calling 'next' for the first time. The operators in the pipeline are not
+  /// allowed to block.
+  RowVectorPtr next();
+
   // Resumes execution of 'self' after a successful pause. All 'drivers_' must
   // be off-thread and there must be no 'exception_'
   static void resume(std::shared_ptr<Task> self);
