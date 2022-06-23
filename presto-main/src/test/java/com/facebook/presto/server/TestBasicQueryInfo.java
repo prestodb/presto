@@ -149,6 +149,7 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getMemoryPool().getId(), "reserved");
         assertEquals(basicInfo.isScheduled(), false);
         assertEquals(basicInfo.getQuery(), "SELECT 4");
+        assertEquals(basicInfo.getQueryHash(), "235ca215765cbfca");
         assertEquals(basicInfo.getQueryType(), Optional.of(QueryType.INSERT));
 
         assertEquals(basicInfo.getQueryStats().getCreateTime(), DateTime.parse("1991-09-06T05:00-05:30"));

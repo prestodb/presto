@@ -76,6 +76,7 @@ public class TestQueryInfo
         assertEquals(actual.getSelf(), expected.getSelf());
         assertEquals(actual.getFieldNames(), expected.getFieldNames());
         assertEquals(actual.getQuery(), expected.getQuery());
+        assertEquals(actual.getQueryHash(), expected.getQueryHash());
         assertEquals(actual.getExpandedQuery(), expected.getExpandedQuery());
         assertEquals(actual.getPreparedQuery(), expected.getPreparedQuery());
         // Assert all of queryStats
