@@ -55,7 +55,7 @@ public class PhysicalResourceOptimizer
     {
         AbstractMap.SimpleImmutableEntry<Double, Boolean> sourceStatistics = new CollectSourceStats(metadata, session).collectSourceStats(root);
 
-        if (0 == sourceStatistics.getValue().compareTo(false)) {
+        if (0 == sourceStatistics.getValue().compareTo(true)) {
             log.warn(String.format("Source missing statistics, skipping automatic resource tuning."));
             return;
         }
@@ -66,6 +66,7 @@ public class PhysicalResourceOptimizer
             return;
         }
 
+        log.info("From CollectSourceStats Total size in bytes->" + inputDataInBytes);
         double inputDataInGB = inputDataInBytes / 1000000000;
         boolean isCurrentQueryHourPlus = (inputDataInGB > THRESHOLD_SIZE_FOR_LONGER_QUERIES) ? true : false;
         double multiplier = getMultiplierForAutomaticResourceManagement(session);
