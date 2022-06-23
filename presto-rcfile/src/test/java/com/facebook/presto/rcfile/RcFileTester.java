@@ -156,6 +156,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
@@ -197,7 +198,6 @@ public class RcFileTester
     {
         BINARY {
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 return new LazyBinaryColumnarSerDe();
@@ -212,7 +212,6 @@ public class RcFileTester
 
         TEXT {
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 try {
@@ -235,7 +234,6 @@ public class RcFileTester
             }
         };
 
-        @SuppressWarnings("deprecation")
         public abstract Serializer createSerializer();
 
         public abstract RcFileEncoding getVectorEncoding();
@@ -776,7 +774,6 @@ public class RcFileTester
         schema.setProperty(META_TABLE_COLUMNS, "test");
         schema.setProperty(META_TABLE_COLUMN_TYPES, getJavaObjectInspector(type).getTypeName());
 
-        @SuppressWarnings("deprecation")
         Deserializer deserializer;
         if (format == Format.BINARY) {
             deserializer = new LazyBinaryColumnarSerDe();
@@ -856,10 +853,10 @@ public class RcFileTester
         else if (actualValue instanceof TimestampWritable) {
             TimestampWritable timestamp = (TimestampWritable) actualValue;
             if (SESSION.getSqlFunctionProperties().isLegacyTimestamp()) {
-                actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), UTC_KEY);
+                actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), UTC_KEY, MILLISECONDS);
             }
             else {
-                actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L));
+                actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), MILLISECONDS);
             }
         }
         else if (actualValue instanceof StructObject) {
@@ -925,7 +922,7 @@ public class RcFileTester
         Object row = objectInspector.create();
 
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
-        @SuppressWarnings("deprecation") Serializer serializer = format.createSerializer();
+        Serializer serializer = format.createSerializer();
 
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", "test");

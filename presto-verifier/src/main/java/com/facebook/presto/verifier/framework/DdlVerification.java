@@ -21,6 +21,7 @@ import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
+import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.util.Optional;
 
@@ -48,9 +49,10 @@ public abstract class DdlVerification<S extends Statement>
             SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
-            ResultSetConverter<String> checksumConverter)
+            ResultSetConverter<String> checksumConverter,
+            ListeningExecutorService executor)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, executor);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser");
         this.checksumConverter = requireNonNull(checksumConverter, "checksumConverter is null");
     }
@@ -66,21 +68,21 @@ public abstract class DdlVerification<S extends Statement>
             QueryObjectBundle test,
             Optional<QueryResult<Void>> controlQueryResult,
             Optional<QueryResult<Void>> testQueryResult,
-            ChecksumQueryContext controlContext,
-            ChecksumQueryContext testContext)
+            ChecksumQueryContext controlChecksumQueryContext,
+            ChecksumQueryContext testChecksumQueryContext)
     {
         Statement controlChecksumQuery = getChecksumQuery(control);
         Statement testChecksumQuery = getChecksumQuery(test);
 
-        controlContext.setChecksumQuery(formatSql(controlChecksumQuery));
-        testContext.setChecksumQuery(formatSql(testChecksumQuery));
+        controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
+        testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
 
         String controlChecksum = getOnlyElement(callAndConsume(
                 () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, checksumConverter),
-                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlContext::setChecksumQueryId)).getResults());
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId)).getResults());
         String testChecksum = getOnlyElement(callAndConsume(
                 () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, checksumConverter),
-                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testContext::setChecksumQueryId)).getResults());
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId)).getResults());
 
         S controlObject;
         S testObject;

@@ -14,7 +14,7 @@
 
 package com.facebook.presto.type.setdigest;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
@@ -36,7 +36,7 @@ import static com.facebook.presto.type.setdigest.SetDigest.exactIntersectionCard
 
 public final class SetDigestFunctions
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final ObjectMapper OBJECT_MAPPER = new JsonObjectMapperProvider().get();
 
     private SetDigestFunctions()
     {

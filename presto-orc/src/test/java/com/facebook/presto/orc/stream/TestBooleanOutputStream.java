@@ -13,20 +13,21 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -43,9 +44,10 @@ public class TestBooleanOutputStream
                 ImmutableList.of(1, 4, 8, 1024, 10000),
                 ImmutableList.of(14000, 1, 2));
 
+        DataSize compressionSize = new DataSize(1, KILOBYTE);
         for (List<Integer> counts : testGroups) {
-            CompressionParameters compressionParameters = new CompressionParameters(NONE, OptionalInt.empty(), 1024);
-            OrcOutputBuffer buffer = new OrcOutputBuffer(compressionParameters, Optional.empty());
+            ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder().setCompressionKind(NONE).setCompressionMaxBufferSize(compressionSize).build();
+            OrcOutputBuffer buffer = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
             BooleanOutputStream output = new BooleanOutputStream(buffer);
 
             // write multiple booleans together

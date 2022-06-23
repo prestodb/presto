@@ -30,13 +30,15 @@ public class ClientInfo
     private final Optional<String> testName;
     private final String sourceQueryName;
     private final String suite;
+    private final String queryStage;
 
-    public ClientInfo(String testId, Optional<String> testName, String sourceQueryName, String suite)
+    public ClientInfo(String testId, Optional<String> testName, String sourceQueryName, String suite, String queryStage)
     {
         this.testId = requireNonNull(testId, "testId is null");
         this.testName = requireNonNull(testName, "testName is null");
         this.sourceQueryName = requireNonNull(sourceQueryName, "sourceQueryName is null");
         this.suite = requireNonNull(suite, "suite is null");
+        this.queryStage = requireNonNull(queryStage, "queryStage is null");
     }
 
     @JsonProperty
@@ -67,6 +69,12 @@ public class ClientInfo
     public String getSuite()
     {
         return suite;
+    }
+
+    @JsonProperty
+    public String getQueryStage()
+    {
+        return queryStage;
     }
 
     public String serialize()

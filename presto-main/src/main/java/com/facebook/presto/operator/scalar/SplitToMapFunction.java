@@ -14,7 +14,6 @@
 
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
@@ -25,7 +24,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.HashMap;
@@ -36,14 +34,12 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class SplitToMapFunction
 {
     private SplitToMapFunction() {}
 
     private static Block splitToMap(
-            PageBuilder pageBuilder,
             Type mapType,
             Slice string,
             Slice entryDelimiter,
@@ -53,7 +49,6 @@ public class SplitToMapFunction
         checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "entryDelimiter is empty");
         checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "keyValueDelimiter is empty");
         checkCondition(!entryDelimiter.equals(keyValueDelimiter), INVALID_FUNCTION_ARGUMENT, "entryDelimiter and keyValueDelimiter must not be the same");
-        requireNonNull(pageBuilder, "pageBuilder is null");
 
         Map<Slice, Slice> map = new HashMap<>();
         int entryStart = 0;
@@ -108,18 +103,13 @@ public class SplitToMapFunction
             entryStart = entryEnd + entryDelimiter.length();
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 10);
         BlockBuilder singleMapBlockBuilder = blockBuilder.beginBlockEntry();
         for (Map.Entry<Slice, Slice> entry : map.entrySet()) {
             VARCHAR.writeSlice(singleMapBlockBuilder, entry.getKey());
             VARCHAR.writeSlice(singleMapBlockBuilder, entry.getValue());
         }
         blockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-
         return (Block) mapType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
     }
 
@@ -127,12 +117,7 @@ public class SplitToMapFunction
     @ScalarFunction("split_to_map")
     public static class FailOnDuplicateKeys
     {
-        private final PageBuilder pageBuilder;
-
-        public FailOnDuplicateKeys(@TypeParameter("map<varchar,varchar>") Type mapType)
-        {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
-        }
+        public FailOnDuplicateKeys(@TypeParameter("map<varchar,varchar>") Type mapType) {}
 
         @SqlType("map<varchar,varchar>")
         public Block split(
@@ -141,7 +126,7 @@ public class SplitToMapFunction
                 @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter,
                 @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
         {
-            return splitToMap(pageBuilder, mapType, string, entryDelimiter, keyValueDelimiter, Optional.empty());
+            return splitToMap(mapType, string, entryDelimiter, keyValueDelimiter, Optional.empty());
         }
     }
 
@@ -149,12 +134,7 @@ public class SplitToMapFunction
     @ScalarFunction("split_to_map")
     public static class ResolveDuplicateKeys
     {
-        private final PageBuilder pageBuilder;
-
-        public ResolveDuplicateKeys(@TypeParameter("map<varchar,varchar>") Type mapType)
-        {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
-        }
+        public ResolveDuplicateKeys(@TypeParameter("map<varchar,varchar>") Type mapType) {}
 
         @SqlType("map<varchar,varchar>")
         public Block split(
@@ -164,7 +144,7 @@ public class SplitToMapFunction
                 @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter,
                 @SqlType("function(varchar, varchar, varchar, varchar)") DuplicateKeyResolutionLambda function)
         {
-            return splitToMap(pageBuilder, mapType, string, entryDelimiter, keyValueDelimiter, Optional.of(function));
+            return splitToMap(mapType, string, entryDelimiter, keyValueDelimiter, Optional.of(function));
         }
     }
 

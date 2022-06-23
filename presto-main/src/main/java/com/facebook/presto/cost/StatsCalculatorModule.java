@@ -31,11 +31,23 @@ public class StatsCalculatorModule
         binder.bind(ScalarStatsCalculator.class).in(Scopes.SINGLETON);
         binder.bind(StatsNormalizer.class).in(Scopes.SINGLETON);
         binder.bind(FilterStatsCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(HistoryBasedPlanStatisticsManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
     public static StatsCalculator createNewStatsCalculator(
+            Metadata metadata,
+            ScalarStatsCalculator scalarStatsCalculator,
+            StatsNormalizer normalizer,
+            FilterStatsCalculator filterStatsCalculator,
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
+    {
+        StatsCalculator delegate = createComposableStatsCalculator(metadata, scalarStatsCalculator, normalizer, filterStatsCalculator);
+        return historyBasedPlanStatisticsManager.getHistoryBasedPlanStatisticsCalculator(delegate);
+    }
+
+    private static ComposableStatsCalculator createComposableStatsCalculator(
             Metadata metadata,
             ScalarStatsCalculator scalarStatsCalculator,
             StatsNormalizer normalizer,

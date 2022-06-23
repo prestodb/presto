@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.DiscreteValues;
 import com.facebook.presto.common.predicate.Domain;
@@ -23,7 +24,6 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.Ranges;
 import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
@@ -79,7 +79,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -144,38 +144,15 @@ public final class ExpressionDomainTranslator
 
         if (isBetween(range)) {
             // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
-            return new BetweenPredicate(reference, literalEncoder.toExpression(range.getLow().getValue(), type), literalEncoder.toExpression(range.getHigh().getValue(), type));
+            return new BetweenPredicate(reference, literalEncoder.toExpression(range.getLowBoundedValue(), type), literalEncoder.toExpression(range.getHighBoundedValue(), type));
         }
 
         List<Expression> rangeConjuncts = new ArrayList<>();
-        if (!range.getLow().isLowerUnbounded()) {
-            switch (range.getLow().getBound()) {
-                case ABOVE:
-                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN, reference, literalEncoder.toExpression(range.getLow().getValue(), type)));
-                    break;
-                case EXACTLY:
-                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, reference, literalEncoder.toExpression(range.getLow().getValue(),
-                            type)));
-                    break;
-                case BELOW:
-                    throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
-                default:
-                    throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
-            }
+        if (!range.isLowUnbounded()) {
+            rangeConjuncts.add(new ComparisonExpression(range.isLowInclusive() ? GREATER_THAN_OR_EQUAL : GREATER_THAN, reference, literalEncoder.toExpression(range.getLowBoundedValue(), type)));
         }
-        if (!range.getHigh().isUpperUnbounded()) {
-            switch (range.getHigh().getBound()) {
-                case ABOVE:
-                    throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
-                case EXACTLY:
-                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN_OR_EQUAL, reference, literalEncoder.toExpression(range.getHigh().getValue(), type)));
-                    break;
-                case BELOW:
-                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN, reference, literalEncoder.toExpression(range.getHigh().getValue(), type)));
-                    break;
-                default:
-                    throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
-            }
+        if (!range.isHighUnbounded()) {
+            rangeConjuncts.add(new ComparisonExpression(range.isHighInclusive() ? LESS_THAN_OR_EQUAL : LESS_THAN, reference, literalEncoder.toExpression(range.getHighBoundedValue(), type)));
         }
         // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
         checkState(!rangeConjuncts.isEmpty());
@@ -492,7 +469,7 @@ public final class ExpressionDomainTranslator
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
         {
-            return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
+            return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyMap(), WarningCollector.NOOP);
         }
 
         private static ExtractionResult createComparisonExtractionResult(ComparisonExpression.Operator comparisonOperator, String column, Type type, @Nullable Object value, boolean complement)
@@ -661,7 +638,7 @@ public final class ExpressionDomainTranslator
         private Optional<FunctionHandle> getSaturatedFloorCastOperator(Type fromType, Type toType)
         {
             try {
-                return Optional.of(metadata.getFunctionAndTypeManager().lookupCast(SATURATED_FLOOR_CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
+                return Optional.of(metadata.getFunctionAndTypeManager().lookupCast(SATURATED_FLOOR_CAST, fromType, toType));
             }
             catch (OperatorNotFoundException e) {
                 return Optional.empty();
@@ -670,7 +647,7 @@ public final class ExpressionDomainTranslator
 
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
-            FunctionHandle castToOriginalTypeOperator = metadata.getFunctionAndTypeManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
+            FunctionHandle castToOriginalTypeOperator = metadata.getFunctionAndTypeManager().lookupCast(CAST, coercedValueType, originalValueType);
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.getSqlFunctionProperties(), coercedValue);
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);
@@ -758,7 +735,7 @@ public final class ExpressionDomainTranslator
 
     private static Type typeOf(Expression expression, Session session, Metadata metadata, TypeProvider types)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyMap(), WarningCollector.NOOP);
         return expressionTypes.get(NodeRef.of(expression));
     }
 

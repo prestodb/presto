@@ -138,7 +138,7 @@ public final class SystemPartitioningHandle
 
     public NodePartitionMap getNodePartitionMap(Session session, NodeScheduler nodeScheduler)
     {
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, null);
         List<InternalNode> nodes;
         if (partitioning == SystemPartitioning.COORDINATOR_ONLY) {
             nodes = ImmutableList.of(nodeSelector.selectCurrentNode());
@@ -199,12 +199,7 @@ public final class SystemPartitioningHandle
                     return new HashBucketFunction(new PrecomputedHashGenerator(0), bucketCount);
                 }
                 else {
-                    int[] hashChannels = new int[partitionChannelTypes.size()];
-                    for (int i = 0; i < partitionChannelTypes.size(); i++) {
-                        hashChannels[i] = i;
-                    }
-
-                    return new HashBucketFunction(new InterpretedHashGenerator(partitionChannelTypes, hashChannels), bucketCount);
+                    return new HashBucketFunction(InterpretedHashGenerator.createPositionalWithTypes(partitionChannelTypes), bucketCount);
                 }
             }
         },

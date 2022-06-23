@@ -46,9 +46,14 @@ public final class PartitionedConsumption<T>
     @Nullable
     private List<Partition<T>> partitions;
 
-    public PartitionedConsumption(int consumersCount, Iterable<Integer> partitionNumbers, IntFunction<ListenableFuture<T>> loader, IntConsumer disposer)
+    public PartitionedConsumption(
+            int consumersCount,
+            Iterable<Integer> partitionNumbers,
+            IntFunction<ListenableFuture<T>> loader,
+            IntConsumer disposer,
+            IntFunction<SettableFuture<?>> disposed)
     {
-        this(consumersCount, immediateFuture(null), partitionNumbers, loader, disposer);
+        this(consumersCount, immediateFuture(null), partitionNumbers, loader, disposer, disposed);
     }
 
     public PartitionedConsumption(
@@ -56,18 +61,20 @@ public final class PartitionedConsumption<T>
             ListenableFuture<?> activator,
             Iterable<Integer> partitionNumbers,
             IntFunction<ListenableFuture<T>> loader,
-            IntConsumer disposer)
+            IntConsumer disposer,
+            IntFunction<SettableFuture<?>> disposed)
     {
         checkArgument(consumersCount > 0, "consumersCount must be positive");
         this.consumersCount = consumersCount;
-        this.partitions = createPartitions(activator, partitionNumbers, loader, disposer);
+        this.partitions = createPartitions(activator, partitionNumbers, loader, disposer, disposed);
     }
 
     private List<Partition<T>> createPartitions(
             ListenableFuture<?> activator,
             Iterable<Integer> partitionNumbers,
             IntFunction<ListenableFuture<T>> loader,
-            IntConsumer disposer)
+            IntConsumer disposer,
+            IntFunction<SettableFuture<?>> disposed)
     {
         requireNonNull(partitionNumbers, "partitionNumbers is null");
         requireNonNull(loader, "loader is null");
@@ -78,7 +85,7 @@ public final class PartitionedConsumption<T>
         for (Integer partitionNumber : partitionNumbers) {
             Partition<T> partition = new Partition<>(consumersCount, partitionNumber, loader, partitionActivator, disposer);
             partitions.add(partition);
-            partitionActivator = partition.released;
+            partitionActivator = disposed.apply(partitionNumber);
         }
         return partitions.build();
     }
@@ -152,7 +159,6 @@ public final class PartitionedConsumption<T>
 
         public synchronized void release()
         {
-            checkState(loaded.isDone());
             pendingReleases--;
             checkState(pendingReleases >= 0);
             if (pendingReleases == 0) {

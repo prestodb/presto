@@ -25,7 +25,8 @@ import static java.lang.String.format;
 public enum PageCodecMarker
 {
     COMPRESSED(1),
-    ENCRYPTED(2);
+    ENCRYPTED(2),
+    CHECKSUMMED(3);
 
     private final int mask;
 

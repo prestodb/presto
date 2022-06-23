@@ -33,7 +33,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,6 +50,7 @@ public class TempStorageManager
     private static final Logger log = Logger.get(TempStorageManager.class);
     // TODO: Make this configurable
     private static final File TEMP_STORAGE_CONFIGURATION_DIR = new File("etc/temp-storage/");
+    public static final String TEMP_STORAGE_FACTORY_NAME = "temp-storage-factory.name";
 
     private final Map<String, TempStorageFactory> tempStorageFactories = new ConcurrentHashMap<>();
     private final Map<String, TempStorage> loadedTempStorages = new ConcurrentHashMap<>();
@@ -71,7 +71,6 @@ public class TempStorageManager
     public TempStorageManager(NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        addTempStorageFactory(new LocalTempStorage.Factory());
     }
 
     public void addTempStorageFactory(TempStorageFactory tempStorageFactory)
@@ -83,29 +82,6 @@ public class TempStorageManager
         }
     }
 
-    public void loadTempStorages()
-            throws IOException
-    {
-        if (!tempStorageLoading.compareAndSet(false, true)) {
-            return;
-        }
-        // Always load local temp storage
-        loadTempStorage(
-                LocalTempStorage.NAME,
-                // TODO: Local temp storage should be configurable
-                ImmutableMap.of(
-                        TEMP_STORAGE_PATH,
-                        Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage").toAbsolutePath().toString()));
-
-        for (File file : listFiles(TEMP_STORAGE_CONFIGURATION_DIR)) {
-            if (file.isFile() && file.getName().endsWith(".properties")) {
-                String name = getNameWithoutExtension(file.getName());
-                Map<String, String> properties = new HashMap<>(loadProperties(file));
-                loadTempStorage(name, properties);
-            }
-        }
-    }
-
     public TempStorage getTempStorage(String name)
     {
         TempStorage tempStorage = loadedTempStorages.get(name);
@@ -114,17 +90,66 @@ public class TempStorageManager
         return tempStorage;
     }
 
+    public void loadTempStorages()
+            throws IOException
+    {
+        ImmutableMap.Builder<String, Map<String, String>> storageProperties = ImmutableMap.builder();
+        // Always load local temp storage
+        addTempStorageFactory(new LocalTempStorage.Factory());
+        storageProperties.put(
+                LocalTempStorage.NAME,
+                // TODO: Local temp storage should be configurable
+                ImmutableMap.of(
+                        TEMP_STORAGE_PATH,
+                        Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage").toAbsolutePath().toString(),
+                        TEMP_STORAGE_FACTORY_NAME,
+                        "local"));
+
+        for (File file : listFiles(TEMP_STORAGE_CONFIGURATION_DIR)) {
+            if (file.isFile() && file.getName().endsWith(".properties")) {
+                String name = getNameWithoutExtension(file.getName());
+                Map<String, String> properties = loadProperties(file);
+                storageProperties.put(name, properties);
+            }
+        }
+        loadTempStorages(storageProperties.build());
+    }
+
+    public void loadTempStorages(Map<String, Map<String, String>> storageProperties)
+            throws IOException
+    {
+        if (!tempStorageLoading.compareAndSet(false, true)) {
+            return;
+        }
+
+        storageProperties.entrySet().stream()
+                .forEach(entry -> loadTempStorage(entry.getKey(), entry.getValue()));
+    }
+
     protected void loadTempStorage(String name, Map<String, String> properties)
     {
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
 
-        log.info("-- Loading temp storage --");
+        log.info("-- Loading temp storage %s --", name);
 
-        TempStorageFactory factory = tempStorageFactories.get(name);
-        checkState(factory != null, "Temp Storage %s is not registered", name);
+        String tempStorageFactoryName = null;
+        ImmutableMap.Builder<String, String> tempStorageProperties = ImmutableMap.builder();
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            if (entry.getKey().equals(TEMP_STORAGE_FACTORY_NAME)) {
+                tempStorageFactoryName = entry.getValue();
+            }
+            else {
+                tempStorageProperties.put(entry.getKey(), entry.getValue());
+            }
+        }
 
-        TempStorage tempStorage = factory.create(properties, new TempStorageContext(nodeManager));
+        checkState(tempStorageFactoryName != null, "Configuration for tempStorage %s does not contain temp-storage-factory.name", name);
+
+        TempStorageFactory factory = tempStorageFactories.get(tempStorageFactoryName);
+        checkState(factory != null, "Temp Storage Factory %s is not registered", tempStorageFactoryName);
+
+        TempStorage tempStorage = factory.create(tempStorageProperties.build(), new TempStorageContext(nodeManager));
         if (loadedTempStorages.putIfAbsent(name, tempStorage) != null) {
             throw new IllegalArgumentException(format("Temp Storage '%s' is already loaded", name));
         }

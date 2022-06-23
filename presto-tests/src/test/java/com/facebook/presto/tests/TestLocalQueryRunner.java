@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
@@ -22,9 +23,10 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 public class TestLocalQueryRunner
         extends AbstractTestQueryFramework
 {
-    public TestLocalQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(TestLocalQueries::createLocalQueryRunner);
+        return TestLocalQueries.createLocalQueryRunner();
     }
 
     @Test

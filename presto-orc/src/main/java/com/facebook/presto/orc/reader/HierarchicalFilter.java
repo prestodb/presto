@@ -14,10 +14,10 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.NullsFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.PositionalFilter;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.TupleDomainFilter;
-import com.facebook.presto.orc.TupleDomainFilter.NullsFilter;
-import com.facebook.presto.orc.TupleDomainFilter.PositionalFilter;
 
 import java.util.Map;
 

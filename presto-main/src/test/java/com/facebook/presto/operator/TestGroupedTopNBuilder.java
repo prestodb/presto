@@ -14,8 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class DruidBrokerPageSource
         implements ConnectorPageSource
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final ObjectMapper OBJECT_MAPPER = new JsonObjectMapperProvider().get();
 
     private final List<ColumnHandle> columnHandles;
 

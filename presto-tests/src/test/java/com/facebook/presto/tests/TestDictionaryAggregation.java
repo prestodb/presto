@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -25,18 +26,16 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestDictionaryAggregation
         extends AbstractTestQueryFramework
 {
-    public TestDictionaryAggregation()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(() -> {
-            LocalQueryRunner queryRunner = new LocalQueryRunner(testSessionBuilder()
-                    .setSystemProperty(DICTIONARY_AGGREGATION, "true")
-                    .setSystemProperty(REORDER_JOINS, "false") // no JOIN reordering
-                    .build());
+        LocalQueryRunner queryRunner = new LocalQueryRunner(testSessionBuilder()
+                .setSystemProperty(DICTIONARY_AGGREGATION, "true")
+                .setSystemProperty(REORDER_JOINS, "false") // no JOIN reordering
+                .build());
 
-            queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
-
-            return queryRunner;
-        });
+        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        return queryRunner;
     }
 
     @Test

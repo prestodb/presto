@@ -48,7 +48,7 @@ public class Centroid
     private static final AtomicInteger uniqueCount = new AtomicInteger(1);
 
     private double centroid;
-    private int count;
+    private double count;
 
     // The ID is transient because it must be unique within a given JVM. A new
     // ID should be generated from uniqueCount when a Centroid is deserialized.
@@ -59,23 +59,23 @@ public class Centroid
         start(x, 1, uniqueCount.getAndIncrement());
     }
 
-    public Centroid(double x, int w)
+    public Centroid(double x, double w)
     {
         start(x, w, uniqueCount.getAndIncrement());
     }
 
-    public Centroid(double x, int w, int id)
+    public Centroid(double x, double w, int id)
     {
         start(x, w, id);
     }
 
-    private void start(double x, int w, int id)
+    private void start(double x, double w, int id)
     {
         this.id = id;
         add(x, w);
     }
 
-    public void add(double x, int w)
+    public void add(double x, double w)
     {
         count += w;
         centroid += w * (x - centroid) / count;
@@ -86,7 +86,7 @@ public class Centroid
         return centroid;
     }
 
-    public int getWeight()
+    public double getWeight()
     {
         return count;
     }

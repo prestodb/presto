@@ -167,6 +167,7 @@ public final class ParquetTypeUtils
         }
     }
 
+    @SuppressWarnings("deprecation")
     public static ParquetEncoding getParquetEncoding(Encoding encoding)
     {
         switch (encoding) {

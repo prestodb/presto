@@ -700,6 +700,29 @@ public class TestHiveTableStatistics
     }
 
     @Test
+    public void testAnalyzeForPartitionedTableWithNonPrimitiveTypes()
+    {
+        String tableName = "test_analyze_partitioned_table_complex_types";
+        String showStatsTable = "SHOW STATS FOR " + tableName;
+
+        query("DROP TABLE IF EXISTS " + tableName);
+        query("CREATE TABLE " + tableName +
+                "(c_row row(c1 int, c2 int), c_char char, c_int int, c_part char) " +
+                "WITH (partitioned_by = ARRAY['c_part'])");
+        query("INSERT INTO " + tableName + " VALUES (row(1,2), 'a', 3, '1')");
+        query("INSERT INTO " + tableName + " VALUES (row(4,5), 'b', 5, '2')");
+        query("INSERT INTO " + tableName + " VALUES (row(6,7), 'c', 5, '2')");
+
+        assertThat(query("ANALYZE " + tableName)).containsExactly(row(3));
+        assertThat(query(showStatsTable)).containsOnly(
+                row("c_row", null, null, null, null, null, null),
+                row("c_char", 3.0, 2.0, 0.0, null, null, null),
+                row("c_int", null, 1.0, 0.0, null, "3", "5"),
+                row("c_part", 3.0, 2.0, 0.0, null, null, null),
+                row(null, null, null, null, 3.0, null, null));
+    }
+
+    @Test
     @Requires(NationPartitionedByBigintTable.class)
     public void testAnalyzeForTablePartitionedByBigint()
     {

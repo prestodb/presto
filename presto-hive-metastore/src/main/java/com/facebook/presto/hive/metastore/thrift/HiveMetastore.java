@@ -17,15 +17,21 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
+import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -41,87 +47,121 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 
 public interface HiveMetastore
 {
-    void createDatabase(Database database);
+    void createDatabase(MetastoreContext metastoreContext, Database database);
 
-    void dropDatabase(String databaseName);
+    void dropDatabase(MetastoreContext metastoreContext, String databaseName);
 
-    void alterDatabase(String databaseName, Database database);
+    void alterDatabase(MetastoreContext metastoreContext, String databaseName, Database database);
 
-    void createTable(Table table);
+    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table);
 
-    void dropTable(String databaseName, String tableName, boolean deleteData);
+    void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData);
 
-    void alterTable(String databaseName, String tableName, Table table);
+    MetastoreOperationResult alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table table);
 
-    List<String> getAllDatabases();
+    List<String> getAllDatabases(MetastoreContext metastoreContext);
 
-    Optional<List<String>> getAllTables(String databaseName);
+    Optional<List<String>> getAllTables(MetastoreContext metastoreContext, String databaseName);
 
-    Optional<List<String>> getAllViews(String databaseName);
+    Optional<List<String>> getAllViews(MetastoreContext metastoreContext, String databaseName);
 
-    Optional<Database> getDatabase(String databaseName);
+    Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName);
 
-    void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
+    MetastoreOperationResult addPartitions(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<PartitionWithStatistics> partitions);
 
-    void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
+    void dropPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition);
+    MetastoreOperationResult alterPartition(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            PartitionWithStatistics partition);
 
-    Optional<List<String>> getPartitionNames(String databaseName, String tableName);
+    Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName);
 
-    Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts);
+    Optional<List<String>> getPartitionNamesByParts(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> parts);
 
-    List<String> getPartitionNamesByFilter(String databaseName, String tableName, Map<Column, Domain> partitionPredicates);
+    List<String> getPartitionNamesByFilter(MetastoreContext metastoreContext, String databaseName, String tableName, Map<Column, Domain> partitionPredicates);
 
-    default List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(String databaseName, String tableName, Map<Column, Domain> partitionPredicates)
+    default List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(MetastoreContext metastoreContext, String databaseName, String tableName, Map<Column, Domain> partitionPredicates)
     {
         throw new UnsupportedOperationException();
     }
 
-    Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
+    Optional<Partition> getPartition(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<String> partitionValues);
 
-    List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
+    List<Partition> getPartitionsByNames(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<String> partitionNames);
 
-    Optional<Table> getTable(String databaseName, String tableName);
+    Optional<Table> getTable(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName);
 
-    Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
+    Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type);
 
-    PartitionStatistics getTableStatistics(String databaseName, String tableName);
+    PartitionStatistics getTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName);
 
-    Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames);
+    Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames);
 
-    void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
+    void updateTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
+    void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void createRole(String role, String grantor);
+    void createRole(MetastoreContext metastoreContext, String role, String grantor);
 
-    void dropRole(String role);
+    void dropRole(MetastoreContext metastoreContext, String role);
 
-    Set<String> listRoles();
+    Set<String> listRoles(MetastoreContext metastoreContext);
 
-    void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor);
+    void grantRoles(MetastoreContext metastoreContext, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor);
 
-    void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor);
+    void revokeRoles(MetastoreContext metastoreContext, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor);
 
-    Set<RoleGrant> listRoleGrants(PrestoPrincipal principal);
+    Set<RoleGrant> listRoleGrants(MetastoreContext metastoreContext, PrestoPrincipal principal);
 
-    void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void grantTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges);
 
-    void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void revokeTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges);
 
-    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal);
+    Set<HivePrivilegeInfo> listTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal principal);
 
-    default boolean isTableOwner(String user, String databaseName, String tableName)
+    default long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void unlock(MetastoreContext metastoreContext, long lockId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default boolean isTableOwner(MetastoreContext metastoreContext, String user, String databaseName, String tableName)
     {
         // a table can only be owned by a user
-        Optional<Table> table = getTable(databaseName, tableName);
+        Optional<Table> table = getTable(metastoreContext, databaseName, tableName);
         return table.isPresent() && user.equals(table.get().getOwner());
     }
 
-    default Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
+    default Optional<List<FieldSchema>> getFields(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        Optional<Table> table = getTable(databaseName, tableName);
+        Optional<Table> table = getTable(metastoreContext, databaseName, tableName);
         if (!table.isPresent()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
@@ -131,5 +171,15 @@ public interface HiveMetastore
         }
 
         return Optional.of(table.get().getSd().getCols());
+    }
+
+    default Optional<PrimaryKeyConstraint<String>> getPrimaryKey(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return Optional.empty();
+    }
+
+    default List<UniqueConstraint<String>> getUniqueConstraints(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return ImmutableList.of();
     }
 }

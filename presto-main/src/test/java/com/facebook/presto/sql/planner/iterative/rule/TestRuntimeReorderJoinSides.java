@@ -150,7 +150,7 @@ public class TestRuntimeReorderJoinSides
                             p.exchange(e -> e
                                     .addSource(suppNode)
                                     .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
-                                    .fixedHashDistributionParitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
                             ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
                             ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
                             Optional.empty());
@@ -181,19 +181,19 @@ public class TestRuntimeReorderJoinSides
                             p.exchange(e -> e
                                     .addSource(suppNode)
                                     .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
-                                    .fixedHashDistributionParitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
                             ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
                             ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
                             Optional.empty());
                 })
                 .overrideStats(nationNodeId.get(0), PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("nationkeyN", BIGINT), new VariableStatsEstimate(0, 100, 0, 8, 100)))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "nationkeyN", BIGINT), new VariableStatsEstimate(0, 100, 0, 8, 100)))
                         .build())
                 .overrideStats(suppNodeId.get(0), PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(3000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("nationkeyS", BIGINT), new VariableStatsEstimate(0, 100, 0.99, 8, 10),
-                                new VariableReferenceExpression("suppkey", BIGINT), new VariableStatsEstimate(0, 100, 0.99, 1, 10)))
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "nationkeyS", BIGINT), new VariableStatsEstimate(0, 100, 0.99, 8, 10),
+                                new VariableReferenceExpression(Optional.empty(), "suppkey", BIGINT), new VariableStatsEstimate(0, 100, 0.99, 1, 10)))
                         .build())
                 .doesNotFire();
     }
@@ -215,7 +215,7 @@ public class TestRuntimeReorderJoinSides
                             p.exchange(e -> e
                                     .addSource(suppNode)
                                     .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
-                                    .fixedHashDistributionParitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
                             ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
                             ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
                             Optional.empty(),
@@ -250,7 +250,7 @@ public class TestRuntimeReorderJoinSides
                             p.exchange(e -> e
                                     .addSource(suppNode)
                                     .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
-                                    .fixedHashDistributionParitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
                             ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
                             ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
                             Optional.empty(),

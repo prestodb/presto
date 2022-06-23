@@ -50,7 +50,7 @@ public abstract class RowComparisonOperator
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
             FunctionHandle operatorHandle = functionAndTypeManager.resolveOperator(operatorType, fromTypes(parameterType, parameterType));
-            argumentMethods.add(functionAndTypeManager.getBuiltInScalarFunctionImplementation(operatorHandle).getMethodHandle());
+            argumentMethods.add(functionAndTypeManager.getJavaScalarFunctionImplementation(operatorHandle).getMethodHandle());
         }
         return argumentMethods.build();
     }

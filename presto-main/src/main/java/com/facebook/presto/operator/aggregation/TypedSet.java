@@ -59,7 +59,7 @@ public class TypedSet
     private int hashMask;
     private static final int EMPTY_SLOT = -1;
 
-    private boolean containsNullElement;
+    private boolean containNullElements;
 
     public TypedSet(Type elementType, int expectedSize, String functionName)
     {
@@ -93,7 +93,7 @@ public class TypedSet
             blockPositionByHash.set(i, EMPTY_SLOT);
         }
 
-        this.containsNullElement = false;
+        this.containNullElements = false;
     }
 
     public long getRetainedSizeInBytes()
@@ -107,7 +107,7 @@ public class TypedSet
         checkArgument(position >= 0, "position must be >= 0");
 
         if (block.isNull(position)) {
-            return containsNullElement;
+            return containNullElements;
         }
         else {
             return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
@@ -121,7 +121,7 @@ public class TypedSet
 
         // containsNullElement flag is maintained so contains() method can have shortcut for null value
         if (block.isNull(position)) {
-            containsNullElement = true;
+            containNullElements = true;
         }
 
         int hashPosition = getHashPositionOfElement(block, position);
@@ -145,6 +145,11 @@ public class TypedSet
         }
 
         return false;
+    }
+
+    public boolean isContainNullElements()
+    {
+        return containNullElements;
     }
 
     public int size()

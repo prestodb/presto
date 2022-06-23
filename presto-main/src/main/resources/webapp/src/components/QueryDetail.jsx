@@ -122,7 +122,7 @@ class TaskList extends React.Component {
                         </a>
                     </Td>
                     <Td column="host" value={getHostname(task.taskStatus.self)}>
-                        <a href={"worker.html?" + task.taskStatus.nodeId} className="font-light" target="_blank">
+                        <a href={"worker.html?" + task.nodeId} className="font-light" target="_blank">
                             {showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self)}
                         </a>
                     </Td>
@@ -484,6 +484,14 @@ class StageSummary extends React.Component {
                                         </td>
                                         <td className="stage-table-stat-text">
                                             {formatDataSizeBytes(stage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Cumulative Total
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {formatDataSizeBytes(stage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -917,6 +925,10 @@ export class QueryDetail extends React.Component {
                 $('#query').each((i, block) => {
                     hljs.highlightBlock(block);
                 });
+
+                $('#prepared-query').each((i, block) => {
+                    hljs.highlightBlock(block);
+                });
             }
 
             this.setState({
@@ -956,6 +968,29 @@ export class QueryDetail extends React.Component {
                         <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage}/>
                     </div>
                 </div>
+            </div>
+        );
+    }
+
+    renderPreparedQuery() {
+        const query = this.state.query;
+        if (!query.hasOwnProperty('preparedQuery') || query.preparedQuery === null) {
+            return;
+        }
+
+        return (
+            <div className="col-xs-12">
+                <h3>
+                    Prepared Query
+                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                            <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                        </a>
+                </h3>
+                <pre id="prepared-query">
+                    <code className="lang-sql" id="prepared-query-text">
+                        {query.preparedQuery}
+                    </code>
+                </pre>
             </div>
         );
     }
@@ -1036,6 +1071,55 @@ export class QueryDetail extends React.Component {
         else {
             return null;
         }
+    }
+
+    renderMetricValue(unit, value) {
+      if (unit === "NANO") {
+          return formatDuration(parseDuration(value+ "ns"));
+      }
+      if (unit === "BYTE") {
+          return formatDataSize(value);
+      }
+      return formatCount(value); // NONE
+    }
+
+    renderRuntimeStats() {
+        const query = this.state.query;
+        if (query.queryStats.runtimeStats === undefined) return null;
+        if (Object.values(query.queryStats.runtimeStats).length == 0) return null;
+        return (
+            <div className="row">
+                <div className="col-xs-6">
+                    <h3>RuntimeStats</h3>
+                    <hr className="h3-hr"/>
+                     <table className="table" id="runtime-stats-table">
+                         <tbody>
+                         <tr>
+                             <th className="info-text">Metric Name</th>
+                             <th className="info-text">Sum</th>
+                             <th className="info-text">Count</th>
+                             <th className="info-text">Min</th>
+                             <th className="info-text">Max</th>
+                         </tr>
+                         {
+                           Object
+                             .values(query.queryStats.runtimeStats)
+                             .sort((m1, m2) => (m1.name.localeCompare(m2.name)))
+                             .map((metric) =>
+                                 <tr>
+                                     <td className="info-text">{metric.name}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.sum)}</td>
+                                     <td className="info-text">{formatCount(metric.count)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.min)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.max)}</td>
+                                 </tr>
+                             )
+                         }
+                         </tbody>
+                     </table>
+                </div>
+            </div>
+        );
     }
 
     renderFailureInfo() {
@@ -1230,6 +1314,14 @@ export class QueryDetail extends React.Component {
                             </tr>
                             <tr>
                                 <td className="info-title">
+                                    Prerequisites Wait Time
+                                </td>
+                                <td className="info-text">
+                                    {query.queryStats.waitingForPrerequisitesTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
                                     Queued Time
                                 </td>
                                 <td className="info-text">
@@ -1250,6 +1342,14 @@ export class QueryDetail extends React.Component {
                                 </td>
                                 <td className="info-text">
                                     {query.queryStats.executionTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Coordinator
+                                </td>
+                                <td className="info-text">
+                                    {getHostname(query.self)}
                                 </td>
                             </tr>
                             </tbody>
@@ -1350,6 +1450,14 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Cumulative Total
+                                        </td>
+                                        <td className="info-text">
+                                            {formatDataSizeBytes(query.queryStats.cumulativeTotalMemory / 1000.0) + " seconds"}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1491,6 +1599,7 @@ export class QueryDetail extends React.Component {
                         </div>
                     </div>
                 </div>
+                {this.renderRuntimeStats()}
                 {this.renderWarningInfo()}
                 {this.renderFailureInfo()}
                 <div className="row">
@@ -1507,6 +1616,7 @@ export class QueryDetail extends React.Component {
                             </code>
                         </pre>
                     </div>
+                    {this.renderPreparedQuery()}
                 </div>
                 {this.renderStages()}
             </div>

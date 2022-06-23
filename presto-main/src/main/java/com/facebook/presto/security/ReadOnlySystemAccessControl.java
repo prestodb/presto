@@ -55,7 +55,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
     {
     }
 

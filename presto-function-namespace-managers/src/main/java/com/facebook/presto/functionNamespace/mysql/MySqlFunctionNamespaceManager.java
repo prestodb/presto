@@ -15,7 +15,6 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.InvalidFunctionHandleException;
@@ -47,9 +46,11 @@ import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.hash.Hashing.sha256;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
@@ -91,36 +92,32 @@ public class MySqlFunctionNamespaceManager
     {
         functionNamespaceDao.createFunctionNamespacesTableIfNotExists();
         functionNamespaceDao.createSqlFunctionsTableIfNotExists();
-        functionNamespaceDao.createEnumTypesTableIfNotExists();
+        functionNamespaceDao.createUserDefinedTypesTableIfNotExists();
     }
 
     @Override
-    public Collection<SqlInvokedFunction> listFunctions()
+    public Collection<SqlInvokedFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
-        return functionNamespaceDao.listFunctions(getCatalogName());
+        return likePattern.map(pattern -> functionNamespaceDao.listFunctions(getCatalogName(), pattern, escape.orElse("\\"))).orElse(functionNamespaceDao.listFunctions(getCatalogName()));
     }
 
     @Override
     public void addUserDefinedType(UserDefinedType type)
     {
-        TypeSignature physicalType = type.getPhysicalTypeSignature();
-        checkArgument(physicalType.getParameters().size() == 1, "Expect enum types to only have 1 type parameter");
-        TypeSignatureParameter parameter = physicalType.getParameters().get(0);
-        checkArgument(parameter.isLongEnum() || parameter.isVarcharEnum(), format("Expect enum type but get %s", parameter.getKind()));
         jdbi.useTransaction(handle -> {
             FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
             QualifiedObjectName typeName = type.getUserDefinedTypeName();
-            if (functionNamespaceDao.enumTypeExists(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName())) {
+            if (functionNamespaceDao.typeExists(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName())) {
                 throw new PrestoException(ALREADY_EXISTS, format("Type %s already exists", typeName));
             }
-            transactionDao.insertEnumType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName(), type.getPhysicalTypeSignature().toString());
+            transactionDao.insertUserDefinedType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName(), type.getPhysicalTypeSignature().toString());
         });
     }
 
     @Override
     public UserDefinedType fetchUserDefinedTypeDirect(QualifiedObjectName typeName)
     {
-        Optional<UserDefinedType> type = functionNamespaceDao.getEnumType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName());
+        Optional<UserDefinedType> type = functionNamespaceDao.getUserDefinedType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName());
         if (!type.isPresent()) {
             throw new PrestoException(NOT_FOUND, format("Type %s not found", typeName));
         }
@@ -164,7 +161,7 @@ public class MySqlFunctionNamespaceManager
     {
         checkCatalog(function);
         checkFunctionLanguageSupported(function);
-        checkArgument(!function.getVersion().isPresent(), "function '%s' is already versioned", function);
+        checkArgument(!function.hasVersion(), "function '%s' is already versioned", function);
 
         QualifiedObjectName functionName = function.getFunctionId().getFunctionName();
         checkFieldLength("Catalog name", functionName.getCatalogName(), MAX_CATALOG_NAME_LENGTH);
@@ -202,7 +199,7 @@ public class MySqlFunctionNamespaceManager
             }
             else if (latestVersion.get().isDeleted()) {
                 SqlInvokedFunction latest = latestVersion.get().getFunction();
-                checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
+                checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
                 transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), false);
             }
         });
@@ -230,9 +227,9 @@ public class MySqlFunctionNamespaceManager
                     latest.getDescription(),
                     routineCharacteristics.build(),
                     latest.getBody(),
-                    Optional.empty());
+                    notVersioned());
             if (!altered.hasSameDefinitionAs(latest)) {
-                checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
+                checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
                 insertSqlInvokedFunction(transactionDao, altered, getLongVersion(latest) + 1);
             }
         });
@@ -247,12 +244,16 @@ public class MySqlFunctionNamespaceManager
             FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
             List<SqlInvokedFunction> functions = getSqlFunctions(transactionDao, functionName, parameterTypes);
 
-            checkUnique(functions, functionName);
             checkExists(functions, functionName, parameterTypes);
 
-            SqlInvokedFunction latest = functions.get(0);
-            checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
-            transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), true);
+            if (!parameterTypes.isPresent()) {
+                transactionDao.setDeleted(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getObjectName());
+            }
+            else {
+                SqlInvokedFunction latest = getOnlyElement(functions);
+                checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
+                transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), true);
+            }
         });
 
         refreshFunctionsCache(functionName);
@@ -298,7 +299,7 @@ public class MySqlFunctionNamespaceManager
 
     private static long getLongVersion(SqlInvokedFunction function)
     {
-        return parseLong(function.getVersion().get());
+        return parseLong(function.getRequiredVersion());
     }
 
     private static void checkFieldLength(String fieldName, String field, int maxLength)

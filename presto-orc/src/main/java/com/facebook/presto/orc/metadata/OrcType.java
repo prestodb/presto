@@ -19,11 +19,16 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -36,10 +41,12 @@ import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -66,6 +73,7 @@ public class OrcType
 
         DATE,
         TIMESTAMP,
+        TIMESTAMP_MICROSECONDS,
 
         LIST,
         MAP,
@@ -79,6 +87,7 @@ public class OrcType
     private final Optional<Integer> length;
     private final Optional<Integer> precision;
     private final Optional<Integer> scale;
+    private final Map<String, String> attributes;
 
     private OrcType(OrcTypeKind orcTypeKind)
     {
@@ -102,6 +111,11 @@ public class OrcType
 
     public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale)
     {
+        this(orcTypeKind, fieldTypeIndexes, fieldNames, length, precision, scale, ImmutableMap.of());
+    }
+
+    public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale, Map<String, String> attributes)
+    {
         this.orcTypeKind = requireNonNull(orcTypeKind, "typeKind is null");
         this.fieldTypeIndexes = ImmutableList.copyOf(requireNonNull(fieldTypeIndexes, "fieldTypeIndexes is null"));
         if (fieldNames == null || (fieldNames.isEmpty() && !fieldTypeIndexes.isEmpty())) {
@@ -114,6 +128,7 @@ public class OrcType
         this.length = requireNonNull(length, "length is null");
         this.precision = requireNonNull(precision, "precision is null");
         this.scale = requireNonNull(scale, "scale can not be null");
+        this.attributes = ImmutableMap.copyOf(requireNonNull(attributes, "attributes is null"));
     }
 
     public OrcTypeKind getOrcTypeKind()
@@ -161,6 +176,11 @@ public class OrcType
         return scale;
     }
 
+    public Map<String, String> getAttributes()
+    {
+        return attributes;
+    }
+
     @Override
     public String toString()
     {
@@ -171,7 +191,8 @@ public class OrcType
                 .toString();
     }
 
-    private static List<OrcType> toOrcType(int nextFieldTypeIndex, Type type)
+    @VisibleForTesting
+    public static List<OrcType> toOrcType(int nextFieldTypeIndex, Type type)
     {
         if (BOOLEAN.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.BOOLEAN));
@@ -212,6 +233,9 @@ public class OrcType
         }
         if (TIMESTAMP.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP));
+        }
+        if (TIMESTAMP_MICROSECONDS.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP_MICROSECONDS));
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -280,5 +304,47 @@ public class OrcType
         fieldTypesList.forEach(orcTypes::addAll);
 
         return orcTypes;
+    }
+
+    /**
+     * Converts zero-based column numbers to ORC node indexes.
+     * NOTE: This method ignores columns that are not included into the ORC types.
+     */
+    public static Set<Integer> mapColumnToNode(Set<Integer> columnIndexes, List<OrcType> orcTypes)
+    {
+        requireNonNull(columnIndexes, "columnIndexes is null");
+        requireNonNull(orcTypes, "orcTypes is null");
+
+        if (columnIndexes.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        OrcType rootType = orcTypes.get(0);
+        int fieldCount = rootType.getFieldCount();
+        return columnIndexes.stream()
+                .filter(columnIndex -> columnIndex < fieldCount)
+                .map(rootType::getFieldTypeIndex)
+                .collect(toImmutableSet());
+    }
+
+    public static Map<Integer, Integer> createNodeIdToColumnMap(List<OrcType> orcTypes)
+    {
+        requireNonNull(orcTypes, "orcTypes cannot be null");
+        int totalNodeCount = orcTypes.size();
+        int column = 0;
+        List<Integer> fieldTypeIndexes = orcTypes.get(0).getFieldTypeIndexes();
+        ImmutableMap.Builder<Integer, Integer> nodeIdToColumnBuilder = ImmutableMap.builder();
+        // create nodeId to colId mapping for all the columns except for the last one
+        for (int nodeIndex = 0; nodeIndex < fieldTypeIndexes.size(); nodeIndex++) {
+            boolean isLastNode = nodeIndex == fieldTypeIndexes.size() - 1;
+            int currentNodeId = fieldTypeIndexes.get(nodeIndex);
+            int nextNodeId = isLastNode ? totalNodeCount : fieldTypeIndexes.get(nodeIndex + 1);
+            int numberOfNodesPerColumn = nextNodeId - currentNodeId;
+            for (int i = 0; i < numberOfNodesPerColumn; i++) {
+                nodeIdToColumnBuilder.put(currentNodeId++, column);
+            }
+            column++;
+        }
+        return nodeIdToColumnBuilder.build();
     }
 }

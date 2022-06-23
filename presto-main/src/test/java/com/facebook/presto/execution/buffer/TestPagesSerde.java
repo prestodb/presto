@@ -25,6 +25,8 @@ import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.LongStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -33,6 +35,7 @@ import static com.facebook.presto.spi.page.PagesSerdeUtil.readPages;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writePages;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestPagesSerde
 {
@@ -68,14 +71,14 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertEquals(pageSize, 48); // page overhead ideally 35 but since a 0 sized block will be a RLEBlock we have an overhead of 13
+        assertEquals(pageSize, 56); // page overhead ideally 35 but since a 0 sized block will be a RLEBlock we have an overhead of 13
 
         // page with one value
         BIGINT.writeLong(builder, 123);
         pageSize = 35; // Now we have moved to the normal block implementation so the page size overhead is 35
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(BIGINT), page) - pageSize;
-        assertEquals(firstValueSize, 9); // value size + value overhead
+        assertEquals(firstValueSize, 17); // value size + value overhead
 
         // page with two values
         BIGINT.writeLong(builder, 456);
@@ -92,7 +95,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 44); // page overhead
+        assertEquals(pageSize, 52); // page overhead
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
@@ -105,6 +108,34 @@ public class TestPagesSerde
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
         assertEquals(secondValueSize, 4 + 3); // length + "bob" (null shared with first entry)
+    }
+
+    @Test
+    public void testRoundTripSizeForCompactPageStaysWithinTwentyPercent()
+    {
+        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde();
+        BlockBuilder variableWidthBlockBuilder1 = VARCHAR.createBlockBuilder(null, 128);
+        BlockBuilder variableWidthBlockBuilder2 = VARCHAR.createBlockBuilder(null, 256);
+        BlockBuilder bigintBlockBuilder = BIGINT.createBlockBuilder(null, 128);
+        Block emptyVariableWidthBlock = VARCHAR.createBlockBuilder(null, 128).build();
+
+        LongStream.range(0, 100).forEach(value -> {
+            VARCHAR.writeString(variableWidthBlockBuilder1, UUID.randomUUID().toString());
+            VARCHAR.writeString(variableWidthBlockBuilder2, UUID.randomUUID().toString());
+            VARCHAR.writeString(variableWidthBlockBuilder2, UUID.randomUUID().toString());
+            BIGINT.writeLong(bigintBlockBuilder, value);
+        });
+        Page compactPage = new Page(
+                emptyVariableWidthBlock,
+                variableWidthBlockBuilder1.build(),
+                variableWidthBlockBuilder2.build(),
+                bigintBlockBuilder.build())
+                .compact();
+        Page deserializedPage = serde.deserialize(serde.serialize(compactPage));
+
+        double expectedMaxSize = compactPage.getRetainedSizeInBytes() * 1.2; // 120%
+        double actualSize = deserializedPage.getRetainedSizeInBytes();
+        assertTrue(actualSize < expectedMaxSize, "Expected round trip size difference less than 20% of original page");
     }
 
     private static int serializedSize(List<? extends Type> types, Page expectedPage)

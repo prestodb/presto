@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -44,6 +45,7 @@ public final class HiveTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final SchemaTableName schemaTableName;
+    private final String tablePath;
     private final List<HiveColumnHandle> partitionColumns;
     private final List<Column> dataColumns;
     private final Map<String, String> tableParameters;
@@ -57,7 +59,7 @@ public final class HiveTableLayoutHandle
     private final String layoutString;
     private final Optional<Set<HiveColumnHandle>> requestedColumns;
     private final boolean partialAggregationsPushedDown;
-
+    private final boolean appendRowNumberEnabled;
     // coordinator-only properties
     @Nullable
     private final List<HivePartition> partitions;
@@ -65,6 +67,7 @@ public final class HiveTableLayoutHandle
     @JsonCreator
     public HiveTableLayoutHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("tablePath") String tablePath,
             @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
             @JsonProperty("dataColumns") List<Column> dataColumns,
             @JsonProperty("tableParameters") Map<String, String> tableParameters,
@@ -77,9 +80,11 @@ public final class HiveTableLayoutHandle
             @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
             @JsonProperty("layoutString") String layoutString,
             @JsonProperty("requestedColumns") Optional<Set<HiveColumnHandle>> requestedColumns,
-            @JsonProperty("partialAggregationsPushedDown") boolean partialAggregationsPushedDown)
+            @JsonProperty("partialAggregationsPushedDown") boolean partialAggregationsPushedDown,
+            @JsonProperty("appendRowNumber") boolean appendRowNumberEnabled)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
+        this.tablePath = requireNonNull(tablePath, "tablePath is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
@@ -94,10 +99,12 @@ public final class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
+        this.appendRowNumberEnabled = appendRowNumberEnabled;
     }
 
     public HiveTableLayoutHandle(
             SchemaTableName schemaTableName,
+            String tablePath,
             List<HiveColumnHandle> partitionColumns,
             List<Column> dataColumns,
             Map<String, String> tableParameters,
@@ -111,9 +118,11 @@ public final class HiveTableLayoutHandle
             boolean pushdownFilterEnabled,
             String layoutString,
             Optional<Set<HiveColumnHandle>> requestedColumns,
-            boolean partialAggregationsPushedDown)
+            boolean partialAggregationsPushedDown,
+            boolean appendRowNumberEnabled)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
+        this.tablePath = requireNonNull(tablePath, "tablePath is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
@@ -128,12 +137,19 @@ public final class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
+        this.appendRowNumberEnabled = appendRowNumberEnabled;
     }
 
     @JsonProperty
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;
+    }
+
+    @JsonProperty
+    public String getTablePath()
+    {
+        return tablePath;
     }
 
     @JsonProperty
@@ -231,13 +247,19 @@ public final class HiveTableLayoutHandle
         return partialAggregationsPushedDown;
     }
 
+    @JsonProperty
+    public boolean isAppendRowNumberEnabled()
+    {
+        return appendRowNumberEnabled;
+    }
+
     @Override
     public Object getIdentifier(Optional<ConnectorSplit> split)
     {
         TupleDomain<Subfield> domainPredicate = this.domainPredicate;
 
         // If split is provided, we would update the identifier based on split runtime information.
-        if (split.isPresent() && domainPredicate.getColumnDomains().isPresent()) {
+        if (split.isPresent() && (split.get() instanceof HiveSplit) && domainPredicate.getColumnDomains().isPresent()) {
             HiveSplit hiveSplit = (HiveSplit) split.get();
             Set<Subfield> subfields = hiveSplit.getRedundantColumnDomains().stream()
                     .map(column -> new Subfield(((HiveColumnHandle) column).getName()))
@@ -255,7 +277,7 @@ public final class HiveTableLayoutHandle
         return ImmutableMap.builder()
                 .put("schemaTableName", schemaTableName)
                 .put("domainPredicate", domainPredicate)
-                .put("remainingPredicate", remainingPredicate)
+                .put("remainingPredicate", canonicalizeRowExpression(remainingPredicate))
                 .put("bucketFilter", bucketFilter)
                 .build();
     }

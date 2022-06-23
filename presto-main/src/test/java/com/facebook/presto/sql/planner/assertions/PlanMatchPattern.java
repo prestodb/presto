@@ -42,6 +42,8 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
+import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -175,8 +177,7 @@ public final class PlanMatchPattern
 
     private PlanMatchPattern addColumnReferences(String expectedTableName, Map<String, String> columnReferences)
     {
-        columnReferences.entrySet().forEach(
-                reference -> withAlias(reference.getKey(), columnReference(expectedTableName, reference.getValue())));
+        columnReferences.forEach((key, value) -> withAlias(key, columnReference(expectedTableName, value)));
         return this;
     }
 
@@ -279,10 +280,10 @@ public final class PlanMatchPattern
         return rowNumberMatcherBuilder.build();
     }
 
-    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> topNRowNumberMatcherBuilderComsumer, PlanMatchPattern source)
+    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> topNRowNumberMatcherBuilderConsumer, PlanMatchPattern source)
     {
         TopNRowNumberMatcher.Builder topNRowNumberMatcherBuilder = new TopNRowNumberMatcher.Builder(source);
-        topNRowNumberMatcherBuilderComsumer.accept(topNRowNumberMatcherBuilder);
+        topNRowNumberMatcherBuilderConsumer.accept(topNRowNumberMatcherBuilder);
         return topNRowNumberMatcherBuilder.build();
     }
 
@@ -415,6 +416,15 @@ public final class PlanMatchPattern
                 new SpatialJoinMatcher(SpatialJoinNode.Type.LEFT, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions())), Optional.empty()));
     }
 
+    public static PlanMatchPattern mergeJoin(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<Expression> filter, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(MergeJoinNode.class, left, right).with(
+                new MergeJoinMatcher(
+                        joinType,
+                        expectedEquiCriteria,
+                        filter));
+    }
+
     public static PlanMatchPattern unnest(PlanMatchPattern source)
     {
         return node(UnnestNode.class, source);
@@ -531,6 +541,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern values(List<String> aliases)
     {
         return values(aliases, Optional.empty());
+    }
+
+    public static PlanMatchPattern offset(long rowCount, PlanMatchPattern source)
+    {
+        return node(OffsetNode.class, source).with(new OffsetMatcher(rowCount));
     }
 
     public static PlanMatchPattern limit(long limit, PlanMatchPattern source)
@@ -842,7 +857,7 @@ public final class PlanMatchPattern
     public static GroupingSetDescriptor singleGroupingSet(List<String> groupingKeys)
     {
         Set<Integer> globalGroupingSets;
-        if (groupingKeys.size() == 0) {
+        if (groupingKeys.isEmpty()) {
             globalGroupingSets = ImmutableSet.of(0);
         }
         else {

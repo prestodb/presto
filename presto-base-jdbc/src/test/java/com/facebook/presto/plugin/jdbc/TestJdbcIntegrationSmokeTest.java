@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.Test;
 
@@ -22,9 +23,11 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 public class TestJdbcIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestJdbcIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createJdbcQueryRunner(ORDERS));
+        return createJdbcQueryRunner(ORDERS);
     }
 
     @Test

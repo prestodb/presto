@@ -13,13 +13,18 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.FilterFunction;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.DwrfEncryption;
+import com.facebook.presto.orc.metadata.DwrfStripeCache;
+import com.facebook.presto.orc.metadata.DwrfStripeCacheData;
 import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.ExceptionWrappingMetadataReader;
 import com.facebook.presto.orc.metadata.Footer;
@@ -77,6 +82,8 @@ public class OrcReader
 
     private final boolean cacheable;
 
+    private final RuntimeStats runtimeStats;
+
     // This is based on the Apache Hive ORC code
     public OrcReader(
             OrcDataSource orcDataSource,
@@ -87,44 +94,73 @@ public class OrcReader
             OrcReaderOptions orcReaderOptions,
             boolean cacheable,
             DwrfEncryptionProvider dwrfEncryptionProvider,
-            DwrfKeyProvider dwrfKeyProvider)
+            DwrfKeyProvider dwrfKeyProvider,
+            RuntimeStats runtimeStats)
             throws IOException
     {
         this(
                 orcDataSource,
                 orcEncoding,
                 orcFileTailSource,
-                stripeMetadataSource,
+                StripeMetadataSourceFactory.of(stripeMetadataSource),
                 Optional.empty(),
                 aggregatedMemoryContext,
                 orcReaderOptions,
                 cacheable,
                 dwrfEncryptionProvider,
-                dwrfKeyProvider);
+                dwrfKeyProvider,
+                runtimeStats);
+    }
+
+    public OrcReader(
+            OrcDataSource orcDataSource,
+            OrcEncoding orcEncoding,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
+            OrcAggregatedMemoryContext aggregatedMemoryContext,
+            OrcReaderOptions orcReaderOptions,
+            boolean cacheable,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            DwrfKeyProvider dwrfKeyProvider,
+            RuntimeStats runtimeStats)
+            throws IOException
+    {
+        this(
+                orcDataSource,
+                orcEncoding,
+                orcFileTailSource,
+                stripeMetadataSourceFactory,
+                Optional.empty(),
+                aggregatedMemoryContext,
+                orcReaderOptions,
+                cacheable,
+                dwrfEncryptionProvider,
+                dwrfKeyProvider,
+                runtimeStats);
     }
 
     OrcReader(
             OrcDataSource orcDataSource,
             OrcEncoding orcEncoding,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
             Optional<OrcWriteValidation> writeValidation,
             OrcAggregatedMemoryContext aggregatedMemoryContext,
             OrcReaderOptions orcReaderOptions,
             boolean cacheable,
             DwrfEncryptionProvider dwrfEncryptionProvider,
-            DwrfKeyProvider dwrfKeyProvider)
+            DwrfKeyProvider dwrfKeyProvider,
+            RuntimeStats runtimeStats)
             throws IOException
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         orcDataSource = wrapWithCacheIfTiny(orcDataSource, orcReaderOptions.getTinyStripeThreshold(), aggregatedMemoryContext);
         this.orcDataSource = orcDataSource;
         requireNonNull(orcEncoding, "orcEncoding is null");
-        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader());
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader(runtimeStats));
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
-
-        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
 
         OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable);
         this.bufferSize = orcFileTail.getBufferSize();
@@ -143,7 +179,7 @@ public class OrcReader
                 orcFileTail.getFooterSize())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream, dwrfEncryptionProvider, dwrfKeyProvider, orcDataSource, decompressor);
         }
-        if (this.footer.getTypes().size() == 0) {
+        if (this.footer.getTypes().isEmpty()) {
             throw new OrcCorruptionException(orcDataSource.getId(), "File has no columns");
         }
 
@@ -185,7 +221,17 @@ public class OrcReader
             writeValidation.get().validateStripeStatistics(orcDataSource.getId(), footer.getStripes(), metadata.getStripeStatsList());
         }
 
-        this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
+        this.cacheable = requireNonNull(cacheable, "cacheable is null");
+
+        Optional<DwrfStripeCache> dwrfStripeCache = Optional.empty();
+        if (orcFileTail.getDwrfStripeCacheData().isPresent() && footer.getDwrfStripeCacheOffsets().isPresent()) {
+            DwrfStripeCacheData dwrfStripeCacheData = orcFileTail.getDwrfStripeCacheData().get();
+            DwrfStripeCache cache = dwrfStripeCacheData.buildDwrfStripeCache(footer.getStripes(), footer.getDwrfStripeCacheOffsets().get());
+            dwrfStripeCache = Optional.of(cache);
+        }
+
+        requireNonNull(stripeMetadataSourceFactory, "stripeMetadataSourceFactory is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSourceFactory.create(dwrfStripeCache), "stripeMetadataSource is null");
     }
 
     @VisibleForTesting
@@ -287,7 +333,8 @@ public class OrcReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                cacheable);
+                cacheable,
+                runtimeStats);
     }
 
     public OrcSelectiveRecordReader createSelectiveRecordReader(
@@ -341,7 +388,8 @@ public class OrcReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                cacheable);
+                cacheable,
+                runtimeStats);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize, OrcAggregatedMemoryContext systemMemoryContext)
@@ -376,13 +424,14 @@ public class OrcReader
                     input,
                     orcEncoding,
                     new StorageOrcFileTailSource(),
-                    new StorageStripeMetadataSource(),
+                    StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()),
                     Optional.of(writeValidation),
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     orcReaderOptions,
                     false,
                     dwrfEncryptionProvider,
-                    dwrfKeyProvider);
+                    dwrfKeyProvider,
+                    new RuntimeStats());
             try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(
                     readTypes.build(),
                     OrcPredicate.TRUE,

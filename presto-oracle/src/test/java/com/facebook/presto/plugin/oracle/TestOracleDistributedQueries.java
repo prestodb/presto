@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.oracle;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -33,11 +34,20 @@ public class TestOracleDistributedQueries
         extends AbstractTestDistributedQueries
 {
     private final TestingOracleServer oracleServer;
+    private final QueryRunner queryRunner;
 
     protected TestOracleDistributedQueries(TestingOracleServer oracleServer)
+            throws Exception
     {
-        super(() -> createOracleQueryRunner(oracleServer, TpchTable.getTables()));
+        this.queryRunner = createOracleQueryRunner(oracleServer, TpchTable.getTables());
         this.oracleServer = new TestingOracleServer();
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return queryRunner;
     }
 
     @AfterClass(alwaysRun = true)

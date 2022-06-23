@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -26,12 +27,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +50,7 @@ public class TableWriterNode
     private final VariableReferenceExpression tableCommitContextVariable;
     private final List<VariableReferenceExpression> columns;
     private final List<String> columnNames;
+    private final Set<VariableReferenceExpression> notNullColumnVariables;
     private final Optional<PartitioningScheme> tablePartitioningScheme;
     private final Optional<PartitioningScheme> preferredShufflePartitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
@@ -54,6 +58,7 @@ public class TableWriterNode
 
     @JsonCreator
     public TableWriterNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") Optional<WriterTarget> target,
@@ -62,11 +67,12 @@ public class TableWriterNode
             @JsonProperty("tableCommitContextVariable") VariableReferenceExpression tableCommitContextVariable,
             @JsonProperty("columns") List<VariableReferenceExpression> columns,
             @JsonProperty("columnNames") List<String> columnNames,
+            @JsonProperty("notNullColumnVariables") Set<VariableReferenceExpression> notNullColumnVariables,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> tablePartitioningScheme,
             @JsonProperty("preferredShufflePartitioningScheme") Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation)
     {
-        super(id);
+        super(sourceLocation, id);
 
         requireNonNull(columns, "columns is null");
         requireNonNull(columnNames, "columnNames is null");
@@ -82,6 +88,7 @@ public class TableWriterNode
         this.tableCommitContextVariable = requireNonNull(tableCommitContextVariable, "tableCommitContextVariable is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
+        this.notNullColumnVariables = ImmutableSet.copyOf(requireNonNull(notNullColumnVariables, "notNullColumns is null"));
         this.tablePartitioningScheme = requireNonNull(tablePartitioningScheme, "partitioningScheme is null");
         this.preferredShufflePartitioningScheme = requireNonNull(preferredShufflePartitioningScheme, "preferredShufflePartitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
@@ -140,6 +147,12 @@ public class TableWriterNode
     }
 
     @JsonProperty
+    public Set<VariableReferenceExpression> getNotNullColumnVariables()
+    {
+        return notNullColumnVariables;
+    }
+
+    @JsonProperty
     public Optional<PartitioningScheme> getTablePartitioningScheme()
     {
         return tablePartitioningScheme;
@@ -179,6 +192,7 @@ public class TableWriterNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new TableWriterNode(
+                getSourceLocation(),
                 getId(),
                 Iterables.getOnlyElement(newChildren),
                 target,
@@ -187,6 +201,7 @@ public class TableWriterNode
                 tableCommitContextVariable,
                 columns,
                 columnNames,
+                notNullColumnVariables,
                 tablePartitioningScheme,
                 preferredShufflePartitioningScheme,
                 statisticsAggregation);
@@ -315,6 +330,42 @@ public class TableWriterNode
             return schemaTableName;
         }
 
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class RefreshMaterializedViewReference
+            extends WriterTarget
+    {
+        private final TableHandle handle;
+        private final SchemaTableName schemaTableName;
+
+        public RefreshMaterializedViewReference(TableHandle handle, SchemaTableName schemaTableName)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        }
+
+        public TableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @Override
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @Override
         public String toString()
         {
             return handle.toString();

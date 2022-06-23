@@ -21,6 +21,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +56,8 @@ public interface QueryExecution
 
     String getSlug();
 
+    int getRetryCount();
+
     Duration getTotalCpuTime();
 
     DataSize getRawInputDataSize();
@@ -68,6 +71,10 @@ public interface QueryExecution
     DataSize getTotalMemoryReservation();
 
     VersionedMemoryPoolId getMemoryPool();
+
+    Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits();
+
+    void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits);
 
     void setMemoryPool(VersionedMemoryPoolId poolId);
 
@@ -92,6 +99,7 @@ public interface QueryExecution
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
+                int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType);
     }

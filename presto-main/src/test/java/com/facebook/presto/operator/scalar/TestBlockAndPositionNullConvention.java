@@ -124,7 +124,7 @@ public class TestBlockAndPositionNullConvention
         @TypeParameter("E")
         @SqlNullable
         @SqlType("E")
-        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @SqlNullable @SqlType("E") Boolean bool)
+        public static Boolean specializedBoolean(@TypeParameter("E") Type type, @SqlNullable @SqlType("E") Boolean bool)
         {
             return bool;
         }
@@ -132,7 +132,7 @@ public class TestBlockAndPositionNullConvention
         @TypeParameter("E")
         @SqlNullable
         @SqlType("E")
-        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @BlockPosition @SqlType(value = "E", nativeContainerType = boolean.class) Block block, @BlockIndex int position)
+        public static Boolean specializedBoolean(@TypeParameter("E") Type type, @BlockPosition @SqlType(value = "E", nativeContainerType = boolean.class) Block block, @BlockIndex int position)
         {
             hitBlockPositionBoolean.set(true);
             return type.getBoolean(block, position);

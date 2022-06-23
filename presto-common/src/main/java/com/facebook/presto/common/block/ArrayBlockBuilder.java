@@ -20,7 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.ArrayBlock.createArrayBlockInternal;
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
@@ -38,9 +38,9 @@ public class ArrayBlockBuilder
     private int positionCount;
 
     @Nullable
-    private BlockBuilderStatus blockBuilderStatus;
+    private final BlockBuilderStatus blockBuilderStatus;
+    private final int initialEntryCount;
     private boolean initialized;
-    private int initialEntryCount;
 
     private int[] offsets = new int[1];
     private boolean[] valueIsNull = new boolean[0];
@@ -109,12 +109,12 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(values, values.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -135,10 +135,24 @@ public class ArrayBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getValueIsNull()
     {
-        return valueIsNull;
+        return hasNullValue ? valueIsNull : null;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(position);
+        return hasNullValue && valueIsNull[position];
     }
 
     @Override
@@ -160,6 +174,12 @@ public class ArrayBlockBuilder
 
         closeEntry();
         return this;
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
+    {
+        return getSingleValueBlockInternal(position);
     }
 
     @Override
@@ -187,13 +207,24 @@ public class ArrayBlockBuilder
         return this;
     }
 
+    public BlockBuilder getElementBlockBuilder()
+    {
+        return values;
+    }
+
     @Override
-    public SingleArrayBlockWriter beginBlockEntry()
+    public void beginDirectEntry()
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
+    }
+
+    @Override
+    public SingleArrayBlockWriter beginBlockEntry()
+    {
+        beginDirectEntry();
         return new SingleArrayBlockWriter(values, values.getPositionCount());
     }
 

@@ -20,11 +20,14 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -49,10 +52,14 @@ public class ElasticsearchSplitManager
         ElasticsearchTableLayoutHandle layoutHandle = (ElasticsearchTableLayoutHandle) layout;
         ElasticsearchTableHandle tableHandle = layoutHandle.getTable();
 
-        List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
-                .map(shard -> new ElasticsearchSplit(shard.getIndex(), shard.getId(), layoutHandle.getTupleDomain(), shard.getAddress()))
-                .collect(toImmutableList());
-
-        return new FixedSplitSource(splits);
+        if (tableHandle.getType().equals(QUERY)) {
+            return new FixedSplitSource(ImmutableList.of(new ElasticsearchSplit(tableHandle.getIndex(), 0, layoutHandle.getTupleDomain(), Optional.empty())));
+        }
+        else {
+            List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
+                    .map(shard -> new ElasticsearchSplit(shard.getIndex(), shard.getId(), layoutHandle.getTupleDomain(), shard.getAddress()))
+                    .collect(toImmutableList());
+            return new FixedSplitSource(splits);
+        }
     }
 }

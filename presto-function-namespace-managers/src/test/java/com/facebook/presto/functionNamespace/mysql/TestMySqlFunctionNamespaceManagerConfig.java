@@ -30,7 +30,7 @@ public class TestMySqlFunctionNamespaceManagerConfig
         assertRecordedDefaults(recordDefaults(MySqlFunctionNamespaceManagerConfig.class)
                 .setFunctionNamespacesTableName("function_namespaces")
                 .setFunctionsTableName("sql_functions")
-                .setEnumTypesTableName("enum_types"));
+                .setUserDefinedTypesTableName("user_defined_types"));
     }
 
     @Test
@@ -39,12 +39,12 @@ public class TestMySqlFunctionNamespaceManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("function-namespaces-table-name", "sql_function_namespaces")
                 .put("functions-table-name", "sql_invoked_functions")
-                .put("enum-types-table-name", "user_defined_enums")
+                .put("user-defined-types-table-name", "user_types")
                 .build();
         MySqlFunctionNamespaceManagerConfig expected = new MySqlFunctionNamespaceManagerConfig()
                 .setFunctionNamespacesTableName("sql_function_namespaces")
                 .setFunctionsTableName("sql_invoked_functions")
-                .setEnumTypesTableName("user_defined_enums");
+                .setUserDefinedTypesTableName("user_types");
 
         assertFullMapping(properties, expected);
     }

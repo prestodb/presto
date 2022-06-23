@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.thrift.integration;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -25,9 +26,11 @@ import static com.facebook.presto.tests.QueryAssertions.assertContains;
 public class TestThriftIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestThriftIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createThriftQueryRunner(2, 2, false, ImmutableMap.of()));
+        return createThriftQueryRunner(2, 2, false, ImmutableMap.of());
     }
 
     @Override

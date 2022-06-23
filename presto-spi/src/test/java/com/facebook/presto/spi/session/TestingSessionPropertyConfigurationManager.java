@@ -20,17 +20,17 @@ import static java.util.Objects.requireNonNull;
 public class TestingSessionPropertyConfigurationManager
         implements SessionPropertyConfigurationManager
 {
-    private final Map<String, String> systemProperties;
+    private final SystemSessionPropertyConfiguration systemProperties;
     private final Map<String, Map<String, String>> catalogProperties;
 
-    public TestingSessionPropertyConfigurationManager(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties)
+    public TestingSessionPropertyConfigurationManager(SystemSessionPropertyConfiguration systemProperties, Map<String, Map<String, String>> catalogProperties)
     {
         this.systemProperties = requireNonNull(systemProperties, "systemProperties is null");
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");
     }
 
     @Override
-    public Map<String, String> getSystemSessionProperties(SessionConfigurationContext context)
+    public SystemSessionPropertyConfiguration getSystemSessionProperties(SessionConfigurationContext context)
     {
         return systemProperties;
     }

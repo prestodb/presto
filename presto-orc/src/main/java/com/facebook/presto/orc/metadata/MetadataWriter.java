@@ -17,12 +17,21 @@ import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 public interface MetadataWriter
 {
     List<Integer> getOrcMetadataVersion();
 
-    int writePostscript(SliceOutput output, int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize)
+    int writePostscript(SliceOutput output,
+            int footerLength,
+            int metadataLength,
+            CompressionKind compression,
+            int compressionBlockSize,
+            Optional<DwrfStripeCacheData> dwrfStripeCacheData)
+            throws IOException;
+
+    int writeDwrfStripeCache(SliceOutput output, Optional<DwrfStripeCacheData> dwrfStripeCacheData)
             throws IOException;
 
     int writeMetadata(SliceOutput output, Metadata metadata)

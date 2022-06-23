@@ -1,9 +1,9 @@
-===============
-Pinot Connector
-===============
+======================
+Apache Pinot Connector
+======================
 
-The Pinot connector allows querying and creating tables in an external Pinot
-database. This can be used to query pinot data or join pinot data with
+The Apache Pinot connector allows querying and creating tables in an external Apache
+Pinot database. This can be used to query pinot data or join pinot data with
 something else.
 
 Configuration
@@ -23,14 +23,93 @@ connection properties as appropriate for your setup:
 Where the ``pinot.controller-urls`` property allows you to specify a
 comma separated list of the pinot controller host/port pairs.
 
-Multiple Pinot Servers
-^^^^^^^^^^^^^^^^^^^^^^
+Multiple Pinot Clusters
+^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
 Pinot clusters, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
+
+Catalog Properties
+^^^^^^^^^^^^^^^^^^
+
+The following catalog configuration properties are available:
+
+==========================================================  =============================================================================================================
+Property Name                                               Description
+==========================================================  =============================================================================================================
+``pinot.controller-urls``                                   Pinot controller urls.
+``pinot.controller-rest-service``                           Alternative rest endpoint for Pinot controller requests.
+``pinot.rest-proxy-url``                                    Pinot rest proxy url.
+``pinot.allow-multiple-aggregations``                       Push down a Pinot query with multiple aggregation functions, default is true.
+``pinot.limit-large-for-segment``                           Cap the number of rows returned when pushing down non-aggregation segment query, default is 2147483647.
+``pinot.topn-large``                                        Cap the TOP/LIMIT value when pushing down broker query, default is 10000.
+``pinot.thread-pool-size``                                  Parameter to init Pinot server query client, default is 30.
+``pinot.min-connections-per-server``                        Parameter to init Pinot server query client, default is 10.
+``pinot.max-connections-per-server``                        Parameter to init Pinot server query client, default is 30.
+``pinot.max-backlog-per-server``                            Parameter to init Pinot server query client, default is 30.
+``pinot.idle-timeout``                                      Parameter to init Pinot server query client, default is 5 minutes.
+``pinot.connection-timeout``                                Connection Timeout to talk to Pinot servers, default is 1 minute.
+``pinot.metadata-expiry``                                   Pinot metadata cache expiration time, default is 2 minutes.
+``pinot.estimated-size-in-bytes-for-non-numeric-column``    Estimated byte size for non-numeric column, default is 20.
+``pinot.service-header-param``                              RPC service header key, default is "RPC-Service".
+``pinot.caller-header-param``                               RPC service caller header key, default is "RPC-Caller".
+``pinot.caller-header-value``                               RPC service caller header value, default is "presto".
+``pinot.forbid-broker-queries``                             No broker request pushing down, default is false.
+``pinot.forbid-segment-queries``                            No segment query pushing down, fail the query if broker query pushing down is not possible, default is false.
+``pinot.rest-proxy-service-for-query``                      Use rest proxy endpoint for Pinot broker requests, default is false.
+``pinot.use-date-trunc``                                    Use the new UDF dateTrunc in pinot that is more presto compatible, default is false.
+``pinot.num-segments-per-split``                            Number of segments of the same host per split, default is 1.
+``pinot.ignore-empty-responses``                            Ignore empty or missing pinot server responses, default is false.
+``pinot.fetch-retry-count``                                 Retry count for retriable pinot data fetch calls, default is 2.
+``pinot.non-aggregate-limit-for-broker-queries``            Max limit for non aggregate queries to the pinot broker, default is 25000.
+``pinot.infer-date-type-in-schema``                         Infer Pinot DAYS epoch column to Presto DATE type, default is true.
+``pinot.infer-timestamp-type-in-schema``                    Infer Pinot SECONDS epoch column to Presto TIMESTAMP type, default is true.
+``pinot.mark-data-fetch-exceptions-as-retriable``           Retry Pinot request when failure, default is true.
+``pinot.use-pinot-sql-for-broker-queries``                  Use Pinot SQL syntax, otherwise PQL syntax, default is true.
+``pinot.pushdown-topn-broker-queries``                      Allow pushing down query pattern to broker: aggregation + groupBy + orderBy, default is false.
+``pinot.use-streaming-for-segment-queries``                 Use gRPC endpoint for pinot server queries, default is false.
+``pinot.streaming-server-grpc-max-inbound-message-bytes``   Max inbound message bytes when init gRPC client, default is 128MB.
+``pinot.proxy-enabled``                                     Pinot Cluster is behind a proxy, default is false.
+``pinot.grpc-host``                                         Pinot gRPC host.
+``pinot.grpc-port``                                         Pinot gRPC port.
+``pinot.secure-connection``                                 Use https for all connections is false.
+``pinot.override-distinct-count-function``                  Override 'distinctCount' function name, default is "distinctCount".
+``pinot.extra-http-headers``                                Extra headers when sending HTTP based pinot requests to Pinot controller/broker. E.g. k1:v1,k2:v2.
+``pinot.extra-grpc-metadata``                               Extra metadata when sending gRPC based pinot requests to Pinot broker/server/proxy. E.g. k1:v1,k2:v2.
+``pinot.grpc-tls-key-store-path``                           TLS keystore file location for gRPC connection, default is empty (not needed)
+``pinot.grpc-tls-key-store-type``                           TLS keystore type for gRPC connection, default is empty (not needed)
+``pinot.grpc-tls-key-store-password``                       TLS keystore password, default is empty (not needed)
+``pinot.grpc-tls-trust-store-path``                         TLS truststore file location for gRPC connection, default is empty (not needed)
+``pinot.grpc-tls-trust-store-type``                         TLS truststore type for gRPC connection, default is empty (not needed)
+``pinot.grpc-tls-trust-store-password``                     TLS truststore password, default is empty (not needed)
+==========================================================  =============================================================================================================
+
+Session Properties
+^^^^^^^^^^^^^^^^^^
+
+The following session properties are available:
+
+========================================================  ==================================================================
+Property Name                                             Description
+========================================================  ==================================================================
+``pinot.forbid_broker_queries``                           Forbid queries to the broker.
+``pinot.forbid_segment_queries``                          Forbid segment queries.
+``pinot.ignore_empty_responses``                          Ignore empty or missing pinot server responses.
+``pinot.connection_timeout``                              Connection Timeout to talk to Pinot servers.
+``pinot.mark_data_fetch_exceptions_as_retriable``         Retry Pinot query on data fetch exceptions.
+``pinot.retry_count``                                     Retry count for retriable pinot data fetch calls.
+``pinot.use_date_trunc``                                  Use the new UDF dateTrunc in pinot that is more presto compatible.
+``pinot.use_pinot_sql_for_broker_queries``                Use Pinot SQL syntax and endpoint for broker query.
+``pinot.non_aggregate_limit_for_broker_queries``          Max limit for non aggregate queries to the pinot broker.
+``pinot.pushdown_topn_broker_queries``                    Push down order by to pinot broker for top queries.
+``pinot.num_segments_per_split``                          Number of segments of the same host per split.
+``pinot.limit_larger_for_segment``                        Server query selection limit for large segment.
+``pinot.override_distinct_count_function``                Override distinct count function to another function name.
+``pinot.topn_large``                                      Cap the TOP/LIMIT value when pushing down broker query.
+========================================================  ==================================================================
 
 Map Pinot Schema to Presto Schema
 ---------------------------------
@@ -182,13 +261,13 @@ Finally, you can access the ``clicks`` table::
     SELECT count(*) FROM mypinotcluster.default.clicks;
 
 
-How the Pinot connector works
------------------------------
+How the Apache Pinot connector works
+------------------------------------
 
-The connector tries to push the maximal subquery inferred from the
+The connector tries to push the maximal sub-query inferred from the
 presto query into pinot. It can push down everything Pinot supports
 including aggregations, group by, all UDFs etc. It generates the
-correct Pinot PQL keeping Pinot's quirks in mind.
+correct Pinot query keeping Pinot's quirks in mind.
 
 By default, it sends aggregation and limit queries to the Pinot broker
 and does a parallel scan for non-aggregation/non-limit queries. The

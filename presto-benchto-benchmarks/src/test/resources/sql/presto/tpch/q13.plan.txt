@@ -8,9 +8,9 @@ remote exchange (GATHER, SINGLE, [])
                             final aggregation over (custkey)
                                 local exchange (GATHER, SINGLE, [])
                                     partial aggregation over (custkey)
-                                        join (LEFT, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [custkey])
-                                                scan customer
+                                        join (RIGHT, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, [custkey_0])
+                                                scan orders
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [custkey_0])
-                                                    scan orders
+                                                remote exchange (REPARTITION, HASH, [custkey])
+                                                    scan customer

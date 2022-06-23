@@ -20,6 +20,8 @@ import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -37,6 +39,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -50,8 +53,10 @@ public class MockManagedQueryExecution
     private final DataSize memoryUsage;
     private final Duration cpuUsage;
     private final Session session;
-    private QueryState state = QUEUED;
+    private QueryState state = WAITING_FOR_PREREQUISITES;
     private Throwable failureCause;
+    private Optional<ResourceGroupQueryLimits> resourceGroupQueryLimits = Optional.empty();
+    private final ResourceGroupId resourceGroupId;
 
     public MockManagedQueryExecution(long memoryUsage)
     {
@@ -65,11 +70,17 @@ public class MockManagedQueryExecution
 
     public MockManagedQueryExecution(long memoryUsage, String queryId, int priority, Duration cpuUsage)
     {
+        this(memoryUsage, queryId, priority, cpuUsage, null);
+    }
+
+    public MockManagedQueryExecution(long memoryUsage, String queryId, int priority, Duration cpuUsage, ResourceGroupId resourceGroupId)
+    {
         this.memoryUsage = succinctBytes(memoryUsage);
         this.cpuUsage = cpuUsage;
         this.session = testSessionBuilder()
                 .setSystemProperty(QUERY_PRIORITY, String.valueOf(priority))
                 .build();
+        this.resourceGroupId = resourceGroupId;
     }
 
     public void complete()
@@ -96,12 +107,18 @@ public class MockManagedQueryExecution
     }
 
     @Override
+    public boolean isRetry()
+    {
+        return false;
+    }
+
+    @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
         return new BasicQueryInfo(
                 new QueryId("test"),
                 session.toSessionRepresentation(),
-                Optional.empty(),
+                Optional.ofNullable(resourceGroupId),
                 state,
                 new MemoryPoolId("test"),
                 !state.isDone(),
@@ -110,9 +127,11 @@ public class MockManagedQueryExecution
                 new BasicQueryStats(
                         new DateTime(1),
                         new DateTime(2),
+                        new Duration(2, NANOSECONDS),
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
+                        5,
                         5,
                         6,
                         7,
@@ -121,6 +140,7 @@ public class MockManagedQueryExecution
                         new DataSize(14, BYTE),
                         15,
                         16.0,
+                        25.0,
                         new DataSize(17, BYTE),
                         new DataSize(18, BYTE),
                         new DataSize(19, BYTE),
@@ -135,7 +155,8 @@ public class MockManagedQueryExecution
                         OptionalDouble.empty()),
                 null,
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     @Override
@@ -159,6 +180,13 @@ public class MockManagedQueryExecution
     public QueryState getState()
     {
         return state;
+    }
+
+    @Override
+    public void startWaitingForPrerequisites()
+    {
+        state = QUEUED;
+        fireStateChange();
     }
 
     @Override
@@ -186,6 +214,12 @@ public class MockManagedQueryExecution
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         listeners.add(stateChangeListener);
+    }
+
+    @Override
+    public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
+    {
+        this.resourceGroupQueryLimits = Optional.of(resourceGroupQueryLimits);
     }
 
     private void fireStateChange()

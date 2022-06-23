@@ -25,6 +25,9 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
+import java.util.TimeZone;
+
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TimeType.TIME;
@@ -140,7 +143,7 @@ public abstract class TestTimeBase
     {
         assertFunction("cast(TIME '03:04:05.321' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), DATE_TIME_ZONE.toTimeZone()));
+                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TimeZone.getTimeZone(ZoneId.of(DATE_TIME_ZONE.getID()))));
     }
 
     @Test
@@ -155,7 +158,7 @@ public abstract class TestTimeBase
             localAssertions.assertFunction(
                     "cast(TIME '03:04:05.321' as time with time zone)",
                     TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, dateTimeZoneThatChangedSince1970).getMillis(), dateTimeZoneThatChangedSince1970.toTimeZone()));
+                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, dateTimeZoneThatChangedSince1970).getMillis(), TimeZone.getTimeZone(ZoneId.of(dateTimeZoneThatChangedSince1970.getID()))));
         }
     }
 

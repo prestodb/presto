@@ -18,7 +18,9 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RenameColumn;
@@ -38,7 +40,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class RenameColumnTask
-        implements DataDefinitionTask<RenameColumn>
+        implements DDLDefinitionTask<RenameColumn>
 {
     @Override
     public String getName()
@@ -47,9 +49,8 @@ public class RenameColumnTask
     }
 
     @Override
-    public ListenableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
         if (!tableHandleOptional.isPresent()) {
@@ -58,6 +59,15 @@ public class RenameColumnTask
             }
             return immediateFuture(null);
         }
+
+        Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
+        if (optionalMaterializedView.isPresent()) {
+            if (!statement.isTableExists()) {
+                throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and rename column is not supported", tableName);
+            }
+            return immediateFuture(null);
+        }
+
         TableHandle tableHandle = tableHandleOptional.get();
 
         String source = statement.getSource().getValue().toLowerCase(ENGLISH);

@@ -294,18 +294,18 @@ public class FixedSourcePartitionedScheduler
             implements SplitPlacementPolicy
     {
         private final NodeSelector nodeSelector;
-        private final List<InternalNode> allNodes;
+        private final List<InternalNode> activeNodes;
         private final BucketNodeMap bucketNodeMap;
         private final Supplier<? extends List<RemoteTask>> remoteTasks;
 
         public BucketedSplitPlacementPolicy(
                 NodeSelector nodeSelector,
-                List<InternalNode> allNodes,
+                List<InternalNode> activeNodes,
                 BucketNodeMap bucketNodeMap,
                 Supplier<? extends List<RemoteTask>> remoteTasks)
         {
             this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
-            this.allNodes = ImmutableList.copyOf(requireNonNull(allNodes, "allNodes is null"));
+            this.activeNodes = ImmutableList.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
             this.bucketNodeMap = requireNonNull(bucketNodeMap, "bucketNodeMap is null");
             this.remoteTasks = requireNonNull(remoteTasks, "remoteTasks is null");
         }
@@ -322,9 +322,9 @@ public class FixedSourcePartitionedScheduler
         }
 
         @Override
-        public List<InternalNode> allNodes()
+        public List<InternalNode> getActiveNodes()
         {
-            return allNodes;
+            return activeNodes;
         }
 
         public InternalNode getNodeForBucket(int bucketId)

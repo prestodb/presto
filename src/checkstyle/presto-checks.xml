@@ -209,6 +209,9 @@
             <property name="illegalPkgs" value="jersey.repackaged" />
             <property name="illegalPkgs" value="jdk.nashorn.internal" />
             <property name="illegalPkgs" value="jdk.internal" />
+            <!-- Added to avoid accidental imports of the Spark shaded guava library that lives under the org.spark_project.guava package -->
+            <!-- It seems unlikely that anything would need to be imported from the org.spark_project package, as it contains private or semi private API -->
+            <property name="illegalPkgs" value="org.spark_project" />
         </module>
 
         <module name="IllegalImport">

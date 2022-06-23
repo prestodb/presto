@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -34,7 +35,6 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -45,8 +45,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
-import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
@@ -100,7 +101,9 @@ public final class SelectiveStreamReaders
                 checkArgument(requiredSubfields.isEmpty(), "Primitive stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
                 return new SliceSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext);
-            case TIMESTAMP: {
+            case TIMESTAMP:
+            case TIMESTAMP_MICROSECONDS: {
+                boolean enableMicroPrecision = outputType.isPresent() && outputType.get() == TIMESTAMP_MICROSECONDS;
                 checkArgument(requiredSubfields.isEmpty(), "Timestamp stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, TimestampType.class::isInstance);
                 return new TimestampSelectiveStreamReader(
@@ -109,7 +112,7 @@ public final class SelectiveStreamReaders
                         hiveStorageTimeZone,
                         outputType.isPresent(),
                         systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()),
-                        options);
+                        enableMicroPrecision);
             }
             case LIST:
                 verifyStreamType(streamDescriptor, outputType, ArrayType.class::isInstance);
@@ -177,6 +180,7 @@ public final class SelectiveStreamReaders
             case VARCHAR:
             case CHAR:
             case TIMESTAMP:
+            case TIMESTAMP_MICROSECONDS:
             case DECIMAL:
                 Map<Subfield, TupleDomainFilter> elementFilters = ImmutableMap.of();
                 if (parentFilter.isPresent()) {

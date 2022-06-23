@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.operator.scalar.annotations.CodegenScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.WindowAnnotationsParser;
@@ -71,6 +72,12 @@ public class FunctionListBuilder
         return this;
     }
 
+    public FunctionListBuilder codegenScalars(Class<?> clazz)
+    {
+        functions.addAll(CodegenScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
+        return this;
+    }
+
     public FunctionListBuilder functions(BuiltInFunction... sqlFunctions)
     {
         for (BuiltInFunction sqlFunction : sqlFunctions) {
@@ -83,6 +90,13 @@ public class FunctionListBuilder
     {
         requireNonNull(sqlFunction, "parametricFunction is null");
         functions.add(sqlFunction);
+        return this;
+    }
+
+    public FunctionListBuilder override(BuiltInFunction oldFunction, BuiltInFunction newFunction)
+    {
+        functions.remove(oldFunction);
+        function(newFunction);
         return this;
     }
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
@@ -39,7 +39,7 @@ public class TestPinotBrokerPageSourceSql
         extends TestPinotQueryBase
 {
     private static PinotTableHandle pinotTable = new PinotTableHandle("connId", "schema", "tbl");
-    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
+    private final ObjectMapper objectMapper = new JsonObjectMapperProvider().get();
     private static PinotColumnHandle groupCountry = new PinotColumnHandle("group_country", VARCHAR, PinotColumnHandle.PinotColumnType.REGULAR);
     private static PinotColumnHandle groupCity = new PinotColumnHandle("group_city", VARCHAR, PinotColumnHandle.PinotColumnType.REGULAR);
 
@@ -178,6 +178,7 @@ public class TestPinotBrokerPageSourceSql
                                 false))),
                 generatedPinotQuery,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 new MockPinotClusterInfoFetcher(pinotConfig),
                 objectMapper);
         assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable\"}");
@@ -215,6 +216,7 @@ public class TestPinotBrokerPageSourceSql
                 pinotConfig,
                 new TestingConnectorSession(ImmutableList.of()),
                 generatedSql,
+                actualHandles,
                 actualHandles,
                 new MockPinotClusterInfoFetcher(pinotConfig),
                 objectMapper);

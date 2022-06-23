@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.decoder.json;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
@@ -56,7 +56,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJsonDecoder
 {
-    private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new ObjectMapperProvider().get());
+    private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new JsonObjectMapperProvider().get());
 
     @Test
     public void testSimple()

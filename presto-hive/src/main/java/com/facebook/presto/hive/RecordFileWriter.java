@@ -64,7 +64,6 @@ public class RecordFileWriter
     private final Path path;
     private final JobConf conf;
     private final int fieldCount;
-    @SuppressWarnings("deprecation")
     private final Serializer serializer;
     private final RecordWriter recordWriter;
     private final SettableStructObjectInspector tableInspector;

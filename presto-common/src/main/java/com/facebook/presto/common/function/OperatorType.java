@@ -75,11 +75,6 @@ public enum OperatorType
         return calledOnNullInput;
     }
 
-    public static Optional<OperatorType> tryGetOperatorType(QualifiedObjectName operatorName)
-    {
-        return Optional.ofNullable(OPERATOR_TYPES.get(operatorName));
-    }
-
     public boolean isComparisonOperator()
     {
         return this.equals(EQUAL) ||
@@ -94,5 +89,52 @@ public enum OperatorType
     public boolean isArithmeticOperator()
     {
         return this.equals(ADD) || this.equals(SUBTRACT) || this.equals(MULTIPLY) || this.equals(DIVIDE) || this.equals(MODULUS);
+    }
+
+    public static Optional<OperatorType> tryGetOperatorType(QualifiedObjectName operatorName)
+    {
+        return Optional.ofNullable(OPERATOR_TYPES.get(operatorName));
+    }
+
+    public static OperatorType flip(OperatorType operator)
+    {
+        switch (operator) {
+            case EQUAL:
+                return EQUAL;
+            case NOT_EQUAL:
+                return NOT_EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN_OR_EQUAL;
+            case GREATER_THAN:
+                return LESS_THAN;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM:
+                return IS_DISTINCT_FROM;
+            default:
+                throw new IllegalArgumentException("Unsupported flip non-comparison operator: " + operator);
+        }
+    }
+
+    public static OperatorType negate(OperatorType operator)
+    {
+        switch (operator) {
+            case EQUAL:
+                return NOT_EQUAL;
+            case NOT_EQUAL:
+                return EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN_OR_EQUAL;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN;
+            case GREATER_THAN:
+                return LESS_THAN_OR_EQUAL;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN;
+            default:
+                throw new IllegalArgumentException("Unsupported negate non-comparison operator: " + operator);
+        }
     }
 }

@@ -16,8 +16,13 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.TimestampType;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 
 public class TestTimestampType
         extends AbstractTestType
@@ -48,5 +53,15 @@ public class TestTimestampType
     protected Object getGreaterValue(Object value)
     {
         return ((Long) value) + 1;
+    }
+
+    @Test
+    public void testEqualsHashcode()
+    {
+        TimestampType timeStampType = TIMESTAMP;
+        assertEquals(timeStampType, TIMESTAMP);
+        assertEquals(timeStampType.hashCode(), TIMESTAMP.hashCode());
+
+        assertNotEquals(timeStampType, TIMESTAMP_MICROSECONDS);
     }
 }

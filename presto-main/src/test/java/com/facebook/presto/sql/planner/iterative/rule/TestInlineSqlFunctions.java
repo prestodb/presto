@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -30,7 +31,9 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.tree.Expression;
@@ -50,6 +53,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
@@ -59,6 +63,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 
 public class TestInlineSqlFunctions
@@ -74,7 +79,7 @@ public class TestInlineSqlFunctions
                     .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "RETURN x * x",
-            Optional.empty());
+            notVersioned());
 
     private static final SqlInvokedFunction THRIFT_FUNCTION_FOO = new SqlInvokedFunction(
             QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "foo"),
@@ -86,7 +91,7 @@ public class TestInlineSqlFunctions
                     .setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "",
-            Optional.empty());
+            notVersioned());
 
     private static final SqlInvokedFunction SQL_FUNCTION_ADD_1_TO_INT_ARRAY = new SqlInvokedFunction(
             QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "add_1_int"),
@@ -98,7 +103,7 @@ public class TestInlineSqlFunctions
                     .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "RETURN transform(x, x -> x + 1)",
-            Optional.empty());
+            notVersioned());
 
     private static final SqlInvokedFunction SQL_FUNCTION_ADD_1_TO_BIGINT_ARRAY = new SqlInvokedFunction(
             QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "add_1_bigint"),
@@ -110,7 +115,7 @@ public class TestInlineSqlFunctions
                     .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "RETURN transform(x, x -> x + 1)",
-            Optional.empty());
+            notVersioned());
 
     private RuleTester tester;
 
@@ -127,7 +132,7 @@ public class TestInlineSqlFunctions
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
-                                null),
+                                new NoopSqlFunctionExecutor()),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(SQL_FUNCTION_SQUARE, true);
         functionAndTypeManager.createFunction(THRIFT_FUNCTION_FOO, true);
@@ -151,7 +156,7 @@ public class TestInlineSqlFunctions
     @Test
     public void testInlineFunctionContainingLambda()
     {
-        assertInlined(tester, "unittest.memory.add_1_int(x)", "transform(x, x -> x + 1)", ImmutableMap.of("x", new ArrayType(IntegerType.INTEGER)));
+        assertInlined(tester, "unittest.memory.add_1_int(x)", "transform(x, \"x$lambda\" -> \"x$lambda\" + 1)", ImmutableMap.of("x", new ArrayType(IntegerType.INTEGER)));
     }
 
     @Test
@@ -159,7 +164,7 @@ public class TestInlineSqlFunctions
     {
         assertInlined(tester,
                 "unittest.memory.add_1_bigint(x)",
-                "transform(x, x -> x + CAST(1 AS bigint))",
+                "transform(x, \"x$lambda\" -> \"x$lambda\" + CAST(1 AS bigint))",
                 ImmutableMap.of("x", new ArrayType(BigintType.BIGINT)));
     }
 
@@ -168,7 +173,7 @@ public class TestInlineSqlFunctions
     {
         assertInlined(tester,
                 "array_sum(x)",
-                "reduce(x, BIGINT '0', (s, x) -> (s + coalesce(x, BIGINT '0')), (s -> s))",
+                "reduce(x, BIGINT '0', (\"s$lambda\", \"x$lambda\") -> \"s$lambda\" + COALESCE(\"x$lambda\", BIGINT '0'), \"s$lambda_0\" -> \"s$lambda_0\")",
                 ImmutableMap.of("x", new ArrayType(IntegerType.INTEGER)));
     }
 
@@ -218,9 +223,16 @@ public class TestInlineSqlFunctions
                 tester.getSqlParser(),
                 viewOf(variableTypes),
                 inputSqlExpression,
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 WarningCollector.NOOP);
-        Expression inlinedExpression = InlineSqlFunctions.InlineSqlFunctionsRewriter.rewrite(inputSqlExpression, session, metadata, expressionTypes);
+        Expression inlinedExpression = InlineSqlFunctions.InlineSqlFunctionsRewriter.rewrite(
+                inputSqlExpression,
+                session,
+                metadata,
+                new PlanVariableAllocator(variableTypes.entrySet().stream()
+                        .map(entry -> new VariableReferenceExpression(Optional.empty(), entry.getKey(), entry.getValue()))
+                        .collect(toImmutableList())),
+                expressionTypes);
         inlinedExpression = ExpressionUtils.rewriteIdentifiersToSymbolReferences(inlinedExpression);
         Expression expectedExpression = PlanBuilder.expression(expected);
         assertEquals(inlinedExpression, expectedExpression);

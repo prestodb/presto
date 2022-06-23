@@ -26,6 +26,8 @@ import com.google.inject.Module;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class PrestoSparkServiceFactory
         implements IPrestoSparkServiceFactory
 {
@@ -46,8 +48,9 @@ public class PrestoSparkServiceFactory
                 configuration.getAccessControlProperties(),
                 configuration.getSessionPropertyConfigurationProperties(),
                 configuration.getFunctionNamespaceProperties(),
+                configuration.getTempStorageProperties(),
                 getSqlParserOptions(),
-                getAdditionalModules());
+                getAdditionalModules(configuration));
 
         Injector injector = prestoSparkInjectorFactory.create();
         PrestoSparkService prestoSparkService = injector.getInstance(PrestoSparkService.class);
@@ -55,9 +58,10 @@ public class PrestoSparkServiceFactory
         return prestoSparkService;
     }
 
-    protected List<Module> getAdditionalModules()
+    protected List<Module> getAdditionalModules(PrestoSparkConfiguration configuration)
     {
-        return ImmutableList.of();
+        checkArgument("LOCAL".equals(configuration.getMetadataStorageType().toUpperCase()), "only local metadata storage is supported");
+        return ImmutableList.of(new PrestoSparkLocalMetadataStorageModule());
     }
 
     protected SqlParserOptions getSqlParserOptions()

@@ -16,12 +16,16 @@ package com.facebook.presto.server.remotetask;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.stats.DecayCounter;
+import com.facebook.airlift.stats.ExponentialDecay;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
-import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
@@ -39,8 +43,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
-import com.facebook.presto.server.codec.Codec;
-import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
@@ -57,7 +59,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.wrapThriftCodec;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -90,6 +91,7 @@ public class HttpRemoteTaskFactory
     private final int maxTaskUpdateSizeInBytes;
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
+    private final DecayCounter taskUpdateRequestSize;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -136,7 +138,7 @@ public class HttpRemoteTaskFactory
             this.taskStatusCodec = taskStatusSmileCodec;
         }
         else {
-            this.taskStatusCodec = wrapJsonCodec(taskStatusJsonCodec);
+            this.taskStatusCodec = taskStatusJsonCodec;
         }
 
         if (binaryTransportEnabled) {
@@ -145,17 +147,18 @@ public class HttpRemoteTaskFactory
             this.metadataUpdatesCodec = metadataUpdatesSmileCodec;
         }
         else {
-            this.taskInfoCodec = wrapJsonCodec(taskInfoJsonCodec);
-            this.taskUpdateRequestCodec = wrapJsonCodec(taskUpdateRequestJsonCodec);
-            this.metadataUpdatesCodec = wrapJsonCodec(metadataUpdatesJsonCodec);
+            this.taskInfoCodec = taskInfoJsonCodec;
+            this.taskUpdateRequestCodec = taskUpdateRequestJsonCodec;
+            this.metadataUpdatesCodec = metadataUpdatesJsonCodec;
         }
-        this.planFragmentCodec = wrapJsonCodec(planFragmentJsonCodec);
+        this.planFragmentCodec = planFragmentJsonCodec;
 
         this.metadataManager = metadataManager;
         this.queryManager = queryManager;
 
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
+        this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
     }
 
     @Managed
@@ -163,6 +166,12 @@ public class HttpRemoteTaskFactory
     public ThreadPoolExecutorMBean getExecutor()
     {
         return executorMBean;
+    }
+
+    @Managed
+    public double getTaskUpdateRequestSize()
+    {
+        return taskUpdateRequestSize.getCount();
     }
 
     @PreDestroy
@@ -181,7 +190,7 @@ public class HttpRemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            PartitionedSplitCountTracker partitionedSplitCountTracker,
+            NodeTaskMap.NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
@@ -208,7 +217,7 @@ public class HttpRemoteTaskFactory
                 taskUpdateRequestCodec,
                 planFragmentCodec,
                 metadataUpdatesCodec,
-                partitionedSplitCountTracker,
+                nodeStatsTracker,
                 stats,
                 binaryTransportEnabled,
                 thriftTransportEnabled,
@@ -216,6 +225,7 @@ public class HttpRemoteTaskFactory
                 tableWriteInfo,
                 maxTaskUpdateSizeInBytes,
                 metadataManager,
-                queryManager);
+                queryManager,
+                taskUpdateRequestSize);
     }
 }

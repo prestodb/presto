@@ -25,6 +25,7 @@ import com.facebook.presto.execution.QueryTracker;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
@@ -78,6 +79,8 @@ public class DispatchManager
     private final Executor queryExecutor;
     private final BoundedExecutor boundedQueryExecutor;
 
+    private final ClusterStatusSender clusterStatusSender;
+
     private final QueryTracker<DispatchQuery> queryTracker;
 
     private final QueryManagerStats stats = new QueryManagerStats();
@@ -95,7 +98,8 @@ public class DispatchManager
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
             QueryManagerConfig queryManagerConfig,
-            DispatchExecutor dispatchExecutor)
+            DispatchExecutor dispatchExecutor,
+            ClusterStatusSender clusterStatusSender)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
@@ -112,6 +116,8 @@ public class DispatchManager
 
         this.queryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
         this.boundedQueryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getBoundedExecutor();
+
+        this.clusterStatusSender = requireNonNull(clusterStatusSender, "clusterStatusSender is null");
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
     }
@@ -140,7 +146,7 @@ public class DispatchManager
         return queryIdGenerator.createNextQueryId();
     }
 
-    public ListenableFuture<?> createQuery(QueryId queryId, String slug, SessionContext sessionContext, String query)
+    public ListenableFuture<?> createQuery(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionFactory is null");
@@ -151,7 +157,7 @@ public class DispatchManager
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
         boundedQueryExecutor.execute(() -> {
             try {
-                createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
+                createQueryInternal(queryId, slug, retryCount, sessionContext, query, resourceGroupManager);
             }
             finally {
                 queryCreationFuture.set(null);
@@ -164,7 +170,7 @@ public class DispatchManager
      *  Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
      *  tracker.  If an error occurs while, creating a dispatch query a failed dispatch will be created and registered.
      */
-    private <C> void createQueryInternal(QueryId queryId, String slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
+    private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
         PreparedQuery preparedQuery;
@@ -181,6 +187,7 @@ public class DispatchManager
             // prepare query
             WarningCollector warningCollector = warningCollectorFactory.create(getWarningHandlingLevel(session));
             preparedQuery = queryPreparer.prepareQuery(session, query, warningCollector);
+            query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group
             Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());
@@ -203,14 +210,17 @@ public class DispatchManager
                     query,
                     preparedQuery,
                     slug,
+                    retryCount,
                     selectionContext.getResourceGroupId(),
                     queryType,
-                    warningCollector);
+                    warningCollector,
+                    (dq) -> resourceGroupManager.submit(preparedQuery.getStatement(), dq, selectionContext, queryExecutor));
 
             boolean queryAdded = queryCreated(dispatchQuery);
             if (queryAdded && !dispatchQuery.isDone()) {
                 try {
-                    resourceGroupManager.submit(preparedQuery.getStatement(), dispatchQuery, selectionContext, queryExecutor);
+                    clusterStatusSender.registerQuery(dispatchQuery);
+                    dispatchQuery.startWaitingForPrerequisites();
                 }
                 catch (Throwable e) {
                     // dispatch query has already been registered, so just fail it directly

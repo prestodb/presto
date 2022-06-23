@@ -16,8 +16,8 @@ package com.facebook.presto.functionNamespace;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
@@ -28,6 +28,7 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.Parameter;
+import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -35,7 +36,6 @@ import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
-import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -69,6 +69,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     private final String catalogName;
     private final SqlFunctionExecutors sqlFunctionExecutors;
     private final LoadingCache<QualifiedObjectName, Collection<SqlInvokedFunction>> functions;
+    // TODO: Cache user defined types at query level as well.
     private final LoadingCache<QualifiedObjectName, UserDefinedType> userDefinedTypes;
     private final LoadingCache<SqlFunctionHandle, FunctionMetadata> metadataByHandle;
     private final LoadingCache<SqlFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
@@ -211,11 +212,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
+    public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
     {
         checkArgument(functionHandle instanceof SqlFunctionHandle, format("Expect SqlFunctionHandle, got %s", functionHandle.getClass()));
         FunctionMetadata functionMetadata = getFunctionMetadata(functionHandle);
         return sqlFunctionExecutors.executeFunction(
+                source,
                 getScalarFunctionImplementation(functionHandle),
                 input,
                 channels,
@@ -277,7 +279,8 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 function.getRoutineCharacteristics().getLanguage(),
                 getFunctionImplementationType(function),
                 function.isDeterministic(),
-                function.isCalledOnNullInput());
+                function.isCalledOnNullInput(),
+                function.getVersion());
     }
 
     protected FunctionImplementationType getFunctionImplementationType(SqlInvokedFunction function)
@@ -292,9 +295,10 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
             case SQL:
                 return new SqlInvokedScalarFunctionImplementation(function.getBody());
             case THRIFT:
+            case GRPC:
                 checkArgument(function.getFunctionHandle().isPresent(), "Need functionHandle to get function implementation");
-                return new ThriftScalarFunctionImplementation(function.getFunctionHandle().get(), function.getRoutineCharacteristics().getLanguage());
-            case BUILTIN:
+                return new RemoteScalarFunctionImplementation(function.getFunctionHandle().get(), function.getRoutineCharacteristics().getLanguage(), implementationType);
+            case JAVA:
                 throw new IllegalStateException(
                         format("SqlInvokedFunction %s has BUILTIN implementation type but %s cannot manage BUILTIN functions", function.getSignature().getName(), this.getClass()));
             default:

@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
@@ -75,6 +76,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -163,7 +165,7 @@ public class TestOrcStorageManager
         fileBackupStore.start();
         backupStore = Optional.of(fileBackupStore);
 
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
@@ -847,7 +849,7 @@ public class TestOrcStorageManager
                 SNAPPY,
                 ENABLED_AND_VALIDATED,
                 new StorageOrcFileTailSource(),
-                new StorageStripeMetadataSource());
+                StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
     }
 
     private static void assertFileEquals(File actual, File expected)

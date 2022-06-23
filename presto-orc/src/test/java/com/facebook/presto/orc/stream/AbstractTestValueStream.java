@@ -13,23 +13,33 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W extends ValueOutputStream<C>, R extends ValueInputStream<C>>
 {
-    static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
+    private static final DataSize COMPRESSION_BLOCK_SIZE = new DataSize(256, KILOBYTE);
     static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("test");
 
     protected void testWriteValue(List<List<T>> groups)
@@ -49,10 +59,10 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
             outputStream.close();
 
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33, DEFAULT_SEQUENCE_ID);
             streamDataOutput.writeData(sliceOutput);
             Stream stream = streamDataOutput.getStream();
-            assertEquals(stream.getStreamKind(), StreamKind.DATA);
+            assertEquals(stream.getStreamKind(), getExpectedStreamKind());
             assertEquals(stream.getColumn(), 33);
             assertEquals(stream.getLength(), sliceOutput.size());
 
@@ -80,6 +90,21 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
                 }
             }
         }
+    }
+
+    public StreamKind getExpectedStreamKind()
+    {
+        return DATA;
+    }
+
+    protected ColumnWriterOptions getColumnWriterOptions()
+    {
+        return ColumnWriterOptions.builder().setCompressionKind(SNAPPY).setCompressionMaxBufferSize(COMPRESSION_BLOCK_SIZE).build();
+    }
+
+    protected Optional<OrcDecompressor> getOrcDecompressor()
+    {
+        return createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, toIntExact(COMPRESSION_BLOCK_SIZE.toBytes()));
     }
 
     protected abstract W createValueOutputStream();

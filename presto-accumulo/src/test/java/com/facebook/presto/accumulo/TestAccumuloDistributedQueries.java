@@ -14,6 +14,7 @@
 package com.facebook.presto.accumulo;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,9 +38,11 @@ import static org.testng.Assert.assertTrue;
 public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestAccumuloDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
+        return createAccumuloQueryRunner(ImmutableMap.of());
     }
 
     @Override
@@ -72,7 +75,7 @@ public class TestAccumuloDistributedQueries
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
-        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT UUID() AS uuid, orderkey, discount FROM lineitem", 0);
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT cast(uuid() AS uuid) AS uuid, orderkey, discount FROM lineitem", 0);
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
@@ -106,7 +109,7 @@ public class TestAccumuloDistributedQueries
     @Override
     public void testInsert()
     {
-        @Language("SQL") String query = "SELECT UUID() AS uuid, orderdate, orderkey FROM orders";
+        @Language("SQL") String query = "SELECT cast(uuid() AS varchar) AS uuid, orderdate, orderkey FROM orders";
 
         assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
         assertQuery("SELECT count(*) FROM test_insert", "SELECT 0");
@@ -131,9 +134,9 @@ public class TestAccumuloDistributedQueries
         // of how they are declared in the table schema
         assertUpdate(
                 "INSERT INTO test_insert (uuid, orderkey, orderdate) " +
-                        "SELECT UUID() AS uuid, orderkey, orderdate FROM orders " +
+                        "SELECT cast(uuid() AS varchar) AS uuid, orderkey, orderdate FROM orders " +
                         "UNION ALL " +
-                        "SELECT UUID() AS uuid, orderkey, orderdate FROM orders",
+                        "SELECT cast(uuid() AS varchar) AS uuid, orderkey, orderdate FROM orders",
                 "SELECT 2 * count(*) FROM orders");
 
         assertUpdate("DROP TABLE test_insert");

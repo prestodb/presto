@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
@@ -32,7 +31,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.google.common.base.Verify.verify;
 
 @ScalarFunction("multimap_from_entries")
 @Description("construct a multimap from an array of entries")
@@ -41,16 +39,9 @@ public final class MultimapFromEntriesFunction
     private static final String NAME = "multimap_from_entries";
     private static final int INITIAL_ENTRY_COUNT = 128;
 
-    private final PageBuilder pageBuilder;
-    private IntList[] entryIndicesList;
-
     @TypeParameter("K")
     @TypeParameter("V")
-    public MultimapFromEntriesFunction(@TypeParameter("map(K,array(V))") Type mapType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(mapType));
-        initializeEntryIndicesList(INITIAL_ENTRY_COUNT);
-    }
+    public MultimapFromEntriesFunction(@TypeParameter("map(K,array(V))") Type mapType) {}
 
     @TypeParameter("K")
     @TypeParameter("V")
@@ -63,26 +54,19 @@ public final class MultimapFromEntriesFunction
         Type keyType = mapType.getKeyType();
         Type valueType = ((ArrayType) mapType.getValueType()).getElementType();
         RowType rowType = RowType.anonymous(ImmutableList.of(keyType, valueType));
-
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
         int entryCount = block.getPositionCount();
-        if (entryCount > entryIndicesList.length) {
-            initializeEntryIndicesList(entryCount);
+        IntList[] entryIndicesList = new IntList[entryCount];
+        for (int i = 0; i < entryIndicesList.length; i++) {
+            entryIndicesList[i] = new IntArrayList();
         }
         TypedSet keySet = new TypedSet(keyType, entryCount, NAME);
-
         for (int i = 0; i < entryCount; i++) {
             if (block.isNull(i)) {
-                clearEntryIndices(keySet.size());
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
             }
             Block rowBlock = rowType.getObject(block, i);
 
             if (rowBlock.isNull(0)) {
-                clearEntryIndices(keySet.size());
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
@@ -95,7 +79,7 @@ public final class MultimapFromEntriesFunction
             }
         }
 
-        BlockBuilder multimapBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder multimapBlockBuilder = mapType.createBlockBuilder(null, keySet.size());
         BlockBuilder singleMapWriter = multimapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < keySet.size(); i++) {
             keyType.appendTo(rowType.getObject(block, entryIndicesList[i].getInt(0)), 0, singleMapWriter);
@@ -107,24 +91,6 @@ public final class MultimapFromEntriesFunction
         }
 
         multimapBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-        clearEntryIndices(keySet.size());
         return mapType.getObject(multimapBlockBuilder, multimapBlockBuilder.getPositionCount() - 1);
-    }
-
-    private void clearEntryIndices(int entryCount)
-    {
-        verify(entryCount <= entryIndicesList.length);
-        for (int i = 0; i < entryCount; i++) {
-            entryIndicesList[i].clear();
-        }
-    }
-
-    private void initializeEntryIndicesList(int entryCount)
-    {
-        entryIndicesList = new IntList[entryCount];
-        for (int i = 0; i < entryIndicesList.length; i++) {
-            entryIndicesList[i] = new IntArrayList();
-        }
     }
 }

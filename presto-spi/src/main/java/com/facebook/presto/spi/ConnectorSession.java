@@ -21,6 +21,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public interface ConnectorSession
 {
@@ -41,6 +42,8 @@ public interface ConnectorSession
 
     Optional<String> getClientInfo();
 
+    Set<String> getClientTags();
+
     long getStartTime();
 
     SqlFunctionProperties getSqlFunctionProperties();
@@ -50,4 +53,9 @@ public interface ConnectorSession
     <T> T getProperty(String name, Class<T> type);
 
     Optional<String> getSchema();
+
+    default boolean isReadConstraints()
+    {
+        return false;
+    }
 }

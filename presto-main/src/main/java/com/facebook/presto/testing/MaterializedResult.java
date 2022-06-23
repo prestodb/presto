@@ -65,6 +65,7 @@ import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZ
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
@@ -270,6 +271,9 @@ public class MaterializedResult
         else if (BOOLEAN.equals(type)) {
             type.writeBoolean(blockBuilder, (Boolean) value);
         }
+        else if (JSON.equals(type)) {
+            type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
+        }
         else if (type instanceof VarcharType) {
             type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
         }
@@ -378,7 +382,7 @@ public class MaterializedResult
                         zone);
             }
             else if (prestoValue instanceof SqlTimestamp) {
-                convertedValue = SqlTimestamp.JSON_FORMATTER.parse(prestoValue.toString(), LocalDateTime::from);
+                convertedValue = SqlTimestamp.JSON_MILLIS_FORMATTER.parse(prestoValue.toString(), LocalDateTime::from);
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
                 convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())

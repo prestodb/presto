@@ -17,6 +17,14 @@ import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingHashTable;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BytesValues;
+import com.facebook.presto.common.predicate.TupleDomainFilter.DoubleRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.FloatRange;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.SqlDate;
@@ -25,13 +33,6 @@ import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcTester.OrcReaderSettings;
-import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
-import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
-import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
-import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
-import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
-import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.google.common.base.Strings;
 import com.google.common.collect.AbstractIterator;
@@ -43,6 +44,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -61,6 +63,9 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
+import static com.facebook.presto.common.predicate.TupleDomainFilterUtils.toBigintValues;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.CharType.createCharType;
@@ -76,6 +81,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.MAX_BLOCK_SIZE;
 import static com.facebook.presto.orc.OrcTester.arrayType;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcSelectiveRecordReader;
 import static com.facebook.presto.orc.OrcTester.mapType;
@@ -83,9 +89,6 @@ import static com.facebook.presto.orc.OrcTester.quickSelectiveOrcTester;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
-import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
@@ -101,6 +104,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -839,6 +844,8 @@ public class TestSelectiveOrcReader
 
         // dataStream is null and lengths are 0
         tester.testRoundTrip(VARCHAR, newArrayList("", null), toSubfieldFilters(stringNotEquals(true, "")));
+
+        tester.testRoundTrip(VARCHAR, newArrayList("", ""), toSubfieldFilters(stringLessThan(true, "")));
     }
 
     @Test
@@ -946,7 +953,7 @@ public class TestSelectiveOrcReader
         List<String> varcharDictionaryValues = newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS));
         List<List<?>> values = ImmutableList.of(intValues, varcharDirectValues, varcharDictionaryValues);
 
-        writeOrcColumnsPresto(tempFile.getFile(), DWRF, compression, Optional.empty(), types, values, new OrcWriterStats());
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, compression, Optional.empty(), types, values, new NoOpOrcWriterStats());
 
         OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
         Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
@@ -967,10 +974,12 @@ public class TestSelectiveOrcReader
                 OrcReaderSettings.builder().build().getFilterFunctionInputMapping(),
                 OrcReaderSettings.builder().build().getRequiredSubfields(),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 includedColumns,
                 outputColumns,
                 false,
-                systemMemoryUsage)) {
+                systemMemoryUsage,
+                false)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1006,7 +1015,7 @@ public class TestSelectiveOrcReader
         List<String> varcharDirectValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
         List<List<?>> values = ImmutableList.of(varcharDirectValues, varcharDirectValues);
 
-        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, values, new OrcWriterStats());
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, values, new NoOpOrcWriterStats());
 
         OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
         Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), stringIn(true, "A", "B", "C")); //ImmutableMap.of(1, stringIn(true, "10", "11"));
@@ -1028,10 +1037,12 @@ public class TestSelectiveOrcReader
                 OrcReaderSettings.builder().build().getFilterFunctionInputMapping(),
                 OrcReaderSettings.builder().build().getRequiredSubfields(),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 includedColumns,
                 outputColumns,
                 false,
-                new TestingHiveOrcAggregatedMemoryContext())) {
+                new TestingHiveOrcAggregatedMemoryContext(),
+                false)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1055,6 +1066,116 @@ public class TestSelectiveOrcReader
                 rowsProcessed += positionCount;
             }
             assertEquals(rowsProcessed, NUM_ROWS);
+        }
+    }
+
+    @Test
+    public void testAdaptiveBatchSizes()
+            throws Exception
+    {
+        Type type = VARCHAR;
+        List<Type> types = ImmutableList.of(type);
+
+        TempFile tempFile = new TempFile();
+        List<String> values = new ArrayList<>();
+        int rowCount = 10000;
+        int longStringLength = 5000;
+        Random random = new Random();
+        for (int i = 0; i < rowCount; ++i) {
+            if (i < MAX_BATCH_SIZE) {
+                StringBuilder builder = new StringBuilder();
+                for (int j = 0; j < longStringLength; ++j) {
+                    builder.append(random.nextInt(10));
+                }
+                values.add(builder.toString());
+            }
+            else {
+                values.add("");
+            }
+        }
+
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, ImmutableList.of(values), new NoOpOrcWriterStats());
+
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(tempFile, OrcEncoding.DWRF, OrcPredicate.TRUE, type, MAX_BATCH_SIZE, false, false)) {
+            assertEquals(recordReader.getFileRowCount(), rowCount);
+            assertEquals(recordReader.getReaderRowCount(), rowCount);
+            assertEquals(recordReader.getFilePosition(), 0);
+            assertEquals(recordReader.getReaderPosition(), 0);
+
+            // Size of the first batch should equal to the initial batch size (set to MAX_BATCH_SIZE)
+            Page page = recordReader.getNextPage();
+            assertNotNull(page);
+            page = page.getLoadedPage();
+            assertEquals(page.getPositionCount(), MAX_BATCH_SIZE);
+
+            // Later batches should be adjusted based on maxCombinedBytesPerRow collected during the first batch read
+            while (true) {
+                page = recordReader.getNextPage();
+                assertNotNull(page);
+                page = page.getLoadedPage();
+                if (recordReader.getReadPositions() < rowCount) {
+                    assertEquals(page.getPositionCount(), MAX_BLOCK_SIZE.toBytes() / (longStringLength + Integer.BYTES + Byte.BYTES));
+                }
+                else {
+                    break;
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testHiddenConstantColumns()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT);
+        List<List<?>> values = ImmutableList.of(ImmutableList.of(1L, 2L));
+
+        TempFile tempFile = new TempFile();
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, ZSTD, Optional.empty(), types, values, new NoOpOrcWriterStats());
+
+        // Hidden columns like partition columns use negative indices (-13).
+        int hiddenColumnIndex = -13;
+        Map<Integer, Type> includedColumns = ImmutableMap.of(hiddenColumnIndex, VARCHAR, 0, BIGINT);
+        List<Integer> outputColumns = ImmutableList.of(hiddenColumnIndex, 0);
+
+        Slice constantSlice = Slices.utf8Slice("partition_value");
+        Map<Integer, Object> constantValues = ImmutableMap.of(hiddenColumnIndex, constantSlice);
+
+        OrcAggregatedMemoryContext systemMemoryUsage = new TestingHiveOrcAggregatedMemoryContext();
+        TupleDomainFilter filter = BigintRange.of(1, 1, false);
+        Map<Subfield, TupleDomainFilter> subFieldFilter = toSubfieldFilter(filter);
+
+        OrcReaderSettings readerSettings = OrcTester.OrcReaderSettings.builder().setColumnFilters(ImmutableMap.of(0, subFieldFilter)).build();
+
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(
+                tempFile.getFile(),
+                DWRF.getOrcEncoding(),
+                OrcPredicate.TRUE,
+                types,
+                1,
+                readerSettings.getColumnFilters(),
+                readerSettings.getFilterFunctions(),
+                readerSettings.getFilterFunctionInputMapping(),
+                readerSettings.getRequiredSubfields(),
+                constantValues,
+                ImmutableMap.of(),
+                includedColumns,
+                outputColumns,
+                false,
+                systemMemoryUsage,
+                false)) {
+            Page page = recordReader.getNextPage();
+            assertEquals(page.getPositionCount(), 1);
+
+            Block partitionValueBlock = page.getBlock(0);
+            int length = partitionValueBlock.getSliceLength(0);
+            Slice varcharSlice = partitionValueBlock.getSlice(0, 0, length);
+            assertEquals(varcharSlice, constantSlice);
+
+            Block bigintBlock = page.getBlock(1);
+            assertEquals(bigintBlock.getLong(0), 1);
+
+            assertNull(recordReader.getNextPage());
         }
     }
 
@@ -1118,6 +1239,11 @@ public class TestSelectiveOrcReader
     private static TupleDomainFilter stringBetween(boolean nullAllowed, String upper, String lower)
     {
         return BytesRange.of(lower.getBytes(), false, upper.getBytes(), false, nullAllowed);
+    }
+
+    private static TupleDomainFilter stringLessThan(boolean nullAllowed, String upper)
+    {
+        return BytesRange.of(null, true, upper.getBytes(), true, nullAllowed);
     }
 
     private static TupleDomainFilter stringEquals(boolean nullAllowed, String value)

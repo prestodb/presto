@@ -24,9 +24,16 @@ import com.facebook.presto.druid.metadata.DruidSegmentIdWrapper;
 import com.facebook.presto.druid.metadata.DruidSegmentInfo;
 import com.facebook.presto.druid.metadata.DruidTableInfo;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.CharMatcher;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import javax.inject.Inject;
 
@@ -35,7 +42,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -45,15 +57,20 @@ import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.presto.druid.DruidErrorCode.DRUID_AMBIGUOUS_OBJECT_NAME;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
 import static com.facebook.presto.druid.DruidResultFormat.OBJECT;
 import static com.facebook.presto.druid.DruidResultFormat.OBJECT_LINES;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DruidClient
 {
@@ -74,6 +91,8 @@ public class DruidClient
     private final URI druidCoordinator;
     private final URI druidBroker;
     private final String druidSchema;
+    protected final boolean caseInsensitiveNameMatching;
+    private final Cache<SchemaTableName, Optional<RemoteTableObject>> remoteTables;
 
     @Inject
     public DruidClient(DruidConfig config, @ForDruidClient HttpClient httpClient)
@@ -83,6 +102,44 @@ public class DruidClient
         this.druidCoordinator = URI.create(config.getDruidCoordinatorUrl());
         this.druidBroker = URI.create(config.getDruidBrokerUrl());
         this.druidSchema = config.getDruidSchema();
+        this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
+
+        Duration caseInsensitiveNameMatchingCacheTtl = requireNonNull(config.getCaseInsensitiveNameMatchingCacheTtl(), "caseInsensitiveNameMatchingCacheTtl is null");
+        CacheBuilder<Object, Object> remoteTableNamesCacheBuilder = CacheBuilder.newBuilder()
+                .expireAfterWrite(caseInsensitiveNameMatchingCacheTtl.toMillis(), MILLISECONDS);
+        this.remoteTables = remoteTableNamesCacheBuilder.build();
+    }
+
+    Optional<RemoteTableObject> toRemoteTable(SchemaTableName schemaTableName)
+    {
+        requireNonNull(schemaTableName, "schemaTableName is null");
+        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaTableName.getTableName()), "Expected table name from internal metadata to be lowercase: %s", schemaTableName);
+        if (!caseInsensitiveNameMatching) {
+            return Optional.of(RemoteTableObject.of(schemaTableName.getTableName()));
+        }
+
+        @Nullable Optional<RemoteTableObject> remoteTable = remoteTables.getIfPresent(schemaTableName);
+        if (remoteTable != null) {
+            return remoteTable;
+        }
+
+        // Cache miss, reload the cache
+        Map<SchemaTableName, Optional<RemoteTableObject>> mapping = new HashMap<>();
+        for (String table : getTables()) {
+            SchemaTableName cacheKey = new SchemaTableName(getSchema(), table);
+            mapping.merge(
+                    cacheKey,
+                    Optional.of(RemoteTableObject.of(table)),
+                    (currentValue, collision) -> currentValue.map(current -> current.registerCollision(collision.get().getOnlyRemoteTableName())));
+            remoteTables.put(cacheKey, mapping.get(cacheKey));
+        }
+
+        // explicitly cache if the requested table doesn't exist
+        if (!mapping.containsKey(schemaTableName)) {
+            remoteTables.put(schemaTableName, Optional.empty());
+        }
+
+        return mapping.containsKey(schemaTableName) ? mapping.get(schemaTableName) : Optional.empty();
     }
 
     public URI getDruidBroker()
@@ -246,6 +303,48 @@ public class DruidClient
         public String toJson()
         {
             return JsonCodec.jsonCodec(DruidRequestBody.class).toJson(this);
+        }
+    }
+
+    static final class RemoteTableObject
+    {
+        private final Set<String> remoteTableNames;
+
+        private RemoteTableObject(Set<String> remoteTableNames)
+        {
+            this.remoteTableNames = ImmutableSet.copyOf(remoteTableNames);
+        }
+
+        public static RemoteTableObject of(String remoteName)
+        {
+            return new RemoteTableObject(ImmutableSet.of(remoteName));
+        }
+
+        public RemoteTableObject registerCollision(String ambiguousName)
+        {
+            return new RemoteTableObject(ImmutableSet.<String>builderWithExpectedSize(remoteTableNames.size() + 1)
+                    .addAll(remoteTableNames)
+                    .add(ambiguousName)
+                    .build());
+        }
+
+        public String getAnyRemoteTableName()
+        {
+            return Collections.min(remoteTableNames);
+        }
+
+        public String getOnlyRemoteTableName()
+        {
+            if (!isAmbiguous()) {
+                return getOnlyElement(remoteTableNames);
+            }
+
+            throw new PrestoException(DRUID_AMBIGUOUS_OBJECT_NAME, "Found ambiguous names in Druid when looking up '" + getAnyRemoteTableName().toLowerCase(ENGLISH) + "': " + remoteTableNames);
+        }
+
+        public boolean isAmbiguous()
+        {
+            return remoteTableNames.size() > 1;
         }
     }
 }

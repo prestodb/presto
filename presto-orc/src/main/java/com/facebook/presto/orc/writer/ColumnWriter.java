@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.StreamDataOutput;
@@ -22,9 +23,12 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface ColumnWriter
 {
+    long NULL_SIZE = 1;
+
     default List<ColumnWriter> getNestedColumnWriters()
     {
         return ImmutableList.of();
@@ -34,7 +38,7 @@ public interface ColumnWriter
 
     void beginRowGroup();
 
-    void writeBlock(Block block);
+    long writeBlock(Block block);
 
     Map<Integer, ColumnStatistics> finishRowGroup();
 
@@ -44,10 +48,16 @@ public interface ColumnWriter
 
     /**
      * Write index streams to the output and return the streams in the
-     * order in which they were written.  The ordering is critical because
+     * order in which they were written. The ordering is critical because
      * the stream only contain a length with no offset.
+     *
+     * @param prependCheckpoints - extra checkpoints that shall be added to the
+     * row index at the beginning of the positions list. In case of the flat
+     * maps extra checkpoints will come from the IN_MAP stream.
+     * Extra checkpoints shall not be passed down to the sub column
+     * writers.
      */
-    List<StreamDataOutput> getIndexStreams()
+    List<StreamDataOutput> getIndexStreams(Optional<List<? extends StreamCheckpoint>> prependCheckpoints)
             throws IOException;
 
     /**

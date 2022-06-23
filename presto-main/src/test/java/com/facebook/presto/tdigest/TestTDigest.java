@@ -40,10 +40,12 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static java.lang.String.format;
 import static java.util.Collections.sort;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestTDigest
@@ -65,6 +67,8 @@ public class TestTDigest
             list.add(i);
         }
 
+        assertSumInts(list, tDigest);
+
         for (int i = 0; i < quantile.length; i++) {
             assertDiscreteWithinBound(quantile[i], STANDARD_ERROR, list, tDigest);
         }
@@ -75,7 +79,7 @@ public class TestTDigest
     {
         TDigest tDigest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
         TDigest tDigest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Integer> list = new ArrayList<Integer>();
+        List<Integer> list = new ArrayList<>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES / 2; i++) {
             tDigest1.add(i);
@@ -85,6 +89,7 @@ public class TestTDigest
         }
 
         tDigest1.merge(tDigest2);
+        assertSumInts(list, tDigest1);
         sort(list);
 
         for (int i = 0; i < quantile.length; i++) {
@@ -97,7 +102,7 @@ public class TestTDigest
     {
         TDigest tDigest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
         TDigest tDigest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Integer> list = new ArrayList<Integer>();
+        List<Integer> list = new ArrayList<>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES / 2; i++) {
             tDigest1.add(i);
@@ -107,6 +112,7 @@ public class TestTDigest
         }
 
         tDigest2.merge(tDigest1);
+        assertSumInts(list, tDigest2);
         sort(list);
 
         for (int i = 0; i < quantile.length; i++) {
@@ -118,13 +124,15 @@ public class TestTDigest
     public void testAddElementsRandomized()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<Double>();
+        List<Double> list = new ArrayList<>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
             double value = Math.random() * NUMBER_OF_ENTRIES;
             tDigest.add(value);
             list.add(value);
         }
+
+        assertSum(list, tDigest);
 
         sort(list);
 
@@ -137,7 +145,7 @@ public class TestTDigest
     public void testNormalDistributionLowVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<Double>();
+        List<Double> list = new ArrayList<>();
         NormalDistribution normal = new NormalDistribution(1000, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -145,6 +153,8 @@ public class TestTDigest
             tDigest.add(value);
             list.add(value);
         }
+
+        assertSum(list, tDigest);
 
         sort(list);
 
@@ -154,10 +164,27 @@ public class TestTDigest
     }
 
     @Test
+    public void testLargeScalePreservesWeights()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        NormalDistribution normal = new NormalDistribution(1000, 100);
+
+        for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+            tDigest.add(normal.sample());
+        }
+
+        tDigest.scale(Integer.MAX_VALUE * 2.0);
+
+        for (Centroid centroid : tDigest.centroids()) {
+            assertTrue(centroid.getWeight() > Integer.MAX_VALUE);
+        }
+    }
+
+    @Test
     public void testNormalDistributionHighVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<Double>();
+        List<Double> list = new ArrayList<>();
         NormalDistribution normal = new NormalDistribution(0, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -165,6 +192,8 @@ public class TestTDigest
             tDigest.add(value);
             list.add(value);
         }
+
+        assertSum(list, tDigest);
 
         sort(list);
 
@@ -191,6 +220,7 @@ public class TestTDigest
         }
 
         tDigest1.merge(tDigest2);
+        assertSum(list, tDigest1);
         sort(list);
 
         for (int i = 0; i < quantile.length; i++) {
@@ -215,6 +245,8 @@ public class TestTDigest
             }
             tDigest.merge(current);
         }
+
+        assertSum(list, tDigest);
 
         sort(list);
 
@@ -241,6 +273,8 @@ public class TestTDigest
             tDigest.merge(current);
         }
 
+        assertSum(list, tDigest);
+
         sort(list);
 
         for (int i = 0; i < quantile.length; i++) {
@@ -264,6 +298,8 @@ public class TestTDigest
                 list.add(sample);
             }
 
+            assertSumInts(list, tDigest);
+
             Collections.sort(list);
 
             for (int i = 0; i < quantile.length; i++) {
@@ -279,13 +315,15 @@ public class TestTDigest
         for (int k = 1; k < trials; k++) {
             TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
             GeometricDistribution geometric = new GeometricDistribution(k * 0.1);
-            List<Integer> list = new ArrayList<Integer>();
+            List<Integer> list = new ArrayList<>();
 
             for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
                 int sample = geometric.sample();
                 tDigest.add(sample);
                 list.add(sample);
             }
+
+            assertSumInts(list, tDigest);
 
             Collections.sort(list);
 
@@ -302,13 +340,15 @@ public class TestTDigest
         for (int k = 1; k < trials; k++) {
             TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
             PoissonDistribution poisson = new PoissonDistribution(k * 0.1);
-            List<Integer> list = new ArrayList<Integer>();
+            List<Integer> list = new ArrayList<>();
 
             for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
                 int sample = poisson.sample();
                 tDigest.add(sample);
                 list.add(sample);
             }
+
+            assertSumInts(list, tDigest);
 
             Collections.sort(list);
 
@@ -365,5 +405,16 @@ public class TestTDigest
         // we use Math.rint to round to the nearest integer, since casting as (int) always rounds down and no casting results in error > 1%
         assertTrue(Math.rint(tDigest.getQuantile(quantile)) >= lowerBound && Math.rint(tDigest.getQuantile(quantile)) <= upperBound,
                 format("Value %s is outside bound [%s, %s] for quantile %s", tDigest.getQuantile(quantile), lowerBound, upperBound, quantile));
+    }
+
+    private void assertSumInts(List<Integer> values, TDigest tDigest)
+    {
+        assertSum(values.stream().map(Double::new).collect(Collectors.toList()), tDigest);
+    }
+
+    private void assertSum(List<Double> values, TDigest tDigest)
+    {
+        double expectedSum = values.stream().reduce(0.0d, Double::sum);
+        assertEquals(tDigest.getSum(), expectedSum, 0.0001);
     }
 }

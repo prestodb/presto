@@ -47,11 +47,15 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Supplier;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 
 import java.nio.ByteBuffer;
@@ -61,6 +65,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
@@ -80,6 +85,7 @@ import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
@@ -87,6 +93,17 @@ public class NativeCassandraSession
         implements CassandraSession
 {
     private static final Logger log = Logger.get(NativeCassandraSession.class);
+    private final LoadingCache<String, KeyspaceMetadata> keyspaceCache = CacheBuilder.newBuilder()
+            .expireAfterAccess(1, MINUTES)
+            .build(new CacheLoader<String, KeyspaceMetadata>()
+            {
+                @Override
+                public KeyspaceMetadata load(String key)
+                        throws Exception
+                {
+                    return getKeyspaceByCaseInsensitiveName0(key);
+                }
+            });
 
     private static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
     private static final String SYSTEM = "system";
@@ -252,6 +269,26 @@ public class NativeCassandraSession
     }
 
     private KeyspaceMetadata getKeyspaceByCaseInsensitiveName(String caseInsensitiveSchemaName)
+            throws SchemaNotFoundException
+    {
+        try {
+            return keyspaceCache.get(caseInsensitiveSchemaName);
+        }
+        catch (UncheckedExecutionException | ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof SchemaNotFoundException) {
+                throw (SchemaNotFoundException) cause;
+            }
+
+            if (cause instanceof PrestoException) {
+                throw (PrestoException) cause;
+            }
+
+            throw new RuntimeException(cause);
+        }
+    }
+
+    private KeyspaceMetadata getKeyspaceByCaseInsensitiveName0(String caseInsensitiveSchemaName)
             throws SchemaNotFoundException
     {
         List<KeyspaceMetadata> keyspaces = executeWithSession(session -> session.getCluster().getMetadata().getKeyspaces());

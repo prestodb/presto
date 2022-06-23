@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
@@ -107,7 +108,7 @@ public class TestBackgroundHiveSplitLoader
             locatedFileStatus(FILTERED_PATH, 0L));
 
     private static final List<Column> PARTITION_COLUMNS = ImmutableList.of(
-            new Column("partitionColumn", HIVE_INT, Optional.empty()));
+            new Column("partitionColumn", HIVE_INT, Optional.empty(), Optional.empty()));
     private static final List<HiveColumnHandle> BUCKET_COLUMN_HANDLES = ImmutableList.of(
             new HiveColumnHandle("col1", HIVE_INT, INTEGER.getTypeSignature(), 0, ColumnType.REGULAR, Optional.empty(), Optional.empty()));
 
@@ -445,7 +446,8 @@ public class TestBackgroundHiveSplitLoader
                 new HiveSessionProperties(
                         new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
         return backgroundHiveSplitLoader(connectorSession, files, pathDomain, hiveBucketFilter, table, bucketHandle);
     }
 
@@ -462,7 +464,7 @@ public class TestBackgroundHiveSplitLoader
                         new HivePartitionMetadata(
                                 new HivePartition(new SchemaTableName("testSchema", "table_name")),
                                 Optional.empty(),
-                                ImmutableMap.of(),
+                                TableToPartitionMapping.empty(),
                                 Optional.empty(),
                                 ImmutableSet.of()));
 
@@ -488,7 +490,7 @@ public class TestBackgroundHiveSplitLoader
                 new HivePartitionMetadata(
                         new HivePartition(new SchemaTableName("testSchema", "table_name")),
                         Optional.empty(),
-                        ImmutableMap.of(),
+                        TableToPartitionMapping.empty(),
                         Optional.empty(),
                         ImmutableSet.of()));
 
@@ -498,7 +500,8 @@ public class TestBackgroundHiveSplitLoader
                                 .setMaxSplitSize(new DataSize(1.0, GIGABYTE))
                                 .setFileStatusCacheTables(fileStatusCacheTables),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
@@ -519,7 +522,11 @@ public class TestBackgroundHiveSplitLoader
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
     {
         ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(
+                        new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
@@ -555,7 +562,7 @@ public class TestBackgroundHiveSplitLoader
                         return new HivePartitionMetadata(
                                 new HivePartition(new SchemaTableName("testSchema", "table_name")),
                                 Optional.empty(),
-                                ImmutableMap.of(),
+                                TableToPartitionMapping.empty(),
                                 Optional.empty(),
                                 ImmutableSet.of());
                     case 1:
@@ -602,7 +609,7 @@ public class TestBackgroundHiveSplitLoader
                 .setOwner("testOwner")
                 .setTableName("test_table")
                 .setTableType(MANAGED_TABLE)
-                .setDataColumns(ImmutableList.of(new Column("col1", HIVE_STRING, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("col1", HIVE_STRING, Optional.empty(), Optional.empty())))
                 .setParameters(ImmutableMap.of())
                 .setPartitionColumns(partitionColumns)
                 .build();

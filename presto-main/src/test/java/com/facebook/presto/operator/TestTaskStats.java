@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.RuntimeStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTime;
@@ -37,12 +38,15 @@ public class TestTaskStats
             6,
             7,
             5,
+            28L,
             8,
             6,
+            29L,
             24,
             10,
 
             11.0,
+            43.0,
             12,
             13,
             14,
@@ -71,7 +75,8 @@ public class TestTaskStats
             26,
             27,
 
-            ImmutableList.of(TestPipelineStats.EXPECTED));
+            ImmutableList.of(TestPipelineStats.EXPECTED),
+            new RuntimeStats());
 
     @Test
     public void testJson()
@@ -97,8 +102,10 @@ public class TestTaskStats
         assertEquals(actual.getTotalDrivers(), 6);
         assertEquals(actual.getQueuedDrivers(), 7);
         assertEquals(actual.getQueuedPartitionedDrivers(), 5);
+        assertEquals(actual.getQueuedPartitionedSplitsWeight(), 28L);
         assertEquals(actual.getRunningDrivers(), 8);
         assertEquals(actual.getRunningPartitionedDrivers(), 6);
+        assertEquals(actual.getRunningPartitionedSplitsWeight(), 29L);
         assertEquals(actual.getBlockedDrivers(), 24);
         assertEquals(actual.getCompletedDrivers(), 10);
 

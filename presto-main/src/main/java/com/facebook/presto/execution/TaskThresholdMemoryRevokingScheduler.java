@@ -59,7 +59,7 @@ public class TaskThresholdMemoryRevokingScheduler
 
     private final AtomicBoolean checkPending = new AtomicBoolean();
     private final List<MemoryPool> memoryPools;
-    private final TaskRevocableMemoryListener taskRevocableMemoryListener = TaskRevocableMemoryListener.onMemoryReserved(this::onMemoryReserved);
+    private final TaskRevocableMemoryListener taskRevocableMemoryListener = this::onMemoryReserved;
 
     @Inject
     public TaskThresholdMemoryRevokingScheduler(
@@ -105,7 +105,7 @@ public class TaskThresholdMemoryRevokingScheduler
             try {
                 revokeHighMemoryTasksIfNeeded();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error requesting task memory revoking");
             }
         }, 1, 1, SECONDS);
@@ -136,7 +136,7 @@ public class TaskThresholdMemoryRevokingScheduler
         }
     }
 
-    private void onMemoryReserved(TaskId taskId, MemoryPool memoryPool)
+    private void onMemoryReserved(TaskId taskId)
     {
         try {
             SqlTask task = taskSupplier.apply(taskId);
@@ -145,11 +145,11 @@ public class TaskThresholdMemoryRevokingScheduler
             }
 
             if (checkPending.compareAndSet(false, true)) {
-                log.debug("Scheduling check for %s", memoryPool);
+                log.debug("Scheduling check for %s", taskId);
                 scheduleRevoking();
             }
         }
-        catch (Throwable e) {
+        catch (Exception e) {
             log.error(e, "Error when acting on memory pool reservation");
         }
     }
@@ -160,7 +160,7 @@ public class TaskThresholdMemoryRevokingScheduler
             try {
                 revokeHighMemoryTasks();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error requesting memory revoking");
             }
         });

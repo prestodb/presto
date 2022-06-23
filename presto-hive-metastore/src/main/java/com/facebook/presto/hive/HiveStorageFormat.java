@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.StorageFormat;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
@@ -36,6 +37,13 @@ import org.apache.hadoop.mapred.SequenceFileInputFormat;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hive.hcatalog.data.JsonSerDe;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
+import static com.google.common.base.Functions.identity;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public enum HiveStorageFormat
@@ -127,5 +135,44 @@ public enum HiveStorageFormat
     public DataSize getEstimatedWriterSystemMemoryUsage()
     {
         return estimatedWriterSystemMemoryUsage;
+    }
+
+    private static final Map<SerdeAndInputFormat, HiveStorageFormat> HIVE_STORAGE_FORMAT_FROM_STORAGE_FORMAT = Arrays.stream(HiveStorageFormat.values())
+            .collect(toImmutableMap(format -> new SerdeAndInputFormat(format.getSerDe(), format.getInputFormat()), identity()));
+
+    private static final class SerdeAndInputFormat
+    {
+        private final String serDe;
+        private final String inputFormat;
+
+        public SerdeAndInputFormat(String serDe, String inputFormat)
+        {
+            this.serDe = serDe;
+            this.inputFormat = inputFormat;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            SerdeAndInputFormat that = (SerdeAndInputFormat) o;
+            return serDe.equals(that.serDe) && inputFormat.equals(that.inputFormat);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(serDe, inputFormat);
+        }
+    }
+
+    public static Optional<HiveStorageFormat> getHiveStorageFormat(StorageFormat storageFormat)
+    {
+        return Optional.ofNullable(HIVE_STORAGE_FORMAT_FROM_STORAGE_FORMAT.get(new SerdeAndInputFormat(storageFormat.getSerDeNullable(), storageFormat.getInputFormatNullable())));
     }
 }

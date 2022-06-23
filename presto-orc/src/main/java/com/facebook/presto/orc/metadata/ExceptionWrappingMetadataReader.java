@@ -85,11 +85,11 @@ public class ExceptionWrappingMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         try {
-            return delegate.readStripeFooter(types, inputStream);
+            return delegate.readStripeFooter(orcDataSourceId, types, inputStream);
         }
         catch (IOException e) {
             throw propagate(e, "Invalid stripe footer");
@@ -97,11 +97,11 @@ public class ExceptionWrappingMetadataReader
     }
 
     @Override
-    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
+    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream, List<HiveBloomFilter> bloomFilters)
             throws OrcCorruptionException
     {
         try {
-            return delegate.readRowIndexes(hiveWriterVersion, inputStream);
+            return delegate.readRowIndexes(hiveWriterVersion, inputStream, bloomFilters);
         }
         catch (IOException | RuntimeException e) {
             throw propagate(e, "Invalid stripe row index");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -55,6 +56,7 @@ public final class AggregationNode
 
     @JsonCreator
     public AggregationNode(
+            Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("aggregations") Map<VariableReferenceExpression, Aggregation> aggregations,
@@ -64,7 +66,7 @@ public final class AggregationNode
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
             @JsonProperty("groupIdVariable") Optional<VariableReferenceExpression> groupIdVariable)
     {
-        super(id);
+        super(sourceLocation, id);
 
         this.source = source;
         this.aggregations = unmodifiableMap(new LinkedHashMap<>(requireNonNull(aggregations, "aggregations is null")));
@@ -92,6 +94,16 @@ public final class AggregationNode
         outputs.addAll(new ArrayList<>(aggregations.keySet()));
 
         this.outputs = unmodifiableList(outputs);
+    }
+
+    /**
+     * Whether this node corresponds to a DISTINCT operation in SQL
+     */
+    public static boolean isDistinct(AggregationNode node)
+    {
+        return node.getAggregations().isEmpty() &&
+                node.getOutputVariables().size() == node.getGroupingKeys().size() &&
+                node.getOutputVariables().containsAll(node.getGroupingKeys());
     }
 
     public List<VariableReferenceExpression> getGroupingKeys()
@@ -132,6 +144,13 @@ public final class AggregationNode
     public List<PlanNode> getSources()
     {
         return unmodifiableList(Collections.singletonList(source));
+    }
+
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getAggregationProperties(this);
     }
 
     @Override
@@ -203,12 +222,23 @@ public final class AggregationNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
-        return new AggregationNode(getId(), newChildren.get(0), aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
+        return new AggregationNode(getSourceLocation(), getId(), newChildren.get(0), aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
     }
 
     public boolean isStreamable()
     {
-        return !preGroupedVariables.isEmpty() && groupingSets.getGroupingSetCount() == 1 && groupingSets.getGlobalGroupingSets().isEmpty();
+        return !preGroupedVariables.isEmpty()
+                && groupingSets.getGroupingSetCount() == 1
+                && groupingSets.getGlobalGroupingSets().isEmpty()
+                && preGroupedVariables.size() == groupingSets.groupingKeys.size();
+    }
+
+    public boolean isSegmentedAggregationEligible()
+    {
+        return !preGroupedVariables.isEmpty()
+                && groupingSets.getGroupingSetCount() == 1
+                && groupingSets.getGlobalGroupingSets().isEmpty()
+                && preGroupedVariables.size() < groupingSets.groupingKeys.size();
     }
 
     @Override
@@ -392,6 +422,17 @@ public final class AggregationNode
             this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
             this.isDistinct = isDistinct;
             this.mask = requireNonNull(mask, "mask is null");
+        }
+
+        public static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)
+        {
+            checkArgument(aggregation.isDistinct(), "Expected aggregation to have DISTINCT input");
+            return new AggregationNode.Aggregation(
+                    aggregation.getCall(),
+                    aggregation.getFilter(),
+                    aggregation.getOrderBy(),
+                    false,
+                    aggregation.getMask());
         }
 
         @JsonProperty

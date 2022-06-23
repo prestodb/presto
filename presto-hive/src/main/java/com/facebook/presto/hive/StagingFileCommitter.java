@@ -20,5 +20,11 @@ import java.util.List;
 
 public interface StagingFileCommitter
 {
-    ListenableFuture<Void> commitFiles(ConnectorSession session, String schemaName, String tableName, List<PartitionUpdate> partitionUpdates);
+    ListenableFuture<Void> commitFiles(
+            ConnectorSession session,
+            String schemaName,
+            String tableName,
+            String tablePath,
+            boolean isCreateTable,
+            List<PartitionUpdate> partitionUpdates);
 }

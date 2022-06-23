@@ -17,13 +17,11 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -50,8 +48,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
+import static com.facebook.presto.orc.writer.ColumnWriterUtils.buildRowGroupIndexes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -77,20 +77,20 @@ public class DecimalColumnWriter
 
     private boolean closed;
 
-    public DecimalColumnWriter(int column, Type type, CompressionParameters compressionParameters, OrcEncoding orcEncoding, MetadataWriter metadataWriter)
+    public DecimalColumnWriter(int column, Type type, ColumnWriterOptions columnWriterOptions, OrcEncoding orcEncoding, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        requireNonNull(compressionParameters, "compressionParameters is null");
+        requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
         this.type = (DecimalType) requireNonNull(type, "type is null");
-        this.compressed = compressionParameters.getKind() != NONE;
+        this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
-        this.dataStream = new DecimalOutputStream(compressionParameters);
-        this.scaleStream = new LongOutputStreamV2(compressionParameters, true, SECONDARY);
-        this.presentStream = new PresentOutputStream(compressionParameters, Optional.empty());
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, Optional.empty());
+        this.dataStream = new DecimalOutputStream(columnWriterOptions);
+        this.scaleStream = new LongOutputStreamV2(columnWriterOptions, true, SECONDARY);
+        this.presentStream = new PresentOutputStream(columnWriterOptions, Optional.empty());
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, Optional.empty());
         if (this.type.isShort()) {
             shortDecimalStatisticsBuilder = new ShortDecimalStatisticsBuilder(this.type.getScale());
         }
@@ -114,7 +114,7 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -144,11 +144,17 @@ public class DecimalColumnWriter
                 }
             }
         }
+
+        int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 scaleStream.writeLong(type.getScale());
+                nonNullValueCount++;
             }
         }
+
+        long singleValueSize = Long.BYTES + (type.isShort() ? Long.BYTES : 2 * Long.BYTES);
+        return (block.getPositionCount() - nonNullValueCount) * NULL_SIZE + nonNullValueCount * singleValueSize;
     }
 
     @Override
@@ -187,42 +193,15 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams()
+    public List<StreamDataOutput> getIndexStreams(Optional<List<? extends StreamCheckpoint>> prependCheckpoints)
             throws IOException
     {
         checkState(closed);
 
-        ImmutableList.Builder<RowGroupIndex> rowGroupIndexes = ImmutableList.builder();
-
-        List<DecimalStreamCheckpoint> dataCheckpoints = dataStream.getCheckpoints();
-        List<LongStreamCheckpoint> scaleCheckpoints = scaleStream.getCheckpoints();
-        Optional<List<BooleanStreamCheckpoint>> presentCheckpoints = presentStream.getCheckpoints();
-        for (int i = 0; i < rowGroupColumnStatistics.size(); i++) {
-            int groupId = i;
-            ColumnStatistics columnStatistics = rowGroupColumnStatistics.get(groupId);
-            DecimalStreamCheckpoint dataCheckpoint = dataCheckpoints.get(groupId);
-            LongStreamCheckpoint scaleCheckpoint = scaleCheckpoints.get(groupId);
-            Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createDecimalColumnPositionList(compressed, dataCheckpoint, scaleCheckpoint, presentCheckpoint);
-            rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
-        }
-
-        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        List<RowGroupIndex> rowGroupIndexes = buildRowGroupIndexes(compressed, rowGroupColumnStatistics, prependCheckpoints, presentStream, dataStream, scaleStream);
+        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes);
+        Stream stream = new Stream(column, DEFAULT_SEQUENCE_ID, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
-    }
-
-    private static List<Integer> createDecimalColumnPositionList(
-            boolean compressed,
-            DecimalStreamCheckpoint dataCheckpoint,
-            LongStreamCheckpoint scaleCheckpoint,
-            Optional<BooleanStreamCheckpoint> presentCheckpoint)
-    {
-        ImmutableList.Builder<Integer> positionList = ImmutableList.builder();
-        presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
-        positionList.addAll(dataCheckpoint.toPositionList(compressed));
-        positionList.addAll(scaleCheckpoint.toPositionList(compressed));
-        return positionList.build();
     }
 
     @Override
@@ -231,9 +210,9 @@ public class DecimalColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
-        outputDataStreams.add(scaleStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(column, DEFAULT_SEQUENCE_ID).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(column, DEFAULT_SEQUENCE_ID));
+        outputDataStreams.add(scaleStream.getStreamDataOutput(column, DEFAULT_SEQUENCE_ID));
         return outputDataStreams.build();
     }
 

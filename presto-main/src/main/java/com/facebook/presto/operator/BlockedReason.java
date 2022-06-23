@@ -13,7 +13,17 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
+@ThriftEnum
 public enum BlockedReason
 {
-    WAITING_FOR_MEMORY
+    WAITING_FOR_MEMORY;
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return 1;
+    }
 }

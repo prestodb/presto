@@ -27,6 +27,7 @@ import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -65,36 +66,31 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    private QueryRunnerSupplier actualQueryRunnerSupplier;
-    private ExpectedQueryRunnerSupplier expectedQueryRunnerSupplier;
     private QueryRunner queryRunner;
     private ExpectedQueryRunner expectedQueryRunner;
     private SqlParser sqlParser;
-
-    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
-    {
-        this(supplier, H2QueryRunner::new);
-    }
-
-    protected AbstractTestQueryFramework(QueryRunnerSupplier actualQueryRunnerSupplier, ExpectedQueryRunnerSupplier expectedQueryRunnerSupplier)
-    {
-        this.actualQueryRunnerSupplier = requireNonNull(actualQueryRunnerSupplier, "queryRunnerSupplier is null");
-        this.expectedQueryRunnerSupplier = requireNonNull(expectedQueryRunnerSupplier, "queryRunnerSupplier is null");
-    }
 
     @BeforeClass
     public void init()
             throws Exception
     {
-        queryRunner = actualQueryRunnerSupplier.get();
-        expectedQueryRunner = expectedQueryRunnerSupplier.get();
+        queryRunner = createQueryRunner();
+        expectedQueryRunner = createExpectedQueryRunner();
         sqlParser = new SqlParser();
+    }
+
+    protected abstract QueryRunner createQueryRunner()
+            throws Exception;
+
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        return new H2QueryRunner();
     }
 
     @AfterClass(alwaysRun = true)
@@ -105,8 +101,6 @@ public abstract class AbstractTestQueryFramework
         queryRunner = null;
         expectedQueryRunner = null;
         sqlParser = null;
-        actualQueryRunnerSupplier = null;
-        expectedQueryRunnerSupplier = null;
     }
 
     protected Session getSession()
@@ -134,6 +128,11 @@ public abstract class AbstractTestQueryFramework
         return computeActual(sql).getOnlyValue();
     }
 
+    protected Object computeScalar(Session session, @Language("SQL") String sql)
+    {
+        return computeActual(session, sql).getOnlyValue();
+    }
+
     protected void assertQuery(@Language("SQL") String sql)
     {
         assertQuery(getSession(), sql);
@@ -152,6 +151,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
         QueryAssertions.assertQuery(queryRunner, session, actual, expectedQueryRunner, expected, false, false);
+    }
+
+    protected void assertQuery(Session actualSession, @Language("SQL") String actual, Session expectedSession, @Language("SQL") String expected)
+    {
+        QueryAssertions.assertQuery(queryRunner, actualSession, actual, expectedQueryRunner, expectedSession, expected, false, false);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String sql, Consumer<Plan> planAssertion)
@@ -251,6 +255,11 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
     }
 
+    protected void assertQueryReturnsEmptyResult(Session session, @Language("SQL") String sql)
+    {
+        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, session, sql);
+    }
+
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
     {
         assertAccessAllowed(getSession(), sql, deniedPrivileges);
@@ -334,33 +343,33 @@ public abstract class AbstractTestQueryFramework
     }
 
     //TODO: should WarningCollector be added?
-    public String getExplainPlan(String query, ExplainType.Type planType)
+    public String getExplainPlan(String explainCommandText, String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), false, WarningCollector.NOOP);
+                    return explainer.getPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), false, WarningCollector.NOOP);
                 });
     }
 
-    public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
+    public String getGraphvizExplainPlan(String explainCommandText, String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }
 
-    public String getJsonExplainPlan(String query, ExplainType.Type planType)
+    public String getJsonExplainPlan(String explainCommandText, String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getJsonPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getJsonPlan(session, sqlParser.createStatement(explainCommandText.replaceAll(".", " ") + query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }
 
@@ -426,7 +435,8 @@ public abstract class AbstractTestQueryFramework
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
-                taskCountEstimator).getPlanningTimeOptimizers();
+                taskCountEstimator,
+                new PartitioningProviderManager()).getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), sqlParser, new FeaturesConfig()),

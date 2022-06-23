@@ -15,7 +15,7 @@ package com.facebook.presto.redis.util;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -35,7 +35,7 @@ public final class CodecSupplier<T>
     public CodecSupplier(Class<T> clazz, Metadata metadata)
     {
         this.clazz = clazz;
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(metadata)));
         this.codecFactory = new JsonCodecFactory(objectMapperProvider);
     }

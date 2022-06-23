@@ -66,7 +66,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
-import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_DIRECTORY_OBJECT_CONTENT_TYPE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACL_TYPE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
@@ -636,7 +635,22 @@ public class TestPrestoS3FileSystem
     }
 
     @Test
-    public void testEmptyDirectory()
+    public void testSkipHadoopFolderMarkerObjectsEnabled()
+            throws Exception
+    {
+        Configuration config = new Configuration(false);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setHasHadoopFolderMarkerObjects(true);
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            fs.setS3Client(s3);
+            FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test"));
+            assertEquals(statuses.length, 1);
+        }
+    }
+
+    private void testEmptyDirectoryWithContentType(String s3ObjectContentType)
             throws Exception
     {
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
@@ -647,7 +661,7 @@ public class TestPrestoS3FileSystem
                 {
                     if (getObjectMetadataRequest.getKey().equals("empty-dir/")) {
                         ObjectMetadata objectMetadata = new ObjectMetadata();
-                        objectMetadata.setContentType(S3_DIRECTORY_OBJECT_CONTENT_TYPE);
+                        objectMetadata.setContentType(s3ObjectContentType);
                         return objectMetadata;
                     }
                     return super.getObjectMetadata(getObjectMetadataRequest);
@@ -659,6 +673,14 @@ public class TestPrestoS3FileSystem
             FileStatus fileStatus = fs.getFileStatus(new Path("s3n://test-bucket/empty-dir/"));
             assertTrue(fileStatus.isDirectory());
         }
+    }
+
+    @Test
+    public void testEmptyDirectory()
+            throws Exception
+    {
+        testEmptyDirectoryWithContentType("application/x-directory");
+        testEmptyDirectoryWithContentType("application/x-directory; charset=UTF-8");
     }
 
     @Test

@@ -157,6 +157,11 @@ public class TestDecimalAverageAggregation
         BlockBuilder blockBuilder = TYPE.createFixedSizeBlockBuilder(1);
         TYPE.writeSlice(blockBuilder, unscaledDecimal(value));
 
-        DecimalAverageAggregation.inputLongDecimal(TYPE, state, blockBuilder.build(), 0);
+        if (TYPE.isShort()) {
+            DecimalAverageAggregation.inputShortDecimal(state, blockBuilder.build(), 0);
+        }
+        else {
+            DecimalAverageAggregation.inputLongDecimal(state, blockBuilder.build(), 0);
+        }
     }
 }

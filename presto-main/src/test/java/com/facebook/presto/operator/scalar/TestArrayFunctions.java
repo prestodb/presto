@@ -38,7 +38,7 @@ public class TestArrayFunctions
     {
         assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(253, "array[1]")) + ")", new ArrayType(INTEGER), nCopies(253, 1));
         assertNotSupported(
-                "CONCAT(" + Joiner.on(", ").join(nCopies(254, "array[1]")) + ")",
+                "CONCAT(" + Joiner.on(", ").join(nCopies(255, "array[1]")) + ")",
                 "Too many arguments for vararg function");
     }
 }

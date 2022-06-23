@@ -103,7 +103,7 @@ used in conjunction with the ``COALESCE`` function.
 The following errors are handled by ``TRY``:
 
 * Division by zero
-* Invalid cast or function argument
+* Invalid cast argument or invalid function argument
 * Numeric value out of range
 
 Examples

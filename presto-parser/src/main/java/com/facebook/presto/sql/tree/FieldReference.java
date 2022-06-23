@@ -25,12 +25,17 @@ public class FieldReference
 {
     private final int fieldIndex;
 
-    public FieldReference(int fieldIndex)
+    public FieldReference(Optional<NodeLocation> location, int fieldIndex)
     {
-        super(Optional.empty());
+        super(location);
         checkArgument(fieldIndex >= 0, "fieldIndex must be >= 0");
 
         this.fieldIndex = fieldIndex;
+    }
+
+    public FieldReference(int fieldIndex)
+    {
+        this(Optional.empty(), fieldIndex);
     }
 
     public int getFieldIndex()

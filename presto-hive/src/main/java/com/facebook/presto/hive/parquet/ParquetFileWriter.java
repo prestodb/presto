@@ -23,8 +23,8 @@ import com.facebook.presto.parquet.writer.ParquetWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.openjdk.jol.info.ClassLayout;
-import parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
 import java.io.OutputStream;

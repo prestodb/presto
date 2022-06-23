@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
@@ -23,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcTableLayoutHandle
@@ -31,16 +33,34 @@ public class JdbcTableLayoutHandle
     private final JdbcTableHandle table;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<JdbcExpression> additionalPredicate;
+    private final String layoutString;
+
+    public JdbcTableLayoutHandle(
+            SqlFunctionProperties properties,
+            JdbcTableHandle table,
+            TupleDomain<ColumnHandle> domain,
+            Optional<JdbcExpression> additionalPredicate)
+    {
+        this(table,
+                domain,
+                additionalPredicate,
+                toStringHelper("")
+                        .add("domains", domain.transform((columnHandle) -> ((JdbcColumnHandle) columnHandle).getColumnName()).toString(properties))
+                        .add("additionalPredicate", additionalPredicate.map(JdbcExpression::getExpression).orElse("{}"))
+                        .toString());
+    }
 
     @JsonCreator
     public JdbcTableLayoutHandle(
             @JsonProperty("table") JdbcTableHandle table,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain,
-            @JsonProperty("additionalPredicate") Optional<JdbcExpression> additionalPredicate)
+            @JsonProperty("additionalPredicate") Optional<JdbcExpression> additionalPredicate,
+            @JsonProperty("layoutString") String layoutString)
     {
         this.table = requireNonNull(table, "table is null");
         this.tupleDomain = requireNonNull(domain, "tupleDomain is null");
         this.additionalPredicate = additionalPredicate;
+        this.layoutString = requireNonNull(layoutString, "layoutString is null");
     }
 
     @JsonProperty
@@ -59,6 +79,12 @@ public class JdbcTableLayoutHandle
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return tupleDomain;
+    }
+
+    @JsonProperty
+    public String getLayoutString()
+    {
+        return layoutString;
     }
 
     @Override
@@ -85,6 +111,6 @@ public class JdbcTableLayoutHandle
     @Override
     public String toString()
     {
-        return table.toString();
+        return layoutString;
     }
 }

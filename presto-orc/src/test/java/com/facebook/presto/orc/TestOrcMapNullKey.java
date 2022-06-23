@@ -100,7 +100,8 @@ public class TestOrcMapNullKey
                     OrcPredicate.TRUE,
                     mapType,
                     INITIAL_BATCH_SIZE,
-                    mapNullKeysEnabled)) {
+                    mapNullKeysEnabled,
+                    false)) {
                 assertEquals(readMap(reader.getNextPage().getBlock(0).getLoadedBlock(), 0), expectedToRead);
 
                 assertNull(reader.getNextPage());
@@ -138,7 +139,7 @@ public class TestOrcMapNullKey
         return actual;
     }
 
-    private static MapType createMapType(Type keyType, Type valueType)
+    public static MapType createMapType(Type keyType, Type valueType)
     {
         MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, keyType, keyType);
         MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));

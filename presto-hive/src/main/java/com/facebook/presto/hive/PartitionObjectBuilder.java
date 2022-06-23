@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 
 import java.util.Map;
+import java.util.Optional;
 
 public interface PartitionObjectBuilder
 {
@@ -26,5 +27,6 @@ public interface PartitionObjectBuilder
             Table table,
             PartitionUpdate partitionUpdate,
             String prestoVersion,
-            Map<String, String> extraParameters);
+            Map<String, String> extraParameters,
+            Optional<Partition> previousPartition);
 }

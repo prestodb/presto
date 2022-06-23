@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
@@ -23,28 +23,21 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.common.PageBuilder;
-import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.facebook.presto.sql.gen.CallSiteBinder;
+import com.facebook.presto.spi.function.CodegenScalarFunction;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -61,79 +54,24 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessTh
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
 import static com.facebook.presto.bytecode.instruction.VariableInstruction.incrementVariable;
-import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class MapFilterFunction
-        extends SqlScalarFunction
 {
-    public static final MapFilterFunction MAP_FILTER_FUNCTION = new MapFilterFunction();
-    private static final MethodHandle STATE_FACTORY = methodHandle(MapFilterFunction.class, "createState", MapType.class);
+    private MapFilterFunction() {}
 
-    private MapFilterFunction()
+    @CodegenScalarFunction(value = "map_filter", deterministic = false)
+    @Description("return map containing entries that match the given predicate")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("map(K,V)")
+    public static MethodHandle mapFilter(@SqlType("map(K,V)") Type inputType, @SqlType("function(K,V,boolean)") Type filter)
     {
-        super(new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "map_filter"),
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                ImmutableList.of(),
-                parseTypeSignature("map(K,V)"),
-                ImmutableList.of(parseTypeSignature("map(K,V)"), parseTypeSignature("function(K,V,boolean)")),
-                false));
-    }
-
-    @Override
-    public SqlFunctionVisibility getVisibility()
-    {
-        return SqlFunctionVisibility.PUBLIC;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "return map containing entries that match the given predicate";
-    }
-
-    @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
-    {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
-        MapType mapType = (MapType) functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(valueType.getTypeSignature())));
-        return new BuiltInScalarFunctionImplementation(
-                false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        functionTypeArgumentProperty(BinaryFunctionInterface.class)),
-                generateFilter(mapType),
-                Optional.of(STATE_FACTORY.bindTo(mapType)));
-    }
-
-    @UsedByGeneratedCode
-    public static Object createState(MapType mapType)
-    {
-        return new PageBuilder(ImmutableList.of(mapType));
-    }
-
-    private static MethodHandle generateFilter(MapType mapType)
-    {
+        MapType mapType = (MapType) inputType;
         CallSiteBinder binder = new CallSiteBinder();
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
@@ -146,20 +84,18 @@ public final class MapFilterFunction
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
-        Parameter state = arg("state", Object.class);
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "filter",
                 type(Block.class),
-                ImmutableList.of(state, block, function));
+                ImmutableList.of(block, function));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
         Variable positionCount = scope.declareVariable(int.class, "positionCount");
         Variable position = scope.declareVariable(int.class, "position");
-        Variable pageBuilder = scope.declareVariable(PageBuilder.class, "pageBuilder");
         Variable mapBlockBuilder = scope.declareVariable(BlockBuilder.class, "mapBlockBuilder");
         Variable singleMapBlockWriter = scope.declareVariable(BlockBuilder.class, "singleMapBlockWriter");
         Variable keyElement = scope.declareVariable(keyJavaType, "keyElement");
@@ -170,11 +106,7 @@ public final class MapFilterFunction
         body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
 
         // prepare the single map block builder
-        body.append(pageBuilder.set(state.cast(PageBuilder.class)));
-        body.append(new IfStatement()
-                .condition(pageBuilder.invoke("isFull", boolean.class))
-                .ifTrue(pageBuilder.invoke("reset", void.class)));
-        body.append(mapBlockBuilder.set(pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(0))));
+        body.append(mapBlockBuilder.set(constantType(binder, mapType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(0))));
         body.append(singleMapBlockWriter.set(mapBlockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
@@ -216,7 +148,6 @@ public final class MapFilterFunction
         body.append(mapBlockBuilder
                 .invoke("closeEntry", BlockBuilder.class)
                 .pop());
-        body.append(pageBuilder.invoke("declarePosition", void.class));
         body.append(constantType(binder, mapType)
                 .invoke(
                         "getObject",
@@ -226,6 +157,6 @@ public final class MapFilterFunction
                 .ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapFilterFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "filter", Object.class, Block.class, BinaryFunctionInterface.class);
+        return methodHandle(generatedClass, "filter", Block.class, BinaryFunctionInterface.class);
     }
 }

@@ -25,6 +25,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestAlluxioCacheConfig
@@ -35,15 +36,18 @@ public class TestAlluxioCacheConfig
         assertRecordedDefaults(recordDefaults(AlluxioCacheConfig.class)
                 .setAsyncWriteEnabled(false)
                 .setConfigValidationEnabled(false)
-                .setEvictionRetries(0)
+                .setEvictionRetries(10)
+                .setEvictionPolicy(EvictionPolicy.LRU)
                 .setJmxClass("alluxio.metrics.sink.JmxSink")
                 .setMaxCacheSize(new DataSize(2, GIGABYTE))
                 .setMetricsCollectionEnabled(true)
                 .setMetricsDomain("com.facebook.alluxio")
                 .setTimeoutDuration(new Duration(60, SECONDS))
-                .setTimeoutEnabled(false)
+                .setTimeoutEnabled(true)
                 .setTimeoutThreads(64)
-                .setCacheQuotaEnabled(false));
+                .setCacheQuotaEnabled(false)
+                .setShadowCacheEnabled(false)
+                .setShadowCacheWindow(new Duration(7, DAYS)));
     }
 
     @Test
@@ -53,28 +57,34 @@ public class TestAlluxioCacheConfig
                 .put("cache.alluxio.async-write-enabled", "true")
                 .put("cache.alluxio.config-validation-enabled", "true")
                 .put("cache.alluxio.eviction-retries", "5")
+                .put("cache.alluxio.eviction-policy", "LFU")
                 .put("cache.alluxio.jmx-class", "test.TestJmxSink")
                 .put("cache.alluxio.max-cache-size", "42MB")
                 .put("cache.alluxio.metrics-domain", "test.alluxio")
                 .put("cache.alluxio.metrics-enabled", "false")
                 .put("cache.alluxio.timeout-duration", "120s")
-                .put("cache.alluxio.timeout-enabled", "true")
+                .put("cache.alluxio.timeout-enabled", "false")
                 .put("cache.alluxio.timeout-threads", "512")
                 .put("cache.alluxio.quota-enabled", "true")
+                .put("cache.alluxio.shadow-cache-enabled", "true")
+                .put("cache.alluxio.shadow-cache-window", "1d")
                 .build();
 
         AlluxioCacheConfig expected = new AlluxioCacheConfig()
                 .setAsyncWriteEnabled(true)
                 .setEvictionRetries(5)
+                .setEvictionPolicy(EvictionPolicy.LFU)
                 .setMaxCacheSize(new DataSize(42, MEGABYTE))
                 .setMetricsCollectionEnabled(false)
                 .setMetricsDomain("test.alluxio")
                 .setJmxClass("test.TestJmxSink")
                 .setConfigValidationEnabled(true)
                 .setTimeoutDuration(new Duration(120, SECONDS))
-                .setTimeoutEnabled(true)
+                .setTimeoutEnabled(false)
                 .setTimeoutThreads(512)
-                .setCacheQuotaEnabled(true);
+                .setCacheQuotaEnabled(true)
+                .setShadowCacheEnabled(true)
+                .setShadowCacheWindow(new Duration(1, DAYS));
 
         assertFullMapping(properties, expected);
     }

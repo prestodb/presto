@@ -51,7 +51,18 @@ public class DelegatingPartitionLoader
             boolean partialAggregationsPushedDown)
     {
         this.session = requireNonNull(session, "session is null");
-        this.storagePartitionLoader = new StoragePartitionLoader(table, pathDomain, tableBucketInfo, session, hdfsEnvironment, namenodeStats, directoryLister, fileIterators, recursiveDirWalkerEnabled, schedulerUsesHostAddresses, partialAggregationsPushedDown);
+        this.storagePartitionLoader = new StoragePartitionLoader(
+                table,
+                pathDomain,
+                tableBucketInfo,
+                session,
+                hdfsEnvironment,
+                namenodeStats,
+                directoryLister,
+                fileIterators,
+                recursiveDirWalkerEnabled,
+                schedulerUsesHostAddresses,
+                partialAggregationsPushedDown);
         this.manifestPartitionLoader = new ManifestPartitionLoader(table, pathDomain, session, hdfsEnvironment, namenodeStats, directoryLister, recursiveDirWalkerEnabled, schedulerUsesHostAddresses);
     }
 

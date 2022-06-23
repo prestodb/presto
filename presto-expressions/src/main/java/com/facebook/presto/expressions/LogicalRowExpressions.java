@@ -49,7 +49,9 @@ import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUA
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static java.lang.Math.min;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
@@ -101,14 +103,16 @@ public final class LogicalRowExpressions
     {
         if (expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm() == form) {
             SpecialFormExpression specialFormExpression = (SpecialFormExpression) expression;
-            if (specialFormExpression.getArguments().size() != 2) {
-                throw new IllegalStateException("logical binary expression requires exactly 2 operands");
+            if (specialFormExpression.getArguments().size() == 2) {
+                List<RowExpression> predicates = new ArrayList<>();
+                predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(0)));
+                predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(1)));
+                return unmodifiableList(predicates);
             }
-
-            List<RowExpression> predicates = new ArrayList<>();
-            predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(0)));
-            predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(1)));
-            return unmodifiableList(predicates);
+            if (specialFormExpression.getArguments().size() == 1 && form == IS_NULL) {
+                return singletonList(expression);
+            }
+            throw new IllegalStateException("Unexpected operands:" + expression + " " + form);
         }
 
         return singletonList(expression);
@@ -119,7 +123,7 @@ public final class LogicalRowExpressions
         return and(asList(expressions));
     }
 
-    public static RowExpression and(Collection<RowExpression> expressions)
+    public static RowExpression and(Collection<? extends RowExpression> expressions)
     {
         return binaryExpression(AND, expressions);
     }
@@ -129,12 +133,12 @@ public final class LogicalRowExpressions
         return or(asList(expressions));
     }
 
-    public static RowExpression or(Collection<RowExpression> expressions)
+    public static RowExpression or(Collection<? extends RowExpression> expressions)
     {
         return binaryExpression(OR, expressions);
     }
 
-    public static RowExpression binaryExpression(Form form, Collection<RowExpression> expressions)
+    public static RowExpression binaryExpression(Form form, Collection<? extends RowExpression> expressions)
     {
         requireNonNull(form, "operator is null");
         requireNonNull(expressions, "expressions is null");
@@ -289,7 +293,7 @@ public final class LogicalRowExpressions
     }
 
     /**
-     * Given a logical expression, the goal is to convert to conjuctive normal form (CNF).
+     * Given a logical expression, the goal is to convert to conjunctive normal form (CNF).
      * This requires making a call to `pushNegationToLeaves`. There is no guarantee as to
      * the balance of the resulting expression tree.
      *
@@ -442,12 +446,13 @@ public final class LogicalRowExpressions
         {
             OperatorType newOperator = negate(getOperator(expression).orElse(null));
             if (newOperator == null) {
-                return new CallExpression("NOT", functionResolution.notFunction(), BOOLEAN, singletonList(expression));
+                return new CallExpression(expression.getSourceLocation(), "NOT", functionResolution.notFunction(), BOOLEAN, singletonList(expression));
             }
             checkArgument(expression.getArguments().size() == 2, "Comparison expression must have exactly two arguments");
             RowExpression left = expression.getArguments().get(0).accept(this, null);
             RowExpression right = expression.getArguments().get(1).accept(this, null);
             return new CallExpression(
+                    left.getSourceLocation(),
                     newOperator.getOperator(),
                     functionResolution.comparisonFunction(newOperator, left.getType(), right.getType()),
                     BOOLEAN,
@@ -627,6 +632,21 @@ public final class LogicalRowExpressions
         return expression instanceof CallExpression && functionResolution.isComparisonFunction(((CallExpression) expression).getFunctionHandle());
     }
 
+    public boolean isEqualsExpression(RowExpression expression)
+    {
+        return expression instanceof CallExpression && functionResolution.isEqualsFunction(((CallExpression) expression).getFunctionHandle());
+    }
+
+    public boolean isCastExpression(RowExpression expression)
+    {
+        return expression instanceof CallExpression && functionResolution.isCastFunction(((CallExpression) expression).getFunctionHandle());
+    }
+
+    public boolean isCaseExpression(RowExpression expression)
+    {
+        return expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm().equals(SWITCH);
+    }
+
     /**
      * Extract the component predicates as a list of list in which is grouped so that the outer level has same conjunctive/disjunctive joiner as original predicate and
      * inner level has opposite joiner.
@@ -767,9 +787,27 @@ public final class LogicalRowExpressions
         return Optional.empty();
     }
 
-    private RowExpression notCallExpression(RowExpression argument)
+    public RowExpression notCallExpression(RowExpression argument)
     {
-        return new CallExpression("not", functionResolution.notFunction(), BOOLEAN, singletonList(argument));
+        return new CallExpression(argument.getSourceLocation(), "not", functionResolution.notFunction(), BOOLEAN, singletonList(argument));
+    }
+
+    public RowExpression equalsCallExpression(RowExpression left, RowExpression right)
+    {
+        return new CallExpression(
+                EQUAL.name(),
+                functionResolution.comparisonFunction(EQUAL, left.getType(), right.getType()),
+                BOOLEAN,
+                asList(left, right));
+    }
+
+    public static RowExpression replaceArguments(CallExpression expression, RowExpression... arguments)
+    {
+        return new CallExpression(
+                expression.getDisplayName(),
+                expression.getFunctionHandle(),
+                expression.getType(),
+                asList(arguments));
     }
 
     private static OperatorType negate(OperatorType operator)

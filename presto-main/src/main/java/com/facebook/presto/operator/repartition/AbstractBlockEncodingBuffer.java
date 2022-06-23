@@ -47,12 +47,12 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.array.Arrays.ExpansionFactor.LARGE;
-import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
-import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
-import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
-import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
-import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.LARGE;
+import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.NONE;
+import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.MoreByteArrays.fill;
 import static com.facebook.presto.operator.UncheckedByteArrays.setByteUnchecked;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -143,8 +143,8 @@ public abstract class AbstractBlockEncodingBuffer
         // decodedBlock could be a block or ColumnarArray/Map/Row
         Object decodedBlock = decodedBlockNode.getDecodedBlock();
 
-        // Skip the Dictionary/Rle block node. The mapping info is not needed when creating buffers.
-        // This is because the AbstractBlockEncodingBuffer is only created once, while position mapping for Dictionar/Rle blocks
+        // Skip the Dictionary/RLE block node. The mapping info is not needed when creating buffers.
+        // This is because the AbstractBlockEncodingBuffer is only created once, while position mapping for Dictionary/RLE blocks
         // need to be done for every incoming block.
         if (decodedBlock instanceof DictionaryBlock) {
             decodedBlockNode = decodedBlockNode.getChildren().get(0);

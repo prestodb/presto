@@ -48,6 +48,7 @@ public class ReplicateSemiJoinInDelete
             PlanNode filteringSourceRewritten = context.rewrite(node.getFilteringSource(), context.get());
 
             SemiJoinNode rewrittenNode = new SemiJoinNode(
+                    node.getSourceLocation(),
                     node.getId(),
                     sourceRewritten,
                     filteringSourceRewritten,
@@ -74,6 +75,7 @@ public class ReplicateSemiJoinInDelete
             isDeleteQuery = true;
             PlanNode rewrittenSource = context.rewrite(node.getSource());
             return new DeleteNode(
+                    node.getSourceLocation(),
                     node.getId(),
                     rewrittenSource,
                     node.getRowId(),

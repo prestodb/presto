@@ -19,9 +19,24 @@ connection properties as appropriate for your setup:
 .. code-block:: none
 
     connector.name=oracle
-    connection-url=jdbc:oracle:thin:@example.net:1521/ORCLCDB
+    # The correct syntax of the connection-url varies by Oracle version and
+    # configuration. The following example URL connects to an Oracle SID named
+    # "orcl".
+    connection-url=jdbc:oracle:thin:@example.net:1521:orcl
     connection-user=root
     connection-password=secret
+
+The ``connection-url`` defines the connection information and parameters to pass
+to the JDBC driver. The Oracle connector uses the Oracle JDBC Thin driver,
+and the syntax of the URL may be different depending on your Oracle
+configuration. For example, the connection URL is different if you are
+connecting to an Oracle SID or an Oracle service name. See the `Oracle
+Database JDBC driver documentation
+<https://docs.oracle.com/en/database/oracle/oracle-database/21/jjdbc/data-sources-and-URLs.html#GUID-088B1600-C6C2-4F19-A020-2DAF8FE1F1C3>`_
+for more information.
+
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user.
 
 Multiple Oracle Servers
 ^^^^^^^^^^^^^^^^^^^^^^^

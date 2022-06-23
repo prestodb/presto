@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.cache.Cache;
@@ -23,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
@@ -31,6 +31,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -68,31 +69,22 @@ public class CachingDirectoryLister
         this.cachedTableChecker = new CachedTableChecker(requireNonNull(tables, "tables is null"));
     }
 
-    private static SchemaTableName parseTableName(String tableName)
-    {
-        String[] parts = tableName.split("\\.");
-        checkArgument(parts.length == 2, "Invalid schemaTableName: %s", tableName);
-        return new SchemaTableName(parts[0], parts[1]);
-    }
-
     @Override
     public Iterator<HiveFileInfo> list(
             ExtendedFileSystem fileSystem,
             Table table,
             Path path,
+            Optional<Partition> partition,
             NamenodeStats namenodeStats,
-            PathFilter pathFilter,
             HiveDirectoryContext hiveDirectoryContext)
     {
-        SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
-
         List<HiveFileInfo> files = cache.getIfPresent(path);
         if (files != null) {
             return files.iterator();
         }
 
-        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext);
-        if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(schemaTableName)) {
+        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext);
+        if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(table.getSchemaTableName())) {
             return cachingIterator(iterator, path);
         }
         return iterator;
@@ -174,7 +166,7 @@ public class CachingDirectoryLister
             }
             else {
                 this.cachedTableNames = cachedTables.stream()
-                        .map(CachingDirectoryLister::parseTableName)
+                        .map(SchemaTableName::valueOf)
                         .collect(toImmutableSet());
             }
         }

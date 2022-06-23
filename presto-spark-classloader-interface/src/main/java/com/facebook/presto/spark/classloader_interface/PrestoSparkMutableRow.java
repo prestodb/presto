@@ -23,8 +23,6 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.nio.ByteBuffer;
 
-import static org.spark_project.guava.base.Preconditions.checkState;
-
 public class PrestoSparkMutableRow
         implements Externalizable, KryoSerializable, PrestoSparkTaskOutput
 {
@@ -116,7 +114,7 @@ public class PrestoSparkMutableRow
     {
         // PrestoSparkMutableRow is expected to be serialized only during shuffle.
         // During shuffle rows are always serialized with PrestoSparkShuffleSerializer.
-        return new UnsupportedOperationException("PrestoSparkUnsafeRow is not expected to be serialized with Kryo or standard Java serialization");
+        return new UnsupportedOperationException("PrestoSparkMutableRow is not expected to be serialized with Kryo or standard Java serialization");
     }
 
     @Override
@@ -128,7 +126,9 @@ public class PrestoSparkMutableRow
     @Override
     public long getSize()
     {
-        checkState(buffer != null, "buffer is expected to be not null");
+        if (buffer == null) {
+            throw new IllegalStateException("buffer is expected to be not null");
+        }
         return buffer.remaining();
     }
 }

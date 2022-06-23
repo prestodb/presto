@@ -28,7 +28,7 @@ import static com.google.common.primitives.Primitives.wrap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-class CastBytecodeExpression
+public class CastBytecodeExpression
         extends BytecodeExpression
 {
     private static final ParameterizedType OBJECT_TYPE = type(Object.class);
@@ -66,7 +66,7 @@ class CastBytecodeExpression
                     case PRIMITIVE:
                         castPrimitiveToPrimitive(block, sourceType.getPrimitiveType(), targetType.getPrimitiveType());
                         return block;
-                    case BOXED_PRIMITVE:
+                    case BOXED_PRIMITIVE:
                         checkArgument(sourceType.getPrimitiveType() == unwrapPrimitiveType(targetType), "Type %s can not be cast to %s", sourceType, targetType);
                         return block.invokeStatic(targetType, "valueOf", targetType, sourceType);
                     case OTHER:
@@ -76,12 +76,12 @@ class CastBytecodeExpression
                                 .invokeStatic(wrap(sourceClass), "valueOf", wrap(sourceClass), sourceClass)
                                 .checkCast(targetType);
                 }
-            case BOXED_PRIMITVE:
+            case BOXED_PRIMITIVE:
                 switch (getTypeKind(targetType)) {
                     case PRIMITIVE:
                         checkArgument(unwrapPrimitiveType(sourceType) == targetType.getPrimitiveType(), "Type %s can not be cast to %s", sourceType, targetType);
                         return block.invokeVirtual(sourceType, targetType.getPrimitiveType().getSimpleName() + "Value", targetType);
-                    case BOXED_PRIMITVE:
+                    case BOXED_PRIMITIVE:
                         checkArgument(sourceType.equals(targetType), "Type %s can not be cast to %s", sourceType, targetType);
                         return block;
                     case OTHER:
@@ -94,7 +94,7 @@ class CastBytecodeExpression
                         return block
                                 .checkCast(wrap(targetType.getPrimitiveType()))
                                 .invokeVirtual(wrap(targetType.getPrimitiveType()), targetType.getPrimitiveType().getSimpleName() + "Value", targetType.getPrimitiveType());
-                    case BOXED_PRIMITVE:
+                    case BOXED_PRIMITIVE:
                     case OTHER:
                         return block.checkCast(targetType);
                 }
@@ -282,7 +282,7 @@ class CastBytecodeExpression
             return TypeKind.PRIMITIVE;
         }
         if (unwrapPrimitiveType(type) != null) {
-            return TypeKind.BOXED_PRIMITVE;
+            return TypeKind.BOXED_PRIMITIVE;
         }
         return TypeKind.OTHER;
     }
@@ -325,6 +325,6 @@ class CastBytecodeExpression
 
     private enum TypeKind
     {
-        PRIMITIVE, BOXED_PRIMITVE, OTHER
+        PRIMITIVE, BOXED_PRIMITIVE, OTHER
     }
 }

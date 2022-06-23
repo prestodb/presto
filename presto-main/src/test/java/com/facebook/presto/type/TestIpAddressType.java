@@ -21,7 +21,6 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.type.IpAddressType.IPADDRESS;
-import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertEquals;
 
 public class TestIpAddressType
@@ -52,7 +51,8 @@ public class TestIpAddressType
     protected Object getGreaterValue(Object value)
     {
         byte[] address = ((Slice) value).getBytes();
-        checkState(++address[address.length - 1] != 0, "Last byte of address is 0xff");
+        address[0] = (byte) 0xff;
+        address[15] = (byte) 0x0;
         return Slices.wrappedBuffer(address);
     }
 

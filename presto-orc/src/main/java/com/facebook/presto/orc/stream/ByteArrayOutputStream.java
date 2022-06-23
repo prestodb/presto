@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
@@ -44,14 +45,14 @@ public class ByteArrayOutputStream
 
     private boolean closed;
 
-    public ByteArrayOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public ByteArrayOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
-        this(compressionParameters, dwrfEncryptor, DATA);
+        this(columnWriterOptions, dwrfEncryptor, DATA);
     }
 
-    public ByteArrayOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, StreamKind streamKind)
+    public ByteArrayOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, StreamKind streamKind)
     {
-        this.buffer = new OrcOutputBuffer(compressionParameters, dwrfEncryptor);
+        this.buffer = new OrcOutputBuffer(columnWriterOptions, dwrfEncryptor);
         this.streamKind = streamKind;
     }
 
@@ -59,6 +60,18 @@ public class ByteArrayOutputStream
     {
         checkState(!closed);
         buffer.writeBytes(value);
+    }
+
+    public void writeSlice(Slice slice, int sourceIndex, int length)
+    {
+        checkState(!closed);
+        buffer.writeBytes(slice, sourceIndex, length);
+    }
+
+    public void writeBlockPosition(Block block, int position, int offset, int length)
+    {
+        checkState(!closed);
+        block.writeBytesTo(position, offset, length, buffer);
     }
 
     @Override
@@ -83,9 +96,9 @@ public class ByteArrayOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), false));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, streamKind, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override

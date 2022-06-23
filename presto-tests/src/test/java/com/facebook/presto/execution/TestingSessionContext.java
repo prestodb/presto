@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
 
@@ -110,6 +111,12 @@ public class TestingSessionContext
     public String getLanguage()
     {
         return session.getLocale().getLanguage();
+    }
+
+    @Override
+    public Optional<Tracer> getTracer()
+    {
+        return session.getTracer();
     }
 
     @Override

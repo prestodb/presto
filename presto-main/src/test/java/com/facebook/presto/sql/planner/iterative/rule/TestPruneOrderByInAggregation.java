@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.tree.SortItem;
@@ -54,7 +55,9 @@ public class TestPruneOrderByInAggregation
                                                 "array_agg",
                                                 ImmutableList.of("input"),
                                                 ImmutableList.of(sort("input", SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)))),
-                                ImmutableMap.of(),
+                                ImmutableMap.of(
+                                        new Symbol("avg"), new Symbol("mask"),
+                                        new Symbol("array_agg"), new Symbol("mask")),
                                 Optional.empty(),
                                 SINGLE,
                                 values("input", "key", "keyHash", "mask")));

@@ -17,10 +17,11 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.RateLimiter;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -41,13 +42,18 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestQueryResource
 {
     private HttpClient client;
+    DistributedQueryRunner runner;
     private TestingPrestoServer server;
 
     @BeforeClass
@@ -55,11 +61,6 @@ public class TestQueryResource
             throws Exception
     {
         client = new JettyHttpClient();
-        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "10s"));
-        server = runner.getCoordinator();
-        server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-        server.getResourceGroupManager().get()
-                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
     @AfterClass(alwaysRun = true)
@@ -71,16 +72,16 @@ public class TestQueryResource
         client = null;
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testGetQueryInfos()
-            throws Exception
+            throws InterruptedException
     {
         runToCompletion("SELECT 1");
         runToCompletion("SELECT 2");
         runToCompletion("SELECT x FROM y");
-        runToFirstResult("SELECT * from tpch.sf100.orders");
-        runToFirstResult("SELECT * from tpch.sf100.orders");
-        runToFirstResult("SELECT * from tpch.sf100.orders");
+        runToFirstResult("SELECT * from tpch.sf100.orders -- 1");
+        runToFirstResult("SELECT * from tpch.sf100.orders -- 2");
+        runToFirstResult("SELECT * from tpch.sf100.orders -- 3");
         runToQueued("SELECT 3");
 
         // Sleep to allow query to make some progress
@@ -89,6 +90,18 @@ public class TestQueryResource
         List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
         assertEquals(infos.size(), 7);
         assertStateCounts(infos, 2, 1, 3, 1);
+
+        assertThatThrownBy(() -> getQueryInfos("/v1/query?limit=-1"))
+                .hasMessageMatching(".*Bad Request.*");
+
+        infos = getQueryInfos("/v1/query?limit=5");
+        assertEquals(infos.size(), 5);
+        assertEquals(infos.get(0).getQuery(), "SELECT * from tpch.sf100.orders -- 1");
+        assertEquals(infos.get(1).getQuery(), "SELECT * from tpch.sf100.orders -- 2");
+        assertEquals(infos.get(2).getQuery(), "SELECT * from tpch.sf100.orders -- 3");
+        assertEquals(infos.get(3).getQuery(), "SELECT 3");
+        assertEquals(infos.get(4).getQuery(), "SELECT x FROM y");
+        assertStateCounts(infos, 0, 1, 3, 1);
 
         infos = getQueryInfos("/v1/query?state=finished");
         assertEquals(infos.size(), 2);
@@ -102,6 +115,10 @@ public class TestQueryResource
         assertEquals(infos.size(), 3);
         assertStateCounts(infos, 0, 0, 3, 0);
 
+        infos = getQueryInfos("/v1/query?state=running&limit=2");
+        assertEquals(infos.size(), 2);
+        assertStateCounts(infos, 0, 0, 2, 0);
+
         infos = getQueryInfos("/v1/query?state=queued");
         assertEquals(infos.size(), 1);
         assertStateCounts(infos, 0, 0, 0, 1);
@@ -112,6 +129,59 @@ public class TestQueryResource
         infos = getQueryInfos("/v1/query?state=failed");
         assertEquals(infos.size(), 5);
         assertStateCounts(infos, 0, 5, 0, 0);
+    }
+
+    @Test
+    public void testGuavaTryAcquireShouldReturnImmediatelyWithoutToken()
+    {
+        RateLimiter rateLimiter = RateLimiter.create(1);
+        rateLimiter.acquire();
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        boolean result = rateLimiter.tryAcquire(3);
+        stopwatch.stop();
+        long elapsed = stopwatch.elapsed(MILLISECONDS);
+        assertFalse(result);
+        assertEquals(elapsed, 0);
+    }
+
+    @Test
+    public void testBlockingRateLimitShouldNotDelay()
+            throws Exception
+    {
+        runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "10s", "query-manager.rate-limiter-bucket-max-size", "100"));
+        server = runner.getCoordinator();
+        long millis = getTimeForSimulatedDoS(15);
+        //Should not be rate limited when allowing 100/s, using 6 seconds to avoid flakiness
+        assertTrue(millis < 6000);
+    }
+
+    private long getTimeForSimulatedDoS(int maxRetry)
+    {
+        final URI sameURI = getQueuedURI("SELECT 1");
+        int i = 0;
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        while (i < maxRetry) {
+            Request request = prepareGet()
+                    .setHeader(PRESTO_USER, "user")
+                    .setUri(sameURI)
+                    .build();
+            client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+            i++;
+        }
+        stopwatch.stop();
+        long millis = stopwatch.elapsed(MILLISECONDS);
+        return millis;
+    }
+
+    @Test
+    public void testBlockingRateLimitShouldDelay()
+            throws Exception
+    {
+        runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "10s", "query-manager.rate-limiter-bucket-max-size", "1"));
+        server = runner.getCoordinator();
+        long millis = getTimeForSimulatedDoS(15);
+        //Should be rate limited to roughly 15 seconds, use 10s to give it a buffer and avoid flakiness
+        assertTrue(millis > 10000);
     }
 
     private List<BasicQueryInfo> getQueryInfos(String path)
@@ -136,6 +206,13 @@ public class TestQueryResource
         while (queryResults.getData() == null) {
             queryResults = getQueryResults(queryResults);
         }
+    }
+
+    private URI getQueuedURI(String sql)
+    {
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
+        QueryResults queryResults = postQuery(sql, uri);
+        return queryResults.getNextUri();
     }
 
     private void runToQueued(String sql)

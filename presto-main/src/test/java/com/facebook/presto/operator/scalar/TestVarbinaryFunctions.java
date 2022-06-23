@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.type.VarbinaryOperators;
+import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -137,6 +138,43 @@ public class TestVarbinaryFunctions
         assertFunction("from_base64url(CAST(to_base64url(CAST('a' AS VARBINARY)) AS VARBINARY))", VARBINARY, sqlVarbinary("a"));
         assertFunction("from_base64url(CAST(to_base64url(CAST('abc' AS VARBINARY)) AS VARBINARY))", VARBINARY, sqlVarbinary("abc"));
         assertFunction(format("to_base64url(from_base64url('%s'))", encodeBase64Url(ALL_BYTES)), VARCHAR, encodeBase64Url(ALL_BYTES));
+    }
+
+    @Test
+    public void testToBase32()
+    {
+        assertFunction("to_base32(CAST('' AS VARBINARY))", VARCHAR, encodeBase32(""));
+        assertFunction("to_base32(CAST('a' AS VARBINARY))", VARCHAR, encodeBase32("a"));
+        assertFunction("to_base32(CAST('abc' AS VARBINARY))", VARCHAR, encodeBase32("abc"));
+        assertFunction("to_base32(CAST('hello world' AS VARBINARY))", VARCHAR, "NBSWY3DPEB3W64TMMQ======");
+        assertFunction("to_base32(NULL)", VARCHAR, null);
+    }
+
+    @Test
+    public void testFromBase32()
+    {
+        assertFunction("from_base32('')", VARBINARY, sqlVarbinary(""));
+        assertFunction("from_base32('ME======')", VARBINARY, sqlVarbinary("a"));
+        assertFunction("from_base32('MFRGG===')", VARBINARY, sqlVarbinary("abc"));
+        assertFunction("from_base32('NBSWY3DPEB3W64TMMQ======')", VARBINARY, sqlVarbinary("hello world"));
+
+        assertFunction("from_base32(to_base32(CAST('' AS VARBINARY)))", VARBINARY, sqlVarbinary(""));
+        assertFunction("from_base32(to_base32(CAST('a' AS VARBINARY)))", VARBINARY, sqlVarbinary("a"));
+        assertFunction("from_base32(to_base32(CAST('abc' AS VARBINARY)))", VARBINARY, sqlVarbinary("abc"));
+        assertFunction("from_base32(to_base32(CAST('hello world' AS VARBINARY)))", VARBINARY, sqlVarbinary("hello world"));
+        assertFunction("from_base32(CAST(to_base32(CAST('' AS VARBINARY)) AS VARBINARY))", VARBINARY, sqlVarbinary(""));
+        assertFunction("from_base32(CAST(to_base32(CAST('a' AS VARBINARY)) AS VARBINARY))", VARBINARY, sqlVarbinary("a"));
+        assertFunction("from_base32(CAST(to_base32(CAST('abc' AS VARBINARY)) AS VARBINARY))", VARBINARY, sqlVarbinary("abc"));
+        assertFunction("from_base32(CAST(to_base32(CAST('hello world' AS VARBINARY)) AS VARBINARY))", VARBINARY, sqlVarbinary("hello world"));
+        assertFunction(format("to_base32(from_base32('%s'))", encodeBase32(ALL_BYTES)), VARCHAR, encodeBase32(ALL_BYTES));
+
+        assertFunction("from_base32(CAST(NULL AS VARCHAR))", VARBINARY, null);
+        assertFunction("from_base32(CAST(NULL AS VARBINARY))", VARBINARY, null);
+
+        assertInvalidFunction("from_base32('1=')", "Invalid input length 1");
+        assertInvalidFunction("from_base32('M1======')", "Unrecognized character: 1");
+        assertInvalidFunction("from_base32(CAST('1=' AS VARBINARY))", "Invalid input length 1");
+        assertInvalidFunction("from_base32(CAST('M1======' AS VARBINARY))", "Unrecognized character: 1");
     }
 
     @Test
@@ -302,6 +340,13 @@ public class TestVarbinaryFunctions
     {
         assertFunction("md5(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("D41D8CD98F00B204E9800998ECF8427E"));
         assertFunction("md5(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("533F6357E0210E67D91F651BC49E1278"));
+    }
+
+    @Test
+    public void testMurmur3()
+    {
+        assertFunction("murmur3_x64_128(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("00000000000000000000000000000000"));
+        assertFunction("murmur3_x64_128(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("93192FE805BE23041C8318F67EC4F2BC"));
     }
 
     @Test
@@ -481,6 +526,16 @@ public class TestVarbinaryFunctions
     private static String encodeBase64Url(String value)
     {
         return encodeBase64Url(value.getBytes(UTF_8));
+    }
+
+    private static String encodeBase32(String value)
+    {
+        return encodeBase32(value.getBytes(UTF_8));
+    }
+
+    private static String encodeBase32(byte[] value)
+    {
+        return BaseEncoding.base32().encode(value);
     }
 
     private static String encodeHex(String value)

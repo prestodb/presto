@@ -201,7 +201,7 @@ public class TestJdbcPreparedStatement
                 assertEquals(metadata.getColumnTypeName(19), "timestamp with time zone");
 
                 assertEquals(metadata.getColumnName(20), "c_row");
-                assertEquals(metadata.getColumnTypeName(20), "row(x integer,y array(integer))");
+                assertEquals(metadata.getColumnTypeName(20), "row(\"x\" integer,\"y\" array(integer))");
 
                 assertEquals(metadata.getColumnName(21), "c_array");
                 assertEquals(metadata.getColumnTypeName(21), "array(integer)");
@@ -229,6 +229,17 @@ public class TestJdbcPreparedStatement
                     throw new RuntimeException("Failed at " + i, e);
                 }
             }
+        }
+    }
+
+    @Test
+    public void testCloseIdempotency()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            PreparedStatement statement = connection.prepareStatement("SELECT 123");
+            statement.close();
+            statement.close();
         }
     }
 

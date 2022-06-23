@@ -17,7 +17,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -31,8 +30,6 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -75,7 +72,7 @@ public class RedisTableDescriptionSupplier
             for (String definedTable : redisConnectorConfig.getTableNames()) {
                 SchemaTableName tableName;
                 try {
-                    tableName = parseTableName(definedTable);
+                    tableName = SchemaTableName.valueOf(definedTable);
                 }
                 catch (IllegalArgumentException iae) {
                     tableName = new SchemaTableName(redisConnectorConfig.getDefaultSchema(), definedTable);
@@ -114,13 +111,5 @@ public class RedisTableDescriptionSupplier
             }
         }
         return ImmutableList.of();
-    }
-
-    private static SchemaTableName parseTableName(String schemaTableName)
-    {
-        checkArgument(!isNullOrEmpty(schemaTableName), "schemaTableName is null or is empty");
-        List<String> parts = Splitter.on('.').splitToList(schemaTableName);
-        checkArgument(parts.size() == 2, "Invalid schemaTableName: %s", schemaTableName);
-        return new SchemaTableName(parts.get(0), parts.get(1));
     }
 }

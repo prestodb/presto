@@ -16,8 +16,11 @@ package com.facebook.presto.common.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.Arrays;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
+import static com.facebook.presto.common.block.BlockUtil.ensureBlocksAreLoaded;
 import static java.lang.String.format;
 
 public class SingleRowBlock
@@ -61,6 +64,12 @@ public class SingleRowBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         long retainedSizeInBytes = INSTANCE_SIZE;
@@ -71,12 +80,12 @@ public class SingleRowBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         for (Block fieldBlock : fieldBlocks) {
             consumer.accept(fieldBlock, fieldBlock.getRetainedSizeInBytes());
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -99,17 +108,9 @@ public class SingleRowBlock
     @Override
     public Block getLoadedBlock()
     {
-        boolean allLoaded = true;
-        Block[] loadedFieldBlocks = new Block[fieldBlocks.length];
-
-        for (int i = 0; i < fieldBlocks.length; i++) {
-            loadedFieldBlocks[i] = fieldBlocks[i].getLoadedBlock();
-            if (loadedFieldBlocks[i] != fieldBlocks[i]) {
-                allLoaded = false;
-            }
-        }
-
-        if (allLoaded) {
+        Block[] loadedFieldBlocks = ensureBlocksAreLoaded(fieldBlocks);
+        if (loadedFieldBlocks == fieldBlocks) {
+            // All blocks are already loaded
             return this;
         }
         return new SingleRowBlock(rowIndex, loadedFieldBlocks);
@@ -119,5 +120,24 @@ public class SingleRowBlock
     public Block appendNull()
     {
         throw new UnsupportedOperationException("SingleRowBlock does not support appendNull()");
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        SingleRowBlock other = (SingleRowBlock) obj;
+        return Arrays.equals(this.fieldBlocks, other.fieldBlocks);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Arrays.hashCode(fieldBlocks);
     }
 }

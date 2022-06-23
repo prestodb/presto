@@ -23,12 +23,6 @@ public final class RowGroupDictionaryLengthStreamCheckpoint
 {
     private final int rowGroupDictionarySize;
 
-    public RowGroupDictionaryLengthStreamCheckpoint(int rowGroupDictionarySize, int offset, long inputStreamCheckpoint)
-    {
-        super(offset, inputStreamCheckpoint);
-        this.rowGroupDictionarySize = rowGroupDictionarySize;
-    }
-
     public RowGroupDictionaryLengthStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {
         super(compressed, positionsList);

@@ -15,6 +15,7 @@ package com.facebook.presto.jdbc;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
+import okhttp3.Protocol;
 
 import java.io.File;
 import java.sql.DriverPropertyInfo;
@@ -24,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -191,10 +194,33 @@ abstract class AbstractConnectionProperty<T>
         }
     }
 
+    protected static final class ListValidateConvertor
+            implements Converter<String>
+    {
+        public static final Converter<String> LIST_VALIDATE_CONVERTOR = new ListValidateConvertor();
+
+        private ListValidateConvertor() {}
+
+        @Override
+        public String convert(String value)
+        {
+            return Splitter.on(',').trimResults().splitToList(value).stream().map(this::validatePattern).collect(Collectors.joining(","));
+        }
+
+        private String validatePattern(String value)
+        {
+            Pattern alphaNumericFilter = Pattern.compile("^[a-zA-Z0-9]+$");
+            boolean isAlphaNumeric = alphaNumericFilter.matcher(value).matches();
+            checkArgument(isAlphaNumeric, "Input client tag should contain only alphanumeric characters: %s", value);
+            return value;
+        }
+    }
+
     protected static final class ClassListConverter
             implements Converter<List<QueryInterceptor>>
     {
         public static final ClassListConverter CLASS_LIST_CONVERTER = new ClassListConverter();
+
         private ClassListConverter() {}
 
         @Override
@@ -212,6 +238,42 @@ abstract class AbstractConnectionProperty<T>
             }
             catch (Throwable e) {
                 throw new IllegalArgumentException(format("Could not load QueryInterceptor classes from %s", interceptor), e);
+            }
+        }
+    }
+
+    protected static final class HttpProtocolConverter
+            implements Converter<List<Protocol>>
+    {
+        public static final HttpProtocolConverter HTTP_PROTOCOL_CONVERTER = new HttpProtocolConverter();
+
+        private HttpProtocolConverter() {}
+
+        @Override
+        public List<Protocol> convert(String value)
+        {
+            return Splitter.on(',').splitToList(value).stream()
+                    .map(this::loadProtocol)
+                    .distinct()
+                    .collect(toImmutableList());
+        }
+
+        private Protocol loadProtocol(String protocolName)
+        {
+            try {
+                switch (protocolName.toLowerCase(ENGLISH)) {
+                    case "http11":
+                        return Protocol.HTTP_1_1;
+                    case "http10":
+                        return Protocol.HTTP_1_0;
+                    case "http2":
+                        return Protocol.HTTP_2;
+                    default:
+                        return Protocol.get(protocolName);
+                }
+            }
+            catch (Exception e) {
+                throw new IllegalArgumentException(format("Could not load OkhttpProtocol from %s", protocolName), e);
             }
         }
     }

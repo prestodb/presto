@@ -40,6 +40,7 @@ public final class Cube
     private Cube(Optional<NodeLocation> location, List<Expression> columns)
     {
         super(location);
+        validateExpressions(columns);
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 

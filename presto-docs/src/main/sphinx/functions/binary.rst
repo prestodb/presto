@@ -53,6 +53,14 @@ Binary Functions
 
     Decodes binary data from the base64 encoded ``string`` using the URL safe alphabet.
 
+.. function:: from_base32(string) -> varbinary
+
+    Decodes binary data from the base32 encoded ``string``.
+
+.. function:: to_base32(binary) -> varchar
+
+    Encodes ``binary`` into a base32 string representation.
+
 .. function:: to_hex(binary) -> varchar
 
     Encodes ``binary`` into a hex string representation.
@@ -117,6 +125,10 @@ Binary Functions
 .. function:: md5(binary) -> varbinary
 
     Computes the md5 hash of ``binary``.
+
+.. function:: murmur3_x64_128(binary) -> varbinary
+
+    Computes a hash of ``binary`` that is equivalent to C++ MurmurHash3_x64_128 (Murmur3F) of the same ``binary``.
 
 .. function:: sha1(binary) -> varbinary
 

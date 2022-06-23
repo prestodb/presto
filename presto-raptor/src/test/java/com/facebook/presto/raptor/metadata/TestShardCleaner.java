@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -73,7 +74,7 @@ public class TestShardCleaner
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
@@ -299,7 +300,7 @@ public class TestShardCleaner
         assertFalse(shardFileExists(shard4));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCleanBackupShards()
             throws Exception
     {
@@ -338,7 +339,7 @@ public class TestShardCleaner
                 row(shard3));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testDeleteOldCompletedTransactions()
     {
         TestingDao dao = dbi.onDemand(TestingDao.class);

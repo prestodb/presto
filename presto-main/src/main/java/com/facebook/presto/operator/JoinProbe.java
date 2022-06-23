@@ -15,9 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.google.common.primitives.Ints;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -27,43 +29,41 @@ public class JoinProbe
     public static class JoinProbeFactory
     {
         private final int[] probeOutputChannels;
-        private final List<Integer> probeJoinChannels;
-        private final OptionalInt probeHashChannel;
+        private final int[] probeJoinChannels;
+        private final int probeHashChannel; // only valid when >= 0
 
         public JoinProbeFactory(int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
         {
             this.probeOutputChannels = probeOutputChannels;
-            this.probeJoinChannels = probeJoinChannels;
-            this.probeHashChannel = probeHashChannel;
+            this.probeJoinChannels = Ints.toArray(probeJoinChannels);
+            this.probeHashChannel = probeHashChannel.orElse(-1);
         }
 
         public JoinProbe createJoinProbe(Page page)
         {
-            return new JoinProbe(probeOutputChannels, page, probeJoinChannels, probeHashChannel);
+            Page probePage = page.getLoadedPage(probeJoinChannels);
+            return new JoinProbe(probeOutputChannels, page, probePage, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null);
         }
     }
 
     private final int[] probeOutputChannels;
     private final int positionCount;
-    private final Block[] probeBlocks;
     private final Page page;
     private final Page probePage;
-    private final Optional<Block> probeHashBlock;
+    @Nullable
+    private final Block probeHashBlock;
+    private final boolean probeMayHaveNull;
 
     private int position = -1;
 
-    private JoinProbe(int[] probeOutputChannels, Page page, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, @Nullable Block probeHashBlock)
     {
         this.probeOutputChannels = probeOutputChannels;
         this.positionCount = page.getPositionCount();
-        this.probeBlocks = new Block[probeJoinChannels.size()];
-
-        for (int i = 0; i < probeJoinChannels.size(); i++) {
-            probeBlocks[i] = page.getBlock(probeJoinChannels.get(i));
-        }
         this.page = page;
-        this.probePage = new Page(page.getPositionCount(), probeBlocks);
-        this.probeHashBlock = probeHashChannel.isPresent() ? Optional.of(page.getBlock(probeHashChannel.getAsInt())) : Optional.empty();
+        this.probePage = probePage;
+        this.probeHashBlock = probeHashBlock;
+        this.probeMayHaveNull = probeMayHaveNull(probePage);
     }
 
     public int[] getOutputChannels()
@@ -73,17 +73,16 @@ public class JoinProbe
 
     public boolean advanceNextPosition()
     {
-        position++;
-        return position < positionCount;
+        return ++position < positionCount;
     }
 
     public long getCurrentJoinPosition(LookupSource lookupSource)
     {
-        if (currentRowContainsNull()) {
+        if (probeMayHaveNull && currentRowContainsNull()) {
             return -1;
         }
-        if (probeHashBlock.isPresent()) {
-            long rawHash = BIGINT.getLong(probeHashBlock.get(), position);
+        if (probeHashBlock != null) {
+            long rawHash = BIGINT.getLong(probeHashBlock, position);
             return lookupSource.getJoinPosition(position, probePage, page, rawHash);
         }
         return lookupSource.getJoinPosition(position, probePage, page);
@@ -101,8 +100,18 @@ public class JoinProbe
 
     private boolean currentRowContainsNull()
     {
-        for (Block probeBlock : probeBlocks) {
-            if (probeBlock.isNull(position)) {
+        for (int i = 0; i < probePage.getChannelCount(); i++) {
+            if (probePage.getBlock(i).isNull(position)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean probeMayHaveNull(Page probePage)
+    {
+        for (int i = 0; i < probePage.getChannelCount(); i++) {
+            if (probePage.getBlock(i).mayHaveNull()) {
                 return true;
             }
         }

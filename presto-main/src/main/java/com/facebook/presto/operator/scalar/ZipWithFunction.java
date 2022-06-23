@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -29,15 +28,14 @@ import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -49,8 +47,7 @@ public final class ZipWithFunction
 {
     public static final ZipWithFunction ZIP_WITH_FUNCTION = new ZipWithFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ZipWithFunction.class, "zipWith", Type.class, Type.class, ArrayType.class, Object.class, Block.class, Block.class, BinaryFunctionInterface.class);
-    private static final MethodHandle STATE_FACTORY = methodHandle(ZipWithFunction.class, "createState", ArrayType.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ZipWithFunction.class, "zipWith", Type.class, Type.class, ArrayType.class, Block.class, Block.class, BinaryFunctionInterface.class);
 
     private ZipWithFunction()
     {
@@ -95,20 +92,13 @@ public final class ZipWithFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
-                METHOD_HANDLE.bindTo(leftElementType).bindTo(rightElementType).bindTo(outputArrayType),
-                Optional.of(STATE_FACTORY.bindTo(outputArrayType)));
-    }
-
-    public static Object createState(ArrayType arrayType)
-    {
-        return new PageBuilder(ImmutableList.of(arrayType));
+                METHOD_HANDLE.bindTo(leftElementType).bindTo(rightElementType).bindTo(outputArrayType));
     }
 
     public static Block zipWith(
             Type leftElementType,
             Type rightElementType,
             ArrayType outputArrayType,
-            Object state,
             Block leftBlock,
             Block rightBlock,
             BinaryFunctionInterface function)
@@ -118,11 +108,7 @@ public final class ZipWithFunction
         int rightPositionCount = rightBlock.getPositionCount();
         int outputPositionCount = max(leftPositionCount, rightPositionCount);
 
-        PageBuilder pageBuilder = (PageBuilder) state;
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder arrayBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder arrayBlockBuilder = outputArrayType.createBlockBuilder(null, max(leftPositionCount, rightPositionCount));
         BlockBuilder blockBuilder = arrayBlockBuilder.beginBlockEntry();
 
         for (int position = 0; position < outputPositionCount; position++) {
@@ -133,10 +119,6 @@ public final class ZipWithFunction
                 output = function.apply(left, right);
             }
             catch (Throwable throwable) {
-                // Restore pageBuilder into a consistent state.
-                arrayBlockBuilder.closeEntry();
-                pageBuilder.declarePosition();
-
                 throwIfUnchecked(throwable);
                 throw new RuntimeException(throwable);
             }
@@ -144,7 +126,6 @@ public final class ZipWithFunction
         }
 
         arrayBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
         return outputArrayType.getObject(arrayBlockBuilder, arrayBlockBuilder.getPositionCount() - 1);
     }
 }

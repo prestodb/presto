@@ -18,6 +18,8 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
@@ -47,8 +49,9 @@ public class TestValuesNodeStats
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(3)
+                                .setConfident(true)
                                 .addVariableStatistics(
-                                        new VariableReferenceExpression("a", BIGINT),
+                                        new VariableReferenceExpression(Optional.empty(), "a", BIGINT),
                                         VariableStatsEstimate.builder()
                                                 .setNullsFraction(0)
                                                 .setLowValue(6)
@@ -56,7 +59,7 @@ public class TestValuesNodeStats
                                                 .setDistinctValuesCount(2)
                                                 .build())
                                 .addVariableStatistics(
-                                        new VariableReferenceExpression("b", DOUBLE),
+                                        new VariableReferenceExpression(Optional.empty(), "b", DOUBLE),
                                         VariableStatsEstimate.builder()
                                                 .setNullsFraction(0.33333333333333333)
                                                 .setLowValue(13.5)
@@ -76,8 +79,9 @@ public class TestValuesNodeStats
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(4)
+                                .setConfident(true)
                                 .addVariableStatistics(
-                                        new VariableReferenceExpression("v", createVarcharType(30)),
+                                        new VariableReferenceExpression(Optional.empty(), "v", createVarcharType(30)),
                                         VariableStatsEstimate.builder()
                                                 .setNullsFraction(0.25)
                                                 .setDistinctValuesCount(3)
@@ -92,7 +96,8 @@ public class TestValuesNodeStats
         FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager());
         PlanNodeStatsEstimate bigintNullAStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1)
-                .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.zero())
+                .setConfident(true)
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), VariableStatsEstimate.zero())
                 .build();
 
         tester().assertStatsFor(pb -> pb
@@ -110,7 +115,8 @@ public class TestValuesNodeStats
 
         PlanNodeStatsEstimate unknownNullAStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1)
-                .addVariableStatistics(new VariableReferenceExpression("a", UNKNOWN), VariableStatsEstimate.zero())
+                .setConfident(true)
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", UNKNOWN), VariableStatsEstimate.zero())
                 .build();
 
         tester().assertStatsFor(pb -> pb
@@ -130,7 +136,8 @@ public class TestValuesNodeStats
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(0)
-                                .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.zero())
+                                .setConfident(true)
+                                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), VariableStatsEstimate.zero())
                                 .build()));
     }
 }

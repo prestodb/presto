@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.CanonicalPlanFragment;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
@@ -42,7 +43,12 @@ import static java.util.Objects.requireNonNull;
 public class FragmentResultCacheContext
 {
     private static final Logger log = Logger.get(FragmentResultCacheContext.class);
-    private static final Set<Class<? extends PlanNode>> ALLOWED_CHILDREN_NODES = ImmutableSet.of(TableScanNode.class, FilterNode.class, ProjectNode.class, GroupIdNode.class);
+    private static final Set<Class<? extends PlanNode>> ALLOWED_CHILDREN_NODES = ImmutableSet.of(
+            TableScanNode.class,
+            FilterNode.class,
+            ProjectNode.class,
+            GroupIdNode.class,
+            UnnestNode.class);
 
     private final FragmentResultCacheManager fragmentResultCacheManager;
     private final CanonicalPlanFragment canonicalPlanFragment;

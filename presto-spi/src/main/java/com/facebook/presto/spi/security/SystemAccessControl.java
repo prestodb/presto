@@ -51,7 +51,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName);
+    void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName);
 
     /**
      * Check if the query is unexpectedly modified using the credentials passed in the identity.
@@ -245,6 +245,16 @@ public interface SystemAccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDeleteFromTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyDeleteTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to truncate the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanTruncateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         denyDeleteTable(table.toString());
     }

@@ -17,19 +17,21 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.SqlFunctionResult;
+import com.facebook.presto.common.type.DistinctType;
+import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
@@ -37,8 +39,10 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -100,6 +104,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionAndTypeManager
@@ -136,6 +141,7 @@ public class FunctionAndTypeManager
         this.functionCache = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
@@ -162,7 +168,7 @@ public class FunctionAndTypeManager
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties);
+        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this));
         functionNamespaceManager.setBlockEncodingSerde(blockEncodingSerde);
 
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
@@ -194,21 +200,21 @@ public class FunctionAndTypeManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        if (signature.getTypeSignatureBase().isStandardType()) {
-            Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature);
+        if (signature.getTypeSignatureBase().hasStandardType()) {
+            // Some info about Type has been materialized in the signature itself, so directly use it instead of fetching it
+            if (signature.isDistinctType()) {
+                return getDistinctType(signature.getParameters().get(0).getDistinctTypeInfo());
+            }
+            Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
+                if (signature.getTypeSignatureBase().hasTypeName()) {
+                    return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type.get());
+                }
                 return type.get();
             }
         }
 
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
-        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
-        Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getQualifiedObjectName());
-        if (!userDefinedType.isPresent()) {
-            throw new IllegalArgumentException("Unknown type " + signature);
-        }
-        checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().isStandardType(), "UserDefinedType must be based on static types.");
-        return getType(userDefinedType.get().getPhysicalTypeSignature());
+        return getUserDefinedType(signature);
     }
 
     @Override
@@ -241,18 +247,27 @@ public class FunctionAndTypeManager
         builtInTypeAndFunctionNamespaceManager.registerBuiltInFunctions(functions);
     }
 
-    public List<SqlFunction> listFunctions(Session session)
+    /**
+     * likePattern / escape is an opportunistic optimization push down to function namespace managers.
+     * Not all function namespace managers can handle it, thus the returned function list could
+     * include functions that doesn't comply with the pattern specified. Specifically, all session
+     * functions and builtin functions will always be included in the returned set. So proper handling
+     * is still needed in `ShowQueriesRewrite`.
+     */
+    public List<SqlFunction> listFunctions(Session session, Optional<String> likePattern, Optional<String> escape)
     {
-        ImmutableList.Builder<SqlFunction> lb = new ImmutableList.Builder<>();
-        lb.addAll(listBuiltInFunctions());
+        ImmutableList.Builder<SqlFunction> functions = new ImmutableList.Builder<>();
         if (!isListBuiltInFunctionsOnly(session)) {
-            lb.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
-            lb.addAll(functionNamespaceManagers.values().stream()
-                    .flatMap(manager -> manager.listFunctions().stream())
+            functions.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
+            functions.addAll(functionNamespaceManagers.values().stream()
+                    .flatMap(manager -> manager.listFunctions(likePattern, escape).stream())
                     .collect(toImmutableList()));
         }
+        else {
+            functions.addAll(listBuiltInFunctions());
+        }
 
-        return lb.build().stream()
+        return functions.build().stream()
                 .filter(function -> function.getVisibility() == PUBLIC ||
                         (function.getVisibility() == EXPERIMENTAL && isExperimentalFunctionsEnabled(session)))
                 .collect(toImmutableList());
@@ -260,7 +275,7 @@ public class FunctionAndTypeManager
 
     public Collection<SqlFunction> listBuiltInFunctions()
     {
-        return builtInTypeAndFunctionNamespaceManager.listFunctions();
+        return builtInTypeAndFunctionNamespaceManager.listFunctions(Optional.empty(), Optional.empty());
     }
 
     public Collection<? extends SqlFunction> getFunctions(Session session, QualifiedObjectName functionName)
@@ -354,14 +369,14 @@ public class FunctionAndTypeManager
     public void addType(Type type)
     {
         TypeSignatureBase typeSignatureBase = type.getTypeSignature().getTypeSignatureBase();
-        checkArgument(typeSignatureBase.isStandardType(), "Expect standard types");
+        checkArgument(typeSignatureBase.hasStandardType(), "Expect standard types");
         builtInTypeAndFunctionNamespaceManager.addType(type);
     }
 
     public void addParametricType(ParametricType parametricType)
     {
         TypeSignatureBase typeSignatureBase = parametricType.getTypeSignatureBase();
-        checkArgument(typeSignatureBase.isStandardType(), "Expect standard types");
+        checkArgument(typeSignatureBase.hasStandardType(), "Expect standard types");
         builtInTypeAndFunctionNamespaceManager.addParametricType(parametricType);
     }
 
@@ -408,11 +423,11 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
-    public CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
+    public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkState(functionNamespaceManager.isPresent(), format("FunctionHandle %s should have a serving function namespace", functionHandle));
-        return functionNamespaceManager.get().executeFunction(functionHandle, inputPage, channels, this);
+        return functionNamespaceManager.get().executeFunction(source, functionHandle, inputPage, channels, this);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
@@ -425,9 +440,13 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
     }
 
-    public BuiltInScalarFunctionImplementation getBuiltInScalarFunctionImplementation(FunctionHandle functionHandle)
+    public JavaScalarFunctionImplementation getJavaScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        return (BuiltInScalarFunctionImplementation) builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
+        ScalarFunctionImplementation implementation = getScalarFunctionImplementation(functionHandle);
+        checkArgument(
+                implementation instanceof JavaScalarFunctionImplementation,
+                format("Implementation of function %s is not a JavaScalarFunctionImplementation", getFunctionMetadata(functionHandle).getName()));
+        return (JavaScalarFunctionImplementation) implementation;
     }
 
     @VisibleForTesting
@@ -437,7 +456,7 @@ public class FunctionAndTypeManager
                 .map(OperatorType::getFunctionName)
                 .collect(toImmutableSet());
 
-        return builtInTypeAndFunctionNamespaceManager.listFunctions().stream()
+        return builtInTypeAndFunctionNamespaceManager.listFunctions(Optional.empty(), Optional.empty()).stream()
                 .filter(function -> operatorNames.contains(function.getSignature().getName()))
                 .collect(toImmutableList());
     }
@@ -483,20 +502,52 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), match.get());
     }
 
-    public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
+    public FunctionHandle lookupCast(CastType castType, Type fromType, Type toType)
     {
-        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType, singletonList(fromType), false);
+        // For casts, specialize() can load more info about types, that we might not be able to get back due to
+        // several layers of conversion between type and type signatures.
+        // So, we manually load this info here and store it in signature which will be sent to worker.
+        getCommonSuperType(fromType, toType);
+        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType.getTypeSignature(), singletonList(fromType.getTypeSignature()), false);
 
         try {
             builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(signature);
         }
         catch (PrestoException e) {
             if (castType.isOperatorType() && e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(toOperatorType(castType), ImmutableList.of(fromType), toType);
+                throw new OperatorNotFoundException(toOperatorType(castType), ImmutableList.of(fromType.getTypeSignature()), toType.getTypeSignature());
             }
             throw e;
         }
         return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
+    }
+
+    protected Type getType(UserDefinedType userDefinedType)
+    {
+        // Distinct type
+        if (userDefinedType.isDistinctType()) {
+            return getDistinctType(userDefinedType.getPhysicalTypeSignature().getParameters().get(0).getDistinctTypeInfo());
+        }
+        // Enum type
+        return getType(new TypeSignature(userDefinedType));
+    }
+
+    private DistinctType getDistinctType(DistinctTypeInfo distinctTypeInfo)
+    {
+        return new DistinctType(distinctTypeInfo,
+                getType(distinctTypeInfo.getBaseType()),
+                name -> (DistinctType) getType(new TypeSignature(name)));
+    }
+
+    private Type getUserDefinedType(TypeSignature signature)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
+        UserDefinedType userDefinedType = functionNamespaceManager.get()
+                .getUserDefinedType(signature.getTypeSignatureBase().getTypeName())
+                .orElseThrow(() -> new IllegalArgumentException("Unknown type " + signature));
+        checkArgument(userDefinedType.getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "A UserDefinedType must be based on static types.");
+        return getType(userDefinedType);
     }
 
     private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
@@ -508,6 +559,11 @@ public class FunctionAndTypeManager
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
                 .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
+
+        if (functionNamespaceManager.canResolveFunction()) {
+            return functionNamespaceManager.resolveFunction(transactionHandle, functionName, parameterTypes.stream().map(TypeSignatureProvider::getTypeSignature).collect(toImmutableList()));
+        }
+
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
         Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
@@ -558,7 +614,7 @@ public class FunctionAndTypeManager
 
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(TypeSignatureBase typeSignatureBase)
     {
-        return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getQualifiedObjectName().getCatalogName()));
+        return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().getCatalogName()));
     }
 
     private static class FunctionResolutionCacheKey

@@ -17,10 +17,13 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class PrestoSparkConfig
 {
@@ -30,6 +33,15 @@ public class PrestoSparkConfig
     private int initialSparkPartitionCount = 16;
     private DataSize maxSplitsDataSizePerSparkPartition = new DataSize(2, GIGABYTE);
     private DataSize shuffleOutputTargetAverageRowSize = new DataSize(1, KILOBYTE);
+    private boolean storageBasedBroadcastJoinEnabled;
+    private DataSize storageBasedBroadcastJoinWriteBufferSize = new DataSize(24, MEGABYTE);
+    private String storageBasedBroadcastJoinStorage = "local";
+    private DataSize sparkBroadcastJoinMaxMemoryOverride;
+    private boolean smileSerializationEnabled = true;
+    private int splitAssignmentBatchSize = 1_000_000;
+    private double memoryRevokingThreshold;
+    private double memoryRevokingTarget;
+    private boolean retryOnOutOfMemoryBroadcastJoinEnabled;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -107,6 +119,124 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setShuffleOutputTargetAverageRowSize(DataSize shuffleOutputTargetAverageRowSize)
     {
         this.shuffleOutputTargetAverageRowSize = shuffleOutputTargetAverageRowSize;
+        return this;
+    }
+
+    public boolean isStorageBasedBroadcastJoinEnabled()
+    {
+        return storageBasedBroadcastJoinEnabled;
+    }
+
+    @Config("spark.storage-based-broadcast-join-enabled")
+    @ConfigDescription("Distribute broadcast hashtable to workers using storage")
+    public PrestoSparkConfig setStorageBasedBroadcastJoinEnabled(boolean storageBasedBroadcastJoinEnabled)
+    {
+        this.storageBasedBroadcastJoinEnabled = storageBasedBroadcastJoinEnabled;
+        return this;
+    }
+
+    public DataSize getStorageBasedBroadcastJoinWriteBufferSize()
+    {
+        return storageBasedBroadcastJoinWriteBufferSize;
+    }
+
+    @Config("spark.storage-based-broadcast-join-write-buffer-size")
+    @ConfigDescription("Maximum size in bytes to buffer before flushing pages to disk")
+    public PrestoSparkConfig setStorageBasedBroadcastJoinWriteBufferSize(DataSize storageBasedBroadcastJoinWriteBufferSize)
+    {
+        this.storageBasedBroadcastJoinWriteBufferSize = storageBasedBroadcastJoinWriteBufferSize;
+        return this;
+    }
+
+    public String getStorageBasedBroadcastJoinStorage()
+    {
+        return storageBasedBroadcastJoinStorage;
+    }
+
+    @Config("spark.storage-based-broadcast-join-storage")
+    @ConfigDescription("TempStorage to use for dumping broadcast table")
+    public PrestoSparkConfig setStorageBasedBroadcastJoinStorage(String storageBasedBroadcastJoinStorage)
+    {
+        this.storageBasedBroadcastJoinStorage = storageBasedBroadcastJoinStorage;
+        return this;
+    }
+
+    public DataSize getSparkBroadcastJoinMaxMemoryOverride()
+    {
+        return sparkBroadcastJoinMaxMemoryOverride;
+    }
+
+    @Config("spark.broadcast-join-max-memory-override")
+    public PrestoSparkConfig setSparkBroadcastJoinMaxMemoryOverride(DataSize sparkBroadcastJoinMaxMemoryOverride)
+    {
+        this.sparkBroadcastJoinMaxMemoryOverride = sparkBroadcastJoinMaxMemoryOverride;
+        return this;
+    }
+
+    public boolean isSmileSerializationEnabled()
+    {
+        return smileSerializationEnabled;
+    }
+
+    @Config("spark.smile-serialization-enabled")
+    public PrestoSparkConfig setSmileSerializationEnabled(boolean smileSerializationEnabled)
+    {
+        this.smileSerializationEnabled = smileSerializationEnabled;
+        return this;
+    }
+
+    public int getSplitAssignmentBatchSize()
+    {
+        return splitAssignmentBatchSize;
+    }
+
+    @Config("spark.split-assignment-batch-size")
+    public PrestoSparkConfig setSplitAssignmentBatchSize(int splitAssignmentBatchSize)
+    {
+        this.splitAssignmentBatchSize = splitAssignmentBatchSize;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMemoryRevokingThreshold()
+    {
+        return memoryRevokingThreshold;
+    }
+
+    @Config("spark.memory-revoking-threshold")
+    @ConfigDescription("Revoke memory when memory pool is filled over threshold")
+    public PrestoSparkConfig setMemoryRevokingThreshold(double memoryRevokingThreshold)
+    {
+        this.memoryRevokingThreshold = memoryRevokingThreshold;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMemoryRevokingTarget()
+    {
+        return memoryRevokingTarget;
+    }
+
+    @Config("spark.memory-revoking-target")
+    @ConfigDescription("When revoking memory, try to revoke so much that memory pool is filled below target at the end")
+    public PrestoSparkConfig setMemoryRevokingTarget(double memoryRevokingTarget)
+    {
+        this.memoryRevokingTarget = memoryRevokingTarget;
+        return this;
+    }
+
+    public boolean isRetryOnOutOfMemoryBroadcastJoinEnabled()
+    {
+        return retryOnOutOfMemoryBroadcastJoinEnabled;
+    }
+
+    @Config("spark.retry-on-out-of-memory-broadcast-join-enabled")
+    @ConfigDescription("Disable broadcast join on broadcast OOM and re-submit the query again within the same spark session")
+    public PrestoSparkConfig setRetryOnOutOfMemoryBroadcastJoinEnabled(boolean retryOnOutOfMemoryBroadcastJoinEnabled)
+    {
+        this.retryOnOutOfMemoryBroadcastJoinEnabled = retryOnOutOfMemoryBroadcastJoinEnabled;
         return this;
     }
 }

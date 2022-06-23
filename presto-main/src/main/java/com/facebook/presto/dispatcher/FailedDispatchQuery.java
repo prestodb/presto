@@ -21,6 +21,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -67,6 +68,7 @@ public class FailedDispatchQuery
         this.dispatchInfo = DispatchInfo.failed(
                 failure,
                 basicQueryInfo.getQueryStats().getElapsedTime(),
+                basicQueryInfo.getQueryStats().getWaitingForPrerequisitesTime(),
                 basicQueryInfo.getQueryStats().getQueuedTime());
     }
 
@@ -101,6 +103,9 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public void startWaitingForPrerequisites() {}
+
+    @Override
     public void startWaitingForResources() {}
 
     @Override
@@ -128,6 +133,12 @@ public class FailedDispatchQuery
     public Optional<ErrorCode> getErrorCode()
     {
         return Optional.ofNullable(basicQueryInfo.getErrorCode());
+    }
+
+    @Override
+    public boolean isRetry()
+    {
+        return false;
     }
 
     @Override
@@ -174,4 +185,14 @@ public class FailedDispatchQuery
     {
         return new DataSize(0, BYTE);
     }
+
+    @Override
+    public Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits()
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
+    { }
 }

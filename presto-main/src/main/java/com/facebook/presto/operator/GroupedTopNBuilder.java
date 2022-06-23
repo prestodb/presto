@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -51,7 +50,7 @@ public class GroupedTopNBuilder
     // compact a page when 50% of its positions are unreferenced
     private static final int COMPACT_THRESHOLD = 2;
 
-    private final List<Type> sourceTypes;
+    private final Type[] sourceTypes;
     private final int topN;
     private final boolean produceRowNumber;
     private final GroupByHash groupByHash;
@@ -61,7 +60,8 @@ public class GroupedTopNBuilder
     // a list of input pages, each of which has information of which row in which heap references which position
     private final ObjectBigArray<PageReference> pageReferences = new ObjectBigArray<>();
     // for heap element comparison
-    private final Comparator<Row> comparator;
+    private final PageWithPositionComparator pageWithPositionComparator;
+    private final Comparator<Row> rowHeapComparator;
     // when there is no row referenced in a page, it will be removed instead of compacted; use a list to record those empty slots to reuse them
     private final IntFIFOQueue emptyPageReferenceSlots;
 
@@ -76,14 +76,15 @@ public class GroupedTopNBuilder
             boolean produceRowNumber,
             GroupByHash groupByHash)
     {
-        this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
+        this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null").toArray(new Type[0]);
         checkArgument(topN > 0, "topN must be > 0");
         this.topN = topN;
         this.produceRowNumber = produceRowNumber;
         this.groupByHash = requireNonNull(groupByHash, "groupByHash is not null");
 
-        requireNonNull(comparator, "comparator is null");
-        this.comparator = (left, right) -> comparator.compareTo(
+        this.pageWithPositionComparator = requireNonNull(comparator, "comparator is null");
+        // Note: this is comparator intentionally swaps left and right arguments form a "reverse order" comparator
+        this.rowHeapComparator = (right, left) -> this.pageWithPositionComparator.compareTo(
                 pageReferences.get(left.getPageId()).getPage(),
                 left.getPosition(),
                 pageReferences.get(right.getPageId()).getPage(),
@@ -130,7 +131,12 @@ public class GroupedTopNBuilder
         checkArgument(newPage != null);
         checkArgument(groupIds != null);
 
-        // save the new page
+        int firstPositionToInsert = findFirstPositionToInsert(newPage, groupIds);
+        if (firstPositionToInsert < 0) {
+            // no insertions required
+            return;
+        }
+
         PageReference newPageReference = new PageReference(newPage);
         memorySizeInBytes += newPageReference.getEstimatedSizeInBytes();
         int newPageId;
@@ -144,19 +150,18 @@ public class GroupedTopNBuilder
             // reuse a previously removed page's slot
             newPageId = emptyPageReferenceSlots.dequeueInt();
         }
-        verify(pageReferences.get(newPageId) == null, "should not overwrite a non-empty slot");
-        pageReferences.set(newPageId, newPageReference);
+        verify(pageReferences.setIfNull(newPageId, newPageReference), "should not overwrite a non-empty slot");
 
+        // ensure sufficient group capacity outside of the loop
+        groupedRows.ensureCapacity(groupIds.getGroupCount());
         // update the affected heaps and record candidate pages that need compaction
         IntSet pagesToCompact = new IntOpenHashSet();
-        for (int position = 0; position < newPage.getPositionCount(); position++) {
+        for (int position = firstPositionToInsert; position < newPage.getPositionCount(); position++) {
             long groupId = groupIds.getGroupId(position);
-            groupedRows.ensureCapacity(groupId + 1);
-
             RowHeap rows = groupedRows.get(groupId);
             if (rows == null) {
                 // a new group
-                rows = new RowHeap(Ordering.from(comparator).reversed());
+                rows = new RowHeap(rowHeapComparator);
                 groupedRows.set(groupId, rows);
             }
             else {
@@ -166,20 +171,20 @@ public class GroupedTopNBuilder
             }
 
             if (rows.size() < topN) {
-                // still have space for the current group
                 Row row = new Row(newPageId, position);
-                rows.enqueue(row);
                 newPageReference.reference(row);
+                rows.enqueue(row);
             }
             else {
                 // may compare with the topN-th element with in the heap to decide if update is necessary
                 Row previousRow = rows.first();
-                Row newRow = new Row(newPageId, position);
-                if (comparator.compare(newRow, previousRow) < 0) {
+                PageReference previousPageReference = pageReferences.get(previousRow.getPageId());
+                if (pageWithPositionComparator.compareTo(newPage, position, previousPageReference.getPage(), previousRow.getPosition()) < 0) {
                     // update reference and the heap
                     rows.dequeue();
-                    PageReference previousPageReference = pageReferences.get(previousRow.getPageId());
                     previousPageReference.dereference(previousRow.getPosition());
+
+                    Row newRow = new Row(newPageId, position);
                     newPageReference.reference(newRow);
                     rows.enqueue(newRow);
 
@@ -196,8 +201,7 @@ public class GroupedTopNBuilder
 
         // may compact the new page as well
         if (newPageReference.getUsedPositionCount() * COMPACT_THRESHOLD < newPage.getPositionCount()) {
-            verify(!pagesToCompact.contains(newPageId));
-            pagesToCompact.add(newPageId);
+            verify(pagesToCompact.add(newPageId));
         }
 
         // compact pages
@@ -218,11 +222,34 @@ public class GroupedTopNBuilder
         }
     }
 
+    private int findFirstPositionToInsert(Page newPage, GroupByIdBlock groupIds)
+    {
+        for (int position = 0; position < newPage.getPositionCount(); position++) {
+            long groupId = groupIds.getGroupId(position);
+            if (groupedRows.getCapacity() <= groupId) {
+                return position;
+            }
+
+            RowHeap rows = groupedRows.get(groupId);
+            if (rows == null || rows.size() < topN) {
+                return position;
+            }
+            // check against current minimum
+            Row previousRow = rows.first();
+            PageReference pageReference = pageReferences.get(previousRow.getPageId());
+            if (pageWithPositionComparator.compareTo(newPage, position, pageReference.getPage(), previousRow.getPosition()) < 0) {
+                return position;
+            }
+        }
+        // no positions to insert
+        return -1;
+    }
+
     /**
      * The class is a pointer to a row in a page.
      * The actual position in the page is mutable because as pages are compacted, the position will change.
      */
-    private class Row
+    private static class Row
     {
         private final int pageId;
         private int position;
@@ -275,16 +302,15 @@ public class GroupedTopNBuilder
 
         public void reference(Row row)
         {
-            int position = row.getPosition();
-            reference[position] = row;
+            reference[row.getPosition()] = row;
             usedPositionCount++;
         }
 
-        public void dereference(int position)
+        public boolean dereference(int position)
         {
             checkArgument(reference[position] != null && usedPositionCount > 0);
             reference[position] = null;
-            usedPositionCount--;
+            return (--usedPositionCount) == 0;
         }
 
         public int getUsedPositionCount()
@@ -304,9 +330,14 @@ public class GroupedTopNBuilder
             Row[] newReference = new Row[usedPositionCount];
             int[] positions = new int[usedPositionCount];
             int index = 0;
-            for (int i = 0; i < page.getPositionCount(); i++) {
-                if (reference[i] != null) {
-                    newReference[index] = reference[i];
+            // update all the elements in the heaps that reference the current page
+            // this does not change the elements in the heap;
+            // it only updates the value of the elements; while keeping the same order
+            for (int i = 0; i < reference.length && index < usedPositionCount; i++) {
+                Row value = reference[i];
+                if (value != null) {
+                    value.reset(index);
+                    newReference[index] = value;
                     positions[index] = i;
                     index++;
                 }
@@ -314,15 +345,7 @@ public class GroupedTopNBuilder
             verify(index == usedPositionCount);
 
             // compact page
-            Page newPage = page.copyPositions(positions, 0, usedPositionCount);
-
-            // update all the elements in the heaps that reference the current page
-            for (int i = 0; i < usedPositionCount; i++) {
-                // this does not change the elements in the heap;
-                // it only updates the value of the elements; while keeping the same order
-                newReference[i].reset(i);
-            }
-            page = newPage;
+            page = page.copyPositions(positions, 0, usedPositionCount);
             reference = newReference;
         }
 
@@ -370,6 +393,9 @@ public class GroupedTopNBuilder
     private class ResultIterator
             extends AbstractIterator<Page>
     {
+        // ObjectBigArray capacity is always at least 1024, so discarding "small" BigArrays even if you don't need the entire space is wasteful
+        private static final int UNUSED_CAPACITY_DISPOSAL_THRESHOLD = 4096;
+
         private final PageBuilder pageBuilder;
         // we may have 0 groups if there is no input page processed
         private final int groupCount = groupByHash.getGroupCount();
@@ -382,16 +408,19 @@ public class GroupedTopNBuilder
         // number of rows in the group
         private int currentGroupSize;
 
-        private ObjectBigArray<Row> currentRows = nextGroupedRows();
+        private ObjectBigArray<Row> currentRows;
 
         ResultIterator()
         {
             if (produceRowNumber) {
-                pageBuilder = new PageBuilder(new ImmutableList.Builder<Type>().addAll(sourceTypes).add(BIGINT).build());
+                pageBuilder = new PageBuilder(new ImmutableList.Builder<Type>().add(sourceTypes).add(BIGINT).build());
             }
             else {
-                pageBuilder = new PageBuilder(sourceTypes);
+                pageBuilder = new PageBuilder(ImmutableList.copyOf(sourceTypes));
             }
+            // Populate the first group
+            currentRows = new ObjectBigArray<>();
+            nextGroupedRows();
         }
 
         @Override
@@ -407,25 +436,27 @@ public class GroupedTopNBuilder
                     // the current group has produced all its rows
                     memorySizeInBytes -= currentGroupSizeInBytes;
                     currentGroupPosition = 0;
-                    currentRows = nextGroupedRows();
+                    nextGroupedRows();
                     continue;
                 }
 
-                Row row = currentRows.get(currentGroupPosition);
-                for (int i = 0; i < sourceTypes.size(); i++) {
-                    sourceTypes.get(i).appendTo(pageReferences.get(row.getPageId()).getPage().getBlock(i), row.getPosition(), pageBuilder.getBlockBuilder(i));
+                // Clear the reference to the Row after access to make it reclaimable by GC
+                Row row = currentRows.getAndSet(currentGroupPosition, null);
+                PageReference pageReference = pageReferences.get(row.getPageId());
+                Page page = pageReference.getPage();
+                int position = row.getPosition();
+                for (int i = 0; i < sourceTypes.length; i++) {
+                    sourceTypes[i].appendTo(page.getBlock(i), position, pageBuilder.getBlockBuilder(i));
                 }
 
                 if (produceRowNumber) {
-                    BIGINT.writeLong(pageBuilder.getBlockBuilder(sourceTypes.size()), currentGroupPosition + 1);
+                    BIGINT.writeLong(pageBuilder.getBlockBuilder(sourceTypes.length), currentGroupPosition + 1);
                 }
                 pageBuilder.declarePosition();
                 currentGroupPosition++;
 
                 // deference the row; no need to compact the pages but remove them if completely unused
-                PageReference pageReference = pageReferences.get(row.getPageId());
-                pageReference.dereference(row.getPosition());
-                if (pageReference.getUsedPositionCount() == 0) {
+                if (pageReference.dereference(position)) {
                     pageReferences.set(row.getPageId(), null);
                     memorySizeInBytes -= pageReference.getEstimatedSizeInBytes();
                 }
@@ -437,28 +468,30 @@ public class GroupedTopNBuilder
             return pageBuilder.build();
         }
 
-        private ObjectBigArray<Row> nextGroupedRows()
+        private void nextGroupedRows()
         {
             if (currentGroupNumber < groupCount) {
-                RowHeap rows = groupedRows.get(currentGroupNumber);
+                RowHeap rows = groupedRows.getAndSet(currentGroupNumber, null);
                 verify(rows != null && !rows.isEmpty(), "impossible to have inserted a group without a witness row");
-                groupedRows.set(currentGroupNumber, null);
                 currentGroupSizeInBytes = rows.getEstimatedSizeInBytes();
                 currentGroupNumber++;
                 currentGroupSize = rows.size();
 
                 // sort output rows in a big array in case there are too many rows
-                ObjectBigArray<Row> sortedRows = new ObjectBigArray<>();
-                sortedRows.ensureCapacity(currentGroupSize);
-                int index = currentGroupSize - 1;
-                while (!rows.isEmpty()) {
-                    sortedRows.set(index, rows.dequeue());
-                    index--;
+                checkState(currentRows != null, "currentRows already observed the final group");
+                if (currentRows.getCapacity() > UNUSED_CAPACITY_DISPOSAL_THRESHOLD && currentRows.getCapacity() > currentGroupSize * 2L) {
+                    // Discard over-sized big array to avoid unnecessary waste
+                    currentRows = new ObjectBigArray<>();
                 }
-
-                return sortedRows;
+                currentRows.ensureCapacity(currentGroupSize);
+                for (int index = currentGroupSize - 1; index >= 0; index--) {
+                    currentRows.set(index, rows.dequeue());
+                }
             }
-            return null;
+            else {
+                currentRows = null;
+                currentGroupSize = 0;
+            }
         }
     }
 }

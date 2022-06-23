@@ -21,7 +21,7 @@ import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
-class TempFile
+public class TempFile
         implements Closeable
 {
     private final File tempDir;

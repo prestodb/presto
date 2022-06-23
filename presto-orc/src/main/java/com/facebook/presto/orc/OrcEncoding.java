@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.DwrfMetadataWriter;
 import com.facebook.presto.orc.metadata.MetadataReader;
@@ -24,9 +25,9 @@ public enum OrcEncoding
 {
     ORC {
         @Override
-        public MetadataReader createMetadataReader()
+        public MetadataReader createMetadataReader(RuntimeStats runtimeStats)
         {
-            return new OrcMetadataReader();
+            return new OrcMetadataReader(runtimeStats);
         }
 
         @Override
@@ -37,9 +38,9 @@ public enum OrcEncoding
     },
     DWRF {
         @Override
-        public MetadataReader createMetadataReader()
+        public MetadataReader createMetadataReader(RuntimeStats runtimeStats)
         {
-            return new DwrfMetadataReader();
+            return new DwrfMetadataReader(runtimeStats);
         }
 
         @Override
@@ -49,7 +50,7 @@ public enum OrcEncoding
         }
     };
 
-    public abstract MetadataReader createMetadataReader();
+    public abstract MetadataReader createMetadataReader(RuntimeStats runtimeStats);
 
     public abstract MetadataWriter createMetadataWriter();
 }

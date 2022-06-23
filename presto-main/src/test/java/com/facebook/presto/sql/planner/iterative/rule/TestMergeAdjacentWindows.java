@@ -226,7 +226,7 @@ public class TestMergeAdjacentWindows
                         name,
                         functionHandle,
                         BIGINT,
-                        Arrays.stream(symbols).map(symbol -> new VariableReferenceExpression(symbol, BIGINT)).collect(Collectors.toList())),
+                        Arrays.stream(symbols).map(symbol -> new VariableReferenceExpression(Optional.empty(), symbol, BIGINT)).collect(Collectors.toList())),
                 frame,
                 false);
     }

@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.pinot.PinotConfig.DEFAULT_GRPC_TLS_STORE_TYPE;
+
 public class TestPinotConfig
 {
     @Test
@@ -29,6 +31,7 @@ public class TestPinotConfig
         ConfigAssertions.assertRecordedDefaults(
                 ConfigAssertions.recordDefaults(PinotConfig.class)
                         .setExtraHttpHeaders("")
+                        .setExtraGrpcMetadata("")
                         .setControllerUrls("")
                         .setIdleTimeout(new Duration(5, TimeUnit.MINUTES))
                         .setLimitLargeForSegment(PinotConfig.DEFAULT_LIMIT_LARGE_FOR_SEGMENT)
@@ -43,6 +46,7 @@ public class TestPinotConfig
                         .setServiceHeaderParam("RPC-Service")
                         .setCallerHeaderValue("presto")
                         .setCallerHeaderParam("RPC-Caller")
+                        .setOverrideDistinctCountFunction("distinctCount")
                         .setMetadataCacheExpiry(new Duration(2, TimeUnit.MINUTES))
                         .setAllowMultipleAggregations(true)
                         .setInferDateTypeInSchema(true)
@@ -50,11 +54,21 @@ public class TestPinotConfig
                         .setForbidBrokerQueries(false)
                         .setUsePinotSqlForBrokerQueries(true)
                         .setRestProxyServiceForQuery(null)
-                        .setRestProxyUrl(null)
+                        .setUseProxy(false)
+                        .setGrpcHost(null)
+                        .setGrpcTlsKeyStoreType(DEFAULT_GRPC_TLS_STORE_TYPE)
+                        .setGrpcTlsKeyStorePath(null)
+                        .setGrpcTlsKeyStorePassword(null)
+                        .setGrpcTlsTrustStoreType(DEFAULT_GRPC_TLS_STORE_TYPE)
+                        .setGrpcTlsTrustStorePath(null)
+                        .setGrpcTlsTrustStorePassword(null)
+                        .setGrpcPort(PinotConfig.DEFAULT_PROXY_GRPC_PORT)
+                        .setUseSecureConnection(false)
                         .setNumSegmentsPerSplit(1)
                         .setFetchRetryCount(2)
                         .setMarkDataFetchExceptionsAsRetriable(true)
-                        .setPushdownTopNBrokerQueries(false)
+                        .setPushdownTopNBrokerQueries(true)
+                        .setPushdownProjectExpressions(true)
                         .setIgnoreEmptyResponses(false)
                         .setUseDateTrunc(false)
                         .setForbidSegmentQueries(false)
@@ -69,6 +83,7 @@ public class TestPinotConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("pinot.extra-http-headers", "k:v")
+                .put("pinot.extra-grpc-metadata", "k1:v1")
                 .put("pinot.controller-rest-service", "pinot-controller-service")
                 .put("pinot.controller-urls", "host1:1111,host2:1111")
                 .put("pinot.idle-timeout", "1h")
@@ -88,8 +103,10 @@ public class TestPinotConfig
                 .put("pinot.infer-timestamp-type-in-schema", "false")
                 .put("pinot.forbid-broker-queries", "true")
                 .put("pinot.use-pinot-sql-for-broker-queries", "false")
-                .put("pinot.rest-proxy-url", "localhost:1111")
                 .put("pinot.rest-proxy-service-for-query", "pinot-rest-proxy-service")
+                .put("pinot.grpc-host", "localhost")
+                .put("pinot.grpc-port", "8224")
+                .put("pinot.proxy-enabled", "true")
                 .put("pinot.num-segments-per-split", "2")
                 .put("pinot.ignore-empty-responses", "true")
                 .put("pinot.fetch-retry-count", "3")
@@ -97,17 +114,28 @@ public class TestPinotConfig
                 .put("pinot.non-aggregate-limit-for-broker-queries", "10")
                 .put("pinot.use-date-trunc", "true")
                 .put("pinot.limit-large-for-segment", "100")
-                .put("pinot.pushdown-topn-broker-queries", "true")
+                .put("pinot.pushdown-topn-broker-queries", "false")
+                .put("pinot.pushdown-project-expressions", "false")
                 .put("pinot.forbid-segment-queries", "true")
                 .put("pinot.use-streaming-for-segment-queries", "true")
                 .put("pinot.streaming-server-grpc-max-inbound-message-bytes", "65536")
+                .put("pinot.secure-connection", "true")
+                .put("pinot.override-distinct-count-function", "distinctCountBitmap")
+                .put("pinot.grpc-tls-trust-store-password", "changeit1")
+                .put("pinot.grpc-tls-trust-store-type", "jks-truststore")
+                .put("pinot.grpc-tls-trust-store-path", "/path/to/truststore/file.jks")
+                .put("pinot.grpc-tls-key-store-password", "changeit2")
+                .put("pinot.grpc-tls-key-store-path", "/path/to/keystore/file.jks")
+                .put("pinot.grpc-tls-key-store-type", "jks-keystore")
                 .build();
 
         PinotConfig expected = new PinotConfig()
                 .setExtraHttpHeaders("k:v")
+                .setExtraGrpcMetadata("k1:v1")
                 .setControllerRestService("pinot-controller-service")
                 .setControllerUrls("host1:1111,host2:1111")
-                .setRestProxyUrl("localhost:1111")
+                .setGrpcHost("localhost")
+                .setGrpcPort(8224)
                 .setIdleTimeout(new Duration(1, TimeUnit.HOURS))
                 .setLimitLargeForSegment(100000)
                 .setTopNLarge(1000)
@@ -120,6 +148,7 @@ public class TestPinotConfig
                 .setServiceHeaderParam("myServiceHeader")
                 .setCallerHeaderValue("myCaller")
                 .setCallerHeaderParam("myParam")
+                .setOverrideDistinctCountFunction("distinctCountBitmap")
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MINUTES))
                 .setAllowMultipleAggregations(false)
                 .setInferDateTypeInSchema(false)
@@ -133,11 +162,20 @@ public class TestPinotConfig
                 .setMarkDataFetchExceptionsAsRetriable(false)
                 .setNonAggregateLimitForBrokerQueries(10)
                 .setLimitLargeForSegment(100)
-                .setPushdownTopNBrokerQueries(true)
+                .setPushdownTopNBrokerQueries(false)
+                .setPushdownProjectExpressions(false)
                 .setForbidSegmentQueries(true)
                 .setUseStreamingForSegmentQueries(true)
                 .setStreamingServerGrpcMaxInboundMessageBytes(65536)
-                .setUseDateTrunc(true);
+                .setUseDateTrunc(true)
+                .setUseProxy(true)
+                .setGrpcTlsTrustStorePassword("changeit1")
+                .setGrpcTlsTrustStoreType("jks-truststore")
+                .setGrpcTlsTrustStorePath("/path/to/truststore/file.jks")
+                .setGrpcTlsKeyStorePath("/path/to/keystore/file.jks")
+                .setGrpcTlsKeyStorePassword("changeit2")
+                .setGrpcTlsKeyStoreType("jks-keystore")
+                .setUseSecureConnection(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -47,6 +47,7 @@ public class TaskInfo
 
     private final boolean needsPlan;
     private final MetadataUpdates metadataUpdates;
+    private final String nodeId;
 
     @JsonCreator
     public TaskInfo(
@@ -57,7 +58,8 @@ public class TaskInfo
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
             @JsonProperty("needsPlan") boolean needsPlan,
-            @JsonProperty("metadataUpdates") MetadataUpdates metadataUpdates)
+            @JsonProperty("metadataUpdates") MetadataUpdates metadataUpdates,
+            @JsonProperty("nodeId") String nodeId)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
@@ -68,6 +70,7 @@ public class TaskInfo
 
         this.needsPlan = needsPlan;
         this.metadataUpdates = metadataUpdates;
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
     }
 
     @JsonProperty
@@ -118,12 +121,36 @@ public class TaskInfo
         return metadataUpdates;
     }
 
+    @JsonProperty
+    public String getNodeId()
+    {
+        return nodeId;
+    }
+
     public TaskInfo summarize()
     {
         if (taskStatus.getState().isDone()) {
-            return new TaskInfo(taskId, taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan, metadataUpdates);
+            return new TaskInfo(
+                    taskId,
+                    taskStatus,
+                    lastHeartbeat,
+                    outputBuffers.summarize(),
+                    noMoreSplits,
+                    stats.summarizeFinal(),
+                    needsPlan,
+                    metadataUpdates,
+                    nodeId);
         }
-        return new TaskInfo(taskId, taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan, metadataUpdates);
+        return new TaskInfo(
+                taskId,
+                taskStatus,
+                lastHeartbeat,
+                outputBuffers.summarize(),
+                noMoreSplits,
+                stats.summarize(),
+                needsPlan,
+                metadataUpdates,
+                nodeId);
     }
 
     @Override
@@ -135,7 +162,7 @@ public class TaskInfo
                 .toString();
     }
 
-    public static TaskInfo createInitialTask(TaskId taskId, URI location, List<BufferInfo> bufferStates, TaskStats taskStats)
+    public static TaskInfo createInitialTask(TaskId taskId, URI location, List<BufferInfo> bufferStates, TaskStats taskStats, String nodeId)
     {
         return new TaskInfo(
                 taskId,
@@ -145,11 +172,12 @@ public class TaskInfo
                 ImmutableSet.of(),
                 taskStats,
                 true,
-                DEFAULT_METADATA_UPDATES);
+                DEFAULT_METADATA_UPDATES,
+                nodeId);
     }
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(taskId, newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan, metadataUpdates);
+        return new TaskInfo(taskId, newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan, metadataUpdates, nodeId);
     }
 }

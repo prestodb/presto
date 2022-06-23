@@ -14,14 +14,19 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.RuntimeMetric;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.repartition.PartitionedOutputInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
@@ -31,6 +36,9 @@ public class TestOperatorStats
 {
     private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo("some_info");
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2, 1024);
+    private static final String TEST_METRIC_NAME = "test_metric";
+    private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 10, 2, 9, 1);
+    private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 3, 2);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
             0,
@@ -61,6 +69,7 @@ public class TestOperatorStats
 
             new DataSize(14, BYTE),
 
+            new Duration(100, NANOSECONDS),
             new Duration(15, NANOSECONDS),
 
             16,
@@ -75,8 +84,10 @@ public class TestOperatorStats
             new DataSize(23, BYTE),
             new DataSize(24, BYTE),
             new DataSize(25, BYTE),
+
             Optional.empty(),
-            NON_MERGEABLE_INFO);
+            NON_MERGEABLE_INFO,
+            new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))));
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
             0,
@@ -107,6 +118,7 @@ public class TestOperatorStats
 
             new DataSize(14, BYTE),
 
+            new Duration(100, NANOSECONDS),
             new Duration(15, NANOSECONDS),
 
             16,
@@ -122,7 +134,8 @@ public class TestOperatorStats
             new DataSize(24, BYTE),
             new DataSize(25, BYTE),
             Optional.empty(),
-            MERGEABLE_INFO);
+            MERGEABLE_INFO,
+            new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))));
 
     @Test
     public void testJson()
@@ -133,6 +146,15 @@ public class TestOperatorStats
         OperatorStats actual = codec.fromJson(json);
 
         assertExpectedOperatorStats(actual);
+    }
+
+    private static void assertRuntimeMetricEquals(RuntimeMetric m1, RuntimeMetric m2)
+    {
+        assertEquals(m1.getName(), m2.getName());
+        assertEquals(m1.getSum(), m2.getSum());
+        assertEquals(m1.getCount(), m2.getCount());
+        assertEquals(m1.getMax(), m2.getMax());
+        assertEquals(m1.getMin(), m2.getMin());
     }
 
     public static void assertExpectedOperatorStats(OperatorStats actual)
@@ -177,12 +199,13 @@ public class TestOperatorStats
         assertEquals(actual.getSpilledDataSize(), new DataSize(25, BYTE));
         assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
         assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), TEST_RUNTIME_METRIC_1);
     }
 
     @Test
     public void testAdd()
     {
-        OperatorStats actual = EXPECTED.add(EXPECTED, EXPECTED);
+        OperatorStats actual = EXPECTED.add(ImmutableList.of(EXPECTED, EXPECTED));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getStageExecutionId(), 10);
@@ -207,7 +230,7 @@ public class TestOperatorStats
         assertEquals(actual.getOutputPositions(), 3 * 13);
 
         assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(3 * 14, BYTE));
-
+        assertEquals(actual.getAdditionalCpu(), new Duration(3 * 100, NANOSECONDS));
         assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
 
         assertEquals(actual.getFinishCalls(), 3 * 16);
@@ -223,12 +246,15 @@ public class TestOperatorStats
         assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(24, BYTE));
         assertEquals(actual.getSpilledDataSize(), new DataSize(3 * 25, BYTE));
         assertNull(actual.getInfo());
+        RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_1);
+        expectedMetric.mergeWith(TEST_RUNTIME_METRIC_1);
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
     }
 
     @Test
     public void testAddMergeable()
     {
-        OperatorStats actual = MERGEABLE.add(MERGEABLE, MERGEABLE);
+        OperatorStats actual = MERGEABLE.add(ImmutableList.of(MERGEABLE, MERGEABLE));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getStageExecutionId(), 10);
@@ -254,6 +280,7 @@ public class TestOperatorStats
 
         assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(3 * 14, BYTE));
 
+        assertEquals(actual.getAdditionalCpu(), new Duration(3 * 100, NANOSECONDS));
         assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
 
         assertEquals(actual.getFinishCalls(), 3 * 16);
@@ -270,5 +297,8 @@ public class TestOperatorStats
         assertEquals(actual.getSpilledDataSize(), new DataSize(3 * 25, BYTE));
         assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);
         assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
+        RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_2, TEST_RUNTIME_METRIC_2);
+        expectedMetric.mergeWith(TEST_RUNTIME_METRIC_2);
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
     }
 }

@@ -63,10 +63,11 @@ public class TestEnums
     private static final UserDefinedType TEST_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testenum"), new TypeSignature(
             VARCHAR_ENUM,
             TypeSignatureParameter.of(new VarcharEnumMap("test.enum.testenum", ImmutableMap.of(
-            "TEST", "\"}\"",
-            "TEST2", "",
-            "TEST3", " ",
-            "TEST4", ")))\"\"")))));
+                    "TEST", "\"}\"",
+                    "TEST2", "",
+                    "TEST3", " ",
+                    "TEST4", ")))\"\"",
+                    "TEST5", "France")))));
     private static final UserDefinedType TEST_BIGINT_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testbigintenum"), new TypeSignature(
             BIGINT_ENUM,
             TypeSignatureParameter.of(new LongEnumMap("test.enum.testbigintenum", ImmutableMap.of(
@@ -78,12 +79,9 @@ public class TestEnums
                     "MKT_BUILDING", "BUILDING",
                     "MKT_FURNITURE", "FURNITURE")))));
 
-    protected TestEnums()
-    {
-        super(TestEnums::createQueryRunner);
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         try {
             Session session = testSessionBuilder().build();
@@ -136,7 +134,7 @@ public class TestEnums
                 "SELECT MAP(ARRAY[test.enum.mood.HAPPY], ARRAY[1])",
                 singletonList(ImmutableList.of(ImmutableMap.of(0L, 1))));
 
-        assertQueryFails("SELECT test.enum.mood.hello", ".*No key 'HELLO' in enum 'test.enum.mood'");
+        assertQueryFails("SELECT test.enum.mood.hello", ".*'test.enum.mood.hello' cannot be resolved");
     }
 
     @Test
@@ -156,6 +154,7 @@ public class TestEnums
                 "cast(JSON '{\"France\": [0]}' as MAP<test.enum.country,ARRAY<test.enum.mood>>)",
                 ImmutableMap.of("France", singletonList(0L)));
         assertQueryFails("select cast(7 as test.enum.mood)", ".*No value '7' in enum 'BigintEnum'");
+        assertQueryFails("SELECT cast(test.enum.country.FRANCE as test.enum.testenum)", ".*Cannot cast test.enum.country.* to test.enum.testenum.*");
     }
 
     @Test
@@ -185,10 +184,10 @@ public class TestEnums
         assertSingleValue("test.enum.country.\"भारत\" between test.enum.country.FRANCE and test.enum.country.BAHAMAS", true);
         assertSingleValue("test.enum.country.US between test.enum.country.FRANCE and test.enum.country.\"भारत\"", false);
 
-        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to VarcharEnum\\(test.enum.country.*\\), BigintEnum\\(test.enum.mood.*\\)");
+        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to test.enum.country:VarcharEnum\\(test.enum.country.*\\), test.enum.mood:BigintEnum\\(test.enum.mood.*\\)");
         assertQueryFails("select test.enum.country.US IN (test.enum.country.CHINA, test.enum.mood.SAD)", ".* All IN list values must be the same type.*");
         assertQueryFails("select test.enum.country.US IN (test.enum.mood.HAPPY, test.enum.mood.SAD)", ".* IN value and list items must be the same type: test.enum.country");
-        assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to VarcharEnum\\(test.enum.country.*\\), integer");
+        assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to test.enum.country:VarcharEnum\\(test.enum.country.*\\), integer");
     }
 
     @Test
@@ -196,6 +195,7 @@ public class TestEnums
     {
         assertSingleValue("test.enum.mood.HAPPY = CAST(0 AS test.enum.mood)", true);
         assertSingleValue("test.enum.mood.HAPPY = test.enum.mood.SAD", false);
+        assertSingleValue("array[test.enum.mood.HAPPY, test.enum.mood.SAD] = array[test.enum.mood.HAPPY, test.enum.mood.SAD]", true);
 
         assertSingleValue("test.enum.mood.SAD != test.enum.mood.MELLOW", true);
         assertSingleValue("array[test.enum.mood.HAPPY, test.enum.mood.SAD] != array[test.enum.mood.SAD, test.enum.mood.HAPPY]", true);
@@ -218,7 +218,7 @@ public class TestEnums
         assertSingleValue("test.enum.mood.HAPPY between test.enum.mood.CURIOUS and test.enum.mood.SAD ", true);
         assertSingleValue("test.enum.mood.MELLOW between test.enum.mood.SAD and test.enum.mood.HAPPY", false);
 
-        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to BigintEnum\\(test.enum.mood.*, integer");
+        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to test.enum.mood:BigintEnum\\(test.enum.mood.*, integer");
     }
 
     @Test

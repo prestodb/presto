@@ -40,6 +40,7 @@ public final class SimpleGroupBy
     private SimpleGroupBy(Optional<NodeLocation> location, List<Expression> simpleGroupByExpressions)
     {
         super(location);
+        validateExpressions(simpleGroupByExpressions);
         this.columns = ImmutableList.copyOf(requireNonNull(simpleGroupByExpressions, "simpleGroupByExpressions is null"));
     }
 

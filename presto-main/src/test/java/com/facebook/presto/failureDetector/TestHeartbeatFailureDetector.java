@@ -20,7 +20,7 @@ import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
 import com.facebook.airlift.jmx.testing.TestingJmxModule;
 import com.facebook.airlift.json.JsonModule;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -100,7 +100,7 @@ public class TestHeartbeatFailureDetector
     public void testHeartbeatStatsSerialization()
             throws Exception
     {
-        ObjectMapper objectMapper = new ObjectMapperProvider().get();
+        ObjectMapper objectMapper = new JsonObjectMapperProvider().get();
         Stats stats = new Stats(new URI("http://example.com"), 60);
         String serialized = objectMapper.writeValueAsString(stats);
         JsonNode deserialized = objectMapper.readTree(serialized);

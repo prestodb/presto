@@ -29,9 +29,6 @@
       "allow": false
     },
     {
-      "catalog": "allowed-absent"
-    },
-    {
       "user": "\u0194\u0194\u0194",
       "catalog": "\u0200\u0200\u0200",
       "allow": true

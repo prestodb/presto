@@ -20,18 +20,23 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryPoolAssignment;
+import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Ticker;
@@ -47,6 +52,7 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
@@ -56,6 +62,8 @@ import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.testng.Assert.assertEquals;
@@ -236,6 +244,43 @@ public class TestSqlTaskManager
         }
     }
 
+    @Test
+    public void testMultipleCoordinatorAssignments()
+    {
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
+            TaskId taskId = TASK_ID;
+            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, createInitialEmptyOutputBuffers(PARTITIONED).withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+
+            sqlTaskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest(
+                    "coordinator1",
+                    1,
+                    ImmutableList.of(new MemoryPoolAssignment(taskId.getQueryId(), RESERVED_POOL))));
+            assertEquals(sqlTaskManager.getQueryContext(taskId.getQueryId()).getMemoryPool().getId(), RESERVED_POOL);
+
+            // Update to reserved pool
+            sqlTaskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest(
+                    "coordinator1",
+                    2,
+                    ImmutableList.of(new MemoryPoolAssignment(taskId.getQueryId(), GENERAL_POOL))));
+            assertEquals(sqlTaskManager.getQueryContext(taskId.getQueryId()).getMemoryPool().getId(), GENERAL_POOL);
+
+            // Prior versions are rejected
+            sqlTaskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest(
+                    "coordinator1",
+                    1,
+                    ImmutableList.of(new MemoryPoolAssignment(taskId.getQueryId(), RESERVED_POOL))));
+            assertEquals(sqlTaskManager.getQueryContext(taskId.getQueryId()).getMemoryPool().getId(), GENERAL_POOL);
+
+            // Different coordinators are not rejected
+            sqlTaskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest(
+                    "coordinator2",
+                    1,
+                    ImmutableList.of(new MemoryPoolAssignment(taskId.getQueryId(), RESERVED_POOL))));
+            assertEquals(sqlTaskManager.getQueryContext(taskId.getQueryId()).getMemoryPool().getId(), RESERVED_POOL);
+        }
+    }
+
     public SqlTaskManager createSqlTaskManager(TaskManagerConfig config)
     {
         return new SqlTaskManager(
@@ -245,6 +290,7 @@ public class TestSqlTaskManager
                 createTestSplitMonitor(),
                 new NodeInfo("test"),
                 localMemoryManager,
+                listJsonCodec(TaskMemoryReservationSummary.class),
                 taskManagementExecutor,
                 config,
                 new NodeMemoryConfig(),
@@ -255,7 +301,8 @@ public class TestSqlTaskManager
                 new BlockEncodingManager(),
                 new OrderingCompiler(),
                 new NoOpFragmentResultCacheManager(),
-                new ObjectMapper());
+                new ObjectMapper(),
+                new SpoolingOutputBufferFactory(new FeaturesConfig()));
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
@@ -274,6 +321,7 @@ public class TestSqlTaskManager
                 .addTaskContext(
                         new TaskStateMachine(taskId, directExecutor()),
                         testSessionBuilder().build(),
+                        Optional.of(PLAN_FRAGMENT.getRoot()),
                         false,
                         false,
                         false,

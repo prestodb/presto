@@ -158,7 +158,7 @@ public class CostCalculatorWithEstimatedExchanges
         public LocalCostEstimate visitUnion(UnionNode node, Void context)
         {
             // this assumes that all union inputs will be gathered over the network
-            // that is not aways true
+            // that is not always true
             // but this estimate is better that returning UNKNOWN, as it sets
             // cumulative cost to unknown
             double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputVariables());

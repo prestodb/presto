@@ -93,8 +93,11 @@ public class InMemoryFunctionNamespaceManager
         throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in InMemoryFunctionNamespaceManager");
     }
 
+    /**
+     * likePattern / escape is not used for optimization, returning all functions.
+     */
     @Override
-    public Collection<SqlInvokedFunction> listFunctions()
+    public Collection<SqlInvokedFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
         return latestFunctions.values();
     }

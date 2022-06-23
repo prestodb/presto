@@ -16,7 +16,8 @@ package com.facebook.presto.hive.authentication;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
-import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
+import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.MetastoreClientConfig.HiveMetastoreAuthenticationType;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
@@ -36,11 +37,11 @@ public class HiveAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        bindAuthenticationModule(
+        bindMetastoreAuthenticationModule(
                 config -> config.getHiveMetastoreAuthenticationType() == HiveMetastoreAuthenticationType.NONE,
                 noHiveMetastoreAuthenticationModule());
 
-        bindAuthenticationModule(
+        bindMetastoreAuthenticationModule(
                 config -> config.getHiveMetastoreAuthenticationType() == HiveMetastoreAuthenticationType.KERBEROS,
                 kerberosHiveMetastoreAuthenticationModule());
 
@@ -64,6 +65,11 @@ public class HiveAuthenticationModule
     private void bindAuthenticationModule(Predicate<HiveClientConfig> predicate, Module module)
     {
         install(installModuleIf(HiveClientConfig.class, predicate, module));
+    }
+
+    private void bindMetastoreAuthenticationModule(Predicate<MetastoreClientConfig> predicate, Module module)
+    {
+        install(installModuleIf(MetastoreClientConfig.class, predicate, module));
     }
 
     private static boolean noHdfsAuth(HiveClientConfig config)

@@ -24,10 +24,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.TypeUtils.containsDistinctType;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * As defined in ISO/IEC FCD 9075-2 (SQL 2011), section 4.8
@@ -37,29 +38,30 @@ public class RowType
 {
     private final List<Field> fields;
     private final List<Type> fieldTypes;
+    private final Optional<TypeSignature> typeSignature;
 
-    private RowType(TypeSignature typeSignature, List<Field> fields)
+    private RowType(List<Field> fields)
     {
-        super(typeSignature, Block.class);
-
+        super(Block.class);
         this.fields = fields;
         this.fieldTypes = fields.stream()
                 .map(Field::getType)
-                .collect(Collectors.toList());
+                .collect(toList());
+        this.typeSignature = containsDistinctType(this.fieldTypes) ? Optional.empty() : Optional.of(makeSignature(fields));
     }
 
     public static RowType from(List<Field> fields)
     {
-        return new RowType(makeSignature(fields), fields);
+        return new RowType(fields);
     }
 
     public static RowType anonymous(List<Type> types)
     {
         List<Field> fields = types.stream()
                 .map(type -> new Field(Optional.empty(), type))
-                .collect(Collectors.toList());
+                .collect(toList());
 
-        return new RowType(makeSignature(fields), fields);
+        return new RowType(fields);
     }
 
     public static RowType withDefaultFieldNames(List<Type> types)
@@ -68,13 +70,7 @@ public class RowType
         for (int i = 0; i < types.size(); i++) {
             fields.add(new Field(Optional.of("field" + i), types.get(i)));
         }
-        return new RowType(makeSignature(fields), fields);
-    }
-
-    // Only RowParametricType.createType should call this method
-    public static RowType createWithTypeSignature(TypeSignature typeSignature, List<Field> fields)
-    {
-        return new RowType(typeSignature, fields);
+        return new RowType(fields);
     }
 
     public static Field field(String name, Type type)
@@ -95,10 +91,16 @@ public class RowType
         }
 
         List<TypeSignatureParameter> parameters = fields.stream()
-                .map(field -> TypeSignatureParameter.of(new NamedTypeSignature(field.getName().map(name -> new RowFieldName(name, false)), field.getType().getTypeSignature())))
-                .collect(Collectors.toList());
+                .map(field -> TypeSignatureParameter.of(new NamedTypeSignature(field.getName().map(name -> new RowFieldName(name, field.isDelimited())), field.getType().getTypeSignature())))
+                .collect(toList());
 
         return new TypeSignature(ROW, parameters);
+    }
+
+    @Override
+    public TypeSignature getTypeSignature()
+    {
+        return typeSignature.orElseGet(() -> makeSignature(fields));
     }
 
     @Override
@@ -122,7 +124,7 @@ public class RowType
         for (Field field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
-                result.append(field.getName().get()).append(' ').append(typeDisplayName);
+                result.append("\"").append(field.getName().get()).append("\"").append(' ').append(typeDisplayName);
             }
             else {
                 result.append(typeDisplayName);
@@ -195,11 +197,18 @@ public class RowType
     {
         private final Type type;
         private final Optional<String> name;
+        private final boolean delimited;
 
         public Field(Optional<String> name, Type type)
         {
+            this(name, type, false);
+        }
+
+        public Field(Optional<String> name, Type type, boolean delimited)
+        {
             this.type = requireNonNull(type, "type is null");
             this.name = requireNonNull(name, "name is null");
+            this.delimited = delimited;
         }
 
         public Type getType()
@@ -210,6 +219,11 @@ public class RowType
         public Optional<String> getName()
         {
             return name;
+        }
+
+        public boolean isDelimited()
+        {
+            return delimited;
         }
     }
 

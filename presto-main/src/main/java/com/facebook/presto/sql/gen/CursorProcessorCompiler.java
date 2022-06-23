@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
@@ -204,7 +205,7 @@ public class CursorProcessorCompiler
                 .comment("boolean finished = false;")
                 .putVariable(finishedVariable, false);
 
-        // while loop loop body
+        // while loop body
         LabelNode done = new LabelNode("done");
 
         BytecodeBlock whileFunctionBlock = new BytecodeBlock()

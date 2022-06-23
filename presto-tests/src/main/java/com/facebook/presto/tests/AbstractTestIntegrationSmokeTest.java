@@ -24,11 +24,6 @@ import static com.facebook.presto.tests.QueryAssertions.assertContains;
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     protected boolean isDateTypeSupported()
     {
         return true;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionMutator;
@@ -20,6 +21,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
@@ -39,6 +41,8 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.common.primitives.Shorts;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -98,14 +102,17 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.AVRO_SCHEMA_URL_KEY;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.fromMetastoreDistinctValuesCount;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MATERIALIZED_VIEW;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -142,17 +149,26 @@ public final class ThriftMetastoreUtil
         return result;
     }
 
-    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table, PrincipalPrivileges privileges)
+    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table, PrincipalPrivileges privileges, ColumnConverter columnConverter)
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
+
         result.setDbName(table.getDatabaseName());
         result.setTableName(table.getTableName());
         result.setOwner(table.getOwner());
-        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(table.getTableType()), "Invalid table type: %s", table.getTableType());
-        result.setTableType(table.getTableType().name());
+
+        PrestoTableType tableType = table.getTableType();
+        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW, MATERIALIZED_VIEW).contains(tableType), "Invalid table type: %s", table.getTableType());
+        // TODO: remove the table type change after Hive 3.0 upgrade.
+        // TableType.MATERIALIZED_VIEW is not supported by Hive metastore until Hive 3.0. Use MANAGED_TABLE for now.
+        if (MATERIALIZED_VIEW.equals(tableType)) {
+            tableType = MANAGED_TABLE;
+        }
+        result.setTableType(tableType.name());
+
         result.setParameters(table.getParameters());
-        result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toList()));
-        result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
+        result.setPartitionKeys(table.getPartitionColumns().stream().map(col -> ThriftMetastoreUtil.toMetastoreApiFieldSchema(col, columnConverter)).collect(toList()));
+        result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage(), columnConverter));
         result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(privileges));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
         result.setViewExpandedText(table.getViewExpandedText().orElse(null));
@@ -238,47 +254,47 @@ public final class ThriftMetastoreUtil
         });
     }
 
-    public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal, String role)
+    public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity, PrestoPrincipal principal, MetastoreContext metastoreContext, String role)
     {
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
             return true;
         }
-        return listApplicableRoles(metastore, principal)
+        return listApplicableRoles(metastore, identity, principal, metastoreContext)
                 .anyMatch(role::equals);
     }
 
-    public static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal)
+    public static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity, PrestoPrincipal principal, MetastoreContext metastoreContext)
     {
-        return listApplicableRoles(principal, metastore::listRoleGrants)
+        return listApplicableRoles(principal, (PrestoPrincipal p) -> metastore.listRoleGrants(metastoreContext, p))
                 .map(RoleGrant::getRoleName);
     }
 
-    public static Stream<PrestoPrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity)
+    public static Stream<PrestoPrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity, MetastoreContext metastoreContext)
     {
         return Stream.concat(
                 Stream.of(new PrestoPrincipal(USER, identity.getUser())),
-                listEnabledRoles(identity, metastore::listRoleGrants)
+                listEnabledRoles(identity, (PrestoPrincipal p) -> metastore.listRoleGrants(metastoreContext, p))
                         .map(role -> new PrestoPrincipal(ROLE, role)));
     }
 
-    public static Stream<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
+    public static Stream<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity, MetastoreContext metastoreContext)
     {
-        return listTablePrivileges(metastore, databaseName, tableName, listEnabledPrincipals(metastore, identity));
+        return listTablePrivileges(identity, metastoreContext, metastore, databaseName, tableName, listEnabledPrincipals(metastore, identity, metastoreContext));
     }
 
-    public static Stream<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, String user)
+    public static Stream<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity, MetastoreContext metastoreContext, String databaseName, String tableName, String user)
     {
         PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, user);
         Stream<PrestoPrincipal> principals = Stream.concat(
                 Stream.of(userPrincipal),
-                listApplicableRoles(metastore, userPrincipal)
+                listApplicableRoles(metastore, identity, userPrincipal, metastoreContext)
                         .map(role -> new PrestoPrincipal(ROLE, role)));
-        return listTablePrivileges(metastore, databaseName, tableName, principals);
+        return listTablePrivileges(identity, metastoreContext, metastore, databaseName, tableName, principals);
     }
 
-    private static Stream<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, Stream<PrestoPrincipal> principals)
+    private static Stream<HivePrivilegeInfo> listTablePrivileges(ConnectorIdentity identity, MetastoreContext metastoreContext, SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, Stream<PrestoPrincipal> principals)
     {
-        return principals.flatMap(principal -> metastore.listTablePrivileges(databaseName, tableName, principal).stream());
+        return principals.flatMap(principal -> metastore.listTablePrivileges(metastoreContext, databaseName, tableName, principal).stream());
     }
 
     public static boolean isRoleEnabled(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants, String role)
@@ -341,21 +357,22 @@ public final class ThriftMetastoreUtil
                         .filter(Predicate.isEqual(ADMIN_ROLE_NAME).negate()));
     }
 
-    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics)
+    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics, ColumnConverter columnConverter)
     {
-        org.apache.hadoop.hive.metastore.api.Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
+        org.apache.hadoop.hive.metastore.api.Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition(), columnConverter);
         partition.setParameters(MetastoreUtil.updateStatisticsParameters(partition.getParameters(), partitionWithStatistics.getStatistics().getBasicStatistics()));
         return partition;
     }
 
-    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition)
+    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition, ColumnConverter columnConverter)
     {
         org.apache.hadoop.hive.metastore.api.Partition result = new org.apache.hadoop.hive.metastore.api.Partition();
         result.setDbName(partition.getDatabaseName());
         result.setTableName(partition.getTableName());
         result.setValues(partition.getValues());
-        result.setSd(makeStorageDescriptor(partition.getTableName(), partition.getColumns(), partition.getStorage()));
+        result.setSd(makeStorageDescriptor(partition.getTableName(), partition.getColumns(), partition.getStorage(), columnConverter));
         result.setParameters(partition.getParameters());
+        result.setCreateTime(partition.getCreateTime());
         return result;
     }
 
@@ -383,32 +400,42 @@ public final class ThriftMetastoreUtil
                 .build();
     }
 
-    public static Table fromMetastoreApiTable(org.apache.hadoop.hive.metastore.api.Table table)
+    public static Table fromMetastoreApiTable(org.apache.hadoop.hive.metastore.api.Table table, ColumnConverter columnConverter)
     {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
-        return fromMetastoreApiTable(table, storageDescriptor.getCols());
+        return fromMetastoreApiTable(table, storageDescriptor.getCols(), columnConverter);
     }
 
-    public static Table fromMetastoreApiTable(org.apache.hadoop.hive.metastore.api.Table table, List<FieldSchema> schema)
+    public static Table fromMetastoreApiTable(org.apache.hadoop.hive.metastore.api.Table table, List<FieldSchema> schema, ColumnConverter columnConverter)
     {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
+        }
+
+        // TODO: remove the table type change after Hive 3.0 update.
+        // Materialized view fetched from Hive Metastore uses TableType.MANAGED_TABLE before Hive 3.0. Cast it back to MATERIALIZED_VIEW here.
+        PrestoTableType tableType = PrestoTableType.optionalValueOf(table.getTableType()).orElse(OTHER);
+        if (table.getParameters() != null && "true".equals(table.getParameters().get(PRESTO_MATERIALIZED_VIEW_FLAG))) {
+            checkState(
+                    TableType.MANAGED_TABLE.name().equals(table.getTableType()),
+                    "Materialized view %s has incorrect table type %s from Metastore.", table.getTableName(), table.getTableType());
+            tableType = MATERIALIZED_VIEW;
         }
 
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getDbName())
                 .setTableName(table.getTableName())
                 .setOwner(nullToEmpty(table.getOwner()))
-                .setTableType(PrestoTableType.optionalValueOf(table.getTableType()).orElse(OTHER))
+                .setTableType(tableType)
                 .setDataColumns(schema.stream()
-                        .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
+                        .map(columnConverter::toColumn)
                         .collect(toList()))
                 .setPartitionColumns(table.getPartitionKeys().stream()
-                        .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
+                        .map(columnConverter::toColumn)
                         .collect(toList()))
                 .setParameters(table.getParameters() == null ? ImmutableMap.of() : table.getParameters())
                 .setViewOriginalText(Optional.ofNullable(emptyToNull(table.getViewOriginalText())))
@@ -450,7 +477,8 @@ public final class ThriftMetastoreUtil
 
         return serdeInfo;
     }
-    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionMutator partitionMutator)
+
+    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionMutator partitionMutator, ColumnConverter columnConverter)
     {
         StorageDescriptor storageDescriptor = partition.getSd();
         if (storageDescriptor == null) {
@@ -462,9 +490,10 @@ public final class ThriftMetastoreUtil
                 .setTableName(partition.getTableName())
                 .setValues(partition.getValues())
                 .setColumns(storageDescriptor.getCols().stream()
-                        .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
+                        .map(fieldSchema -> columnConverter.toColumn(fieldSchema))
                         .collect(toList()))
-                .setParameters(partition.getParameters());
+                .setParameters(partition.getParameters())
+                .setCreateTime(partition.getCreateTime());
 
         // mutate apache partition to Presto partition
         partitionMutator.mutate(partitionBuilder, partition);
@@ -621,14 +650,9 @@ public final class ThriftMetastoreUtil
         }
     }
 
-    public static FieldSchema toMetastoreApiFieldSchema(Column column)
+    public static FieldSchema toMetastoreApiFieldSchema(Column column, ColumnConverter columnConverter)
     {
-        return new FieldSchema(column.getName(), column.getType().getHiveTypeName().toString(), column.getComment().orElse(null));
-    }
-
-    public static Column fromMetastoreApiFieldSchema(FieldSchema fieldSchema)
-    {
-        return new Column(fieldSchema.getName(), HiveType.valueOf(fieldSchema.getType()), Optional.ofNullable(emptyToNull(fieldSchema.getComment())));
+        return columnConverter.fromColumn(column);
     }
 
     public static void fromMetastoreApiStorageDescriptor(StorageDescriptor storageDescriptor, Storage.Builder builder, String tablePartitionName)
@@ -646,7 +670,7 @@ public final class ThriftMetastoreUtil
                 .setParameters(storageDescriptor.getParameters() == null ? ImmutableMap.of() : storageDescriptor.getParameters());
     }
 
-    private static StorageDescriptor makeStorageDescriptor(String tableName, List<Column> columns, Storage storage)
+    private static StorageDescriptor makeStorageDescriptor(String tableName, List<Column> columns, Storage storage, ColumnConverter columnConverter)
     {
         if (storage.isSkewed()) {
             throw new IllegalArgumentException("Writing to skewed table/partition is not supported");
@@ -659,7 +683,7 @@ public final class ThriftMetastoreUtil
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(emptyToNull(storage.getLocation()));
         sd.setCols(columns.stream()
-                .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
+                .map(col -> ThriftMetastoreUtil.toMetastoreApiFieldSchema(col, columnConverter))
                 .collect(toList()));
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(storage.getStorageFormat().getInputFormatNullable());
@@ -822,7 +846,7 @@ public final class ThriftMetastoreUtil
 
     public static Decimal toMetastoreDecimal(BigDecimal decimal)
     {
-        return new Decimal(ByteBuffer.wrap(decimal.unscaledValue().toByteArray()), (short) decimal.scale());
+        return new Decimal(Shorts.checkedCast(decimal.scale()), ByteBuffer.wrap(decimal.unscaledValue().toByteArray()));
     }
 
     private static OptionalLong toMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)

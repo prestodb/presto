@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -24,7 +23,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.facebook.presto.type.Re2JRegexp;
 import com.facebook.presto.type.Re2JRegexpType;
-import com.google.common.collect.ImmutableList;
 import com.google.re2j.Matcher;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -36,8 +34,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 @Description("replaces substrings matching a regular expression using a lambda function")
 public final class Re2JRegexpReplaceLambdaFunction
 {
-    private final PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));
-
     @LiteralParameters("x")
     @SqlType("varchar")
     @SqlNullable
@@ -53,13 +49,7 @@ public final class Re2JRegexpReplaceLambdaFunction
         }
 
         SliceOutput output = new DynamicSliceOutput(source.length());
-
-        // Prepare a BlockBuilder that will be used to create the target block
-        // that will be passed to the lambda function.
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 10);
 
         int groupCount = matcher.groupCount();
         int appendPosition = 0;
@@ -84,7 +74,7 @@ public final class Re2JRegexpReplaceLambdaFunction
                     blockBuilder.appendNull();
                 }
             }
-            pageBuilder.declarePositions(groupCount);
+
             Block target = blockBuilder.getRegion(blockBuilder.getPositionCount() - groupCount, groupCount);
 
             // Call the lambda function to replace the block, and append the result to output

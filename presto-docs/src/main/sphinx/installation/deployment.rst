@@ -26,8 +26,11 @@ This will hold the following configuration:
 
 * Node Properties: environmental configuration specific to each node
 * JVM Config: command line options for the Java Virtual Machine
-* Config Properties: configuration for the Presto server
-* Catalog Properties: configuration for :doc:`/connector` (data sources)
+* Config Properties: configuration for the Presto server. See the
+  :doc:`/admin/properties` for available configuration properties.
+* Catalog Properties: configuration for :doc:`/connector` (data sources).
+  The available catalog configuration properties for a connector are described
+  in the respective connector documentation.
 
 .. _presto_node_properties:
 
@@ -140,7 +143,61 @@ will function as both a coordinator and worker, use this configuration:
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
+If single coordinator is not sufficient, disaggregated coordinator setup can be used which supports multiple coordinator using below minimal configuration:
+
+* ``Resource Manager``
+
+Minimum 1 resource manager is needed for a cluster and more can be added in to the cluster with each behaving as primary.
+
+.. code-block:: none
+
+    resource-manager=true
+    resource-manager-enabled=true
+    coordinator=false
+    node-scheduler.include-coordinator=false
+    http-server.http.port=8080
+    thrift.server.port=8081
+    query.max-memory=50GB
+    query.max-memory-per-node=1GB
+    query.max-total-memory-per-node=2GB
+    discovery-server.enabled=true
+    discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
+    thrift.server.ssl.enabled=true
+
+* ``Coordinator``
+
+Cluster supports pool of coordinators. Each coordinator will run subset of queries in a cluster.
+
+.. code-block:: none
+
+    coordinator=true
+    node-scheduler.include-coordinator=false
+    http-server.http.port=8080
+    query.max-memory=50GB
+    query.max-memory-per-node=1GB
+    query.max-total-memory-per-node=2GB
+    discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
+    resource-manager-enabled=true
+
+* ``Worker``
+
+Cluster supports pool of workers. They send their heartbeats to resource manager.
+
+.. code-block:: none
+
+    coordinator=false
+    http-server.http.port=8080
+    query.max-memory=50GB
+    query.max-memory-per-node=1GB
+    query.max-total-memory-per-node=2GB
+    discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
+    resource-manager-enabled=true
+
 These properties require some explanation:
+
+* ``resource manager``:
+  Aggregates data from coordinators and workers and constructs a global view of the cluster.
+  For more details read the `concepts <https://prestodb.io/docs/current/overview/concepts.html#resource-manager>`_.
 
 * ``coordinator``:
   Allow this Presto instance to function as a coordinator
@@ -181,6 +238,18 @@ These properties require some explanation:
   URI of the Presto coordinator. Replace ``example.net:8080`` to match
   the host and port of the Presto coordinator. This URI must not end
   in a slash.
+
+The following flags can help one tune the disaggregated coordinator cluster’s resource groups to the desired consistency:
+
+* ``concurrency-threshold-to-enable-resource-group-refresh (default: 1.0)``
+
+  Configure coordinator to wait for the next resource group update before allowing more queries to run on any given resource group, if running queries reached the configured limit.
+
+  Default value is 1.0. It means once any resource group is running its max allowed queries, the coordinator has to wait for an update from the resource manager before allowing new queries to run on the given resource group. To achieve stronger consistency, reduce the percentage to lower value.
+
+* ``resource-group-runtimeinfo-refresh-interval (default: 100 ms)``
+
+  This configuration helps tune coordinator periodic polling intervals of cluster level resource group usage from the resource manager.
 
 You may also wish to set the following properties:
 
@@ -292,11 +361,10 @@ If it is the first time to launch the Hive Metastore, prepare corresponding conf
 
 .. code-block:: console
 
-    $ export HIVE_HOME=`pwd`
-    $ cp conf/hive-default.xml.template conf/hive-site.xml
-    $ mkdir -p hcatalog/var/log/
-    # only required for the first time
-    $ bin/schematool -dbType derby -initSchema
+    export HIVE_HOME=`pwd`
+    cp conf/hive-default.xml.template conf/hive-site.xml
+    mkdir -p hcatalog/var/log/
+    bin/schematool -dbType derby -initSchema
 
 If you want to access AWS S3, append the following lines in ``conf/hive-env.sh``.
 Hive needs the corresponding jars to access files with ``s3a://`` addresses, and AWS credentials as well to access an S3 bucket (even it is public).
@@ -309,11 +377,16 @@ or download from `maven central repository <https://repo1.maven.org/>`_.
     export AWS_ACCESS_KEY_ID=<Your AWS Access Key>
     export AWS_SECRET_ACCESS_KEY=<Your AWS Secret Key>
 
-Start a Hive Metastore which will run in the background and listen on port 9083 (by default).
+Start a Hive Metastore which will run in the background and listen on port 9083 (by default):
 
 .. code-block:: console
 
-    $ hcatalog/sbin/hcat_server.sh start
+    hcatalog/sbin/hcat_server.sh start
+
+The output is similar to the following:
+
+.. code-block:: console
+
     Started metastore server init, testing if initialized correctly...
     Metastore initialized successfully on port[9083].
 
@@ -414,7 +487,7 @@ The files are:
 
 The four files directly under ``etc`` are documented above (using the single-node Coordinator configuration for ``config.properties``).
 The file called ``etc/catalog/tpch.properties`` is used to defined the ``tpch`` catalog.  Each connector has their own set
-of configuration properites that are specific to the connector.
+of configuration properties that are specific to the connector.
 You can find a connector's configuration properties documented along with the connector.  The TPCH connector has no special
 configuration, so we just specify the name of the connector for the catalog, also ``tpch``.
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -27,9 +28,11 @@ public class TestMongoDistributedQueries
 {
     private MongoQueryRunner mongoQueryRunner;
 
-    public TestMongoDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMongoQueryRunner(TpchTable.getTables()));
+        return createMongoQueryRunner(TpchTable.getTables());
     }
 
     @BeforeClass

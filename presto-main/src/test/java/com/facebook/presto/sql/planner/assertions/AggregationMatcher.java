@@ -85,7 +85,7 @@ public class AggregationMatcher
         List<VariableReferenceExpression> aggregationsWithMask = aggregationNode.getAggregations()
                 .entrySet()
                 .stream()
-                .filter(entry -> entry.getValue().isDistinct())
+                .filter(entry -> entry.getValue().getMask().isPresent())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
@@ -136,7 +136,7 @@ public class AggregationMatcher
                 .add("groupingSets", groupingSets)
                 .add("preGroupedSymbols", preGroupedSymbols)
                 .add("masks", masks)
-                .add("groudId", groupId)
+                .add("groupId", groupId)
                 .add("step", step)
                 .toString();
     }

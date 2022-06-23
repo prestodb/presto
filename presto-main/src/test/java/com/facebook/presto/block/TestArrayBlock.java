@@ -17,14 +17,17 @@ import com.facebook.presto.common.block.ArrayBlockBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.type.ArrayType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomDictionaryBlock;
@@ -34,6 +37,8 @@ import static com.facebook.presto.common.block.ArrayBlock.fromElementBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestArrayBlock
@@ -108,6 +113,56 @@ public class TestArrayBlock
         assertBlock(blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
+    }
+
+    @Test
+    public void testSingleValueBlock()
+    {
+        // 1 entry array.
+        long[][] values = createTestArray(50);
+        BlockBuilder arrayBlockBuilder = createBlockBuilderWithValues(values);
+        Block arrayBlock = arrayBlockBuilder.build();
+
+        assertSame(arrayBlock, arrayBlock.getSingleValueBlock(0));
+        assertNotSame(arrayBlockBuilder, arrayBlockBuilder.getSingleValueBlock(0));
+
+        // 2 entries array.
+        values = createTestArray(50, 50);
+        arrayBlockBuilder = createBlockBuilderWithValues(values);
+        arrayBlock = arrayBlockBuilder.build();
+        Block firstElement = arrayBlock.getRegion(0, 1);
+        assertNotSame(firstElement, firstElement.getSingleValueBlock(0));
+
+        Block secondElementCopy = arrayBlock.copyRegion(1, 1);
+        assertSame(secondElementCopy, secondElementCopy.getSingleValueBlock(0));
+
+        // Test with null elements.
+        values = new long[][] {null};
+        arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, 1, 100);
+        writeValues(values, arrayBlockBuilder);
+        arrayBlock = arrayBlockBuilder.build();
+        assertSame(arrayBlock, arrayBlock.getSingleValueBlock(0));
+        assertNotSame(arrayBlock, arrayBlockBuilder.getSingleValueBlock(0));
+
+        // Test with 2 null elements.
+        values = new long[][] {null, null};
+        arrayBlockBuilder = createBlockBuilderWithValues(values);
+        arrayBlock = arrayBlockBuilder.build();
+        assertNotSame(arrayBlock, arrayBlock.getSingleValueBlock(0));
+    }
+
+    private static long[][] createTestArray(int... entryCounts)
+    {
+        long[][] result = new long[entryCounts.length][];
+        for (int rowNumber = 0; rowNumber < entryCounts.length; rowNumber++) {
+            int entryCount = entryCounts[rowNumber];
+            long[] array = new long[entryCount];
+            for (int entryNumber = 0; entryNumber < entryCount; entryNumber++) {
+                array[entryNumber] = entryNumber;
+            }
+            result[rowNumber] = array;
+        }
+        return result;
     }
 
     private static long[][][] createExpectedValues()
@@ -196,6 +251,32 @@ public class TestArrayBlock
         assertEquals(arrayOfDictionaryOfArrayOfLong.getLogicalSizeInBytes(), 1900);
     }
 
+    @Test
+    public void testCopyEmptyRawElementPositions()
+    {
+        int positionCount = 100;
+        int[] offsets = new int[positionCount + 1];
+        // Only the first array is non-empty
+        Arrays.fill(offsets, 1, offsets.length, 1);
+
+        // Array(LongArrayBlock(1)) - single element
+        Block elements = fromElementBlock(positionCount, Optional.empty(), offsets, createRandomLongsBlock(1, 0));
+        // Shift the array offsets index
+        Block offsetsShifted = elements.getRegion(50, 50);
+        assertEquals(offsetsShifted.getOffsetBase(), 50);
+        // Copy the first, middle, and last elements via copyPositions
+        Block copiedArray = offsetsShifted.copyPositions(new int[]{0, 25, 49}, 0, 3);
+        assertEquals(copiedArray.getPositionCount(), 3);
+
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, 0, 0);
+        long[][] expectedValues = new long[3][];
+        for (int i = 0; i < expectedValues.length; i++) {
+            expectedValues[i] = new long[0]; // empty, but not null
+        }
+        writeValues(expectedValues, blockBuilder);
+        assertBlockEquals(new ArrayType(BIGINT), copiedArray, blockBuilder.build());
+    }
+
     private static int getExpectedEstimatedDataSize(long[][] values)
     {
         if (values == null) {
@@ -210,6 +291,7 @@ public class TestArrayBlock
         return size;
     }
 
+    @Test
     public void testCompactBlock()
     {
         Block emptyValueBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
@@ -254,7 +336,7 @@ public class TestArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(long[][] expectedValues)
     {
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, 100, 100);
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, expectedValues.length, 100);
         return writeValues(expectedValues, blockBuilder);
     }
 

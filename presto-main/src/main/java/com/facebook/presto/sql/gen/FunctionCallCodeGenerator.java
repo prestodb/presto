@@ -17,8 +17,11 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
+import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 
@@ -26,7 +29,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.sql.gen.BytecodeUtils.getAllScalarFunctionImplementationChoices;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public class FunctionCallCodeGenerator
 {
@@ -34,12 +40,15 @@ public class FunctionCallCodeGenerator
     {
         FunctionAndTypeManager functionAndTypeManager = context.getFunctionManager();
 
-        BuiltInScalarFunctionImplementation function = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);
+        ScalarFunctionImplementation function = functionAndTypeManager.getScalarFunctionImplementation(functionHandle);
+        checkArgument(function instanceof JavaScalarFunctionImplementation, format("FunctionCallCodeGenerator only handles JavaScalarFunctionImplementation, get %s", function.getClass().getName()));
+        JavaScalarFunctionImplementation javaFunction = (JavaScalarFunctionImplementation) function;
 
         List<BytecodeNode> argumentsBytecode = new ArrayList<>();
+        ScalarFunctionImplementationChoice choice = getAllScalarFunctionImplementationChoices(javaFunction).get(0);
         for (int i = 0; i < arguments.size(); i++) {
             RowExpression argument = arguments.get(i);
-            BuiltInScalarFunctionImplementation.ArgumentProperty argumentProperty = function.getArgumentProperty(i);
+            ArgumentProperty argumentProperty = choice.getArgumentProperty(i);
             if (argumentProperty.getArgumentType() == VALUE_TYPE) {
                 argumentsBytecode.add(context.generate(argument, Optional.empty()));
             }
@@ -50,7 +59,7 @@ public class FunctionCallCodeGenerator
 
         return context.generateCall(
                 functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(),
-                function,
+                javaFunction,
                 argumentsBytecode,
                 outputBlockVariable.map(variable -> new OutputBlockVariableAndType(variable, returnType)));
     }

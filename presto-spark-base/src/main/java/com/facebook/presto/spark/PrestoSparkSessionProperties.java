@@ -24,6 +24,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 
 public class PrestoSparkSessionProperties
@@ -34,6 +35,13 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_INITIAL_PARTITION_COUNT = "spark_initial_partition_count";
     public static final String MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION = "max_splits_data_size_per_spark_partition";
     public static final String SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE = "shuffle_output_target_average_row_size";
+    public static final String STORAGE_BASED_BROADCAST_JOIN_ENABLED = "storage_based_broadcast_join_enabled";
+    public static final String STORAGE_BASED_BROADCAST_JOIN_WRITE_BUFFER_SIZE = "storage_based_broadcast_join_write_buffer_size";
+    public static final String SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE = "spark_broadcast_join_max_memory_override";
+    public static final String SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE = "spark_split_assignment_batch_size";
+    public static final String SPARK_MEMORY_REVOKING_THRESHOLD = "spark_memory_revoking_threshold";
+    public static final String SPARK_MEMORY_REVOKING_TARGET = "spark_memory_revoking_target";
+    public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED = "spark_retry_on_out_of_memory_broadcast_join_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -70,6 +78,41 @@ public class PrestoSparkSessionProperties
                         SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE,
                         "Target average size for row entries produced by Presto on Spark for shuffle",
                         prestoSparkConfig.getShuffleOutputTargetAverageRowSize(),
+                        false),
+                booleanProperty(
+                        STORAGE_BASED_BROADCAST_JOIN_ENABLED,
+                        "Use storage for distributing broadcast table",
+                        prestoSparkConfig.isStorageBasedBroadcastJoinEnabled(),
+                        false),
+                dataSizeProperty(
+                        STORAGE_BASED_BROADCAST_JOIN_WRITE_BUFFER_SIZE,
+                        "Maximum size in bytes to buffer before flushing pages to disk",
+                        prestoSparkConfig.getStorageBasedBroadcastJoinWriteBufferSize(),
+                        false),
+                dataSizeProperty(
+                        SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE,
+                        "Maximum size of broadcast table in Presto on Spark",
+                        prestoSparkConfig.getSparkBroadcastJoinMaxMemoryOverride(),
+                        false),
+                integerProperty(
+                        SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE,
+                        "Number of splits are processed in a single iteration",
+                        prestoSparkConfig.getSplitAssignmentBatchSize(),
+                        false),
+                doubleProperty(
+                        SPARK_MEMORY_REVOKING_THRESHOLD,
+                        "Revoke memory when memory pool is filled over threshold",
+                        prestoSparkConfig.getMemoryRevokingThreshold(),
+                        false),
+                doubleProperty(
+                        SPARK_MEMORY_REVOKING_TARGET,
+                        "When revoking memory, try to revoke so much that memory pool is filled below target at the end",
+                        prestoSparkConfig.getMemoryRevokingTarget(),
+                        false),
+                booleanProperty(
+                        SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED,
+                        "Disable broadcast join on broadcast OOM and re-submit the query again within the same spark session",
+                        prestoSparkConfig.isRetryOnOutOfMemoryBroadcastJoinEnabled(),
                         false));
     }
 
@@ -106,5 +149,40 @@ public class PrestoSparkSessionProperties
     public static DataSize getShuffleOutputTargetAverageRowSize(Session session)
     {
         return session.getSystemProperty(SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE, DataSize.class);
+    }
+
+    public static boolean isStorageBasedBroadcastJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(STORAGE_BASED_BROADCAST_JOIN_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getStorageBasedBroadcastJoinWriteBufferSize(Session session)
+    {
+        return session.getSystemProperty(STORAGE_BASED_BROADCAST_JOIN_WRITE_BUFFER_SIZE, DataSize.class);
+    }
+
+    public static DataSize getSparkBroadcastJoinMaxMemoryOverride(Session session)
+    {
+        return session.getSystemProperty(SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE, DataSize.class);
+    }
+
+    public static int getSplitAssignmentBatchSize(Session session)
+    {
+        return session.getSystemProperty(SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE, Integer.class);
+    }
+
+    public static double getMemoryRevokingThreshold(Session session)
+    {
+        return session.getSystemProperty(SPARK_MEMORY_REVOKING_THRESHOLD, Double.class);
+    }
+
+    public static double getMemoryRevokingTarget(Session session)
+    {
+        return session.getSystemProperty(SPARK_MEMORY_REVOKING_TARGET, Double.class);
+    }
+
+    public static boolean isRetryOnOutOfMemoryBroadcastJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED, Boolean.class);
     }
 }

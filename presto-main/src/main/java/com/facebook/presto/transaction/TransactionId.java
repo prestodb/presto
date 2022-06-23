@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -21,11 +24,13 @@ import java.util.UUID;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class TransactionId
 {
     private final UUID uuid;
 
-    private TransactionId(UUID uuid)
+    @ThriftConstructor
+    public TransactionId(UUID uuid)
     {
         this.uuid = requireNonNull(uuid, "uuid is null");
     }
@@ -65,5 +70,11 @@ public final class TransactionId
     public String toString()
     {
         return uuid.toString();
+    }
+
+    @ThriftField(value = 1, name = "uuid")
+    public UUID getUuid()
+    {
+        return uuid;
     }
 }

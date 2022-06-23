@@ -25,10 +25,9 @@ import com.teradata.tpcds.column.Column;
 import com.teradata.tpcds.column.ColumnType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.joda.time.Days;
-import org.joda.time.LocalDate;
-import org.joda.time.LocalTime;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Iterator;
 import java.util.List;
 
@@ -39,6 +38,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.parseDouble;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
+import static java.time.temporal.ChronoField.MILLI_OF_DAY;
 import static java.util.Objects.requireNonNull;
 
 public class TpcdsRecordSet
@@ -131,10 +131,10 @@ public class TpcdsRecordSet
             checkState(row != null, "No current row");
             Column column = columns.get(field);
             if (column.getType().getBase() == ColumnType.Base.DATE) {
-                return Days.daysBetween(new LocalDate(0), LocalDate.parse(row.get(column.getPosition()))).getDays();
+                return LocalDate.parse(row.get(column.getPosition())).toEpochDay();
             }
             if (column.getType().getBase() == ColumnType.Base.TIME) {
-                return LocalTime.parse(row.get(column.getPosition())).getMillisOfDay();
+                return LocalTime.parse(row.get(column.getPosition())).get(MILLI_OF_DAY);
             }
             if (column.getType().getBase() == ColumnType.Base.INTEGER) {
                 return parseInt(row.get(column.getPosition()));

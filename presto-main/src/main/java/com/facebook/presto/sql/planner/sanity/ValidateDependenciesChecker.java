@@ -49,7 +49,9 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
+import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -337,6 +339,15 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
+        public Void visitOffset(OffsetNode node, Set<VariableReferenceExpression> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols); // visit child
+
+            return null;
+        }
+
+        @Override
         public Void visitLimit(LimitNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
@@ -443,6 +454,27 @@ public final class ValidateDependenciesChecker
                     allInputs);
 
             checkLeftOutputVariablesBeforeRight(node.getLeft().getOutputVariables(), node.getOutputVariables());
+            return null;
+        }
+
+        @Override
+        public Void visitMergeJoin(MergeJoinNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            node.getLeft().accept(this, boundVariables);
+            node.getRight().accept(this, boundVariables);
+
+            Set<VariableReferenceExpression> leftInputs = createInputs(node.getLeft(), boundVariables);
+            Set<VariableReferenceExpression> rightInputs = createInputs(node.getRight(), boundVariables);
+            Set<VariableReferenceExpression> allInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(leftInputs)
+                    .addAll(rightInputs)
+                    .build();
+
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputVariables());
+                checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputVariables());
+            }
+
             return null;
         }
 

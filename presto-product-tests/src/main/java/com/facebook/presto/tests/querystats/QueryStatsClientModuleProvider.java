@@ -15,7 +15,7 @@ package com.facebook.presto.tests.querystats;
 
 import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Exposed;
 import com.google.inject.Inject;
@@ -44,7 +44,7 @@ public class QueryStatsClientModuleProvider
             @Override
             protected void configure()
             {
-                bind(ObjectMapper.class).toProvider(ObjectMapperProvider.class);
+                bind(ObjectMapper.class).toProvider(JsonObjectMapperProvider.class);
             }
 
             @Inject

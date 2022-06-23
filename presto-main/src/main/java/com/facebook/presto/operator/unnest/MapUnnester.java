@@ -17,7 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarMap;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;

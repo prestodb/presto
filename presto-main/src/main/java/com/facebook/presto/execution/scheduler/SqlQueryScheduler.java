@@ -20,6 +20,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.PartialResultQueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.RemoteTask;
@@ -81,6 +82,9 @@ import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
 import static com.facebook.presto.SystemSessionProperties.getMaxStageRetries;
+import static com.facebook.presto.SystemSessionProperties.getPartialResultsCompletionRatioThreshold;
+import static com.facebook.presto.SystemSessionProperties.getPartialResultsMaxExecutionTimeMultiplier;
+import static com.facebook.presto.SystemSessionProperties.isPartialResultsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRuntimeOptimizerEnabled;
 import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.SqlStageExecution.RECOVERABLE_ERROR_CODES;
@@ -150,6 +154,8 @@ public class SqlQueryScheduler
     private final AtomicBoolean scheduling = new AtomicBoolean();
     private final AtomicInteger retriedSections = new AtomicInteger();
 
+    private final PartialResultQueryTaskTracker partialResultQueryTaskTracker;
+
     public static SqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
             ExecutionPolicy executionPolicy,
@@ -170,7 +176,8 @@ public class SqlQueryScheduler
             PlanVariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            PartialResultQueryManager partialResultQueriesHandler)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 locationFactory,
@@ -192,7 +199,8 @@ public class SqlQueryScheduler
                 variableAllocator,
                 planChecker,
                 metadata,
-                sqlParser);
+                sqlParser,
+                partialResultQueriesHandler);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -217,7 +225,8 @@ public class SqlQueryScheduler
             PlanVariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            PartialResultQueryManager partialResultQueryManager)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -242,6 +251,7 @@ public class SqlQueryScheduler
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.maxConcurrentMaterializations = getMaxConcurrentMaterializations(session);
         this.maxStageRetries = getMaxStageRetries(session);
+        this.partialResultQueryTaskTracker = new PartialResultQueryTaskTracker(partialResultQueryManager, getPartialResultsCompletionRatioThreshold(session), getPartialResultsMaxExecutionTimeMultiplier(session), warningCollector);
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -310,7 +320,7 @@ public class SqlQueryScheduler
                 sectionExecutions.forEach(sectionExecution -> scheduledStageExecutions.addAll(sectionExecution.getSectionStages()));
                 sectionExecutions.stream()
                         .map(SectionExecution::getSectionStages)
-                        .map(executionPolicy::createExecutionSchedule)
+                        .map(stages -> executionPolicy.createExecutionSchedule(session, stages))
                         .forEach(executionSchedules::add);
 
                 while (!executionSchedules.isEmpty() && executionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
@@ -326,6 +336,14 @@ public class SqlQueryScheduler
                         // perform some scheduling work
                         ScheduleResult result = executionAndScheduler.getStageScheduler()
                                 .schedule();
+
+                        // Track leaf tasks if partial results are enabled
+                        if (isPartialResultsEnabled(session) && executionAndScheduler.getStageExecution().getFragment().isLeaf()) {
+                            for (RemoteTask task : result.getNewTasks()) {
+                                partialResultQueryTaskTracker.trackTask(task);
+                                task.addFinalTaskInfoListener(partialResultQueryTaskTracker::recordTaskFinish);
+                            }
+                        }
 
                         // modify parent and children based on the results of the scheduling
                         if (result.isFinished()) {
@@ -398,6 +416,9 @@ public class SqlQueryScheduler
             }
 
             scheduling.set(false);
+
+            // Inform the tracker that task scheduling has completed
+            partialResultQueryTaskTracker.completeTaskScheduling();
 
             if (!getSectionsReadyForExecution().isEmpty()) {
                 startScheduling();

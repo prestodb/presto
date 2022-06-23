@@ -14,19 +14,23 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockLease;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
+import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.predicate.FilterFunction;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintMultiRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingBitmask;
+import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
@@ -145,6 +149,9 @@ public class OrcSelectiveRecordReader
 
     private int readPositions;
 
+    // true if row number needs to be added, false otherwise
+    private final boolean appendRowNumber;
+
     public OrcSelectiveRecordReader(
             Map<Integer, Type> includedColumns,                 // key: hiveColumnIndex
             List<Integer> outputColumns,                        // elements are hive column indices
@@ -178,7 +185,8 @@ public class OrcSelectiveRecordReader
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
-            boolean cacheable)
+            boolean cacheable,
+            RuntimeStats runtimeStats)
     {
         super(includedColumns,
                 requiredSubfields,
@@ -220,7 +228,8 @@ public class OrcSelectiveRecordReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                cacheable);
+                cacheable,
+                runtimeStats);
 
         // Hive column indices can't be used to index into arrays because they are negative
         // for partition and hidden columns. Hence, we create synthetic zero-based indices.
@@ -255,6 +264,7 @@ public class OrcSelectiveRecordReader
 
         requireNonNull(constantValues, "constantValues is null");
         this.constantValues = new Object[this.hiveColumnIndices.length];
+        this.appendRowNumber = options.appendRowNumber();
         for (int columnIndex : includedColumns.keySet()) {
             if (!isColumnPresent(columnIndex)) {
                 // Any filter not true of null on a missing column
@@ -626,7 +636,6 @@ public class OrcSelectiveRecordReader
         if (batchSize < 0) {
             return null;
         }
-
         readPositions += batchSize;
         initializePositions(batchSize);
 
@@ -711,18 +720,18 @@ public class OrcSelectiveRecordReader
             }
         }
 
-        Block[] blocks = new Block[outputColumns.size()];
+        Block[] blocks = new Block[ appendRowNumber ? outputColumns.size() + 1 : outputColumns.size()];
         for (int i = 0; i < outputColumns.size(); i++) {
             int columnIndex = outputColumns.get(i);
             if (constantValues[columnIndex] != null) {
                 blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex] == NULL_MARKER ? null : constantValues[columnIndex], positionCount);
             }
             else if (!hasAnyFilter(columnIndex)) {
-                blocks[i] = new LazyBlock(positionCount, new OrcBlockLoader(getStreamReader(columnIndex), coercers[columnIndex], offset, positionsToRead, positionCount));
+                blocks[i] = new LazyBlock(positionCount, new OrcBlockLoader(columnIndex, offset, positionsToRead, positionCount));
             }
             else {
                 Block block = getStreamReader(columnIndex).getBlock(positionsToRead, positionCount);
-                updateMaxCombinedBytesPerRow(columnIndex, block);
+                updateMaxCombinedBytesPerRow(hiveColumnIndices[columnIndex], block);
 
                 if (coercers[columnIndex] != null) {
                     block = coercers[columnIndex].apply(block);
@@ -732,10 +741,11 @@ public class OrcSelectiveRecordReader
             }
         }
 
+        if (appendRowNumber) {
+            blocks[outputColumns.size()] = createRowNumbersBlock(positionsToRead, positionCount, this.getFilePosition());
+        }
         Page page = new Page(positionCount, blocks);
-
         validateWritePageChecksum(page);
-
         return page;
     }
 
@@ -877,6 +887,15 @@ public class OrcSelectiveRecordReader
         }
     }
 
+    private static Block createRowNumbersBlock(int[] positionsToRead, int positionCount, long startRowNumber)
+    {
+        long[] rowNumbers = new long[positionCount];
+        for (int i = 0; i < positionCount; i++) {
+            rowNumbers[i] = positionsToRead[i] + startRowNumber;
+        }
+        return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
+    }
+
     @Override
     public void close()
             throws IOException
@@ -884,21 +903,23 @@ public class OrcSelectiveRecordReader
         super.close();
     }
 
-    private static final class OrcBlockLoader
+    private final class OrcBlockLoader
             implements LazyBlockLoader<LazyBlock>
     {
         private final SelectiveStreamReader reader;
         @Nullable
         private final Function<Block, Block> coercer;
+        private final int columnIndex;
         private final int offset;
         private final int[] positions;
         private final int positionCount;
         private boolean loaded;
 
-        public OrcBlockLoader(SelectiveStreamReader reader, @Nullable Function<Block, Block> coercer, int offset, int[] positions, int positionCount)
+        public OrcBlockLoader(int columnIndex, int offset, int[] positions, int positionCount)
         {
-            this.reader = requireNonNull(reader, "reader is null");
-            this.coercer = coercer; // can be null
+            this.reader = requireNonNull(getStreamReader(columnIndex), "reader is null");
+            this.coercer = coercers[columnIndex]; // can be null
+            this.columnIndex = columnIndex;
             this.offset = offset;
             this.positions = requireNonNull(positions, "positions is null");
             this.positionCount = positionCount;
@@ -923,6 +944,8 @@ public class OrcSelectiveRecordReader
                 block = coercer.apply(block);
             }
             lazyBlock.setBlock(block);
+
+            updateMaxCombinedBytesPerRow(hiveColumnIndices[columnIndex], block);
 
             loaded = true;
         }

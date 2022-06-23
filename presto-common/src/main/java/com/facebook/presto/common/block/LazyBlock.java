@@ -17,7 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -126,6 +127,13 @@ public class LazyBlock
     }
 
     @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        assureLoaded();
+        block.writeBytesTo(position, offset, length, sliceOutput);
+    }
+
+    @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         assureLoaded();
@@ -186,6 +194,13 @@ public class LazyBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        assureLoaded();
+        return block.fixedSizeInBytesPerPosition();
+    }
+
+    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         assureLoaded();
@@ -193,10 +208,10 @@ public class LazyBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
         assureLoaded();
-        return block.getPositionsSizeInBytes(positions);
+        return block.getPositionsSizeInBytes(positions, usedPositionCount);
     }
 
     @Override
@@ -214,11 +229,11 @@ public class LazyBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         assureLoaded();
         block.retainedBytesForEachPart(consumer);
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -261,6 +276,13 @@ public class LazyBlock
     {
         assureLoaded();
         return block.isNull(position);
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        assureLoaded();
+        return block.mayHaveNull();
     }
 
     public void setBlock(Block block)

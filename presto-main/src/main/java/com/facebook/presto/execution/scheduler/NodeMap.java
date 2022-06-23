@@ -15,56 +15,92 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.google.common.collect.SetMultimap;
 
 import java.net.InetAddress;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+
+import static java.lang.String.format;
 
 public class NodeMap
 {
-    private final Map<String, InternalNode> nodesByNodeId;
-    private final SetMultimap<HostAddress, InternalNode> nodesByHostAndPort;
-    private final SetMultimap<InetAddress, InternalNode> nodesByHost;
-    private final SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath;
+    private final Map<String, InternalNode> activeNodesByNodeId;
+    private final SetMultimap<NetworkLocation, InternalNode> activeWorkersByNetworkPath;
     private final Set<String> coordinatorNodeIds;
+    private final List<InternalNode> activeNodes;
+    private final List<InternalNode> allNodes;
+    private final SetMultimap<InetAddress, InternalNode> allNodesByHost;
+    private final SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort;
+    private final Optional<ConsistentHashingNodeProvider> consistentHashingNodeProvider;
 
     public NodeMap(
-            Map<String, InternalNode> nodesByNodeId,
-            SetMultimap<HostAddress, InternalNode> nodesByHostAndPort,
-            SetMultimap<InetAddress, InternalNode> nodesByHost,
-            SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath,
-            Set<String> coordinatorNodeIds)
+            Map<String, InternalNode> activeNodesByNodeId,
+            SetMultimap<NetworkLocation, InternalNode> activeWorkersByNetworkPath,
+            Set<String> coordinatorNodeIds,
+            List<InternalNode> activeNodes,
+            List<InternalNode> allNodes,
+            SetMultimap<InetAddress, InternalNode> allNodesByHost,
+            SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort,
+            Optional<ConsistentHashingNodeProvider> consistentHashingNodeProvider)
     {
-        this.nodesByNodeId = nodesByNodeId;
-        this.nodesByHostAndPort = nodesByHostAndPort;
-        this.nodesByHost = nodesByHost;
-        this.workersByNetworkPath = workersByNetworkPath;
+        this.activeNodesByNodeId = activeNodesByNodeId;
+        this.activeWorkersByNetworkPath = activeWorkersByNetworkPath;
         this.coordinatorNodeIds = coordinatorNodeIds;
+        this.activeNodes = activeNodes;
+        this.allNodes = allNodes;
+        this.allNodesByHost = allNodesByHost;
+        this.allNodesByHostAndPort = allNodesByHostAndPort;
+        this.consistentHashingNodeProvider = consistentHashingNodeProvider;
     }
 
-    public Map<String, InternalNode> getNodesByNodeId()
+    public Map<String, InternalNode> getActiveNodesByNodeId()
     {
-        return nodesByNodeId;
+        return activeNodesByNodeId;
     }
 
-    public SetMultimap<HostAddress, InternalNode> getNodesByHostAndPort()
+    public SetMultimap<NetworkLocation, InternalNode> getActiveWorkersByNetworkPath()
     {
-        return nodesByHostAndPort;
-    }
-
-    public SetMultimap<InetAddress, InternalNode> getNodesByHost()
-    {
-        return nodesByHost;
-    }
-
-    public SetMultimap<NetworkLocation, InternalNode> getWorkersByNetworkPath()
-    {
-        return workersByNetworkPath;
+        return activeWorkersByNetworkPath;
     }
 
     public Set<String> getCoordinatorNodeIds()
     {
         return coordinatorNodeIds;
+    }
+
+    public List<InternalNode> getActiveNodes()
+    {
+        return activeNodes;
+    }
+
+    public List<InternalNode> getAllNodes()
+    {
+        return allNodes;
+    }
+
+    public SetMultimap<InetAddress, InternalNode> getAllNodesByHost()
+    {
+        return allNodesByHost;
+    }
+
+    public SetMultimap<HostAddress, InternalNode> getAllNodesByHostAndPort()
+    {
+        return allNodesByHostAndPort;
+    }
+
+    public NodeProvider getActiveNodeProvider(NodeSelectionHashStrategy nodeSelectionHashStrategy)
+    {
+        switch (nodeSelectionHashStrategy) {
+            case MODULAR_HASHING:
+                return new ModularHashingNodeProvider(activeNodes);
+            case CONSISTENT_HASHING:
+                return consistentHashingNodeProvider.get();
+            default:
+                throw new IllegalArgumentException(format("Unknown NodeSelectionHashStrategy: %s", nodeSelectionHashStrategy));
+        }
     }
 }

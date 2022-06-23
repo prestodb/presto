@@ -16,6 +16,8 @@ package com.facebook.presto.resourceGroups.db;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.resourceGroups.VariableMap;
+import com.facebook.presto.resourceGroups.reloading.ReloadingResourceGroupConfigurationManager;
+import com.facebook.presto.resourceGroups.reloading.ReloadingResourceGroupConfigurationManagerModule;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
@@ -42,6 +44,7 @@ public class DbResourceGroupConfigurationManagerFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new DbResourceGroupsModule(),
+                    new ReloadingResourceGroupConfigurationManagerModule(),
                     binder -> binder.bind(String.class).annotatedWith(ForEnvironment.class).toInstance(context.getEnvironment()),
                     binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
@@ -49,7 +52,7 @@ public class DbResourceGroupConfigurationManagerFactory
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
-            return injector.getInstance(DbResourceGroupConfigurationManager.class);
+            return injector.getInstance(ReloadingResourceGroupConfigurationManager.class);
         }
         catch (Exception e) {
             throwIfUnchecked(e);

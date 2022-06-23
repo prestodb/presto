@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -72,6 +73,8 @@ public class OperatorStatistics
 
     private final Optional<String> info;
 
+    private final RuntimeStats runtimeStats;
+
     public OperatorStatistics(
             int stageId,
             int stageExecutionId,
@@ -117,7 +120,8 @@ public class OperatorStatistics
 
             DataSize spilledDataSize,
 
-            Optional<String> info)
+            Optional<String> info,
+            RuntimeStats runtimeStats)
     {
         this.stageId = stageId;
         this.stageExecutionId = stageExecutionId;
@@ -166,6 +170,7 @@ public class OperatorStatistics
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.info = requireNonNull(info, "info is null");
+        this.runtimeStats = runtimeStats;
     }
 
     public int getStageId()
@@ -346,5 +351,10 @@ public class OperatorStatistics
     public Optional<String> getInfo()
     {
         return info;
+    }
+
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 }

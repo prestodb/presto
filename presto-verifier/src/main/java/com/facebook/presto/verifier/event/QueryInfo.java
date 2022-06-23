@@ -48,6 +48,7 @@ public class QueryInfo
     private final List<String> teardownQueries;
     private final String checksumQuery;
     private final String jsonPlan;
+    private final String outputTableName;
 
     private final Double cpuTimeSecs;
     private final Double wallTimeSecs;
@@ -69,7 +70,8 @@ public class QueryInfo
             Optional<List<String>> teardownQueries,
             Optional<String> checksumQuery,
             Optional<String> jsonPlan,
-            Optional<QueryActionStats> queryActionStats)
+            Optional<QueryActionStats> queryActionStats,
+            Optional<String> outputTableName)
     {
         Optional<QueryStats> stats = queryActionStats.flatMap(QueryActionStats::getQueryStats);
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -90,6 +92,7 @@ public class QueryInfo
         this.peakTotalMemoryBytes = stats.map(QueryStats::getPeakTotalMemoryBytes).orElse(null);
         this.peakTaskTotalMemoryBytes = stats.map(QueryStats::getPeakTaskTotalMemoryBytes).orElse(null);
         this.extraStats = queryActionStats.flatMap(QueryActionStats::getExtraStats).orElse(null);
+        this.outputTableName = outputTableName.orElse(null);
     }
 
     private static double millisToSeconds(long millis)
@@ -176,6 +179,12 @@ public class QueryInfo
     }
 
     @EventField
+    public String getOutputTableName()
+    {
+        return outputTableName;
+    }
+
+    @EventField
     public Double getCpuTimeSecs()
     {
         return cpuTimeSecs;
@@ -229,6 +238,7 @@ public class QueryInfo
         private Optional<String> checksumQuery = Optional.empty();
         private Optional<String> jsonPlan = Optional.empty();
         private Optional<QueryActionStats> queryActionStats = Optional.empty();
+        private Optional<String> outputTableName = Optional.empty();
 
         private Builder(
                 String catalog,
@@ -296,6 +306,12 @@ public class QueryInfo
             return this;
         }
 
+        public Builder setOutputTableName(Optional<String> outputTableName)
+        {
+            this.outputTableName = requireNonNull(outputTableName, "outputTableName is null");
+            return this;
+        }
+
         public QueryInfo build()
         {
             return new QueryInfo(
@@ -311,7 +327,8 @@ public class QueryInfo
                     teardownQueries,
                     checksumQuery,
                     jsonPlan,
-                    queryActionStats);
+                    queryActionStats,
+                    outputTableName);
         }
     }
 }

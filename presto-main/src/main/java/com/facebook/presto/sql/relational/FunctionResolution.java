@@ -86,14 +86,22 @@ public final class FunctionResolution
         return functionAndTypeManager.lookupFunction("LIKE", fromTypes(valueType, LIKE_PATTERN));
     }
 
+    @Override
     public boolean isLikeFunction(FunctionHandle functionHandle)
     {
         return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "LIKE"));
     }
 
+    @Override
     public FunctionHandle likePatternFunction()
     {
         return functionAndTypeManager.lookupFunction("LIKE_PATTERN", fromTypes(VARCHAR, VARCHAR));
+    }
+
+    @Override
+    public boolean isLikePatternFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "LIKE_PATTERN"));
     }
 
     @Override
@@ -227,6 +235,12 @@ public final class FunctionResolution
         return operatorType.isPresent() && operatorType.get().isComparisonOperator();
     }
 
+    public boolean isEqualsFunction(FunctionHandle functionHandle)
+    {
+        Optional<OperatorType> operatorType = functionAndTypeManager.getFunctionMetadata(functionHandle).getOperatorType();
+        return operatorType.isPresent() && operatorType.get().getOperator().equals(EQUAL.getOperator());
+    }
+
     @Override
     public FunctionHandle subscriptFunction(Type baseType, Type indexType)
     {
@@ -294,5 +308,34 @@ public final class FunctionResolution
     public FunctionHandle minFunction(Type valueType)
     {
         return functionAndTypeManager.lookupFunction("min", fromTypes(valueType));
+    }
+
+    @Override
+    public boolean isApproximateCountDistinctFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_distinct"));
+    }
+
+    @Override
+    public FunctionHandle approximateCountDistinctFunction(Type valueType)
+    {
+        return functionAndTypeManager.lookupFunction("approx_distinct", fromTypes(valueType));
+    }
+
+    @Override
+    public boolean isApproximateSetFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_set"));
+    }
+
+    @Override
+    public FunctionHandle approximateSetFunction(Type valueType)
+    {
+        return functionAndTypeManager.lookupFunction("approx_set", fromTypes(valueType));
+    }
+
+    public boolean isEqualFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getOperatorType().map(EQUAL::equals).orElse(false);
     }
 }

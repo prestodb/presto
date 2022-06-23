@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.Database;
@@ -40,6 +41,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,6 +54,8 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.ColumnEncryptionInformation.fromTableProperty;
 import static com.facebook.presto.hive.EncryptionInformation.fromEncryptionMetadata;
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
+import static com.facebook.presto.hive.HiveSessionProperties.NEW_PARTITION_USER_SUPPLIED_PARAMETER;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -69,8 +73,8 @@ import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.PARTITION_UPDATE_CODEC;
+import static com.facebook.presto.hive.HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
-import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -87,6 +91,9 @@ public class TestHiveMetadataFileFormatEncryptionSettings
     private static final String TEST_SERVER_VERSION = "test_version";
     private static final String TEST_DB_NAME = "test_db";
     private static final JsonCodec<PartitionUpdate> PARTITION_CODEC = jsonCodec(PartitionUpdate.class);
+    private static final ConnectorSession SESSION = new TestingConnectorSession(
+            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties(),
+            ImmutableMap.of(NEW_PARTITION_USER_SUPPLIED_PARAMETER, "{}"));
 
     private HiveMetadataFactory metadataFactory;
     private HiveTransactionManager transactionManager;
@@ -105,14 +112,17 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 metastore,
                 HDFS_ENVIRONMENT,
                 new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, HIVE_CLIENT_CONFIG),
-                DateTimeZone.forTimeZone(TimeZone.getTimeZone(HIVE_CLIENT_CONFIG.getTimeZone())),
+                DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(HIVE_CLIENT_CONFIG.getTimeZone()))),
                 true,
                 false,
                 false,
                 false,
+                true,
                 true,
                 HIVE_CLIENT_CONFIG.getMaxPartitionBatchSize(),
                 HIVE_CLIENT_CONFIG.getMaxPartitionsPerScan(),
+                false,
+                10_000,
                 FUNCTION_AND_TYPE_MANAGER,
                 new HiveLocationService(HDFS_ENVIRONMENT),
                 FUNCTION_RESOLUTION,
@@ -120,6 +130,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
                 PARTITION_UPDATE_CODEC,
+                PARTITION_UPDATE_SMILE_CODEC,
                 listeningDecorator(executor),
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(HDFS_ENVIRONMENT, listeningDecorator(executor)),
@@ -128,9 +139,10 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource())),
                 new HivePartitionStats(),
-                new HiveFileRenamer());
+                new HiveFileRenamer(),
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
 
-        metastore.createDatabase(Database.builder()
+        metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
                 .setDatabaseName(TEST_DB_NAME)
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
@@ -236,7 +248,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
         }
     }
 
-    @Test
+    @Test(description = "This also tests that NEW_PARTITION_USER_SUPPLIED_PARAMETER also works")
     public void testCreateTableAsSelectWithColumnKeyReference()
     {
         String tableName = "test_ctas_enc_with_column_key";
@@ -282,9 +294,11 @@ public class TestHiveMetadataFileFormatEncryptionSettings
 
             metadata.commit();
 
-            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
+            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(METASTORE_CONTEXT, TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
             assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
             assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
+            // Checking NEW_PARTITION_USER_SUPPLIED_PARAMETER
+            assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get("user_supplied"), "{}");
         }
         finally {
             dropTable(tableName);
@@ -450,7 +464,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     ImmutableList.of());
             createHiveMetadata.commit();
 
-            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
+            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(METASTORE_CONTEXT, TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
             assertEquals(partitions.get("ds=2020-06-26").get().getStorage().getLocation(), "path1");
             assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
             assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
@@ -467,7 +481,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     ImmutableList.of());
             overrideHiveMetadata.commit();
 
-            partitions = metastore.getPartitionsByNames(TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26"));
+            partitions = metastore.getPartitionsByNames(METASTORE_CONTEXT, TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26"));
             assertEquals(partitions.get("ds=2020-06-26").get().getStorage().getLocation(), "path3");
             assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
         }
@@ -485,7 +499,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HiveSessionProperties(
                         new HiveClientConfig().setRespectTableFormat(false).setHiveStorageFormat(ORC),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
 
         ConnectorTableMetadata table = getConnectorTableMetadata(
                 tableName,
@@ -527,7 +542,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     new HiveSessionProperties(
                             new HiveClientConfig().setRespectTableFormat(false).setHiveStorageFormat(ORC),
                             new OrcFileWriterConfig(),
-                            new ParquetFileWriterConfig()).getSessionProperties());
+                            new ParquetFileWriterConfig(),
+                            new CacheConfig()).getSessionProperties());
 
             insertHiveMetadata.beginInsert(newSession, new HiveTableHandle(TEST_DB_NAME, tableName));
         }

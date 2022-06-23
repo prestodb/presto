@@ -23,6 +23,7 @@ import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
 
@@ -65,6 +66,11 @@ public class TableLayout
     public TupleDomain<ColumnHandle> getPredicate()
     {
         return layout.getPredicate();
+    }
+
+    public Optional<RowExpression> getRemainingPredicate()
+    {
+        return layout.getRemainingPredicate();
     }
 
     public List<LocalProperty<ColumnHandle>> getLocalProperties()

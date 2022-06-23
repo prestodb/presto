@@ -37,6 +37,12 @@ public class MySqlConnectionModule
         configBinder(binder).bindConfig(MySqlConnectionConfig.class);
 
         String databaseUrl = buildConfigObject(MySqlConnectionConfig.class).getDatabaseUrl();
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+        }
+        catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         Jdbi jdbi = createJdbi(
                 () -> DriverManager.getConnection(databaseUrl),
                 buildConfigObject(MySqlFunctionNamespaceManagerConfig.class));
@@ -75,8 +81,8 @@ public class MySqlConnectionModule
                 .setTableName(config.getFunctionNamespacesTableName());
         jdbi.getConfig(SqlFunctionsTableCustomizerFactory.Config.class)
                 .setTableName(config.getFunctionsTableName());
-        jdbi.getConfig(EnumTypesTableCustomizerFactory.Config.class)
-                .setTableName(config.getEnumTypesTableName());
+        jdbi.getConfig(UserDefinedTypesTableCustomizerFactory.Config.class)
+                .setTableName(config.getUserDefinedTypesTableName());
         return jdbi;
     }
 }

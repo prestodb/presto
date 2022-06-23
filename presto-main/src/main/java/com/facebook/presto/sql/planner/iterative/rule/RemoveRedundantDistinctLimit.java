@@ -15,31 +15,23 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
-import java.util.Optional;
-
-import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static com.facebook.presto.sql.planner.plan.Patterns.distinctLimit;
 import static com.google.common.base.Preconditions.checkArgument;
 
-/**
- * Replace DistinctLimit node
- * 1. With a empty ValuesNode when count is 0
- * 2. With a Distinct node when the subplan is guaranteed to produce fewer rows than count
- * 3. With its source when the subplan produces only one row
- */
 public class RemoveRedundantDistinctLimit
         implements Rule<DistinctLimitNode>
 {
-    private static final Pattern<DistinctLimitNode> PATTERN = distinctLimit();
+    private static final Pattern<DistinctLimitNode> PATTERN = Pattern.typeOf(DistinctLimitNode.class)
+            .matching(RemoveRedundantDistinctLimit::singleRowInput);
+
+    private static boolean singleRowInput(DistinctLimitNode node)
+    {
+        return (((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
+                ((GroupReference) node.getSource()).getLogicalProperties().get().isAtMostSingleRow());
+    }
 
     @Override
     public Pattern<DistinctLimitNode> getPattern()
@@ -51,21 +43,6 @@ public class RemoveRedundantDistinctLimit
     public Result apply(DistinctLimitNode node, Captures captures, Context context)
     {
         checkArgument(!node.getHashVariable().isPresent(), "HashSymbol should be empty");
-
-        if (isScalar(node.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(node.getSource());
-        }
-        if (isAtMost(node.getSource(), context.getLookup(), node.getLimit())) {
-            return Result.ofPlanNode(new AggregationNode(
-                    node.getId(),
-                    node.getSource(),
-                    ImmutableMap.of(),
-                    singleGroupingSet(node.getDistinctVariables()),
-                    ImmutableList.of(),
-                    SINGLE,
-                    node.getHashVariable(),
-                    Optional.empty()));
-        }
-        return Result.empty();
+        return Result.ofPlanNode(node.getSource());
     }
 }

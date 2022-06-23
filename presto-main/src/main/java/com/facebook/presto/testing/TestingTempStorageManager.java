@@ -30,7 +30,7 @@ public class TestingTempStorageManager
     {
         // For tests like TestSpilled{Aggregations, Window, OrderBy}WithTemporaryStorage, TestDistributedSpilledQueriesWithTempStorage
         // Each of them will create their own TempStorage
-        // Since TempStorage#initilaize is called lazily, the temporary directory might be cleaned up when other tests is still spilling.
+        // Since TempStorage#initialize is called lazily, the temporary directory might be cleaned up when other tests is still spilling.
         this(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage", UUID.randomUUID().toString().replaceAll("-", "_"))
                 .toAbsolutePath()
                 .toString());
@@ -40,8 +40,9 @@ public class TestingTempStorageManager
     public TestingTempStorageManager(String tempStoragePath)
     {
         super(new TestingNodeManager());
+        addTempStorageFactory(new LocalTempStorage.Factory());
         loadTempStorage(
                 LocalTempStorage.NAME,
-                ImmutableMap.of(TEMP_STORAGE_PATH, tempStoragePath));
+                ImmutableMap.of(TEMP_STORAGE_PATH, tempStoragePath, TempStorageManager.TEMP_STORAGE_FACTORY_NAME, "local"));
     }
 }

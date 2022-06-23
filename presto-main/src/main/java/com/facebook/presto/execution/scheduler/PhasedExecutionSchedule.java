@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -29,8 +30,8 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.jgrapht.DirectedGraph;
-import org.jgrapht.alg.StrongConnectivityInspector;
+import org.jgrapht.Graph;
+import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.traverse.TopologicalOrderIterator;
@@ -133,7 +134,7 @@ public class PhasedExecutionSchedule
         // Build a graph where the plan fragments are vertexes and the edges represent
         // a before -> after relationship.  For example, a join hash build has an edge
         // to the join probe.
-        DirectedGraph<PlanFragmentId, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
+        Graph<PlanFragmentId, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
         fragments.forEach(fragment -> graph.addVertex(fragment.getId()));
 
         Visitor visitor = new Visitor(fragments, graph);
@@ -144,7 +145,7 @@ public class PhasedExecutionSchedule
         // Computes all the strongly connected components of the directed graph.
         // These are the "phases" which hold the set of fragments that must be started
         // at the same time to avoid deadlock.
-        List<Set<PlanFragmentId>> components = new StrongConnectivityInspector<>(graph).stronglyConnectedSets();
+        List<Set<PlanFragmentId>> components = new KosarajuStrongConnectivityInspector<>(graph).stronglyConnectedSets();
 
         Map<PlanFragmentId, Set<PlanFragmentId>> componentMembership = new HashMap<>();
         for (Set<PlanFragmentId> component : components) {
@@ -154,7 +155,7 @@ public class PhasedExecutionSchedule
         }
 
         // build graph of components (phases)
-        DirectedGraph<Set<PlanFragmentId>, DefaultEdge> componentGraph = new DefaultDirectedGraph<>(DefaultEdge.class);
+        Graph<Set<PlanFragmentId>, DefaultEdge> componentGraph = new DefaultDirectedGraph<>(DefaultEdge.class);
         components.forEach(componentGraph::addVertex);
         for (DefaultEdge edge : graph.edgeSet()) {
             PlanFragmentId source = graph.getEdgeSource(edge);
@@ -175,10 +176,10 @@ public class PhasedExecutionSchedule
             extends InternalPlanVisitor<Set<PlanFragmentId>, PlanFragmentId>
     {
         private final Map<PlanFragmentId, PlanFragment> fragments;
-        private final DirectedGraph<PlanFragmentId, DefaultEdge> graph;
+        private final Graph<PlanFragmentId, DefaultEdge> graph;
         private final Map<PlanFragmentId, Set<PlanFragmentId>> fragmentSources = new HashMap<>();
 
-        public Visitor(Collection<PlanFragment> fragments, DirectedGraph<PlanFragmentId, DefaultEdge> graph)
+        public Visitor(Collection<PlanFragment> fragments, Graph<PlanFragmentId, DefaultEdge> graph)
         {
             this.fragments = fragments.stream()
                     .collect(toImmutableMap(PlanFragment::getId, identity()));
@@ -224,6 +225,12 @@ public class PhasedExecutionSchedule
         public Set<PlanFragmentId> visitIndexJoin(IndexJoinNode node, PlanFragmentId currentFragmentId)
         {
             return processJoin(node.getIndexSource(), node.getProbeSource(), currentFragmentId);
+        }
+
+        @Override
+        public Set<PlanFragmentId> visitMergeJoin(MergeJoinNode node, PlanFragmentId currentFragmentId)
+        {
+            return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
         }
 
         private Set<PlanFragmentId> processJoin(PlanNode build, PlanNode probe, PlanFragmentId currentFragmentId)

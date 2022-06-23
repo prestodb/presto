@@ -113,6 +113,7 @@ public class TestHashJoinOperator
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
     private static final SingleStreamSpillerFactory SINGLE_STREAM_SPILLER_FACTORY = new DummySpillerFactory();
     private static final PartitioningSpillerFactory PARTITIONING_SPILLER_FACTORY = new GenericPartitioningSpillerFactory(SINGLE_STREAM_SPILLER_FACTORY);
+    private static final String PAGE_BUFFER = "PageBuffer";
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -133,7 +134,7 @@ public class TestHashJoinOperator
                 Integer.MAX_VALUE,
                 60L,
                 SECONDS,
-                new SynchronousQueue<Runnable>(),
+                new SynchronousQueue<>(),
                 daemonThreadsNamed("test-executor-%s"),
                 new ThreadPoolExecutor.DiscardPolicy());
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
@@ -444,7 +445,7 @@ public class TestHashJoinOperator
             ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(17, new PlanNodeId("values"), probePages.build());
 
             PageBuffer pageBuffer = new PageBuffer(10);
-            PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(18, new PlanNodeId("pageBuffer"), pageBuffer);
+            PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(18, new PlanNodeId(PAGE_BUFFER), pageBuffer, PAGE_BUFFER);
 
             Driver joinDriver = Driver.createDriver(
                     joinDriverContext,
@@ -486,6 +487,129 @@ public class TestHashJoinOperator
         finally {
             joinOperatorFactory.noMoreOperators();
         }
+    }
+
+    @Test(timeOut = 60000)
+    public void testInnerJoinWithSpillWithEarlyTermination()
+    {
+        TaskStateMachine taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0, 0), executor);
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, taskStateMachine);
+
+        PipelineContext joinPipelineContext = taskContext.addPipelineContext(2, true, true, false);
+        DriverContext joinDriverContext1 = joinPipelineContext.addDriverContext();
+        DriverContext joinDriverContext2 = joinPipelineContext.addDriverContext();
+        DriverContext joinDriverContext3 = joinPipelineContext.addDriverContext();
+
+        // build factory
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(VARCHAR, BIGINT))
+                .addSequencePage(4, 20, 200)
+                .addSequencePage(4, 20, 200)
+                .addSequencePage(4, 30, 300)
+                .addSequencePage(4, 40, 400);
+
+        // force a yield for every match in LookupJoinOperator, set called to true after first
+        AtomicBoolean called = new AtomicBoolean(false);
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
+                (leftPosition, leftPage, rightPosition, rightPage) -> {
+                    called.set(true);
+                    return true;
+                });
+
+        BuildSideSetup buildSideSetup = setupBuildSide(true, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction), true, SINGLE_STREAM_SPILLER_FACTORY);
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+
+        // probe factory
+        RowPagesBuilder probe1Pages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT))
+                .row("no_match_1", 123_000L)
+                .row("no_match_2", 123_000L);
+        RowPagesBuilder probe2Pages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT))
+                .row("20", 123_000L)
+                .row("20", 123_000L)
+                .pageBreak()
+                .addSequencePage(20, 0, 123_000)
+                .addSequencePage(10, 30, 123_000);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactoryManager, probe2Pages, PARTITIONING_SPILLER_FACTORY, OptionalInt.of(3));
+
+        // build drivers and operators
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+        List<Driver> buildDrivers = buildSideSetup.getBuildDrivers();
+        int buildOperatorCount = buildDrivers.size();
+        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+
+        Operator lookupOperator1 = joinOperatorFactory.createOperator(joinDriverContext1);
+        Operator lookupOperator2 = joinOperatorFactory.createOperator(joinDriverContext2);
+        Operator lookupOperator3 = joinOperatorFactory.createOperator(joinDriverContext3);
+        joinOperatorFactory.noMoreOperators();
+
+        ListenableFuture<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
+        while (!lookupSourceProvider.isDone()) {
+            for (Driver buildDriver : buildDrivers) {
+                checkErrors(taskStateMachine);
+                buildDriver.process();
+            }
+        }
+        getFutureValue(lookupSourceProvider).close();
+
+        for (int i = 0; i < buildOperatorCount; i++) {
+            revokeMemory(buildSideSetup.getBuildOperators().get(i));
+        }
+
+        for (Driver buildDriver : buildDrivers) {
+            runDriverInThread(executor, buildDriver);
+        }
+
+        ValuesOperatorFactory valuesOperatorFactory1 = new ValuesOperatorFactory(17, new PlanNodeId("values1"), probe1Pages.build());
+        ValuesOperatorFactory valuesOperatorFactory2 = new ValuesOperatorFactory(18, new PlanNodeId("values2"), probe2Pages.build());
+        ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(18, new PlanNodeId("values3"), ImmutableList.of());
+        PageBuffer pageBuffer = new PageBuffer(10);
+        PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(19, new PlanNodeId(PAGE_BUFFER), pageBuffer, PAGE_BUFFER);
+
+        Driver joinDriver1 = Driver.createDriver(
+                joinDriverContext1,
+                valuesOperatorFactory1.createOperator(joinDriverContext1),
+                lookupOperator1,
+                pageBufferOperatorFactory.createOperator(joinDriverContext1));
+        Driver joinDriver2 = Driver.createDriver(
+                joinDriverContext2,
+                valuesOperatorFactory2.createOperator(joinDriverContext2),
+                lookupOperator2,
+                pageBufferOperatorFactory.createOperator(joinDriverContext2));
+        Driver joinDriver3 = Driver.createDriver(
+                joinDriverContext3,
+                valuesOperatorFactory3.createOperator(joinDriverContext3),
+                lookupOperator3,
+                pageBufferOperatorFactory.createOperator(joinDriverContext3));
+
+        joinDriver3.close();
+        joinDriver3.process();
+
+        while (!called.get()) {
+            checkErrors(taskStateMachine);
+            processRow(joinDriver1, taskStateMachine);
+            processRow(joinDriver2, taskStateMachine);
+        }
+        joinDriver1.close();
+        joinDriver1.process();
+
+        while (!joinDriver2.isFinished()) {
+            processRow(joinDriver2, taskStateMachine);
+        }
+        checkErrors(taskStateMachine);
+
+        List<Page> pages = getPages(pageBuffer);
+
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probe2Pages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
+                .row("20", 123_000L, "20", 200L)
+                .row("20", 123_000L, "20", 200L)
+                .row("20", 123_000L, "20", 200L)
+                .row("20", 123_000L, "20", 200L)
+                .row("30", 123_000L, "30", 300L)
+                .row("31", 123_001L, "31", 301L)
+                .row("32", 123_002L, "32", 302L)
+                .row("33", 123_003L, "33", 303L)
+                .build();
+
+        assertEqualsIgnoreOrder(getProperColumns(lookupOperator1, concat(probe2Pages.getTypes(), buildPages.getTypes()), probe2Pages, pages).getMaterializedRows(), expected.getMaterializedRows());
     }
 
     private static void processRow(final Driver joinDriver, final TaskStateMachine taskStateMachine)
@@ -544,6 +668,41 @@ public class TestHashJoinOperator
             types = without(types, hashChannels);
         }
         return OperatorAssertion.toMaterializedResult(joinOperator.getOperatorContext().getSession(), types, actualPages);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBuildGracefulSpill()
+            throws Exception
+    {
+        TaskStateMachine taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0, 0), executor);
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, taskStateMachine);
+
+        // build factory
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(VARCHAR, BIGINT))
+                .addSequencePage(4, 20, 200);
+
+        DummySpillerFactory buildSpillerFactory = new DummySpillerFactory();
+
+        BuildSideSetup buildSideSetup = setupBuildSide(true, taskContext, Ints.asList(0), buildPages, Optional.empty(), true, buildSpillerFactory);
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+        PartitionedLookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+
+        // finish probe before any build partition is spilled
+        lookupSourceFactory.finishProbeOperator(OptionalInt.of(1));
+
+        // spill build partition after probe is finished
+        HashBuilderOperator hashBuilderOperator = buildSideSetup.getBuildOperators().get(0);
+        hashBuilderOperator.startMemoryRevoke().get();
+        hashBuilderOperator.finishMemoryRevoke();
+        hashBuilderOperator.finish();
+
+        // hash builder operator should not deadlock waiting for spilled lookup source to be disposed
+        hashBuilderOperator.isBlocked().get();
+
+        lookupSourceFactory.destroy();
+        assertTrue(hashBuilderOperator.isFinished());
     }
 
     @Test(dataProvider = "hashJoinTestValues")
@@ -1039,7 +1198,7 @@ public class TestHashJoinOperator
     public void testBroadcastMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
     {
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, MEGABYTE));
-        taskContext.getQueryContext().setMemoryLimits(new DataSize(512, MEGABYTE), new DataSize(512, MEGABYTE), new DataSize(100, BYTE));
+        taskContext.getQueryContext().setMemoryLimits(new DataSize(512, MEGABYTE), new DataSize(512, MEGABYTE), new DataSize(100, BYTE), new DataSize(512, MEGABYTE));
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0),
@@ -1290,7 +1449,19 @@ public class TestHashJoinOperator
                 PARTITIONING_SPILLER_FACTORY);
     }
 
-    private OperatorFactory innerJoinOperatorFactory(JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, RowPagesBuilder probePages, PartitioningSpillerFactory partitioningSpillerFactory)
+    private OperatorFactory innerJoinOperatorFactory(
+            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
+            RowPagesBuilder probePages,
+            PartitioningSpillerFactory partitioningSpillerFactory)
+    {
+        return innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, partitioningSpillerFactory, OptionalInt.of(1));
+    }
+
+    private OperatorFactory innerJoinOperatorFactory(
+            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
+            RowPagesBuilder probePages,
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            OptionalInt totalOperatorsCount)
     {
         return LOOKUP_JOIN_OPERATORS.innerJoin(
                 0,
@@ -1300,7 +1471,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                OptionalInt.of(1),
+                totalOperatorsCount,
                 partitioningSpillerFactory);
     }
 
@@ -1619,6 +1790,12 @@ public class TestHashJoinOperator
                     }
                     writing = false;
                     return immediateFuture(ImmutableList.copyOf(spills));
+                }
+
+                @Override
+                public void commit()
+                {
+                    writing = false;
                 }
 
                 @Override

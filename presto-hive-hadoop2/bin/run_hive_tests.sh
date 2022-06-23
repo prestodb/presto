@@ -7,9 +7,12 @@ set -euo pipefail -x
 cleanup_docker_containers
 start_docker_containers
 
+# obtain Hive version
+TESTS_HIVE_VERSION_MAJOR=$(get_hive_major_version)
+
 # generate test data
-exec_in_hadoop_master_container su hive -s /usr/bin/hive -f /files/sql/create-test.sql
-exec_in_hadoop_master_container su hive -s /usr/bin/hive -f /files/sql/create-test-hive13.sql
+exec_in_hadoop_master_container su -m hive -c "beeline -u jdbc:hive2://localhost:10000/default -n hive -f /files/sql/create-test.sql"
+exec_in_hadoop_master_container su -m hive -c "beeline -u jdbc:hive2://localhost:10000/default -n hive -f /files/sql/create-test-hive-${TESTS_HIVE_VERSION_MAJOR}.sql"
 
 stop_unnecessary_hadoop_services
 
@@ -25,6 +28,7 @@ set +e
   -Dhive.hadoop2.metastorePort=9083 \
   -Dhive.hadoop2.databaseName=default \
   -Dhive.hadoop2.metastoreHost=hadoop-master \
+  -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \
   -Dhive.hadoop2.timeZone=Asia/Kathmandu \
   -Dhive.metastore.thrift.client.socks-proxy=${PROXY}:1180 \
   -Dhadoop-master-ip=${HADOOP_MASTER_IP}

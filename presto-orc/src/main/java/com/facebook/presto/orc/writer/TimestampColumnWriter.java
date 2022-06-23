@@ -15,13 +15,12 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -45,12 +44,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
+import static com.facebook.presto.orc.writer.ColumnWriterUtils.buildRowGroupIndexes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -60,9 +62,14 @@ public class TimestampColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize();
     private static final int MILLIS_PER_SECOND = 1000;
+    private static final int MICROS_PER_SECOND = 1000_000;
     private static final int MILLIS_TO_NANOS_TRAILING_ZEROS = 5;
+    private static final int MICROS_TO_NANOS_TRAILING_ZEROS = 2;
+    // Timestamp is encoded as Seconds (Long) and Nanos (Integer)
+    private static final long TIMESTAMP_RAW_SIZE = Long.BYTES + Integer.BYTES;
 
     private final int column;
+    private final int sequence;
     private final Type type;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
@@ -75,32 +82,55 @@ public class TimestampColumnWriter
     private long columnStatisticsRetainedSizeInBytes;
 
     private final long baseTimestampInSeconds;
+    private final int unitsPerSecond;
+    private final int trailingZeros;
 
     private int nonNullValueCount;
 
     private boolean closed;
 
-    public TimestampColumnWriter(int column, Type type, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding, DateTimeZone hiveStorageTimeZone, MetadataWriter metadataWriter)
+    public TimestampColumnWriter(
+            int column,
+            int sequence,
+            Type type,
+            ColumnWriterOptions columnWriterOptions,
+            Optional<DwrfDataEncryptor> dwrfEncryptor,
+            OrcEncoding orcEncoding,
+            DateTimeZone hiveStorageTimeZone,
+            MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        requireNonNull(compressionParameters, "compression is null");
+        checkArgument(sequence >= 0, "sequence is negative");
+        requireNonNull(columnWriterOptions, "compression is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
+        this.sequence = sequence;
         this.type = requireNonNull(type, "type is null");
-        this.compressed = compressionParameters.getKind() != NONE;
+        this.compressed = columnWriterOptions.getCompressionKind() != NONE;
+        if (type == TIMESTAMP) {
+            this.unitsPerSecond = MILLIS_PER_SECOND;
+            this.trailingZeros = MILLIS_TO_NANOS_TRAILING_ZEROS;
+        }
+        else if (type == TIMESTAMP_MICROSECONDS) {
+            this.unitsPerSecond = MICROS_PER_SECOND;
+            this.trailingZeros = MICROS_TO_NANOS_TRAILING_ZEROS;
+        }
+        else {
+            throw new UnsupportedOperationException("Unsupported Type: " + type);
+        }
         if (orcEncoding == DWRF) {
             this.columnEncoding = new ColumnEncoding(DIRECT, 0);
-            this.secondsStream = new LongOutputStreamV1(compressionParameters, dwrfEncryptor, true, DATA);
-            this.nanosStream = new LongOutputStreamV1(compressionParameters, dwrfEncryptor, false, SECONDARY);
+            this.secondsStream = new LongOutputStreamV1(columnWriterOptions, dwrfEncryptor, true, DATA);
+            this.nanosStream = new LongOutputStreamV1(columnWriterOptions, dwrfEncryptor, false, SECONDARY);
         }
         else {
             this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
-            this.secondsStream = new LongOutputStreamV2(compressionParameters, true, DATA);
-            this.nanosStream = new LongOutputStreamV2(compressionParameters, false, SECONDARY);
+            this.secondsStream = new LongOutputStreamV2(columnWriterOptions, true, DATA);
+            this.nanosStream = new LongOutputStreamV2(columnWriterOptions, false, SECONDARY);
         }
-        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
+        this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
     }
 
@@ -119,7 +149,7 @@ public class TimestampColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -130,14 +160,15 @@ public class TimestampColumnWriter
         }
 
         // record values
+        int blockNonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 long value = type.getLong(block, position);
 
                 // It is a flaw in ORC encoding that uses normal integer division to compute seconds,
                 // and floor modulus to compute nano seconds.
-                long seconds = (value / MILLIS_PER_SECOND) - baseTimestampInSeconds;
-                long millis = Math.floorMod(value, MILLIS_PER_SECOND);
+                long seconds = (value / unitsPerSecond) - baseTimestampInSeconds;
+                long subSecondValue = Math.floorMod(value, unitsPerSecond);
                 // The "sub-second" value (i.e., the nanos value) typically has a large number of trailing
                 // zero, because many systems, like Presto, only record millisecond or microsecond precision
                 // timestamps. To optimize storage, if the value has more than two trailing zeros, the trailing
@@ -154,23 +185,26 @@ public class TimestampColumnWriter
                 //         7            0b110        120000000            (12 << 3) | 0b110
                 //         8            0b111        100000000             (1 << 3) | 0b111
                 //
-                // In Presto, we only have millisecond precision.
-                // Therefore, we always use the encoding for 6 trailing zeros (except when input is zero).
-                // For simplicity, we don't dynamically use 6, 7, 8 depending on the circumstance.
-                long encodedNanos = millis == 0 ? 0 : (millis << 3) | MILLIS_TO_NANOS_TRAILING_ZEROS;
+                // Presto-orc supports millisecond or microsecond precision.
+                // Except when input is zero, we use the encoding for 6 trailing zeros (millisecond precision) or 3 trailing zeros (microsecond precision)
+                // For simplicity, we don't dynamically use 3 to 8 zeros depending on the circumstance.
+                long encodedNanos = subSecondValue == 0 ? 0 : (subSecondValue << 3) | trailingZeros;
 
                 secondsStream.writeLong(seconds);
                 nanosStream.writeLong(encodedNanos);
-                nonNullValueCount++;
+                blockNonNullValueCount++;
             }
         }
+
+        nonNullValueCount += blockNonNullValueCount;
+        return (block.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + blockNonNullValueCount * TIMESTAMP_RAW_SIZE;
     }
 
     @Override
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;
@@ -194,42 +228,15 @@ public class TimestampColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams()
+    public List<StreamDataOutput> getIndexStreams(Optional<List<? extends StreamCheckpoint>> prependCheckpoints)
             throws IOException
     {
         checkState(closed);
 
-        ImmutableList.Builder<RowGroupIndex> rowGroupIndexes = ImmutableList.builder();
-
-        List<LongStreamCheckpoint> secondsCheckpoints = secondsStream.getCheckpoints();
-        List<LongStreamCheckpoint> nanosCheckpoints = nanosStream.getCheckpoints();
-        Optional<List<BooleanStreamCheckpoint>> presentCheckpoints = presentStream.getCheckpoints();
-        for (int i = 0; i < rowGroupColumnStatistics.size(); i++) {
-            int groupId = i;
-            ColumnStatistics columnStatistics = rowGroupColumnStatistics.get(groupId);
-            LongStreamCheckpoint secondsCheckpoint = secondsCheckpoints.get(groupId);
-            LongStreamCheckpoint nanosCheckpoint = nanosCheckpoints.get(groupId);
-            Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createTimestampColumnPositionList(compressed, secondsCheckpoint, nanosCheckpoint, presentCheckpoint);
-            rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
-        }
-
-        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        List<RowGroupIndex> rowGroupIndexes = buildRowGroupIndexes(compressed, rowGroupColumnStatistics, prependCheckpoints, presentStream, secondsStream, nanosStream);
+        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes);
+        Stream stream = new Stream(column, sequence, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
-    }
-
-    private static List<Integer> createTimestampColumnPositionList(
-            boolean compressed,
-            LongStreamCheckpoint secondsCheckpoint,
-            LongStreamCheckpoint nanosCheckpoint,
-            Optional<BooleanStreamCheckpoint> presentCheckpoint)
-    {
-        ImmutableList.Builder<Integer> positionList = ImmutableList.builder();
-        presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
-        positionList.addAll(secondsCheckpoint.toPositionList(compressed));
-        positionList.addAll(nanosCheckpoint.toPositionList(compressed));
-        return positionList.build();
     }
 
     @Override
@@ -238,9 +245,9 @@ public class TimestampColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(secondsStream.getStreamDataOutput(column));
-        outputDataStreams.add(nanosStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(column, sequence).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(secondsStream.getStreamDataOutput(column, sequence));
+        outputDataStreams.add(nanosStream.getStreamDataOutput(column, sequence));
         return outputDataStreams.build();
     }
 

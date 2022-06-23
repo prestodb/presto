@@ -237,6 +237,19 @@ Network Address
 
     Examples: ``IPADDRESS '10.0.0.1'``, ``IPADDRESS '2001:db8::1'``
 
+UUID
+----
+
+.. _uuid_type:
+
+``UUID``
+^^^^^^^^
+
+    This type represents a UUID (Universally Unique IDentifier), also known as a
+    GUID (Globally Unique IDentifier), using the format defined in :rfc:`4122`.
+
+    Example: ``UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'``
+
 .. _ipprefix_type:
 
 ``IPPREFIX``
@@ -312,3 +325,18 @@ Quantile Digest
     percentile values that are read over the course of a week.  Instead of calculating
     the past week of data with ``approx_percentile``, ``qdigest``\ s could be stored
     daily, and quickly merged to retrieve the 99th percentile value.
+
+    See :doc:`/functions/qdigest`.
+
+T-Digest
+---------------
+
+.. _tdigest_type:
+
+``TDigest``
+^^^^^^^^^^^
+
+    A t-digest is similar to :ref:`qdigest <qdigest_type>`, but it uses `a different algorithm
+    <http://dx.doi.org/10.1145/347090.347195>`_ to represent the approximate distribution of a set
+    of numbers. T-digest has better performance than quantile digests but only supports the
+    ``DOUBLE`` type. See :doc:`/functions/tdigest`.

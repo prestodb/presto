@@ -48,9 +48,11 @@ public class TestKuduIntegrationIntegerColumns
             new TestInt("BIGINT", 64),
     };
 
-    public TestKuduIntegrationIntegerColumns()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunner("test_integer"));
+        return KuduQueryRunnerFactory.createKuduQueryRunner("test_integer");
     }
 
     @Test

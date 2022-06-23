@@ -75,13 +75,12 @@ import static java.util.Objects.requireNonNull;
  *                    \   ...
  *                     \  HttpPageBufferClient_n  - - - Remote Source n
  * </pre>
- *
  */
 @ThreadSafe
 public class ExchangeClient
         implements Closeable
 {
-    private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0);
+    private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0, 0);
     private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
     private final long bufferCapacity;

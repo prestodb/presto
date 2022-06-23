@@ -21,6 +21,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
+
+import static com.facebook.presto.hive.HiveSessionProperties.getNewPartitionUserSuppliedParameter;
 
 public class HivePartitionObjectBuilder
         implements PartitionObjectBuilder
@@ -31,18 +34,23 @@ public class HivePartitionObjectBuilder
             Table table,
             PartitionUpdate partitionUpdate,
             String prestoVersion,
-            Map<String, String> extraParameters)
+            Map<String, String> extraParameters,
+            Optional<Partition> previousPartition)
     {
+        ImmutableMap.Builder extraParametersBuilder = ImmutableMap.builder()
+                .put(HiveMetadata.PRESTO_VERSION_NAME, prestoVersion)
+                .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .putAll(extraParameters);
+        getNewPartitionUserSuppliedParameter(session)
+                .ifPresent(
+                        param -> extraParametersBuilder.put("user_supplied", param));
+
         return Partition.builder()
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())
                 .setValues(MetastoreUtil.extractPartitionValues(partitionUpdate.getName()))
-                .setParameters(ImmutableMap.<String, String>builder()
-                        .put(HiveMetadata.PRESTO_VERSION_NAME, prestoVersion)
-                        .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId())
-                        .putAll(extraParameters)
-                        .build())
+                .setParameters(extraParametersBuilder.build())
                 .withStorage(storage -> storage
                         .setStorageFormat(HiveSessionProperties.isRespectTableFormat(session) ?
                                 table.getStorage().getStorageFormat() :

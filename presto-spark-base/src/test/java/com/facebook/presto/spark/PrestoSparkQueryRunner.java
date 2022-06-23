@@ -20,16 +20,22 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
+import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HivePlugin;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -37,13 +43,17 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PrestoSparkQueryExecution;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
+import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -61,6 +71,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import io.airlift.tpch.TpchTable;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -68,10 +79,13 @@ import org.apache.spark.SparkContext;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -82,6 +96,7 @@ import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_EXECUTOR_CORES_PROPERTY;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_TASK_CPUS_PROPERTY;
 import static com.facebook.presto.spark.classloader_interface.SparkProcessType.DRIVER;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -110,6 +125,7 @@ public class PrestoSparkQueryRunner
     private static final Logger log = Logger.get(PrestoSparkQueryRunner.class);
 
     private static final int NODE_COUNT = 4;
+    private static final int TASK_CONCURRENCY = 4;
 
     private static final Map<String, PrestoSparkQueryRunner> instances = new ConcurrentHashMap<>();
     private static final SparkContextHolder sparkContextHolder = new SparkContextHolder();
@@ -125,6 +141,7 @@ public class PrestoSparkQueryRunner
     private final StatsCalculator statsCalculator;
     private final PluginManager pluginManager;
     private final ConnectorManager connectorManager;
+    private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
 
     private final LifeCycleManager lifeCycleManager;
 
@@ -139,17 +156,41 @@ public class PrestoSparkQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
+    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner()
     {
         return createHivePrestoSparkQueryRunner(getTables());
     }
 
+    public static PrestoSparkQueryRunner createSpilledHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables)
+    {
+        return createSpilledHivePrestoSparkQueryRunner(tables, ImmutableMap.of());
+    }
+
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables)
     {
-        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive");
+        return createHivePrestoSparkQueryRunner(tables, ImmutableMap.of());
+    }
+
+    public static PrestoSparkQueryRunner createSpilledHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties)
+    {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("experimental.spill-enabled", "true");
+        properties.put("experimental.temp-storage-buffer-size", "1MB");
+        properties.put("spark.memory-revoking-threshold", "0.0");
+        properties.put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
+        properties.put("experimental.spiller-threads", Integer.toString(NODE_COUNT * TASK_CONCURRENCY));
+        properties.putAll(additionalConfigProperties);
+        return createHivePrestoSparkQueryRunner(tables, properties);
+    }
+
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties)
+    {
+        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", additionalConfigProperties);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
-        if (!metastore.getDatabase("tpch").isPresent()) {
-            metastore.createDatabase(createDatabaseMetastoreObject("tpch"));
+        if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
+            metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("tpch"));
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
             copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
         }
@@ -190,22 +231,29 @@ public class PrestoSparkQueryRunner
         log.info("Imported %s rows for %s in %s", rows, tableName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
-    public PrestoSparkQueryRunner(String defaultCatalog)
+    public PrestoSparkQueryRunner(String defaultCatalog, Map<String, String> additionalConfigProperties)
     {
         setupLogging();
 
+        ImmutableMap.Builder<String, String> configProperties = ImmutableMap.builder();
+        configProperties.put("presto.version", "testversion");
+        configProperties.put("query.hash-partition-count", Integer.toString(NODE_COUNT * 2));
+        configProperties.put("task.writer-count", Integer.toString(2));
+        configProperties.put("task.partitioned-writer-count", Integer.toString(4));
+        configProperties.put("task.concurrency", Integer.toString(TASK_CONCURRENCY));
+        configProperties.putAll(additionalConfigProperties);
+
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
                 DRIVER,
-                ImmutableMap.of(
-                        "presto.version", "testversion",
-                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2)),
+                configProperties.build(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new SqlParserOptions(),
-                ImmutableList.of(),
+                ImmutableList.of(new PrestoSparkLocalMetadataStorageModule()),
                 true);
 
         Injector injector = injectorFactory.create();
@@ -224,6 +272,7 @@ public class PrestoSparkQueryRunner
         statsCalculator = injector.getInstance(StatsCalculator.class);
         pluginManager = injector.getInstance(PluginManager.class);
         connectorManager = injector.getInstance(ConnectorManager.class);
+        waitTimeMetrics = injector.getInstance(new Key<Set<PrestoSparkServiceWaitTimeMetrics>>() {});
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
@@ -250,12 +299,28 @@ public class PrestoSparkQueryRunner
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(createDatabaseMetastoreObject("hive_test"));
+        metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("hive_test"));
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
-        connectorManager.createConnection("hive", "hive", ImmutableMap.of());
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
+                .put("hive.allow-drop-table", "true")
+                .put("hive.allow-rename-table", "true")
+                .put("hive.allow-rename-column", "true")
+                .put("hive.allow-add-column", "true")
+                .put("hive.allow-drop-column", "true").build();
+
+        connectorManager.createConnection("hive", "hive", properties);
 
         metadata.registerBuiltInFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+        metadata.getFunctionAndTypeManager().addFunctionNamespace(
+                "unittest",
+                new InMemoryFunctionNamespaceManager(
+                        "unittest",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(SQL, FunctionImplementationType.SQL),
+                                new NoopSqlFunctionExecutor()),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         // add bogus catalog for testing procedures and session properties
         CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
@@ -276,7 +341,6 @@ public class PrestoSparkQueryRunner
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.spark", WARN);
         logging.setLevel("org.spark_project", WARN);
-        logging.setLevel("com.facebook.presto.spark", WARN);
         logging.setLevel("com.facebook.presto.spark", WARN);
         logging.setLevel("org.apache.spark.util.ClosureCleaner", ERROR);
         logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
@@ -362,35 +426,72 @@ public class PrestoSparkQueryRunner
     public MaterializedResult execute(Session session, String sql)
     {
         IPrestoSparkQueryExecutionFactory executionFactory = prestoSparkService.getQueryExecutionFactory();
-        PrestoSparkQueryExecution execution = (PrestoSparkQueryExecution) executionFactory.create(
+        try {
+            return execute(executionFactory, sparkContext, session, sql, Optional.empty());
+        }
+        catch (PrestoSparkFailure failure) {
+            if (failure.getRetryExecutionStrategy().isPresent()) {
+                return execute(executionFactory, sparkContext, session, sql, failure.getRetryExecutionStrategy());
+            }
+
+            throw failure;
+        }
+    }
+
+    private MaterializedResult execute(
+            IPrestoSparkQueryExecutionFactory executionFactory,
+            SparkContext sparkContext,
+            Session session,
+            String sql,
+            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+    {
+        IPrestoSparkQueryExecution execution = executionFactory.create(
                 sparkContext,
-                createSessionInfo(session),
-                sql,
+                createSessionInfo(session, retryExecutionStrategy),
+                Optional.of(sql),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty(),
                 Optional.empty());
+
         List<List<Object>> results = execution.execute();
+
         List<MaterializedRow> rows = results.stream()
                 .map(result -> new MaterializedRow(DEFAULT_PRECISION, result))
                 .collect(toImmutableList());
 
-        if (!execution.getUpdateType().isPresent()) {
-            return new MaterializedResult(rows, execution.getOutputTypes());
+        if (execution instanceof PrestoSparkQueryExecution) {
+            PrestoSparkQueryExecution p = (PrestoSparkQueryExecution) execution;
+            if (!p.getUpdateType().isPresent()) {
+                return new MaterializedResult(rows, p.getOutputTypes());
+            }
+            else {
+                return new MaterializedResult(
+                        rows,
+                        p.getOutputTypes(),
+                        ImmutableMap.of(),
+                        ImmutableSet.of(),
+                        p.getUpdateType(),
+                        OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
+                        ImmutableList.of());
+            }
         }
         else {
             return new MaterializedResult(
                     rows,
-                    execution.getOutputTypes(),
+                    ImmutableList.of(),
                     ImmutableMap.of(),
                     ImmutableSet.of(),
-                    execution.getUpdateType(),
-                    OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
+                    Optional.empty(),
+                    OptionalLong.empty(),
                     ImmutableList.of());
         }
     }
 
-    private static PrestoSparkSession createSessionInfo(Session session)
+    private static PrestoSparkSession createSessionInfo(Session session, Optional<RetryExecutionStrategy> retryExecutionStrategy)
     {
         ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
         catalogSessionProperties.putAll(session.getConnectorProperties().entrySet().stream()
@@ -410,7 +511,8 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 session.getSystemProperties(),
                 catalogSessionProperties.build(),
-                session.getTraceToken());
+                session.getTraceToken(),
+                retryExecutionStrategy);
     }
 
     @Override
@@ -457,6 +559,11 @@ public class PrestoSparkQueryRunner
     public FileHiveMetastore getMetastore()
     {
         return metastore;
+    }
+
+    public Set<PrestoSparkServiceWaitTimeMetrics> getWaitTimeMetrics()
+    {
+        return waitTimeMetrics;
     }
 
     @Override

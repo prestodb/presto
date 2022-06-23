@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.postgresql;
 import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -35,11 +36,13 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.booleanDataType;
+import static com.facebook.presto.tests.datatype.DataType.dataType;
 import static com.facebook.presto.tests.datatype.DataType.dateDataType;
 import static com.facebook.presto.tests.datatype.DataType.decimalDataType;
 import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
@@ -54,6 +57,7 @@ import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.function.Function.identity;
 
 @Test
 public class TestPostgreSqlTypeMapping
@@ -69,8 +73,14 @@ public class TestPostgreSqlTypeMapping
 
     private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
     {
-        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), ImmutableList.of()));
         this.postgreSqlServer = postgreSqlServer;
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -267,13 +277,65 @@ public class TestPostgreSqlTypeMapping
         // TODO timestamp is not correctly read (see comment in StandardReadMappings.timestampReadMapping), but testing this is hard because of #7122
     }
 
+    @Test
+    public void testJson()
+    {
+        jsonTestCases(jsonDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json"));
+    }
+
+    @Test
+    public void testJsonb()
+    {
+        jsonTestCases(jsonbDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_jsonb"));
+    }
+
+    private DataTypeTest jsonTestCases(DataType<String> jsonDataType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(jsonDataType, "{}")
+                .addRoundTrip(jsonDataType, null)
+                .addRoundTrip(jsonDataType, "null")
+                .addRoundTrip(jsonDataType, "123.4")
+                .addRoundTrip(jsonDataType, "\"abc\"")
+                .addRoundTrip(jsonDataType, "\"text with \\\" quotations and ' apostrophes\"")
+                .addRoundTrip(jsonDataType, "\"\"")
+                .addRoundTrip(jsonDataType, "{\"a\":1,\"b\":2}")
+                .addRoundTrip(jsonDataType, "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
+                .addRoundTrip(jsonDataType, "[]");
+    }
+
+    private static DataType<String> jsonDataType()
+    {
+        return dataType(
+                "json",
+                JSON,
+                value -> "JSON " + formatStringLiteral(value),
+                identity());
+    }
+
+    public static DataType<String> jsonbDataType()
+    {
+        return dataType(
+                "jsonb",
+                JSON,
+                value -> "JSON " + formatStringLiteral(value),
+                identity());
+    }
+
+    public static String formatStringLiteral(String value)
+    {
+        return "'" + value.replace("'", "''") + "'";
+    }
+
     private void testUnsupportedDataType(String databaseDataType)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(key varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
-                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
+                    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_unsupported_data_type'",
                     "VALUES 'key'"); // no 'unsupported_column'
         }
         finally {

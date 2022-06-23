@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -33,6 +32,7 @@ import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -74,6 +74,7 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -95,7 +96,6 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
@@ -123,6 +123,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.JsonRenderer.JsonPlanFragment;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
@@ -312,6 +313,24 @@ public class PlanPrinter
     public static String jsonDistributedPlan(SubPlan plan)
     {
         return formatJsonFragmentList(plan.getAllFragments());
+    }
+
+    private String formatSourceLocation(Optional<SourceLocation> sourceLocation1, Optional<SourceLocation> sourceLocation2)
+    {
+        if (sourceLocation1.isPresent()) {
+            return formatSourceLocation(sourceLocation1);
+        }
+
+        return formatSourceLocation(sourceLocation2);
+    }
+
+    private String formatSourceLocation(Optional<SourceLocation> sourceLocation)
+    {
+        if (sourceLocation.isPresent()) {
+            return " (" + sourceLocation.get().toString() + ")";
+        }
+
+        return "";
     }
 
     private static String formatJsonFragmentList(List<PlanFragment> fragments)
@@ -504,6 +523,13 @@ public class PlanPrinter
                             node.getFilteringSourceJoinVariable(),
                             formatHash(node.getSourceHashVariable(), node.getFilteringSourceHashVariable())));
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
+            if (!node.getDynamicFilters().isEmpty()) {
+                nodeOutput.appendDetails(
+                        "dynamicFilterAssignments = %s",
+                        node.getDynamicFilters().entrySet().stream()
+                                .map(filter -> filter.getValue() + " -> " + filter.getKey())
+                                .collect(Collectors.joining(", ", "{", "}")));
+            }
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
 
@@ -519,7 +545,7 @@ public class PlanPrinter
 
             for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 if (node.getOutputVariables().contains(entry.getKey())) {
-                    nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), entry.getValue());
+                    nodeOutput.appendDetailsLine("%s := %s%s", entry.getKey(), entry.getValue(), formatSourceLocation(entry.getKey().getSourceLocation()));
                 }
             }
             return null;
@@ -531,8 +557,8 @@ public class PlanPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
-                        new SymbolReference(clause.getProbe().getName()),
-                        new SymbolReference(clause.getIndex().getName())));
+                        createSymbolReference(clause.getProbe()),
+                        createSymbolReference(clause.getIndex())));
             }
 
             addNode(node,
@@ -541,6 +567,23 @@ public class PlanPrinter
             node.getProbeSource().accept(this, context);
             node.getIndexSource().accept(this, context);
 
+            return null;
+        }
+
+        @Override
+        public Void visitMergeJoin(MergeJoinNode node, Void context)
+        {
+            List<String> joinExpressions = new ArrayList<>();
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                joinExpressions.add(JoinNodeUtils.toExpression(clause).toString());
+            }
+            node.getFilter().map(formatter::apply).ifPresent(joinExpressions::add);
+
+            addNode(node,
+                    "MergeJoin",
+                    format("[type: %s], [%s]%s", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable())));
+            node.getLeft().accept(this, context);
+            node.getRight().accept(this, context);
             return null;
         }
 
@@ -569,6 +612,9 @@ public class PlanPrinter
             if (node.getStep() != AggregationNode.Step.SINGLE) {
                 type = format("(%s)", node.getStep().toString());
             }
+            if (node.isSegmentedAggregationEligible()) {
+                type = format("%s(SEGMENTED, %s)", type, node.getPreGroupedVariables());
+            }
             if (node.isStreamable()) {
                 type = format("%s(STREAMING)", type);
             }
@@ -581,7 +627,7 @@ public class PlanPrinter
                     format("Aggregate%s%s%s", type, key, formatHash(node.getHashVariable())));
 
             for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
-                nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), formatAggregation(entry.getValue()));
+                nodeOutput.appendDetailsLine("%s := %s%s", entry.getKey(), formatAggregation(entry.getValue()), formatSourceLocation(entry.getValue().getCall().getSourceLocation(), entry.getKey().getSourceLocation()));
             }
 
             return processChildren(node, context);
@@ -623,7 +669,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node, "GroupId", format("%s", inputGroupingSetSymbols));
 
             for (Map.Entry<VariableReferenceExpression, VariableReferenceExpression> mapping : node.getGroupingColumns().entrySet()) {
-                nodeOutput.appendDetailsLine("%s := %s", mapping.getKey(), mapping.getValue());
+                nodeOutput.appendDetailsLine("%s := %s%s", mapping.getKey(), mapping.getValue(), formatSourceLocation(mapping.getValue().getSourceLocation(), mapping.getKey().getSourceLocation()));
             }
 
             return processChildren(node, context);
@@ -687,11 +733,12 @@ public class PlanPrinter
                 String frameInfo = formatFrame(entry.getValue().getFrame());
 
                 nodeOutput.appendDetailsLine(
-                        "%s := %s(%s) %s",
+                        "%s := %s(%s) %s%s",
                         entry.getKey(),
                         call.getDisplayName(),
                         Joiner.on(", ").join(call.getArguments().stream().map(formatter::apply).collect(toImmutableList())),
-                        frameInfo);
+                        frameInfo,
+                        formatSourceLocation(entry.getValue().getFunctionCall().getSourceLocation(), entry.getKey().getSourceLocation()));
             }
             return processChildren(node, context);
         }
@@ -715,7 +762,7 @@ public class PlanPrinter
                     "TopNRowNumber",
                     format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatHash(node.getHashVariable())));
 
-            nodeOutput.appendDetailsLine("%s := %s", node.getRowNumberVariable(), "row_number()");
+            nodeOutput.appendDetailsLine("%s := %s%s", node.getRowNumberVariable(), "row_number()", formatSourceLocation(node.getRowNumberVariable().getSourceLocation()));
 
             return processChildren(node, context);
         }
@@ -736,7 +783,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node,
                     "RowNumber",
                     format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())));
-            nodeOutput.appendDetailsLine("%s := %s", node.getRowNumberVariable(), "row_number()");
+            nodeOutput.appendDetailsLine("%s := %s%s", node.getRowNumberVariable(), "row_number()", formatSourceLocation(node.getRowNumberVariable().getSourceLocation()));
 
             return processChildren(node, context);
         }
@@ -891,9 +938,13 @@ public class PlanPrinter
                 }
             }
 
+            if (!node.getTableConstraints().isEmpty()) {
+                nodeOutput.appendDetailsLine("Table Constraints: %s", node.getTableConstraints());
+            }
+
             TupleDomain<ColumnHandle> predicate = node.getCurrentConstraint();
             if (predicate == null) {
-                // This happens when printing the plan framgnet on worker for debug purpose
+                // This happens when printing the plan fragment on worker for debug purpose
                 nodeOutput.appendDetailsLine(":: PREDICATE INFORMATION UNAVAILABLE");
             }
             else if (predicate.isNone()) {
@@ -903,7 +954,7 @@ public class PlanPrinter
                 // first, print output columns and their constraints
                 for (Map.Entry<VariableReferenceExpression, ColumnHandle> assignment : node.getAssignments().entrySet()) {
                     ColumnHandle column = assignment.getValue();
-                    nodeOutput.appendDetailsLine("%s := %s", assignment.getKey(), column);
+                    nodeOutput.appendDetailsLine("%s := %s%s", assignment.getKey(), column, formatSourceLocation(assignment.getKey().getSourceLocation()));
                     printConstraint(nodeOutput, column, predicate);
                 }
 
@@ -955,7 +1006,7 @@ public class PlanPrinter
                 String name = node.getColumnNames().get(i);
                 VariableReferenceExpression variable = node.getOutputVariables().get(i);
                 if (!name.equals(variable.toString())) {
-                    nodeOutput.appendDetailsLine("%s := %s", name, variable);
+                    nodeOutput.appendDetailsLine("%s := %s%s", name, variable, formatSourceLocation(variable.getSourceLocation()));
                 }
             }
             return processChildren(node, context);
@@ -1028,7 +1079,7 @@ public class PlanPrinter
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 VariableReferenceExpression variable = node.getColumns().get(i);
-                nodeOutput.appendDetailsLine("%s := %s", name, variable);
+                nodeOutput.appendDetailsLine("%s := %s%s", name, variable, formatSourceLocation(variable.getSourceLocation()));
             }
 
             int statisticsCollected = node.getStatisticsAggregation()
@@ -1182,7 +1233,8 @@ public class PlanPrinter
                     // skip identity assignments
                     continue;
                 }
-                nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), formatter.apply(entry.getValue()));
+
+                nodeOutput.appendDetailsLine("%s := %s%s", entry.getKey(), formatter.apply(entry.getValue()), formatSourceLocation(entry.getValue().getSourceLocation(), entry.getValue().getSourceLocation()));
             }
         }
 
@@ -1208,33 +1260,7 @@ public class PlanPrinter
             domain.getValues().getValuesProcessor().consume(
                     ranges -> {
                         for (Range range : ranges.getOrderedRanges()) {
-                            StringBuilder builder = new StringBuilder();
-                            if (range.isSingleValue()) {
-                                String value = castToVarchar(type, range.getSingleValue(), functionAndTypeManager, session);
-                                builder.append('[').append(value).append(']');
-                            }
-                            else {
-                                builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
-
-                                if (range.getLow().isLowerUnbounded()) {
-                                    builder.append("<min>");
-                                }
-                                else {
-                                    builder.append(castToVarchar(type, range.getLow().getValue(), functionAndTypeManager, session));
-                                }
-
-                                builder.append(", ");
-
-                                if (range.getHigh().isUpperUnbounded()) {
-                                    builder.append("<max>");
-                                }
-                                else {
-                                    builder.append(castToVarchar(type, range.getHigh().getValue(), functionAndTypeManager, session));
-                                }
-
-                                builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
-                            }
-                            parts.add(builder.toString());
+                            parts.add(range.toString(session.getSqlFunctionProperties()));
                         }
                     },
                     discreteValues -> discreteValues.getValues().stream()
@@ -1276,6 +1302,7 @@ public class PlanPrinter
                     .collect(toList());
 
             NodeRepresentation nodeOutput = new NodeRepresentation(
+                    Optional.empty(),
                     rootNode.getId(),
                     name,
                     rootNode.getClass().getSimpleName(),
@@ -1299,9 +1326,9 @@ public class PlanPrinter
         }
 
         try {
-            FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR.getTypeSignature());
+            FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, type, VARCHAR);
             Slice coerced = (Slice) new InterpretedFunctionInvoker(functionAndTypeManager).invoke(cast, session.getSqlFunctionProperties(), value);
-            return coerced.toStringUtf8();
+            return "\"" + coerced.toStringUtf8().replace("\"", "\\\"") + "\"";
         }
         catch (OperatorNotFoundException e) {
             return "<UNREPRESENTABLE VALUE>";

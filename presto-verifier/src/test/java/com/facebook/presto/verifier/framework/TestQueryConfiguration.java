@@ -22,9 +22,11 @@ import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.NO_ACTION;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.OVERRIDE;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.SUBSTITUTE;
 
+@Test(singleThreaded = true)
 public class TestQueryConfiguration
 {
     private static final String CATALOG = "catalog";
@@ -111,5 +113,51 @@ public class TestQueryConfiguration
 
         assertEquals(CONFIGURATION_1.applyOverrides(overrides), substituted);
         assertEquals(CONFIGURATION_2.applyOverrides(overrides), CONFIGURATION_FULL_OVERRIDE);
+    }
+
+    @Test
+    public void testSessionPropertyRemovalWithOverrides()
+    {
+        overrides.setSessionPropertiesToRemove("property_1, property_2");
+        overrides.setSessionPropertiesOverrideStrategy(OVERRIDE);
+
+        QueryConfiguration removed = new QueryConfiguration(
+                CATALOG_OVERRIDE,
+                SCHEMA_OVERRIDE,
+                Optional.of(USERNAME_OVERRIDE),
+                Optional.of(PASSWORD_OVERRIDE),
+                Optional.of(ImmutableMap.of("property_3", "value_3")));
+
+        assertEquals(CONFIGURATION_1.applyOverrides(overrides), removed);
+    }
+
+    @Test
+    public void testSessionPropertySubstituteAndRemove()
+    {
+        overrides.setSessionPropertiesToRemove("property_2");
+        overrides.setSessionPropertiesOverrideStrategy(SUBSTITUTE);
+        QueryConfiguration removed = new QueryConfiguration(
+                CATALOG_OVERRIDE,
+                SCHEMA_OVERRIDE,
+                Optional.of(USERNAME_OVERRIDE),
+                Optional.of(PASSWORD_OVERRIDE),
+                Optional.of(SESSION_PROPERTIES_OVERRIDE));
+
+        assertEquals(CONFIGURATION_1.applyOverrides(overrides), removed);
+    }
+
+    @Test
+    public void testSessionPropertyRemoval()
+    {
+        overrides.setSessionPropertiesToRemove("property_2");
+        overrides.setSessionPropertiesOverrideStrategy(NO_ACTION);
+        QueryConfiguration removed = new QueryConfiguration(
+                CATALOG_OVERRIDE,
+                SCHEMA_OVERRIDE,
+                Optional.of(USERNAME_OVERRIDE),
+                Optional.of(PASSWORD_OVERRIDE),
+                Optional.of(ImmutableMap.of("property_1", "value_1")));
+
+        assertEquals(CONFIGURATION_1.applyOverrides(overrides), removed);
     }
 }

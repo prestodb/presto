@@ -152,6 +152,11 @@ class StatementClientV1
         Request.Builder builder = prepareRequest(url)
                 .post(RequestBody.create(MEDIA_TYPE_TEXT, query));
 
+        Map<String, String> customHeaders = session.getCustomHeaders();
+        for (Entry<String, String> entry : customHeaders.entrySet()) {
+            builder.addHeader(entry.getKey(), entry.getValue());
+        }
+
         if (session.getSource() != null) {
             builder.addHeader(PRESTO_SOURCE, session.getSource());
         }

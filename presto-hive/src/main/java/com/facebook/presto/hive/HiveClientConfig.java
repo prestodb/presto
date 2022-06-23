@@ -17,6 +17,7 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
+import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -40,15 +41,24 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
+import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior.APPEND;
+import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior.ERROR;
+import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior.OVERWRITE;
+import static com.facebook.presto.hive.HiveSessionProperties.INSERT_EXISTING_PARTITIONS_BEHAVIOR;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 @DefunctConfig({
         "hive.file-system-cache-ttl",
         "hive.max-global-split-iterator-threads",
         "hive.max-sort-files-per-bucket",
         "hive.bucket-writing",
+        "hive.parquet.fail-on-corrupted-statistics",
         "hive.optimized-reader.enabled"})
 public class HiveClientConfig
 {
@@ -89,8 +99,10 @@ public class HiveClientConfig
     private HiveCompressionCodec orcCompressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
+    private boolean createEmptyBucketFiles = true;
     private boolean insertOverwriteImmutablePartitions;
     private boolean failFastOnInsertIntoImmutablePartitionsEnabled = true;
+    private InsertExistingPartitionsBehavior insertExistingPartitionsBehavior;
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
@@ -100,7 +112,6 @@ public class HiveClientConfig
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
-    private boolean failOnCorruptedParquetStatistics = true;
     private DataSize parquetMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
     private boolean assumeCanonicalPartitionKeys;
@@ -121,7 +132,6 @@ public class HiveClientConfig
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
 
-    private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
     private boolean hdfsImpersonationEnabled;
     private boolean hdfsWireEncryptionEnabled;
@@ -154,6 +164,7 @@ public class HiveClientConfig
 
     private boolean s3SelectPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
+    private boolean orderBasedExecutionEnabled;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
@@ -161,9 +172,11 @@ public class HiveClientConfig
     private String temporaryTableSchema = "default";
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
+    private boolean shouldCreateEmptyBucketFilesForTemporaryTable;
     private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
+    private boolean parquetPushdownFilterEnabled;
     private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
     private boolean zstdJniDecompressionEnabled;
@@ -185,7 +198,30 @@ public class HiveClientConfig
     private boolean fileRenamingEnabled;
     private boolean preferManifestToListFiles;
     private boolean manifestVerificationEnabled;
+    private boolean undoMetastoreOperationsEnabled = true;
 
+    private boolean optimizedPartitionUpdateSerializationEnabled;
+
+    private Duration partitionLeaseDuration = new Duration(0, TimeUnit.SECONDS);
+
+    private boolean enableLooseMemoryAccounting;
+    private int materializedViewMissingPartitionsThreshold = 100;
+
+    private boolean verboseRuntimeStatsEnabled;
+    private boolean useRecordPageSourceForCustomSplit = true;
+    private boolean hudiMetadataEnabled;
+
+    private boolean sizeBasedSplitWeightsEnabled = true;
+    private double minimumAssignedSplitWeight = 0.05;
+
+    private boolean userDefinedTypeEncodingEnabled;
+
+    private boolean columnIndexFilterEnabled;
+    private boolean fileSplittable = true;
+    private Protocol thriftProtocol = Protocol.BINARY;
+    private DataSize thriftBufferSize = new DataSize(128, BYTE);
+
+    @Min(0)
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -304,9 +340,21 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isUserDefinedTypeEncodingEnabled()
+    {
+        return userDefinedTypeEncodingEnabled;
+    }
+
+    @Config("hive.user-defined-type-encoding-enabled")
+    public HiveClientConfig setUserDefinedTypeEncodingEnabled(boolean userDefinedTypeEncodingEnabled)
+    {
+        this.userDefinedTypeEncodingEnabled = userDefinedTypeEncodingEnabled;
+        return this;
+    }
+
     public DateTimeZone getDateTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZone));
+        return DateTimeZone.forID(timeZone);
     }
 
     @NotNull
@@ -554,16 +602,53 @@ public class HiveClientConfig
         return this;
     }
 
+    @Deprecated
     public boolean isInsertOverwriteImmutablePartitionEnabled()
     {
         return insertOverwriteImmutablePartitions;
     }
 
+    @Deprecated
     @Config("hive.insert-overwrite-immutable-partitions-enabled")
     @ConfigDescription("When enabled, insertion query will overwrite existing partitions when partitions are immutable. This config only takes effect with hive.immutable-partitions set to true")
     public HiveClientConfig setInsertOverwriteImmutablePartitionEnabled(boolean insertOverwriteImmutablePartitions)
     {
         this.insertOverwriteImmutablePartitions = insertOverwriteImmutablePartitions;
+        return this;
+    }
+
+    public enum InsertExistingPartitionsBehavior
+    {
+        ERROR,
+        APPEND,
+        OVERWRITE,
+        /**/;
+
+        public static InsertExistingPartitionsBehavior valueOf(String value, boolean immutablePartition)
+        {
+            InsertExistingPartitionsBehavior enumValue = valueOf(value.toUpperCase(ENGLISH));
+            if (immutablePartition) {
+                checkArgument(enumValue != APPEND, format("Presto is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND));
+            }
+
+            return enumValue;
+        }
+    }
+
+    public InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior()
+    {
+        if (insertExistingPartitionsBehavior != null) {
+            return insertExistingPartitionsBehavior;
+        }
+
+        return immutablePartitions ? (isInsertOverwriteImmutablePartitionEnabled() ? OVERWRITE : ERROR) : APPEND;
+    }
+
+    @Config("hive.insert-existing-partitions-behavior")
+    @ConfigDescription("Default value for insert existing partitions behavior")
+    public HiveClientConfig setInsertExistingPartitionsBehavior(InsertExistingPartitionsBehavior insertExistingPartitionsBehavior)
+    {
+        this.insertExistingPartitionsBehavior = insertExistingPartitionsBehavior;
         return this;
     }
 
@@ -577,6 +662,19 @@ public class HiveClientConfig
     public HiveClientConfig setImmutablePartitions(boolean immutablePartitions)
     {
         this.immutablePartitions = immutablePartitions;
+        return this;
+    }
+
+    public boolean isCreateEmptyBucketFiles()
+    {
+        return createEmptyBucketFiles;
+    }
+
+    @Config("hive.create-empty-bucket-files")
+    @ConfigDescription("Create empty files for buckets that have no data")
+    public HiveClientConfig setCreateEmptyBucketFiles(boolean createEmptyBucketFiles)
+    {
+        this.createEmptyBucketFiles = createEmptyBucketFiles;
         return this;
     }
 
@@ -891,19 +989,6 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isFailOnCorruptedParquetStatistics()
-    {
-        return failOnCorruptedParquetStatistics;
-    }
-
-    @Config("hive.parquet.fail-on-corrupted-statistics")
-    @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
-    public HiveClientConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
-    {
-        this.failOnCorruptedParquetStatistics = failOnCorruptedParquetStatistics;
-        return this;
-    }
-
     @NotNull
     public DataSize getParquetMaxReadBlockSize()
     {
@@ -977,26 +1062,6 @@ public class HiveClientConfig
     public HiveClientConfig setFileStatusCacheExpireAfterWrite(Duration fileStatusCacheExpireAfterWrite)
     {
         this.fileStatusCacheExpireAfterWrite = fileStatusCacheExpireAfterWrite;
-        return this;
-    }
-
-    public enum HiveMetastoreAuthenticationType
-    {
-        NONE,
-        KERBEROS
-    }
-
-    @NotNull
-    public HiveMetastoreAuthenticationType getHiveMetastoreAuthenticationType()
-    {
-        return hiveMetastoreAuthenticationType;
-    }
-
-    @Config("hive.metastore.authentication.type")
-    @ConfigDescription("Hive Metastore authentication type")
-    public HiveClientConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
-    {
-        this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
         return this;
     }
 
@@ -1321,6 +1386,20 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isOrderBasedExecutionEnabled()
+    {
+        return orderBasedExecutionEnabled;
+    }
+
+    @Config("hive.order-based-execution-enabled")
+    @ConfigDescription("Enable order-based execution. When it's enabled, hive files become non-splittable and the table ordering properties would be exposed to plan optimizer " +
+            "for features like streaming aggregation and merge join")
+    public HiveClientConfig setOrderBasedExecutionEnabled(boolean orderBasedExecutionEnabled)
+    {
+        this.orderBasedExecutionEnabled = orderBasedExecutionEnabled;
+        return this;
+    }
+
     public boolean isTemporaryStagingDirectoryEnabled()
     {
         return isTemporaryStagingDirectoryEnabled;
@@ -1387,6 +1466,19 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isCreateEmptyBucketFilesForTemporaryTable()
+    {
+        return shouldCreateEmptyBucketFilesForTemporaryTable;
+    }
+
+    @Config("hive.create-empty-bucket-files-for-temporary-table")
+    @ConfigDescription("Create empty files when there is no data for temporary table buckets")
+    public HiveClientConfig setCreateEmptyBucketFilesForTemporaryTable(boolean shouldCreateEmptyBucketFilesForTemporaryTable)
+    {
+        this.shouldCreateEmptyBucketFilesForTemporaryTable = shouldCreateEmptyBucketFilesForTemporaryTable;
+        return this;
+    }
+
     public boolean getUsePageFileForHiveUnsupportedType()
     {
         return usePageFileForHiveUnsupportedType;
@@ -1409,6 +1501,20 @@ public class HiveClientConfig
     public HiveClientConfig setPushdownFilterEnabled(boolean pushdownFilterEnabled)
     {
         this.pushdownFilterEnabled = pushdownFilterEnabled;
+        return this;
+    }
+
+    @NotNull
+    public boolean isParquetPushdownFilterEnabled()
+    {
+        return parquetPushdownFilterEnabled;
+    }
+
+    @Config("hive.parquet.pushdown-filter-enabled")
+    @ConfigDescription("Experimental: enable complex filter pushdown for Parquet")
+    public HiveClientConfig setParquetPushdownFilterEnabled(boolean parquetPushdownFilterEnabled)
+    {
+        this.parquetPushdownFilterEnabled = parquetPushdownFilterEnabled;
         return this;
     }
 
@@ -1565,5 +1671,188 @@ public class HiveClientConfig
     public boolean isManifestVerificationEnabled()
     {
         return this.manifestVerificationEnabled;
+    }
+
+    @Config("hive.undo-metastore-operations-enabled")
+    @ConfigDescription("Enable undo metastore operations")
+    public HiveClientConfig setUndoMetastoreOperationsEnabled(boolean undoMetastoreOperationsEnabled)
+    {
+        this.undoMetastoreOperationsEnabled = undoMetastoreOperationsEnabled;
+        return this;
+    }
+
+    public boolean isUndoMetastoreOperationsEnabled()
+    {
+        return undoMetastoreOperationsEnabled;
+    }
+
+    @Config("hive.experimental-optimized-partition-update-serialization-enabled")
+    @ConfigDescription("Serialize PartitionUpdate objects using binary SMILE encoding and compress with the ZSTD compression")
+    public HiveClientConfig setOptimizedPartitionUpdateSerializationEnabled(boolean optimizedPartitionUpdateSerializationEnabled)
+    {
+        this.optimizedPartitionUpdateSerializationEnabled = optimizedPartitionUpdateSerializationEnabled;
+        return this;
+    }
+
+    public boolean isOptimizedPartitionUpdateSerializationEnabled()
+    {
+        return optimizedPartitionUpdateSerializationEnabled;
+    }
+
+    @Config("hive.verbose-runtime-stats-enabled")
+    @ConfigDescription("Enable tracking all runtime stats. Note that this may affect query performance")
+    public HiveClientConfig setVerboseRuntimeStatsEnabled(boolean verboseRuntimeStatsEnabled)
+    {
+        this.verboseRuntimeStatsEnabled = verboseRuntimeStatsEnabled;
+        return this;
+    }
+
+    public boolean isVerboseRuntimeStatsEnabled()
+    {
+        return verboseRuntimeStatsEnabled;
+    }
+
+    @Config("hive.partition-lease-duration")
+    @ConfigDescription("Partition lease duration")
+    public HiveClientConfig setPartitionLeaseDuration(Duration partitionLeaseDuration)
+    {
+        this.partitionLeaseDuration = partitionLeaseDuration;
+        return this;
+    }
+
+    public Duration getPartitionLeaseDuration()
+    {
+        return partitionLeaseDuration;
+    }
+
+    public boolean isLooseMemoryAccountingEnabled()
+    {
+        return enableLooseMemoryAccounting;
+    }
+
+    @Config("hive.loose-memory-accounting-enabled")
+    @ConfigDescription("When enabled relaxes memory accounting for queries violating memory limits to run that previously honored memory thresholds.")
+    public HiveClientConfig setLooseMemoryAccountingEnabled(boolean enableLooseMemoryAccounting)
+    {
+        this.enableLooseMemoryAccounting = enableLooseMemoryAccounting;
+        return this;
+    }
+
+    @Config("hive.materialized-view-missing-partitions-threshold")
+    @ConfigDescription("Materialized views with missing partitions more than this threshold falls back to the base tables at read time")
+    public HiveClientConfig setMaterializedViewMissingPartitionsThreshold(int materializedViewMissingPartitionsThreshold)
+    {
+        this.materializedViewMissingPartitionsThreshold = materializedViewMissingPartitionsThreshold;
+        return this;
+    }
+
+    public int getMaterializedViewMissingPartitionsThreshold()
+    {
+        return this.materializedViewMissingPartitionsThreshold;
+    }
+
+    @Config("hive.parquet-column-index-filter-enabled")
+    @ConfigDescription("enable using parquet column index filter")
+    public HiveClientConfig setReadColumnIndexFilter(boolean columnIndexFilterEnabled)
+    {
+        this.columnIndexFilterEnabled = columnIndexFilterEnabled;
+        return this;
+    }
+
+    public boolean getReadColumnIndexFilter()
+    {
+        return this.columnIndexFilterEnabled;
+    }
+
+    @Config("hive.size-based-split-weights-enabled")
+    public HiveClientConfig setSizeBasedSplitWeightsEnabled(boolean sizeBasedSplitWeightsEnabled)
+    {
+        this.sizeBasedSplitWeightsEnabled = sizeBasedSplitWeightsEnabled;
+        return this;
+    }
+
+    public boolean isSizeBasedSplitWeightsEnabled()
+    {
+        return sizeBasedSplitWeightsEnabled;
+    }
+
+    @Config("hive.minimum-assigned-split-weight")
+    @ConfigDescription("Minimum weight that a split can be assigned when size based split weights are enabled")
+    public HiveClientConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
+    {
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        return this;
+    }
+
+    @DecimalMax("1.0") // standard split weight
+    @DecimalMin(value = "0", inclusive = false)
+    public double getMinimumAssignedSplitWeight()
+    {
+        return minimumAssignedSplitWeight;
+    }
+
+    public boolean isUseRecordPageSourceForCustomSplit()
+    {
+        return this.useRecordPageSourceForCustomSplit;
+    }
+
+    @Config("hive.use-record-page-source-for-custom-split")
+    @ConfigDescription("Use record page source for custom split. By default, true. Used to query MOR tables in Hudi.")
+    public HiveClientConfig setUseRecordPageSourceForCustomSplit(boolean useRecordPageSourceForCustomSplit)
+    {
+        this.useRecordPageSourceForCustomSplit = useRecordPageSourceForCustomSplit;
+        return this;
+    }
+
+    public boolean isFileSplittable()
+    {
+        return fileSplittable;
+    }
+
+    @Config("hive.file-splittable")
+    @ConfigDescription("By default, this value is true. Set to false to make a hive file un-splittable when coordinator schedules splits.")
+    public HiveClientConfig setFileSplittable(boolean fileSplittable)
+    {
+        this.fileSplittable = fileSplittable;
+        return this;
+    }
+
+    @Config("hive.hudi-metadata-enabled")
+    @ConfigDescription("For Hudi tables prefer to fetch the list of file names, sizes and other metadata from the internal metadata table rather than storage")
+    public HiveClientConfig setHudiMetadataEnabled(boolean hudiMetadataEnabled)
+    {
+        this.hudiMetadataEnabled = hudiMetadataEnabled;
+        return this;
+    }
+
+    public boolean isHudiMetadataEnabled()
+    {
+        return this.hudiMetadataEnabled;
+    }
+
+    public Protocol getThriftProtocol()
+    {
+        return thriftProtocol;
+    }
+
+    @Config("hive.internal-communication.thrift-transport-protocol")
+    @ConfigDescription("Thrift encoding type for internal communication")
+    public HiveClientConfig setThriftProtocol(Protocol thriftProtocol)
+    {
+        this.thriftProtocol = thriftProtocol;
+        return this;
+    }
+
+    public DataSize getThriftBufferSize()
+    {
+        return thriftBufferSize;
+    }
+
+    @Config("hive.internal-communication.thrift-transport-buffer-size")
+    @ConfigDescription("Thrift buffer size for internal communication")
+    public HiveClientConfig setThriftBufferSize(DataSize thriftBufferSize)
+    {
+        this.thriftBufferSize = thriftBufferSize;
+        return this;
     }
 }

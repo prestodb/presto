@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.stream.InputStreamSources;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class RowGroup
@@ -26,12 +27,14 @@ public class RowGroup
     private final long minAverageRowBytes;
     private final InputStreamSources streamSources;
 
-    public RowGroup(int groupId, long rowOffset, long rowCount, long minAverageRowBytes, InputStreamSources streamSources)
+    public RowGroup(int groupId, long rowOffset, long rowCount, long totalBytes, InputStreamSources streamSources)
     {
+        checkArgument(rowOffset >= 0, "Invalid row offset %s for group id %s", rowOffset, groupId);
+        checkArgument(rowCount >= 0, "Invalid row count %s for group id %s", rowCount, groupId);
         this.groupId = groupId;
         this.rowOffset = rowOffset;
         this.rowCount = rowCount;
-        this.minAverageRowBytes = minAverageRowBytes;
+        this.minAverageRowBytes = rowCount > 0 ? totalBytes / rowCount : totalBytes;
         this.streamSources = requireNonNull(streamSources, "streamSources is null");
     }
 

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -26,6 +29,7 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
+@ThriftStruct
 public final class ResourceGroupId
 {
     private final List<String> segments;
@@ -47,6 +51,7 @@ public final class ResourceGroupId
         return result;
     }
 
+    @ThriftConstructor
     @JsonCreator
     public ResourceGroupId(List<String> segments)
     {
@@ -62,6 +67,7 @@ public final class ResourceGroupId
         return segments.get(segments.size() - 1);
     }
 
+    @ThriftField(1)
     @JsonValue
     public List<String> getSegments()
     {

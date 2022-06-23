@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
@@ -63,13 +64,16 @@ public class OrcBatchPageSource
 
     private final FileFormatDataSourceStats stats;
 
+    private final RuntimeStats runtimeStats;
+
     public OrcBatchPageSource(
             OrcBatchRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<HiveColumnHandle> columns,
             TypeManager typeManager,
             OrcAggregatedMemoryContext systemMemoryContext,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            RuntimeStats runtimeStats)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
@@ -77,6 +81,7 @@ public class OrcBatchPageSource
         int size = requireNonNull(columns, "columns is null").size();
 
         this.stats = requireNonNull(stats, "stats is null");
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
 
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
@@ -103,6 +108,12 @@ public class OrcBatchPageSource
         columnNames = namesBuilder.build();
 
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     @Override

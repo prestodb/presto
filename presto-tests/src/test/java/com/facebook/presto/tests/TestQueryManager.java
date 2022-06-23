@@ -87,6 +87,7 @@ public class TestQueryManager
         dispatchManager.createQuery(
                 queryId,
                 "slug",
+                0,
                 new TestingSessionContext(TEST_SESSION),
                 "SELECT * FROM lineitem")
                 .get();
@@ -126,6 +127,7 @@ public class TestQueryManager
         dispatchManager.createQuery(
                 queryId,
                 "slug",
+                0,
                 new TestingSessionContext(TEST_SESSION),
                 "SELECT * FROM lineitem")
                 .get();
@@ -159,6 +161,7 @@ public class TestQueryManager
             dispatchManager.createQuery(
                     dispatchManager.createQueryId(),
                     "slug",
+                    0,
                     new TestingSessionContext(TEST_SESSION),
                     "SELECT * FROM lineitem")
                     .get();

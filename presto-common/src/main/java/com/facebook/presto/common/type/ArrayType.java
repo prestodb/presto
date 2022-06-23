@@ -24,9 +24,11 @@ import io.airlift.slice.Slice;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.common.type.TypeUtils.containsDistinctType;
 import static com.facebook.presto.common.type.TypeUtils.hashPosition;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -34,18 +36,31 @@ import static java.util.Objects.requireNonNull;
 public class ArrayType
         extends AbstractType
 {
-    private final Type elementType;
     public static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";
+    private final Type elementType;
+    private final Optional<TypeSignature> typeSignature;
 
     public ArrayType(Type elementType)
     {
-        super(new TypeSignature(ARRAY, TypeSignatureParameter.of(elementType.getTypeSignature())), Block.class);
+        super(Block.class);
         this.elementType = requireNonNull(elementType, "elementType is null");
+        this.typeSignature = containsDistinctType(singletonList(elementType)) ? Optional.empty() : Optional.of(makeSignature());
     }
 
     public Type getElementType()
     {
         return elementType;
+    }
+
+    @Override
+    public TypeSignature getTypeSignature()
+    {
+        return typeSignature.orElseGet(this::makeSignature);
+    }
+
+    private TypeSignature makeSignature()
+    {
+        return new TypeSignature(ARRAY, TypeSignatureParameter.of(elementType.getTypeSignature()));
     }
 
     @Override

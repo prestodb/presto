@@ -65,7 +65,7 @@ public class MockPinotClusterInfoFetcher
                     "server2", ImmutableList.of("segment21", "segment22")));
         }
 
-        if (TestPinotSplitManager.hybridTable.getTableName().equalsIgnoreCase(tableName)) {
+        if (TestPinotSplitManager.offlineOnlyTable.getTableName().equalsIgnoreCase(tableName) || TestPinotSplitManager.hybridTable.getTableName().equalsIgnoreCase(tableName)) {
             routingTable.put(tableName + "_OFFLINE", ImmutableMap.of(
                     "server3", ImmutableList.of("segment31", "segment32"),
                     "server4", ImmutableList.of("segment41", "segment42")));
@@ -426,6 +426,9 @@ public class MockPinotClusterInfoFetcher
     {
         if (TestPinotSplitManager.hybridTable.getTableName().equalsIgnoreCase(table)) {
             return new TimeBoundary("secondsSinceEpoch", "4562345");
+        }
+        if (TestPinotSplitManager.hybridTableWithTsTimeColumn.getTableName().equalsIgnoreCase(table)) {
+            return new TimeBoundary("ts", "2022-05-29 23:56:53.312");
         }
 
         return new TimeBoundary();

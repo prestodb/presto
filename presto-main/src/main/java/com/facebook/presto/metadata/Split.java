@@ -17,13 +17,16 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
@@ -89,14 +92,24 @@ public final class Split
         return splitContext;
     }
 
+    /**
+     * This method returns a raw object.
+     * <p> Instead use {@link #getInfoMap()} method which returns a <pre>{@code Map<String, String>}</pre>
+     */
+    @Deprecated
     public Object getInfo()
     {
         return connectorSplit.getInfo();
     }
 
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public Map<String, String> getInfoMap()
     {
-        return connectorSplit.getPreferredNodes(sortedCandidates);
+        return connectorSplit.getInfoMap();
+    }
+
+    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
+    {
+        return connectorSplit.getPreferredNodes(nodeProvider);
     }
 
     public NodeSelectionStrategy getNodeSelectionStrategy()
@@ -107,6 +120,11 @@ public final class Split
     public SplitIdentifier getSplitIdentifier()
     {
         return new SplitIdentifier(connectorId, connectorSplit.getSplitIdentifier());
+    }
+
+    public SplitWeight getSplitWeight()
+    {
+        return connectorSplit.getSplitWeight();
     }
 
     @Override

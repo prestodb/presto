@@ -16,20 +16,20 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
 
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
 import static com.facebook.presto.sql.planner.plan.Patterns.limit;
 
 /**
- * Remove Limit node when the subplan is guaranteed to produce fewer rows than the limit and
- * replace the plan with empty values if the limit count is 0.
+ * Remove Limit node when the subplan is guaranteed to produce fewer rows than the limit.
  */
 public class RemoveRedundantLimit
         implements Rule<LimitNode>
 {
     // Applies to both LimitNode with ties and LimitNode without ties.
-    private static final Pattern<LimitNode> PATTERN = limit();
+    private static final Pattern<LimitNode> PATTERN = limit()
+            .matching(RemoveRedundantLimit::isAtMost);
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -37,12 +37,15 @@ public class RemoveRedundantLimit
         return PATTERN;
     }
 
+    private static boolean isAtMost(LimitNode node)
+    {
+        return ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
+                ((GroupReference) node.getSource()).getLogicalProperties().get().isAtMost(node.getCount());
+    }
+
     @Override
     public Result apply(LimitNode limit, Captures captures, Context context)
     {
-        if (isAtMost(limit.getSource(), context.getLookup(), limit.getCount())) {
-            return Result.ofPlanNode(limit.getSource());
-        }
-        return Result.empty();
+        return Result.ofPlanNode(limit.getSource());
     }
 }

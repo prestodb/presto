@@ -21,7 +21,9 @@ import com.facebook.presto.common.block.ClosingBlockLease;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.SmallintType;
@@ -31,7 +33,7 @@ import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.TupleDomainFilter;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -60,14 +62,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
-import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -233,8 +236,8 @@ public class MapFlatSelectiveStreamReader
 
         outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
-        if (presentStream != null && keyCount == 0) {
-            readAllNulls(positions, positionCount);
+        if (keyCount == 0 && presentStream == null) {
+            readAllEmpty(positions, positionCount);
         }
         else {
             readNotAllNulls(offset, positions, positionCount);
@@ -245,20 +248,19 @@ public class MapFlatSelectiveStreamReader
         return outputPositionCount;
     }
 
-    private void readAllNulls(int[] positions, int positionCount)
-            throws IOException
+    private void readAllEmpty(int[] positions, int positionCount)
     {
-        presentStream.skip(positions[positionCount - 1]);
+        outputPositions = positions;
+        outputPositionsReadOnly = true;
 
-        allNulls = true;
-
-        if (!nullsAllowed) {
+        if (!nonNullsAllowed) {
+            allNulls = true;
             outputPositionCount = 0;
         }
         else {
             outputPositionCount = positionCount;
-            outputPositions = positions;
-            outputPositionsReadOnly = true;
+            nestedLengths = ensureCapacity(nestedLengths, positionCount);
+            Arrays.fill(nestedLengths, 0);
         }
     }
 
@@ -330,7 +332,7 @@ public class MapFlatSelectiveStreamReader
         readOffset = offset + streamPosition;
 
         if (!nonNullsAllowed) {
-            checkState(nullPositionCount == (positionCount - nonNullPositionCount), "nullPositionCount should be equal to postitionCount - nonNullPositionCount");
+            checkState(nullPositionCount == (positionCount - nonNullPositionCount), "nullPositionCount should be equal to positionCount - nonNullPositionCount");
             outputPositionCount = nullPositionCount;
             allNulls = true;
             System.arraycopy(nullPositions, 0, outputPositions, 0, nullPositionCount);
@@ -409,7 +411,7 @@ public class MapFlatSelectiveStreamReader
         presentStream = presentStreamSource.openStream();
 
         for (int i = 0; i < keyCount; i++) {
-            BooleanInputStream inMapStream = requireNonNull(inMapStreamSources.get(i).openStream(), "missing inMapStream at position " + i);
+            BooleanInputStream inMapStream = checkNotNull(inMapStreamSources.get(i).openStream(), "missing inMapStream at position %s", i);
             inMapStreams.add(inMapStream);
         }
 
@@ -476,7 +478,13 @@ public class MapFlatSelectiveStreamReader
         int count = 0;
 
         Type valueType = outputType.getValueType();
-        BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(null, offset);
+        BlockBuilder valueBlockBuilder;
+        if (valueType instanceof FixedWidthType) {
+            valueBlockBuilder = ((FixedWidthType) valueType).createFixedSizeBlockBuilder(offset);
+        }
+        else {
+            valueBlockBuilder = valueType.createBlockBuilder(null, offset);
+        }
 
         int[] valueBlockPositions = new int[keyCount];
 
@@ -501,7 +509,11 @@ public class MapFlatSelectiveStreamReader
             }
         }
 
-        return outputType.createBlockFromKeyValue(outputPositionCount, Optional.ofNullable(includeNulls ? nulls : null), offsets, new DictionaryBlock(keyBlock, keyIds), valueBlockBuilder);
+        return outputType.createBlockFromKeyValue(outputPositionCount,
+                Optional.ofNullable(includeNulls ? nulls : null),
+                offsets,
+                new DictionaryBlock(keyBlock, keyIds),
+                valueBlockBuilder.build());
     }
 
     private static RunLengthEncodedBlock createNullBlock(Type type, int positionCount)
@@ -627,7 +639,7 @@ public class MapFlatSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encodings)
+    public void startStripe(Stripe stripe)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -636,7 +648,7 @@ public class MapFlatSelectiveStreamReader
         valueStreamDescriptors.clear();
         valueStreamReaders.clear();
 
-        ColumnEncoding encoding = encodings.get(baseValueStreamDescriptor.getStreamId());
+        ColumnEncoding encoding = stripe.getColumnEncodings().get(baseValueStreamDescriptor.getStreamId());
         SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
         // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
         if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
@@ -673,7 +685,7 @@ public class MapFlatSelectiveStreamReader
                     options,
                     legacyMapSubscript,
                     systemMemoryContext.newOrcAggregatedMemoryContext());
-            valueStreamReader.startStripe(dictionaryStreamSources, encodings);
+            valueStreamReader.startStripe(stripe);
             valueStreamReaders.add(valueStreamReader);
         }
 
@@ -783,6 +795,9 @@ public class MapFlatSelectiveStreamReader
     public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
+        presentStream = null;
+        inMapStreams.clear();
+
         presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
 
         for (int i = 0; i < keyCount; i++) {
@@ -797,9 +812,6 @@ public class MapFlatSelectiveStreamReader
         nestedPositions = ensureCapacity(nestedPositions, keyCount);
         nestedPositionCounts = ensureCapacity(nestedPositionCounts, keyCount);
         inMap = ensureCapacity(inMap, keyCount);
-
-        presentStream = null;
-        inMapStreams.clear();
 
         rowGroupOpen = false;
 

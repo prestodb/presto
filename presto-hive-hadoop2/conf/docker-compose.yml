@@ -2,17 +2,20 @@ version: '2'
 services:
   hadoop-master:
     hostname: hadoop-master
-    image: 'prestodb/hdp2.6-hive:5'
+    image: '${HADOOP_BASE_IMAGE}:${DOCKER_IMAGES_VERSION}'
     ports:
       - '1180:1180'
-      - '8020:8020'
+      - '8020:8020' # Default hadoop namenode port
       - '8042:8042'
       - '8088:8088'
-      - '9083:9083'
-      - '10000:10000'
+      - '9000:9000' # Default hadoop namenode port
+      - '9083:9083' # Metastore Thrift
+      - '9864:9864' # DataNode Web UI since Hadoop 3
+      - '9870:9870' # NameNode Web UI since Hadoop 3
+      - '10000:10000' # HiveServer2
       - '19888:19888'
-      - '50070:50070'
-      - '50075:50075'
+      - '50070:50070' # NameNode Web UI prior to Hadoop 3
+      - '50075:50075' # DataNode Web UI prior to Hadoop 3
     volumes:
       - ../../presto-hive/src/test/sql:/files/sql:ro
       - ./files/words:/usr/share/dict/words:ro

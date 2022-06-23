@@ -175,6 +175,7 @@ public class ClientOptions
                 null,
                 clientRequestTimeout,
                 disableCompression,
+                emptyMap(),
                 emptyMap());
     }
 

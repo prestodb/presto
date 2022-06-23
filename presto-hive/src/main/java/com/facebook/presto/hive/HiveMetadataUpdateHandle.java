@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,6 +27,7 @@ import java.util.UUID;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class HiveMetadataUpdateHandle
         implements ConnectorMetadataUpdateHandle
 {
@@ -37,6 +41,7 @@ public class HiveMetadataUpdateHandle
     private final Optional<String> fileName;
 
     @JsonCreator
+    @ThriftConstructor
     public HiveMetadataUpdateHandle(
             @JsonProperty("requestId") UUID requestId,
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
@@ -50,24 +55,28 @@ public class HiveMetadataUpdateHandle
     }
 
     @JsonProperty
+    @ThriftField(1)
     public UUID getRequestId()
     {
         return requestId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public Optional<String> getPartitionName()
     {
         return partitionName;
     }
 
     @JsonProperty("fileName")
+    @ThriftField(value = 4, name = "fileName")
     public Optional<String> getMetadataUpdate()
     {
         return fileName;

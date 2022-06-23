@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.tpch.TpchQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
-
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 
 public class TestTpchTaskUpdateSizeLimitIntegrationTest
         extends AbstractTestQueryFramework
 {
-    public TestTpchTaskUpdateSizeLimitIntegrationTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(ImmutableMap.of("experimental.internal-communication.max-task-update-size", "100B")));
+        return TpchQueryRunner.createQueryRunner(ImmutableMap.of("experimental.internal-communication.max-task-update-size", "100B"));
     }
 
     @Test

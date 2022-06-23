@@ -18,6 +18,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.predicate.FilterFunction;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
@@ -47,6 +49,9 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
+import static com.facebook.presto.common.predicate.TupleDomainFilterUtils.toBigintValues;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -63,13 +68,11 @@ import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedV
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.NONE;
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.SOME;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
-import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
-import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
 import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class TestMapFlatSelectiveStreamReader
@@ -119,6 +122,15 @@ public class TestMapFlatSelectiveStreamReader
         runTest("test_flat_map/flat_map_int.dwrf",
                 INTEGER,
                 ExpectedValuesBuilder.get(Function.identity()));
+    }
+
+    @Test
+    public void testIntegerWithSharedDictionary()
+            throws Exception
+    {
+        runTest("test_flat_map/flat_map_dict_share_simple.dwrf",
+                INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setNumRows(2048));
     }
 
     @Test
@@ -268,6 +280,17 @@ public class TestMapFlatSelectiveStreamReader
                 INTEGER,
                 mapType(VARCHAR, REAL),
                 ExpectedValuesBuilder.get(Function.identity(), TestMapFlatSelectiveStreamReader::intToMap).setNullValuesFrequency(SOME));
+    }
+
+    @Test
+    public void testMapWithSharedDictionary()
+            throws Exception
+    {
+        runTest(
+                "test_flat_map/flat_map_dict_share_nested.dwrf",
+                BIGINT,
+                mapType(VARCHAR, INTEGER),
+                ExpectedValuesBuilder.get(x -> (long) x, TestMapFlatSelectiveStreamReader::intToIntMap).setNumRows(2048));
     }
 
     @Test
@@ -509,7 +532,7 @@ public class TestMapFlatSelectiveStreamReader
 
     private static SqlTimestamp intToTimestamp(int i)
     {
-        return new SqlTimestamp(i, TimeZoneKey.UTC_KEY);
+        return new SqlTimestamp(i, TimeZoneKey.UTC_KEY, MILLISECONDS);
     }
 
     private static List<Integer> intToList(int i)
@@ -520,6 +543,11 @@ public class TestMapFlatSelectiveStreamReader
     private static Map<String, Float> intToMap(int i)
     {
         return ImmutableMap.of(Integer.toString(i * 3), (float) (i * 3), Integer.toString(i * 3 + 1), (float) (i * 3 + 1), Integer.toString(i * 3 + 2), (float) (i * 3 + 2));
+    }
+
+    private static Map<String, Integer> intToIntMap(int i)
+    {
+        return ImmutableMap.of(Integer.toString(i * 3), i * 3, Integer.toString(i * 3 + 1), i * 3 + 1, Integer.toString(i * 3 + 2), i * 3 + 2);
     }
 
     static class ExpectedValuesBuilder<K, V>
@@ -539,6 +567,7 @@ public class TestMapFlatSelectiveStreamReader
         private Frequency emptyMapsFrequency = NONE;
         private boolean mixedEncodings;
         private boolean missingSequences;
+        private int numRows = NUM_ROWS;
 
         private ExpectedValuesBuilder(Function<Integer, K> keyConverter, Function<Integer, V> valueConverter)
         {
@@ -591,11 +620,17 @@ public class TestMapFlatSelectiveStreamReader
             return this;
         }
 
+        public ExpectedValuesBuilder<K, V> setNumRows(int numRows)
+        {
+            this.numRows = numRows;
+            return this;
+        }
+
         public List<Map<K, V>> build()
         {
-            List<Map<K, V>> result = new ArrayList<>(NUM_ROWS);
+            List<Map<K, V>> result = new ArrayList<>(numRows);
 
-            for (int i = 0; i < NUM_ROWS; ++i) {
+            for (int i = 0; i < numRows; ++i) {
                 if (passesFrequencyCheck(nullRowsFrequency, i)) {
                     result.add(null);
                 }
@@ -663,7 +698,8 @@ public class TestMapFlatSelectiveStreamReader
 
         public TestingFilterFunction(final Type mapType)
         {
-            super(TEST_SESSION.getSqlFunctionProperties(), true, new Predicate() {
+            super(TEST_SESSION.getSqlFunctionProperties(), true, new Predicate()
+            {
                 @Override
                 public int[] getInputChannels()
                 {

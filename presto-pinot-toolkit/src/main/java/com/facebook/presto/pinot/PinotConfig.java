@@ -27,8 +27,12 @@ import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
+import static com.facebook.presto.pinot.PinotPushdownUtils.PINOT_DISTINCT_COUNT_FUNCTION_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -45,6 +49,9 @@ public class PinotConfig
     // There is a perf penalty of having a large topN since the structures are allocated to this size
     // So size this judiciously
     public static final int DEFAULT_TOPN_LARGE = 10_000;
+    public static final int DEFAULT_PROXY_GRPC_PORT = 8124;
+
+    public static final String DEFAULT_GRPC_TLS_STORE_TYPE = "PKCS12";
 
     private static final Duration DEFAULT_IDLE_TIMEOUT = new Duration(5, TimeUnit.MINUTES);
     private static final Duration DEFAULT_CONNECTION_TIMEOUT = new Duration(1, TimeUnit.MINUTES);
@@ -60,7 +67,6 @@ public class PinotConfig
     private String callerHeaderParam = "RPC-Caller";
 
     private List<String> controllerUrls = ImmutableList.of();
-    private String restProxyUrl;
     private String restProxyServiceForQuery;
 
     private int limitLargeForSegment = DEFAULT_LIMIT_LARGE_FOR_SEGMENT;
@@ -98,7 +104,20 @@ public class PinotConfig
     private int fetchRetryCount = 2;
     private boolean useDateTrunc;
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
-    private boolean pushdownTopNBrokerQueries;
+    private boolean pushdownTopNBrokerQueries = true;
+    private boolean pushdownProjectExpressions = true;
+    private String grpcHost;
+    private int grpcPort = DEFAULT_PROXY_GRPC_PORT;
+    private boolean useProxy;
+    private boolean useSecureConnection;
+    private Map<String, String> extraGrpcMetadata = ImmutableMap.of();
+    private String overrideDistinctCountFunction = PINOT_DISTINCT_COUNT_FUNCTION_NAME;
+    private String grpcTlsKeyStorePath;
+    private String grpcTlsKeyStorePassword;
+    private String grpcTlsKeyStoreType = DEFAULT_GRPC_TLS_STORE_TYPE;
+    private String grpcTlsTrustStorePath;
+    private String grpcTlsTrustStorePassword;
+    private String grpcTlsTrustStoreType = DEFAULT_GRPC_TLS_STORE_TYPE;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -114,6 +133,19 @@ public class PinotConfig
     }
 
     @NotNull
+    public Map<String, String> getExtraGrpcMetadata()
+    {
+        return extraGrpcMetadata;
+    }
+
+    @Config("pinot.extra-grpc-metadata")
+    public PinotConfig setExtraGrpcMetadata(String metadata)
+    {
+        extraGrpcMetadata = ImmutableMap.copyOf(MAP_SPLITTER.split(metadata));
+        return this;
+    }
+
+    @NotNull
     public List<String> getControllerUrls()
     {
         return controllerUrls;
@@ -123,19 +155,6 @@ public class PinotConfig
     public PinotConfig setControllerUrls(String controllerUrl)
     {
         this.controllerUrls = LIST_SPLITTER.splitToList(controllerUrl);
-        return this;
-    }
-
-    @Nullable
-    public String getRestProxyUrl()
-    {
-        return restProxyUrl;
-    }
-
-    @Config("pinot.rest-proxy-url")
-    public PinotConfig setRestProxyUrl(String restProxyUrl)
-    {
-        this.restProxyUrl = restProxyUrl;
         return this;
     }
 
@@ -497,6 +516,18 @@ public class PinotConfig
         return this;
     }
 
+    public boolean isPushdownProjectExpressions()
+    {
+        return pushdownProjectExpressions;
+    }
+
+    @Config("pinot.pushdown-project-expressions")
+    public PinotConfig setPushdownProjectExpressions(boolean pushdownProjectExpressions)
+    {
+        this.pushdownProjectExpressions = pushdownProjectExpressions;
+        return this;
+    }
+
     public boolean isUseStreamingForSegmentQueries()
     {
         return useStreamingForSegmentQueries;
@@ -519,5 +550,150 @@ public class PinotConfig
     {
         this.streamingServerGrpcMaxInboundMessageBytes = streamingServerGrpcMaxInboundMessageBytes;
         return this;
+    }
+
+    public boolean isUseProxy()
+    {
+        return this.useProxy;
+    }
+
+    @Config("pinot.proxy-enabled")
+    public PinotConfig setUseProxy(boolean useProxy)
+    {
+        this.useProxy = useProxy;
+        return this;
+    }
+
+    public String getGrpcHost()
+    {
+        return grpcHost;
+    }
+
+    @Config("pinot.grpc-host")
+    public PinotConfig setGrpcHost(String grpcHost)
+    {
+        this.grpcHost = grpcHost;
+        return this;
+    }
+
+    public int getGrpcPort()
+    {
+        return grpcPort;
+    }
+
+    @Config("pinot.grpc-port")
+    public PinotConfig setGrpcPort(int grpcPort)
+    {
+        this.grpcPort = grpcPort;
+        return this;
+    }
+
+    public boolean isUseSecureConnection()
+    {
+        return this.useSecureConnection;
+    }
+
+    @Config("pinot.secure-connection")
+    public PinotConfig setUseSecureConnection(boolean useSecureConnection)
+    {
+        this.useSecureConnection = useSecureConnection;
+        return this;
+    }
+
+    public String getOverrideDistinctCountFunction()
+    {
+        return this.overrideDistinctCountFunction;
+    }
+
+    @Config("pinot.override-distinct-count-function")
+    public PinotConfig setOverrideDistinctCountFunction(String overrideDistinctCountFunction)
+    {
+        this.overrideDistinctCountFunction = overrideDistinctCountFunction;
+        return this;
+    }
+
+    public String getGrpcTlsKeyStorePath()
+    {
+        return grpcTlsKeyStorePath;
+    }
+
+    @Config("pinot.grpc-tls-key-store-path")
+    public PinotConfig setGrpcTlsKeyStorePath(String grpcTlsKeyStorePath)
+    {
+        this.grpcTlsKeyStorePath = grpcTlsKeyStorePath;
+        return this;
+    }
+
+    public String getGrpcTlsKeyStorePassword()
+    {
+        return grpcTlsKeyStorePassword;
+    }
+
+    @Config("pinot.grpc-tls-key-store-password")
+    public PinotConfig setGrpcTlsKeyStorePassword(String grpcTlsKeyStorePassword)
+    {
+        this.grpcTlsKeyStorePassword = grpcTlsKeyStorePassword;
+        return this;
+    }
+
+    public String getGrpcTlsKeyStoreType()
+    {
+        return grpcTlsKeyStoreType;
+    }
+
+    @Config("pinot.grpc-tls-key-store-type")
+    public PinotConfig setGrpcTlsKeyStoreType(String grpcTlsKeyStoreType)
+    {
+        this.grpcTlsKeyStoreType = grpcTlsKeyStoreType;
+        return this;
+    }
+
+    public String getGrpcTlsTrustStorePath()
+    {
+        return grpcTlsTrustStorePath;
+    }
+
+    @Config("pinot.grpc-tls-trust-store-path")
+    public PinotConfig setGrpcTlsTrustStorePath(String grpcTlsTrustStorePath)
+    {
+        this.grpcTlsTrustStorePath = grpcTlsTrustStorePath;
+        return this;
+    }
+
+    public String getGrpcTlsTrustStorePassword()
+    {
+        return grpcTlsTrustStorePassword;
+    }
+
+    @Config("pinot.grpc-tls-trust-store-password")
+    public PinotConfig setGrpcTlsTrustStorePassword(String grpcTlsTrustStorePassword)
+    {
+        this.grpcTlsTrustStorePassword = grpcTlsTrustStorePassword;
+        return this;
+    }
+
+    public String getGrpcTlsTrustStoreType()
+    {
+        return grpcTlsTrustStoreType;
+    }
+
+    @Config("pinot.grpc-tls-trust-store-type")
+    public PinotConfig setGrpcTlsTrustStoreType(String grpcTlsTrustStoreType)
+    {
+        this.grpcTlsTrustStoreType = grpcTlsTrustStoreType;
+        return this;
+    }
+
+    /**
+     * Randomly select one controller from the property in pinot controller list.
+     * @return one URL string of pinot controller
+     */
+    public String getControllerUrl()
+    {
+        List<String> controllerUrls = getControllerUrls();
+        if (controllerUrls.isEmpty()) {
+            throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "No pinot controllers specified");
+        }
+        return controllerUrls.get(ThreadLocalRandom.current().nextInt(controllerUrls.size()));
     }
 }

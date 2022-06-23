@@ -16,6 +16,7 @@ package com.facebook.presto.security;
 import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.metadata.Catalog;
@@ -58,6 +59,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectC
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
@@ -74,7 +76,11 @@ public class TestAccessControlManager
     public void testInitializing()
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
-        accessControlManager.checkCanSetUser(new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()), Optional.empty(), "foo");
+        accessControlManager.checkCanSetUser(
+                new Identity(USER_NAME, Optional.of(PRINCIPAL)),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
+                Optional.empty(),
+                "foo");
     }
 
     @Test
@@ -82,7 +88,11 @@ public class TestAccessControlManager
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()), Optional.empty(), USER_NAME);
+        accessControlManager.checkCanSetUser(
+                new Identity(USER_NAME, Optional.of(PRINCIPAL)),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
+                Optional.empty(),
+                USER_NAME);
     }
 
     @Test
@@ -95,7 +105,7 @@ public class TestAccessControlManager
         AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty());
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(context, Optional.of(PRINCIPAL), USER_NAME);
+        accessControlManager.checkCanSetUser(identity, context, Optional.of(PRINCIPAL), USER_NAME);
         accessControlManager.checkCanSetSystemSessionProperty(identity, context, "property");
 
         transaction(transactionManager, accessControlManager)
@@ -103,7 +113,7 @@ public class TestAccessControlManager
                     accessControlManager.checkCanSetCatalogSessionProperty(transactionId, identity, context, "catalog", "property");
                     accessControlManager.checkCanShowSchemas(transactionId, identity, context, "catalog");
                     accessControlManager.checkCanShowTablesMetadata(transactionId, identity, context, new CatalogSchemaName("catalog", "schema"));
-                    accessControlManager.checkCanSelectFromColumns(transactionId, identity, context, tableName, ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(transactionId, identity, context, tableName, ImmutableSet.of(new Subfield("column")));
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, ImmutableSet.of("column"));
                     Set<String> catalogs = ImmutableSet.of("catalog");
                     assertEquals(accessControlManager.filterCatalogs(identity, context, catalogs), catalogs);
@@ -133,7 +143,11 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        accessControlManager.checkCanSetUser(new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()), Optional.of(PRINCIPAL), USER_NAME);
+        accessControlManager.checkCanSetUser(
+                new Identity(USER_NAME, Optional.of(PRINCIPAL)),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
+                Optional.of(PRINCIPAL),
+                USER_NAME);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
     }
@@ -189,7 +203,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                             new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
-                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
 
@@ -211,7 +225,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                             new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
-                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                            new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
 
@@ -233,7 +247,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                             new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
-                            new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
+                            new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
 
@@ -309,7 +323,7 @@ public class TestAccessControlManager
             return new SystemAccessControl()
             {
                 @Override
-                public void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName)
+                public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
                 {
                     checkedPrincipal = principal;
                     checkedUserName = userName;
@@ -358,9 +372,9 @@ public class TestAccessControlManager
             implements ConnectorAccessControl
     {
         @Override
-        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
+        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<Subfield> columnOrSubfieldNames)
         {
-            denySelectColumns(tableName.toString(), columnNames);
+            denySelectColumns(tableName.toString(), columnOrSubfieldNames.stream().map(subfield -> subfield.getRootName()).collect(toImmutableSet()));
         }
 
         @Override

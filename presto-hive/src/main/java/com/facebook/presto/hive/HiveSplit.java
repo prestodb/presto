@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.NodeProvider;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,7 +34,6 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -47,6 +46,7 @@ public class HiveSplit
     private final long start;
     private final long length;
     private final long fileSize;
+    private final long fileModifiedTime;
     private final Storage storage;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
@@ -57,7 +57,7 @@ public class HiveSplit
     private final OptionalInt tableBucketNumber;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final int partitionDataColumnCount;
-    private final Map<Integer, Column> partitionSchemaDifference; // key: hiveColumnIndex
+    private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
     private final Optional<byte[]> extraFileInfo;
@@ -65,6 +65,7 @@ public class HiveSplit
     private final Optional<EncryptionInformation> encryptionInformation;
     private final Map<String, String> customSplitInfo;
     private final Set<ColumnHandle> redundantColumnDomains;
+    private final SplitWeight splitWeight;
 
     @JsonCreator
     public HiveSplit(
@@ -75,6 +76,7 @@ public class HiveSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("storage") Storage storage,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
@@ -82,18 +84,20 @@ public class HiveSplit
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
             @JsonProperty("partitionDataColumnCount") int partitionDataColumnCount,
-            @JsonProperty("partitionSchemaDifference") Map<Integer, Column> partitionSchemaDifference,
+            @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo,
             @JsonProperty("cacheQuota") CacheQuotaRequirement cacheQuotaRequirement,
             @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation,
             @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo,
-            @JsonProperty("redundantColumnDomains") Set<ColumnHandle> redundantColumnDomains)
+            @JsonProperty("redundantColumnDomains") Set<ColumnHandle> redundantColumnDomains,
+            @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(fileModifiedTime >= 0, "modificationTime must be positive");
         requireNonNull(database, "database is null");
         requireNonNull(table, "table is null");
         requireNonNull(partitionName, "partitionName is null");
@@ -104,7 +108,7 @@ public class HiveSplit
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
-        requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
+        requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(extraFileInfo, "extraFileInfo is null");
         requireNonNull(cacheQuotaRequirement, "cacheQuotaRequirement is null");
@@ -118,6 +122,7 @@ public class HiveSplit
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
+        this.fileModifiedTime = fileModifiedTime;
         this.storage = storage;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
@@ -125,7 +130,7 @@ public class HiveSplit
         this.tableBucketNumber = tableBucketNumber;
         this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.partitionDataColumnCount = partitionDataColumnCount;
-        this.partitionSchemaDifference = partitionSchemaDifference;
+        this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.extraFileInfo = extraFileInfo;
@@ -133,6 +138,7 @@ public class HiveSplit
         this.encryptionInformation = encryptionInformation;
         this.customSplitInfo = ImmutableMap.copyOf(requireNonNull(customSplitInfo, "customSplitInfo is null"));
         this.redundantColumnDomains = ImmutableSet.copyOf(redundantColumnDomains);
+        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
 
     @JsonProperty
@@ -178,6 +184,12 @@ public class HiveSplit
     }
 
     @JsonProperty
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
+    }
+
+    @JsonProperty
     public Storage getStorage()
     {
         return storage;
@@ -196,20 +208,10 @@ public class HiveSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
-        if (sortedCandidates == null || sortedCandidates.isEmpty()) {
-            throw new PrestoException(NO_NODES_AVAILABLE, "sortedCandidates is null or empty for HiveSplit");
-        }
-
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            // Use + 1 as secondary hash for now, would always get a different position from the first hash.
-            int size = sortedCandidates.size();
-            int mod = path.hashCode() % size;
-            int position = mod < 0 ? mod + size : mod;
-            return ImmutableList.of(
-                    sortedCandidates.get(position),
-                    sortedCandidates.get((position + 1) % size));
+            return nodeProvider.get(path, 2);
         }
         return addresses;
     }
@@ -233,9 +235,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public Map<Integer, Column> getPartitionSchemaDifference()
+    public TableToPartitionMapping getTableToPartitionMapping()
     {
-        return partitionSchemaDifference;
+        return tableToPartitionMapping;
     }
 
     @JsonProperty
@@ -287,6 +289,13 @@ public class HiveSplit
         return redundantColumnDomains;
     }
 
+    @JsonProperty
+    @Override
+    public SplitWeight getSplitWeight()
+    {
+        return splitWeight;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -295,6 +304,7 @@ public class HiveSplit
                 .put("start", start)
                 .put("length", length)
                 .put("fileSize", fileSize)
+                .put("fileModifiedTime", fileModifiedTime)
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)
@@ -302,6 +312,25 @@ public class HiveSplit
                 .put("partitionName", partitionName)
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .put("cacheQuotaRequirement", cacheQuotaRequirement)
+                .build();
+    }
+
+    @Override
+    public Map<String, String> getInfoMap()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("path", path)
+                .put("start", Long.toString(start))
+                .put("length", Long.toString(length))
+                .put("fileSize", Long.toString(fileSize))
+                .put("fileModifiedTime", Long.toString(fileModifiedTime))
+                .put("hosts", addresses.toString())
+                .put("database", database)
+                .put("table", table)
+                .put("nodeSelectionStrategy", nodeSelectionStrategy.toString())
+                .put("partitionName", partitionName)
+                .put("s3SelectPushdownEnabled", Boolean.toString(s3SelectPushdownEnabled))
+                .put("cacheQuotaRequirement", cacheQuotaRequirement.toString())
                 .build();
     }
 

@@ -45,4 +45,6 @@ public interface ResourceGroupManager<C>
 
     void loadConfigurationManager()
             throws Exception;
+
+    List<ResourceGroupRuntimeInfo> getResourceGroupRuntimeInfos();
 }

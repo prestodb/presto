@@ -14,8 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
-import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
 import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -26,18 +26,21 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
+import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveCompressionCodec.SNAPPY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class TestHiveClientConfig
 {
@@ -75,6 +78,8 @@ public class TestHiveClientConfig
                 .setOrcCompressionCodec(HiveCompressionCodec.GZIP)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
+                .setInsertExistingPartitionsBehavior(APPEND)
+                .setCreateEmptyBucketFiles(true)
                 .setInsertOverwriteImmutablePartitionEnabled(false)
                 .setFailFastOnInsertIntoImmutablePartitionsEnabled(true)
                 .setSortedWritingEnabled(true)
@@ -83,7 +88,6 @@ public class TestHiveClientConfig
                 .setWriteValidationThreads(16)
                 .setTextMaxLineLength(new DataSize(100, Unit.MEGABYTE))
                 .setUseParquetColumnNames(false)
-                .setFailOnCorruptedParquetStatistics(true)
                 .setParquetMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
                 .setUseOrcColumnNames(false)
                 .setAssumeCanonicalPartitionKeys(false)
@@ -100,7 +104,6 @@ public class TestHiveClientConfig
                 .setOrcOptimizedWriterEnabled(true)
                 .setOrcWriterValidationPercentage(0.0)
                 .setOrcWriterValidationMode(OrcWriteValidationMode.BOTH)
-                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
                 .setSkipDeletionForAlter(false)
@@ -123,13 +126,16 @@ public class TestHiveClientConfig
                 .setPartitionStatisticsBasedOptimizationEnabled(false)
                 .setS3SelectPushdownEnabled(false)
                 .setS3SelectPushdownMaxConnections(500)
+                .setOrderBasedExecutionEnabled(false)
                 .setTemporaryStagingDirectoryEnabled(true)
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
                 .setTemporaryTableSchema("default")
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
+                .setCreateEmptyBucketFilesForTemporaryTable(false)
                 .setUsePageFileForHiveUnsupportedType(true)
                 .setPushdownFilterEnabled(false)
+                .setParquetPushdownFilterEnabled(false)
                 .setZstdJniDecompressionEnabled(false)
                 .setRangeFiltersOnSubscriptsEnabled(false)
                 .setAdaptiveFilterReorderingEnabled(true)
@@ -147,7 +153,22 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
                 .setFileRenamingEnabled(false)
                 .setPreferManifestsToListFiles(false)
-                .setManifestVerificationEnabled(false));
+                .setManifestVerificationEnabled(false)
+                .setUndoMetastoreOperationsEnabled(true)
+                .setOptimizedPartitionUpdateSerializationEnabled(false)
+                .setVerboseRuntimeStatsEnabled(false)
+                .setPartitionLeaseDuration(new Duration(0, TimeUnit.SECONDS))
+                .setMaterializedViewMissingPartitionsThreshold(100)
+                .setLooseMemoryAccountingEnabled(false)
+                .setReadColumnIndexFilter(false)
+                .setSizeBasedSplitWeightsEnabled(true)
+                .setMinimumAssignedSplitWeight(0.05)
+                .setUserDefinedTypeEncodingEnabled(false)
+                .setUseRecordPageSourceForCustomSplit(true)
+                .setFileSplittable(true)
+                .setHudiMetadataEnabled(false)
+                .setThriftProtocol(Protocol.BINARY)
+                .setThriftBufferSize(new DataSize(128, BYTE)));
     }
 
     @Test
@@ -181,6 +202,8 @@ public class TestHiveClientConfig
                 .put("hive.orc-compression-codec", "ZSTD")
                 .put("hive.respect-table-format", "false")
                 .put("hive.immutable-partitions", "true")
+                .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
+                .put("hive.create-empty-bucket-files", "false")
                 .put("hive.insert-overwrite-immutable-partitions-enabled", "true")
                 .put("hive.fail-fast-on-insert-into-immutable-partitions-enabled", "false")
                 .put("hive.max-partitions-per-writers", "222")
@@ -192,7 +215,6 @@ public class TestHiveClientConfig
                 .put("hive.assume-canonical-partition-keys", "true")
                 .put("hive.text.max-line-length", "13MB")
                 .put("hive.parquet.use-column-names", "true")
-                .put("hive.parquet.fail-on-corrupted-statistics", "false")
                 .put("hive.parquet.max-read-block-size", "66kB")
                 .put("hive.orc.use-column-names", "true")
                 .put("hive.orc.bloom-filters.enabled", "true")
@@ -208,7 +230,6 @@ public class TestHiveClientConfig
                 .put("hive.orc.optimized-writer.enabled", "false")
                 .put("hive.orc.writer.validation-percentage", "0.16")
                 .put("hive.orc.writer.validation-mode", "DETAILED")
-                .put("hive.metastore.authentication.type", "KERBEROS")
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
                 .put("hive.skip-deletion-for-alter", "true")
@@ -232,13 +253,16 @@ public class TestHiveClientConfig
                 .put("hive.partition-statistics-based-optimization-enabled", "true")
                 .put("hive.s3select-pushdown.enabled", "true")
                 .put("hive.s3select-pushdown.max-connections", "1234")
+                .put("hive.order-based-execution-enabled", "true")
                 .put("hive.temporary-staging-directory-enabled", "false")
                 .put("hive.temporary-staging-directory-path", "updated")
                 .put("hive.temporary-table-schema", "other")
                 .put("hive.temporary-table-storage-format", "DWRF")
                 .put("hive.temporary-table-compression-codec", "NONE")
+                .put("hive.create-empty-bucket-files-for-temporary-table", "true")
                 .put("hive.use-pagefile-for-hive-unsupported-type", "false")
                 .put("hive.pushdown-filter-enabled", "true")
+                .put("hive.parquet.pushdown-filter-enabled", "true")
                 .put("hive.range-filters-on-subscripts-enabled", "true")
                 .put("hive.adaptive-filter-reordering-enabled", "false")
                 .put("hive.zstd-jni-decompression-enabled", "true")
@@ -257,10 +281,25 @@ public class TestHiveClientConfig
                 .put("hive.file_renaming_enabled", "true")
                 .put("hive.prefer-manifests-to-list-files", "true")
                 .put("hive.manifest-verification-enabled", "true")
+                .put("hive.undo-metastore-operations-enabled", "false")
+                .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
+                .put("hive.partition-lease-duration", "4h")
+                .put("hive.loose-memory-accounting-enabled", "true")
+                .put("hive.verbose-runtime-stats-enabled", "true")
+                .put("hive.materialized-view-missing-partitions-threshold", "50")
+                .put("hive.parquet-column-index-filter-enabled", "true")
+                .put("hive.size-based-split-weights-enabled", "false")
+                .put("hive.user-defined-type-encoding-enabled", "true")
+                .put("hive.minimum-assigned-split-weight", "1.0")
+                .put("hive.use-record-page-source-for-custom-split", "false")
+                .put("hive.file-splittable", "false")
+                .put("hive.hudi-metadata-enabled", "true")
+                .put("hive.internal-communication.thrift-transport-protocol", "COMPACT")
+                .put("hive.internal-communication.thrift-transport-buffer-size", "256B")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
-                .setTimeZone(nonDefaultTimeZone().toTimeZone().getID())
+                .setTimeZone(TimeZone.getTimeZone(ZoneId.of(nonDefaultTimeZone().getID())).getID())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)
                 .setMaxOutstandingSplits(10)
@@ -288,6 +327,7 @@ public class TestHiveClientConfig
                 .setOrcCompressionCodec(HiveCompressionCodec.ZSTD)
                 .setRespectTableFormat(false)
                 .setImmutablePartitions(true)
+                .setCreateEmptyBucketFiles(false)
                 .setInsertOverwriteImmutablePartitionEnabled(true)
                 .setFailFastOnInsertIntoImmutablePartitionsEnabled(false)
                 .setMaxPartitionsPerWriter(222)
@@ -297,7 +337,6 @@ public class TestHiveClientConfig
                 .setS3FileSystemType(S3FileSystemType.EMRFS)
                 .setTextMaxLineLength(new DataSize(13, Unit.MEGABYTE))
                 .setUseParquetColumnNames(true)
-                .setFailOnCorruptedParquetStatistics(false)
                 .setParquetMaxReadBlockSize(new DataSize(66, Unit.KILOBYTE))
                 .setUseOrcColumnNames(true)
                 .setAssumeCanonicalPartitionKeys(true)
@@ -314,7 +353,6 @@ public class TestHiveClientConfig
                 .setOrcOptimizedWriterEnabled(false)
                 .setOrcWriterValidationPercentage(0.16)
                 .setOrcWriterValidationMode(OrcWriteValidationMode.DETAILED)
-                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)
                 .setSkipDeletionForAlter(true)
@@ -338,13 +376,16 @@ public class TestHiveClientConfig
                 .setPartitionStatisticsBasedOptimizationEnabled(true)
                 .setS3SelectPushdownEnabled(true)
                 .setS3SelectPushdownMaxConnections(1234)
+                .setOrderBasedExecutionEnabled(true)
                 .setTemporaryStagingDirectoryEnabled(false)
                 .setTemporaryStagingDirectoryPath("updated")
                 .setTemporaryTableSchema("other")
                 .setTemporaryTableStorageFormat(DWRF)
                 .setTemporaryTableCompressionCodec(NONE)
+                .setCreateEmptyBucketFilesForTemporaryTable(true)
                 .setUsePageFileForHiveUnsupportedType(false)
                 .setPushdownFilterEnabled(true)
+                .setParquetPushdownFilterEnabled(true)
                 .setZstdJniDecompressionEnabled(true)
                 .setRangeFiltersOnSubscriptsEnabled(true)
                 .setAdaptiveFilterReorderingEnabled(false)
@@ -362,7 +403,22 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
                 .setFileRenamingEnabled(true)
                 .setPreferManifestsToListFiles(true)
-                .setManifestVerificationEnabled(true);
+                .setManifestVerificationEnabled(true)
+                .setUndoMetastoreOperationsEnabled(false)
+                .setOptimizedPartitionUpdateSerializationEnabled(true)
+                .setVerboseRuntimeStatsEnabled(true)
+                .setPartitionLeaseDuration(new Duration(4, TimeUnit.HOURS))
+                .setMaterializedViewMissingPartitionsThreshold(50)
+                .setLooseMemoryAccountingEnabled(true)
+                .setReadColumnIndexFilter(true)
+                .setSizeBasedSplitWeightsEnabled(false)
+                .setMinimumAssignedSplitWeight(1.0)
+                .setUserDefinedTypeEncodingEnabled(true)
+                .setUseRecordPageSourceForCustomSplit(false)
+                .setFileSplittable(false)
+                .setHudiMetadataEnabled(true)
+                .setThriftProtocol(Protocol.COMPACT)
+                .setThriftBufferSize(new DataSize(256, BYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

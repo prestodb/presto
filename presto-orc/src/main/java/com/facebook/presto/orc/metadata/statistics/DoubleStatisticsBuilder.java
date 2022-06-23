@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.Type;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class DoubleStatisticsBuilder
@@ -63,12 +62,10 @@ public class DoubleStatisticsBuilder
     private void addDoubleStatistics(long valueCount, DoubleStatistics value)
     {
         requireNonNull(value, "value is null");
-        requireNonNull(value.getMin(), "value.getMin() is null");
-        requireNonNull(value.getMax(), "value.getMax() is null");
 
         nonNullValueCount += valueCount;
-        minimum = Math.min(value.getMin(), minimum);
-        maximum = Math.max(value.getMax(), maximum);
+        minimum = Math.min(value.getMinPrimitive(), minimum);
+        maximum = Math.max(value.getMaxPrimitive(), maximum);
     }
 
     private Optional<DoubleStatistics> buildDoubleStatistics()
@@ -84,17 +81,10 @@ public class DoubleStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<DoubleStatistics> doubleStatistics = buildDoubleStatistics();
-        return new ColumnStatistics(
-                nonNullValueCount,
-                doubleStatistics.map(s -> DOUBLE_VALUE_BYTES).orElse(0L),
-                null,
-                null,
-                doubleStatistics.orElse(null),
-                null,
-                null,
-                null,
-                null,
-                null);
+        if (doubleStatistics.isPresent()) {
+            return new DoubleColumnStatistics(nonNullValueCount, null, doubleStatistics.get());
+        }
+        return new ColumnStatistics(nonNullValueCount, null);
     }
 
     public static Optional<DoubleStatistics> mergeDoubleStatistics(List<ColumnStatistics> stats)

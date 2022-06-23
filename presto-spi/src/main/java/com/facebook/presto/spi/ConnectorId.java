@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -20,6 +23,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class ConnectorId
 {
     private static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
@@ -27,6 +31,7 @@ public final class ConnectorId
 
     private final String catalogName;
 
+    @ThriftConstructor
     @JsonCreator
     public ConnectorId(String catalogName)
     {
@@ -36,6 +41,7 @@ public final class ConnectorId
         }
     }
 
+    @ThriftField(1)
     public String getCatalogName()
     {
         return catalogName;

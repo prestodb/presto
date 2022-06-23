@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.state.CentralMomentsState;
@@ -23,11 +25,11 @@ import com.facebook.presto.operator.aggregation.state.CovarianceState;
 import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.sql.gen.CompilerOperations;
 import com.google.common.base.CaseFormat;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
@@ -151,7 +153,7 @@ public final class AggregationUtils
         double dividend = state.getC2();
         double divisor = state.getM2X();
 
-        // divisor deliberately not checked for zero because the result can be Infty or NaN even if it is not zero
+        // divisor deliberately not checked for zero because the result can be Infinity or NaN even if it is not zero
         return dividend / divisor;
     }
 
@@ -268,19 +270,36 @@ public final class AggregationUtils
     public static String generateAggregationName(String baseName, TypeSignature outputType, List<TypeSignature> inputTypes)
     {
         StringBuilder sb = new StringBuilder();
-        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.toString()));
+        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, getAbbreviatedTypeName(outputType)));
         for (TypeSignature inputType : inputTypes) {
-            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.toString()));
+            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, getAbbreviatedTypeName(inputType)));
         }
         sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, baseName.toLowerCase(ENGLISH)));
 
         return sb.toString();
     }
 
-    // used by aggregation compiler
-    @SuppressWarnings("UnusedDeclaration")
-    public static Function<Integer, Block> pageBlockGetter(final Page page)
+    private static String getAbbreviatedTypeName(TypeSignature type)
     {
-        return page::getBlock;
+        String typeName = type.toString();
+        if (typeName.length() > 10) {
+            return typeName.substring(0, 10);
+        }
+        return typeName;
+    }
+
+    // used by aggregation compiler
+    @UsedByGeneratedCode
+    @SuppressWarnings("UnusedDeclaration")
+    public static Block extractMaskBlock(int maskChannel, Page page)
+    {
+        if (maskChannel < 0) {
+            return null;
+        }
+        Block maskBlock = page.getBlock(maskChannel);
+        if (page.getPositionCount() > 0 && maskBlock instanceof RunLengthEncodedBlock && CompilerOperations.testMask(maskBlock, 0)) {
+            return null; // filter out RLE true blocks to bypass unnecessary mask checks
+        }
+        return maskBlock;
     }
 }

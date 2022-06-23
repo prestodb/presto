@@ -14,10 +14,10 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplier;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.Map;
 
 public class TestKafkaConnectorConfig
@@ -26,11 +26,10 @@ public class TestKafkaConnectorConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(KafkaConnectorConfig.class)
-                .setNodes(null)
                 .setKafkaConnectTimeout("10s")
                 .setDefaultSchema("default")
-                .setTableNames("")
-                .setTableDescriptionDir(new File("etc/kafka/"))
+                .setClusterMetadataSupplier(FileTableDescriptionSupplier.NAME)
+                .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
                 .setMaxPartitionFetchBytes(1048576)
                 .setMaxPollRecords(500));
@@ -40,10 +39,9 @@ public class TestKafkaConnectorConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("kafka.table-description-dir", "/var/lib/kafka")
-                .put("kafka.table-names", "table1, table2, table3")
+                .put("kafka.table-description-supplier", "test")
+                .put("kafka.cluster-metadata-supplier", "test")
                 .put("kafka.default-schema", "kafka")
-                .put("kafka.nodes", "localhost:12345,localhost:23456")
                 .put("kafka.connect-timeout", "1h")
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.max-partition-fetch-bytes", "1024")
@@ -51,10 +49,9 @@ public class TestKafkaConnectorConfig
                 .build();
 
         KafkaConnectorConfig expected = new KafkaConnectorConfig()
-                .setTableDescriptionDir(new File("/var/lib/kafka"))
-                .setTableNames("table1, table2, table3")
+                .setTableDescriptionSupplier("test")
+                .setClusterMetadataSupplier("test")
                 .setDefaultSchema("kafka")
-                .setNodes("localhost:12345, localhost:23456")
                 .setKafkaConnectTimeout("1h")
                 .setHideInternalColumns(false)
                 .setMaxPartitionFetchBytes(1024)

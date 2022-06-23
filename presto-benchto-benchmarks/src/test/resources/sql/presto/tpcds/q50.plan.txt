@@ -6,10 +6,11 @@ local exchange (GATHER, SINGLE, [])
                     partial aggregation over (s_city, s_company_id, s_county, s_state, s_store_name, s_street_name, s_street_number, s_street_type, s_suite_number, s_zip)
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                join (INNER, REPLICATED):
-                                    scan store_sales
+                                join (INNER, PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk, ss_ticket_number])
+                                        scan store_sales
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPARTITION, HASH, [sr_customer_sk, sr_item_sk, sr_ticket_number])
                                             join (INNER, REPLICATED):
                                                 scan store_returns
                                                 local exchange (GATHER, SINGLE, [])

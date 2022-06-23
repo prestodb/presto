@@ -22,7 +22,6 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
-import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -31,6 +30,7 @@ import io.airlift.slice.Slice;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -128,11 +128,11 @@ public class TableWriterMergeOperator
     {
         this.context = requireNonNull(context, "context is null");
         this.statisticsAggregationOperator = requireNonNull(statisticsAggregationOperator, "statisticAggregationOperator is null");
-        this.systemMemoryContext = context.newLocalSystemMemoryContext(InMemoryHashAggregationBuilder.class.getSimpleName());
+        this.systemMemoryContext = context.localSystemMemoryContext();
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.context.setInfoSupplier(this::getInfo);
+        this.context.setInfoSupplier(createTableWriterMergeInfoSupplier(statisticsTiming));
     }
 
     @Override
@@ -347,9 +347,10 @@ public class TableWriterMergeOperator
         systemMemoryContext.setBytes(0);
     }
 
-    public TableWriterMergeInfo getInfo()
+    private static Supplier<TableWriterMergeInfo> createTableWriterMergeInfoSupplier(OperationTiming statisticsTiming)
     {
-        return new TableWriterMergeInfo(
+        requireNonNull(statisticsTiming, "statisticsTiming is null");
+        return () -> new TableWriterMergeInfo(
                 succinctNanos(statisticsTiming.getWallNanos()),
                 succinctNanos(statisticsTiming.getCpuNanos()));
     }

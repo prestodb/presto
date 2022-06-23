@@ -80,7 +80,7 @@ public class TestLimitQueryDeterminismAnalyzer
 
     private static final long ROW_COUNT_WITH_LIMIT = 1000;
     private static final QueryActionStats QUERY_STATS = new QueryActionStats(
-            Optional.of(new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 0, 7, 8, 9, 10, 11, 0, 0, 0, Optional.empty())),
+            Optional.of(new QueryStats("id", "", false, false, false, 1, 2, 3, 4, 5, 0, 7, 8, 9, 10, 11, 12, 0, 0, 0, Optional.empty())),
             Optional.empty());
     private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
@@ -114,7 +114,7 @@ public class TestLimitQueryDeterminismAnalyzer
         MockPrestoAction prestoAction = createPrestoAction(1000);
 
         // Unsupported statement types
-        assertAnalysis(prestoAction, "CREATE TABLE test (x varchar, ds varhcar) WITH (partitioned_by = ARRAY[\"ds\"])", NOT_RUN);
+        assertAnalysis(prestoAction, "CREATE TABLE test (x varchar, ds varchar) WITH (partitioned_by = ARRAY[\"ds\"])", NOT_RUN);
         assertAnalysis(prestoAction, "SELECT * FROM source LIMIT 10", NOT_RUN);
 
         // ORDER BY clause

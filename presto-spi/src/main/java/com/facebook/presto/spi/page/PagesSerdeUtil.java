@@ -22,15 +22,22 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.zip.CRC32;
 
 import static com.facebook.presto.common.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.common.block.BlockSerdeUtil.writeBlock;
+import static com.facebook.presto.spi.page.PageCodecMarker.CHECKSUMMED;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class PagesSerdeUtil
 {
+    public static final int PAGE_METADATA_SIZE = SIZE_OF_INT * 3 + SIZE_OF_BYTE + SIZE_OF_LONG;
+
     private PagesSerdeUtil()
     {
     }
@@ -56,11 +63,17 @@ public class PagesSerdeUtil
 
     public static void writeSerializedPage(SliceOutput output, SerializedPage page)
     {
+        writeSerializedPageMetadata(output, page);
+        output.writeBytes(page.getSlice());
+    }
+
+    public static void writeSerializedPageMetadata(SliceOutput output, SerializedPage page)
+    {
         output.writeInt(page.getPositionCount());
         output.writeByte(page.getPageCodecMarkers());
         output.writeInt(page.getUncompressedSizeInBytes());
         output.writeInt(page.getSizeInBytes());
-        output.writeBytes(page.getSlice());
+        output.writeLong(page.getChecksum());
     }
 
     public static SerializedPage readSerializedPage(SliceInput sliceInput)
@@ -69,8 +82,9 @@ public class PagesSerdeUtil
         byte codecMarker = sliceInput.readByte();
         int uncompressedSizeInBytes = sliceInput.readInt();
         int sizeInBytes = sliceInput.readInt();
+        long checksum = sliceInput.readLong();
         Slice slice = sliceInput.readSlice(toIntExact((sizeInBytes)));
-        return new SerializedPage(slice, codecMarker, positionCount, uncompressedSizeInBytes);
+        return new SerializedPage(slice, codecMarker, positionCount, uncompressedSizeInBytes, checksum);
     }
 
     public static long writeSerializedPages(SliceOutput sliceOutput, Iterable<SerializedPage> pages)
@@ -83,6 +97,40 @@ public class PagesSerdeUtil
             size += page.getSizeInBytes();
         }
         return size;
+    }
+
+    private static void updateCrc(CRC32 crc32, int value)
+    {
+        for (int i = 0; i < 32; i += 8) {
+            crc32.update(value >> i);
+        }
+    }
+
+    public static long computeSerializedPageChecksum(Slice pageData, byte markers, int positionCount, int uncompressedSize)
+    {
+        CRC32 crc32 = new CRC32();
+        if (!pageData.hasByteArray()) {
+            throw new IllegalArgumentException("pageData slice is expected to be based on byte array");
+        }
+        crc32.update(pageData.byteArray(), pageData.byteArrayOffset(), pageData.length());
+        crc32.update(markers);
+        updateCrc(crc32, positionCount);
+        updateCrc(crc32, uncompressedSize);
+        return crc32.getValue();
+    }
+
+    public static boolean isChecksumValid(SerializedPage serializedPage)
+    {
+        long actualChecksum = 0;
+        if (CHECKSUMMED.isSet(serializedPage.getPageCodecMarkers())) {
+            actualChecksum = computeSerializedPageChecksum(
+                    serializedPage.getSlice(),
+                    serializedPage.getPageCodecMarkers(),
+                    serializedPage.getPositionCount(),
+                    serializedPage.getUncompressedSizeInBytes());
+        }
+        long expectedChecksum = serializedPage.getChecksum();
+        return actualChecksum == expectedChecksum;
     }
 
     public static long writePages(PagesSerde serde, SliceOutput sliceOutput, Page... pages)

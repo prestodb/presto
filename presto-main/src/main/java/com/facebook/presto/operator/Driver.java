@@ -47,6 +47,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_RESULT_CACHE_HIT;
+import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_RESULT_CACHE_MISS;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -261,7 +264,12 @@ public class Driver
             if (fragmentResultCacheContext.get().isPresent() && !(split.getConnectorSplit() instanceof RemoteSplit)) {
                 checkState(!this.cachedResult.get().isPresent());
                 this.fragmentResultCacheContext.set(this.fragmentResultCacheContext.get().map(context -> context.updateRuntimeInformation(split.getConnectorSplit())));
-                this.cachedResult.set(fragmentResultCacheContext.get().get().getFragmentResultCacheManager().get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split));
+                Optional<Iterator<Page>> pages = fragmentResultCacheContext.get().get()
+                        .getFragmentResultCacheManager()
+                        .get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split);
+                sourceOperator.getOperatorContext().getRuntimeStats().addMetricValue(
+                        pages.isPresent() ? FRAGMENT_RESULT_CACHE_HIT : FRAGMENT_RESULT_CACHE_MISS, NONE, 1);
+                this.cachedResult.set(pages);
                 this.split.set(split);
             }
 

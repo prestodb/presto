@@ -18,10 +18,10 @@ import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.MethodAndNa
 import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
 import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.util.Reflection;
@@ -35,8 +35,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.BLOCK_AND_POSITION;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_NULL_FLAG;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -94,7 +94,7 @@ class PolymorphicScalarFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        ImmutableList.Builder<ScalarImplementationChoice> implementationChoices = ImmutableList.builder();
+        ImmutableList.Builder<ScalarFunctionImplementationChoice> implementationChoices = ImmutableList.builder();
 
         for (PolymorphicScalarFunctionChoice choice : choices) {
             implementationChoices.add(getScalarFunctionImplementationChoice(boundVariables, functionAndTypeManager, choice));
@@ -103,7 +103,7 @@ class PolymorphicScalarFunction
         return new BuiltInScalarFunctionImplementation(implementationChoices.build());
     }
 
-    private ScalarImplementationChoice getScalarFunctionImplementationChoice(
+    private ScalarFunctionImplementationChoice getScalarFunctionImplementationChoice(
             BoundVariables boundVariables,
             FunctionAndTypeManager functionAndTypeManager,
             PolymorphicScalarFunctionChoice choice)
@@ -130,7 +130,7 @@ class PolymorphicScalarFunction
 
         List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
         MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().getMethod(), extraParameters, choice.getArgumentProperties());
-        return new ScalarImplementationChoice(choice.isNullableResult(), choice.getArgumentProperties(), choice.getReturnPlaceConvention(), methodHandle, Optional.empty());
+        return new ScalarFunctionImplementationChoice(choice.isNullableResult(), choice.getArgumentProperties(), choice.getReturnPlaceConvention(), methodHandle, Optional.empty());
     }
 
     private static boolean matchesParameterAndReturnTypes(

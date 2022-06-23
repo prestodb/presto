@@ -21,7 +21,7 @@ import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static parquet.bytes.BytesUtils.readIntLittleEndian;
+import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndian;
 
 public class BinaryDictionary
         extends Dictionary

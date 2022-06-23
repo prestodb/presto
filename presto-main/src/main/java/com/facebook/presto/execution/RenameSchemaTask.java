@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RenameSchema;
@@ -32,7 +33,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RenameSchemaTask
-        implements DataDefinitionTask<RenameSchema>
+        implements DDLDefinitionTask<RenameSchema>
 {
     @Override
     public String getName()
@@ -41,9 +42,8 @@ public class RenameSchemaTask
     }
 
     @Override
-    public ListenableFuture<?> execute(RenameSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(RenameSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
         CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
         CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
 

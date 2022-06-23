@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -30,12 +29,11 @@ import com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
@@ -51,8 +49,7 @@ public final class ArrayConcatFunction
     private static final String FUNCTION_NAME = "concat";
     private static final String DESCRIPTION = "Concatenates given arrays";
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatFunction.class, "concat", Type.class, Object.class, Block[].class);
-    private static final MethodHandle USER_STATE_FACTORY = methodHandle(ArrayConcatFunction.class, "createState", Type.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatFunction.class, "concat", Type.class, Block[].class);
 
     private ArrayConcatFunction()
     {
@@ -93,28 +90,20 @@ public final class ArrayConcatFunction
 
         Type elementType = boundVariables.getTypeVariable("E");
 
-        VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
+        VarArgsToArrayAdapterGenerator.VarArgMethodHandle varArgMethodHandle = generateVarArgsToArrayAdapter(
                 Block.class,
                 Block.class,
                 arity,
-                METHOD_HANDLE.bindTo(elementType),
-                USER_STATE_FACTORY.bindTo(elementType));
+                METHOD_HANDLE.bindTo(elementType));
 
         return new BuiltInScalarFunctionImplementation(
                 false,
                 nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandleAndConstructor.getMethodHandle(),
-                Optional.of(methodHandleAndConstructor.getConstructor()));
+                varArgMethodHandle.getMethodHandle());
     }
 
     @UsedByGeneratedCode
-    public static Object createState(Type elementType)
-    {
-        return new PageBuilder(ImmutableList.of(elementType));
-    }
-
-    @UsedByGeneratedCode
-    public static Block concat(Type elementType, Object state, Block[] blocks)
+    public static Block concat(Type elementType, Block[] blocks)
     {
         int resultPositionCount = 0;
 
@@ -133,19 +122,13 @@ public final class ArrayConcatFunction
             return nonEmptyBlock;
         }
 
-        PageBuilder pageBuilder = (PageBuilder) state;
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, resultPositionCount);
         for (int blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
             Block block = blocks[blockIndex];
             for (int i = 0; i < block.getPositionCount(); i++) {
                 elementType.appendTo(block, i, blockBuilder);
             }
         }
-        pageBuilder.declarePositions(resultPositionCount);
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - resultPositionCount, resultPositionCount);
+        return blockBuilder.build();
     }
 }

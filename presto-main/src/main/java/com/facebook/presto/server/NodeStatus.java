@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.memory.MemoryInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -21,6 +24,7 @@ import io.airlift.units.Duration;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class NodeStatus
 {
     private final String nodeId;
@@ -38,6 +42,7 @@ public class NodeStatus
     private final long heapAvailable;
     private final long nonHeapUsed;
 
+    @ThriftConstructor
     @JsonCreator
     public NodeStatus(
             @JsonProperty("nodeId") String nodeId,
@@ -71,84 +76,98 @@ public class NodeStatus
         this.nonHeapUsed = nonHeapUsed;
     }
 
+    @ThriftField(1)
     @JsonProperty
     public String getNodeId()
     {
         return nodeId;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public NodeVersion getNodeVersion()
     {
         return nodeVersion;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public String getEnvironment()
     {
         return environment;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public boolean isCoordinator()
     {
         return coordinator;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public Duration getUptime()
     {
         return uptime;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public String getExternalAddress()
     {
         return externalAddress;
     }
 
+    @ThriftField(7)
     @JsonProperty
     public String getInternalAddress()
     {
         return internalAddress;
     }
 
+    @ThriftField(8)
     @JsonProperty
     public MemoryInfo getMemoryInfo()
     {
         return memoryInfo;
     }
 
+    @ThriftField(9)
     @JsonProperty
     public int getProcessors()
     {
         return processors;
     }
 
+    @ThriftField(10)
     @JsonProperty
     public double getProcessCpuLoad()
     {
         return processCpuLoad;
     }
 
+    @ThriftField(11)
     @JsonProperty
     public double getSystemCpuLoad()
     {
         return systemCpuLoad;
     }
 
+    @ThriftField(12)
     @JsonProperty
     public long getHeapUsed()
     {
         return heapUsed;
     }
 
+    @ThriftField(13)
     @JsonProperty
     public long getHeapAvailable()
     {
         return heapAvailable;
     }
 
+    @ThriftField(14)
     @JsonProperty
     public long getNonHeapUsed()
     {

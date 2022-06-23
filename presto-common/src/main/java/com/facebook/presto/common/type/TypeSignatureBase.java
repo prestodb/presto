@@ -18,16 +18,21 @@ import com.facebook.presto.common.QualifiedObjectName;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.StandardTypes.DISTINCT_TYPE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class TypeSignatureBase
 {
     private final Optional<String> standardTypeBase;
-    private final Optional<QualifiedObjectName> typeBase;
+    private final Optional<QualifiedObjectName> typeName;
 
     public static TypeSignatureBase of(String name)
     {
+        int pos = name.indexOf(":");
+        if (pos >= 0) {
+            return new TypeSignatureBase(QualifiedObjectName.valueOf(name.substring(0, pos)), name.substring(pos + 1));
+        }
         if (name.chars().noneMatch(c -> c == '.')) {
             return new TypeSignatureBase(name);
         }
@@ -39,6 +44,16 @@ public class TypeSignatureBase
         return new TypeSignatureBase(name);
     }
 
+    public static TypeSignatureBase of(UserDefinedType userDefinedType)
+    {
+        return new TypeSignatureBase(userDefinedType.getUserDefinedTypeName(), userDefinedType.getPhysicalTypeSignature().getTypeSignatureBase().getStandardTypeBase());
+    }
+
+    public static TypeSignatureBase of(DistinctTypeInfo distinctTypeInfo)
+    {
+        return new TypeSignatureBase(distinctTypeInfo.getName(), DISTINCT_TYPE);
+    }
+
     private TypeSignatureBase(String standardTypeBase)
     {
         checkArgument(standardTypeBase != null, "standardTypeBase is null");
@@ -46,26 +61,46 @@ public class TypeSignatureBase
         checkArgument(standardTypeBase.chars().noneMatch(c -> c == '.'), "Standard type %s should not have '.' in it", standardTypeBase);
         checkArgument(validateName(standardTypeBase), "Bad characters in base type: %s", standardTypeBase);
         this.standardTypeBase = Optional.of(standardTypeBase);
-        this.typeBase = Optional.empty();
+        this.typeName = Optional.empty();
     }
 
-    private TypeSignatureBase(QualifiedObjectName typeBase)
+    private TypeSignatureBase(QualifiedObjectName typeName)
     {
-        checkArgument(typeBase != null, "typeBase is null");
-        checkArgument(validateName(typeBase.getObjectName()), "Bad characters in base type: %s", typeBase);
+        checkArgument(typeName != null, "typeName is null");
+        checkArgument(validateName(typeName.getObjectName()), "Bad characters in typeName: %s", typeName);
         this.standardTypeBase = Optional.empty();
-        this.typeBase = Optional.of(typeBase);
+        this.typeName = Optional.of(typeName);
     }
 
-    public boolean isStandardType()
+    private TypeSignatureBase(QualifiedObjectName typeName, String standardTypeBase)
+    {
+        checkArgument(typeName != null && standardTypeBase != null, "typeName or standardTypeBase is null");
+        checkArgument(validateName(typeName.getObjectName()), "Bad characters in type name: %s", typeName.getObjectName());
+        checkArgument(validateName(standardTypeBase), "Bad characters in base type: %s", standardTypeBase);
+        this.standardTypeBase = Optional.of(standardTypeBase);
+        this.typeName = Optional.of(typeName);
+    }
+
+    public boolean hasStandardType()
     {
         return standardTypeBase.isPresent();
     }
 
-    public QualifiedObjectName getQualifiedObjectName()
+    public boolean hasTypeName()
     {
-        checkArgument(typeBase.isPresent(), "TypeSignatureBase %s is not a QualifiedObjectName", toString());
-        return typeBase.get();
+        return typeName.isPresent();
+    }
+
+    public QualifiedObjectName getTypeName()
+    {
+        checkArgument(typeName.isPresent(), "TypeSignatureBase %s does not have type name", toString());
+        return typeName.get();
+    }
+
+    public String getStandardTypeBase()
+    {
+        checkArgument(standardTypeBase.isPresent(), "TypeSignatureBase %s does not have standard type base", toString());
+        return standardTypeBase.get();
     }
 
     private static boolean validateName(String name)
@@ -93,18 +128,22 @@ public class TypeSignatureBase
         TypeSignatureBase other = (TypeSignatureBase) obj;
 
         return Objects.equals(standardTypeBase.map(s -> s.toLowerCase(ENGLISH)), other.standardTypeBase.map(s -> s.toLowerCase(ENGLISH))) &&
-                Objects.equals(typeBase, other.typeBase);
+                Objects.equals(typeName, other.typeName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(standardTypeBase.map(s -> s.toLowerCase(ENGLISH)), typeBase);
+        return Objects.hash(standardTypeBase.map(s -> s.toLowerCase(ENGLISH)), typeName);
     }
 
     @Override
     public String toString()
     {
-        return standardTypeBase.orElseGet(() -> typeBase.get().toString());
+        if (standardTypeBase.isPresent() && typeName.isPresent()) {
+            // user defined type
+            return format("%s:%s", typeName.get(), standardTypeBase.get());
+        }
+        return standardTypeBase.orElseGet(() -> typeName.get().toString());
     }
 }

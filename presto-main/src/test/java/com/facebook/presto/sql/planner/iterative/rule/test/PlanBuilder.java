@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -24,12 +25,14 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -66,6 +69,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -105,6 +109,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -158,6 +163,7 @@ public class PlanBuilder
     public OutputNode output(List<String> columnNames, List<VariableReferenceExpression> variables, PlanNode source)
     {
         return new OutputNode(
+                source.getSourceLocation(),
                 idAllocator.getNextId(),
                 source,
                 columnNames,
@@ -192,7 +198,7 @@ public class PlanBuilder
 
         protected OutputNode build()
         {
-            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputVariables);
+            return new OutputNode(source.getSourceLocation(), idAllocator.getNextId(), source, columnNames, outputVariables);
         }
     }
 
@@ -222,7 +228,7 @@ public class PlanBuilder
         return values(
                 id,
                 variables,
-                nElements(rows, row -> nElements(columns.length, cell -> constantNull(UNKNOWN))));
+                nElements(rows, row -> nElements(columns.length, cell -> constantNull(variables.get(cell).getSourceLocation(), UNKNOWN))));
     }
 
     public ValuesNode values(List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
@@ -232,32 +238,37 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
     {
-        return new ValuesNode(id, variables, rows);
+        return new ValuesNode(Optional.empty(), id, variables, rows);
     }
 
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)
     {
-        return new EnforceSingleRowNode(idAllocator.getNextId(), source);
+        return new EnforceSingleRowNode(source.getSourceLocation(), idAllocator.getNextId(), source);
     }
 
     public SortNode sort(List<VariableReferenceExpression> orderBy, PlanNode source)
     {
-        ImmutableList<Ordering> ordering = orderBy.stream().map(variable -> new Ordering(variable, ASC_NULLS_FIRST)).collect(toImmutableList());
         return new SortNode(
+                orderBy.get(0).getSourceLocation(),
                 idAllocator.getNextId(),
                 source,
-                new OrderingScheme(ordering),
+                new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())),
                 false);
+    }
+    public OffsetNode offset(long rowCount, PlanNode source)
+    {
+        return new OffsetNode(source.getSourceLocation(), idAllocator.getNextId(), source, rowCount);
     }
 
     public LimitNode limit(long limit, PlanNode source)
     {
-        return new LimitNode(idAllocator.getNextId(), source, limit, FINAL);
+        return new LimitNode(source.getSourceLocation(), idAllocator.getNextId(), source, limit, FINAL);
     }
 
     public TopNNode topN(long count, List<VariableReferenceExpression> orderBy, PlanNode source)
     {
         return new TopNNode(
+                orderBy.get(0).getSourceLocation(),
                 idAllocator.getNextId(),
                 source,
                 count,
@@ -265,9 +276,21 @@ public class PlanBuilder
                 TopNNode.Step.SINGLE);
     }
 
+    public DistinctLimitNode distinctLimit(long count, List<VariableReferenceExpression> distinctSymbols, PlanNode source)
+    {
+        return new DistinctLimitNode(
+                source.getSourceLocation(),
+                idAllocator.getNextId(),
+                source,
+                count,
+                false,
+                distinctSymbols,
+                Optional.empty());
+    }
+
     public SampleNode sample(double sampleRatio, SampleNode.Type type, PlanNode source)
     {
-        return new SampleNode(idAllocator.getNextId(), source, sampleRatio, type);
+        return new SampleNode(source.getSourceLocation(), idAllocator.getNextId(), source, sampleRatio, type);
     }
 
     public ProjectNode project(Assignments assignments, PlanNode source)
@@ -277,22 +300,27 @@ public class PlanBuilder
 
     public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<VariableReferenceExpression> distinctVariables, PlanNode source)
     {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctVariables, Optional.empty());
+        return new MarkDistinctNode(source.getSourceLocation(), idAllocator.getNextId(), source, markerVariable, distinctVariables, Optional.empty());
     }
 
     public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<VariableReferenceExpression> distinctVariables, VariableReferenceExpression hashVariable, PlanNode source)
     {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctVariables, Optional.of(hashVariable));
+        return new MarkDistinctNode(source.getSourceLocation(), idAllocator.getNextId(), source, markerVariable, distinctVariables, Optional.of(hashVariable));
     }
 
     public FilterNode filter(Expression predicate, PlanNode source)
     {
-        return new FilterNode(idAllocator.getNextId(), source, OriginalExpressionUtils.castToRowExpression(predicate));
+        return new FilterNode(source.getSourceLocation(), idAllocator.getNextId(), source, OriginalExpressionUtils.castToRowExpression(predicate));
     }
 
     public FilterNode filter(RowExpression predicate, PlanNode source)
     {
-        return new FilterNode(idAllocator.getNextId(), source, predicate);
+        return filter(idAllocator.getNextId(), predicate, source);
+    }
+
+    public FilterNode filter(PlanNodeId planNodeId, RowExpression predicate, PlanNode source)
+    {
+        return new FilterNode(source.getSourceLocation(), planNodeId, source, predicate);
     }
 
     public AggregationNode aggregation(Consumer<AggregationBuilder> aggregationBuilderConsumer)
@@ -312,17 +340,6 @@ public class PlanBuilder
     {
         FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager()).comparisonFunction(operatorType, left.getType(), right.getType());
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
-    }
-
-    public DistinctLimitNode distinctLimit(long count, List<VariableReferenceExpression> distinctSymbols, PlanNode source)
-    {
-        return new DistinctLimitNode(
-                idAllocator.getNextId(),
-                source,
-                count,
-                false,
-                distinctSymbols,
-                Optional.empty());
     }
 
     public class AggregationBuilder
@@ -369,6 +386,7 @@ public class PlanBuilder
                     TypeSignatureProvider.fromTypes(inputTypes));
             return addAggregation(output, new Aggregation(
                     new CallExpression(
+                            getSourceLocation(call),
                             call.getName().getSuffix(),
                             functionHandle,
                             metadata.getType(metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle).getReturnType()),
@@ -456,6 +474,7 @@ public class PlanBuilder
         {
             checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
             return new AggregationNode(
+                    source.getSourceLocation(),
                     idAllocator.getNextId(),
                     source,
                     assignments,
@@ -470,17 +489,17 @@ public class PlanBuilder
     public ApplyNode apply(Assignments subqueryAssignments, List<VariableReferenceExpression> correlation, PlanNode input, PlanNode subquery)
     {
         verifySubquerySupported(subqueryAssignments);
-        return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, "");
+        return new ApplyNode(subquery.getSourceLocation(), idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, "");
     }
 
     public AssignUniqueId assignUniqueId(VariableReferenceExpression variable, PlanNode source)
     {
-        return new AssignUniqueId(idAllocator.getNextId(), source, variable);
+        return new AssignUniqueId(source.getSourceLocation(), idAllocator.getNextId(), source, variable);
     }
 
     public LateralJoinNode lateral(List<VariableReferenceExpression> correlation, PlanNode input, PlanNode subquery)
     {
-        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, "");
+        return new LateralJoinNode(subquery.getSourceLocation(), idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, "");
     }
 
     public TableScanNode tableScan(String catalogName, List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
@@ -511,10 +530,31 @@ public class PlanBuilder
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
         return new TableScanNode(
+                Optional.empty(),
                 idAllocator.getNextId(),
                 tableHandle,
                 variables,
                 assignments,
+                ImmutableList.of(),
+                currentConstraint,
+                enforcedConstraint);
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<VariableReferenceExpression> variables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint,
+            List<TableConstraint<ColumnHandle>> tableConstraints)
+    {
+        return new TableScanNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                tableHandle,
+                variables,
+                assignments,
+                tableConstraints,
                 currentConstraint,
                 enforcedConstraint);
     }
@@ -529,9 +569,11 @@ public class PlanBuilder
                         Optional.empty()),
                 schemaTableName);
         return new TableFinishNode(
+                deleteSource.getSourceLocation(),
                 idAllocator.getNextId(),
                 exchange(e -> e
                         .addSource(new DeleteNode(
+                                deleteSource.getSourceLocation(),
                                 idAllocator.getNextId(),
                                 deleteSource,
                                 deleteRowId,
@@ -584,6 +626,7 @@ public class PlanBuilder
             Optional<SemiJoinNode.DistributionType> distributionType)
     {
         return new SemiJoinNode(
+                filteringSource.getSourceLocation(),
                 idAllocator.getNextId(),
                 source,
                 filteringSource,
@@ -604,6 +647,7 @@ public class PlanBuilder
             TupleDomain<ColumnHandle> effectiveTupleDomain)
     {
         return new IndexSourceNode(
+                Optional.empty(),
                 idAllocator.getNextId(),
                 new IndexHandle(
                         tableHandle.getConnectorId(),
@@ -655,7 +699,7 @@ public class PlanBuilder
             return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputVariables));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables)
+        public ExchangeBuilder fixedHashDistributionPartitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
@@ -663,7 +707,7 @@ public class PlanBuilder
                     ImmutableList.copyOf(outputVariables)));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables, VariableReferenceExpression hashVariable)
+        public ExchangeBuilder fixedHashDistributionPartitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables, VariableReferenceExpression hashVariable)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
@@ -709,7 +753,7 @@ public class PlanBuilder
 
         protected ExchangeNode build()
         {
-            return new ExchangeNode(idAllocator.getNextId(), type, scope, partitioningScheme, sources, inputs, ensureSourceOrdering, Optional.ofNullable(orderingScheme));
+            return new ExchangeNode(Optional.empty(), idAllocator.getNextId(), type, scope, partitioningScheme, sources, inputs, ensureSourceOrdering, Optional.ofNullable(orderingScheme));
         }
     }
 
@@ -783,12 +827,13 @@ public class PlanBuilder
             Optional<JoinNode.DistributionType> distributionType,
             Map<String, VariableReferenceExpression> dynamicFilters)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
+        return new JoinNode(Optional.empty(), idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)
     {
         return new IndexJoinNode(
+                Optional.empty(),
                 idAllocator.getNextId(),
                 type,
                 probe,
@@ -801,18 +846,25 @@ public class PlanBuilder
     public UnionNode union(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources)
     {
         Map<VariableReferenceExpression, List<VariableReferenceExpression>> mapping = fromListMultimap(outputsToInputs);
-        return new UnionNode(idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping);
+        return new UnionNode(Optional.empty(), idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping);
     }
 
     public IntersectNode intersect(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources)
     {
         Map<VariableReferenceExpression, List<VariableReferenceExpression>> mapping = fromListMultimap(outputsToInputs);
-        return new IntersectNode(idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping);
+        return new IntersectNode(Optional.empty(), idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping);
+    }
+
+    public ExceptNode except(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources)
+    {
+        Map<VariableReferenceExpression, List<VariableReferenceExpression>> mapping = fromListMultimap(outputsToInputs);
+        return new ExceptNode(Optional.empty(), idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping);
     }
 
     public TableWriterNode tableWriter(List<VariableReferenceExpression> columns, List<String> columnNames, PlanNode source)
     {
         return new TableWriterNode(
+                Optional.empty(),
                 idAllocator.getNextId(),
                 source,
                 Optional.of(new TestingWriterTarget()),
@@ -821,6 +873,7 @@ public class PlanBuilder
                 variable("tablecommitcontext", VARBINARY),
                 columns,
                 columnNames,
+                ImmutableSet.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -846,12 +899,13 @@ public class PlanBuilder
         if (old == null) {
             variables.put(name, type);
         }
-        return new VariableReferenceExpression(name, type);
+        return new VariableReferenceExpression(Optional.empty(), name, type);
     }
 
     public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, PlanNode source)
     {
         return new WindowNode(
+                Optional.empty(),
                 idAllocator.getNextId(),
                 source,
                 specification,
@@ -864,6 +918,7 @@ public class PlanBuilder
     public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, VariableReferenceExpression hashVariable, PlanNode source)
     {
         return new WindowNode(
+                Optional.empty(),
                 idAllocator.getNextId(),
                 source,
                 specification,
@@ -873,13 +928,14 @@ public class PlanBuilder
                 0);
     }
 
-    public RowNumberNode rowNumber(List<VariableReferenceExpression> partitionBy, Optional<Integer> maxRowCountPerPartition, VariableReferenceExpression rownNumberVariable, PlanNode source)
+    public RowNumberNode rowNumber(List<VariableReferenceExpression> partitionBy, Optional<Integer> maxRowCountPerPartition, VariableReferenceExpression rowNumberVariable, PlanNode source)
     {
         return new RowNumberNode(
+                Optional.empty(),
                 idAllocator.getNextId(),
                 source,
                 partitionBy,
-                rownNumberVariable,
+                rowNumberVariable,
                 maxRowCountPerPartition,
                 Optional.empty());
     }
@@ -887,6 +943,7 @@ public class PlanBuilder
     public UnnestNode unnest(PlanNode source, List<VariableReferenceExpression> replicateVariables, Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables, Optional<VariableReferenceExpression> ordinalityVariable)
     {
         return new UnnestNode(
+                Optional.empty(),
                 idAllocator.getNextId(),
                 source,
                 replicateVariables,
@@ -908,7 +965,7 @@ public class PlanBuilder
                 new SqlParser(),
                 getTypes(),
                 expression,
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 WarningCollector.NOOP);
         return SqlToRowExpressionTranslator.translate(
                 expression,

@@ -44,7 +44,7 @@ public interface LocalProperty<E>
     boolean isSimplifiedBy(LocalProperty<E> actual);
 
     /**
-     * Simplfies this LocalProperty provided that the specified inputs are constants
+     * Simplifies this LocalProperty provided that the specified inputs are constants
      */
     default Optional<LocalProperty<E>> withConstants(Set<E> constants)
     {

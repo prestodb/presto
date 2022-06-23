@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.EncryptionLibrary;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -41,17 +44,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.sun.management.ThreadMXBean;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.SortedMap;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
@@ -66,11 +74,7 @@ import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTrunca
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
-import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
-import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
@@ -79,14 +83,32 @@ import static java.util.Objects.requireNonNull;
 public class DwrfMetadataReader
         implements MetadataReader
 {
+    private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
+
+    private final RuntimeStats runtimeStats;
+
+    public DwrfMetadataReader(RuntimeStats runtimeStats)
+    {
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+    }
+
     @Override
     public PostScript readPostScript(byte[] data, int offset, int length)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
         DwrfProto.PostScript postScript = DwrfProto.PostScript.parseFrom(input);
 
         HiveWriterVersion writerVersion = postScript.hasWriterVersion() && postScript.getWriterVersion() > 0 ? ORC_HIVE_8732 : ORIGINAL;
+
+        OptionalInt stripeCacheLength = OptionalInt.empty();
+        Optional<DwrfStripeCacheMode> stripeCacheMode = Optional.empty();
+        if (postScript.hasCacheSize() && postScript.hasCacheMode()) {
+            stripeCacheLength = OptionalInt.of(postScript.getCacheSize());
+            stripeCacheMode = Optional.of(toStripeCacheMode(postScript.getCacheMode()));
+        }
+        runtimeStats.addMetricValue("DwrfReadPostScriptTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         return new PostScript(
                 ImmutableList.of(),
@@ -94,7 +116,9 @@ public class DwrfMetadataReader
                 0,
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize(),
-                writerVersion);
+                writerVersion,
+                stripeCacheLength,
+                stripeCacheMode);
     }
 
     @Override
@@ -112,27 +136,33 @@ public class DwrfMetadataReader
             Optional<OrcDecompressor> decompressor)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
         List<ColumnStatistics> fileStats = toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false);
         List<StripeInformation> fileStripes = toStripeInformation(footer.getStripesList());
         List<OrcType> types = toType(footer.getTypesList());
         Optional<DwrfEncryption> encryption = footer.hasEncryption() ? Optional.of(toEncryption(footer.getEncryption())) : Optional.empty();
+        Optional<List<Integer>> stripeCacheOffsets = Optional.of(footer.getStripeCacheOffsetsList());
 
         if (encryption.isPresent()) {
             Map<Integer, Slice> keys = dwrfKeyProvider.getIntermediateKeys(types);
             EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(encryption.get().getKeyProvider());
             fileStats = decryptAndCombineFileStatistics(hiveWriterVersion, encryption.get(), encryptionLibrary, fileStats, fileStripes, keys, orcDataSource, decompressor);
         }
+        runtimeStats.addMetricValue("DwrfReadFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
+        OptionalLong rawSize = footer.hasRawDataSize() ? OptionalLong.of(footer.getRawDataSize()) : OptionalLong.empty();
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
+                rawSize,
                 fileStripes,
                 types,
                 fileStats,
                 toUserMetadata(footer.getMetadataList()),
-                encryption);
+                encryption,
+                stripeCacheOffsets);
     }
 
     private List<ColumnStatistics> decryptAndCombineFileStatistics(HiveWriterVersion hiveWriterVersion,
@@ -209,7 +239,7 @@ public class DwrfMetadataReader
                     // FileStatistics contains ColumnStatistics for the node and all its child nodes (subtree)
                     for (int statsIdx = 0; statsIdx < nodeStats.getStatisticsCount(); statsIdx++) {
                         decryptedFileStats[nodeId + statsIdx] =
-                                toColumnStatistics(hiveWriterVersion, nodeStats.getStatistics(statsIdx), false);
+                                toColumnStatistics(hiveWriterVersion, nodeStats.getStatistics(statsIdx), false, null);
                     }
                 }
                 catch (IOException e) {
@@ -272,31 +302,45 @@ public class DwrfMetadataReader
         if (keyMetadata.isEmpty()) {
             keyMetadata = previousKeyMetadata;
         }
+        OptionalLong rawDataSize = stripeInformation.hasRawDataSize() ? OptionalLong.of(stripeInformation.getRawDataSize()) : OptionalLong.empty();
         return new StripeInformation(
-                toIntExact(stripeInformation.getNumberOfRows()),
+                stripeInformation.getNumberOfRows(),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
                 stripeInformation.getFooterLength(),
+                rawDataSize,
                 keyMetadata);
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeFooter stripeFooter = DwrfProto.StripeFooter.parseFrom(input);
+        runtimeStats.addMetricValue("DwrfReadStripeFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new StripeFooter(
-                toStream(stripeFooter.getStreamsList()),
+                toStream(orcDataSourceId, stripeFooter.getStreamsList()),
                 toColumnEncoding(types, stripeFooter.getColumnsList()),
                 stripeFooter.getEncryptedGroupsList().stream()
                         .map(OrcMetadataReader::byteStringToSlice)
                         .collect(toImmutableList()));
     }
 
-    private static Stream toStream(DwrfProto.Stream stream)
+    private static Stream toStream(OrcDataSourceId orcDataSourceId, DwrfProto.Stream stream)
     {
+        // reader doesn't support streams larger than 2GB
+        if (stream.getLength() > Integer.MAX_VALUE) {
+            throw new OrcCorruptionException(
+                    orcDataSourceId,
+                    "Stream size %s of one of the streams for column %s is larger than supported size %s",
+                    stream.getLength(),
+                    stream.getColumn(),
+                    Integer.MAX_VALUE);
+        }
+
         return new Stream(
                 stream.getColumn(),
                 toStreamKind(stream.getKind()),
@@ -306,9 +350,11 @@ public class DwrfMetadataReader
                 stream.hasOffset() ? Optional.of(stream.getOffset()) : Optional.empty());
     }
 
-    private static List<Stream> toStream(List<DwrfProto.Stream> streams)
+    private static List<Stream> toStream(OrcDataSourceId orcDataSourceId, List<DwrfProto.Stream> streams)
     {
-        return ImmutableList.copyOf(Iterables.transform(streams, DwrfMetadataReader::toStream));
+        return streams.stream()
+                .map((stream -> toStream(orcDataSourceId, stream)))
+                .collect(toImmutableList());
     }
 
     private static DwrfSequenceEncoding toSequenceEncoding(OrcType type, DwrfProto.ColumnEncoding columnEncoding)
@@ -374,12 +420,16 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
+    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream, List<HiveBloomFilter> bloomFilters)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.RowIndex rowIndex = DwrfProto.RowIndex.parseFrom(input);
-        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), rowIndexEntry -> toRowGroupIndex(hiveWriterVersion, rowIndexEntry)));
+        runtimeStats.addMetricValue("DwrfReadRowIndexesTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        return IntStream.range(0, rowIndex.getEntryCount())
+                .mapToObj(i -> toRowGroupIndex(hiveWriterVersion, rowIndex.getEntry(i), bloomFilters == null || bloomFilters.isEmpty() ? null : bloomFilters.get(i)))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -389,7 +439,7 @@ public class DwrfMetadataReader
         return ImmutableList.of();
     }
 
-    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry)
+    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
         ImmutableList.Builder<Integer> positions = ImmutableList.builder();
@@ -401,7 +451,7 @@ public class DwrfMetadataReader
 
             positions.add(intPosition);
         }
-        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true));
+        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true, bloomFilter));
     }
 
     private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<DwrfProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
@@ -409,7 +459,7 @@ public class DwrfMetadataReader
         if (columnStatistics == null) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup)));
+        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup, null)));
     }
 
     private Map<String, Slice> toUserMetadata(List<DwrfProto.UserMetadataItem> metadataList)
@@ -424,38 +474,10 @@ public class DwrfMetadataReader
         return mapBuilder.build();
     }
 
-    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup)
+    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup, HiveBloomFilter bloomFilter)
     {
-        long minAverageValueBytes;
-        if (statistics.hasBucketStatistics()) {
-            minAverageValueBytes = BOOLEAN_VALUE_BYTES;
-        }
-        else if (statistics.hasIntStatistics()) {
-            minAverageValueBytes = INTEGER_VALUE_BYTES;
-        }
-        else if (statistics.hasDoubleStatistics()) {
-            minAverageValueBytes = DOUBLE_VALUE_BYTES;
-        }
-        else if (statistics.hasStringStatistics()) {
-            minAverageValueBytes = STRING_VALUE_BYTES_OVERHEAD;
-            if (statistics.hasNumberOfValues() && statistics.getNumberOfValues() > 0) {
-                minAverageValueBytes += statistics.getStringStatistics().getSum() / statistics.getNumberOfValues();
-            }
-        }
-        else if (statistics.hasBinaryStatistics()) {
-            // offset and value length
-            minAverageValueBytes = BINARY_VALUE_BYTES_OVERHEAD;
-            if (statistics.hasNumberOfValues() && statistics.getNumberOfValues() > 0) {
-                minAverageValueBytes += statistics.getBinaryStatistics().getSum() / statistics.getNumberOfValues();
-            }
-        }
-        else {
-            minAverageValueBytes = 0;
-        }
-
-        return new ColumnStatistics(
+        return createColumnStatistics(
                 statistics.getNumberOfValues(),
-                minAverageValueBytes,
                 statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
                 statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics()) : null,
                 statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,
@@ -463,7 +485,7 @@ public class DwrfMetadataReader
                 null,
                 null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
-                null);
+                bloomFilter);
     }
 
     private static BooleanStatistics toBooleanStatistics(DwrfProto.BucketStatistics bucketStatistics)
@@ -633,12 +655,26 @@ public class DwrfMetadataReader
         }
     }
 
-    public static StripeEncryptionGroup toStripeEncryptionGroup(InputStream inputStream, List<OrcType> types)
+    static DwrfStripeCacheMode toStripeCacheMode(DwrfProto.StripeCacheMode mode)
+    {
+        switch (mode) {
+            case INDEX:
+                return DwrfStripeCacheMode.INDEX;
+            case FOOTER:
+                return DwrfStripeCacheMode.FOOTER;
+            case BOTH:
+                return DwrfStripeCacheMode.INDEX_AND_FOOTER;
+            default:
+                return DwrfStripeCacheMode.NONE;
+        }
+    }
+
+    public static StripeEncryptionGroup toStripeEncryptionGroup(OrcDataSourceId orcDataSourceId, InputStream inputStream, List<OrcType> types)
             throws IOException
     {
         CodedInputStream codedInputStream = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeEncryptionGroup stripeEncryptionGroup = DwrfProto.StripeEncryptionGroup.parseFrom(codedInputStream);
-        List<Stream> encryptedStreams = toStream(stripeEncryptionGroup.getStreamsList());
+        List<Stream> encryptedStreams = toStream(orcDataSourceId, stripeEncryptionGroup.getStreamsList());
         return new StripeEncryptionGroup(
                 encryptedStreams,
                 toColumnEncoding(types, stripeEncryptionGroup.getEncodingList()));

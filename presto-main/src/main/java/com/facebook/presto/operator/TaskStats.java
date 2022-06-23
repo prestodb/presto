@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.RuntimeStats;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -23,11 +27,11 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TaskStats
 {
     private final DateTime createTime;
@@ -42,12 +46,15 @@ public class TaskStats
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int queuedPartitionedDrivers;
+    private final long queuedPartitionedSplitsWeight;
     private final int runningDrivers;
     private final int runningPartitionedDrivers;
+    private final long runningPartitionedSplitsWeight;
     private final int blockedDrivers;
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
+    private final double cumulativeTotalMemory;
     private final long userMemoryReservationInBytes;
     private final long revocableMemoryReservationInBytes;
     private final long systemMemoryReservationInBytes;
@@ -80,6 +87,9 @@ public class TaskStats
 
     private final List<PipelineStats> pipelines;
 
+    // RuntimeStats aggregated at the task level including the metrics exposed in this task and each operator of this task.
+    private final RuntimeStats runtimeStats;
+
     public TaskStats(DateTime createTime, DateTime endTime)
     {
         this(
@@ -93,10 +103,13 @@ public class TaskStats
                 0,
                 0,
                 0,
+                0L,
                 0,
                 0,
+                0L,
                 0,
                 0,
+                0.0,
                 0.0,
                 0L,
                 0L,
@@ -119,10 +132,12 @@ public class TaskStats
                 0L,
                 0,
                 0L,
-                ImmutableList.of());
+                ImmutableList.of(),
+                new RuntimeStats());
     }
 
     @JsonCreator
+    @ThriftConstructor
     public TaskStats(
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("firstStartTime") DateTime firstStartTime,
@@ -135,12 +150,15 @@ public class TaskStats
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
+            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
             @JsonProperty("userMemoryReservation") long userMemoryReservationInBytes,
             @JsonProperty("revocableMemoryReservationInBytes") long revocableMemoryReservationInBytes,
             @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
@@ -171,7 +189,8 @@ public class TaskStats
             @JsonProperty("fullGcCount") int fullGcCount,
             @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis,
 
-            @JsonProperty("pipelines") List<PipelineStats> pipelines)
+            @JsonProperty("pipelines") List<PipelineStats> pipelines,
+            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
     {
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.firstStartTime = firstStartTime;
@@ -187,11 +206,15 @@ public class TaskStats
         this.queuedDrivers = queuedDrivers;
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers is negative");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
+        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
+        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
 
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
+        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
 
         checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
         this.blockedDrivers = blockedDrivers;
@@ -200,6 +223,7 @@ public class TaskStats
         this.completedDrivers = completedDrivers;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
+        this.cumulativeTotalMemory = cumulativeTotalMemory;
         this.userMemoryReservationInBytes = userMemoryReservationInBytes;
         this.revocableMemoryReservationInBytes = revocableMemoryReservationInBytes;
         this.systemMemoryReservationInBytes = systemMemoryReservationInBytes;
@@ -235,9 +259,11 @@ public class TaskStats
         this.fullGcTimeInMillis = fullGcTimeInMillis;
 
         this.pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
     }
 
     @JsonProperty
+    @ThriftField(1)
     public DateTime getCreateTime()
     {
         return createTime;
@@ -245,6 +271,7 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(2)
     public DateTime getFirstStartTime()
     {
         return firstStartTime;
@@ -252,6 +279,7 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(3)
     public DateTime getLastStartTime()
     {
         return lastStartTime;
@@ -259,6 +287,7 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(4)
     public DateTime getLastEndTime()
     {
         return lastEndTime;
@@ -266,201 +295,262 @@ public class TaskStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(5)
     public DateTime getEndTime()
     {
         return endTime;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public long getElapsedTimeInNanos()
     {
         return elapsedTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public long getQueuedTimeInNanos()
     {
         return queuedTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public int getTotalDrivers()
     {
         return totalDrivers;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public int getQueuedDrivers()
     {
         return queuedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(10)
     public int getRunningDrivers()
     {
         return runningDrivers;
     }
 
     @JsonProperty
+    @ThriftField(11)
     public int getBlockedDrivers()
     {
         return blockedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(12)
     public int getCompletedDrivers()
     {
         return completedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(13)
     public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
     }
 
     @JsonProperty
+    @ThriftField(14)
+    public double getCumulativeTotalMemory()
+    {
+        return cumulativeTotalMemory;
+    }
+
+    @JsonProperty
+    @ThriftField(15)
     public long getUserMemoryReservationInBytes()
     {
         return userMemoryReservationInBytes;
     }
 
     @JsonProperty
+    @ThriftField(16)
     public long getRevocableMemoryReservationInBytes()
     {
         return revocableMemoryReservationInBytes;
     }
 
     @JsonProperty
+    @ThriftField(17)
     public long getSystemMemoryReservationInBytes()
     {
         return systemMemoryReservationInBytes;
     }
 
     @JsonProperty
+    @ThriftField(18)
     public long getPeakUserMemoryInBytes()
     {
         return peakUserMemoryInBytes;
     }
 
     @JsonProperty
+    @ThriftField(19)
     public long getPeakTotalMemoryInBytes()
     {
         return peakTotalMemoryInBytes;
     }
 
     @JsonProperty
+    @ThriftField(20)
     public long getPeakNodeTotalMemoryInBytes()
     {
         return peakNodeTotalMemoryInBytes;
     }
 
     @JsonProperty
+    @ThriftField(21)
     public long getTotalScheduledTimeInNanos()
     {
         return totalScheduledTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(22)
     public long getTotalCpuTimeInNanos()
     {
         return totalCpuTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(23)
     public long getTotalBlockedTimeInNanos()
     {
         return totalBlockedTimeInNanos;
     }
 
     @JsonProperty
+    @ThriftField(24)
     public boolean isFullyBlocked()
     {
         return fullyBlocked;
     }
 
     @JsonProperty
+    @ThriftField(25)
     public Set<BlockedReason> getBlockedReasons()
     {
         return blockedReasons;
     }
 
     @JsonProperty
+    @ThriftField(26)
     public long getTotalAllocationInBytes()
     {
         return totalAllocationInBytes;
     }
 
     @JsonProperty
+    @ThriftField(27)
     public long getRawInputDataSizeInBytes()
     {
         return rawInputDataSizeInBytes;
     }
 
     @JsonProperty
+    @ThriftField(28)
     public long getRawInputPositions()
     {
         return rawInputPositions;
     }
 
     @JsonProperty
+    @ThriftField(29)
     public long getProcessedInputDataSizeInBytes()
     {
         return processedInputDataSizeInBytes;
     }
 
     @JsonProperty
+    @ThriftField(30)
     public long getProcessedInputPositions()
     {
         return processedInputPositions;
     }
 
     @JsonProperty
+    @ThriftField(31)
     public long getOutputDataSizeInBytes()
     {
         return outputDataSizeInBytes;
     }
 
     @JsonProperty
+    @ThriftField(32)
     public long getOutputPositions()
     {
         return outputPositions;
     }
 
     @JsonProperty
+    @ThriftField(33)
     public long getPhysicalWrittenDataSizeInBytes()
     {
         return physicalWrittenDataSizeInBytes;
     }
 
     @JsonProperty
+    @ThriftField(34)
     public List<PipelineStats> getPipelines()
     {
         return pipelines;
     }
 
     @JsonProperty
+    @ThriftField(35)
     public int getQueuedPartitionedDrivers()
     {
         return queuedPartitionedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(36)
+    public long getQueuedPartitionedSplitsWeight()
+    {
+        return queuedPartitionedSplitsWeight;
+    }
+
+    @JsonProperty
+    @ThriftField(37)
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
     }
 
     @JsonProperty
+    @ThriftField(38)
+    public long getRunningPartitionedSplitsWeight()
+    {
+        return runningPartitionedSplitsWeight;
+    }
+
+    @JsonProperty
+    @ThriftField(39)
     public int getFullGcCount()
     {
         return fullGcCount;
     }
 
     @JsonProperty
+    @ThriftField(40)
     public long getFullGcTimeInMillis()
     {
         return fullGcTimeInMillis;
+    }
+
+    @JsonProperty
+    @ThriftField(41)
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     public TaskStats summarize()
@@ -476,11 +566,14 @@ public class TaskStats
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
                 runningDrivers,
                 runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
+                cumulativeTotalMemory,
                 userMemoryReservationInBytes,
                 revocableMemoryReservationInBytes,
                 systemMemoryReservationInBytes,
@@ -502,7 +595,8 @@ public class TaskStats
                 physicalWrittenDataSizeInBytes,
                 fullGcCount,
                 fullGcTimeInMillis,
-                ImmutableList.of());
+                ImmutableList.of(),
+                runtimeStats);
     }
 
     public TaskStats summarizeFinal()
@@ -518,11 +612,14 @@ public class TaskStats
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
                 runningDrivers,
                 runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
+                cumulativeTotalMemory,
                 userMemoryReservationInBytes,
                 revocableMemoryReservationInBytes,
                 systemMemoryReservationInBytes,
@@ -544,8 +641,17 @@ public class TaskStats
                 physicalWrittenDataSizeInBytes,
                 fullGcCount,
                 fullGcTimeInMillis,
-                pipelines.stream()
-                        .map(PipelineStats::summarize)
-                        .collect(Collectors.toList()));
+                summarizePipelineStats(pipelines),
+                runtimeStats);
+    }
+
+    private static List<PipelineStats> summarizePipelineStats(List<PipelineStats> pipelines)
+    {
+        // Use an exact size ImmutableList builder to avoid a redundant copy in the TaskStats constructor
+        ImmutableList.Builder<PipelineStats> results = ImmutableList.builderWithExpectedSize(pipelines.size());
+        for (PipelineStats pipeline : pipelines) {
+            results.add(pipeline.summarize());
+        }
+        return results.build();
     }
 }

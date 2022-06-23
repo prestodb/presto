@@ -15,7 +15,6 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.NotSupportedException;
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -45,8 +44,8 @@ import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
@@ -56,7 +55,6 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSig
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Failures.internalError;
-import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class MapConstructor
@@ -68,10 +66,11 @@ public final class MapConstructor
             MapConstructor.class,
             "createMap",
             MapType.class,
+            Type.class,
+            Type.class,
             MethodHandle.class,
             MethodHandle.class,
             MethodHandle.class,
-            State.class,
             SqlFunctionProperties.class,
             Block.class,
             Block.class);
@@ -115,61 +114,58 @@ public final class MapConstructor
         Type valueType = boundVariables.getTypeVariable("V");
 
         Type mapType = functionAndTypeManager.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
-        MethodHandle keyNativeHashCode = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyNativeHashCode = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-        MethodHandle keyNativeEquals = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyNativeEquals = functionAndTypeManager.getJavaScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
         MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-        MethodHandle keyIndeterminate = functionAndTypeManager.getBuiltInScalarFunctionImplementation(
+        MethodHandle keyIndeterminate = functionAndTypeManager.getJavaScalarFunctionImplementation(
                 functionAndTypeManager.resolveOperator(INDETERMINATE, fromTypeSignatures((keyType.getTypeSignature())))).getMethodHandle();
-        MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
         return new BuiltInScalarFunctionImplementation(
                 false,
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(mapType).bindTo(keyBlockEquals).bindTo(keyBlockHashCode).bindTo(keyIndeterminate),
-                Optional.of(instanceFactory));
+                METHOD_HANDLE.bindTo(mapType).bindTo(keyType).bindTo(valueType).bindTo(keyBlockEquals).bindTo(keyBlockHashCode).bindTo(keyIndeterminate),
+                Optional.empty());
     }
 
     @UsedByGeneratedCode
     public static Block createMap(
             MapType mapType,
+            Type keyType,
+            Type valueType,
             MethodHandle keyBlockEqual,
             MethodHandle keyBlockHashCode,
             MethodHandle keyIndeterminate,
-            State state,
             SqlFunctionProperties properties,
             Block keyBlock,
             Block valueBlock)
     {
         checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
-        PageBuilder pageBuilder = state.getPageBuilder();
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) pageBuilder.getBlockBuilder(0);
+        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, keyBlock.getPositionCount() * 2);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
+
         for (int i = 0; i < keyBlock.getPositionCount(); i++) {
             if (keyBlock.isNull(i)) {
-                // close block builder before throwing as we may be in a TRY() call
-                // so that subsequent calls do not find it in an inconsistent state
-                mapBlockBuilder.closeEntry();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
-            Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
-            try {
-                if ((boolean) keyIndeterminate.invoke(keyObject, false)) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(properties, keyBlock, i));
+
+            if (keyType.getJavaType() == Block.class) {
+                // If it's nto primitive or string, we need to look for nulls in the block.
+                Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
+                try {
+                    if ((boolean) keyIndeterminate.invoke(keyObject, false)) {
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(properties, keyBlock, i));
+                    }
+                }
+                catch (Throwable t) {
+                    throw internalError(t);
                 }
             }
-            catch (Throwable t) {
-                mapBlockBuilder.closeEntry();
-                throw internalError(t);
-            }
-            mapType.getKeyType().appendTo(keyBlock, i, blockBuilder);
-            mapType.getValueType().appendTo(valueBlock, i, blockBuilder);
+
+            keyType.appendTo(keyBlock, i, blockBuilder);
+            valueType.appendTo(valueBlock, i, blockBuilder);
         }
         try {
             mapBlockBuilder.closeEntryStrict(keyBlockEqual, keyBlockHashCode);
@@ -180,25 +176,7 @@ public final class MapConstructor
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
         }
-        finally {
-            pageBuilder.declarePosition();
-        }
 
         return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
-    }
-
-    public static final class State
-    {
-        private final PageBuilder pageBuilder;
-
-        public State(MapType mapType)
-        {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
-        }
-
-        public PageBuilder getPageBuilder()
-        {
-            return pageBuilder;
-        }
     }
 }

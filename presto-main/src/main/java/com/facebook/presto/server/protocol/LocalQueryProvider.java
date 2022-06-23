@@ -23,6 +23,7 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.transaction.TransactionManager;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -49,10 +50,12 @@ public class LocalQueryProvider
     private static final Logger log = Logger.get(LocalQueryProvider.class);
 
     private final QueryManager queryManager;
+    private final TransactionManager transactionManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
     private final BoundedExecutor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
+    private final RetryCircuitBreaker retryCircuitBreaker;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("execution-query-purger"));
@@ -60,16 +63,20 @@ public class LocalQueryProvider
     @Inject
     public LocalQueryProvider(
             QueryManager queryManager,
+            TransactionManager transactionManager,
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
-            @ForStatementResource ScheduledExecutorService timeoutExecutor)
+            @ForStatementResource ScheduledExecutorService timeoutExecutor,
+            RetryCircuitBreaker retryCircuitBreaker)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.retryCircuitBreaker = requireNonNull(retryCircuitBreaker, "retryCircuitBreaker is null");
     }
 
     @PostConstruct
@@ -132,10 +139,12 @@ public class LocalQueryProvider
                     session,
                     slug,
                     queryManager,
+                    transactionManager,
                     exchangeClient,
                     responseExecutor,
                     timeoutExecutor,
-                    blockEncodingSerde);
+                    blockEncodingSerde,
+                    retryCircuitBreaker);
         });
         return query;
     }

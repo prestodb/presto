@@ -20,6 +20,8 @@ import com.facebook.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import com.facebook.airlift.jaxrs.thrift.ThriftMapper;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.client.NodeVersion;
@@ -47,8 +49,6 @@ import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
-import com.facebook.presto.server.smile.SmileCodec;
-import com.facebook.presto.server.smile.SmileModule;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -100,6 +100,7 @@ import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICA
 import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_FB_COMPACT;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
@@ -109,7 +110,6 @@ import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
@@ -196,6 +196,26 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
+    @Test(timeOut = 30000)
+    public void testHTTPRemoteTaskSize()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, false);
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+        // just need to run a TaskUpdateRequest to increment the decay counter
+        remoteTask.cancel();
+        httpRemoteTaskFactory.stop();
+
+        assertTrue(httpRemoteTaskFactory.getTaskUpdateRequestSize() > 0);
+    }
+
     private void runTest(FailureScenario failureScenario, boolean useThriftEncoding)
             throws Exception
     {
@@ -238,7 +258,7 @@ public class TestHttpRemoteTask
                 createPlanFragment(),
                 ImmutableMultimap.of(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
-                new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
+                new NodeTaskMap.NodeStatsTracker(i -> {}, i -> {}, (age, i) -> {}),
                 true,
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
     }
@@ -502,7 +522,8 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
                     initialTaskInfo.isNeedsPlan(),
-                    initialTaskInfo.getMetadataUpdates());
+                    initialTaskInfo.getMetadataUpdates(),
+                    initialTaskInfo.getNodeId());
         }
 
         private TaskStatus buildTaskStatus()
@@ -547,7 +568,11 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getSystemMemoryReservationInBytes(),
                     initialTaskStatus.getPeakNodeTotalMemoryReservationInBytes(),
                     initialTaskStatus.getFullGcCount(),
-                    initialTaskStatus.getFullGcTimeInMillis());
+                    initialTaskStatus.getFullGcTimeInMillis(),
+                    initialTaskStatus.getTotalCpuTimeInNanos(),
+                    initialTaskStatus.getTaskAgeInMillis(),
+                    initialTaskStatus.getQueuedPartitionedSplitsWeight(),
+                    initialTaskStatus.getRunningPartitionedSplitsWeight());
         }
     }
 }

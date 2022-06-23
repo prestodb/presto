@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
@@ -32,10 +33,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.operator.scalar.TDigestFunctions.TDIGEST_CENTROIDS_ROW_TYPE;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -202,7 +206,7 @@ public class TestTDigestFunctions
     public void testNormalDistributionHighVarianceQuantileArray()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<Double>();
+        List<Double> list = new ArrayList<>();
         NormalDistribution normal = new NormalDistribution(0, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -237,7 +241,7 @@ public class TestTDigestFunctions
     {
         TDigest tDigest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
         TDigest tDigest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Integer> list = new ArrayList<Integer>();
+        List<Integer> list = new ArrayList<>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES / 2; i++) {
             tDigest1.add(i);
@@ -259,7 +263,7 @@ public class TestTDigestFunctions
     {
         TDigest tDigest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
         TDigest tDigest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Integer> list = new ArrayList<Integer>();
+        List<Integer> list = new ArrayList<>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES / 2; i++) {
             tDigest1.add(i);
@@ -280,7 +284,7 @@ public class TestTDigestFunctions
     public void testAddElementsRandomized()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<Double>();
+        List<Double> list = new ArrayList<>();
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
             double value = Math.random() * NUMBER_OF_ENTRIES;
@@ -299,7 +303,7 @@ public class TestTDigestFunctions
     public void testNormalDistributionLowVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<Double>();
+        List<Double> list = new ArrayList<>();
         NormalDistribution normal = new NormalDistribution(1000, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -319,7 +323,7 @@ public class TestTDigestFunctions
     public void testNormalDistributionHighVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
-        List<Double> list = new ArrayList<Double>();
+        List<Double> list = new ArrayList<>();
         NormalDistribution normal = new NormalDistribution(0, 1);
 
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
@@ -410,6 +414,72 @@ public class TestTDigestFunctions
         }
     }
 
+    @Test
+    public void testDestructureTDigest()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        ImmutableList<Double> values = ImmutableList.of(0.0d, 1.0d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 7.0d, 8.0d, 9.0d);
+        values.stream().forEach(tDigest::add);
+
+        List<Integer> weights = Collections.nCopies(values.size(), 1);
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        long count = values.size();
+
+        String sql = format("destructure_tdigest(CAST(X'%s' AS tdigest(%s)))",
+                new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "),
+                DOUBLE);
+
+        functionAssertions.assertFunction(
+                sql,
+                TDIGEST_CENTROIDS_ROW_TYPE,
+                ImmutableList.of(values, weights, compression, min, max, sum, count));
+
+        functionAssertions.assertFunction(format("%s.compression", sql), DOUBLE, compression);
+        functionAssertions.assertFunction(format("%s.min", sql), DOUBLE, min);
+        functionAssertions.assertFunction(format("%s.max", sql), DOUBLE, max);
+        functionAssertions.assertFunction(format("%s.sum", sql), DOUBLE, sum);
+        functionAssertions.assertFunction(format("%s.count", sql), BIGINT, count);
+        functionAssertions.assertFunction(
+                format("%s.centroid_means", sql),
+                new ArrayType(DOUBLE),
+                values);
+        functionAssertions.assertFunction(
+                format("%s.centroid_weights", sql),
+                new ArrayType(INTEGER),
+                weights);
+    }
+
+    @Test
+    public void testDestructureTDigestLarge()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        List<Double> values = new ArrayList<>();
+        for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+            values.add((double) i);
+        }
+
+        values.stream().forEach(tDigest::add);
+
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        long count = values.size();
+
+        String sql = format("destructure_tdigest(CAST(X'%s' AS tdigest(%s)))",
+                new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "),
+                DOUBLE);
+
+        functionAssertions.assertFunction(format("%s.compression", sql), DOUBLE, compression);
+        functionAssertions.assertFunction(format("%s.min", sql), DOUBLE, min);
+        functionAssertions.assertFunction(format("%s.max", sql), DOUBLE, max);
+        functionAssertions.assertFunction(format("%s.sum", sql), DOUBLE, sum);
+        functionAssertions.assertFunction(format("%s.count", sql), BIGINT, count);
+    }
+
     // disabled because test takes almost 10s
     @Test(enabled = false)
     public void testBinomialDistribution()
@@ -441,7 +511,7 @@ public class TestTDigestFunctions
         for (int k = 1; k < trials; k++) {
             TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
             GeometricDistribution geometric = new GeometricDistribution(k * 0.1);
-            List<Integer> list = new ArrayList<Integer>();
+            List<Integer> list = new ArrayList<>();
 
             for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
                 int sample = geometric.sample();
@@ -464,7 +534,7 @@ public class TestTDigestFunctions
         for (int k = 1; k < trials; k++) {
             TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
             PoissonDistribution poisson = new PoissonDistribution(k * 0.1);
-            List<Integer> list = new ArrayList<Integer>();
+            List<Integer> list = new ArrayList<>();
 
             for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
                 int sample = poisson.sample();
@@ -513,7 +583,7 @@ public class TestTDigestFunctions
 
         TDigest scaledTdigest = createTDigest(wrappedBuffer(sqlVarbinary.getBytes()));
         List<Double> scaledDigestFrequencies = getFrequencies(scaledTdigest, asList(2.0d, 4.0d, 6.0d, 8.0d));
-        List<Double> scaledUpFrequencies = new ArrayList<Double>();
+        List<Double> scaledUpFrequencies = new ArrayList<>();
         unscaledFrequencies.forEach(frequency -> scaledUpFrequencies.add(frequency * 2));
         assertEquals(scaledDigestFrequencies, scaledUpFrequencies);
 
@@ -527,7 +597,7 @@ public class TestTDigestFunctions
 
         scaledTdigest = createTDigest(wrappedBuffer(sqlVarbinary.getBytes()));
         scaledDigestFrequencies = getFrequencies(scaledTdigest, asList(2.0d, 4.0d, 6.0d, 8.0d));
-        List<Double> scaledDownFrequencies = new ArrayList<Double>();
+        List<Double> scaledDownFrequencies = new ArrayList<>();
         unscaledFrequencies.forEach(frequency -> scaledDownFrequencies.add(frequency * 0.5));
         assertEquals(scaledDigestFrequencies, scaledDownFrequencies);
     }
@@ -602,7 +672,7 @@ public class TestTDigestFunctions
 
     private List<Double> getFrequencies(TDigest tdigest, List<Double> buckets)
     {
-        List<Double> histogram = new ArrayList<Double>();
+        List<Double> histogram = new ArrayList<>();
         for (Double bin : buckets) {
             histogram.add(tdigest.getCdf(bin) * tdigest.getSize());
         }

@@ -63,6 +63,12 @@ public class DelegatingTransactionManager
     }
 
     @Override
+    public void tryRegisterTransaction(TransactionInfo transactionInfo)
+    {
+        delegate.tryRegisterTransaction(transactionInfo);
+    }
+
+    @Override
     public TransactionId beginTransaction(boolean autoCommitContext)
     {
         return delegate.beginTransaction(autoCommitContext);

@@ -15,9 +15,12 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.DistinctType;
+import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
@@ -102,6 +105,9 @@ public class HiveTypeTranslator
                         type, HiveVarchar.MAX_VARCHAR_LENGTH));
             }
         }
+        if (type instanceof EnumType<?>) {
+            return translate(((EnumType<?>) type).getValueType());
+        }
         if (type instanceof CharType) {
             CharType charType = (CharType) type;
             int charLength = charType.getLength();
@@ -110,6 +116,12 @@ public class HiveTypeTranslator
             }
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).",
                     type, HiveChar.MAX_CHAR_LENGTH));
+        }
+        if (type instanceof TypeWithName) {
+            return translate(((TypeWithName) type).getType());
+        }
+        if (type instanceof DistinctType) {
+            return translate(((DistinctType) type).getBaseType());
         }
         if (VARBINARY.equals(type)) {
             return HIVE_BINARY.getTypeInfo();

@@ -15,9 +15,9 @@ package com.facebook.presto.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.geospatial.GeometryUtils;
@@ -162,12 +162,12 @@ public class PagesRTreeIndex
         IntArrayList matchingPositions = new IntArrayList();
 
         Rectangle queryRectangle = getExtent(probeGeometry);
-        boolean probeIsPoint = queryRectangle.isPointlike();
+        boolean probeIsPoint = queryRectangle.isPointLike();
         rtree.findIntersections(queryRectangle, geometryWithPosition -> {
             OGCGeometry buildGeometry = geometryWithPosition.getGeometry();
             Rectangle buildEnvelope = geometryWithPosition.getExtent();
             if (partitions.isEmpty() || (probePartition == geometryWithPosition.getPartition() &&
-                    (probeIsPoint || buildEnvelope.isPointlike() || testReferencePoint(queryRectangle, buildEnvelope, probePartition)))) {
+                    (probeIsPoint || buildEnvelope.isPointLike() || testReferencePoint(queryRectangle, buildEnvelope, probePartition)))) {
                 OptionalDouble radius = radiusChannel == -1 ?
                         OptionalDouble.empty() :
                         OptionalDouble.of(getRadius(geometryWithPosition.getPosition()));
@@ -177,7 +177,7 @@ public class PagesRTreeIndex
             }
         });
 
-        return matchingPositions.toIntArray(null);
+        return matchingPositions.toIntArray();
     }
 
     private boolean testReferencePoint(Rectangle probeEnvelope, Rectangle buildEnvelope, int partition)

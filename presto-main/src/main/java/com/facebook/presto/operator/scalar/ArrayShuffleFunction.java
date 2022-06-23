@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
@@ -21,7 +20,6 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.google.common.collect.ImmutableList;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -29,15 +27,10 @@ import java.util.concurrent.ThreadLocalRandom;
 @Description("Generates a random permutation of the given array.")
 public final class ArrayShuffleFunction
 {
-    private final PageBuilder pageBuilder;
     private static final int INITIAL_LENGTH = 128;
-    private int[] positions = new int[INITIAL_LENGTH];
 
     @TypeParameter("E")
-    public ArrayShuffleFunction(@TypeParameter("E") Type elementType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
-    }
+    public ArrayShuffleFunction(@TypeParameter("E") Type elementType) {}
 
     @TypeParameter("E")
     @SqlType("array(E)")
@@ -46,9 +39,7 @@ public final class ArrayShuffleFunction
             @SqlType("array(E)") Block block)
     {
         int length = block.getPositionCount();
-        if (positions.length < length) {
-            positions = new int[length];
-        }
+        int[] positions = new int[length];
         for (int i = 0; i < length; i++) {
             positions[i] = i;
         }
@@ -61,18 +52,12 @@ public final class ArrayShuffleFunction
             positions[i] = positions[index];
             positions[index] = swap;
         }
-
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, block.getPositionCount());
 
         for (int i = 0; i < length; i++) {
             type.appendTo(block, positions[i], blockBuilder);
         }
-        pageBuilder.declarePositions(length);
 
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - length, length);
+        return blockBuilder.build();
     }
 }

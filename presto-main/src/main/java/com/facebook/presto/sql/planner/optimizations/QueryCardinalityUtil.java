@@ -24,11 +24,12 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.google.common.collect.Range;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -120,15 +121,6 @@ public final class QueryCardinalityUtil
         }
 
         @Override
-        public Range<Long> visitSample(SampleNode node, Void context)
-        {
-            if (node.getSampleRatio() == 0.0) {
-                return Range.atMost(0L);
-            }
-            return Range.atLeast(0L);
-        }
-
-        @Override
         public Range<Long> visitProject(ProjectNode node, Void context)
         {
             return node.getSource().accept(this, null);
@@ -148,6 +140,20 @@ public final class QueryCardinalityUtil
         public Range<Long> visitValues(ValuesNode node, Void context)
         {
             return Range.singleton((long) node.getRows().size());
+        }
+
+        @Override
+        public Range<Long> visitOffset(OffsetNode node, Void context)
+        {
+            Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+
+            long lower = max(sourceCardinalityRange.lowerEndpoint() - node.getCount(), 0L);
+            if (sourceCardinalityRange.hasUpperBound()) {
+                return Range.closed(lower, max(sourceCardinalityRange.upperEndpoint() - node.getCount(), 0L));
+            }
+            else {
+                return Range.atLeast(lower);
+            }
         }
 
         @Override

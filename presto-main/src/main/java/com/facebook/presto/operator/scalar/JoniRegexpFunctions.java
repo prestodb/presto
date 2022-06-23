@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.JoniRegexpType;
 import io.airlift.joni.Matcher;
-import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Region;
 import io.airlift.joni.exception.ValueException;
@@ -35,14 +35,19 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.airlift.joni.Option.DEFAULT;
+import static io.airlift.joni.Option.DONT_CAPTURE_GROUP;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class JoniRegexpFunctions
 {
+    private static final Block EMPTY_BLOCK = VarcharType.VARCHAR.createBlockBuilder(null, 0).build();
     private JoniRegexpFunctions()
     {
     }
@@ -63,7 +68,8 @@ public final class JoniRegexpFunctions
             offset = 0;
             matcher = pattern.matcher(source.getBytes());
         }
-        return matcher.search(offset, offset + source.length(), Option.DEFAULT) != -1;
+
+        return getMatchingOffset(matcher, offset, offset + source.length()) != -1;
     }
 
     @Description("removes substrings matching a regular expression")
@@ -93,7 +99,7 @@ public final class JoniRegexpFunctions
         int lastEnd = 0;
         int nextStart = 0; // nextStart is the same as lastEnd, unless the last match was zero-width. In such case, nextStart is lastEnd + 1.
         while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            int offset = getMatchingOffset(matcher, nextStart, source.length());
             if (offset == -1) {
                 break;
             }
@@ -209,34 +215,43 @@ public final class JoniRegexpFunctions
     public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
-        validateGroup(groupIndex, matcher.getEagerRegion());
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
-        int group = toIntExact(groupIndex);
-
         int nextStart = 0;
-        while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
-            if (offset == -1) {
-                break;
-            }
-            if (matcher.getEnd() == matcher.getBegin()) {
-                nextStart = matcher.getEnd() + 1;
+        int offset = getMatchingOffset(matcher, nextStart, source.length(), false);
+        if (offset == -1) {
+            return EMPTY_BLOCK;
+        }
+
+        validateGroup(groupIndex, matcher.getEagerRegion());
+        ArrayList<Integer> matches = new ArrayList<>(10);
+        int group = toIntExact(groupIndex);
+        do {
+            int beg = matcher.getBegin();
+            int end = matcher.getEnd();
+            if (end == beg) {
+                nextStart = beg + 1;
             }
             else {
-                nextStart = matcher.getEnd();
+                nextStart = end;
             }
             Region region = matcher.getEagerRegion();
-            int beg = region.beg[group];
-            int end = region.end[group];
+            matches.add(region.beg[group]);
+            matches.add(region.end[group]);
+            offset = getMatchingOffset(matcher, nextStart, source.length(), false);
+        } while (offset != -1);
+
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, matches.size());
+        for (int i = 0; i < matches.size(); i += 2) {
+            int beg = matches.get(i);
+            int end = matches.get(i + 1);
             if (beg == -1 || end == -1) {
                 blockBuilder.appendNull();
             }
             else {
-                Slice slice = source.slice(beg, end - beg);
-                VARCHAR.writeSlice(blockBuilder, slice);
+                VARCHAR.writeSlice(blockBuilder, source, beg, end - beg);
             }
         }
-        return blockBuilder.build();
+
+        return blockBuilder;
     }
 
     @SqlNullable
@@ -257,13 +272,14 @@ public final class JoniRegexpFunctions
     public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
-        validateGroup(groupIndex, matcher.getEagerRegion());
         int group = toIntExact(groupIndex);
 
-        int offset = matcher.search(0, source.length(), Option.DEFAULT);
+        int offset = getMatchingOffset(matcher, 0, source.length(), false);
         if (offset == -1) {
             return null;
         }
+
+        validateGroup(groupIndex, matcher.getEagerRegion());
         Region region = matcher.getEagerRegion();
         int beg = region.beg[group];
         int end = region.end[group];
@@ -272,8 +288,7 @@ public final class JoniRegexpFunctions
             return null;
         }
 
-        Slice slice = source.slice(beg, end - beg);
-        return slice;
+        return source.slice(beg, end - beg);
     }
 
     @ScalarFunction
@@ -287,24 +302,41 @@ public final class JoniRegexpFunctions
 
         int lastEnd = 0;
         int nextStart = 0;
-        while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
-            if (offset == -1) {
-                break;
-            }
+        int offset = getMatchingOffset(matcher, nextStart, source.length());
+        if (offset == -1) {
+            VARCHAR.writeSlice(blockBuilder, source);
+            return blockBuilder.build();
+        }
+
+        do {
             if (matcher.getEnd() == matcher.getBegin()) {
                 nextStart = matcher.getEnd() + 1;
             }
             else {
                 nextStart = matcher.getEnd();
             }
-            Slice slice = source.slice(lastEnd, matcher.getBegin() - lastEnd);
+            VARCHAR.writeSlice(blockBuilder, source, lastEnd, matcher.getBegin() - lastEnd);
             lastEnd = matcher.getEnd();
-            VARCHAR.writeSlice(blockBuilder, slice);
-        }
-        VARCHAR.writeSlice(blockBuilder, source.slice(lastEnd, source.length() - lastEnd));
+            offset = getMatchingOffset(matcher, nextStart, source.length());
+        } while (offset != -1);
 
+        VARCHAR.writeSlice(blockBuilder, source.slice(lastEnd, source.length() - lastEnd));
         return blockBuilder.build();
+    }
+
+    private static int getMatchingOffset(Matcher matcher, int at, int range)
+    {
+        return getMatchingOffset(matcher, at, range, true);
+    }
+
+    private static int getMatchingOffset(Matcher matcher, int at, int range, boolean noGroups)
+    {
+        try {
+            return matcher.searchInterruptible(at, range, noGroups ? DONT_CAPTURE_GROUP : DEFAULT);
+        }
+        catch (InterruptedException interruptedException) {
+            throw new PrestoException(GENERIC_USER_ERROR, "Regexp matching interrupted");
+        }
     }
 
     private static void validateGroup(long group, Region region)

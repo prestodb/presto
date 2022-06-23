@@ -22,16 +22,20 @@ import java.time.ZoneId;
 import java.util.TreeSet;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.common.type.TimeZoneKey.isUtcZoneId;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestTimeZoneUtils
 {
     @Test
-    public void test()
+    public void testNamedZones()
     {
         TimeZoneKey.getTimeZoneKey("GMT-13:00");
 
@@ -50,13 +54,37 @@ public class TestTimeZoneUtils
                 continue;
             }
 
+            if (zoneId.equals("America/Godthab")) {
+                // TODO: Remove once minimum Java version is increased to 8u261 and 11.0.8
+                // https://www.oracle.com/java/technologies/tzdata-versions.html
+                continue;
+            }
+
+            if (zoneId.equals("US/Pacific-New")) {
+                // TODO: Remove once minimum Java version is increased 11.0.10
+                // https://www.oracle.com/java/technologies/tzdata-versions.html
+                // http://mm.icann.org/pipermail/tz-announce/2020-October/000059.html
+                continue;
+            }
+
+            if (zoneId.equals("Pacific/Kanton")) {
+                // TODO: remove Once Joda version supports this Timezone.
+                // JDK supported this timezone, but not Joda and was resulting in the test failure.
+                // https://www.joda.org/joda-time/timezones.html
+                continue;
+            }
+
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
 
             assertDateTimeZoneEquals(zoneId, indexedZone);
             assertTimeZone(zoneId, dateTimeZone);
         }
+    }
 
+    @Test
+    public void testOffsets()
+    {
         for (int offsetHours = -13; offsetHours < 14; offsetHours++) {
             for (int offsetMinutes = 0; offsetMinutes < 60; offsetMinutes++) {
                 DateTimeZone dateTimeZone = DateTimeZone.forOffsetHoursMinutes(offsetHours, offsetMinutes);
@@ -67,9 +95,21 @@ public class TestTimeZoneUtils
 
     public static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
     {
-        long dateTimeWithTimeZone = packDateTimeWithZone(new DateTime(42, dateTimeZone));
-        assertEquals(packDateTimeWithZone((long) 42, dateTimeZone.toTimeZone().getID()), dateTimeWithTimeZone);
-        DateTimeZone unpackedZone = unpackDateTimeZone(dateTimeWithTimeZone);
+        long packWithDateTime = packDateTimeWithZone(new DateTime(42, dateTimeZone));
+        long packWithZoneId = packDateTimeWithZone(42L, ZoneId.of(dateTimeZone.getID()).getId());
+        if (packWithDateTime != packWithZoneId) {
+            fail(format(
+                    "packWithDateTime and packWithZoneId differ for zone [%s] / [%s]: %s [%s %s] and %s [%s %s]",
+                    zoneId,
+                    dateTimeZone,
+                    packWithDateTime,
+                    unpackMillisUtc(packWithDateTime),
+                    unpackZoneKey(packWithDateTime),
+                    packWithZoneId,
+                    unpackMillisUtc(packWithZoneId),
+                    unpackZoneKey(packWithZoneId)));
+        }
+        DateTimeZone unpackedZone = unpackDateTimeZone(packWithDateTime);
         assertDateTimeZoneEquals(zoneId, unpackedZone);
     }
 

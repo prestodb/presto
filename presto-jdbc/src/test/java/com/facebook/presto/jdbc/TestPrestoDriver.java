@@ -63,6 +63,7 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
@@ -110,7 +111,7 @@ import static org.testng.Assert.fail;
 public class TestPrestoDriver
 {
     private static final DateTimeZone ASIA_ORAL_ZONE = DateTimeZone.forID("Asia/Oral");
-    private static final GregorianCalendar ASIA_ORAL_CALENDAR = new GregorianCalendar(ASIA_ORAL_ZONE.toTimeZone());
+    private static final GregorianCalendar ASIA_ORAL_CALENDAR = new GregorianCalendar(TimeZone.getTimeZone(ZoneId.of(ASIA_ORAL_ZONE.getID())));
     private static final String TEST_CATALOG = "test_catalog";
 
     private TestingPrestoServer server;
@@ -1434,7 +1435,8 @@ public class TestPrestoDriver
         }
     }
 
-    @Test(timeOut = 10000)
+    // Disabled due to https://github.com/prestodb/presto/issues/16080
+    @Test(enabled = false, timeOut = 10000)
     public void testQueryCancelByInterrupt()
             throws Exception
     {
@@ -1678,6 +1680,22 @@ public class TestPrestoDriver
         assertTrue(isValidSessionValue);
     }
 
+    @Test
+    public void testTimeZoneIdParameter()
+            throws Exception
+    {
+        String sql = "SELECT current_timezone() zone, TIMESTAMP '2001-02-03 3:04:05' ts";
+
+        try (Connection connection = createConnectionWithParameter("timeZoneId=UTC")) {
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), "UTC");
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, DateTimeZone.UTC).getMillis()));
+            }
+        }
+    }
+
     private QueryState getQueryState(String queryId)
             throws SQLException
     {
@@ -1724,6 +1742,13 @@ public class TestPrestoDriver
             throws SQLException
     {
         String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
+        return DriverManager.getConnection(url, "test", null);
+    }
+
+    private Connection createConnectionWithParameter(String parameter)
+            throws SQLException
+    {
+        String url = format("jdbc:presto://%s?%s", server.getAddress(), parameter);
         return DriverManager.getConnection(url, "test", null);
     }
 

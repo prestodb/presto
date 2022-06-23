@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.Binding;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
@@ -113,7 +115,7 @@ public class RowExpressionCompiler
             FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
             BytecodeGeneratorContext generatorContext;
             switch (functionMetadata.getImplementationType()) {
-                case BUILTIN:
+                case JAVA:
                     generatorContext = new BytecodeGeneratorContext(
                             RowExpressionCompiler.this,
                             context.getScope(),

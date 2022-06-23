@@ -166,10 +166,12 @@ public class DruidPlanOptimizer
                     oldTableHandle.getLayout());
             return Optional.of(
                     new TableScanNode(
+                            tableScanNode.getSourceLocation(),
                             idAllocator.getNextId(),
                             newTableHandle,
                             ImmutableList.copyOf(assignments.keySet()),
                             assignments.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, (e) -> (ColumnHandle) (e.getValue()))),
+                            tableScanNode.getTableConstraints(),
                             tableScanNode.getCurrentConstraint(),
                             tableScanNode.getEnforcedConstraint()));
         }
@@ -204,8 +206,8 @@ public class DruidPlanOptimizer
                 }
             }
             if (!pushable.isEmpty()) {
-                FilterNode pushableFilter = new FilterNode(idAllocator.getNextId(), node.getSource(), logicalRowExpressions.combineConjuncts(pushable));
-                Optional<FilterNode> nonPushableFilter = nonPushable.isEmpty() ? Optional.empty() : Optional.of(new FilterNode(idAllocator.getNextId(), pushableFilter, logicalRowExpressions.combineConjuncts(nonPushable)));
+                FilterNode pushableFilter = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), node.getSource(), logicalRowExpressions.combineConjuncts(pushable));
+                Optional<FilterNode> nonPushableFilter = nonPushable.isEmpty() ? Optional.empty() : Optional.of(new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), pushableFilter, logicalRowExpressions.combineConjuncts(nonPushable)));
 
                 filtersSplitUp.put(pushableFilter, null);
                 if (nonPushableFilter.isPresent()) {

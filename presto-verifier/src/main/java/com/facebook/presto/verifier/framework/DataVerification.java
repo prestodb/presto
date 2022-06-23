@@ -15,14 +15,17 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
+import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.util.List;
 import java.util.Optional;
@@ -55,9 +58,10 @@ public class DataVerification
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
             TypeManager typeManager,
-            ChecksumValidator checksumValidator)
+            ChecksumValidator checksumValidator,
+            ListeningExecutorService executor)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, executor);
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
@@ -72,13 +76,20 @@ public class DataVerification
     }
 
     @Override
+    protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<QueryObjectBundle> queryBundle)
+    {
+        super.updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
+        queryInfo.setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString));
+    }
+
+    @Override
     public DataMatchResult verify(
             QueryObjectBundle control,
             QueryObjectBundle test,
             Optional<QueryResult<Void>> controlQueryResult,
             Optional<QueryResult<Void>> testQueryResult,
-            ChecksumQueryContext controlContext,
-            ChecksumQueryContext testContext)
+            ChecksumQueryContext controlChecksumQueryContext,
+            ChecksumQueryContext testChecksumQueryContext)
     {
         List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
         List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
@@ -86,15 +97,15 @@ public class DataVerification
         Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns);
         Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns);
 
-        controlContext.setChecksumQuery(formatSql(controlChecksumQuery));
-        testContext.setChecksumQuery(formatSql(testChecksumQuery));
+        controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
+        testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
 
         QueryResult<ChecksumResult> controlChecksum = callAndConsume(
                 () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
-                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlContext::setChecksumQueryId));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId));
         QueryResult<ChecksumResult> testChecksum = callAndConsume(
                 () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
-                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testContext::setChecksumQueryId));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId));
 
         return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
     }

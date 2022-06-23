@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -26,9 +27,13 @@ import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleResponse;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeType;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
+import org.apache.hadoop.hive.metastore.api.LockRequest;
+import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PartitionsStatsRequest;
+import org.apache.hadoop.hive.metastore.api.PrimaryKeysRequest;
+import org.apache.hadoop.hive.metastore.api.PrimaryKeysResponse;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
@@ -36,6 +41,10 @@ import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
+import org.apache.hadoop.hive.metastore.api.UniqueConstraintsRequest;
+import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
+import org.apache.hadoop.hive.metastore.api.UnlockRequest;
+import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
@@ -44,8 +53,10 @@ import org.apache.thrift.transport.TTransport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
 
 public class ThriftHiveMetastoreClient
         implements HiveMetastoreClient
@@ -69,6 +80,13 @@ public class ThriftHiveMetastoreClient
     public void close()
     {
         transport.close();
+    }
+
+    @Override
+    public String getDelegationToken(String owner, String renewer)
+            throws TException
+    {
+        return client.get_delegation_token(owner, renewer);
     }
 
     @Override
@@ -392,5 +410,67 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         client.set_ugi(userName, new ArrayList<>());
+    }
+
+    @Override
+    public LockResponse checkLock(CheckLockRequest request)
+            throws TException
+    {
+        return client.check_lock(request);
+    }
+
+    @Override
+    public LockResponse lock(LockRequest request)
+            throws TException
+    {
+        return client.lock(request);
+    }
+
+    @Override
+    public void unlock(UnlockRequest request)
+            throws TException
+    {
+        client.unlock(request);
+    }
+
+    public Optional<PrimaryKeysResponse> getPrimaryKey(String dbName, String tableName)
+            throws TException
+    {
+        PrimaryKeysRequest pkRequest = new PrimaryKeysRequest(dbName, tableName);
+        PrimaryKeysResponse pkResponse;
+
+        try {
+            pkResponse = client.get_primary_keys(pkRequest);
+        }
+        catch (TApplicationException e) {
+            // If we are talking to Hive version < 3 which doesn't support table constraints,
+            // then we will get an UNKNOWN_METHOD error.
+            if (e.getType() == UNKNOWN_METHOD) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+
+        return Optional.of(pkResponse);
+    }
+
+    @Override
+    public Optional<UniqueConstraintsResponse> getUniqueConstraints(String catName, String dbName, String tableName)
+            throws TException
+    {
+        UniqueConstraintsRequest uniqueConstraintsRequest = new UniqueConstraintsRequest(catName, dbName, tableName);
+        UniqueConstraintsResponse uniqueConstraintsResponse;
+
+        try {
+            uniqueConstraintsResponse = client.get_unique_constraints(uniqueConstraintsRequest);
+        }
+        catch (TApplicationException e) {
+            if (e.getType() == UNKNOWN_METHOD) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+
+        return Optional.of(uniqueConstraintsResponse);
     }
 }

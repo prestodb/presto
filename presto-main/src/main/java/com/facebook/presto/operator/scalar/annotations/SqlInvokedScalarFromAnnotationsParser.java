@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar.annotations;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.CodegenScalarFunction;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -39,6 +40,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.findPublicStaticMethods;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
@@ -102,7 +104,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
         Set<Method> methods = findPublicStaticMethods(
                 clazz,
                 ImmutableSet.of(SqlInvokedScalarFunction.class, SqlType.class, SqlParameter.class, SqlParameters.class, Description.class),
-                ImmutableSet.of(ScalarFunction.class, ScalarOperator.class));
+                ImmutableSet.of(ScalarFunction.class, ScalarOperator.class, CodegenScalarFunction.class));
         for (Method method : methods) {
             checkCondition(
                     method.isAnnotationPresent(SqlInvokedScalarFunction.class) && method.isAnnotationPresent(SqlType.class),
@@ -162,7 +164,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
                         functionDescription,
                         routineCharacteristics,
                         body,
-                        Optional.of("unique")))
+                        notVersioned()))
                 .collect(toImmutableList());
     }
 

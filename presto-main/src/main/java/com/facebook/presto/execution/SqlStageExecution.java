@@ -286,9 +286,6 @@ public final class SqlStageExecution
             return;
         }
 
-        if (getAllTasks().stream().anyMatch(task -> getState() == StageExecutionState.RUNNING)) {
-            stateMachine.transitionToRunning();
-        }
         if (finishedTasks.size() == allTasks.size()) {
             stateMachine.transitionToFinished();
         }
@@ -328,7 +325,7 @@ public final class SqlStageExecution
         return stateMachine.getTotalMemoryReservation();
     }
 
-    public synchronized Duration getTotalCpuTime()
+    public Duration getTotalCpuTime()
     {
         long millis = getAllTasks().stream()
                 .mapToLong(task -> NANOSECONDS.toMillis(task.getTaskInfo().getStats().getTotalCpuTimeInNanos()))
@@ -518,7 +515,7 @@ public final class SqlStageExecution
                 planFragment,
                 initialSplits.build(),
                 outputBuffers,
-                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
+                nodeTaskMap.createTaskStatsTracker(node, taskId),
                 summarizeTaskInfo,
                 tableWriteInfo);
 

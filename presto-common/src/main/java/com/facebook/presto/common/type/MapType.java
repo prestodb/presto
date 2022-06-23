@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.common.type.TypeUtils.containsDistinctType;
 import static com.facebook.presto.common.type.TypeUtils.hashPosition;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -45,6 +46,7 @@ public class MapType
 
     private final MethodHandle keyBlockHashCode;
     private final MethodHandle keyBlockEquals;
+    private final Optional<TypeSignature> typeSignature;
 
     public MapType(
             Type keyType,
@@ -52,10 +54,7 @@ public class MapType
             MethodHandle keyBlockEquals,
             MethodHandle keyBlockHashCode)
     {
-        super(new TypeSignature(StandardTypes.MAP,
-                        TypeSignatureParameter.of(keyType.getTypeSignature()),
-                        TypeSignatureParameter.of(valueType.getTypeSignature())),
-                Block.class);
+        super(Block.class);
         if (!keyType.isComparable()) {
             throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));
         }
@@ -64,6 +63,21 @@ public class MapType
         requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
         this.keyBlockHashCode = keyBlockHashCode;
         this.keyBlockEquals = keyBlockEquals;
+        this.typeSignature = containsDistinctType(asList(keyType, valueType)) ? Optional.empty() : Optional.of(makeSignature());
+    }
+
+    @Override
+    public TypeSignature getTypeSignature()
+    {
+        return typeSignature.orElseGet(this::makeSignature);
+    }
+
+    private TypeSignature makeSignature()
+    {
+        return new TypeSignature(
+                StandardTypes.MAP,
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(valueType.getTypeSignature()));
     }
 
     @Override
@@ -98,6 +112,16 @@ public class MapType
     public boolean isComparable()
     {
         return valueType.isComparable();
+    }
+
+    public MethodHandle getKeyBlockEquals()
+    {
+        return keyBlockEquals;
+    }
+
+    public MethodHandle getKeyBlockHashCode()
+    {
+        return keyBlockHashCode;
     }
 
     @Override

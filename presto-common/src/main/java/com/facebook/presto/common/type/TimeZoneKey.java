@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -36,6 +39,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class TimeZoneKey
 {
     public static final TimeZoneKey UTC_KEY = new TimeZoneKey("UTC", (short) 0);
@@ -153,7 +157,8 @@ public final class TimeZoneKey
 
     private final short key;
 
-    TimeZoneKey(String id, short key)
+    @ThriftConstructor
+    public TimeZoneKey(String id, short key)
     {
         this.id = requireNonNull(id, "id is null");
         if (key < 0) {
@@ -162,11 +167,13 @@ public final class TimeZoneKey
         this.key = key;
     }
 
+    @ThriftField(1)
     public String getId()
     {
         return id;
     }
 
+    @ThriftField(2)
     @JsonValue
     public short getKey()
     {
@@ -294,7 +301,6 @@ public final class TimeZoneKey
                 zoneId.equals("z") ||
                 zoneId.equals("ut") ||
                 zoneId.equals("uct") ||
-                zoneId.equals("ut") ||
                 zoneId.equals("gmt") ||
                 zoneId.equals("gmt0") ||
                 zoneId.equals("greenwich") ||

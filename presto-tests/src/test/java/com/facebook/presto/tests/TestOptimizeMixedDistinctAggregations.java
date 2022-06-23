@@ -13,16 +13,19 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestOptimizeMixedDistinctAggregations
         extends AbstractTestAggregations
 {
-    public TestOptimizeMixedDistinctAggregations()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunnerBuilder.builder()
                 .setSingleCoordinatorProperty("optimizer.optimize-mixed-distinct-aggregations", "true")
-                .build());
+                .build();
     }
 
     @Override
