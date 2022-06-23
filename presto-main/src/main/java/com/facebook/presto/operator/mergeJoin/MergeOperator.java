@@ -11,13 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.mergeJoin;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.PageWithPositionComparator;
+import com.facebook.presto.operator.SourceOperator;
+import com.facebook.presto.operator.SourceOperatorFactory;
+import com.facebook.presto.operator.TaskExchangeClientManager;
+import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;

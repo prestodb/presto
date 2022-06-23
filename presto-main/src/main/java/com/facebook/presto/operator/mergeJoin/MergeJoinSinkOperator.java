@@ -11,10 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.mergeJoin;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -48,9 +52,9 @@ public class MergeJoinSinkOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MergeJoinSinkOperator.class.getSimpleName());
-            LocalMemoryContext memoryContext = operatorContext.aggregateUserMemoryContext().newLocalMemoryContext(MergeJoinSource.class.getSimpleName());
-            MergeJoinSource mergeJoinSource = mergeJoinSourceManager.getMergeJoinSource(driverContext.getLifespan(), memoryContext);
-            return new MergeJoinSinkOperator(operatorContext, mergeJoinSource);
+            LocalMemoryContext memoryContext = operatorContext.aggregateUserMemoryContext().newLocalMemoryContext(RightPageSource.class.getSimpleName());
+            RightPageSource rightPageSource = mergeJoinSourceManager.getMergeJoinSource(driverContext.getLifespan(), memoryContext);
+            return new MergeJoinSinkOperator(operatorContext, rightPageSource);
         }
 
         @Override
@@ -75,15 +79,15 @@ public class MergeJoinSinkOperator
     }
 
     private final OperatorContext operatorContext;
-    final MergeJoinSource mergeJoinSource;
+    final RightPageSource rightSource;
     private State state = State.CONSUMING_INPUT;
 
     public MergeJoinSinkOperator(
             OperatorContext operatorContext,
-            MergeJoinSource mergeJoinSource)
+            RightPageSource rightSource)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.mergeJoinSource = requireNonNull(mergeJoinSource, "mergeJoinSource is null");
+        this.rightSource = requireNonNull(rightSource, "mergeJoinSource is null");
     }
 
     @Override
@@ -102,9 +106,9 @@ public class MergeJoinSinkOperator
     public ListenableFuture<?> isBlocked()
     {
         if (state == State.WAITING_FOR_CONSUMER) {
-            boolean canProduce = mergeJoinSource.getProducerFuture().isDone();
+            boolean canProduce = rightSource.getProducerFuture().isDone();
             if (!canProduce) {
-                return mergeJoinSource.getProducerFuture();
+                return rightSource.getProducerFuture();
             }
             state = State.CONSUMING_INPUT;
         }
@@ -125,7 +129,7 @@ public class MergeJoinSinkOperator
         }
         checkState(state == State.CONSUMING_INPUT);
 
-        mergeJoinSource.addPage(page);
+        rightSource.addPage(page);
         state = State.WAITING_FOR_CONSUMER;
 
         operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
@@ -141,7 +145,7 @@ public class MergeJoinSinkOperator
     public void finish()
     {
         if (state == State.CONSUMING_INPUT) {
-            mergeJoinSource.finish();
+            rightSource.finish();
             state = State.CLOSED;
         }
     }

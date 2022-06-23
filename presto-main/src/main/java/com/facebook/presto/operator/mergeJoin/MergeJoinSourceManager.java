@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.mergeJoin;
 
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -21,7 +21,7 @@ import java.util.Map;
 
 public class MergeJoinSourceManager
 {
-    private final Map<Lifespan, MergeJoinSource> mergeJoinSourceMap;
+    private final Map<Lifespan, RightPageSource> mergeJoinSourceMap;
     private final boolean bufferEnabled;
 
     public MergeJoinSourceManager(boolean bufferEnabled)
@@ -30,11 +30,11 @@ public class MergeJoinSourceManager
         this.bufferEnabled = bufferEnabled;
     }
 
-    public MergeJoinSource getMergeJoinSource(Lifespan lifespan, LocalMemoryContext localMemoryContext)
+    public RightPageSource getMergeJoinSource(Lifespan lifespan, LocalMemoryContext localMemoryContext)
     {
         synchronized (this) {
             if (!mergeJoinSourceMap.containsKey(lifespan)) {
-                mergeJoinSourceMap.put(lifespan, new MergeJoinSource(bufferEnabled));
+                mergeJoinSourceMap.put(lifespan, new RightPageSource(bufferEnabled));
             }
             if (localMemoryContext != null) {
                 mergeJoinSourceMap.get(lifespan).setLocalMemoryContext(localMemoryContext);

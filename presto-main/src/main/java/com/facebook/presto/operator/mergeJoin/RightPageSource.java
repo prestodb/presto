@@ -11,34 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.mergeJoin;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.io.Closeable;
 import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Queue;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.facebook.presto.operator.mergeJoin.MergeJoinUtil.compare;
 import static com.google.common.base.Preconditions.checkState;
 
-public class MergeJoinSource
+public class RightPageSource
         implements Closeable
 {
     private final Queue<Page> pages;
     private final boolean bufferEnabled;
     private LocalMemoryContext localMemoryContext;
     private boolean finishing;
-    private int currentPosition;
+    private int currentPageOffset;
 
     // consumer is blocked initially, producer is not blocked
     private ListenableFuture<?> consumerFuture = SettableFuture.create();
     private ListenableFuture<?> producerFuture = NOT_BLOCKED;
 
-    public MergeJoinSource(boolean bufferEnabled)
+    public RightPageSource(boolean bufferEnabled)
     {
         this.bufferEnabled = bufferEnabled;
         this.pages = new ArrayDeque<>();
@@ -62,47 +65,6 @@ public class MergeJoinSource
     public ListenableFuture<?> getProducerFuture()
     {
         return producerFuture;
-    }
-
-    public Page peekPage()
-    {
-        return pages.peek();
-    }
-
-    public int getCurrentPosition()
-    {
-        return currentPosition;
-    }
-
-    public int advancePosition()
-    {
-        currentPosition++;
-        return currentPosition;
-    }
-
-    public int updatePosition(int position)
-    {
-        currentPosition = position;
-        return currentPosition;
-    }
-
-    public void releasePage()
-    {
-        synchronized (this) {
-            long bytesReleased = pages.remove().getSizeInBytes();
-            if (localMemoryContext != null && !finishing && pages.peek() != null) {
-                localMemoryContext.setBytes(localMemoryContext.getBytes() - bytesReleased);
-            }
-            if (pages.isEmpty() && !finishing) {
-                // we have no input, block consumer until we get more
-                consumerFuture = SettableFuture.create();
-            }
-            if (!bufferEnabled) {
-                // if not buffering, need to unblock producer to let it can produce more
-                unblock(producerFuture);
-            }
-            currentPosition = 0;
-        }
     }
 
     public void addPage(Page page)
@@ -147,6 +109,40 @@ public class MergeJoinSource
         }
     }
 
+    public boolean hasData()
+    {
+        return !pages.isEmpty() && currentPageOffset < pages.peek().getPositionCount();
+    }
+
+    public boolean hashNext()
+    {
+        currentPageOffset++;
+        if (currentPageOffset == pages.peek().getPositionCount()) {
+            removePage();
+        }
+        return hasData();
+    }
+
+    public Page getCurrentPage()
+    {
+        return pages.peek();
+    }
+
+    public int getCurrentPageOffset()
+    {
+        return currentPageOffset;
+    }
+
+    public boolean locateEndPosition(List<Type> types, List<Integer> joinChannels, int anchorOffset)
+    {
+        while (++currentPageOffset < pages.peek().getPositionCount()) {
+            if (compare(types, joinChannels, pages.peek(), anchorOffset, joinChannels, pages.peek(), currentPageOffset) != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void close()
     {
@@ -161,6 +157,25 @@ public class MergeJoinSource
 
             // clear pages
             this.pages.clear();
+        }
+    }
+
+    private void removePage()
+    {
+        synchronized (this) {
+            long bytesReleased = pages.remove().getSizeInBytes();
+            if (localMemoryContext != null && !finishing && pages.peek() != null) {
+                localMemoryContext.setBytes(localMemoryContext.getBytes() - bytesReleased);
+            }
+            if (pages.isEmpty() && !finishing) {
+                // we have no input, block consumer until we get more
+                consumerFuture = SettableFuture.create();
+            }
+            if (!bufferEnabled) {
+                // if not buffering, need to unblock producer to let it can produce more
+                unblock(producerFuture);
+            }
+            currentPageOffset = 0;
         }
     }
 

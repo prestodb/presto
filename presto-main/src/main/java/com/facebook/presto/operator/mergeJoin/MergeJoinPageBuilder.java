@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.mergeJoin;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
@@ -63,14 +63,11 @@ public class MergeJoinPageBuilder
         return pageBuilder.getPositionCount() >= maxPositionCount;
     }
 
-    public Page build()
+    public Page buildAndReset()
     {
-        return pageBuilder.build();
-    }
-
-    public void reset()
-    {
+        Page page = pageBuilder.build();
         pageBuilder.reset();
+        return page;
     }
 
     /**

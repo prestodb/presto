@@ -88,7 +88,7 @@ import com.facebook.presto.operator.FileFragmentResultCacheManager;
 import com.facebook.presto.operator.FragmentCacheStats;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.MergeJoinOperators;
+import com.facebook.presto.operator.mergeJoin.MergeJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.operator.OperatorStats;

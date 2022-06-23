@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.mergeJoin;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -21,29 +21,23 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class MergeJoinRightPages
+public class RightMatchingData
 {
     private final List<Type> types;
     private final List<Integer> joinChannels;
     private final List<Integer> outputChannels;
-    private Page currentMatchSingleValuePage;
-    private List<Page> pages;
-    private boolean complete;
-    private int positionCount;
 
-    public MergeJoinRightPages(List<Type> types, List<Integer> joinChannels, List<Integer> outputChannels)
+    private List<Page> pages;
+    private int offset;
+    private Page currentMatchSingleValuePage;
+    private boolean complete;
+
+    public RightMatchingData(List<Type> types, List<Integer> joinChannels, List<Integer> outputChannels)
     {
         this.types = types;
         this.joinChannels = joinChannels;
         this.outputChannels = outputChannels;
-        this.positionCount = 0;
         this.pages = new ArrayList<>();
-    }
-
-    public void startMatch(Page page, int position)
-    {
-        clear();
-        currentMatchSingleValuePage = page.getSingleValuePage(position);
     }
 
     public void addPage(Page page, int startPosition, int endPosition)
@@ -59,34 +53,11 @@ public class MergeJoinRightPages
             blocks[i] = block;
         }
         pages.add(new Page(endPosition - startPosition, blocks));
-
-        positionCount += (endPosition - startPosition);
-    }
-
-    public int findEndOfMatch(Page page)
-    {
-        if (complete) {
-            return 0;
-        }
-
-        int numPositions = page.getPositionCount();
-        int endPosition = 0;
-
-        while (endPosition < numPositions && isPositionMatch(page, endPosition)) {
-            ++endPosition;
-        }
-
-        if (endPosition > 0) {
-            addPage(page, 0, endPosition);
-        }
-
-        complete = endPosition < numPositions;
-        return endPosition;
     }
 
     public boolean isPositionMatch(Page page, int position)
     {
-        if (positionCount == 0) {
+        if (pages.isEmpty()) {
             return false;
         }
         for (int channel : joinChannels) {
@@ -98,23 +69,6 @@ public class MergeJoinRightPages
         return true;
     }
 
-    public Iterator<Page> getPages()
-    {
-        return pages.listIterator();
-    }
-
-    public void clear()
-    {
-        positionCount = 0;
-        complete = false;
-        pages = new ArrayList<>();
-    }
-
-    public boolean isEmpty()
-    {
-        return positionCount == 0;
-    }
-
     public boolean isComplete()
     {
         return complete;
@@ -123,5 +77,26 @@ public class MergeJoinRightPages
     public void complete()
     {
         complete = true;
+    }
+
+    public boolean hasNextPage()
+    {
+        return offset < pages.size();
+    }
+
+    public Page getNextPage()
+    {
+        return pages.get(offset++);
+    }
+
+    public void reset()
+    {
+        offset = 0;
+    }
+
+    public void clear()
+    {
+        complete = false;
+        pages = new ArrayList<>();
     }
 }

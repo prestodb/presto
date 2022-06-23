@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
-import com.facebook.presto.operator.MergeOperator.MergeOperatorFactory;
+import com.facebook.presto.operator.mergeJoin.MergeOperator.MergeOperatorFactory;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.spi.plan.PlanNodeId;

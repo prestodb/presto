@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.mergeJoin;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
 
 import javax.inject.Inject;
@@ -102,7 +103,7 @@ public class MergeJoinOperators
                 mergeJoiner);
     }
 
-    public interface MergeJoiner
+    public static interface MergeJoiner
     {
         void joinRow(MergeJoinPageBuilder pageBuilder, Optional<Page> left, int leftPosition, Optional<Page> right, int rightPosition);
     }

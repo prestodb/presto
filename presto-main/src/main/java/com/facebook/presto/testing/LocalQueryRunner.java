@@ -107,7 +107,7 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.MergeJoinOperators;
+import com.facebook.presto.operator.mergeJoin.MergeJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;

@@ -107,7 +107,7 @@ import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.FragmentCacheStats;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.MergeJoinOperators;
+import com.facebook.presto.operator.mergeJoin.MergeJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;

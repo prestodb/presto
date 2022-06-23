@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.mergeJoin;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
@@ -67,7 +71,7 @@ public class MergeJoinOperatorFactory
         checkState(!closed, "Factory is already closed");
 
         OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MergeJoinOperator.class.getSimpleName());
-        MergeJoinSource mergeJoinSource = mergeJoinSourceManager.getMergeJoinSource(driverContext.getLifespan(), null);
+        RightPageSource rightPageSource = mergeJoinSourceManager.getMergeJoinSource(driverContext.getLifespan(), null);
         return new MergeJoinOperator(
                 operatorContext,
                 leftTypes,
@@ -76,7 +80,7 @@ public class MergeJoinOperatorFactory
                 rightOutputChannels,
                 leftJoinChannels,
                 rightJoinChannels,
-                mergeJoinSource,
+                rightPageSource,
                 mergeJoiner);
     }
 
