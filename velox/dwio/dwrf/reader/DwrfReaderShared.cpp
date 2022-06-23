@@ -27,6 +27,7 @@
 namespace facebook::velox::dwrf {
 
 using dwio::common::ColumnSelector;
+using dwio::common::FileFormat;
 using dwio::common::InputStream;
 using dwio::common::ReaderOptions;
 using dwio::common::RowReaderOptions;
@@ -204,7 +205,9 @@ DwrfReaderShared::DwrfReaderShared(
           options.getBufferedInputFactory()
               ? options.getBufferedInputFactory()
               : dwio::common::BufferedInputFactory::baseFactoryShared(),
-          options.getFileNum())),
+          options.getFileNum(),
+          options.getFileFormat() == FileFormat::ORC ? FileFormat::ORC
+                                                     : FileFormat::DWRF)),
       options_(options) {}
 
 std::unique_ptr<StripeInformation> DwrfReaderShared::getStripe(
@@ -356,7 +359,7 @@ uint64_t DwrfReaderShared::getMemoryUse(
             nSelectedStreams * readerBase.getStream().getNaturalReadSize());
 
   // Do we need even more memory to read the footer or the metadata?
-  auto footerLength = readerBase.getPostScript().footerlength();
+  auto footerLength = readerBase.getPostScript().footerLength();
   if (memory < footerLength + DIRECTORY_SIZE_GUESS) {
     memory = footerLength + DIRECTORY_SIZE_GUESS;
   }

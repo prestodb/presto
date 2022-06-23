@@ -318,8 +318,7 @@ StripeStreamsImpl::getIndexStreamFromCache(
   auto& reader = reader_.getReader();
   auto& metadataCache = reader.getMetadataCache();
   if (metadataCache) {
-    auto indexBase =
-        metadataCache->get(proto::StripeCacheMode::INDEX, stripeIndex_);
+    auto indexBase = metadataCache->get(StripeCacheMode::INDEX, stripeIndex_);
     if (indexBase) {
       auto offset = info.getOffset();
       auto length = info.getLength();

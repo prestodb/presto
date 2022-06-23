@@ -65,7 +65,8 @@ void WriterBase::writeFooter(const Type& type) {
       dwio::common::CompressionKind::CompressionKind_NONE) {
     ps.set_compressionblocksize(context_->compressionBlockSize);
   }
-  ps.set_cachemode(writerSink_->getCacheMode());
+  ps.set_cachemode(
+      static_cast<proto::StripeCacheMode>(writerSink_->getCacheMode()));
   ps.set_cachesize(cacheSize);
   writeProto(ps, dwio::common::CompressionKind::CompressionKind_NONE);
   auto psLength = writerSink_->size() - pos;

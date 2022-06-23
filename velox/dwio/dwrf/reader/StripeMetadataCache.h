@@ -17,7 +17,7 @@
 #pragma once
 
 #include "velox/dwio/common/SeekableInputStream.h"
-#include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
+#include "velox/dwio/dwrf/common/Common.h"
 
 namespace facebook::velox::dwrf {
 
@@ -26,16 +26,13 @@ constexpr uint64_t INVALID_INDEX = std::numeric_limits<uint64_t>::max();
 class StripeMetadataCache {
  public:
   StripeMetadataCache(
-      const proto::PostScript& ps,
+      StripeCacheMode mode,
       const proto::Footer& footer,
       std::shared_ptr<dwio::common::DataBuffer<char>> buffer)
-      : StripeMetadataCache{
-            ps.cachemode(),
-            std::move(buffer),
-            getOffsets(footer)} {}
+      : StripeMetadataCache{mode, std::move(buffer), getOffsets(footer)} {}
 
   StripeMetadataCache(
-      proto::StripeCacheMode mode,
+      StripeCacheMode mode,
       std::shared_ptr<dwio::common::DataBuffer<char>> buffer,
       std::vector<uint32_t>&& offsets)
       : mode_{mode}, buffer_{std::move(buffer)}, offsets_{std::move(offsets)} {}
@@ -47,12 +44,12 @@ class StripeMetadataCache {
   StripeMetadataCache& operator=(const StripeMetadataCache&) = delete;
   StripeMetadataCache& operator=(StripeMetadataCache&&) = delete;
 
-  bool has(proto::StripeCacheMode mode, uint64_t stripeIndex) const {
+  bool has(StripeCacheMode mode, uint64_t stripeIndex) const {
     return getIndex(mode, stripeIndex) != INVALID_INDEX;
   }
 
   std::unique_ptr<dwio::common::SeekableArrayInputStream> get(
-      proto::StripeCacheMode mode,
+      StripeCacheMode mode,
       uint64_t stripeIndex) const {
     auto index = getIndex(mode, stripeIndex);
     if (index != INVALID_INDEX) {
@@ -64,17 +61,16 @@ class StripeMetadataCache {
   }
 
  private:
-  proto::StripeCacheMode mode_;
+  StripeCacheMode mode_;
   std::shared_ptr<dwio::common::DataBuffer<char>> buffer_;
 
   std::vector<uint32_t> offsets_;
 
-  uint64_t getIndex(proto::StripeCacheMode mode, uint64_t stripeIndex) const {
+  uint64_t getIndex(StripeCacheMode mode, uint64_t stripeIndex) const {
     if (mode_ & mode) {
       uint64_t index =
-          (mode_ == mode
-               ? stripeIndex
-               : stripeIndex * 2 + mode - proto::StripeCacheMode::INDEX);
+          (mode_ == mode ? stripeIndex
+                         : stripeIndex * 2 + mode - StripeCacheMode::INDEX);
       // offsets has N + 1 items, so length[N] = offset[N+1]- offset[N]
       if (index < offsets_.size() - 1) {
         return index;

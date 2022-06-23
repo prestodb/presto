@@ -51,7 +51,7 @@ class WriterSink {
         cacheHolder_{pool, SLICE_SIZE, SLICE_SIZE},
         cacheBuffer_{pool},
         exceedsLimit_{false} {
-    if (cacheMode_ != proto::StripeCacheMode::NA) {
+    if (cacheMode_ != StripeCacheMode::NA) {
       offsets_.push_back(0);
       cacheBuffer_.reserve(SLICE_SIZE);
     }
@@ -96,7 +96,7 @@ class WriterSink {
     return checksum_.get();
   }
 
-  proto::StripeCacheMode getCacheMode() const {
+  StripeCacheMode getCacheMode() const {
     return cacheMode_;
   }
 
@@ -132,7 +132,7 @@ class WriterSink {
  private:
   dwio::common::DataSink& sink_;
   std::unique_ptr<Checksum> checksum_;
-  proto::StripeCacheMode cacheMode_;
+  StripeCacheMode cacheMode_;
   Mode mode_;
   bool shouldBuffer_;
   uint64_t size_;

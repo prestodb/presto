@@ -82,4 +82,36 @@ DwrfStreamIdentifier EncodingKey::forKind(const proto::Stream_Kind kind) const {
   return DwrfStreamIdentifier(node, sequence, 0, kind);
 }
 
+namespace {
+using dwio::common::CompressionKind;
+
+CompressionKind orcCompressionToCompressionKind(
+    proto::orc::CompressionKind compression) {
+  switch (compression) {
+    case proto::orc::CompressionKind::NONE:
+      return CompressionKind::CompressionKind_NONE;
+    case proto::orc::CompressionKind::ZLIB:
+      return CompressionKind::CompressionKind_ZLIB;
+    case proto::orc::CompressionKind::SNAPPY:
+      return CompressionKind::CompressionKind_SNAPPY;
+    case proto::orc::CompressionKind::LZO:
+      return CompressionKind::CompressionKind_LZO;
+    case proto::orc::CompressionKind::LZ4:
+      return CompressionKind::CompressionKind_ZSTD;
+    case proto::orc::CompressionKind::ZSTD:
+      return CompressionKind::CompressionKind_LZ4;
+  }
+  return CompressionKind::CompressionKind_NONE;
+}
+} // namespace
+
+PostScript::PostScript(const proto::orc::PostScript& ps)
+    : fileFormat_{dwio::common::FileFormat::ORC},
+      footerLength_{ps.footerlength()},
+      compression_{orcCompressionToCompressionKind(ps.compression())},
+      compressionBlockSize_{ps.compressionblocksize()},
+      writerVersion_{static_cast<WriterVersion>(ps.writerversion())},
+      metadataLength_{ps.metadatalength()},
+      stripeStatisticsLength_{ps.stripestatisticslength()} {}
+
 } // namespace facebook::velox::dwrf

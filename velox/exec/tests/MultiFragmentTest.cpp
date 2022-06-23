@@ -64,7 +64,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
           std::make_shared<HiveConnectorSplit>(
               kHiveConnectorId,
               "file:" + filePath->path,
-              facebook::velox::dwio::common::FileFormat::ORC),
+              facebook::velox::dwio::common::FileFormat::DWRF),
           -1);
       task->addSplit("0", std::move(split));
       VLOG(1) << filePath->path << "\n";

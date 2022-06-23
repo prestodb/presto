@@ -205,7 +205,7 @@ class DwrfReaderShared : public dwio::common::Reader {
     return readerBase_->getSchemaWithId();
   }
 
-  const proto::PostScript& getPostscript() const {
+  const PostScript& getPostscript() const {
     return readerBase_->getPostScript();
   }
 

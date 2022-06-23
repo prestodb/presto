@@ -17,17 +17,16 @@
 #pragma once
 
 #include "velox/dwio/common/BufferedInput.h"
+#include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/common/Compression.h"
 #include "velox/dwio/dwrf/common/Statistics.h"
-#include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/reader/StripeMetadataCache.h"
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
 
 namespace facebook::velox::dwrf {
 
-constexpr uint64_t DEFAULT_COMPRESSION_BLOCK_SIZE = 256 * 1024;
 constexpr uint64_t DIRECTORY_SIZE_GUESS = 1024 * 1024;
 constexpr uint64_t FILE_PRELOAD_THRESHOLD = 1024 * 1024 * 8;
 
@@ -60,6 +59,9 @@ class FooterStatisticsImpl : public dwio::common::Statistics {
 };
 
 class ReaderBase {
+  static constexpr uint64_t kDefaultFileNum =
+      std::numeric_limits<uint64_t>::max();
+
  public:
   // create reader base from input stream
   ReaderBase(
@@ -69,13 +71,19 @@ class ReaderBase {
           decryptorFactory = nullptr,
       std::shared_ptr<dwio::common::BufferedInputFactory> bufferedInputFactory =
           nullptr,
-      uint64_t fileNum = -1);
+      uint64_t fileNum = kDefaultFileNum,
+      dwio::common::FileFormat fileFormat = dwio::common::FileFormat::DWRF);
+
+  ReaderBase(
+      memory::MemoryPool& pool,
+      std::unique_ptr<dwio::common::InputStream> stream,
+      dwio::common::FileFormat fileFormat);
 
   // create reader base from metadata
   ReaderBase(
       memory::MemoryPool& pool,
       std::unique_ptr<dwio::common::InputStream> stream,
-      std::unique_ptr<proto::PostScript> ps,
+      std::unique_ptr<PostScript> ps,
       proto::Footer* footer,
       std::unique_ptr<StripeMetadataCache> cache,
       std::unique_ptr<encryption::DecryptionHandler> handler = nullptr)
@@ -117,7 +125,7 @@ class ReaderBase {
     return fileNum_;
   }
 
-  const proto::PostScript& getPostScript() const {
+  const PostScript& getPostScript() const {
     return *postScript_;
   }
 
@@ -166,22 +174,15 @@ class ReaderBase {
   }
 
   uint64_t getCompressionBlockSize() const {
-    return postScript_->has_compressionblocksize()
-        ? postScript_->compressionblocksize()
-        : DEFAULT_COMPRESSION_BLOCK_SIZE;
+    return postScript_->compressionBlockSize();
   }
 
   dwio::common::CompressionKind getCompressionKind() const {
-    return postScript_->has_compression()
-        ? static_cast<dwio::common::CompressionKind>(postScript_->compression())
-        : dwio::common::CompressionKind::CompressionKind_NONE;
+    return postScript_->compression();
   }
 
   WriterVersion getWriterVersion() const {
-    if (!postScript_->has_writerversion()) {
-      return WriterVersion::ORIGINAL;
-    }
-    auto version = postScript_->writerversion();
+    auto version = postScript_->writerVersion();
     return version <= WriterVersion_CURRENT
         ? static_cast<WriterVersion>(version)
         : WriterVersion::FUTURE;
@@ -230,6 +231,10 @@ class ReaderBase {
     return arena_.get();
   }
 
+  dwio::common::FileFormat getFileFormat() const {
+    return postScript_->fileFormat();
+  }
+
  private:
   static std::shared_ptr<const Type> convertType(
       const proto::Footer& footer,
@@ -238,7 +243,8 @@ class ReaderBase {
   memory::MemoryPool& pool_;
   std::unique_ptr<dwio::common::InputStream> stream_;
   std::unique_ptr<google::protobuf::Arena> arena_;
-  std::unique_ptr<proto::PostScript> postScript_;
+  std::unique_ptr<PostScript> postScript_;
+
   proto::Footer* footer_ = nullptr;
   uint64_t fileNum_;
   std::unique_ptr<StripeMetadataCache> cache_;

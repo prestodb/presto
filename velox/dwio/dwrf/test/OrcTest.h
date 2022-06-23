@@ -67,6 +67,10 @@ class MockStripeStreams : public StripeStreams {
     return *getEncodingProxy(ek.node);
   }
 
+  virtual dwio::common::FileFormat getFormat() const override {
+    return dwio::common::FileFormat::DWRF;
+  }
+
   MOCK_METHOD2(
       genMockDictDataSetter,
       std::function<void(BufferPtr&, MemoryPool*)>(uint32_t, uint32_t));

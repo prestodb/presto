@@ -38,7 +38,7 @@ namespace common {
 
 enum class FileFormat {
   UNKNOWN = 0,
-  ORC = 1, // ORC/DWRF
+  DWRF = 1, // DWRF
   RC = 2, // RC with unknown serialization
   RC_TEXT = 3, // RC with text serialization
   RC_BINARY = 4, // RC with binary serialization
@@ -46,6 +46,7 @@ enum class FileFormat {
   JSON = 6,
   PARQUET = 7,
   ALPHA = 8,
+  ORC = 9,
 };
 
 FileFormat toFileFormat(std::string s);
@@ -373,8 +374,8 @@ class ReaderOptions {
   }
 
   /**
-   * Set the format of the file, such as "rc" or "orc".  The
-   * default is "orc".
+   * Set the format of the file, such as "rc" or "dwrf".  The
+   * default is "dwrf".
    */
   ReaderOptions& setFileFormat(FileFormat format) {
     fileFormat = format;
@@ -388,7 +389,7 @@ class ReaderOptions {
 
   /**
    * Set the schema of the file (a Type tree).
-   * For "orc" format, a default schema is derived from the file.
+   * For "dwrf" format, a default schema is derived from the file.
    * For "rc" format, there is no default schema.
    */
   ReaderOptions& setFileSchema(

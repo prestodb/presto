@@ -43,11 +43,11 @@ const proto::StripeInformation& StripeReaderBase::loadStripe(
       // If metadata cache exists, adjust read position to avoid re-reading
       // metadata sections
       if (cache) {
-        if (cache->has(proto::StripeCacheMode::INDEX, index)) {
+        if (cache->has(StripeCacheMode::INDEX, index)) {
           offset += stripe.indexlength();
           length -= stripe.indexlength();
         }
-        if (cache->has(proto::StripeCacheMode::FOOTER, index)) {
+        if (cache->has(StripeCacheMode::FOOTER, index)) {
           length -= stripe.footerlength();
         }
       }
@@ -60,7 +60,7 @@ const proto::StripeInformation& StripeReaderBase::loadStripe(
   // load stripe footer
   std::unique_ptr<dwio::common::SeekableInputStream> stream;
   if (cache) {
-    stream = cache->get(proto::StripeCacheMode::FOOTER, index);
+    stream = cache->get(StripeCacheMode::FOOTER, index);
   }
 
   if (!stream) {

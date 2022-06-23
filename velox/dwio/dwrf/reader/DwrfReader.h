@@ -129,7 +129,7 @@ class DwrfReader : public DwrfReaderShared {
 
 class DwrfReaderFactory : public dwio::common::ReaderFactory {
  public:
-  DwrfReaderFactory() : ReaderFactory(dwio::common::FileFormat::ORC) {}
+  DwrfReaderFactory() : ReaderFactory(dwio::common::FileFormat::DWRF) {}
 
   std::unique_ptr<dwio::common::Reader> createReader(
       std::unique_ptr<dwio::common::InputStream> stream,

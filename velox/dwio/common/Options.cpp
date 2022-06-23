@@ -22,8 +22,8 @@ namespace dwio {
 namespace common {
 
 FileFormat toFileFormat(std::string s) {
-  if (s == "orc") {
-    return FileFormat::ORC;
+  if (s == "dwrf") {
+    return FileFormat::DWRF;
   } else if (s == "rc") {
     return FileFormat::RC;
   } else if (s == "rc:text") {
@@ -38,14 +38,16 @@ FileFormat toFileFormat(std::string s) {
     return FileFormat::PARQUET;
   } else if (s == "alpha") {
     return FileFormat::ALPHA;
+  } else if (s == "orc") {
+    return FileFormat::ORC;
   }
   return FileFormat::UNKNOWN;
 }
 
 std::string toString(FileFormat fmt) {
   switch (fmt) {
-    case FileFormat::ORC:
-      return "orc";
+    case FileFormat::DWRF:
+      return "dwrf";
     case FileFormat::RC:
       return "rc";
     case FileFormat::RC_TEXT:
@@ -60,6 +62,8 @@ std::string toString(FileFormat fmt) {
       return "parquet";
     case FileFormat::ALPHA:
       return "alpha";
+    case FileFormat::ORC:
+      return "orc";
     default:
       return "unknown";
   }

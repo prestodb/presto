@@ -62,9 +62,9 @@ Config::Entry<proto::ChecksumAlgorithm> Config::CHECKSUM_ALGORITHM{
     "orc.checksum.algorithm",
     proto::ChecksumAlgorithm::XXHASH};
 
-Config::Entry<proto::StripeCacheMode> Config::STRIPE_CACHE_MODE{
+Config::Entry<StripeCacheMode> Config::STRIPE_CACHE_MODE{
     "orc.stripe.cache.mode",
-    proto::StripeCacheMode::BOTH};
+    StripeCacheMode::BOTH};
 
 Config::Entry<uint32_t> Config::STRIPE_CACHE_SIZE{
     "orc.stripe.cache.size",

@@ -17,4 +17,5 @@ set -e
 
 (
     "${PROTOC:-protoc}" dwrf_proto.proto --cpp_out="$INSTALL_DIR"
+    "${PROTOC:-protoc}" orc_proto.proto --cpp_out="$INSTALL_DIR"
 )

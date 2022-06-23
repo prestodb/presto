@@ -19,7 +19,6 @@
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/dwrf/reader/ReaderBase.h"
-#include "velox/dwio/dwrf/reader/StripeReaderBase.h"
 
 namespace facebook::velox::dwrf {
 

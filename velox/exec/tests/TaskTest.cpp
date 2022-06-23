@@ -61,7 +61,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
   auto connectorSplit = std::make_shared<connector::hive::HiveConnectorSplit>(
       "test",
       "file:/tmp/abc",
-      facebook::velox::dwio::common::FileFormat::ORC,
+      facebook::velox::dwio::common::FileFormat::DWRF,
       0,
       100);
 

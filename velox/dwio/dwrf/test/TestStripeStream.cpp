@@ -76,7 +76,7 @@ void enqueueReads(
     length = stream.length();
     // If index cache is available, there is no need to read it
     auto inMetaCache = metadataCache &&
-        metadataCache->has(proto::StripeCacheMode::INDEX, stripeIndex) &&
+        metadataCache->has(StripeCacheMode::INDEX, stripeIndex) &&
         static_cast<StreamKind>(stream.kind()) ==
             StreamKind::StreamKind_ROW_INDEX;
     if (length > 0 &&
@@ -114,7 +114,7 @@ TEST(StripeStream, planReads) {
   auto readerBase = std::make_shared<ReaderBase>(
       pool,
       std::move(is),
-      std::make_unique<proto::PostScript>(),
+      std::make_unique<PostScript>(proto::PostScript{}),
       footer,
       nullptr);
   ColumnSelector cs{readerBase->getSchema(), std::vector<uint64_t>{2}, true};
@@ -157,7 +157,7 @@ TEST(StripeStream, filterSequences) {
   auto readerBase = std::make_shared<ReaderBase>(
       pool,
       std::move(is),
-      std::make_unique<proto::PostScript>(),
+      std::make_unique<PostScript>(proto::PostScript{}),
       footer,
       nullptr);
 
@@ -209,13 +209,13 @@ TEST(StripeStream, zeroLength) {
   footer->set_rowindexstride(100);
   auto type = HiveTypeParser().parse("struct<a:int>");
   ProtoUtils::writeType(*type, *footer);
-  auto ps = std::make_unique<proto::PostScript>();
-  ps->set_compressionblocksize(1024);
-  ps->set_compression(proto::CompressionKind::ZSTD);
+  proto::PostScript ps;
+  ps.set_compressionblocksize(1024);
+  ps.set_compression(proto::CompressionKind::ZSTD);
   auto is = std::make_unique<RecordingInputStream>();
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
-      pool, std::move(is), std::move(ps), footer, nullptr);
+      pool, std::move(is), std::make_unique<PostScript>(ps), footer, nullptr);
 
   auto stripeFooter =
       google::protobuf::Arena::CreateMessage<proto::StripeFooter>(&arena);
@@ -257,9 +257,9 @@ TEST(StripeStream, planReadsIndex) {
   google::protobuf::Arena arena;
 
   // build ps
-  auto ps = std::make_unique<proto::PostScript>();
-  ps->set_cachemode(proto::StripeCacheMode::INDEX);
-  ps->set_compression(proto::CompressionKind::NONE);
+  proto::PostScript ps;
+  ps.set_cachemode(proto::StripeCacheMode::INDEX);
+  ps.set_compression(proto::CompressionKind::NONE);
 
   // build index
   proto::RowIndex index;
@@ -282,12 +282,16 @@ TEST(StripeStream, planReadsIndex) {
   auto cacheBuffer = std::make_shared<DataBuffer<char>>(pool, str.size());
   memcpy(cacheBuffer->data(), str.data(), str.size());
   auto cache = std::make_unique<StripeMetadataCache>(
-      *ps, *footer, std::move(cacheBuffer));
+      StripeCacheMode::INDEX, *footer, std::move(cacheBuffer));
 
   auto is = std::make_unique<RecordingInputStream>();
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
-      pool, std::move(is), std::move(ps), footer, std::move(cache));
+      pool,
+      std::move(is),
+      std::make_unique<PostScript>(ps),
+      footer,
+      std::move(cache));
 
   auto stripeFooter =
       google::protobuf::Arena::CreateMessage<proto::StripeFooter>(&arena);
@@ -356,9 +360,9 @@ TEST(StripeStream, readEncryptedStreams) {
   auto scopedPool = getDefaultScopedMemoryPool();
   auto& pool = scopedPool->getPool();
   google::protobuf::Arena arena;
-  auto ps = std::make_unique<proto::PostScript>();
-  ps->set_compression(proto::CompressionKind::ZSTD);
-  ps->set_compressionblocksize(256 * 1024);
+  proto::PostScript ps;
+  ps.set_compression(proto::CompressionKind::ZSTD);
+  ps.set_compressionblocksize(256 * 1024);
   auto footer = google::protobuf::Arena::CreateMessage<proto::Footer>(&arena);
   // a: not encrypted, projected
   // encryption group 1: b, c. projected b.
@@ -400,7 +404,7 @@ TEST(StripeStream, readEncryptedStreams) {
   auto readerBase = std::make_shared<ReaderBase>(
       pool,
       std::make_unique<MemoryInputStream>(nullptr, 0),
-      std::move(ps),
+      std::make_unique<PostScript>(ps),
       footer,
       nullptr,
       std::move(handler));
@@ -431,9 +435,9 @@ TEST(StripeStream, schemaMismatch) {
   auto scopedPool = getDefaultScopedMemoryPool();
   auto& pool = scopedPool->getPool();
   google::protobuf::Arena arena;
-  auto ps = std::make_unique<proto::PostScript>();
-  ps->set_compression(proto::CompressionKind::ZSTD);
-  ps->set_compressionblocksize(256 * 1024);
+  proto::PostScript ps;
+  ps.set_compression(proto::CompressionKind::ZSTD);
+  ps.set_compressionblocksize(256 * 1024);
   auto footer = google::protobuf::Arena::CreateMessage<proto::Footer>(&arena);
   // a: not encrypted, has schema change
   // b: encrypted
@@ -465,7 +469,7 @@ TEST(StripeStream, schemaMismatch) {
   auto readerBase = std::make_shared<ReaderBase>(
       pool,
       std::make_unique<MemoryInputStream>(nullptr, 0),
-      std::move(ps),
+      std::make_unique<PostScript>(ps),
       footer,
       nullptr,
       std::move(handler));

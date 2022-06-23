@@ -342,7 +342,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       splitInfo->lengths.emplace_back(file.length());
       switch (file.format()) {
         case 0:
-          splitInfo->format = dwio::common::FileFormat::ORC;
+          splitInfo->format = dwio::common::FileFormat::DWRF;
           break;
         case 1:
           splitInfo->format = dwio::common::FileFormat::PARQUET;

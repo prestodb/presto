@@ -55,11 +55,11 @@ class EncryptedStatsTest : public Test {
     auto& context = const_cast<const ProtoWriter&>(writer).getContext();
 
     // fake post script
-    auto ps = std::make_unique<proto::PostScript>();
-    ps->set_compression(
+    proto::PostScript ps;
+    ps.set_compression(
         static_cast<proto::CompressionKind>(context.compression));
     if (context.compression != CompressionKind::CompressionKind_NONE) {
-      ps->set_compressionblocksize(context.compressionBlockSize);
+      ps.set_compressionblocksize(context.compressionBlockSize);
     }
 
     // fake footer
@@ -97,7 +97,7 @@ class EncryptedStatsTest : public Test {
     reader_ = std::make_unique<ReaderBase>(
         *scopedPool_,
         std::make_unique<MemoryInputStream>(nullptr, 0),
-        std::move(ps),
+        std::make_unique<PostScript>(ps),
         footer,
         nullptr,
         std::move(handler));

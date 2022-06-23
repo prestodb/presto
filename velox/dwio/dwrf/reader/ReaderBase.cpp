@@ -23,6 +23,7 @@
 namespace facebook::velox::dwrf {
 
 using dwio::common::ColumnStatistics;
+using dwio::common::FileFormat;
 using dwio::common::InputStream;
 using dwio::common::LogType;
 using dwio::common::Statistics;
@@ -76,9 +77,22 @@ FooterStatisticsImpl::FooterStatisticsImpl(
 ReaderBase::ReaderBase(
     MemoryPool& pool,
     std::unique_ptr<InputStream> stream,
+    FileFormat fileFormat)
+    : ReaderBase(
+          pool,
+          std::move(stream),
+          nullptr,
+          nullptr,
+          kDefaultFileNum,
+          fileFormat) {}
+
+ReaderBase::ReaderBase(
+    MemoryPool& pool,
+    std::unique_ptr<InputStream> stream,
     std::shared_ptr<DecrypterFactory> decryptorFactory,
     std::shared_ptr<dwio::common::BufferedInputFactory> bufferedInputFactory,
-    uint64_t fileNum)
+    uint64_t fileNum,
+    FileFormat fileFormat)
     : pool_{pool},
       stream_{std::move(stream)},
       arena_(std::make_unique<google::protobuf::Arena>()),
@@ -118,11 +132,18 @@ ReaderBase::ReaderBase(
       fileLength_,
       "Corrupted file, Post script size is invalid");
 
-  postScript_ = ProtoUtils::readProto<proto::PostScript>(
-      input_->read(fileLength_ - psLength_ - 1, psLength_, LogType::FOOTER));
+  if (fileFormat == FileFormat::DWRF) {
+    auto postScript = ProtoUtils::readProto<proto::PostScript>(
+        input_->read(fileLength_ - psLength_ - 1, psLength_, LogType::FOOTER));
+    postScript_ = std::make_unique<PostScript>(*postScript);
+  } else {
+    auto postScript = ProtoUtils::readProto<proto::orc::PostScript>(
+        input_->read(fileLength_ - psLength_ - 1, psLength_, LogType::FOOTER));
+    postScript_ = std::make_unique<PostScript>(*postScript);
+  }
 
-  uint64_t footerSize = postScript_->footerlength();
-  uint64_t cacheSize = postScript_->cachesize();
+  uint64_t footerSize = postScript_->footerLength();
+  uint64_t cacheSize = postScript_->cacheSize();
   uint64_t tailSize = 1 + psLength_ + footerSize + cacheSize;
 
   // There are cases in warehouse, where RC/text files are stored
@@ -134,9 +155,14 @@ ReaderBase::ReaderBase(
       cacheSize, fileLength_, "Corrupted file, cache size is invalid");
   DWIO_ENSURE_LE(tailSize, fileLength_, "Corrupted file, tail size is invalid");
 
-  if (postScript_->has_compression()) {
+  if (getFileFormat() == FileFormat::DWRF) {
     DWIO_ENSURE(
         proto::CompressionKind_IsValid(postScript_->compression()),
+        "Corrupted File, invalid compression kind ",
+        postScript_->compression());
+  } else {
+    DWIO_ENSURE(
+        proto::orc::CompressionKind_IsValid(postScript_->compression()),
         "Corrupted File, invalid compression kind ",
         postScript_->compression());
   }
@@ -158,12 +184,13 @@ ReaderBase::ReaderBase(
 
   // load stripe index/footer cache
   if (cacheSize > 0) {
+    DWIO_ENSURE_EQ(getFileFormat(), FileFormat::DWRF);
     auto cacheBuffer =
         std::make_shared<dwio::common::DataBuffer<char>>(pool, cacheSize);
     input_->read(fileLength_ - tailSize, cacheSize, LogType::FOOTER)
         ->readFully(cacheBuffer->data(), cacheSize);
     cache_ = std::make_unique<StripeMetadataCache>(
-        *postScript_, *footer_, std::move(cacheBuffer));
+        postScript_->cacheMode(), *footer_, std::move(cacheBuffer));
   }
 
   if (input_->shouldPrefetchStripes()) {

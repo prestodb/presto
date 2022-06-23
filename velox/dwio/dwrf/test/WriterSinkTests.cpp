@@ -51,7 +51,7 @@ TEST_F(WriterSinkTests, Checksum) {
   MemorySink out{pool, 1024 + 3};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::CRC32);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::NA);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::NA);
   WriterSink sink{out, pool, config};
   auto offset = out.size();
 
@@ -93,7 +93,7 @@ TEST_F(WriterSinkTests, NoChecksum) {
   MemorySink out{pool, 1024 + 3};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::NA);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::NA);
   WriterSink sink{out, pool, config};
   auto offset = out.size();
 
@@ -110,7 +110,7 @@ TEST_F(WriterSinkTests, NoCache) {
   MemorySink out{pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::NA);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::NA);
   WriterSink sink{out, pool, config};
   auto offset = out.size();
 
@@ -135,7 +135,7 @@ TEST_F(WriterSinkTests, CacheIndex) {
   MemorySink out{pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::INDEX);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::INDEX);
   WriterSink sink{out, pool, config};
   auto offset = out.size();
 
@@ -178,7 +178,7 @@ TEST_F(WriterSinkTests, CacheFooter) {
   MemorySink out{pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::FOOTER);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::FOOTER);
   WriterSink sink{out, pool, config};
   auto offset = out.size();
 
@@ -221,7 +221,7 @@ TEST_F(WriterSinkTests, CacheBothEmptyIndex) {
   MemorySink out{pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::BOTH);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::BOTH);
   WriterSink sink{out, pool, config};
 
   sink.setMode(WriterSink::Mode::Index);
@@ -250,7 +250,7 @@ TEST_F(WriterSinkTests, CacheBoth) {
   MemorySink out{pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::BOTH);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::BOTH);
   WriterSink sink{out, pool, config};
   auto offset = out.size();
 
@@ -299,7 +299,7 @@ TEST_F(WriterSinkTests, CacheExceedsLimit) {
   MemorySink out{pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::BOTH);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::BOTH);
   config.set(Config::STRIPE_CACHE_SIZE, static_cast<uint32_t>(100));
 
   {
@@ -370,7 +370,7 @@ TEST_F(WriterSinkTests, CacheExceedsLimit) {
     ASSERT_EQ(sink.getCacheOffsets().size(), 1);
 
     sink.writeCache();
-    ASSERT_EQ(sink.getCacheMode(), proto::StripeCacheMode::BOTH);
+    ASSERT_EQ(sink.getCacheMode(), StripeCacheMode::BOTH);
     // Only data gets written.
     ASSERT_EQ(out.size() - offset, 90);
   }
@@ -413,7 +413,7 @@ TEST_F(WriterSinkTests, CacheExceedsLimit) {
     ASSERT_EQ(sink.getCacheSize(), 70);
 
     sink.writeCache();
-    ASSERT_EQ(sink.getCacheMode(), proto::StripeCacheMode::BOTH);
+    ASSERT_EQ(sink.getCacheMode(), StripeCacheMode::BOTH);
     ASSERT_EQ(out.size() - offset, 210);
   }
 }
@@ -424,7 +424,7 @@ TEST_F(WriterSinkTests, CacheLarge) {
   MemorySink out{pool, 10 * 1024 * 1024 + 3};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::BOTH);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::BOTH);
   WriterSink sink{out, pool, config};
   auto offset = out.size();
 
@@ -451,7 +451,7 @@ TEST_F(WriterSinkTests, SetModeOutOfOrder) {
   MemorySink out{pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::CRC32);
-  config.set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::BOTH);
+  config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::BOTH);
   WriterSink sink{out, pool, config};
 
   ASSERT_EQ(sink.getCacheSize(), 0);

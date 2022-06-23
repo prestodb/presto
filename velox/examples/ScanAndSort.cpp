@@ -185,7 +185,7 @@ int main(int argc, char** argv) {
   // above, the local file path (the "file:" prefix specifies which FileSystem
   // to use; local, in this case), and the file format (DWRF/ORC).
   auto connectorSplit = std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, "file:" + filePath, dwio::common::FileFormat::ORC);
+      kHiveConnectorId, "file:" + filePath, dwio::common::FileFormat::DWRF);
 
   // Wrap it in a `Split` object and add to the task. We need to specify to
   // which operator we're adding the split (that's why we captured the

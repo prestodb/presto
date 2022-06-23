@@ -16,25 +16,21 @@
 
 #pragma once
 
-#include <string>
+#include "velox/dwio/common/Adaptor.h"
 
-namespace facebook::velox::dwio::common {
+DIAGNOSTIC_PUSH
+DIAGNOSTIC_IGNORE("-Wconversion")
+DIAGNOSTIC_IGNORE("-Wdeprecated")
+DIAGNOSTIC_IGNORE("-Wsign-conversion")
+DIAGNOSTIC_IGNORE("-Wunused-parameter")
 
-enum CompressionKind {
-  CompressionKind_NONE = 0,
-  CompressionKind_ZLIB = 1,
-  CompressionKind_SNAPPY = 2,
-  CompressionKind_LZO = 3,
-  CompressionKind_ZSTD = 4,
-  CompressionKind_LZ4 = 5,
-  CompressionKind_MAX = INT64_MAX
-};
+#ifdef __clang__
+DIAGNOSTIC_IGNORE("-Wnested-anon-types")
+DIAGNOSTIC_IGNORE("-Wreserved-id-macro")
+DIAGNOSTIC_IGNORE("-Wshorten-64-to-32")
+DIAGNOSTIC_IGNORE("-Wweak-vtables")
+#endif
 
-/**
- * Get the name of the CompressionKind.
- */
-std::string compressionKindToString(CompressionKind kind);
+#include "velox/dwio/dwrf/proto/orc_proto.pb.h"
 
-constexpr uint64_t DEFAULT_COMPRESSION_BLOCK_SIZE = 256 * 1024;
-
-} // namespace facebook::velox::dwio::common
+DIAGNOSTIC_POP

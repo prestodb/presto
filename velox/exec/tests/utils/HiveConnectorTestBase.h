@@ -160,7 +160,7 @@ class HiveConnectorSplitBuilder {
 
  private:
   const std::string filePath_;
-  dwio::common::FileFormat fileFormat_{dwio::common::FileFormat::ORC};
+  dwio::common::FileFormat fileFormat_{dwio::common::FileFormat::DWRF};
   uint64_t start_{0};
   uint64_t length_{std::numeric_limits<uint64_t>::max()};
   std::unordered_map<std::string, std::optional<std::string>> partitionKeys_;

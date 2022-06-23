@@ -89,7 +89,7 @@ class Config {
   static Entry<bool> CREATE_INDEX;
   static Entry<uint32_t> ROW_INDEX_STRIDE;
   static Entry<proto::ChecksumAlgorithm> CHECKSUM_ALGORITHM;
-  static Entry<proto::StripeCacheMode> STRIPE_CACHE_MODE;
+  static Entry<StripeCacheMode> STRIPE_CACHE_MODE;
   static Entry<uint32_t> STRIPE_CACHE_SIZE;
   static Entry<uint32_t> DICTIONARY_ENCODING_INTERVAL;
   static Entry<bool> USE_VINTS;

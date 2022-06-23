@@ -1247,3 +1247,31 @@ TEST(TestReader, testBufferLifeCycle) {
     testBufferLifeCycle(schema, config, rng, batchSize, true);
   }
 }
+
+TEST(TestReader, testOrcReaderSimple) {
+  const std::string test1(
+      getExampleFilePath("TestStringDictionary.testRowIndex.orc"));
+  ReaderOptions readerOpts;
+  // To make DwrfReader reads ORC file, setFileFormat to FileFormat::ORC
+  readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
+  auto reader =
+      DwrfReader::create(std::make_unique<FileInputStream>(test1), readerOpts);
+
+  RowReaderOptions rowReaderOptions;
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  VectorPtr batch;
+  const std::string stringPrefix{"row "};
+  size_t rowNumber = 0;
+  while (rowReader->next(500, batch)) {
+    auto rowVector = batch->as<RowVector>();
+    auto strings = rowVector->childAt(0)->as<SimpleVector<StringView>>();
+    for (size_t i = 0; i < rowVector->size(); ++i) {
+      std::stringstream stream;
+      stream << std::setfill('0') << std::setw(6) << rowNumber;
+      EXPECT_EQ(stringPrefix + stream.str(), strings->valueAt(i).str());
+      rowNumber++;
+    }
+  }
+  EXPECT_EQ(rowNumber, 32768);
+}

@@ -116,16 +116,13 @@ TEST_F(WriterTest, WriteFooter) {
   auto reader = std::make_unique<ReaderBase>(pool, std::move(input));
 
   auto& ps = reader->getPostScript();
-  ASSERT_TRUE(ps.has_writerversion());
   ASSERT_EQ(reader->getWriterVersion(), config->get(Config::WRITER_VERSION));
-  ASSERT_TRUE(ps.has_compression());
   ASSERT_EQ(reader->getCompressionKind(), config->get(Config::COMPRESSION));
-  ASSERT_TRUE(ps.has_compressionblocksize());
   ASSERT_EQ(
       reader->getCompressionBlockSize(),
       config->get(Config::COMPRESSION_BLOCK_SIZE));
-  ASSERT_EQ(ps.cachesize(), (10 + 10) * 3);
-  ASSERT_EQ(ps.cachemode(), config->get(Config::STRIPE_CACHE_MODE));
+  ASSERT_EQ(ps.cacheSize(), (10 + 10) * 3);
+  ASSERT_EQ(ps.cacheMode(), config->get(Config::STRIPE_CACHE_MODE));
 
   auto& footer = reader->getFooter();
   ASSERT_TRUE(footer.has_headerlength());
@@ -165,8 +162,8 @@ TEST_F(WriterTest, WriteFooter) {
       footer.stripecacheoffsets(), ElementsAre(0, 10, 20, 30, 40, 50, 60));
   auto& cache = reader->getMetadataCache();
   for (size_t i = 0; i < 3; ++i) {
-    ASSERT_TRUE(cache->has(proto::StripeCacheMode::INDEX, i));
-    ASSERT_TRUE(cache->has(proto::StripeCacheMode::FOOTER, i));
+    ASSERT_TRUE(cache->has(StripeCacheMode::INDEX, i));
+    ASSERT_TRUE(cache->has(StripeCacheMode::FOOTER, i));
   }
 }
 
@@ -226,7 +223,7 @@ TEST_F(WriterTest, NoChecksum) {
 
 TEST_F(WriterTest, NoCache) {
   auto config = std::make_shared<Config>();
-  config->set(Config::STRIPE_CACHE_MODE, proto::StripeCacheMode::NA);
+  config->set(Config::STRIPE_CACHE_MODE, StripeCacheMode::NA);
   auto& writer = createWriter(config);
 
   std::array<char, 512> data;
@@ -258,10 +255,8 @@ TEST_F(WriterTest, NoCache) {
   auto& footer = reader->getFooter();
   ASSERT_EQ(footer.stripecacheoffsets_size(), 0);
   auto& ps = reader->getPostScript();
-  ASSERT_TRUE(ps.has_cachemode());
-  ASSERT_EQ(ps.cachemode(), proto::StripeCacheMode::NA);
-  ASSERT_TRUE(ps.has_cachesize());
-  ASSERT_EQ(ps.cachesize(), 0);
+  ASSERT_EQ(ps.cacheMode(), StripeCacheMode::NA);
+  ASSERT_EQ(ps.cacheSize(), 0);
   ASSERT_EQ(reader->getMetadataCache(), nullptr);
 }
 

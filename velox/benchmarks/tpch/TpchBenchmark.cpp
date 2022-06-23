@@ -41,7 +41,7 @@ static bool notEmpty(const char* /*flagName*/, const std::string& value) {
 }
 
 static bool validateDataFormat(const char* flagname, const std::string& value) {
-  if ((value.compare("parquet") == 0) || (value.compare("orc") == 0)) {
+  if ((value.compare("parquet") == 0) || (value.compare("dwrf") == 0)) {
     return true;
   }
   std::cout

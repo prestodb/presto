@@ -361,8 +361,15 @@ IntegerDirectColumnReader<ReqT>::IntegerDirectColumnReader(
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
-  ints = IntDecoder</*isSigned*/ true>::createDirect(
-      stripe.getStream(data, true), dataVInts, numBytes);
+  if (stripe.getFormat() == dwio::common::FileFormat::DWRF) {
+    ints = IntDecoder</*isSigned*/ true>::createDirect(
+        stripe.getStream(data, true), dataVInts, numBytes);
+  } else {
+    auto encoding = stripe.getEncoding(encodingKey);
+    RleVersion vers = convertRleVersion(encoding.kind());
+    ints = IntDecoder</*isSigned*/ true>::createRle(
+        stripe.getStream(data, true), vers, memoryPool_, dataVInts, numBytes);
+  }
 }
 
 template <class ReqT>
