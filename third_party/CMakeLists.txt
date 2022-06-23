@@ -12,8 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include(ExternalProject)
+
 if(NOT VELOX_DISABLE_GOOGLETEST)
   add_subdirectory(googletest)
 endif()
 
 add_subdirectory(xsimd)
+
+if(VELOX_ENABLE_ARROW)
+  set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep")
+  set(ARROW_CMAKE_ARGS
+      -DARROW_PARQUET=ON -DARROW_JEMALLOC=OFF -DARROW_SIMD_LEVEL=NONE
+      -DARROW_RUNTIME_SIMD_LEVEL=NONE
+      -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}/install -DARROW_BUILD_STATIC=ON)
+  set(ARROW_LIBARROW ${ARROW_PREFIX}/install/lib/libarrow.a)
+  set(ARROW_LIBPARQUET ${ARROW_PREFIX}/install/lib/libparquet.a)
+  ExternalProject_Add(
+    arrow_ep
+    PREFIX ${ARROW_PREFIX}
+    URL "https://dlcdn.apache.org/arrow/arrow-8.0.0/apache-arrow-8.0.0.tar.gz"
+    SOURCE_SUBDIR cpp
+    CMAKE_ARGS ${ARROW_CMAKE_ARGS}
+    BUILD_BYPRODUCTS ${ARROW_LIBARROW} ${ARROW_LIBPARQUET})
+  add_library(arrow STATIC IMPORTED GLOBAL)
+  add_library(parquet STATIC IMPORTED GLOBAL)
+  add_dependencies(arrow arrow_ep)
+  add_dependencies(parquet arrow)
+  file(MAKE_DIRECTORY ${ARROW_PREFIX}/install/include)
+  set_target_properties(
+    arrow parquet PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                             ${ARROW_PREFIX}/install/include)
+  set_target_properties(arrow PROPERTIES IMPORTED_LOCATION ${ARROW_LIBARROW})
+  set_target_properties(parquet PROPERTIES IMPORTED_LOCATION
+                                           ${ARROW_LIBPARQUET})
+endif()
