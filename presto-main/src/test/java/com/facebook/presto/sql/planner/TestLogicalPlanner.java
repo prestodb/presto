@@ -506,8 +506,7 @@ public class TestLogicalPlanner
                         join(INNER, ImmutableList.of(),
                                 filter("orderkey = BIGINT '1'",
                                         tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))),
-                                anyTree(
-                                        project(ImmutableMap.of("orderkey", expression("1")), any())))));
+                                        values())));
     }
 
     @Test
@@ -517,13 +516,13 @@ public class TestLogicalPlanner
         assertEquals(
                 countOfMatchingNodes(
                         plan("SELECT * FROM orders WHERE CAST(orderkey AS INTEGER) = (SELECT 1) AND custkey = (SELECT 2) AND CAST(custkey as REAL) != (SELECT 1)"),
-                        EnforceSingleRowNode.class::isInstance),
+                        ValuesNode.class::isInstance),
                 2);
         // same query used for left, right and complex join condition
         assertEquals(
                 countOfMatchingNodes(
                         plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 2)"),
-                        EnforceSingleRowNode.class::isInstance),
+                        ValuesNode.class::isInstance),
                 2);
     }
 
@@ -1536,6 +1535,18 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         tableScan("orders")))));
+    }
+
+    @Test
+    public void testRemoveRedundantEnforceSingleRowNode()
+    {
+        String query = "SELECT * FROM orders WHERE orderkey = (SELECT max(orderkey) FROM lineitem)";
+
+        assertFalse(
+                searchFrom(plan(query, OPTIMIZED).getRoot())
+                        .where(isInstanceOfAny(EnforceSingleRowNode.class))
+                        .matches(),
+                format("Unexpected EnforceSingleRow node for query: '%s'", query));
     }
 
     @Test

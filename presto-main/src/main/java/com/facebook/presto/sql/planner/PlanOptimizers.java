@@ -95,6 +95,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantAggregateDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantEnforceSingleRowNode;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantLimit;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSort;
@@ -447,6 +448,7 @@ public class PlanOptimizers
                                 new RemoveRedundantSort(),
                                 new RemoveRedundantLimit(),
                                 new RemoveRedundantDistinctLimit(),
+                                new RemoveRedundantEnforceSingleRowNode(),
                                 new RemoveRedundantAggregateDistinct(),
                                 new RemoveRedundantIdentityProjections(),
                                 new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()))),
