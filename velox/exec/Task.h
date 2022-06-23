@@ -199,6 +199,7 @@ class Task : public std::enable_shared_from_this<Task> {
 
   /// Returns task execution error or nullptr if no error occurred.
   std::exception_ptr error() const {
+    std::lock_guard<std::mutex> l(mutex_);
     return exception_;
   }
 

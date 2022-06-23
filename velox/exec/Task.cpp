@@ -1419,6 +1419,7 @@ void Task::setError(const std::string& message) {
 }
 
 std::string Task::errorMessage() const {
+  std::lock_guard<std::mutex> l(mutex_);
   if (!exception_) {
     return "";
   }
