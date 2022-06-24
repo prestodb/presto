@@ -36,6 +36,7 @@ add_executable(
   PrestoHasherTest.cpp
   SumTest.cpp
   MapAggTest.cpp
+  MapUnionAggregationTest.cpp
   ValueListTest.cpp
   VarianceAggregationTest.cpp)
 

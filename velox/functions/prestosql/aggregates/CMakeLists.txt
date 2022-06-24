@@ -31,6 +31,9 @@ add_library(
   ChecksumAggregate.cpp
   HistogramAggregate.cpp
   MapAggAggregate.cpp
+  MapAggregateBase.h
+  MapAggregateBase.cpp
+  MapUnionAggregate.cpp
   MinMaxAggregates.cpp
   MinMaxByAggregates.cpp
   CountAggregate.cpp
