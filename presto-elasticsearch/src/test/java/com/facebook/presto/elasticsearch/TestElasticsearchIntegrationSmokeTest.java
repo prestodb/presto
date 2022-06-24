@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.tpch.TpchTable;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
