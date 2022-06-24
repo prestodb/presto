@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.parallel>classes</air.test.parallel>
     </properties>
 
     <dependencies>
