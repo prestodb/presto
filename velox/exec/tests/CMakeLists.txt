@@ -16,6 +16,7 @@ add_subdirectory(utils)
 add_executable(
   velox_exec_test
   AssertQueryBuilderTest.cpp
+  AsyncConnectorTest.cpp
   AggregationTest.cpp
   AggregateFunctionRegistryTest.cpp
   AssignUniqueIdTest.cpp

@@ -136,7 +136,9 @@ void TpchDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   splitEnd_ = splitOffset_ + partSize;
 }
 
-RowVectorPtr TpchDataSource::next(uint64_t size) {
+std::optional<RowVectorPtr> TpchDataSource::next(
+    uint64_t size,
+    velox::ContinueFuture& /*future*/) {
   VELOX_CHECK_NOT_NULL(
       currentSplit_, "No split to process. Call addSplit() first.");
 

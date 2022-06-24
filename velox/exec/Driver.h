@@ -124,7 +124,8 @@ enum class BlockingReason {
   kWaitForSplit,
   kWaitForExchange,
   kWaitForJoinBuild,
-  kWaitForMemory
+  kWaitForMemory,
+  kWaitForConnector,
 };
 
 std::string blockingReasonToString(BlockingReason reason);

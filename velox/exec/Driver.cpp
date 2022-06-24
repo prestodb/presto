@@ -636,6 +636,8 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kWaitForJoinBuild";
     case BlockingReason::kWaitForMemory:
       return "kWaitForMemory";
+    case BlockingReason::kWaitForConnector:
+      return "kWaitForConnector";
   }
   VELOX_UNREACHABLE();
   return "";

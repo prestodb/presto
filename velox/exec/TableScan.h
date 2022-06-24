@@ -32,7 +32,7 @@ class TableScan : public SourceOperator {
   BlockingReason isBlocked(ContinueFuture* future) override {
     if (blockingFuture_.valid()) {
       *future = std::move(blockingFuture_);
-      return BlockingReason::kWaitForSplit;
+      return blockingReason_;
     }
     return BlockingReason::kNotBlocked;
   }
@@ -59,6 +59,7 @@ class TableScan : public SourceOperator {
           columnHandles_;
   DriverCtx* driverCtx_;
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
+  BlockingReason blockingReason_;
   bool needNewSplit_ = true;
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;

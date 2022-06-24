@@ -17,6 +17,7 @@
 
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/caching/ScanTracker.h"
+#include "velox/common/future/VeloxPromise.h"
 #include "velox/core/Context.h"
 #include "velox/vector/ComplexVector.h"
 
@@ -111,8 +112,13 @@ class DataSource {
   virtual void addSplit(std::shared_ptr<ConnectorSplit> split) = 0;
 
   // Process a split added via addSplit. Returns nullptr if split has been fully
-  // processed.
-  virtual RowVectorPtr next(uint64_t size) = 0;
+  // processed. Returns std::nullopt and sets the 'future' if started
+  // asynchronous work and needs to wait for it to complete to continue
+  // processing. The caller will wait for the 'future' to complete before
+  // calling 'next' again.
+  virtual std::optional<RowVectorPtr> next(
+      uint64_t size,
+      velox::ContinueFuture& future) = 0;
 
   // Add dynamically generated filter.
   // @param outputChannel index into outputType specified in
@@ -139,9 +145,6 @@ class DataSource {
   virtual int64_t estimatedRowSize() {
     return kUnknownRowSize;
   }
-
-  // TODO Allow DataSource to indicate that it is blocked (say waiting for IO)
-  // to avoid holding up the thread.
 };
 
 // Exposes expression evaluation functionality of the engine to the connector.
@@ -236,13 +239,8 @@ class Connector {
     return false;
   }
 
-  // TODO Generalize to specify TableHandle/Layout and ColumnHandles.
-  // We should basically aim to match the interface defined at
-  // https://github.com/prestodb/presto/blob/master/presto-main/src/main/
-  //      java/com/facebook/presto/split/PageSourceProvider.java
-  // except that the split should NOT be part of the signature.
   virtual std::shared_ptr<DataSource> createDataSource(
-      const std::shared_ptr<const RowType>& outputType,
+      const RowTypePtr& outputType,
       const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
       const std::unordered_map<
           std::string,
@@ -250,7 +248,7 @@ class Connector {
       ConnectorQueryCtx* connectorQueryCtx) = 0;
 
   virtual std::shared_ptr<DataSink> createDataSink(
-      std::shared_ptr<const RowType> inputType,
+      RowTypePtr inputType,
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
       ConnectorQueryCtx* connectorQueryCtx) = 0;
 

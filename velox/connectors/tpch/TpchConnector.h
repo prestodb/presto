@@ -83,7 +83,8 @@ class TpchDataSource : public DataSource {
     VELOX_NYI("Dynamic filters not supported by TpchConnector.");
   }
 
-  RowVectorPtr next(uint64_t size) override;
+  std::optional<RowVectorPtr> next(uint64_t size, velox::ContinueFuture& future)
+      override;
 
   uint64_t getCompletedRows() override {
     return completedRows_;
