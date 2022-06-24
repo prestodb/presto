@@ -60,10 +60,11 @@ class RowVector : public BaseVector {
     const auto* rowType = dynamic_cast<const RowType*>(type.get());
 
     // Check child vector types.
+    // This can be an expensive operation, so it's only done at debug time.
     for (auto i = 0; i < children_.size(); i++) {
       const auto& child = children_[i];
       if (child) {
-        VELOX_CHECK(
+        VELOX_DCHECK(
             child->type()->kindEquals(type->childAt(i)),
             "Got type {} for field `{}` at position {}, but expected {}.",
             child->type()->toString(),
