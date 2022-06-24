@@ -25,14 +25,14 @@ import static org.testng.Assert.fail;
 // This test sets the System property.
 // Other tests read the system property and can't be run safely
 // This test needs to be rewritten to work with testng 7.0+
-@Test(enabled = false)
+@Test (enabled = false)
 public class TestKuduIntegrationSchemaNotExisting
         extends AbstractTestQueryFramework
 {
-    private static String oldPrefix;
     private QueryRunner queryRunner;
 
     private static final String SCHEMA_NAME = "test_presto_schema";
+    private static final String SCHEMA_EMULATION_PREFIX_PROPERTY = "kudu.schema-emulation.prefix";
 
     private static final String CREATE_SCHEMA = "create schema kudu." + SCHEMA_NAME;
 
@@ -52,18 +52,17 @@ public class TestKuduIntegrationSchemaNotExisting
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        oldPrefix = System.getProperty("kudu.schema-emulation.prefix");
-        System.setProperty("kudu.schema-emulation.prefix", "");
+        System.setProperty(SCHEMA_EMULATION_PREFIX_PROPERTY, "");
         try {
             return KuduQueryRunnerFactory.createKuduQueryRunner("test_dummy");
         }
         catch (Throwable t) {
-            System.setProperty("kudu.schema-emulation.prefix", oldPrefix);
+            removeOldPrefix();
             throw t;
         }
     }
 
-    @Test
+    @Test (enabled = false)
     public void testCreateTableWithoutSchema()
     {
         try {
@@ -87,12 +86,16 @@ public class TestKuduIntegrationSchemaNotExisting
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        System.setProperty("kudu.schema-emulation.prefix", oldPrefix);
         if (queryRunner != null) {
             queryRunner.execute(DROP_TABLE);
             queryRunner.execute(DROP_SCHEMA);
             queryRunner.close();
             queryRunner = null;
         }
+    }
+
+    private void removeOldPrefix()
+    {
+        System.clearProperty(SCHEMA_EMULATION_PREFIX_PROPERTY);
     }
 }
