@@ -101,7 +101,7 @@ TEST_F(SumTest, sumWithMask) {
           {INTEGER(), TINYINT(), BIGINT(), BIGINT(), INTEGER()});
   auto vectors = makeVectors(rowType, 100, 10);
 
-  std::shared_ptr<core::PlanNode> op;
+  core::PlanNodePtr op;
   createDuckDbTable(vectors);
 
   // Aggregations 0 and 1 will use the same channel, but different masks.

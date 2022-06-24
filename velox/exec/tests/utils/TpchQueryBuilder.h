@@ -23,7 +23,7 @@ namespace facebook::velox::exec::test {
 /// Contains the query plan and input data files keyed on source plan node ID.
 /// All data files use the same file format specified in 'dataFileFormat'.
 struct TpchPlan {
-  std::shared_ptr<core::PlanNode> plan;
+  core::PlanNodePtr plan;
   std::unordered_map<core::PlanNodeId, std::vector<std::string>> dataFiles;
   dwio::common::FileFormat dataFileFormat;
 };

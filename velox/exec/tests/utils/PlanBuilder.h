@@ -455,7 +455,7 @@ class PlanBuilder {
   /// ASC NULLS LAST and column "b" will use DESC NULLS LAST.
   PlanBuilder& localMerge(
       const std::vector<std::string>& keys,
-      std::vector<std::shared_ptr<const core::PlanNode>> sources);
+      std::vector<core::PlanNodePtr> sources);
 
   /// Adds an OrderByNode using specified ORDER BY clauses.
   ///
@@ -554,7 +554,13 @@ class PlanBuilder {
   /// names for the input columns.
   PlanBuilder& localPartition(
       const std::vector<std::string>& keys,
-      const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
+      const std::vector<core::PlanNodePtr>& sources,
+      const std::vector<std::string>& outputLayout = {});
+
+  /// A convenience method to add a LocalPartitionNode with a single source (the
+  /// current plan node).
+  PlanBuilder& localPartition(
+      const std::vector<std::string>& keys,
       const std::vector<std::string>& outputLayout = {});
 
   /// Add a LocalPartitionNode to partition the input using row-wise
@@ -568,7 +574,7 @@ class PlanBuilder {
   /// duplicated in the output. Supports "col AS alias" syntax to change the
   /// names for the input columns.
   PlanBuilder& localPartitionRoundRobin(
-      const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
+      const std::vector<core::PlanNodePtr>& sources,
       const std::vector<std::string>& outputLayout = {});
 
   /// Add a HashJoinNode to join two inputs using one or more join keys and an
@@ -589,7 +595,7 @@ class PlanBuilder {
   PlanBuilder& hashJoin(
       const std::vector<std::string>& leftKeys,
       const std::vector<std::string>& rightKeys,
-      const std::shared_ptr<core::PlanNode>& build,
+      const core::PlanNodePtr& build,
       const std::string& filter,
       const std::vector<std::string>& outputLayout,
       core::JoinType joinType = core::JoinType::kInner);
@@ -603,7 +609,7 @@ class PlanBuilder {
   PlanBuilder& mergeJoin(
       const std::vector<std::string>& leftKeys,
       const std::vector<std::string>& rightKeys,
-      const std::shared_ptr<core::PlanNode>& build,
+      const core::PlanNodePtr& build,
       const std::string& filter,
       const std::vector<std::string>& outputLayout,
       core::JoinType joinType = core::JoinType::kInner);
@@ -617,7 +623,7 @@ class PlanBuilder {
   /// @param outputLayout Output layout consisting of columns from left and
   /// right sides.
   PlanBuilder& crossJoin(
-      const std::shared_ptr<core::PlanNode>& right,
+      const core::PlanNodePtr& right,
       const std::vector<std::string>& outputLayout);
 
   /// Add an UnnestNode to unnest one or more columns of type array or map.
@@ -653,7 +659,7 @@ class PlanBuilder {
   }
 
   /// Return the latest plan node, e.g. the root node of the plan tree.
-  const std::shared_ptr<core::PlanNode>& planNode() const {
+  const core::PlanNodePtr& planNode() const {
     return planNode_;
   }
 
@@ -664,9 +670,9 @@ class PlanBuilder {
 
   /// Add a user-defined PlanNode as the root of the plan. 'func' takes
   /// the current root of the plan and returns the new root.
-  PlanBuilder& addNode(std::function<std::shared_ptr<core::PlanNode>(
-                           std::string nodeId,
-                           std::shared_ptr<const core::PlanNode>)> func) {
+  PlanBuilder& addNode(
+      std::function<core::PlanNodePtr(std::string nodeId, core::PlanNodePtr)>
+          func) {
     planNode_ = func(nextPlanNodeId(), planNode_);
     return *this;
   }
@@ -704,7 +710,7 @@ class PlanBuilder {
       const RowTypePtr& inputType,
       const std::string& name);
 
-  std::shared_ptr<core::PlanNode> createIntermediateOrFinalAggregation(
+  core::PlanNodePtr createIntermediateOrFinalAggregation(
       core::AggregationNode::Step step,
       const core::AggregationNode* partialAggNode);
 
@@ -727,7 +733,7 @@ class PlanBuilder {
       const std::vector<std::string>& masks);
 
   std::shared_ptr<PlanNodeIdGenerator> planNodeIdGenerator_;
-  std::shared_ptr<core::PlanNode> planNode_;
+  core::PlanNodePtr planNode_;
   memory::MemoryPool* pool_;
 };
 } // namespace facebook::velox::exec::test

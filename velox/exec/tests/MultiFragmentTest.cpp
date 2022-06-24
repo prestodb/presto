@@ -124,7 +124,7 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
   setupSources(10, 1000);
   std::vector<std::shared_ptr<Task>> tasks;
   auto leafTaskId = makeTaskId("leaf", 0);
-  std::shared_ptr<core::PlanNode> partialAggPlan;
+  core::PlanNodePtr partialAggPlan;
   {
     partialAggPlan = PlanBuilder()
                          .tableScan(rowType_)
@@ -139,7 +139,7 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
     addHiveSplits(leafTask, filePaths_);
   }
 
-  std::shared_ptr<core::PlanNode> finalAggPlan;
+  core::PlanNodePtr finalAggPlan;
   std::vector<std::string> finalAggTaskIds;
   for (int i = 0; i < 3; i++) {
     finalAggPlan = PlanBuilder()
@@ -165,7 +165,7 @@ TEST_F(MultiFragmentTest, aggregationMultiKey) {
   setupSources(10, 1'000);
   std::vector<std::shared_ptr<Task>> tasks;
   auto leafTaskId = makeTaskId("leaf", 0);
-  std::shared_ptr<core::PlanNode> partialAggPlan;
+  core::PlanNodePtr partialAggPlan;
   {
     partialAggPlan = PlanBuilder()
                          .tableScan(rowType_)
@@ -180,7 +180,7 @@ TEST_F(MultiFragmentTest, aggregationMultiKey) {
     addHiveSplits(leafTask, filePaths_);
   }
 
-  std::shared_ptr<core::PlanNode> finalAggPlan;
+  core::PlanNodePtr finalAggPlan;
   std::vector<std::string> finalAggTaskIds;
   for (int i = 0; i < 3; i++) {
     finalAggPlan = PlanBuilder()
@@ -210,7 +210,7 @@ TEST_F(MultiFragmentTest, distributedTableScan) {
   for (int i = 0; i < 3; ++i) {
     std::vector<std::shared_ptr<Task>> tasks;
     auto leafTaskId = makeTaskId("leaf", 0);
-    std::shared_ptr<core::PlanNode> leafPlan;
+    core::PlanNodePtr leafPlan;
     {
       PlanBuilder builder;
       leafPlan = builder.tableScan(rowType_)
@@ -376,7 +376,7 @@ TEST_F(MultiFragmentTest, broadcast) {
   Task::start(leafTask, 1);
 
   // Make next stage tasks.
-  std::shared_ptr<core::PlanNode> finalAggPlan;
+  core::PlanNodePtr finalAggPlan;
   std::vector<std::string> finalAggTaskIds;
   for (int i = 0; i < 3; i++) {
     finalAggPlan = PlanBuilder()
@@ -424,7 +424,7 @@ TEST_F(MultiFragmentTest, replicateNullsAndAny) {
   addTask(leafTask, {});
 
   // Make next stage tasks to count nulls.
-  std::shared_ptr<core::PlanNode> finalAggPlan;
+  core::PlanNodePtr finalAggPlan;
   std::vector<std::string> finalAggTaskIds;
   for (int i = 0; i < 3; i++) {
     finalAggPlan =
@@ -477,13 +477,9 @@ TEST_F(MultiFragmentTest, limit) {
       "0", exec::Split(makeHiveConnectorSplit(file->path)));
 
   // Make final task: Exchange -> FinalLimit(1).
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-  auto plan = PlanBuilder(planNodeIdGenerator)
-                  .localPartition(
-                      {},
-                      {PlanBuilder(planNodeIdGenerator)
-                           .exchange(leafPlan->outputType())
-                           .planNode()})
+  auto plan = PlanBuilder()
+                  .exchange(leafPlan->outputType())
+                  .localPartition({})
                   .limit(0, 10, false)
                   .planNode();
 

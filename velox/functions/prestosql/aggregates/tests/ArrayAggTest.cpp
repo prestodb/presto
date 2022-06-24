@@ -81,14 +81,10 @@ TEST_F(ArrayAggTest, groupBy) {
   }
 
   // Add local exchange before intermediate aggregation. Expect the same result.
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-  params.planNode = PlanBuilder(planNodeIdGenerator)
-                        .localPartition(
-                            {"c0"},
-                            {PlanBuilder(planNodeIdGenerator)
-                                 .values(batches)
-                                 .partialAggregation({"c0"}, {"array_agg(A)"})
-                                 .planNode()})
+  params.planNode = PlanBuilder()
+                        .values(batches)
+                        .partialAggregation({"c0"}, {"array_agg(A)"})
+                        .localPartition({"c0"})
                         .intermediateAggregation()
                         .planNode();
   params.maxDrivers = 2;

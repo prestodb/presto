@@ -108,7 +108,7 @@ TEST_F(AssignUniqueIdTest, maxRowIdLimit) {
 
   auto plan = PlanBuilder().values(input).assignUniqueId().planNode();
   // Increase the counter to kMaxRowId.
-  std::dynamic_pointer_cast<core::AssignUniqueIdNode>(plan)
+  std::dynamic_pointer_cast<const core::AssignUniqueIdNode>(plan)
       ->uniqueIdCounter()
       ->fetch_add(1L << 40);
 

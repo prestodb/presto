@@ -47,7 +47,7 @@ class PlanNodeToStringTest : public testing::Test, public test::VectorTestBase {
   }
 
   RowVectorPtr data_;
-  std::shared_ptr<core::PlanNode> plan_;
+  core::PlanNodePtr plan_;
 };
 
 TEST_F(PlanNodeToStringTest, basic) {
@@ -383,19 +383,14 @@ TEST_F(PlanNodeToStringTest, unnest) {
 }
 
 TEST_F(PlanNodeToStringTest, localPartition) {
-  auto plan =
-      PlanBuilder()
-          .localPartition({"c0"}, {PlanBuilder().values({data_}).planNode()})
-          .planNode();
+  auto plan = PlanBuilder().values({data_}).localPartition({"c0"}).planNode();
 
   ASSERT_EQ("-- LocalPartition\n", plan->toString());
   ASSERT_EQ(
       "-- LocalPartition[REPARTITION] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
       plan->toString(true, false));
 
-  plan = PlanBuilder()
-             .localPartition({}, {PlanBuilder().values({data_}).planNode()})
-             .planNode();
+  plan = PlanBuilder().values({data_}).localPartition({}).planNode();
 
   ASSERT_EQ("-- LocalPartition\n", plan->toString());
   ASSERT_EQ(

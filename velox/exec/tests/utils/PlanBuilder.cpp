@@ -410,8 +410,7 @@ class AggregateTypeResolver {
 
 } // namespace
 
-std::shared_ptr<core::PlanNode>
-PlanBuilder::createIntermediateOrFinalAggregation(
+core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
     core::AggregationNode::Step step,
     const core::AggregationNode* partialAggNode) {
   // Create intermediate or final aggregation using same grouping keys and same
@@ -637,7 +636,7 @@ PlanBuilder& PlanBuilder::groupId(
 
 PlanBuilder& PlanBuilder::localMerge(
     const std::vector<std::string>& keys,
-    std::vector<std::shared_ptr<const core::PlanNode>> sources) {
+    std::vector<core::PlanNodePtr> sources) {
   VELOX_CHECK_NULL(planNode_, "localMerge() must be the first call");
   VELOX_CHECK_GE(
       sources.size(), 1, "localMerge() requires at least one source");
@@ -763,7 +762,7 @@ struct LocalPartitionTypes {
 };
 
 LocalPartitionTypes genLocalPartitionTypes(
-    const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
+    const std::vector<core::PlanNodePtr>& sources,
     const std::vector<std::string>& outputLayout) {
   LocalPartitionTypes ret;
   auto inputType = sources[0]->outputType();
@@ -797,7 +796,26 @@ LocalPartitionTypes genLocalPartitionTypes(
       : rename(ret.inputTypeFromSource, outputAliases);
 
   return ret;
-};
+}
+
+core::PlanNodePtr createLocalPartitionNode(
+    const core::PlanNodeId& planNodeId,
+    const std::vector<std::string>& keys,
+    const std::vector<core::PlanNodePtr>& sources,
+    const std::vector<std::string>& outputLayout) {
+  auto types = genLocalPartitionTypes(sources, outputLayout);
+
+  auto partitionFunctionFactory =
+      createPartitionFunctionFactory(sources[0]->outputType(), keys);
+  return std::make_shared<core::LocalPartitionNode>(
+      planNodeId,
+      keys.empty() ? core::LocalPartitionNode::Type::kGather
+                   : core::LocalPartitionNode::Type::kRepartition,
+      partitionFunctionFactory,
+      types.outputType,
+      sources,
+      types.inputTypeFromSource);
+}
 } // namespace
 
 PlanBuilder& PlanBuilder::partitionedOutput(
@@ -841,27 +859,24 @@ PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
 
 PlanBuilder& PlanBuilder::localPartition(
     const std::vector<std::string>& keys,
-    const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
+    const std::vector<core::PlanNodePtr>& sources,
     const std::vector<std::string>& outputLayout) {
   VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
+  planNode_ =
+      createLocalPartitionNode(nextPlanNodeId(), keys, sources, outputLayout);
+  return *this;
+}
 
-  auto types = genLocalPartitionTypes(sources, outputLayout);
-
-  auto partitionFunctionFactory =
-      createPartitionFunctionFactory(sources[0]->outputType(), keys);
-  planNode_ = std::make_shared<core::LocalPartitionNode>(
-      nextPlanNodeId(),
-      keys.empty() ? core::LocalPartitionNode::Type::kGather
-                   : core::LocalPartitionNode::Type::kRepartition,
-      partitionFunctionFactory,
-      types.outputType,
-      sources,
-      types.inputTypeFromSource);
+PlanBuilder& PlanBuilder::localPartition(
+    const std::vector<std::string>& keys,
+    const std::vector<std::string>& outputLayout) {
+  planNode_ = createLocalPartitionNode(
+      nextPlanNodeId(), keys, {planNode_}, outputLayout);
   return *this;
 }
 
 PlanBuilder& PlanBuilder::localPartitionRoundRobin(
-    const std::vector<std::shared_ptr<const core::PlanNode>>& sources,
+    const std::vector<core::PlanNodePtr>& sources,
     const std::vector<std::string>& outputLayout) {
   VELOX_CHECK_NULL(
       planNode_, "localPartitionRoundRobin() must be the first call");
@@ -885,7 +900,7 @@ PlanBuilder& PlanBuilder::localPartitionRoundRobin(
 PlanBuilder& PlanBuilder::hashJoin(
     const std::vector<std::string>& leftKeys,
     const std::vector<std::string>& rightKeys,
-    const std::shared_ptr<facebook::velox::core::PlanNode>& build,
+    const core::PlanNodePtr& build,
     const std::string& filter,
     const std::vector<std::string>& outputLayout,
     core::JoinType joinType) {
@@ -917,7 +932,7 @@ PlanBuilder& PlanBuilder::hashJoin(
 PlanBuilder& PlanBuilder::mergeJoin(
     const std::vector<std::string>& leftKeys,
     const std::vector<std::string>& rightKeys,
-    const std::shared_ptr<facebook::velox::core::PlanNode>& build,
+    const core::PlanNodePtr& build,
     const std::string& filter,
     const std::vector<std::string>& outputLayout,
     core::JoinType joinType) {
@@ -947,7 +962,7 @@ PlanBuilder& PlanBuilder::mergeJoin(
 }
 
 PlanBuilder& PlanBuilder::crossJoin(
-    const std::shared_ptr<core::PlanNode>& right,
+    const core::PlanNodePtr& right,
     const std::vector<std::string>& outputLayout) {
   auto resultType = concat(planNode_->outputType(), right->outputType());
   auto outputType = extract(resultType, outputLayout);

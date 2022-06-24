@@ -81,12 +81,11 @@ class TableScanTest : public virtual HiveConnectorTestBase {
     return HiveConnectorTestBase::assertQuery(plan, filePaths, duckDbSql);
   }
 
-  std::shared_ptr<facebook::velox::core::PlanNode> tableScanNode() {
+  core::PlanNodePtr tableScanNode() {
     return PlanBuilder().tableScan(rowType_).planNode();
   }
 
-  static std::shared_ptr<facebook::velox::core::PlanNode> tableScanNode(
-      const RowTypePtr& outputType) {
+  static core::PlanNodePtr tableScanNode(const RowTypePtr& outputType) {
     return PlanBuilder().tableScan(outputType).planNode();
   }
 
