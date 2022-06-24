@@ -83,9 +83,6 @@ public class TestHiveRecoverableExecution
     public void setUp()
             throws Exception
     {
-        if (Thread.currentThread().isInterrupted()) {
-            Thread.interrupted();
-        }
         queryRunner = createQueryRunner();
         executor = listeningDecorator(newCachedThreadPool());
     }
