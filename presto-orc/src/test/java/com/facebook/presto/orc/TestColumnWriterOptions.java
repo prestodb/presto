@@ -43,6 +43,7 @@ public class TestColumnWriterOptions
         int preserveDirectEncodingStripeCount = 27;
         CompressionBufferPool compressionBufferPool = new CompressionBufferPool.LastUsedCompressionBufferPool();
         Set<Integer> flattenedNodes = ImmutableSet.of(1, 5);
+        boolean mapStatisticsEnabled = true;
 
         ColumnWriterOptions options = ColumnWriterOptions.builder()
                 .setCompressionKind(compressionKind)
@@ -56,6 +57,7 @@ public class TestColumnWriterOptions
                 .setPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount)
                 .setCompressionBufferPool(compressionBufferPool)
                 .setFlattenedNodes(flattenedNodes)
+                .setMapStatisticsEnabled(mapStatisticsEnabled)
                 .build();
 
         boolean checkDisabledDictionaryEncoding = false;
@@ -70,6 +72,7 @@ public class TestColumnWriterOptions
             assertEquals(actual.getPreserveDirectEncodingStripeCount(), preserveDirectEncodingStripeCount);
             assertEquals(actual.getCompressionBufferPool(), compressionBufferPool);
             assertEquals(actual.getFlattenedNodes(), flattenedNodes);
+            assertEquals(actual.isMapStatisticsEnabled(), mapStatisticsEnabled);
 
             if (checkDisabledDictionaryEncoding) {
                 assertFalse(actual.isStringDictionaryEncodingEnabled());
