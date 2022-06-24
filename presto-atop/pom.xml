@@ -145,6 +145,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
