@@ -26,6 +26,7 @@ import static com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder.
 import static com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder.mergeDoubleStatistics;
 import static com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
 import static com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
+import static com.facebook.presto.orc.metadata.statistics.MapColumnStatisticsBuilder.mergeMapStatistics;
 import static com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -103,6 +104,11 @@ public class ColumnStatistics
     }
 
     public BinaryStatistics getBinaryStatistics()
+    {
+        return null;
+    }
+
+    public MapStatistics getMapStatistics()
     {
         return null;
     }
@@ -196,6 +202,7 @@ public class ColumnStatistics
                 mergeDateStatistics(stats).orElse(null),
                 mergeDecimalStatistics(stats).orElse(null),
                 mergeBinaryStatistics(stats).orElse(null),
+                mergeMapStatistics(stats).orElse(null),
                 null);
     }
 
@@ -208,6 +215,7 @@ public class ColumnStatistics
             DateStatistics dateStatistics,
             DecimalStatistics decimalStatistics,
             BinaryStatistics binaryStatistics,
+            MapStatistics mapStatistics,
             HiveBloomFilter bloomFilter)
     {
         if (booleanStatistics != null) {
@@ -236,6 +244,10 @@ public class ColumnStatistics
 
         if (binaryStatistics != null) {
             return new BinaryColumnStatistics(numberOfValues, bloomFilter, binaryStatistics);
+        }
+
+        if (mapStatistics != null) {
+            return new MapColumnStatistics(numberOfValues, bloomFilter, mapStatistics);
         }
 
         return new ColumnStatistics(numberOfValues, bloomFilter);
