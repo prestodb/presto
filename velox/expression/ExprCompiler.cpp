@@ -401,7 +401,11 @@ ExprPtr compileExpression(
           dynamic_cast<const core::FieldAccessTypedExpr*>(expr.get())) {
     auto fieldReference = std::make_shared<FieldReference>(
         expr->type(), move(compiledInputs), access->name());
-    captureFieldReference(fieldReference.get(), expr.get(), scope);
+    if (access->isInputColumn()) {
+      // We only want to capture references to top level fields, not struct
+      // fields.
+      captureFieldReference(fieldReference.get(), expr.get(), scope);
+    }
     result = fieldReference;
   } else if (auto row = dynamic_cast<const core::InputTypedExpr*>(expr.get())) {
     VELOX_UNSUPPORTED("InputTypedExpr '{}' is not supported", row->toString());

@@ -221,12 +221,15 @@ class FieldAccessTypedExpr : public ITypedExpr {
  public:
   /// Used as a leaf in an expression tree specifying input column by name.
   FieldAccessTypedExpr(TypePtr type, std::string name)
-      : ITypedExpr{move(type)}, name_(std::move(name)) {}
+      : ITypedExpr{move(type)}, name_(std::move(name)), isInputColumn_(true) {}
 
   /// Used as a dereference expression which selects a subfield in a struct by
   /// name.
   FieldAccessTypedExpr(TypePtr type, TypedExprPtr input, std::string name)
-      : ITypedExpr{move(type), {move(input)}}, name_(std::move(name)) {}
+      : ITypedExpr{move(type), {move(input)}},
+        name_(std::move(name)),
+        isInputColumn_(dynamic_cast<const InputTypedExpr*>(inputs()[0].get())) {
+  }
 
   const std::string& name() const {
     return name_;
@@ -278,8 +281,14 @@ class FieldAccessTypedExpr : public ITypedExpr {
         [](const auto& p1, const auto& p2) { return *p1 == *p2; });
   }
 
+  /// Is this FieldAccess accessing an input column or a field in a struct.
+  bool isInputColumn() const {
+    return isInputColumn_;
+  }
+
  private:
   const std::string name_;
+  const bool isInputColumn_;
 };
 
 using FieldAccessTypedExprPtr = std::shared_ptr<const FieldAccessTypedExpr>;

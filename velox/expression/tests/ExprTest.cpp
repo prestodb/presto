@@ -2805,3 +2805,25 @@ TEST_F(ExprTest, invalidInputs) {
       exec::EvalCtx(execCtx_.get(), exprSet.get(), input.get()),
       VeloxRuntimeError);
 }
+
+TEST_F(ExprTest, lambdaWithRowField) {
+  auto array = makeArrayVector<int64_t>(
+      10, [](auto /*row*/) { return 5; }, [](auto row) { return row * 3; });
+  auto row = vectorMaker_->rowVector(
+      {"val"},
+      {makeFlatVector<int64_t>(10, [](vector_size_t row) { return row; })});
+  core::Expressions::registerLambda(
+      "lambda1",
+      ROW({"x"}, {BIGINT()}),
+      ROW({"c0", "c1"}, {ROW({"val"}, {BIGINT()}), ARRAY(BIGINT())}),
+      parse::parseExpr("x + c0.val >= 0"),
+      execCtx_->pool());
+
+  auto rowVector = vectorMaker_->rowVector({"c0", "c1"}, {row, array});
+
+  // We use strpos and c1 to ensure that the constant is peeled before calling
+  // always_throws, not before the try.
+  auto evalResult = evaluate("filter(c1, function('lambda1'))", rowVector);
+
+  assertEqualVectors(array, evalResult);
+}
