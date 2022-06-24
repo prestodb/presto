@@ -131,6 +131,23 @@ std::string DuckResult::getName(size_t columnIdx) {
   return queryResult_->names[columnIdx];
 }
 
+inline bool isZeroCopyEligible(const ::duckdb::LogicalType& duckType) {
+  if (duckType.id() == LogicalTypeId::DECIMAL) {
+    if (duckType.InternalType() == PhysicalType::INT64 ||
+        duckType.InternalType() == PhysicalType::INT128) {
+      return true;
+    }
+    return false;
+  }
+
+  if (duckType.id() == LogicalTypeId::HUGEINT ||
+      duckType.id() == LogicalTypeId::TIMESTAMP ||
+      duckType.id() == LogicalTypeId::VARCHAR) {
+    return false;
+  }
+  return true;
+}
+
 template <class OP>
 VectorPtr convert(
     ::duckdb::Vector& duckVector,
@@ -148,9 +165,7 @@ VectorPtr convert(
 
       // Some DuckDB vectors have different internal layout and cannot be
       // trivially copied.
-      if (duckVector.GetType() == LogicalTypeId::HUGEINT ||
-          duckVector.GetType() == LogicalTypeId::TIMESTAMP ||
-          duckVector.GetType() == LogicalTypeId::VARCHAR) {
+      if (!isZeroCopyEligible(duckVector.GetType())) {
         // TODO Figure out how to perform a zero-copy conversion.
         result = BaseVector::create(veloxType, size, pool);
         auto flatResult = result->as<FlatVector<typename OP::VELOX_TYPE>>();
@@ -181,7 +196,12 @@ VectorPtr convert(
         }
 
         result = std::make_shared<FlatVector<typename OP::VELOX_TYPE>>(
-            pool, nullsView, size, valuesView, std::vector<BufferPtr>());
+            pool,
+            veloxType,
+            nullsView,
+            size,
+            valuesView,
+            std::vector<BufferPtr>());
       }
 
       return result;
@@ -242,36 +262,13 @@ double NumericCastToDouble::operation(hugeint_t input) {
   return Hugeint::Cast<double>(input);
 }
 
-template <class T>
-VectorPtr convertDecimalToDouble(
-    ::duckdb::Vector& duckVector,
-    size_t size,
-    const TypePtr& veloxType,
-    memory::MemoryPool* pool,
-    uint8_t scale) {
-  auto* duckData = ::duckdb::FlatVector::GetData<T>(duckVector);
-  auto& duckValidity = ::duckdb::FlatVector::Validity(duckVector);
-
-  auto result = BaseVector::create(veloxType, size, pool);
-  auto flatResult = result->as<FlatVector<double>>();
-  double dividend = std::pow(10, scale);
-  for (auto i = 0; i < size; i++) {
-    if (duckValidity.RowIsValid(i)) {
-      double converted =
-          NumericCastToDouble::template operation<T>(duckData[i]) / dividend;
-      flatResult->set(i, converted);
-    } else {
-      result->setNull(i, true);
-    }
-  }
-  return result;
-}
-
 VectorPtr toVeloxVector(
     int32_t size,
     ::duckdb::Vector& duckVector,
     const TypePtr& veloxType,
     memory::MemoryPool* pool) {
+  VectorPtr veloxFlatVector;
+
   auto type = duckVector.GetType();
   switch (type.id()) {
     case LogicalTypeId::BOOLEAN:
@@ -303,17 +300,17 @@ VectorPtr toVeloxVector(
       type.GetDecimalProperties(width, scale);
       switch (type.InternalType()) {
         case PhysicalType::INT16:
-          return convertDecimalToDouble<int16_t>(
-              duckVector, size, veloxType, pool, scale);
+          return convert<DuckInt16DecimalConversion>(
+              duckVector, veloxType, size, pool);
         case PhysicalType::INT32:
-          return convertDecimalToDouble<int32_t>(
-              duckVector, size, veloxType, pool, scale);
+          return convert<DuckInt32DecimalConversion>(
+              duckVector, veloxType, size, pool);
         case PhysicalType::INT64:
-          return convertDecimalToDouble<int64_t>(
-              duckVector, size, veloxType, pool, scale);
+          return convert<DuckInt64DecimalConversion>(
+              duckVector, veloxType, size, pool);
         case PhysicalType::INT128:
-          return convertDecimalToDouble<hugeint_t>(
-              duckVector, size, veloxType, pool, scale);
+          return convert<DuckLongDecimalConversion>(
+              duckVector, veloxType, size, pool);
         default:
           throw std::runtime_error(
               "unrecognized internal type for decimal (this shouldn't happen");

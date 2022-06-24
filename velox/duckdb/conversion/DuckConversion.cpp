@@ -96,8 +96,12 @@ TypePtr toVeloxType(LogicalType type) {
       return BIGINT();
     case LogicalTypeId::FLOAT:
       return REAL();
-    case LogicalTypeId::HUGEINT:
     case LogicalTypeId::DECIMAL:
+      uint8_t width;
+      uint8_t scale;
+      type.GetDecimalProperties(width, scale);
+      return DECIMAL(width, scale);
+    case LogicalTypeId::HUGEINT:
     case LogicalTypeId::DOUBLE:
       return DOUBLE();
     case LogicalTypeId::VARCHAR:
