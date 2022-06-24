@@ -154,14 +154,9 @@ std::string DateTimeFormatter::format(
 
         case DateTimeFormatSpecifier::CENTURY_OF_ERA: {
           auto year = static_cast<signed>(calDate.year());
-          if (year < 0) {
-            VELOX_USER_FAIL(
-                "With century of era in format, year should be greater than 0.")
-          } else {
-            auto century = year / 100;
-            result +=
-                padContent(century, '0', token.pattern.minRepresentDigits);
-          }
+          year = (year < 0 ? -year : year);
+          auto century = year / 100;
+          result += padContent(century, '0', token.pattern.minRepresentDigits);
         } break;
 
         case DateTimeFormatSpecifier::YEAR_OF_ERA:
