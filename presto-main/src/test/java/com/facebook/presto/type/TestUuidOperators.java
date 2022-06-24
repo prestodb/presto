@@ -29,6 +29,7 @@ import static com.facebook.presto.type.UuidOperators.castFromVarcharToUuid;
 import static com.facebook.presto.type.UuidType.UUID;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.Slices.utf8Slice;
+import static org.testng.Assert.assertEquals;
 
 public class TestUuidOperators
         extends AbstractTestFunctions
@@ -63,11 +64,11 @@ public class TestUuidOperators
     public void testVarbinaryToUUIDCast()
     {
         assertFunction("CAST(x'00000000000000000000000000000000' AS UUID)", UUID, "00000000-0000-0000-0000-000000000000");
-        assertFunction("CAST(x'E9118675D21F1512595A08E4862A9E8F' AS UUID)", UUID, "12151fd2-7586-11e9-8f9e-2a86e4085a59");
-        assertFunction("CAST(x'533BA1B0AD3304308E4582B5CA9177A9' AS UUID)", UUID, "300433ad-b0a1-3b53-a977-91cab582458e");
-        assertFunction("CAST(x'8C4B12DE994E07D3A6AB9FF7FAB7A1A2' AS UUID)", UUID, "d3074e99-de12-4b8c-a2a1-b7faf79faba6");
-        assertFunction("CAST(x'4957266AF8EAA7DFE874DF256033368D' AS UUID)", UUID, "dfa7eaf8-6a26-5749-8d36-336025df74e8");
-        assertFunction("CAST(x'e9118675d21f1512595a08e4862a9e8f' AS UUID)", UUID, "12151fd2-7586-11e9-8f9e-2a86e4085a59");
+        assertFunction("CAST(x'12151fd2758611e98f9e2a86e4085a59' AS UUID)", UUID, "12151fd2-7586-11e9-8f9e-2a86e4085a59");
+        assertFunction("CAST(x'300433adb0a13b53a97791cab582458e' AS UUID)", UUID, "300433ad-b0a1-3b53-a977-91cab582458e");
+        assertFunction("CAST(x'd3074e99de124b8ca2a1b7faf79faba6' AS UUID)", UUID, "d3074e99-de12-4b8c-a2a1-b7faf79faba6");
+        assertFunction("CAST(x'dfa7eaf86a2657498d36336025df74e8' AS UUID)", UUID, "dfa7eaf8-6a26-5749-8d36-336025df74e8");
+        assertFunction("CAST(x'12151fd2758611e98f9e2a86e4085a59' AS UUID)", UUID, "12151fd2-7586-11e9-8f9e-2a86e4085a59");
         assertInvalidCast("CAST(x'f000001100' AS UUID)", "Invalid UUID binary length: 5");
     }
 
@@ -75,7 +76,7 @@ public class TestUuidOperators
     public void testUUIDToVarbinaryCast()
     {
         assertFunction("CAST(UUID '00000000-0000-0000-0000-000000000000' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("00000000000000000000000000000000")));
-        assertFunction("CAST(UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("B043E467655B5F6BA0589FD46C58E38E")));
+        assertFunction("CAST(UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("6B5F5B6567E443B08EE3586CD49F58A0")));
     }
 
     @Test
@@ -108,8 +109,31 @@ public class TestUuidOperators
         assertFunction("CAST('12151fd2-7586-11e9-8f9e-2a86e4085a58' AS UUID) < CAST('12151fd2-7586-11e9-8f9e-2a86e4085a59' AS UUID)", BOOLEAN, true);
         assertFunction("CAST('12151fd2-7586-11e9-8f9e-2a86e4085a59' AS UUID) < CAST('12151fd2-7586-11e9-8f9e-2a86e4085a58' AS UUID)", BOOLEAN, false);
 
+        assertFunction("CAST('12151fd2-7586-11e9-8f9e-2a86e4085a58' AS UUID) < CAST('6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' AS UUID)", BOOLEAN, true);
+        assertFunction("CAST('6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' AS UUID) < CAST('12151fd2-7586-11e9-8f9e-2a86e4085a58' AS UUID)", BOOLEAN, false);
+
+        assertFunction("CAST('dfa7eaf8-6a26-5749-8d36-336025df74e8' AS UUID) > CAST('6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' AS UUID)", BOOLEAN, true);
+        assertFunction("CAST('6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' AS UUID) > CAST('dfa7eaf8-6a26-5749-8d36-336025df74e8' AS UUID)", BOOLEAN, false);
+
         assertFunction("UUID '12151fd2-7586-11e9-8f9e-2a86e4085a52' BETWEEN UUID '12151fd2-7586-11e9-8f9e-2a86e4085a50' AND UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", BOOLEAN, true);
         assertFunction("UUID '12151fd2-7586-11e9-8f9e-2a86e4085a52' BETWEEN UUID '12151fd2-7586-11e9-8f9e-2a86e4085a54' AND UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", BOOLEAN, false);
+
+        assertFunction("UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' BETWEEN UUID '12151fd2-7586-11e9-8f9e-2a86e4085a50' AND UUID 'dfa7eaf8-6a26-5749-8d36-336025df74e8'", BOOLEAN, true);
+        assertFunction("UUID '12151fd2-7586-11e9-8f9e-2a86e4085a52' BETWEEN UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0' AND UUID 'dfa7eaf8-6a26-5749-8d36-336025df74e8'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testCompare()
+    {
+        assertEquals(uuidCompare("12151fd2-7586-11e9-8f9e-2a86e4085a58", "12151fd2-7586-11e9-8f9e-2a86e4085a59"), -1);
+        assertEquals(uuidCompare("12151fd2-7586-11e9-8f9e-2a86e4085a58", "12151fd2-7586-11e9-8f9e-2a86e4085a58"), 0);
+        assertEquals(uuidCompare("dfa7eaf8-6a26-5749-8d36-336025df74e8", "6b5f5b65-67e4-43b0-8ee3-586cd49f58a0"), 1);
+        assertEquals(uuidCompare("12151fd2-7586-11e9-8f9e-2a86e4085a58", "dfa7eaf8-6a26-5749-8d36-336025df74e8"), -1);
+    }
+
+    private static int uuidCompare(String uuidLeft, String uuidRight)
+    {
+        return UUID.compareTo(uuidBlock(uuidLeft), 0, uuidBlock(uuidRight), 0);
     }
 
     @Test
@@ -128,9 +152,13 @@ public class TestUuidOperators
 
     private static long hashFromType(String uuidString)
     {
+        return UUID.hash(uuidBlock(uuidString), 0);
+    }
+
+    private static Block uuidBlock(String uuidString)
+    {
         BlockBuilder blockBuilder = UUID.createBlockBuilder(null, 1);
         UUID.writeSlice(blockBuilder, castFromVarcharToUuid(utf8Slice(uuidString)));
-        Block block = blockBuilder.build();
-        return UUID.hash(block, 0);
+        return blockBuilder.build();
     }
 }
