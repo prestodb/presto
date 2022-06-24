@@ -226,6 +226,7 @@ public class OrcWriter
                 .setPreserveDirectEncodingStripeCount(options.getPreserveDirectEncodingStripeCount())
                 .setCompressionBufferPool(compressionBufferPool)
                 .setFlattenedNodes(flattenedNodes)
+                .setMapStatisticsEnabled(options.isMapStatisticsEnabled())
                 .build();
         recordValidation(validation -> validation.setCompression(compressionKind));
         recordValidation(validation -> validation.setFlattenedNodes(flattenedNodes));
