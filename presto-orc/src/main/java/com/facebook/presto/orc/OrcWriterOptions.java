@@ -64,6 +64,7 @@ public class OrcWriterOptions
     private final boolean ignoreDictionaryRowGroupSizes;
     private final Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
     private final int preserveDirectEncodingStripeCount;
+    private final boolean mapStatisticsEnabled;
 
     /**
      * Contains indexes of columns (not nodes!) for which writer should use flattened encoding, e.g. flat maps.
@@ -87,7 +88,8 @@ public class OrcWriterOptions
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions,
             boolean ignoreDictionaryRowGroupSizes,
             int preserveDirectEncodingStripeCount,
-            Set<Integer> flattenedColumns)
+            Set<Integer> flattenedColumns,
+            boolean mapStatisticsEnabled)
     {
         requireNonNull(flushPolicy, "flushPolicy is null");
         checkArgument(rowGroupMaxRowCount >= 1, "rowGroupMaxRowCount must be at least 1");
@@ -118,6 +120,7 @@ public class OrcWriterOptions
         this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
         this.preserveDirectEncodingStripeCount = preserveDirectEncodingStripeCount;
         this.flattenedColumns = flattenedColumns;
+        this.mapStatisticsEnabled = mapStatisticsEnabled;
     }
 
     public OrcWriterFlushPolicy getFlushPolicy()
@@ -205,6 +208,11 @@ public class OrcWriterOptions
         return flattenedColumns;
     }
 
+    public boolean isMapStatisticsEnabled()
+    {
+        return mapStatisticsEnabled;
+    }
+
     @Override
     public String toString()
     {
@@ -226,6 +234,7 @@ public class OrcWriterOptions
                 .add("ignoreDictionaryRowGroupSizes", ignoreDictionaryRowGroupSizes)
                 .add("preserveDirectEncodingStripeCount", preserveDirectEncodingStripeCount)
                 .add("flattenedColumns", flattenedColumns)
+                .add("mapStatisticsEnabled", mapStatisticsEnabled)
                 .toString();
     }
 
@@ -260,6 +269,7 @@ public class OrcWriterOptions
         private boolean ignoreDictionaryRowGroupSizes;
         private int preserveDirectEncodingStripeCount = DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
         private Set<Integer> flattenedColumns = ImmutableSet.of();
+        private boolean mapStatisticsEnabled;
 
         public Builder withFlushPolicy(OrcWriterFlushPolicy flushPolicy)
         {
@@ -377,6 +387,12 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder withMapStatisticsEnabled(boolean mapStatisticsEnabled)
+        {
+            this.mapStatisticsEnabled = mapStatisticsEnabled;
+            return this;
+        }
+
         public OrcWriterOptions build()
         {
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
@@ -404,7 +420,8 @@ public class OrcWriterOptions
                     dwrfWriterOptions,
                     ignoreDictionaryRowGroupSizes,
                     preserveDirectEncodingStripeCount,
-                    flattenedColumns);
+                    flattenedColumns,
+                    mapStatisticsEnabled);
         }
     }
 }
