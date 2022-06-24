@@ -485,6 +485,7 @@ public class DwrfMetadataReader
                 null,
                 null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
+                null,
                 bloomFilter);
     }
 
