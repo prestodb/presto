@@ -30,7 +30,9 @@ class JsonCastOperator : public exec::CastOperator {
     return instance;
   }
 
-  bool isSupportedType(const TypePtr& other) const override;
+  bool isSupportedFromType(const TypePtr& other) const override;
+
+  bool isSupportedToType(const TypePtr& other) const override;
 
   void castTo(
       const BaseVector& input,

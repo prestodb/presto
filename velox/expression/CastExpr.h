@@ -27,9 +27,13 @@ class CastOperator {
  public:
   virtual ~CastOperator() = default;
 
-  /// Determines whether the cast operator supports casting the custom type to
-  /// the other type or vice versa.
-  virtual bool isSupportedType(const TypePtr& other) const = 0;
+  /// Determines whether the cast operator supports casting to the custom type
+  /// from the other type.
+  virtual bool isSupportedFromType(const TypePtr& other) const = 0;
+
+  /// Determines whether the cast operator supports casting from the custom type
+  /// to the other type.
+  virtual bool isSupportedToType(const TypePtr& other) const = 0;
 
   /// Casts an input vector to the custom type.
   /// @param input The flat or constant input vector
@@ -74,13 +78,13 @@ class CastExpr : public SpecialForm {
         nullOnFailure_(nullOnFailure) {
     auto fromType = inputs_[0]->type();
     castFromOperator_ = getCastOperator(fromType->toString());
-    if (castFromOperator_ && !castFromOperator_->isSupportedType(type)) {
+    if (castFromOperator_ && !castFromOperator_->isSupportedToType(type)) {
       VELOX_FAIL(
           "Cannot cast {} to {}.", fromType->toString(), type->toString());
     }
 
     castToOperator_ = getCastOperator(type->toString());
-    if (castToOperator_ && !castToOperator_->isSupportedType(fromType)) {
+    if (castToOperator_ && !castToOperator_->isSupportedFromType(fromType)) {
       VELOX_FAIL(
           "Cannot cast {} to {}.", fromType->toString(), type->toString());
     }

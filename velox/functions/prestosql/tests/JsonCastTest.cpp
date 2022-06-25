@@ -850,3 +850,8 @@ TEST_F(JsonCastTest, toBoolean) {
   testThrow<Json, bool>(JSON(), BOOLEAN(), {R"("abc")"_sv});
   testThrow<Json, bool>(JSON(), BOOLEAN(), {""_sv});
 }
+
+TEST_F(JsonCastTest, toInvalid) {
+  testThrow<Json, Timestamp>(JSON(), TIMESTAMP(), {"null"});
+  testThrow<Json, Date>(JSON(), DATE(), {"null"});
+}

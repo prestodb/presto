@@ -603,7 +603,7 @@ bool isSupportedBasicType(const TypePtr& type) {
 
 } // namespace
 
-bool JsonCastOperator::isSupportedType(const TypePtr& other) const {
+bool JsonCastOperator::isSupportedFromType(const TypePtr& other) const {
   if (isSupportedBasicType(other)) {
     return true;
   }
@@ -614,10 +614,10 @@ bool JsonCastOperator::isSupportedType(const TypePtr& other) const {
     case TypeKind::TIMESTAMP:
       return true;
     case TypeKind::ARRAY:
-      return isSupportedType(other->childAt(0));
+      return isSupportedFromType(other->childAt(0));
     case TypeKind::ROW:
-      for (auto& child : other->as<TypeKind::ROW>().children()) {
-        if (!isSupportedType(child)) {
+      for (const auto& child : other->as<TypeKind::ROW>().children()) {
+        if (!isSupportedFromType(child)) {
           return false;
         }
       }
@@ -625,7 +625,31 @@ bool JsonCastOperator::isSupportedType(const TypePtr& other) const {
     case TypeKind::MAP:
       return (
           isSupportedBasicType(other->childAt(0)) &&
-          isSupportedType(other->childAt(1)));
+          isSupportedFromType(other->childAt(1)));
+    default:
+      return false;
+  }
+}
+
+bool JsonCastOperator::isSupportedToType(const TypePtr& other) const {
+  if (isSupportedBasicType(other)) {
+    return true;
+  }
+
+  switch (other->kind()) {
+    case TypeKind::ARRAY:
+      return isSupportedToType(other->childAt(0));
+    case TypeKind::ROW:
+      for (const auto& child : other->as<TypeKind::ROW>().children()) {
+        if (!isSupportedToType(child)) {
+          return false;
+        }
+      }
+      return true;
+    case TypeKind::MAP:
+      return (
+          isSupportedBasicType(other->childAt(0)) &&
+          isSupportedToType(other->childAt(1)));
     default:
       return false;
   }
