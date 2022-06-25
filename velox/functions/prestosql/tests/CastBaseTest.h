@@ -124,10 +124,23 @@ class CastBaseTest : public FunctionBaseTest {
       const TypePtr& toType,
       std::vector<std::optional<TFrom>> input,
       std::vector<std::optional<TTo>> expected) {
-    auto inputVector = makeNullableFlatVector<TFrom>(input);
+    auto inputVector = makeNullableFlatVector<TFrom>(input, fromType);
     auto expectedVector = makeNullableFlatVector<TTo>(expected, toType);
 
     testCast<TTo>(fromType, toType, inputVector, expectedVector);
+  }
+
+  template <typename TFrom, typename TTo>
+  void testThrow(
+      const TypePtr& fromType,
+      const TypePtr& toType,
+      std::vector<std::optional<TFrom>> input) {
+    EXPECT_THROW(
+        evaluateCast<TTo>(
+            fromType,
+            toType,
+            makeRowVector({makeNullableFlatVector<TFrom>(input, fromType)})),
+        VeloxException);
   }
 };
 

@@ -728,8 +728,8 @@ TEST_F(JsonCastTest, toVarchar) {
   testCast<Json, StringView>(
       JSON(),
       VARCHAR(),
-      {R"("aaa")"_sv, R"("bbb")"_sv, R"("ccc")"_sv},
-      {"aaa"_sv, "bbb"_sv, "ccc"_sv});
+      {R"("aaa")"_sv, R"("bbb")"_sv, R"("ccc")"_sv, R"("")"_sv},
+      {"aaa"_sv, "bbb"_sv, "ccc"_sv, ""_sv});
   testCast<Json, StringView>(
       JSON(),
       VARCHAR(),
@@ -742,25 +742,111 @@ TEST_F(JsonCastTest, toVarchar) {
   testCast<Json, StringView>(
       JSON(),
       VARCHAR(),
-      {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
-      {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+      {"123"_sv, "-12.3"_sv, "true"_sv, "false"_sv, "null"_sv},
+      {"123"_sv, "-12.3"_sv, "true"_sv, "false"_sv, std::nullopt});
   testCast<Json, StringView>(
       JSON(),
       VARCHAR(),
-      {"123"_sv,
-       "-12.3"_sv,
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+}
+
+TEST_F(JsonCastTest, toInteger) {
+  testCast<Json, int64_t>(
+      JSON(),
+      BIGINT(),
+      {"1"_sv,
+       "-3"_sv,
+       "0"_sv,
+       "9223372036854775807"_sv,
+       "-9223372036854775808"_sv,
+       std::nullopt},
+      {1, -3, 0, INT64_MAX, INT64_MIN, std::nullopt});
+  testCast<Json, int8_t>(
+      JSON(),
+      TINYINT(),
+      {"1"_sv,
+       "-3"_sv,
+       "0"_sv,
+       "127"_sv,
+       "-128"_sv,
        "true"_sv,
        "false"_sv,
-       "NaN"_sv,
-       "Infinity"_sv,
-       "-Infinity"_sv,
-       "null"_sv},
-      {"123"_sv,
-       "-12.3"_sv,
+       "10.23"_sv,
+       "-10.23"_sv,
+       std::nullopt},
+      {1, -3, 0, INT8_MAX, INT8_MIN, 1, 0, 10, -10, std::nullopt});
+  testCast<Json, int32_t>(
+      JSON(),
+      INTEGER(),
+      {std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt});
+
+  testThrow<Json, int8_t>(JSON(), TINYINT(), {"128"_sv});
+  testThrow<Json, int8_t>(JSON(), TINYINT(), {"128.01"_sv});
+  testThrow<Json, int8_t>(JSON(), TINYINT(), {"-1223456"_sv});
+  testThrow<Json, int8_t>(JSON(), TINYINT(), {"Infinity"_sv});
+  testThrow<Json, int8_t>(JSON(), TINYINT(), {"NaN"_sv});
+  testThrow<Json, int8_t>(JSON(), TINYINT(), {""_sv});
+}
+
+TEST_F(JsonCastTest, toDouble) {
+  testCast<Json, double>(
+      JSON(),
+      DOUBLE(),
+      {"1.1"_sv,
+       "2.0001"_sv,
+       "10"_sv,
+       "3.14e-2"_sv,
+       "123"_sv,
        "true"_sv,
        "false"_sv,
-       "NaN"_sv,
-       "Infinity"_sv,
-       "-Infinity"_sv,
+       std::nullopt},
+      {1.1, 2.0001, 10.0, 0.0314, 123, 1, 0, std::nullopt});
+  testCast<Json, double>(
+      JSON(),
+      DOUBLE(),
+      {std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt});
+
+  testThrow<Json, float>(JSON(), REAL(), {"-1.7E+307"_sv});
+  testThrow<Json, float>(JSON(), REAL(), {"1.7E+307"_sv});
+  testThrow<Json, float>(JSON(), REAL(), {""_sv});
+}
+
+TEST_F(JsonCastTest, toBoolean) {
+  testCast<Json, bool>(
+      JSON(),
+      BOOLEAN(),
+      {"true"_sv,
+       "false"_sv,
+       R"("true")"_sv,
+       R"("false")"_sv,
+       "123"_sv,
+       "-123"_sv,
+       "0.56"_sv,
+       "-0.56"_sv,
+       "0"_sv,
+       "0.0"_sv,
+       std::nullopt},
+      {true,
+       false,
+       true,
+       false,
+       true,
+       true,
+       true,
+       true,
+       false,
+       false,
        std::nullopt});
+  testCast<Json, bool>(
+      JSON(),
+      BOOLEAN(),
+      {std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt});
+
+  testThrow<Json, bool>(JSON(), BOOLEAN(), {R"("123")"_sv});
+  testThrow<Json, bool>(JSON(), BOOLEAN(), {R"("abc")"_sv});
+  testThrow<Json, bool>(JSON(), BOOLEAN(), {""_sv});
 }

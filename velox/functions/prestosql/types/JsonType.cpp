@@ -17,6 +17,7 @@
 #include "velox/functions/prestosql/types/JsonType.h"
 
 #include <algorithm>
+#include <stdexcept>
 #include <string>
 
 #include "folly/CPortability.h"
@@ -437,9 +438,12 @@ struct TypeKindToReturnType<TypeKind::VARCHAR> {
 // Write object to writer at the current offset.
 template <TypeKind kind>
 FOLLY_ALWAYS_INLINE void castFromJsonTyped(
-    const folly::dynamic& object,
+    const folly::dynamic& /*object*/,
     exec::VectorWriter<typename TypeKindToReturnType<kind>::ReturnType>&
-        writer);
+    /*writer*/) {
+  VELOX_NYI(
+      "Casting from JSON to {} is not supported.", TypeTraits<kind>::name);
+}
 
 template <>
 FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::VARCHAR>(
@@ -450,12 +454,83 @@ FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::VARCHAR>(
   } else {
     writer.current().append(object.asString());
   }
-  writer.commit(true);
+}
+
+template <>
+FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::BOOLEAN>(
+    const folly::dynamic& object,
+    exec::VectorWriter<bool>& writer) {
+  writer.current() = object.asBool();
+}
+
+template <typename T>
+FOLLY_ALWAYS_INLINE T castJsonToInt(const folly::dynamic& object) {
+  if (object.isDouble()) {
+    constexpr double kIntMaxAsDouble =
+        static_cast<double>(std::numeric_limits<T>::max());
+    constexpr double kIntMinAsDouble =
+        static_cast<double>(std::numeric_limits<T>::min());
+
+    double value = object.asDouble();
+    if (value <= kIntMaxAsDouble && value >= kIntMinAsDouble) {
+      return static_cast<T>(value);
+    } else {
+      throw std::invalid_argument(fmt::format(
+          "value is outside the range of {}: [{}, {}].",
+          CppToType<T>::create()->toString(),
+          kIntMinAsDouble,
+          kIntMaxAsDouble));
+    }
+  } else {
+    return folly::to<T>(object.asInt());
+  }
+}
+
+template <>
+FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::TINYINT>(
+    const folly::dynamic& object,
+    exec::VectorWriter<int8_t>& writer) {
+  writer.current() = castJsonToInt<int8_t>(object);
+}
+
+template <>
+FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::SMALLINT>(
+    const folly::dynamic& object,
+    exec::VectorWriter<int16_t>& writer) {
+  writer.current() = castJsonToInt<int16_t>(object);
+}
+
+template <>
+FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::INTEGER>(
+    const folly::dynamic& object,
+    exec::VectorWriter<int32_t>& writer) {
+  writer.current() = castJsonToInt<int32_t>(object);
+}
+
+template <>
+FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::BIGINT>(
+    const folly::dynamic& object,
+    exec::VectorWriter<int64_t>& writer) {
+  writer.current() = castJsonToInt<int64_t>(object);
+}
+
+template <>
+FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::REAL>(
+    const folly::dynamic& object,
+    exec::VectorWriter<float>& writer) {
+  writer.current() = folly::to<float>(object.asDouble());
+}
+
+template <>
+FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::DOUBLE>(
+    const folly::dynamic& object,
+    exec::VectorWriter<double>& writer) {
+  writer.current() = folly::to<double>(object.asDouble());
 }
 
 template <
     TypeKind kind,
-    typename std::enable_if<kind == TypeKind::VARCHAR, int>::type = 0>
+    typename std::enable_if<TypeTraits<kind>::isPrimitiveType, int>::type = 0>
 void castFromJson(
     const BaseVector& input,
     exec::EvalCtx& context,
@@ -503,9 +578,11 @@ void castFromJson(
               result.type()->toString(),
               e.what());
         }
+        writer.commit(true);
       }
     }
   });
+  writer.finish();
 }
 
 bool isSupportedBasicType(const TypePtr& type) {
@@ -579,18 +656,17 @@ void JsonCastOperator::castTo(
       castToJson, input.typeKind(), input, &context, rows, *flatResult);
 }
 
+/// Converts an input vector from Json type to the type of result vector.
 void JsonCastOperator::castFrom(
     const BaseVector& input,
     exec::EvalCtx& context,
     const SelectivityVector& rows,
     bool /*nullOnFailure*/,
     BaseVector& result) const {
-  if (result.typeKind() == TypeKind::VARCHAR) {
-    castFromJson<TypeKind::VARCHAR>(input, context, rows, result);
-  } else {
-    VELOX_NYI(
-        "Casting from JSON to {} is not supported.", result.type()->toString());
-  }
+  // Casting to VARBINARY is not supported and should have been
+  // rejected by isSupportedType() in the caller.
+  VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      castFromJson, result.typeKind(), input, context, rows, result);
 }
 
 } // namespace facebook::velox
