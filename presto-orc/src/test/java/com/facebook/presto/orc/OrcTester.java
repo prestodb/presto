@@ -1612,18 +1612,19 @@ public class OrcTester
         DataSize dataSize = new DataSize(1, MEGABYTE);
         OrcDataSource orcDataSource = new FileOrcDataSource(inputFile, dataSize, dataSize, dataSize, true);
         RuntimeStats runtimeStats = new RuntimeStats();
+        OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
+                .withMaxMergeDistance(dataSize)
+                .withTinyStripeThreshold(dataSize)
+                .withMaxBlockSize(dataSize)
+                .withZstdJniDecompressionEnabled(zstdJniDecompressionEnabled)
+                .build();
         OrcReader reader = new OrcReader(
                 orcDataSource,
                 encoding,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                OrcReaderOptions.builder()
-                        .withMaxMergeDistance(dataSize)
-                        .withTinyStripeThreshold(dataSize)
-                        .withMaxBlockSize(dataSize)
-                        .withZstdJniDecompressionEnabled(zstdJniDecompressionEnabled)
-                        .build(),
+                orcReaderOptions,
                 false,
                 NO_ENCRYPTION,
                 DwrfKeyProvider.EMPTY,
@@ -1645,7 +1646,7 @@ public class OrcTester
                     Optional.empty(),
                     new TestingHiveOrcAggregatedMemoryContext(),
                     tailBuffer.length)) {
-                StripeFooter stripeFooter = encoding.createMetadataReader(runtimeStats).readStripeFooter(orcDataSource.getId(), footer.getTypes(), inputStream);
+                StripeFooter stripeFooter = encoding.createMetadataReader(runtimeStats, orcReaderOptions).readStripeFooter(orcDataSource.getId(), footer.getTypes(), inputStream);
                 stripes.add(stripeFooter);
             }
         }

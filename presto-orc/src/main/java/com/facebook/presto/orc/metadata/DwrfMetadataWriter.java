@@ -19,6 +19,7 @@ import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
+import com.facebook.presto.orc.metadata.statistics.MapStatisticsEntry;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.proto.DwrfProto.RowIndexEntry;
 import com.facebook.presto.orc.proto.DwrfProto.Type;
@@ -259,6 +260,17 @@ public class DwrfMetadataWriter
             builder.setBinaryStatistics(DwrfProto.BinaryStatistics.newBuilder()
                     .setSum(columnStatistics.getBinaryStatistics().getSum())
                     .build());
+        }
+
+        if (columnStatistics.getMapStatistics() != null) {
+            DwrfProto.MapStatistics.Builder statisticsBuilder = DwrfProto.MapStatistics.newBuilder();
+            for (MapStatisticsEntry entry : columnStatistics.getMapStatistics().getEntries()) {
+                statisticsBuilder.addStats(DwrfProto.MapEntryStatistics.newBuilder()
+                        .setKey(entry.getKey())
+                        .setStats(toColumnStatistics(entry.getColumnStatistics()))
+                        .build());
+            }
+            builder.setMapStatistics(statisticsBuilder.build());
         }
 
         return builder.build();

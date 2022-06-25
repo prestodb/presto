@@ -158,7 +158,7 @@ public class OrcReader
         this.orcDataSource = orcDataSource;
         requireNonNull(orcEncoding, "orcEncoding is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
-        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader(runtimeStats));
+        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader(runtimeStats, orcReaderOptions));
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
 
