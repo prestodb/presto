@@ -23,6 +23,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
@@ -33,6 +34,8 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
+import com.facebook.presto.orc.metadata.statistics.MapStatistics;
+import com.facebook.presto.orc.metadata.statistics.MapStatisticsEntry;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.ByteString;
@@ -86,10 +89,13 @@ public class DwrfMetadataReader
     private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
 
     private final RuntimeStats runtimeStats;
+    private final boolean readMapStatistics;
 
-    public DwrfMetadataReader(RuntimeStats runtimeStats)
+    public DwrfMetadataReader(RuntimeStats runtimeStats, OrcReaderOptions readerOptions)
     {
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        requireNonNull(readerOptions, "readerOptions is null");
+        this.readMapStatistics = readerOptions.readMapStatistics();
     }
 
     @Override
@@ -439,7 +445,7 @@ public class DwrfMetadataReader
         return ImmutableList.of();
     }
 
-    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
+    private RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
         ImmutableList.Builder<Integer> positions = ImmutableList.builder();
@@ -454,12 +460,15 @@ public class DwrfMetadataReader
         return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true, bloomFilter));
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<DwrfProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
+    private List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<DwrfProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
         if (columnStatistics == null) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup, null)));
+
+        return columnStatistics.stream()
+                .map(statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup, null))
+                .collect(toImmutableList());
     }
 
     private Map<String, Slice> toUserMetadata(List<DwrfProto.UserMetadataItem> metadataList)
@@ -474,7 +483,8 @@ public class DwrfMetadataReader
         return mapBuilder.build();
     }
 
-    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup, HiveBloomFilter bloomFilter)
+    @VisibleForTesting
+    ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup, HiveBloomFilter bloomFilter)
     {
         return createColumnStatistics(
                 statistics.getNumberOfValues(),
@@ -485,7 +495,7 @@ public class DwrfMetadataReader
                 null,
                 null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
-                null,
+                readMapStatistics && statistics.hasMapStatistics() ? toMapStatistics(statistics.getMapStatistics(), hiveWriterVersion, isRowGroup, bloomFilter) : null,
                 bloomFilter);
     }
 
@@ -541,6 +551,19 @@ public class DwrfMetadataReader
         }
 
         return new BinaryStatistics(binaryStatistics.getSum());
+    }
+
+    private MapStatistics toMapStatistics(DwrfProto.MapStatistics mapStatistics, HiveWriterVersion hiveWriterVersion, boolean isRowGroup, HiveBloomFilter bloomFilter)
+    {
+        ImmutableList.Builder<MapStatisticsEntry> mapStatisticsEntries = ImmutableList.builderWithExpectedSize(mapStatistics.getStatsCount());
+        for (DwrfProto.MapEntryStatistics mapEntryStatistics : mapStatistics.getStatsList()) {
+            DwrfProto.ColumnStatistics dwrfStatistics = mapEntryStatistics.getStats();
+            ColumnStatistics columnStatistics = toColumnStatistics(hiveWriterVersion, dwrfStatistics, isRowGroup, bloomFilter);
+            DwrfProto.KeyInfo key = mapEntryStatistics.getKey();
+
+            mapStatisticsEntries.add(new MapStatisticsEntry(key, columnStatistics));
+        }
+        return new MapStatistics(mapStatisticsEntries.build());
     }
 
     private static OrcType toType(DwrfProto.Type type)
