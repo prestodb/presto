@@ -22,6 +22,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "velox/expression/ComplexWriterTypes.h"
 #include "velox/expression/StringWriter.h"
@@ -500,6 +501,84 @@ struct VectorWriter<std::shared_ptr<T>> {
   exec_out_t proxy_;
   vector_t* vector_;
   size_t offset_ = 0;
+};
+
+template <typename T>
+struct VectorWriter<Generic<T>> {
+  using exec_out_t = GenericWriter;
+  using vector_t = BaseVector;
+
+  VectorWriter<Generic<T>>() : writer_{castWriter_, castType_, offset_} {}
+
+  void init(vector_t& vector) {
+    vector_ = &vector;
+    writer_.initialize(vector_);
+  }
+
+  // This should be called once all rows are processed to resize the vectors to
+  // the actual used size. No need to call finish() if the generic writer is
+  // never casted.
+  void finish() {
+    if (castType_) {
+      std::visit(
+          [](auto&& castedWriter) { castedWriter->finish(); }, castWriter_);
+    }
+  }
+
+  void ensureSize(size_t size) {
+    if (castType_) {
+      std::visit(
+          [&](auto&& castedWriter) { castedWriter->ensureSize(size); },
+          castWriter_);
+    } else {
+      vector_->resize(size, false);
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE exec_out_t& current() {
+    return writer_;
+  }
+
+  // Commit a null value.
+  void commitNull() {
+    if (castType_) {
+      std::visit(
+          [](auto&& castedWriter) { castedWriter->commitNull(); }, castWriter_);
+    } else {
+      vector_->setNull(offset_, true);
+    }
+  }
+
+  // User can only add values after casting a generic writer to an actual type.
+  // If the writer has not been casted, commit should do nothing.
+  void commit(bool isSet) {
+    if (castType_) {
+      std::visit(
+          [&](auto&& castedWriter) { castedWriter->commit(isSet); },
+          castWriter_);
+    }
+  }
+
+  // Set the index being written.
+  FOLLY_ALWAYS_INLINE void setOffset(int32_t offset) {
+    offset_ = offset;
+    if (castType_) {
+      std::visit(
+          [&](auto&& castedWriter) { castedWriter->setOffset(offset); },
+          castWriter_);
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE vector_t& vector() {
+    return *vector_;
+  }
+
+  vector_t* vector_;
+  exec_out_t writer_;
+  size_t offset_ = 0;
+
+  GenericWriter::writer_variant_t castWriter_;
+  TypePtr castType_;
 };
 
 } // namespace facebook::velox::exec

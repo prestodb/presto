@@ -1084,48 +1084,6 @@ class GenericView {
   }
 
  private:
-  // Utility class that checks that vectorType matches T.
-  template <typename T>
-  struct CastTypeChecker {
-    static bool check(const TypePtr& vectorType) {
-      return CppToType<T>::typeKind == vectorType->kind();
-    }
-  };
-
-  template <typename T>
-  struct CastTypeChecker<Generic<T>> {
-    static bool check(const TypePtr&) {
-      return true;
-    }
-  };
-
-  template <typename T>
-  struct CastTypeChecker<Array<T>> {
-    static bool check(const TypePtr& vectorType) {
-      return TypeKind::ARRAY == vectorType->kind() &&
-          CastTypeChecker<T>::check(vectorType->childAt(0));
-    }
-  };
-
-  template <typename K, typename V>
-  struct CastTypeChecker<Map<K, V>> {
-    static bool check(const TypePtr& vectorType) {
-      return TypeKind::MAP == vectorType->kind() &&
-          CastTypeChecker<K>::check(vectorType->childAt(0)) &&
-          CastTypeChecker<V>::check(vectorType->childAt(1));
-    }
-  };
-
-  template <typename... T>
-  struct CastTypeChecker<Row<T...>> {
-    static bool check(const TypePtr& vectorType) {
-      int index = 0;
-      return TypeKind::ROW == vectorType->kind() &&
-          (CastTypeChecker<T>::check(vectorType->childAt(index++)) && ... &&
-           true);
-    }
-  };
-
   template <typename B>
   VectorReader<B>* ensureReader() const {
     static_assert(
