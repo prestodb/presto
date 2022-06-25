@@ -49,7 +49,11 @@ class CastBaseTest : public FunctionBaseTest {
             std::vector<std::shared_ptr<const core::ITypedExpr>>{inputField},
             tryCast);
 
-    return evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
+    if constexpr (std::is_same_v<TTo, ComplexType>) {
+      return evaluate(castExpr, input);
+    } else {
+      return evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
+    }
   }
 
   template <typename TTo>
@@ -83,7 +87,12 @@ class CastBaseTest : public FunctionBaseTest {
             std::vector<std::shared_ptr<const core::ITypedExpr>>{callExpr},
             tryCast);
 
-    auto result = evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
+    VectorPtr result;
+    if constexpr (std::is_same_v<TTo, ComplexType>) {
+      result = evaluate(castExpr, input);
+    } else {
+      result = evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
+    }
 
     auto indices =
         ::facebook::velox::test::makeIndicesInReverse(expected->size(), pool());
