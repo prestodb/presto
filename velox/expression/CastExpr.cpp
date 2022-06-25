@@ -500,10 +500,11 @@ void applyCustomTypeCast(
     castOperator->castTo(
         *inputDecoded->base(), context, *baseRows, nullOnFailure, *localResult);
   } else {
-    VELOX_NYI(
-        "Casting from {} to {} is not implemented yet.",
-        thisType->toString(),
-        otherType->toString());
+    BaseVector::ensureWritable(
+        *baseRows, otherType, context.pool(), &localResult);
+
+    castOperator->castFrom(
+        *inputDecoded->base(), context, *baseRows, nullOnFailure, *localResult);
   }
 
   if (!inputDecoded->isIdentityMapping()) {

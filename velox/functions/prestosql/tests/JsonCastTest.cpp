@@ -723,3 +723,44 @@ TEST_F(JsonCastTest, unsupportedTypes) {
               {"123"_sv, R"("abc")"_sv, ""_sv, std::nullopt}, JSON())})),
       VeloxException);
 }
+
+TEST_F(JsonCastTest, toVarchar) {
+  testCast<Json, StringView>(
+      JSON(),
+      VARCHAR(),
+      {R"("aaa")"_sv, R"("bbb")"_sv, R"("ccc")"_sv},
+      {"aaa"_sv, "bbb"_sv, "ccc"_sv});
+  testCast<Json, StringView>(
+      JSON(),
+      VARCHAR(),
+      {"\"\""_sv,
+       std::nullopt,
+       R"("\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f\"\\ .")"_sv},
+      {""_sv,
+       std::nullopt,
+       "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\"\\ ."_sv});
+  testCast<Json, StringView>(
+      JSON(),
+      VARCHAR(),
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+  testCast<Json, StringView>(
+      JSON(),
+      VARCHAR(),
+      {"123"_sv,
+       "-12.3"_sv,
+       "true"_sv,
+       "false"_sv,
+       "NaN"_sv,
+       "Infinity"_sv,
+       "-Infinity"_sv,
+       "null"_sv},
+      {"123"_sv,
+       "-12.3"_sv,
+       "true"_sv,
+       "false"_sv,
+       "NaN"_sv,
+       "Infinity"_sv,
+       "-Infinity"_sv,
+       std::nullopt});
+}
