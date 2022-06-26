@@ -144,6 +144,8 @@ public class MetadataManager
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TransactionManager transactionManager;
 
+    private final TableRedirectionManager tableRedirectionManager;
+
     private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
     private final Set<QueryId> queriesWithRegisteredCallbacks = ConcurrentHashMap.newKeySet();
 
@@ -192,6 +194,7 @@ public class MetadataManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.procedures = new ProcedureRegistry(functionAndTypeManager);
+        this.tableRedirectionManager = new DefaultTableRedirectionManager();
 
         verifyComparableOrderableContract();
     }
@@ -323,6 +326,8 @@ public class MetadataManager
     {
         requireNonNull(table, "table is null");
 
+        table = tableRedirectionManager.redirectTable(session, table).orElse(table);
+
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
@@ -345,6 +350,8 @@ public class MetadataManager
     public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName table, Map<String, Object> analyzeProperties)
     {
         requireNonNull(table, "table is null");
+
+        table = tableRedirectionManager.redirectTable(session, table).orElse(table);
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
         if (catalog.isPresent()) {
@@ -1464,6 +1471,12 @@ public class MetadataManager
     public Map<String, Collection<ConnectorMetadata>> getCatalogsByQueryId()
     {
         return ImmutableMap.copyOf(catalogsByQueryId);
+    }
+
+    @Override
+    public TableRedirectionManager getTableRedirectionManager()
+    {
+        return tableRedirectionManager;
     }
 
     public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)

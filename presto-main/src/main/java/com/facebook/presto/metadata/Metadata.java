@@ -512,6 +512,11 @@ public interface Metadata
 
     Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName);
 
+    default TableRedirectionManager getTableRedirectionManager()
+    {
+        return NoopTableRedirectionManager.INSTANCE;
+    }
+
     /**
      * Check if there is filter coverage of the specified partitioning keys
      *
