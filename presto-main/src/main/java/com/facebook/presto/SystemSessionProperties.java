@@ -1215,7 +1215,7 @@ public final class SystemSessionProperties
                         SEGMENTED_AGGREGATION_ENABLED,
                         "Enable segmented aggregation.",
                         featuresConfig.isSegmentedAggregationEnabled(),
-                        true),
+                        false),
                 new PropertyMetadata<>(
                         AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY,
                         format("Set the strategy used to rewrite AGG IF to AGG FILTER. Options are %s",

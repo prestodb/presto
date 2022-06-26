@@ -58,6 +58,7 @@ public class HashAggregationBenchmark
                 ImmutableList.of(tableTypes.get(0)),
                 Ints.asList(0),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(doubleSum.bind(ImmutableList.of(1), Optional.empty())),
                 Optional.empty(),
