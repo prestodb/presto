@@ -13,25 +13,19 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
-public interface EventListener
+import static java.util.Objects.requireNonNull;
+
+public class QueryUpdatedEvent
 {
-    default void queryCreated(QueryCreatedEvent queryCreatedEvent)
+    private final QueryMetadata metadata;
+
+    public QueryUpdatedEvent(QueryMetadata metadata)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    /**
-     * Called after queryCreated event and can be used to capture intermediate
-     * info like query_plan, partial stats while the query is running
-     */
-    default void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
+    public QueryMetadata getMetadata()
     {
-    }
-
-    default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
-    {
-    }
-
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
+        return metadata;
     }
 }

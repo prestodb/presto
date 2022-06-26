@@ -420,6 +420,19 @@ public class PrestoSparkQueryExecutionFactory
             else {
                 planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
                 SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector);
+
+                queryMonitor.queryUpdatedEvent(
+                        createQueryInfo(
+                                session,
+                                sql,
+                                PLANNING,
+                                Optional.of(planAndMore),
+                                sparkQueueName,
+                                Optional.empty(),
+                                queryStateTimer,
+                                Optional.of(createStageInfo(session.getQueryId(), fragmentedPlan, ImmutableList.of())),
+                                warningCollector));
+
                 log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionAndTypeManager(), session, true));
                 fragmentedPlan = configureOutputPartitioning(session, fragmentedPlan);
                 TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
