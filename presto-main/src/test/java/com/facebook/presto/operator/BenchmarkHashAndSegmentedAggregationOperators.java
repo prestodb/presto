@@ -19,7 +19,6 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -53,16 +52,16 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.operator.BenchmarkHashAndStreamingAggregationOperators.Context.ROWS_PER_PAGE;
-import static com.facebook.presto.operator.BenchmarkHashAndStreamingAggregationOperators.Context.TOTAL_PAGES;
+import static com.facebook.presto.operator.BenchmarkHashAndSegmentedAggregationOperators.Context.ROWS_PER_PAGE;
+import static com.facebook.presto.operator.BenchmarkHashAndSegmentedAggregationOperators.Context.TOTAL_PAGES;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -77,7 +76,7 @@ import static org.testng.Assert.assertEquals;
 @Fork(3)
 @Warmup(iterations = 5)
 @Measurement(iterations = 10, time = 2, timeUnit = SECONDS)
-public class BenchmarkHashAndStreamingAggregationOperators
+public class BenchmarkHashAndSegmentedAggregationOperators
 {
     private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = metadata.getFunctionAndTypeManager();
@@ -90,65 +89,45 @@ public class BenchmarkHashAndStreamingAggregationOperators
     @State(Thread)
     public static class Context
     {
-        public static final int TOTAL_PAGES = 140;
-        public static final int ROWS_PER_PAGE = 10_000;
+        public static final int TOTAL_PAGES = 100;
+        public static final int ROWS_PER_PAGE = 1000;
 
-        @Param({"1", "10", "1000"})
-        public int rowsPerGroup;
+        @Param({"1", "10", "800", "100000"})
+        public int rowsPerSegment;
 
-        @Param({"streaming", "hash"})
+        @Param({"segmented", "hash"})
         public String operatorType;
 
         private ExecutorService executor;
         private ScheduledExecutorService scheduledExecutor;
         private OperatorFactory operatorFactory;
         private List<Page> pages;
+        private int outputRows;
 
         @Setup
         public void setup()
         {
             executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
             scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+            outputRows = 0;
 
-            int groupsPerPage = ROWS_PER_PAGE / rowsPerGroup;
-
-            boolean hashAggregation = operatorType.equalsIgnoreCase("hash");
-
-            RowPagesBuilder pagesBuilder = RowPagesBuilder.rowPagesBuilder(hashAggregation, ImmutableList.of(0), VARCHAR, BIGINT);
+            boolean segmentedAggregation = operatorType.equalsIgnoreCase("segmented");
+            RowPagesBuilder pagesBuilder = RowPagesBuilder.rowPagesBuilder(true, ImmutableList.of(0, 1), VARCHAR, BIGINT, BIGINT);
             for (int i = 0; i < TOTAL_PAGES; i++) {
-                BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, ROWS_PER_PAGE);
-                for (int j = 0; j < groupsPerPage; j++) {
-                    String groupKey = format("%s", i * groupsPerPage + j);
-                    repeatToStringBlock(groupKey, rowsPerGroup, blockBuilder);
+                BlockBuilder sortedBlockBuilder = VARCHAR.createBlockBuilder(null, ROWS_PER_PAGE);
+                for (int j = 0; j < ROWS_PER_PAGE; j++) {
+                    int currentSegment = (i * ROWS_PER_PAGE + j) / rowsPerSegment;
+                    VARCHAR.writeString(sortedBlockBuilder, String.valueOf(currentSegment));
                 }
-                pagesBuilder.addBlocksPage(blockBuilder.build(), createLongSequenceBlock(0, ROWS_PER_PAGE));
+                outputRows += (ROWS_PER_PAGE - 1) / rowsPerSegment + 1;
+                pagesBuilder.addBlocksPage(sortedBlockBuilder, createLongRepeatBlock(i, ROWS_PER_PAGE), createLongSequenceBlock(0, ROWS_PER_PAGE));
             }
 
             pages = pagesBuilder.build();
-
-            if (hashAggregation) {
-                operatorFactory = createHashAggregationOperatorFactory(pagesBuilder.getHashChannel());
-            }
-            else {
-                operatorFactory = createStreamingAggregationOperatorFactory();
-            }
+            operatorFactory = createHashAggregationOperatorFactory(pagesBuilder.getHashChannel(), segmentedAggregation);
         }
 
-        private OperatorFactory createStreamingAggregationOperatorFactory()
-        {
-            return new StreamingAggregationOperatorFactory(
-                    0,
-                    new PlanNodeId("test"),
-                    ImmutableList.of(VARCHAR),
-                    ImmutableList.of(VARCHAR),
-                    ImmutableList.of(0),
-                    AggregationNode.Step.SINGLE,
-                    ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                            LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
-                    new JoinCompiler(metadata, new FeaturesConfig()));
-        }
-
-        private OperatorFactory createHashAggregationOperatorFactory(Optional<Integer> hashChannel)
+        private OperatorFactory createHashAggregationOperatorFactory(Optional<Integer> hashChannel, boolean segmentedAggregation)
         {
             JoinCompiler joinCompiler = new JoinCompiler(metadata, new FeaturesConfig());
             SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
@@ -156,14 +135,14 @@ public class BenchmarkHashAndStreamingAggregationOperators
             return new HashAggregationOperatorFactory(
                     0,
                     new PlanNodeId("test"),
-                    ImmutableList.of(VARCHAR),
-                    ImmutableList.of(0),
-                    ImmutableList.of(),
+                    ImmutableList.of(VARCHAR, BIGINT),
+                    ImmutableList.of(0, 1),
+                    segmentedAggregation ? ImmutableList.of(0) : ImmutableList.of(),
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     false,
-                    ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                            LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
+                    ImmutableList.of(COUNT.bind(ImmutableList.of(2), Optional.empty()),
+                            LONG_SUM.bind(ImmutableList.of(2), Optional.empty())),
                     hashChannel,
                     Optional.empty(),
                     100_000,
@@ -174,13 +153,6 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     spillerFactory,
                     joinCompiler,
                     false);
-        }
-
-        private static void repeatToStringBlock(String value, int count, BlockBuilder blockBuilder)
-        {
-            for (int i = 0; i < count; i++) {
-                VARCHAR.writeString(blockBuilder, value);
-            }
         }
 
         public TaskContext createTaskContext()
@@ -231,26 +203,28 @@ public class BenchmarkHashAndStreamingAggregationOperators
     }
 
     @Test
-    public void verifyStreaming()
-    {
-        verify(1, "streaming");
-        verify(10, "streaming");
-        verify(1000, "streaming");
-    }
-
-    @Test
     public void verifyHash()
     {
         verify(1, "hash");
         verify(10, "hash");
-        verify(1000, "hash");
+        verify(800, "hash");
+        verify(100000, "hash");
     }
 
-    private void verify(int rowsPerGroup, String operatorType)
+    @Test
+    public void verifySegmented()
+    {
+        verify(1, "segmented");
+        verify(10, "segmented");
+        verify(800, "segmented");
+        verify(100000, "segmented");
+    }
+
+    private void verify(int rowsPerSegment, String operatorType)
     {
         Context context = new Context();
         context.operatorType = operatorType;
-        context.rowsPerGroup = rowsPerGroup;
+        context.rowsPerSegment = rowsPerSegment;
         context.setup();
 
         assertEquals(TOTAL_PAGES, context.getPages().size());
@@ -259,7 +233,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
         }
 
         List<Page> outputPages = benchmark(context);
-        assertEquals(TOTAL_PAGES * ROWS_PER_PAGE / rowsPerGroup, outputPages.stream().mapToInt(Page::getPositionCount).sum());
+        assertEquals(context.outputRows, outputPages.stream().mapToInt(Page::getPositionCount).sum());
     }
 
     public static void main(String[] args)
@@ -267,7 +241,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkHashAndStreamingAggregationOperators.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkHashAndSegmentedAggregationOperators.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();
