@@ -52,6 +52,7 @@ import com.facebook.presto.spi.eventlistener.QueryInputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
+import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
 import com.facebook.presto.spi.eventlistener.StageStatistics;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -137,6 +138,11 @@ public class QueryMonitor
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 queryInfo.getSession().getTraceToken())));
+    }
+
+    public void queryUpdatedEvent(QueryInfo queryInfo)
+    {
+        eventListenerManager.queryUpdated(new QueryUpdatedEvent(createQueryMetadata(queryInfo)));
     }
 
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)

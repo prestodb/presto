@@ -19,6 +19,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -107,6 +108,13 @@ public class EventListenerManager
     {
         if (configuredEventListener.get().isPresent()) {
             configuredEventListener.get().get().queryCreated(queryCreatedEvent);
+        }
+    }
+
+    public void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
+    {
+        if (configuredEventListener.get().isPresent()) {
+            configuredEventListener.get().get().queryUpdated(queryUpdatedEvent);
         }
     }
 
