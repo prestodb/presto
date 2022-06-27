@@ -42,6 +42,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_MEMORY_REVOKING_THRESHOLD = "spark_memory_revoking_threshold";
     public static final String SPARK_MEMORY_REVOKING_TARGET = "spark_memory_revoking_target";
     public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED = "spark_retry_on_out_of_memory_broadcast_join_enabled";
+    public static final String SPARK_NATIVE_ENGINE_EXECUTION_ENABLED = "spark_native_engine_execution_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -113,6 +114,11 @@ public class PrestoSparkSessionProperties
                         SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED,
                         "Disable broadcast join on broadcast OOM and re-submit the query again within the same spark session",
                         prestoSparkConfig.isRetryOnOutOfMemoryBroadcastJoinEnabled(),
+                        false),
+                booleanProperty(
+                        SPARK_NATIVE_ENGINE_EXECUTION_ENABLED,
+                        "Enable execution on native engine.",
+                        prestoSparkConfig.isNativeEngineExecutionEnabled(),
                         false));
     }
 
@@ -184,5 +190,10 @@ public class PrestoSparkSessionProperties
     public static boolean isRetryOnOutOfMemoryBroadcastJoinEnabled(Session session)
     {
         return session.getSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeEngineExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_NATIVE_ENGINE_EXECUTION_ENABLED, Boolean.class);
     }
 }

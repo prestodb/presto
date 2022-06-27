@@ -20,6 +20,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.spark.NativeEngineRdd;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
@@ -69,6 +70,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeEngineExecutionEnabled;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -98,24 +100,30 @@ public class PrestoSparkRddFactory
     private final PartitioningProviderManager partitioningProviderManager;
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final Codec<TaskSource> taskSourceCodec;
+    private final JsonCodec<TableWriteInfo> tableWriteInfoCodec;
+    // private final JsonCodec<PlanFragment> planFragmentJsonCodec;
 
     @Inject
     public PrestoSparkRddFactory(
             SplitManager splitManager,
             PartitioningProviderManager partitioningProviderManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
-            Codec<TaskSource> taskSourceCodec)
+            Codec<TaskSource> taskSourceCodec,
+            JsonCodec<TableWriteInfo> tableWriteInfoCodec)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
         this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
+        this.tableWriteInfoCodec = requireNonNull(tableWriteInfoCodec, "tableWriteInfoCodec is null");
     }
 
     public <T extends PrestoSparkTaskOutput> JavaPairRDD<MutablePartitionId, T> createSparkRdd(
             JavaSparkContext sparkContext,
             Session session,
             PlanFragment fragment,
+            JsonCodec<PlanFragment> planFragmentJsonCodec,
+            Codec<TaskSource> taskSourceCodec,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
             Map<PlanFragmentId, Broadcast<?>> broadcastInputs,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
@@ -147,15 +155,31 @@ public class PrestoSparkRddFactory
                 partitioning.equals(SOURCE_DISTRIBUTION) ||
                 partitioning.getConnectorId().isPresent()) {
             for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
-                if (remoteSource.isEnsureSourceOrdering() || remoteSource.getOrderingScheme().isPresent()) {
+                if (remoteSource.isEnsureSourceOrdering() || remoteSource.getOrderingScheme()
+                    .isPresent()) {
                     throw new PrestoException(NOT_SUPPORTED, format(
-                            "Order sensitive exchange is not supported by Presto on Spark. fragmentId: %s, sourceFragmentIds: %s",
-                            fragment.getId(),
-                            remoteSource.getSourceFragmentIds()));
+                        "Order sensitive exchange is not supported by Presto on Spark. fragmentId: %s, sourceFragmentIds: %s",
+                        fragment.getId(),
+                        remoteSource.getSourceFragmentIds()));
                 }
             }
-
-            return createRdd(
+            if (isNativeEngineExecutionEnabled(session)) {
+                return createNativeEngineRdd(
+                    sparkContext,
+                    session,
+                    fragment,
+                    planFragmentJsonCodec,
+                    taskSourceCodec,
+                    tableWriteInfoCodec,
+                    executorFactoryProvider,
+                    taskInfoCollector,
+                    shuffleStatsCollector,
+                    tableWriteInfo,
+                    rddInputs,
+                    broadcastInputs,
+                    outputType);
+            } else {
+                return createRdd(
                     sparkContext,
                     session,
                     fragment,
@@ -166,6 +190,7 @@ public class PrestoSparkRddFactory
                     rddInputs,
                     broadcastInputs,
                     outputType);
+            }
         }
         else {
             throw new IllegalArgumentException(format("Unexpected fragment partitioning %s, fragmentId: %s", partitioning, fragment.getId()));
@@ -251,6 +276,90 @@ public class PrestoSparkRddFactory
                 PrestoSparkTaskRdd.create(sparkContext.sc(), taskSourceRdd, shuffleInputRddMap, taskProcessor),
                 classTag(MutablePartitionId.class),
                 classTag(outputType));
+    }
+    private <T extends PrestoSparkTaskOutput> JavaPairRDD<MutablePartitionId, T> createNativeEngineRdd(
+        JavaSparkContext sparkContext,
+        Session session,
+        PlanFragment fragment,
+        JsonCodec<PlanFragment> planFragmentJsonCodec,
+        Codec<TaskSource> taskSourceCodec,
+        JsonCodec<TableWriteInfo> tableWriteInfoCodec,
+        PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
+        CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+        CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+        TableWriteInfo tableWriteInfo,
+        Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
+        Map<PlanFragmentId, Broadcast<?>> broadcastInputs,
+        Class<T> outputType)
+    {
+        checkInputs(fragment.getRemoteSourceNodes(), rddInputs, broadcastInputs);
+
+        PrestoSparkTaskDescriptor taskDescriptor = new PrestoSparkTaskDescriptor(
+            session.toSessionRepresentation(),
+            session.getIdentity().getExtraCredentials(),
+            fragment,
+            tableWriteInfo);
+        SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(
+            taskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
+
+        Optional<Integer> numberOfShufflePartitions = Optional.empty();
+        Map<String, RDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputRddMap = new HashMap<>();
+        for (Map.Entry<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> input : rddInputs.entrySet()) {
+            RDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> rdd = input.getValue().rdd();
+            shuffleInputRddMap.put(input.getKey().toString(), rdd);
+            if (!numberOfShufflePartitions.isPresent()) {
+                numberOfShufflePartitions = Optional.of(rdd.getNumPartitions());
+            }
+            else {
+                checkArgument(
+                    numberOfShufflePartitions.get() == rdd.getNumPartitions(),
+                    "Incompatible number of input partitions: %s != %s",
+                    numberOfShufflePartitions.get(),
+                    rdd.getNumPartitions());
+            }
+        }
+
+        Optional<PrestoSparkTaskSourceRdd> taskSourceRdd;
+        List<TableScanNode> tableScans = findTableScanNodes(fragment.getRoot());
+        if (!tableScans.isEmpty()) {
+            try (CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager::getSplits)) {
+                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP);
+                Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(fragment, session, tableWriteInfo);
+                taskSourceRdd = Optional.of(createTaskSourcesRdd(
+                    fragment.getId(),
+                    sparkContext,
+                    session,
+                    fragment.getPartitioning(),
+                    tableScans,
+                    splitSources,
+                    numberOfShufflePartitions));
+            }
+        }
+        else if (rddInputs.size() == 0) {
+            checkArgument(fragment.getPartitioning().equals(SINGLE_DISTRIBUTION), "SINGLE_DISTRIBUTION partitioning is expected: %s", fragment.getPartitioning());
+            // In case of no inputs we still need to schedule a task.
+            // Task with no inputs may produce results (e.g.: ValuesNode).
+            // To force the task to be scheduled we create a PrestoSparkTaskSourceRdd that contains exactly one partition.
+            // Since there's also no table scans in the fragment, the list of TaskSource's for this partition is empty.
+            taskSourceRdd = Optional.of(new PrestoSparkTaskSourceRdd(sparkContext.sc(), ImmutableList.of(ImmutableList.of())));
+        }
+        else {
+            taskSourceRdd = Optional.empty();
+        }
+
+       // List<TableScanNode> tableScans = findTableScanNodes(fragment.getRoot());
+        Optional<Map<PlanNodeId, SplitSource>> splitSources =  Optional.empty();
+        if (!tableScans.isEmpty()) {
+            try (CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager::getSplits)) {
+                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP);
+                splitSources = Optional.of(splitSourceFactory.createSplitSources(fragment, session, tableWriteInfo));
+            }
+        }
+
+        return JavaPairRDD.fromRDD(
+            NativeEngineRdd.create(sparkContext.sc(), taskSourceCodec, tableWriteInfoCodec.toJson(tableWriteInfo), taskSourceRdd, splitSources, numberOfShufflePartitions, planFragmentJsonCodec.toJson(fragment), outputType),
+            classTag(MutablePartitionId.class),
+            classTag(outputType));
     }
 
     private PrestoSparkTaskSourceRdd createTaskSourcesRdd(

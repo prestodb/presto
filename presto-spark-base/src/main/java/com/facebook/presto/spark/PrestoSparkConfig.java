@@ -37,11 +37,12 @@ public class PrestoSparkConfig
     private DataSize storageBasedBroadcastJoinWriteBufferSize = new DataSize(24, MEGABYTE);
     private String storageBasedBroadcastJoinStorage = "local";
     private DataSize sparkBroadcastJoinMaxMemoryOverride;
-    private boolean smileSerializationEnabled = true;
+    private boolean smileSerializationEnabled = false;
     private int splitAssignmentBatchSize = 1_000_000;
     private double memoryRevokingThreshold;
     private double memoryRevokingTarget;
     private boolean retryOnOutOfMemoryBroadcastJoinEnabled;
+    private boolean nativeEngineExecutionEnabled = false;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -238,5 +239,18 @@ public class PrestoSparkConfig
     {
         this.retryOnOutOfMemoryBroadcastJoinEnabled = retryOnOutOfMemoryBroadcastJoinEnabled;
         return this;
+    }
+
+    @Config("spark.native-engine-execution-enabled")
+    @ConfigDescription("Enable execution on native engine.")
+    public PrestoSparkConfig setNativeEngineExecutionEnabled(boolean nativeEngineExecutionEnabled)
+    {
+        this.nativeEngineExecutionEnabled = nativeEngineExecutionEnabled;
+        return this;
+    }
+
+    public boolean isNativeEngineExecutionEnabled()
+    {
+        return this.nativeEngineExecutionEnabled;
     }
 }

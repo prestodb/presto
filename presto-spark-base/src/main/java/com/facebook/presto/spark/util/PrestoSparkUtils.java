@@ -109,7 +109,8 @@ public class PrestoSparkUtils
     {
         try (ByteArrayOutputStream output = new ByteArrayOutputStream();
                 ZstdOutputStreamNoFinalizer zstdOutput = new ZstdOutputStreamNoFinalizer(output)) {
-            codec.writeBytes(zstdOutput, instance);
+            // codec.writeBytes(zstdOutput, instance);
+            codec.writeBytes(output, instance);
             zstdOutput.close();
             output.close();
             return output.toByteArray();
@@ -123,7 +124,8 @@ public class PrestoSparkUtils
     {
         try (InputStream input = new ByteArrayInputStream(bytes);
                 ZstdInputStreamNoFinalizer zstdInput = new ZstdInputStreamNoFinalizer(input)) {
-            return codec.readBytes(zstdInput);
+            // return codec.readBytes(zstdInput);
+           return codec.fromBytes(bytes);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

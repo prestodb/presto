@@ -41,6 +41,7 @@ import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.StreamingPlanSection;
 import com.facebook.presto.execution.scheduler.StreamingSubPlan;
@@ -98,6 +99,7 @@ import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PartitioningScheme;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -116,6 +118,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import javafx.concurrent.Task;
 import org.apache.spark.Partitioner;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
@@ -163,7 +166,9 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_NATIVE_ENGINE_EXECUTION_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeEngineExecutionEnabled;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE;
 import static com.facebook.presto.spark.SparkErrorCode.GENERIC_SPARK_ERROR;
@@ -229,6 +234,8 @@ public class PrestoSparkQueryExecutionFactory
     private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
     private final JsonCodec<PrestoSparkQueryStatusInfo> queryStatusInfoJsonCodec;
     private final JsonCodec<PrestoSparkQueryData> queryDataJsonCodec;
+    private final JsonCodec<PlanFragment> planFragmentJsonCodec;
+    private final Codec<TaskSource> taskSourceJsonCodec;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
@@ -247,6 +254,7 @@ public class PrestoSparkQueryExecutionFactory
     private final NodeMemoryConfig nodeMemoryConfig;
     private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks;
+    private final boolean nativeEngineExecutionEnabled;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -262,6 +270,8 @@ public class PrestoSparkQueryExecutionFactory
             JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
             JsonCodec<PrestoSparkQueryStatusInfo> queryStatusInfoJsonCodec,
             JsonCodec<PrestoSparkQueryData> queryDataJsonCodec,
+            JsonCodec<PlanFragment> planFragmentJsonCodec,
+            Codec<TaskSource> taskSourceJsonCodec,
             TransactionManager transactionManager,
             AccessControl accessControl,
             Metadata metadata,
@@ -292,6 +302,8 @@ public class PrestoSparkQueryExecutionFactory
         this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
         this.queryStatusInfoJsonCodec = requireNonNull(queryStatusInfoJsonCodec, "queryStatusInfoJsonCodec is null");
         this.queryDataJsonCodec = requireNonNull(queryDataJsonCodec, "queryDataJsonCodec is null");
+        this.planFragmentJsonCodec = requireNonNull(planFragmentJsonCodec, "planFragmentJsonCodec is null");
+        this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -309,6 +321,7 @@ public class PrestoSparkQueryExecutionFactory
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         this.waitTimeMetrics = ImmutableSet.copyOf(requireNonNull(waitTimeMetrics, "waitTimeMetrics is null"));
         this.ddlTasks = ImmutableMap.copyOf(requireNonNull(ddlTasks, "ddlTasks is null"));
+        this.nativeEngineExecutionEnabled =  requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").isNativeEngineExecutionEnabled();
     }
 
     @Override
@@ -450,6 +463,8 @@ public class PrestoSparkQueryExecutionFactory
                         sparkTaskDescriptorJsonCodec,
                         queryStatusInfoJsonCodec,
                         queryDataJsonCodec,
+                        planFragmentJsonCodec,
+                        taskSourceJsonCodec,
                         rddFactory,
                         tableWriteInfo,
                         transactionManager,
@@ -877,6 +892,9 @@ public class PrestoSparkQueryExecutionFactory
         private final TempStorage tempStorage;
         private final NodeMemoryConfig nodeMemoryConfig;
         private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
+        private final boolean nativeEngineExecutionEnabled;
+        private final JsonCodec<PlanFragment> planFragmentJsonCodec;
+        private final Codec<TaskSource> taskSourceJsonCodec;
 
         private PrestoSparkQueryExecution(
                 JavaSparkContext sparkContext,
@@ -896,6 +914,8 @@ public class PrestoSparkQueryExecutionFactory
                 JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
                 JsonCodec<PrestoSparkQueryStatusInfo> queryStatusInfoJsonCodec,
                 JsonCodec<PrestoSparkQueryData> queryDataJsonCodec,
+                JsonCodec<PlanFragment> planFragmentJsonCodec,
+                Codec<TaskSource> taskSourceJsonCodec,
                 PrestoSparkRddFactory rddFactory,
                 TableWriteInfo tableWriteInfo,
                 TransactionManager transactionManager,
@@ -928,6 +948,8 @@ public class PrestoSparkQueryExecutionFactory
             this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
             this.queryStatusInfoJsonCodec = requireNonNull(queryStatusInfoJsonCodec, "queryStatusInfoJsonCodec is null");
             this.queryDataJsonCodec = requireNonNull(queryDataJsonCodec, "queryDataJsonCodec is null");
+            this.planFragmentJsonCodec = requireNonNull(planFragmentJsonCodec, "planFragmentJsonCodec is null");
+            this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSoruceJsonCodec is null");
             this.rddFactory = requireNonNull(rddFactory, "rddFactory is null");
             this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -941,6 +963,7 @@ public class PrestoSparkQueryExecutionFactory
             this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
             this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
             this.waitTimeMetrics = requireNonNull(waitTimeMetrics, "waitTimeMetrics is null");
+            this.nativeEngineExecutionEnabled = isNativeEngineExecutionEnabled(requireNonNull(session, "session is null"));
         }
 
         @Override
@@ -1138,7 +1161,7 @@ public class PrestoSparkQueryExecutionFactory
                         PrestoSparkSerializedPage.class);
                 return collectScalaIterator(prestoSparkTaskExecutor);
             }
-
+            // Rdd for the root
             RddAndMore<PrestoSparkSerializedPage> rootRdd = createRdd(root, PrestoSparkSerializedPage.class);
             return rootRdd.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics);
         }
@@ -1199,6 +1222,8 @@ public class PrestoSparkQueryExecutionFactory
                     sparkContext,
                     session,
                     subPlan.getFragment(),
+                    planFragmentJsonCodec,
+                    taskSourceJsonCodec,
                     rddInputs.build(),
                     broadcastInputs.build(),
                     taskExecutorFactoryProvider,
