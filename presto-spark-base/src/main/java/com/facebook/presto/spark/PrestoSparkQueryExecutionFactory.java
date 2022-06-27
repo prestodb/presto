@@ -1081,6 +1081,7 @@ public class PrestoSparkQueryExecutionFactory
                 SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(sparkTaskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 
                 Map<PlanFragmentId, RddAndMore<PrestoSparkSerializedPage>> inputRdds = new HashMap<>();
+                // Rdd for the children of the root
                 for (SubPlan child : root.getChildren()) {
                     inputRdds.put(child.getFragment().getId(), createRdd(child, PrestoSparkSerializedPage.class));
                 }
@@ -1138,7 +1139,7 @@ public class PrestoSparkQueryExecutionFactory
                         PrestoSparkSerializedPage.class);
                 return collectScalaIterator(prestoSparkTaskExecutor);
             }
-
+            // Rdd for the root
             RddAndMore<PrestoSparkSerializedPage> rootRdd = createRdd(root, PrestoSparkSerializedPage.class);
             return rootRdd.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics);
         }
