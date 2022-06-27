@@ -21,6 +21,7 @@ import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -1426,7 +1427,8 @@ public class TestMaterializedViewQueryOptimizer
                             SQL_PARSER,
                             accessControl,
                             domainTranslator,
-                            baseTableToMaterializedViewMap)
+                            baseTableToMaterializedViewMap,
+                            ImmutableSet.of())
                             .rewrite(baseQuery);
                     assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
                 });

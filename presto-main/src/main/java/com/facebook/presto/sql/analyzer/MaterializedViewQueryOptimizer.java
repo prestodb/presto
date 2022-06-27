@@ -76,6 +76,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
@@ -117,6 +119,7 @@ public class MaterializedViewQueryOptimizer
     private final AccessControl accessControl;
     private final RowExpressionDomainTranslator domainTranslator;
     private final Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViewMap;
+    private final Set<ConnectorMaterializedViewDefinition> materializedViewsWithTooManyPartitionsMissing;
 
     public MaterializedViewQueryOptimizer(
             Metadata metadata,
@@ -124,7 +127,8 @@ public class MaterializedViewQueryOptimizer
             SqlParser sqlParser,
             AccessControl accessControl,
             RowExpressionDomainTranslator domainTranslator,
-            Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViewMap)
+            Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViewMap,
+            Set<ConnectorMaterializedViewDefinition> materializedViewsWithTooManyPartitionsMissing)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
@@ -132,6 +136,8 @@ public class MaterializedViewQueryOptimizer
         this.accessControl = requireNonNull(accessControl, "access control is null");
         this.domainTranslator = requireNonNull(domainTranslator, "row expression domain translator is null");
         this.baseTableToMaterializedViewMap = requireNonNull(baseTableToMaterializedViewMap, "base table to materialized view map is null");
+        this.materializedViewsWithTooManyPartitionsMissing = requireNonNull(materializedViewsWithTooManyPartitionsMissing, "materialized views " +
+                "with too many partitions missing set is null");
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
@@ -452,8 +458,13 @@ public class MaterializedViewQueryOptimizer
             QuerySpecification rewritten = new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery).rewrite(querySpecification);
 
             if (rewritten != querySpecification) {
-                session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT, NONE, 1);
-                return rewritten;
+                if (isMaterializedViewDataConsistencyEnabled(session) && materializedViewsWithTooManyPartitionsMissing.contains(materializedViewDefinition)) {
+                    session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, NONE, 1);
+                }
+                else {
+                    session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT, NONE, 1);
+                    return rewritten;
+                }
             }
         }
         return querySpecification;

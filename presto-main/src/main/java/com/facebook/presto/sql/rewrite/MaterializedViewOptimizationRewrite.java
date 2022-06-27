@@ -34,12 +34,14 @@ import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
@@ -115,19 +117,21 @@ public class MaterializedViewOptimizationRewrite
         // TODO: Refactor query optimization code https://github.com/prestodb/presto/issues/16759
 
         Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViewDefinitionMap = new HashMap<>();
+        ImmutableSet.Builder<ConnectorMaterializedViewDefinition> materializedViewsWithTooManyPartitionsMissingBuilder = new ImmutableSet.Builder<>();
+
         baseTableToMaterializedViewNameMap.forEach((baseTable, materializedViewNames) -> {
             for (QualifiedObjectName materializedViewName : materializedViewNames) {
                 MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, materializedViewName);
-                // TODO: Refactor this so we increment metric only when rewrite would have occurred
-                if (!(materializedViewStatus.isPartiallyMaterialized() || materializedViewStatus.isFullyMaterialized())
-                        && isMaterializedViewDataConsistencyEnabled(session)) {
-                    session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, NONE, 1);
-                    continue;
-                }
                 ConnectorMaterializedViewDefinition materializedView = metadata.getMaterializedView(session, materializedViewName).orElseThrow(() ->
                         new IllegalStateException("Materialized view definition not present in metadata as expected."));
+
                 baseTableToMaterializedViewDefinitionMap.computeIfAbsent(baseTable, (x) -> new ArrayList<>());
                 baseTableToMaterializedViewDefinitionMap.get(baseTable).add(materializedView);
+
+                if (!(materializedViewStatus.isPartiallyMaterialized() || materializedViewStatus.isFullyMaterialized())
+                        && isMaterializedViewDataConsistencyEnabled(session)) {
+                    materializedViewsWithTooManyPartitionsMissingBuilder.add(materializedView);
+                }
             }
         });
 
@@ -146,7 +150,8 @@ public class MaterializedViewOptimizationRewrite
                 sqlParser,
                 accessControl,
                 new RowExpressionDomainTranslator(metadata),
-                baseTableToMaterializedViewDefinitionMapCopy)
+                baseTableToMaterializedViewDefinitionMapCopy,
+                materializedViewsWithTooManyPartitionsMissingBuilder.build())
                 .rewrite(node);
     }
 }
