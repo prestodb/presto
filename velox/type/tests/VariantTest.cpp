@@ -15,6 +15,7 @@
  */
 #include "velox/type/Variant.h"
 #include <gtest/gtest.h>
+#include <velox/type/Type.h>
 
 using namespace facebook::velox;
 
@@ -31,6 +32,22 @@ TEST(Variant, arrayInferType) {
       *ARRAY(ARRAY(DOUBLE())),
       *variant::array({variant::array({variant(TypeKind::DOUBLE)})})
            .inferType());
+}
+
+TEST(Variant, mapInferType) {
+  EXPECT_EQ(*variant::map({{1LL, 1LL}}).inferType(), *MAP(BIGINT(), BIGINT()));
+  EXPECT_EQ(*variant::map({}).inferType(), *MAP(UNKNOWN(), UNKNOWN()));
+
+  const variant nullBigint = variant::null(TypeKind::BIGINT);
+  const variant nullReal = variant::null(TypeKind::REAL);
+  EXPECT_EQ(
+      *variant::map({{nullBigint, nullReal}, {1LL, 1.0f}}).inferType(),
+      *MAP(BIGINT(), REAL()));
+  EXPECT_EQ(
+      *variant::map({{nullBigint, 1.0f}, {1LL, nullReal}}).inferType(),
+      *MAP(BIGINT(), REAL()));
+  EXPECT_EQ(
+      *variant::map({{nullBigint, 1.0f}}).inferType(), *MAP(UNKNOWN(), REAL()));
 }
 
 struct Foo {};

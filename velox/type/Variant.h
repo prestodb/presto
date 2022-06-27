@@ -509,14 +509,22 @@ class variant {
   std::shared_ptr<const Type> inferType() const {
     switch (kind_) {
       case TypeKind::MAP: {
+        TypePtr keyType;
+        TypePtr valueType;
         auto& m = map();
         for (auto& pair : m) {
-          if (!pair.first.isNull() && !pair.second.isNull()) {
-            return MAP(pair.first.inferType(), pair.second.inferType());
+          if (keyType == nullptr && !pair.first.isNull()) {
+            keyType = pair.first.inferType();
+          }
+          if (valueType == nullptr && !pair.second.isNull()) {
+            valueType = pair.second.inferType();
+          }
+          if (keyType && valueType) {
+            break;
           }
         }
-        throw std::invalid_argument{
-            "map is empty or contains null values: cannot infer type"};
+        return MAP(
+            keyType ? keyType : UNKNOWN(), valueType ? valueType : UNKNOWN());
       }
       case TypeKind::ROW: {
         auto& r = row();
