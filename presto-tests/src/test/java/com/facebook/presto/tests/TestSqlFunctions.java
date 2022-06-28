@@ -537,6 +537,30 @@ public class TestSqlFunctions
         assertQueryFails("SELECT reduce(a, '', (s, x) -> s || testing.test.foo(x), s -> s) from (VALUES (array['a', 'b'])) t(a)", ".*External functions in Lambda expression is not supported:.*");
     }
 
+    @Test
+    void testNestedSqlFunctionsWithLambdas()
+    {
+        assertQuerySucceeds(
+                "WITH tmp AS (\n" +
+                "    SELECT\n" +
+                "        1 AS id,\n" +
+                "        MAP(ARRAY['a', 'b'], ARRAY[3.0, 4.0]) AS hist\n" +
+                "\n" +
+                "    UNION ALL\n" +
+                "\n" +
+                "    SELECT\n" +
+                "        2 AS id,\n" +
+                "        MAP(ARRAY['b', 'c'], ARRAY[4.0, 5.0]) AS hist\n" +
+                ")\n" +
+                "SELECT\n" +
+                "    ARRAY_SUM(\n" +
+                "        MAP_VALUES(\n" +
+                "            (MAP_NORMALIZE(hist)\n" +
+                "        )\n" +
+                "    ))\n" +
+                "FROM tmp");
+    }
+
     private Session createSessionWithTempFunctionFoo()
     {
         SqlFunctionId bigintSignature = new SqlFunctionId(QualifiedObjectName.valueOf("presto.session.foo"), ImmutableList.of(parseTypeSignature("bigint")));
