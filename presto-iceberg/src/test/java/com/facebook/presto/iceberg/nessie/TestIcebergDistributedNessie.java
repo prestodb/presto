@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.iceberg.nessie;
 
-import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.iceberg.IcebergDistributed;
+import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.containers.NessieContainer;
 import com.google.common.collect.ImmutableMap;
