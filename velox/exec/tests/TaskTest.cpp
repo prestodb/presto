@@ -29,15 +29,16 @@ class TaskTest : public HiveConnectorTestBase {
   static std::pair<std::shared_ptr<exec::Task>, std::vector<RowVectorPtr>>
   executeSingleThreaded(
       core::PlanFragment plan,
-      const std::vector<std::string>& filePaths /**/ = {}) {
+      const std::unordered_map<std::string, std::vector<std::string>>&
+          filePaths = {}) {
     auto task = std::make_shared<exec::Task>(
         "single.execution.task.0", plan, 0, std::make_shared<core::QueryCtx>());
 
-    if (!filePaths.empty()) {
-      for (const auto& filePath : filePaths) {
-        task->addSplit("0", exec::Split(makeHiveConnectorSplit(filePath)));
+    for (const auto& [nodeId, paths] : filePaths) {
+      for (const auto& path : paths) {
+        task->addSplit(nodeId, exec::Split(makeHiveConnectorSplit(path)));
       }
-      task->noMoreSplits("0");
+      task->noMoreSplits(nodeId);
     }
 
     std::vector<RowVectorPtr> results;
@@ -47,7 +48,9 @@ class TaskTest : public HiveConnectorTestBase {
         break;
       }
 
-      result->loadedVector();
+      for (auto& child : result->children()) {
+        child->loadedVector();
+      }
       results.push_back(result);
     }
 
@@ -473,14 +476,17 @@ TEST_F(TaskTest, singleThreadedExecution) {
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, {data, data});
 
+  core::PlanNodeId scanId;
   plan = PlanBuilder()
              .tableScan(asRowType(data->type()))
+             .capturePlanNodeId(scanId)
              .project({"c0 % 5 as k", "c0"})
              .singleAggregation({"k"}, {"sum(c0)", "avg(c0)"})
              .planFragment();
 
   {
-    auto [task, results] = executeSingleThreaded(plan, {filePath->path});
+    auto [task, results] =
+        executeSingleThreaded(plan, {{scanId, {filePath->path}}});
     assertEqualResults({expectedResult}, results);
   }
 
@@ -488,4 +494,91 @@ TEST_F(TaskTest, singleThreadedExecution) {
   plan = PlanBuilder().values({data, data}).project({"c0 / 0"}).planFragment();
   VELOX_ASSERT_THROW(executeSingleThreaded(plan), "division by zero");
 }
+
+TEST_F(TaskTest, singleThreadedHashJoin) {
+  auto left = makeRowVector(
+      {"t_c0", "t_c1"},
+      {
+          makeFlatVector<int64_t>({1, 2, 3, 4}),
+          makeFlatVector<int64_t>({10, 20, 30, 40}),
+      });
+  auto leftPath = TempFilePath::create();
+  writeToFile(leftPath->path, {left});
+
+  auto right = makeRowVector(
+      {"u_c0"},
+      {
+          makeFlatVector<int64_t>({0, 1, 3, 5}),
+      });
+  auto rightPath = TempFilePath::create();
+  writeToFile(rightPath->path, {right});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId leftScanId;
+  core::PlanNodeId rightScanId;
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(asRowType(left->type()))
+                  .capturePlanNodeId(leftScanId)
+                  .hashJoin(
+                      {"t_c0"},
+                      {"u_c0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(asRowType(right->type()))
+                          .capturePlanNodeId(rightScanId)
+                          .planNode(),
+                      "",
+                      {"t_c0", "t_c1", "u_c0"})
+                  .planFragment();
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>({1, 3}),
+      makeFlatVector<int64_t>({10, 30}),
+      makeFlatVector<int64_t>({1, 3}),
+  });
+
+  {
+    auto [task, results] = executeSingleThreaded(
+        plan,
+        {{leftScanId, {leftPath->path}}, {rightScanId, {rightPath->path}}});
+    assertEqualResults({expectedResult}, results);
+  }
+}
+
+TEST_F(TaskTest, singleThreadedCrossJoin) {
+  auto left = makeRowVector({"t_c0"}, {makeFlatVector<int64_t>({1, 2, 3})});
+  auto leftPath = TempFilePath::create();
+  writeToFile(leftPath->path, {left});
+
+  auto right = makeRowVector({"u_c0"}, {makeFlatVector<int64_t>({10, 20})});
+  auto rightPath = TempFilePath::create();
+  writeToFile(rightPath->path, {right});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId leftScanId;
+  core::PlanNodeId rightScanId;
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(asRowType(left->type()))
+                  .capturePlanNodeId(leftScanId)
+                  .crossJoin(
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(asRowType(right->type()))
+                          .capturePlanNodeId(rightScanId)
+                          .planNode(),
+                      {"t_c0", "u_c0"})
+                  .planFragment();
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>({1, 1, 2, 2, 3, 3}),
+      makeFlatVector<int64_t>({10, 20, 10, 20, 10, 20}),
+
+  });
+
+  {
+    auto [task, results] = executeSingleThreaded(
+        plan,
+        {{leftScanId, {leftPath->path}}, {rightScanId, {rightPath->path}}});
+    assertEqualResults({expectedResult}, results);
+  }
+}
+
 } // namespace facebook::velox::exec::test

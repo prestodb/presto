@@ -152,6 +152,12 @@ class BlockingState {
     return reason_;
   }
 
+  /// Moves out the blocking future stored inside. Can be called only once. Used
+  /// in single-threaded execution.
+  ContinueFuture future() {
+    return std::move(future_);
+  }
+
   /// Returns total number of drivers process wide that are currently in blocked
   /// state.
   static uint64_t numBlockedDrivers() {
@@ -337,8 +343,7 @@ struct DriverFactory {
 
   bool supportsSingleThreadedExecution() const {
     return !needsPartitionedOutput() && !needsExchangeClient() &&
-        !needsLocalExchange() && needsHashJoinBridges().empty() &&
-        needsCrossJoinBridges().empty();
+        !needsLocalExchange();
   }
 
   std::shared_ptr<const core::PartitionedOutputNode> needsPartitionedOutput()

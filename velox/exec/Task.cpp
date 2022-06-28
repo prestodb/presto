@@ -198,7 +198,7 @@ RowVectorPtr Task::next() {
 
   VELOX_CHECK_EQ(state_, kRunning, "Task has already finished processing.");
 
-  // On first call, create the Driver.
+  // On first call, create the drivers.
   if (driverFactories_.empty()) {
     VELOX_CHECK_NULL(
         consumerSupplier_,
@@ -206,48 +206,74 @@ RowVectorPtr Task::next() {
 
     LocalPlanner::plan(planFragment_, nullptr, &driverFactories_, 1);
 
-    // Only one pipeline is supported in single-threaded execution.
-    VELOX_CHECK_EQ(
-        1,
-        driverFactories_.size(),
-        "Single-threaded execution doesn't support multi-pipeline query plans yet.");
-    VELOX_CHECK(driverFactories_[0]->supportsSingleThreadedExecution());
+    exchangeClients_.resize(driverFactories_.size());
 
-    exchangeClients_.resize(1);
+    for (const auto& factory : driverFactories_) {
+      VELOX_CHECK(factory->supportsSingleThreadedExecution());
+      numDriversPerSplitGroup_ += factory->numDrivers;
+      numTotalDrivers_ += factory->numTotalDrivers;
+      taskStats_.pipelineStats.emplace_back(
+          factory->inputDriver, factory->outputDriver);
+    }
 
-    const auto& factory = driverFactories_[0];
-    numDriversPerSplitGroup_ += factory->numDrivers;
-    numTotalDrivers_ += factory->numTotalDrivers;
-    taskStats_.pipelineStats.emplace_back(
-        factory->inputDriver, factory->outputDriver);
-
-    // Create the only driver.
+    // Create drivers.
     auto self = shared_from_this();
     std::vector<std::shared_ptr<Driver>> drivers;
+    drivers.reserve(numDriversPerSplitGroup_);
     createSplitGroupStateLocked(self, 0);
     createDriversLocked(self, 0, drivers);
 
     drivers_ = std::move(drivers);
   }
 
-  VELOX_CHECK_EQ(1, drivers_.size());
-  auto driver = drivers_[0];
+  // Run drivers one at a time. If a driver blocks, continue running the other
+  // drivers. Running other drivers is expected to unblock some or all blocked
+  // drivers.
+  const auto numDrivers = drivers_.size();
 
-  std::shared_ptr<BlockingState> blockingState;
-  auto result = driver->next(blockingState);
-  if (result) {
-    return result;
+  std::vector<ContinueFuture> futures;
+  futures.resize(numDrivers);
+
+  for (;;) {
+    int runnableDrivers = 0;
+    int blockedDrivers = 0;
+    for (auto i = 0; i < numDrivers; ++i) {
+      if (drivers_[i] == nullptr) {
+        // This driver has finished processing.
+        continue;
+      }
+
+      if (!futures[i].isReady()) {
+        // This driver is still blocked.
+        ++blockedDrivers;
+        continue;
+      }
+
+      ++runnableDrivers;
+
+      std::shared_ptr<BlockingState> blockingState;
+      auto result = drivers_[i]->next(blockingState);
+      if (result) {
+        return result;
+      }
+
+      if (blockingState) {
+        futures[i] = blockingState->future();
+      }
+
+      if (error()) {
+        std::rethrow_exception(error());
+      }
+    }
+
+    if (runnableDrivers == 0) {
+      VELOX_CHECK_EQ(
+          0,
+          blockedDrivers,
+          "Cannot make progress as all remaining drivers are blocked");
+      return nullptr;
+    }
   }
-
-  VELOX_CHECK_NULL(
-      blockingState,
-      "Single-threaded execution doesn't support blocking pipelines yet.");
-
-  if (error()) {
-    std::rethrow_exception(error());
-  }
-
-  return nullptr;
 }
 
 void Task::start(

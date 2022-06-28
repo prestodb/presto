@@ -444,7 +444,7 @@ void Driver::run(std::shared_ptr<Driver> self) {
 
   switch (reason) {
     case StopReason::kBlock:
-      // Set the resume action outside of the Task so that, if the
+      // Set the resume action outside the Task so that, if the
       // future is already realized we do not have a second thread
       // entering the same Driver.
       BlockingState::setResume(blockingState);

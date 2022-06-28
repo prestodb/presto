@@ -123,10 +123,13 @@ class Task : public std::enable_shared_from_this<Task> {
   /// more data will be produced. Throws an exception if query execution
   /// failed.
   ///
-  /// This API is available only for single-pipeline query plans. The caller is
-  /// required to add all the necessary splits and signal no-more-splits before
-  /// calling 'next' for the first time. The operators in the pipeline are not
-  /// allowed to block.
+  /// This API is available for query plans that do not use
+  /// PartitionedOutputNode and LocalPartitionNode plan nodes.
+  ///
+  /// The caller is required to add all the necessary splits and signal
+  /// no-more-splits before calling 'next' for the first time. The operators in
+  /// the pipeline are not allowed to block for external events, but can block
+  /// waiting for data to be produced by a different pipeline of the same task.
   RowVectorPtr next();
 
   // Resumes execution of 'self' after a successful pause. All 'drivers_' must
@@ -695,8 +698,8 @@ class Task : public std::enable_shared_from_this<Task> {
 
   // Thread counts and cancellation -related state.
   //
-  // Some of the variables below are declared atomic for tsan because they are
-  // sometimes tested outside of 'mutex_' for a value of 0/false,
+  // Some variables below are declared atomic for tsan because they are
+  // sometimes tested outside 'mutex_' for a value of 0/false,
   // which is safe to access without acquiring 'mutex_'.Thread counts
   // and promises are guarded by 'mutex_'
   std::atomic<bool> pauseRequested_{false};
