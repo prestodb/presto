@@ -31,6 +31,7 @@ import javax.inject.Inject;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static java.util.Objects.requireNonNull;
@@ -86,7 +87,11 @@ public class IcebergSplitManager
 
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(session, TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()));
+        IcebergSplitSource splitSource = new IcebergSplitSource(
+                session,
+                tableScan,
+                TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()),
+                getMinimumAssignedSplitWeight(session));
         return splitSource;
     }
 }

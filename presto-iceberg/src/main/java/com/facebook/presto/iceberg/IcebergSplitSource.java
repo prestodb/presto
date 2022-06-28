@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
@@ -23,6 +24,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.StructLike;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
@@ -50,17 +52,25 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
-    private final Closer closer = Closer.create();
-
     private CloseableIterable<FileScanTask> fileScanTaskIterable;
     private CloseableIterator<FileScanTask> fileScanTaskIterator;
+
+    private final TableScan tableScan;
+    private final Closer closer = Closer.create();
+    private final double minimumAssignedSplitWeight;
     private final ConnectorSession session;
 
-    public IcebergSplitSource(ConnectorSession session, CloseableIterable<FileScanTask> fileScanTaskIterable)
+    public IcebergSplitSource(
+            ConnectorSession session,
+            TableScan tableScan,
+            CloseableIterable<FileScanTask> fileScanTaskIterable,
+            double minimumAssignedSplitWeight)
     {
         this.session = requireNonNull(session, "session is null");
+        this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.fileScanTaskIterable = requireNonNull(fileScanTaskIterable, "combinedScanIterable is null");
         this.fileScanTaskIterator = fileScanTaskIterable.iterator();
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
         closer.register(fileScanTaskIterable);
         closer.register(fileScanTaskIterator);
     }
@@ -109,7 +119,8 @@ public class IcebergSplitSource
                 task.file().format(),
                 ImmutableList.of(),
                 getPartitionKeys(task),
-                getNodeSelectionStrategy(session));
+                getNodeSelectionStrategy(session),
+                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)));
     }
 
     private static Map<Integer, String> getPartitionKeys(FileScanTask scanTask)
