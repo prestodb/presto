@@ -18,20 +18,19 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
-import org.apache.iceberg.CombinedScanTask;
+import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -51,18 +50,19 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
-    private final CloseableIterable<CombinedScanTask> combinedScanIterable;
-    private final Iterator<FileScanTask> fileScanIterator;
+    private final Closer closer = Closer.create();
+
+    private CloseableIterable<FileScanTask> fileScanTaskIterable;
+    private CloseableIterator<FileScanTask> fileScanTaskIterator;
     private final ConnectorSession session;
 
-    public IcebergSplitSource(ConnectorSession session, CloseableIterable<CombinedScanTask> combinedScanIterable)
+    public IcebergSplitSource(ConnectorSession session, CloseableIterable<FileScanTask> fileScanTaskIterable)
     {
         this.session = requireNonNull(session, "session is null");
-        this.combinedScanIterable = requireNonNull(combinedScanIterable, "combinedScanIterable is null");
-        this.fileScanIterator = Streams.stream(combinedScanIterable)
-                .map(CombinedScanTask::files)
-                .flatMap(Collection::stream)
-                .iterator();
+        this.fileScanTaskIterable = requireNonNull(fileScanTaskIterable, "combinedScanIterable is null");
+        this.fileScanTaskIterator = fileScanTaskIterable.iterator();
+        closer.register(fileScanTaskIterable);
+        closer.register(fileScanTaskIterator);
     }
 
     @Override
@@ -70,7 +70,7 @@ public class IcebergSplitSource
     {
         // TODO: move this to a background thread
         List<ConnectorSplit> splits = new ArrayList<>();
-        Iterator<FileScanTask> iterator = limit(fileScanIterator, maxSize);
+        Iterator<FileScanTask> iterator = limit(fileScanTaskIterator, maxSize);
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();
             splits.add(toIcebergSplit(task));
@@ -81,14 +81,14 @@ public class IcebergSplitSource
     @Override
     public boolean isFinished()
     {
-        return !fileScanIterator.hasNext();
+        return !fileScanTaskIterator.hasNext();
     }
 
     @Override
     public void close()
     {
         try {
-            combinedScanIterable.close();
+            closer.close();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
