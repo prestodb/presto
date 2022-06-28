@@ -268,7 +268,7 @@ void requestNextPage(
 std::unique_ptr<exec::SerializedPage> waitForNextPage(
     const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
-  exec::ContinueFuture future(false);
+  facebook::velox::ContinueFuture future;
   auto page = queue->dequeue(&atEnd, &future);
   EXPECT_FALSE(atEnd);
   if (page == nullptr) {
@@ -281,7 +281,7 @@ std::unique_ptr<exec::SerializedPage> waitForNextPage(
 
 void waitForEndMarker(const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
-  exec::ContinueFuture future(false);
+  facebook::velox::ContinueFuture future;
   auto page = queue->dequeue(&atEnd, &future);
   ASSERT_TRUE(page == nullptr);
   if (!atEnd) {
