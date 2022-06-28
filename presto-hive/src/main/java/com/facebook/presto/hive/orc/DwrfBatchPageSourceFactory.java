@@ -138,11 +138,12 @@ public class DwrfBatchPageSourceFactory
                 orcFileTailSource,
                 stripeMetadataSourceFactory,
                 hiveFileContext,
-                new OrcReaderOptions(
-                        getOrcMaxMergeDistance(session),
-                        getOrcTinyStripeThreshold(session),
-                        getOrcMaxReadBlockSize(session),
-                        isOrcZstdJniDecompressionEnabled(session)),
+                OrcReaderOptions.builder()
+                        .withMaxMergeDistance(getOrcMaxMergeDistance(session))
+                        .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
+                        .withMaxBlockSize(getOrcMaxReadBlockSize(session))
+                        .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
+                        .build(),
                 encryptionInformation,
                 dwrfEncryptionProvider));
     }

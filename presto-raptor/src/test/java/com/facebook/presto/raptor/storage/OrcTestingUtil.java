@@ -129,10 +129,10 @@ final class OrcTestingUtil
 
     public static OrcReaderOptions createDefaultTestConfig()
     {
-        return new OrcReaderOptions(
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                false);
+        return OrcReaderOptions.builder()
+                .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+                .withMaxBlockSize(new DataSize(1, MEGABYTE))
+                .build();
     }
 }
