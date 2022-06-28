@@ -25,7 +25,7 @@ import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQu
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.ORDERS;
 
-public class TestOracleIntegrationSmokeTest
+public class DisabledTestOracleIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private OracleServerTester oracleServer;

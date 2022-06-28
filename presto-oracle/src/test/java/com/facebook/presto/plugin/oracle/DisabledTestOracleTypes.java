@@ -39,8 +39,8 @@ import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 
-@Test
-public class TestOracleTypes
+@Test(enabled = false)
+public class DisabledTestOracleTypes
         extends AbstractTestQueryFramework
 {
     private OracleServerTester oracleServer;

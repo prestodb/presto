@@ -30,7 +30,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public abstract class BaseOracleIntegrationSmokeTest
+public abstract class DisabledBaseOracleIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private OracleServerTester oracleServer;
