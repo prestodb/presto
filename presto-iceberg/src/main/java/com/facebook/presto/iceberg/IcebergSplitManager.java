@@ -24,6 +24,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.util.TableScanUtil;
 
 import javax.inject.Inject;
 
@@ -85,7 +86,7 @@ public class IcebergSplitManager
 
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(session, tableScan.planTasks());
+        IcebergSplitSource splitSource = new IcebergSplitSource(session, TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()));
         return splitSource;
     }
 }
