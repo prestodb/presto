@@ -592,7 +592,8 @@ public class TestTDigestFunctions
         double sum = values.stream().reduce(0.0d, Double::sum);
         long count = values.size();
 
-        String tdigestStr = new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " ");
+        SqlVarbinary sqlVarbinary = new SqlVarbinary(tDigest.serialize().getBytes());
+        String tdigestStr = sqlVarbinary.toString().replaceAll("\\s+", " ");
 
         String sql = format("construct_tdigest(destructure_tdigest(CAST(X'%s' AS tdigest(%s))).centroid_means, CAST(destructure_tdigest(CAST(X'%s' AS tdigest(%s))).centroid_weights AS ARRAY<DOUBLE>), destructure_tdigest(CAST(X'%s' AS tdigest(%s))).compression, destructure_tdigest(CAST(X'%s' AS tdigest(%s))).min, destructure_tdigest(CAST(X'%s' AS tdigest(%s))).max, destructure_tdigest(CAST(X'%s' AS tdigest(%s))).sum, destructure_tdigest(CAST(X'%s' AS tdigest(%s))).count)",
                 tdigestStr,
@@ -610,10 +611,12 @@ public class TestTDigestFunctions
                 tdigestStr,
                 DOUBLE);
 
-        functionAssertions.selectSingleValue(
+        SqlVarbinary constructedSqlVarbinary = functionAssertions.selectSingleValue(
                 sql,
                 TDIGEST_DOUBLE,
                 SqlVarbinary.class);
+
+        assertEquals(constructedSqlVarbinary, sqlVarbinary);
     }
 
     // disabled because test takes almost 10s
