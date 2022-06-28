@@ -25,7 +25,7 @@ import java.sql.Statement;
 
 import static java.lang.String.format;
 
-public class TestingOracleServer
+public class OracleServerTester
         extends OracleContainer
         implements Closeable
 {
@@ -35,7 +35,7 @@ public class TestingOracleServer
     public static final String TEST_SCHEMA = TEST_USER; // schema and user is the same thing in Oracle
     public static final String TEST_PASS = "presto_test_password";
 
-    public TestingOracleServer()
+    public OracleServerTester()
     {
         super("wnameless/oracle-xe-11g-r2");
 

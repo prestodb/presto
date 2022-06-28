@@ -17,6 +17,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -27,14 +28,16 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 public class TestOracleIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final TestingOracleServer oracleServer;
+    private OracleServerTester oracleServer;
     private QueryRunner queryRunner;
 
-    protected TestOracleIntegrationSmokeTest(TestingOracleServer oracleServer)
+    @BeforeClass
+    public void setUp()
             throws Exception
     {
+        this.oracleServer = new OracleServerTester();
+        this.oracleServer.start();
         this.queryRunner = createOracleQueryRunner(oracleServer, ORDERS);
-        this.oracleServer = new TestingOracleServer();
     }
 
     @Override

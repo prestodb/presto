@@ -25,6 +25,7 @@ import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import org.testcontainers.containers.OracleContainer;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -38,11 +39,12 @@ import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 
+@Test
 public class TestOracleTypes
         extends AbstractTestQueryFramework
 {
-    private final TestingOracleServer oracleServer;
-    private final QueryRunner queryRunner;
+    private OracleServerTester oracleServer;
+    private QueryRunner queryRunner;
 
     @Test
     public void test()
@@ -51,11 +53,13 @@ public class TestOracleTypes
         oracle.start();
     }
 
-    private TestOracleTypes(TestingOracleServer oracleServer)
+    @BeforeClass
+    public void setUp()
             throws Exception
     {
+        this.oracleServer = new OracleServerTester();
+        oracleServer.start();
         this.queryRunner = createOracleQueryRunner(oracleServer);
-        this.oracleServer = oracleServer;
     }
 
     @Override

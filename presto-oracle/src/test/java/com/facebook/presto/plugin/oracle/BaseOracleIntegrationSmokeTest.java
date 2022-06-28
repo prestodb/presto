@@ -18,6 +18,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -32,14 +33,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseOracleIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final TestingOracleServer oracleServer;
-    private final QueryRunner queryRunner;
+    private OracleServerTester oracleServer;
+    private QueryRunner queryRunner;
 
-    protected BaseOracleIntegrationSmokeTest(TestingOracleServer oracleServer)
+    @BeforeClass
+    public void setUp()
             throws Exception
     {
-        this.queryRunner = createOracleQueryRunner(oracleServer, ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
-        this.oracleServer = new TestingOracleServer();
+        oracleServer = new OracleServerTester();
+        oracleServer.start();
+        queryRunner = createOracleQueryRunner(this.oracleServer, ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
     }
 
     @Override

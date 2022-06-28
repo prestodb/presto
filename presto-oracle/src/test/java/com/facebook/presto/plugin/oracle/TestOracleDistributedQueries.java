@@ -18,6 +18,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -33,14 +34,16 @@ import static org.testng.Assert.assertTrue;
 public class TestOracleDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private final TestingOracleServer oracleServer;
-    private final QueryRunner queryRunner;
+    private OracleServerTester oracleServer;
+    private QueryRunner queryRunner;
 
-    protected TestOracleDistributedQueries(TestingOracleServer oracleServer)
+    @BeforeClass
+    public void setUp()
             throws Exception
     {
-        this.queryRunner = createOracleQueryRunner(oracleServer, TpchTable.getTables());
-        this.oracleServer = new TestingOracleServer();
+        oracleServer = new OracleServerTester();
+        oracleServer.start();
+        queryRunner = createOracleQueryRunner(oracleServer, TpchTable.getTables());
     }
 
     @Override
