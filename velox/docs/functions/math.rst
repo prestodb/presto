@@ -23,6 +23,10 @@ Mathematical Functions
     Returns ``low`` if ``x`` is less than ``low``. Returns ``high`` if ``x`` is greater than ``high``.
     Returns ``x`` otherwise. ``low`` must be less than or equal to ``high``.
 
+.. function:: degrees(x) -> double
+
+    Converts angle x in radians to degrees.
+
 .. function:: divide(x, y) -> [same as x]
 
     Returns the results of dividing x by y. The types of x and y must be the same.
@@ -30,6 +34,10 @@ Mathematical Functions
     division by zero results in an error. For floating point types,  division by
     zero returns positive infinity if x is greater than zero, negative infinity if
     x if less than zero and NaN if x is equal to zero.
+
+.. function:: e() -> double
+
+    Returns the value of Euler's Constant.
 
 .. function:: exp(x) -> double
 

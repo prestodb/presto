@@ -14,6 +14,10 @@ Binary Functions
 
     Computes the SHA-256 hash of ``binary``.
 
+.. function:: sha512(binary) -> varbinary
+
+    Computes the SHA-512 hash of ``binary``.
+
 .. function:: to_base64(binary) -> varchar
 
     Encodes ``binary`` into a base64 string representation.

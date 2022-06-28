@@ -93,6 +93,17 @@ struct Sha256Function {
   }
 };
 
+/// sha512(varbinary) -> varbinary
+template <typename T>
+struct Sha512Function {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename TTo, typename TFrom>
+  FOLLY_ALWAYS_INLINE void call(TTo& result, const TFrom& input) {
+    stringImpl::sha512(result, input);
+  }
+};
+
 template <typename T>
 struct ToHexFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
