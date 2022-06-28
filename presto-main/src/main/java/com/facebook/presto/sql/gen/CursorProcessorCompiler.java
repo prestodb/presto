@@ -43,7 +43,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
@@ -72,7 +71,6 @@ import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.CommonSubE
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.CommonSubExpressionFields.initializeCommonSubExpressionFields;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.collectCSEByLevel;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
-import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
@@ -103,14 +101,6 @@ public class CursorProcessorCompiler
                 .add(filter)
                 .build();
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                rowExpressions,
-                metadata,
-                sqlFunctionProperties,
-                sessionFunctions,
-                "");
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 classDefinition,
@@ -120,7 +110,7 @@ public class CursorProcessorCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                compiledLambdaMap);
+                ImmutableMap.of());
 
         if (isOptimizeCommonSubExpressions) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(rowExpressions);
@@ -135,7 +125,7 @@ public class CursorProcessorCompiler
                         metadata,
                         sqlFunctionProperties,
                         sessionFunctions,
-                        compiledLambdaMap);
+                        ImmutableMap.of());
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
 
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
