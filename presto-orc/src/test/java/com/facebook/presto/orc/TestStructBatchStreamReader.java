@@ -278,11 +278,11 @@ public class TestStructBatchStreamReader
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                new OrcReaderOptions(
-                        dataSize,
-                        dataSize,
-                        dataSize,
-                        false),
+                OrcReaderOptions.builder()
+                        .withMaxMergeDistance(dataSize)
+                        .withTinyStripeThreshold(dataSize)
+                        .withMaxBlockSize(dataSize)
+                        .build(),
                 false,
                 NO_ENCRYPTION,
                 DwrfKeyProvider.EMPTY,

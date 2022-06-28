@@ -296,7 +296,12 @@ public class OrcStorageManager
                     orcFileTailSource,
                     stripeMetadataSourceFactory,
                     new RaptorOrcAggregatedMemoryContext(),
-                    new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
+                    OrcReaderOptions.builder()
+                            .withMaxMergeDistance(readerAttributes.getMaxMergeDistance())
+                            .withTinyStripeThreshold(readerAttributes.getTinyStripeThreshold())
+                            .withMaxBlockSize(HUGE_MAX_READ_BLOCK_SIZE)
+                            .withZstdJniDecompressionEnabled(readerAttributes.isZstdJniDecompressionEnabled())
+                            .build(),
                     hiveFileContext.isCacheable(),
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY,
@@ -388,11 +393,12 @@ public class OrcStorageManager
                     orcFileTailSource,
                     new StorageStripeMetadataSource(),
                     new RaptorOrcAggregatedMemoryContext(),
-                    new OrcReaderOptions(
-                            defaultReaderAttributes.getMaxMergeDistance(),
-                            defaultReaderAttributes.getTinyStripeThreshold(),
-                            HUGE_MAX_READ_BLOCK_SIZE,
-                            defaultReaderAttributes.isZstdJniDecompressionEnabled()),
+                    OrcReaderOptions.builder()
+                            .withMaxMergeDistance(defaultReaderAttributes.getMaxMergeDistance())
+                            .withTinyStripeThreshold(defaultReaderAttributes.getTinyStripeThreshold())
+                            .withMaxBlockSize(HUGE_MAX_READ_BLOCK_SIZE)
+                            .withZstdJniDecompressionEnabled(defaultReaderAttributes.isZstdJniDecompressionEnabled())
+                            .build(),
                     false,
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY,
@@ -558,7 +564,12 @@ public class OrcStorageManager
                     orcFileTailSource,
                     stripeMetadataSourceFactory,
                     new RaptorOrcAggregatedMemoryContext(),
-                    new OrcReaderOptions(defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, defaultReaderAttributes.isZstdJniDecompressionEnabled()),
+                    OrcReaderOptions.builder()
+                            .withMaxMergeDistance(defaultReaderAttributes.getMaxMergeDistance())
+                            .withTinyStripeThreshold(defaultReaderAttributes.getTinyStripeThreshold())
+                            .withMaxBlockSize(HUGE_MAX_READ_BLOCK_SIZE)
+                            .withZstdJniDecompressionEnabled(defaultReaderAttributes.isZstdJniDecompressionEnabled())
+                            .build(),
                     false,
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY,

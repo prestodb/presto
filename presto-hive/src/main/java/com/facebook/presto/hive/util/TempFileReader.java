@@ -62,11 +62,11 @@ public class TempFileReader
                     new StorageOrcFileTailSource(),
                     new StorageStripeMetadataSource(),
                     new HiveOrcAggregatedMemoryContext(),
-                    new OrcReaderOptions(
-                            new DataSize(1, MEGABYTE),
-                            new DataSize(8, MEGABYTE),
-                            new DataSize(16, MEGABYTE),
-                            false),
+                    OrcReaderOptions.builder()
+                            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                            .withTinyStripeThreshold(new DataSize(8, MEGABYTE))
+                            .withMaxBlockSize(new DataSize(16, MEGABYTE))
+                            .build(),
                     false,
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY,

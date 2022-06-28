@@ -28,24 +28,7 @@ public class OrcReaderOptions
     // if the option is set to true, OrcSelectiveReader will append a row number block at the end of the page
     private final boolean appendRowNumber;
 
-    public OrcReaderOptions(DataSize maxMergeDistance,
-            DataSize tinyStripeThreshold,
-            DataSize maxBlockSize,
-            boolean zstdJniDecompressionEnabled)
-    {
-        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, false);
-    }
-
-    public OrcReaderOptions(DataSize maxMergeDistance,
-            DataSize tinyStripeThreshold,
-            DataSize maxBlockSize,
-            boolean zstdJniDecompressionEnabled,
-            boolean appendRowNumber)
-    {
-        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, appendRowNumber);
-    }
-
-    public OrcReaderOptions(
+    private OrcReaderOptions(
             DataSize maxMergeDistance,
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,

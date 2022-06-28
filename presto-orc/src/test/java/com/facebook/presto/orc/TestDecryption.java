@@ -487,13 +487,11 @@ public class TestDecryption
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                new OrcReaderOptions(
-                        new DataSize(1, MEGABYTE),
-                        new DataSize(1, MEGABYTE),
-                        MAX_BLOCK_SIZE,
-                        false,
-                        false,
-                        false),
+                OrcReaderOptions.builder()
+                        .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                        .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+                        .withMaxBlockSize(MAX_BLOCK_SIZE)
+                        .build(),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingPlainKeyEncryptionLibrary()),
                 DwrfKeyProvider.of(ImmutableMap.of(0, Slices.utf8Slice("key"))),
