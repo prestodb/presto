@@ -846,7 +846,11 @@ public class OrcWriter
                 types,
                 hiveStorageTimeZone,
                 orcEncoding,
-                new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false),
+                OrcReaderOptions.builder()
+                        .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                        .withTinyStripeThreshold(new DataSize(8, MEGABYTE))
+                        .withMaxBlockSize(new DataSize(16, MEGABYTE))
+                        .build(),
                 dwrfEncryptionProvider,
                 DwrfKeyProvider.of(intermediateKeyMetadata.build()));
     }

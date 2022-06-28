@@ -140,11 +140,11 @@ public class TestOrcRecordReaderDwrfStripeCaching
             DwrfAwareStripeMetadataSourceFactory dwrfAwareFactory = new DwrfAwareStripeMetadataSourceFactory(delegateSourceFactory);
 
             // set zeroes to avoid file caching and merging of small disk ranges
-            OrcReaderOptions orcReaderOptions = new OrcReaderOptions(
-                    new DataSize(0, MEGABYTE),
-                    new DataSize(0, MEGABYTE),
-                    new DataSize(1, MEGABYTE),
-                    false);
+            OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
+                    .withMaxMergeDistance(new DataSize(0, MEGABYTE))
+                    .withTinyStripeThreshold(new DataSize(0, MEGABYTE))
+                    .withMaxBlockSize(new DataSize(1, MEGABYTE))
+                    .build();
 
             OrcReader orcReader = new OrcReader(
                     orcDataSource,
