@@ -29,25 +29,28 @@ Configuration Properties
 
 The following configuration properties are available:
 
-====================================== ====================================================
-Property Name                          Description
-====================================== ====================================================
-``hive.metastore.uri``                 The URI(s) of the Hive metastore.
+========================================= =====================================================
+Property Name                             Description
+========================================= =====================================================
+``hive.metastore.uri``                    The URI(s) of the Hive metastore.
 
-``iceberg.file-format``                The storage file format for Iceberg tables.
+``iceberg.file-format``                   The storage file format for Iceberg tables.
 
-``iceberg.compression-codec``          The compression codec to use when writing files.
+``iceberg.compression-codec``             The compression codec to use when writing files.
 
-``iceberg.catalog.type``               The catalog type for Iceberg tables.
+``iceberg.catalog.type``                  The catalog type for Iceberg tables.
 
-``iceberg.catalog.warehouse``          The catalog warehouse root path for Iceberg tables.
+``iceberg.catalog.warehouse``             The catalog warehouse root path for Iceberg tables.
 
-``iceberg.catalog.cached-catalog-num`` The number of Iceberg catalogs to cache.
+``iceberg.catalog.cached-catalog-num``    The number of Iceberg catalogs to cache.
 
-``iceberg.hadoop.config.resources``    The path(s) for Hadoop configuration resources.
+``iceberg.hadoop.config.resources``       The path(s) for Hadoop configuration resources.
 
-``iceberg.max-partitions-per-writer``  The maximum number of partitions handled per writer.
-====================================== ====================================================
+``iceberg.max-partitions-per-writer``     The maximum number of partitions handled per writer.
+
+``iceberg.minimum-assigned-split-weight`` A decimal value in the range (0, 1] used as a minimum
+                                          for weights assigned to each split.
+========================================= =====================================================
 
 ``hive.metastore.uri``
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -113,6 +116,15 @@ Otherwise, it will be ignored.
 The Maximum number of partitions handled per writer.
 
 The default is 100.
+
+``iceberg.minimum-assigned-split-weight``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A decimal value in the range (0, 1] used as a minimum for weights assigned to each split.
+A low value may improve performance on tables with small files. A higher value may improve
+performance for queries with highly skewed aggregations or joins.
+
+The default is 0.05.
 
 Nessie catalog
 ^^^^^^^^^^^^^^
