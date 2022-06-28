@@ -25,6 +25,32 @@ namespace velox {
 template <typename T>
 void DictionaryVector<T>::setInternalState() {
   rawIndices_ = indices_->as<vector_size_t>();
+
+  // Sanity check indices for non-null positions. Enabled in debug mode only to
+  // avoid performance hit in production.
+#ifndef NDEBUG
+  for (auto i = 0; i < BaseVector::length_; ++i) {
+    const bool isNull =
+        BaseVector::rawNulls_ && bits::isBitNull(BaseVector::rawNulls_, i);
+    if (isNull) {
+      continue;
+    }
+
+    // Verify index for a non-null position. It must be >= 0 and < size of the
+    // base vector.
+    VELOX_DCHECK_GE(
+        rawIndices_[i],
+        0,
+        "Dictionary index must be greater than zero. Index: {}.",
+        i);
+    VELOX_DCHECK_LT(
+        rawIndices_[i],
+        dictionaryValues_->size(),
+        "Dictionary index must be less than base vector's size. Index: {}.",
+        i);
+  }
+#endif
+
   if (isLazyNotLoaded(*dictionaryValues_)) {
     // Do not load Lazy vector
     return;

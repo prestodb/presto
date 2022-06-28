@@ -79,7 +79,7 @@ class InTest : public SparkFunctionBaseTest {
       VectorPtr rhsArrayVector =
           vectorMaker_.arrayVectorNullable<T>({std::optional(rhs)});
       if (asDictionary) {
-        auto indices = makeIndices(rhs.size(), [](auto row) { return row; });
+        auto indices = makeIndices(rhs.size(), [](auto /*row*/) { return 0; });
         rhsArrayVector = wrapInDictionary(indices, rhs.size(), rhsArrayVector);
       }
 

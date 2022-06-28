@@ -115,7 +115,7 @@ TEST_F(LazyVectorTest, lazyInDoubleDictionary) {
     lazy = std::make_shared<LazyVector>(
         pool_.get(),
         INTEGER(),
-        kInnerSize,
+        kOuterSize,
         std::make_unique<test::SimpleVectorLoader>([&](auto rows) {
           loadEnd = rows.back() + 1;
           return makeFlatVector<int32_t>(loadEnd, [](auto row) { return row; });

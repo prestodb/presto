@@ -56,13 +56,13 @@ void EvalCtx::setWrapped(
       localResult =
           BaseVector::createNullConstant(expr->type(), rows.size(), pool());
     } else {
-      // If returning a dictionary for a conditional that will be merged with
-      // other branches of a conditional, set the undefined positions of the
-      // DictionaryVector to null.
       BufferPtr nulls;
-      if (!isFinalSelection_) {
-        // If this is not the final selection, i.e. we are inside an if, start
-        // with all nulls.
+      if (!rows.isAllSelected()) {
+        // The new base vector may be shorter than the original base vector
+        // (e.g. if positions at the end of the original vector were not
+        // selected for evaluation). In this case some original indices
+        // corresponding to non-selected rows may point past the end of the base
+        // vector. Disable these by setting corresponding positions to null.
         nulls = AlignedBuffer::allocate<bool>(rows.size(), pool(), bits::kNull);
         // Set the active rows to non-null.
         rows.clearNulls(nulls);
@@ -73,6 +73,11 @@ void EvalCtx::setWrapped(
               wrapNulls_->as<uint64_t>(),
               rows.begin(),
               rows.end());
+        }
+        // Reset nulls buffer if all positions happen to be non-null.
+        if (bits::isAllSet(
+                nulls->as<uint64_t>(), 0, rows.end(), bits::kNotNull)) {
+          nulls.reset();
         }
       } else {
         nulls = wrapNulls_;

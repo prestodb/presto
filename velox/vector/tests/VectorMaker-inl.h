@@ -179,11 +179,18 @@ DictionaryVectorPtr<VectorMaker::EvalType<T>> VectorMaker::dictionaryVector(
 
   BufferPtr indices = AlignedBuffer::allocate<int32_t>(data.size(), pool_);
   auto rawIndices = indices->asMutable<int32_t>();
+
+  BufferPtr nulls =
+      AlignedBuffer::allocate<bool>(data.size(), pool_, bits::kNotNull);
+  auto rawNulls = nulls->asMutable<uint64_t>();
+
   vector_size_t nullCount = 0;
 
-  for (const auto& val : data) {
+  for (auto i = 0; i < data.size(); ++i) {
+    auto val = data[i];
     if (val == std::nullopt) {
       ++nullCount;
+      bits::setNull(rawNulls, i, true);
     } else {
       const auto& [it, inserted] = indexMap.emplace(*val, indexMap.size());
       if (inserted) {
@@ -198,7 +205,7 @@ DictionaryVectorPtr<VectorMaker::EvalType<T>> VectorMaker::dictionaryVector(
   auto stats = genVectorMakerStats(data);
   auto dictionaryVector = std::make_unique<DictionaryVector<TEvalType>>(
       pool_,
-      nullptr /*nulls*/,
+      nullCount ? nulls : nullptr,
       data.size(),
       std::move(values),
       std::move(indices),
@@ -207,11 +214,6 @@ DictionaryVectorPtr<VectorMaker::EvalType<T>> VectorMaker::dictionaryVector(
       nullCount,
       stats.isSorted);
 
-  for (vector_size_t i = 0; i < data.size(); i++) {
-    if (data[i] == std::nullopt) {
-      dictionaryVector->setNull(i, true);
-    }
-  }
   return dictionaryVector;
 }
 

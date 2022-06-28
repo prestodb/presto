@@ -147,6 +147,9 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   BaseVector* loadedVector() override {
+    if (initialized_) {
+      return this;
+    }
     dictionaryValues_ = BaseVector::loadedVectorShared(dictionaryValues_);
     setInternalState();
     return this;
@@ -196,6 +199,7 @@ class DictionaryVector : public SimpleVector<T> {
 
   void setDictionaryValues(VectorPtr dictionaryValues) {
     dictionaryValues_ = dictionaryValues;
+    initialized_ = false;
     setInternalState();
   }
 

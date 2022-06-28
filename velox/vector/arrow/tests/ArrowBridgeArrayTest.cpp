@@ -418,7 +418,7 @@ TEST_F(ArrowBridgeArrayExportTest, unsupported) {
   EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Dictionary encoding.
-  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(3, pool_.get());
+  BufferPtr indices = allocateIndices(3, pool_.get());
   vector = BaseVector::wrapInDictionary(
       BufferPtr(), indices, 3, vectorMaker_.flatVector<int64_t>({1, 2, 3}));
   EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
