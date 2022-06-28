@@ -116,6 +116,17 @@ public class RowExpressionCompiler
             BytecodeGeneratorContext generatorContext;
             switch (functionMetadata.getImplementationType()) {
                 case JAVA:
+                    // Pre-compile lambda bytecode and update compiled lambda map
+                    compiledLambdaMap.putAll(generateMethodsForLambda(
+                            classDefinition,
+                            callSiteBinder,
+                            cachedInstanceBinder,
+                            call,
+                            metadata,
+                            sqlFunctionProperties,
+                            sessionFunctions,
+                            "sql" + call.hashCode(),
+                            compiledLambdaMap.keySet()));
                     generatorContext = new BytecodeGeneratorContext(
                             RowExpressionCompiler.this,
                             context.getScope(),

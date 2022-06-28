@@ -716,15 +716,6 @@ public class PageFunctionCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                filter,
-                metadata,
-                sqlFunctionProperties,
-                sessionFunctions);
-
         // cse
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
         RowExpressionCompiler compiler = new RowExpressionCompiler(
@@ -735,7 +726,7 @@ public class PageFunctionCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                compiledLambdaMap);
+                ImmutableMap.of());
 
         if (isOptimizeCommonSubExpression) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(filter);
@@ -749,7 +740,7 @@ public class PageFunctionCompiler
                         metadata,
                         sqlFunctionProperties,
                         sessionFunctions,
-                        compiledLambdaMap);
+                        ImmutableMap.of());
 
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
