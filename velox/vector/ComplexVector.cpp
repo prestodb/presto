@@ -95,7 +95,7 @@ std::optional<int32_t> RowVector::compare(
   auto compareSize = std::min(children_.size(), otherRow->children_.size());
   for (int32_t i = 0; i < compareSize; ++i) {
     BaseVector* child = children_[i].get();
-    BaseVector* otherChild = otherRow->loadedChildAt(i).get();
+    BaseVector* otherChild = otherRow->childAt(i)->loadedVector();
     if (!child && !otherChild) {
       continue;
     }
@@ -129,7 +129,7 @@ void RowVector::appendToChildren(
     vector_size_t index) {
   for (int32_t i = 0; i < children_.size(); ++i) {
     auto& child = children_[i];
-    child->copy(source->loadedChildAt(i).get(), index, sourceIndex, count);
+    child->copy(source->childAt(i)->loadedVector(), index, sourceIndex, count);
   }
 }
 
@@ -203,7 +203,10 @@ void RowVector::copy(
       vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex + i);
       for (int32_t j = 0; j < children_.size(); ++j) {
         childAt(j)->copy(
-            sourceAsRow->loadedChildAt(j).get(), childIndex, wrappedIndex, 1);
+            sourceAsRow->childAt(j)->loadedVector(),
+            childIndex,
+            wrappedIndex,
+            1);
       }
     }
   }

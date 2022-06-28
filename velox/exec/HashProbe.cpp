@@ -234,7 +234,7 @@ void HashProbe::addInput(RowVectorPtr input) {
   auto mode = table_->hashMode();
   auto& buildHashers = table_->hashers();
   for (auto i = 0; i < keyChannels_.size(); ++i) {
-    auto key = input_->loadedChildAt(keyChannels_[i]);
+    auto key = input_->childAt(keyChannels_[i])->loadedVector();
     if (mode != BaseHashTable::HashMode::kHash) {
       buildHashers[i]->lookupValueIds(
           *key, activeRows_, scratchMemory_, lookup_->hashes);

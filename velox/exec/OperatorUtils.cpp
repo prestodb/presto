@@ -35,7 +35,7 @@ void deselectRowsWithNulls(
     auto& child = const_cast<VectorPtr&>(input.childAt(channel));
     LazyVector::ensureLoadedRows(
         child, rows, scratchDecodedVector, scratchRows);
-    auto key = input.loadedChildAt(channel);
+    auto key = input.childAt(channel)->loadedVector();
     if (key->mayHaveNulls()) {
       auto nulls = key->flatRawNulls(rows);
       anyChange = true;

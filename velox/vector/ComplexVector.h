@@ -108,14 +108,6 @@ class RowVector : public BaseVector {
     VELOX_USER_CHECK_LT(index, childrenSize_);
     return children_[index];
   }
-  const VectorPtr& loadedChildAt(column_index_t index) const {
-    VELOX_USER_CHECK_LT(index, childrenSize_);
-    auto& child = children_[index];
-    if (child->encoding() == VectorEncoding::Simple::LAZY) {
-      child = child->as<LazyVector>()->loadedVectorShared();
-    }
-    return child;
-  }
 
   std::vector<VectorPtr>& children() {
     return children_;

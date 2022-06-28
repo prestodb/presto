@@ -259,7 +259,7 @@ void exportRowVector(
 
   // Convert each child.
   for (size_t i = 0; i < numChildren; ++i) {
-    auto childVector = rowVector->loadedChildAt(i);
+    auto childVector = BaseVector::loadedVectorShared(rowVector->childAt(i));
     exportToArrow(childVector, *bridgeHolder.allocateChild(i), pool);
   }
 

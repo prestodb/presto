@@ -231,7 +231,8 @@ std::shared_ptr<T> getOnlyChild(const std::shared_ptr<F>& batch) {
   auto rowVector = std::dynamic_pointer_cast<RowVector>(batch);
   EXPECT_TRUE(rowVector.get() != nullptr)
       << "Vector is not a struct: " << typeid(F).name();
-  auto child = std::dynamic_pointer_cast<T>(rowVector->loadedChildAt(0));
+  auto child = std::dynamic_pointer_cast<T>(
+      BaseVector::loadedVectorShared(rowVector->childAt(0)));
   EXPECT_TRUE(child.get() != nullptr)
       << "Child vector type doesn't match " << typeid(T).name();
   return child;
@@ -239,8 +240,8 @@ std::shared_ptr<T> getOnlyChild(const std::shared_ptr<F>& batch) {
 
 template <typename T, typename F>
 std::shared_ptr<T> getChild(std::shared_ptr<F>& batch, size_t index) {
-  auto child = std::dynamic_pointer_cast<T>(
-      std::dynamic_pointer_cast<RowVector>(batch)->loadedChildAt(index));
+  auto child = std::dynamic_pointer_cast<T>(BaseVector::loadedVectorShared(
+      std::dynamic_pointer_cast<RowVector>(batch)->childAt(index)));
   EXPECT_TRUE(child.get() != nullptr);
   return child;
 }

@@ -268,7 +268,7 @@ void E2EFilterTestBase::readWithFilter(
       // Load eventual LazyVectors inside the timed section.
       auto rowVector = batch->asUnchecked<RowVector>();
       for (auto i = 0; i < rowVector->childrenSize(); ++i) {
-        rowVector->loadedChildAt(i);
+        rowVector->childAt(i)->loadedVector();
       }
       if (skipCheck) {
         // Fetch next batch inside timed section.
