@@ -23,12 +23,12 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.util.Objects.requireNonNull;
 
-public class TestAbstractIcebergDistributed
+public class IcebergDistributed
         extends AbstractTestDistributedQueries
 {
     private final CatalogType catalogType;
 
-    protected TestAbstractIcebergDistributed(CatalogType catalogType)
+    protected IcebergDistributed(CatalogType catalogType)
     {
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }

@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.iceberg.hive;
 
-import com.facebook.presto.iceberg.TestAbstractIcebergDistributed;
+import com.facebook.presto.iceberg.IcebergDistributed;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 
 @Test
 public class TestIcebergDistributedHive
-        extends TestAbstractIcebergDistributed
+        extends IcebergDistributed
 {
     public TestIcebergDistributedHive()
     {

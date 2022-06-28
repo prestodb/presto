@@ -14,7 +14,7 @@
 package com.facebook.presto.iceberg.hive;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.iceberg.TestAbstractIcebergSmoke;
+import com.facebook.presto.iceberg.IcebergSmoke;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -31,7 +31,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.fail;
 
 public class TestIcebergSmokeHive
-        extends TestAbstractIcebergSmoke
+        extends IcebergSmoke
 {
     public TestIcebergSmokeHive()
     {

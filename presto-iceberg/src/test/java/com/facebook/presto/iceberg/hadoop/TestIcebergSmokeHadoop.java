@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.iceberg.hadoop;
 
-import com.facebook.presto.iceberg.TestAbstractIcebergSmoke;
+import com.facebook.presto.iceberg.IcebergSmoke;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 
+@Test
 public class TestIcebergSmokeHadoop
-        extends TestAbstractIcebergSmoke
+        extends IcebergSmoke
 {
     public TestIcebergSmokeHadoop()
     {

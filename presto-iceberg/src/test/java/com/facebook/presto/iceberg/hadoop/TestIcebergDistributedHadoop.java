@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.iceberg.hadoop;
 
-import com.facebook.presto.iceberg.TestAbstractIcebergDistributed;
+import com.facebook.presto.iceberg.IcebergDistributed;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 
 @Test
 public class TestIcebergDistributedHadoop
-        extends TestAbstractIcebergDistributed
+        extends IcebergDistributed
 {
     public TestIcebergDistributedHadoop()
     {
