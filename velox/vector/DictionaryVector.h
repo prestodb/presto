@@ -53,7 +53,6 @@ class DictionaryVector : public SimpleVector<T> {
       BufferPtr nulls,
       size_t length,
       VectorPtr dictionaryValues,
-      TypeKind indexTypeKind,
       BufferPtr dictionaryIndexArray,
       const SimpleVectorStats<T>& stats = {},
       std::optional<vector_size_t> distinctValueCount = std::nullopt,
@@ -103,10 +102,6 @@ class DictionaryVector : public SimpleVector<T> {
    * @return the vector of values starting at the given index
    */
   xsimd::batch<T> loadSIMDValueBufferAt(size_t index) const;
-
-  inline TypeKind getIndexType() const {
-    return indexType_;
-  }
 
   inline const BufferPtr& indices() const {
     return indices_;
@@ -207,21 +202,11 @@ class DictionaryVector : public SimpleVector<T> {
  private:
   // return the dictionary index for the specified vector index.
   inline vector_size_t getDictionaryIndex(vector_size_t idx) const {
-    // This is always int32, so if is faster than switch.
-    if (indexType_ == TypeKind::INTEGER) {
-      return rawIndices_[idx];
-    }
-    if (indexType_ == TypeKind::SMALLINT) {
-      return reinterpret_cast<const uint16_t*>(rawIndices_)[idx];
-    }
-    return reinterpret_cast<const uint8_t*>(rawIndices_)[idx];
+    return rawIndices_[idx];
   }
 
   void setInternalState();
 
-  // the dictionary indices of the vector can be variable types depending on the
-  // size of the dictionary - kept as original and typed
-  TypeKind indexType_;
   BufferPtr indices_;
   const vector_size_t* rawIndices_ = nullptr;
 

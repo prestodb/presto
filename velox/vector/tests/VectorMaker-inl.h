@@ -201,7 +201,6 @@ DictionaryVectorPtr<VectorMaker::EvalType<T>> VectorMaker::dictionaryVector(
       nullptr /*nulls*/,
       data.size(),
       std::move(values),
-      TypeKind::INTEGER,
       std::move(indices),
       stats.asSimpleVectorStats(),
       indexMap.size(),

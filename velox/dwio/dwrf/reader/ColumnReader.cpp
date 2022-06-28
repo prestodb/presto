@@ -1230,12 +1230,7 @@ void StringDictionaryColumnReader::readDictionaryVector(
         dictionaryValues);
   } else {
     result = std::make_shared<DictionaryVector<StringView>>(
-        &memoryPool_,
-        nulls,
-        numValues,
-        dictionaryValues,
-        TypeKind::INTEGER,
-        indices);
+        &memoryPool_, nulls, numValues, dictionaryValues, indices);
     result->setNullCount(nullCount);
   }
 }

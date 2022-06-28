@@ -24,7 +24,6 @@ namespace velox {
 
 template <typename T>
 void DictionaryVector<T>::setInternalState() {
-  VELOX_CHECK(indexType_ == TypeKind::INTEGER);
   rawIndices_ = indices_->as<vector_size_t>();
   if (isLazyNotLoaded(*dictionaryValues_)) {
     // Do not load Lazy vector
@@ -55,7 +54,6 @@ DictionaryVector<T>::DictionaryVector(
     BufferPtr nulls,
     size_t length,
     std::shared_ptr<BaseVector> dictionaryValues,
-    TypeKind indexType,
     BufferPtr dictionaryIndices,
     const SimpleVectorStats<T>& stats,
     std::optional<vector_size_t> distinctValueCount,
@@ -83,7 +81,6 @@ DictionaryVector<T>::DictionaryVector(
       length * sizeof(vector_size_t),
       "Malformed dictionary, index array is shorter than DictionaryVector");
   dictionaryValues_ = dictionaryValues;
-  indexType_ = indexType;
   indices_ = dictionaryIndices;
   setInternalState();
 }

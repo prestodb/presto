@@ -101,26 +101,10 @@ static VectorPtr addDictionary(
     BufferPtr indices,
     size_t size,
     VectorPtr vector) {
-  auto base = vector.get();
-  auto pool = base->pool();
-  auto indicesBuffer = indices.get();
-  auto vsize = vector->size();
+  auto pool = vector->pool();
   return std::make_shared<
       DictionaryVector<typename KindToFlatVector<kind>::WrapperType>>(
-      pool,
-      nulls,
-      size,
-      std::move(vector),
-      TypeKind::INTEGER,
-      std::move(indices),
-      SimpleVectorStats<typename KindToFlatVector<kind>::WrapperType>{},
-      indicesBuffer->size() / sizeof(vector_size_t) /*distinctValueCount*/,
-      base->getNullCount(),
-      false /*isSorted*/,
-      base->representedBytes().has_value()
-          ? std::optional<ByteCount>(
-                base->representedBytes().value() * size / (1 + vsize))
-          : std::nullopt);
+      pool, nulls, size, std::move(vector), std::move(indices));
 }
 
 // static

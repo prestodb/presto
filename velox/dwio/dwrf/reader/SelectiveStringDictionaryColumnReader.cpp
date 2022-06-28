@@ -270,7 +270,6 @@ void SelectiveStringDictionaryColumnReader::getValues(
                                : resultNulls_,
       numValues_,
       dictionaryValues_,
-      TypeKind::INTEGER,
       values_);
 
   if (scanSpec_->makeFlat()) {
