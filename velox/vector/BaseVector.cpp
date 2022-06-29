@@ -613,6 +613,17 @@ std::shared_ptr<BaseVector> BaseVector::createNullConstant(
     return std::make_shared<ConstantVector<ComplexType>>(
         pool, size, true, type, ComplexType());
   }
+
+  if (type->kind() == TypeKind::SHORT_DECIMAL) {
+    return std::make_shared<ConstantVector<ShortDecimal>>(
+        pool, size, true, type, ShortDecimal());
+  }
+
+  if (type->kind() == TypeKind::LONG_DECIMAL) {
+    return std::make_shared<ConstantVector<LongDecimal>>(
+        pool, size, true, type, LongDecimal());
+  }
+
   return BaseVector::createConstant(variant(type->kind()), size, pool);
 }
 

@@ -868,6 +868,12 @@ TEST_F(VectorTest, createOther) {
 TEST_F(VectorTest, createDecimal) {
   testFlat<TypeKind::SHORT_DECIMAL>(SHORT_DECIMAL(10, 5), vectorSize_);
   testFlat<TypeKind::LONG_DECIMAL>(LONG_DECIMAL(30, 5), vectorSize_);
+  auto constVector =
+      BaseVector::createNullConstant(SHORT_DECIMAL(10, 5), 1, pool_.get());
+  ASSERT_TRUE(constVector->isNullAt(0));
+  constVector =
+      BaseVector::createNullConstant(LONG_DECIMAL(30, 5), 1, pool_.get());
+  ASSERT_TRUE(constVector->isNullAt(0));
 }
 
 TEST_F(VectorTest, createOpaque) {
