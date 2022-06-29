@@ -38,11 +38,12 @@ class SpecialForm : public Expr {
       std::vector<ExprPtr>&& inputs,
       const std::string& name,
       bool trackCpuUsage)
-      : Expr(std::move(type), std::move(inputs), name, trackCpuUsage) {}
-
-  bool isSpecialForm() const override {
-    return true;
-  }
+      : Expr(
+            std::move(type),
+            std::move(inputs),
+            name,
+            true /* specialForm */,
+            trackCpuUsage) {}
 };
 
 enum class BooleanMix { kAllTrue, kAllFalse, kAllNull, kMixNonNull, kMix };
