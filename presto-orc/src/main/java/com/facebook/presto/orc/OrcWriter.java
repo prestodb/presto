@@ -227,6 +227,7 @@ public class OrcWriter
                 .setCompressionBufferPool(compressionBufferPool)
                 .setFlattenedNodes(flattenedNodes)
                 .setMapStatisticsEnabled(options.isMapStatisticsEnabled())
+                .setMaxFlattenedMapKeyCount(options.getMaxFlattenedMapKeyCount())
                 .build();
         recordValidation(validation -> validation.setCompression(compressionKind));
         recordValidation(validation -> validation.setFlattenedNodes(flattenedNodes));

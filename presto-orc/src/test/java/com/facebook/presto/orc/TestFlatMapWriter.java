@@ -13,16 +13,23 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.MapBlockBuilder;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -35,6 +42,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcTester.arrayType;
+import static com.facebook.presto.orc.OrcTester.createOrcWriter;
 import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.google.common.collect.Iterables.cycle;
@@ -211,6 +219,54 @@ public class TestFlatMapWriter
 
         // randomize keys
         tester.testRoundTrip(mapType, newArrayList(limit(random(map1, map2, map3, map4, map5, nullValue, EMPTY_MAP), ROWS)));
+    }
+
+    @Test
+    public void testMaxKeyLimit()
+            throws Exception
+    {
+        MapType mapType = (MapType) mapType(INTEGER, INTEGER);
+        int maxFlattenedMapKeyCount = 3;
+
+        OrcWriterOptions writerOptions = OrcWriterOptions.builder()
+                .withFlattenedColumns(ImmutableSet.of(0))
+                .withMaxFlattenedMapKeyCount(maxFlattenedMapKeyCount)
+                .build();
+
+        try (TempFile tempFile = new TempFile()) {
+            try (OrcWriter orcWriter = createOrcWriter(
+                    tempFile.getFile(),
+                    OrcEncoding.DWRF,
+                    CompressionKind.ZLIB,
+                    Optional.empty(),
+                    ImmutableList.of(mapType),
+                    writerOptions,
+                    new NoOpOrcWriterStats())) {
+                // write a block with 2 keys
+                orcWriter.write(createMapPageForKeyLimitTest(mapType, maxFlattenedMapKeyCount - 1));
+
+                // write a block with 3 keys, which is the max allowed number of keys
+                expectThrows(IllegalStateException.class, () -> orcWriter.write(createMapPageForKeyLimitTest(mapType, maxFlattenedMapKeyCount)));
+            }
+        }
+    }
+
+    private static Page createMapPageForKeyLimitTest(MapType type, int keyCount)
+    {
+        Type keyType = type.getKeyType();
+        Type valueType = type.getValueType();
+        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) type.createBlockBuilder(null, 10);
+        BlockBuilder mapKeyBuilder = mapBlockBuilder.getKeyBlockBuilder();
+        BlockBuilder mapValueBuilder = mapBlockBuilder.getValueBlockBuilder();
+
+        mapBlockBuilder.beginDirectEntry();
+        for (int k = 0; k < keyCount; k++) {
+            keyType.writeLong(mapKeyBuilder, k);
+            valueType.writeLong(mapValueBuilder, k);
+        }
+        mapBlockBuilder.closeEntry();
+
+        return new Page(mapBlockBuilder.build());
     }
 
     private static <T> Iterable<T> random(T... elements)

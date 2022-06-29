@@ -95,6 +95,7 @@ public class MapFlatColumnWriter
     private final PresentOutputStream presentStream;
     private final CompressedMetadataWriter metadataWriter;
     private final KeyManager keyManager;
+    private final int maxFlattenedMapKeyCount;
 
     // Pre-create a value block with a single null value to avoid creating a block
     // region for null values.
@@ -139,12 +140,14 @@ public class MapFlatColumnWriter
         checkArgument(keyNodeIndex > 0, "keyNodeIndex is invalid: %s", keyNodeIndex);
         checkArgument(valueNodeIndex > 0, "valueNodeIndex is invalid: %s", valueNodeIndex);
         requireNonNull(keyStatisticsBuilderSupplier, "keyStatisticsBuilderSupplier is null");
+        checkArgument(columnWriterOptions.getMaxFlattenedMapKeyCount() > 0, "maxFlattenedMapKeyCount must be positive: %s", columnWriterOptions.getMaxFlattenedMapKeyCount());
 
         this.nodeIndex = nodeIndex;
         this.keyNodeIndex = keyNodeIndex;
         this.valueNodeIndex = valueNodeIndex;
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.nullValueBlock = createNullValueBlock(requireNonNull(valueType, "valueType is null"));
+        this.maxFlattenedMapKeyCount = columnWriterOptions.getMaxFlattenedMapKeyCount();
 
         this.columnWriterOptions = requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
@@ -418,6 +421,9 @@ public class MapFlatColumnWriter
 
     private MapFlatValueWriter createNewValueWriter(DwrfProto.KeyInfo dwrfKey)
     {
+        checkState(valueWriters.size() < maxFlattenedMapKeyCount - 1,
+                "Map column writer for node %s reached max allowed number of keys %s", nodeIndex, maxFlattenedMapKeyCount);
+
         int valueWriterIdx = valueWriters.size();
         int sequence = valueWriterIdx + SEQUENCE_START_INDEX;
         ColumnWriter columnWriter = valueWriterFactory.apply(sequence);
