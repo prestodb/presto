@@ -29,7 +29,12 @@
 #include "velox/common/process/StackTrace.h"
 
 DECLARE_bool(velox_exception_stacktrace);
+DECLARE_bool(velox_exception_user_stacktrace_enabled);
+DECLARE_bool(velox_exception_system_stacktrace_enabled);
+
 DECLARE_int32(velox_exception_stacktrace_rate_limit_ms);
+DECLARE_int32(velox_exception_user_stacktrace_rate_limit_ms);
+DECLARE_int32(velox_exception_system_stacktrace_rate_limit_ms);
 
 namespace facebook {
 namespace velox {
@@ -144,6 +149,8 @@ inline constexpr auto kUnknown = "UNKNOWN"_fs;
 
 class VeloxException : public std::exception {
  public:
+  enum class Type { kUser = 0, kSystem = 1 };
+
   VeloxException(
       const char* file,
       size_t line,
@@ -153,6 +160,7 @@ class VeloxException : public std::exception {
       std::string_view errorSource,
       std::string_view errorCode,
       bool isRetriable,
+      Type exceptionType = Type::kSystem,
       std::string_view exceptionName = "VeloxException");
 
   // Inherited
@@ -188,6 +196,10 @@ class VeloxException : public std::exception {
     return state_->errorSource;
   }
 
+  Type exceptionType() const {
+    return state_->exceptionType;
+  }
+
   const std::string& exceptionName() const {
     return state_->exceptionName;
   }
@@ -211,6 +223,7 @@ class VeloxException : public std::exception {
  private:
   struct State {
     std::unique_ptr<process::StackTrace> stackTrace;
+    Type exceptionType = Type::kSystem;
     std::string exceptionName;
     const char* file = nullptr;
     size_t line = 0;
@@ -229,7 +242,7 @@ class VeloxException : public std::exception {
     mutable std::string elaborateMessage;
 
     template <typename F>
-    static std::shared_ptr<State const> make(F);
+    static std::shared_ptr<const State> make(Type exceptionType, F);
     void finalize() const;
 
     const char* what() const noexcept;
@@ -262,6 +275,7 @@ class VeloxUserError : public VeloxException {
             error_source::kErrorSourceUser,
             errorCode,
             isRetriable,
+            Type::kUser,
             exceptionName) {}
 };
 
@@ -286,6 +300,7 @@ class VeloxRuntimeError final : public VeloxException {
             error_source::kErrorSourceRuntime,
             errorCode,
             isRetriable,
+            Type::kSystem,
             exceptionName) {}
 };
 } // namespace velox

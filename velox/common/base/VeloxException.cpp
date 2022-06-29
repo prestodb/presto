@@ -54,8 +54,10 @@ VeloxException::VeloxException(
     std::string_view errorSource,
     std::string_view errorCode,
     bool isRetriable,
+    Type exceptionType,
     std::string_view exceptionName)
-    : VeloxException(State::make([&](auto& state) {
+    : VeloxException(State::make(exceptionType, [&](auto& state) {
+        state.exceptionType = exceptionType;
         state.exceptionName = exceptionName;
         state.file = file;
         state.line = line;
@@ -71,29 +73,44 @@ VeloxException::VeloxException(
 
 namespace {
 
-// returns whether VeloxException stacktraces are enabled and whether, if they
-// are rate-limited, whether the rate-limit check passes
-bool isStackTraceEnabled() {
+/// returns whether VeloxException stacktraces are enabled and whether, if they
+/// are rate-limited, whether the rate-limit check passes
+bool isStackTraceEnabled(VeloxException::Type type) {
   using namespace std::literals::chrono_literals;
-
-  if (!FLAGS_velox_exception_stacktrace) {
-    // VeloxException stacktraces are disabled
+  const bool isSysException = type == VeloxException::Type::kSystem;
+  // TODO: deprecate 'FLAGS_deprecate velox_exception_stacktrace' flag once
+  // after 'FLAGS_velox_exception_user_stacktrace_enabled' and
+  // 'FLAGS_velox_exception_system_stacktrace_enabled' have been rolled out in
+  // production.
+  if (!FLAGS_velox_exception_stacktrace &&
+      ((isSysException && !FLAGS_velox_exception_system_stacktrace_enabled) ||
+       (!isSysException && !FLAGS_velox_exception_user_stacktrace_enabled))) {
+    // VeloxException stacktraces are disabled.
     return false;
   }
 
+  // TODO: deprecate 'FLAGS_velox_exception_stacktrace_rate_limit_ms' flag once
+  // after 'FLAGS_velox_exception_user_stacktrace_rate_limit_ms' and
+  // 'FLAGS_velox_exception_system_stacktrace_rate_limit_ms' have been rolled
+  // out in production.
+
+  const int32_t rateLimitMs =
+      FLAGS_velox_exception_stacktrace_rate_limit_ms != 0
+      ? FLAGS_velox_exception_stacktrace_rate_limit_ms
+      : (isSysException ? FLAGS_velox_exception_system_stacktrace_rate_limit_ms
+                        : FLAGS_velox_exception_user_stacktrace_rate_limit_ms);
   // not static so the gflag can be manipulated at runtime
-  if (0 == FLAGS_velox_exception_stacktrace_rate_limit_ms) {
+  if (0 == rateLimitMs) {
     // VeloxException stacktraces are not rate-limited
     return true;
   }
-
-  static folly::AtomicStruct<std::chrono::steady_clock::time_point> last;
+  static folly::AtomicStruct<std::chrono::steady_clock::time_point> systemLast;
+  static folly::AtomicStruct<std::chrono::steady_clock::time_point> userLast;
+  auto* last = isSysException ? &systemLast : &userLast;
 
   auto const now = std::chrono::steady_clock::now();
-  auto latest = last.load(std::memory_order_relaxed);
-  if (now < latest +
-          std::chrono::milliseconds(
-                FLAGS_velox_exception_stacktrace_rate_limit_ms)) {
+  auto latest = last->load(std::memory_order_relaxed);
+  if (now < latest + std::chrono::milliseconds(rateLimitMs)) {
     // VeloxException stacktraces are rate-limited and the rate-limit check
     // failed
     return false;
@@ -102,17 +119,20 @@ bool isStackTraceEnabled() {
   // VeloxException stacktraces are rate-limited and the rate-limit check
   // passed
   //
-  // the cas happens only here, so the rate-limit check in effect gates not only
-  // computation of the stacktrace but also contention on this atomic variable
-  return last.compare_exchange_strong(latest, now, std::memory_order_relaxed);
+  // the cas happens only here, so the rate-limit check in effect gates not
+  // only computation of the stacktrace but also contention on this atomic
+  // variable
+  return last->compare_exchange_strong(latest, now, std::memory_order_relaxed);
 }
 
 } // namespace
 
 template <typename F>
-std::shared_ptr<const VeloxException::State> VeloxException::State::make(F f) {
+std::shared_ptr<const VeloxException::State> VeloxException::State::make(
+    VeloxException::Type exceptionType,
+    F f) {
   auto state = std::make_shared<VeloxException::State>();
-  if (isStackTraceEnabled()) {
+  if (isStackTraceEnabled(exceptionType)) {
     // new v.s. make_unique to avoid any extra frames from make_unique
     state->stackTrace.reset(new process::StackTrace());
   }
@@ -198,8 +218,14 @@ void VeloxException::State::finalize() const {
   if (stackTrace) {
     elaborateMessage += stackTrace->toString();
   } else {
-    elaborateMessage += "Stack trace has been disabled. ";
-    elaborateMessage += "Use --velox_exception_stacktrace=true to enable it.\n";
+    elaborateMessage += "Stack trace has been disabled.";
+    if (exceptionType == VeloxException::Type::kSystem) {
+      elaborateMessage +=
+          "Use --velox_exception_system_stacktrace=true to enable it.\n";
+    } else {
+      elaborateMessage +=
+          "Use --velox_exception_user_stacktrace=true to enable it.\n";
+    }
   }
 }
 
