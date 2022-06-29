@@ -41,6 +41,8 @@ class TaskTest : public HiveConnectorTestBase {
       task->noMoreSplits(nodeId);
     }
 
+    VELOX_CHECK(task->supportsSingleThreadedExecution());
+
     std::vector<RowVectorPtr> results;
     for (;;) {
       auto result = task->next();
@@ -581,4 +583,17 @@ TEST_F(TaskTest, singleThreadedCrossJoin) {
   }
 }
 
+TEST_F(TaskTest, supportsSingleThreadedExecution) {
+  auto plan = PlanBuilder()
+                  .tableScan(ROW({"c0"}, {BIGINT()}))
+                  .project({"c0 % 10"})
+                  .partitionedOutput({}, 1, std::vector<std::string>{"p0"})
+                  .planFragment();
+  auto task = std::make_shared<exec::Task>(
+      "single.execution.task.0", plan, 0, std::make_shared<core::QueryCtx>());
+
+  // PartitionedOutput does not support single threaded execution, therefore the
+  // task doesn't support it either.
+  ASSERT_FALSE(task->supportsSingleThreadedExecution());
+}
 } // namespace facebook::velox::exec::test

@@ -118,6 +118,10 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t maxDrivers,
       uint32_t concurrentSplitGroups = 1);
 
+  /// If this returns true, this Task supports the single-threaded execution API
+  /// next().
+  bool supportsSingleThreadedExecution() const;
+
   /// Single-threaded execution API. Runs the query and returns results one
   /// batch at a time. Returns nullptr if query evaluation is finished and no
   /// more data will be produced. Throws an exception if query execution

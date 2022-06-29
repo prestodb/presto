@@ -182,6 +182,24 @@ memory::MappedMemory* FOLLY_NONNULL Task::addOperatorMemory(
   return mappedMemory.get();
 }
 
+bool Task::supportsSingleThreadedExecution() const {
+  std::vector<std::unique_ptr<DriverFactory>> driverFactories;
+
+  if (consumerSupplier_) {
+    return false;
+  }
+
+  LocalPlanner::plan(planFragment_, nullptr, &driverFactories, 1);
+
+  for (const auto& factory : driverFactories) {
+    if (!factory->supportsSingleThreadedExecution()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 RowVectorPtr Task::next() {
   VELOX_CHECK_EQ(
       core::ExecutionStrategy::kUngrouped,
