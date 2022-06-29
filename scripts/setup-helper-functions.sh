@@ -100,7 +100,7 @@ function get_cxx_flags {
     ;;
 
     "avx")
-      echo -n "-mavx2 -mfma -mavx -mf16c -masm=intel -mlzcnt -std=c++17"
+      echo -n "-mavx2 -mfma -mavx -mf16c -mlzcnt -std=c++17"
     ;;
 
     "sse")
