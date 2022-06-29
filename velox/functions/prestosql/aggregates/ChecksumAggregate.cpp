@@ -177,11 +177,11 @@ class ChecksumAggregate : public exec::Aggregate {
 
  private:
   FOLLY_ALWAYS_INLINE void computeHash(char* group, const int64_t hash) {
-    *value<int64_t>(group) += hash * PRIME64_1;
+    *value<int64_t>(group) += hash * XXH_PRIME64_1;
   }
 
   FOLLY_ALWAYS_INLINE void computeHashForNull(char* group) {
-    *value<int64_t>(group) += PRIME64_1;
+    *value<int64_t>(group) += XXH_PRIME64_1;
   }
 
   FOLLY_ALWAYS_INLINE PrestoHasher* getPrestoHasher(TypePtr typePtr) {
