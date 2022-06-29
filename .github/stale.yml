@@ -12,49 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Configuration for probot-stale - https://github.com/probot/stale
-
-# Number of days of inactivity before an Issue or Pull Request becomes stale
-daysUntilStale: 60
-
-# Number of days of inactivity before an Issue or Pull Request with the stale label is closed.
-# Set to false to disable. If disabled, issues still need to be closed manually, but will remain marked as stale.
-daysUntilClose: 7
-
-# Only issues or pull requests with all of these labels are check if stale. Defaults to `[]` (disabled)
-onlyLabels: []
-
-# Issues or Pull Requests with these labels will never be considered stale. Set to `[]` to disable
-exemptLabels:
-  - pinned
-  - security
-
-# Set to true to ignore issues in a project (defaults to false)
-exemptProjects: false
-
-# Set to true to ignore issues in a milestone (defaults to false)
-exemptMilestones: false
-
-# Set to true to ignore issues with an assignee (defaults to false)
-exemptAssignees: false
-
-# Label to use when marking as stale
 staleLabel: stale
+daysUntilClose: 14
 
-# Comment to post when marking as stale. Set to `false` to disable
-markComment: >
-  This pull request, has been automatically marked as stale because it has not had
-  recent activity. It will be closed if no further activity occurs. Thank you
-  for your contributions.
+pulls:
+  daysUntilStale: 90 # ~3 months
+  markComment: >
+    This pull request has been automatically marked as stale because it has not had
+    recent activity. If you'd still like this PR merged, please comment on the PR,
+    make sure you've addressed reviewer comments, and rebase on the latest main.
+    Thank you for your contributions!
 
-
-# Comment to post when closing a stale Issue or Pull Request.
-closeComment: >
-   This pull request has been closed because it has not had any activity since being marked as stale.
-  Feel free to reopen if you feel otherwise. Thank you for your contributions.
-
-# Limit the number of actions per hour, from 1-30. Default is 30
-limitPerRun: 30
-
-# Limit to only `issues` or `pulls`
-only: pulls
+issues:
+  daysUntilStale: 365 # 1 year
+  exemptLabels:
+    - bug
+  markComment: >
+    This issue has been automatically marked as stale because it has not had
+    any activity in the last year. If you feel that this issue is important,
+    add a comment explaining why the issue is still relevant and the stale tag 
+    will be removed; otherwise it will be closed in 14 days. This is an attempt to 
+    ensure that our open issues remain valuable and relevant so that we can keep 
+    track of what needs to be done and prioritize the right things.
