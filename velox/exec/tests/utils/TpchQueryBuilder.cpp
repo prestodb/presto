@@ -78,6 +78,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
   switch (queryId) {
     case 1:
       return getQ1Plan();
+    case 3:
+      return getQ3Plan();
     case 6:
       return getQ6Plan();
     case 13:
@@ -145,6 +147,111 @@ TpchPlan TpchQueryBuilder::getQ1Plan() const {
   TpchPlan context;
   context.plan = std::move(plan);
   context.dataFiles[lineitemPlanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getQ3Plan() const {
+  static const std::string kCustomer = "customer";
+  static const std::string kOrders = "orders";
+  static const std::string kLineitem = "lineitem";
+
+  std::vector<std::string> lineitemColumns = {
+      "l_shipdate", "l_orderkey", "l_extendedprice", "l_discount"};
+  std::vector<std::string> ordersColumns = {
+      "o_orderdate", "o_shippriority", "o_custkey", "o_orderkey"};
+  std::vector<std::string> customerColumns = {"c_custkey", "c_mktsegment"};
+
+  auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
+  auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto& ordersFileColumns = getFileColumnNames(kOrders);
+  auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
+  const auto& customerFileColumns = getFileColumnNames(kCustomer);
+
+  const auto orderDate = "o_orderdate";
+  const auto shipDate = "l_shipdate";
+  std::string orderDateFilter;
+  std::string shipDateFilter;
+  std::string customerFilter;
+
+  // DWRF does not support Date type. Use Varchar instead.
+  if (ordersSelectedRowType->findChild(orderDate)->isVarchar()) {
+    orderDateFilter = "o_orderdate < '1995-03-15'";
+  } else {
+    orderDateFilter = "o_orderdate < '1995-03-15'::DATE";
+  }
+
+  if (lineitemSelectedRowType->findChild(shipDate)->isVarchar()) {
+    shipDateFilter = "l_shipdate > '1995-03-15'";
+  } else {
+    shipDateFilter = "l_shipdate > '1995-03-15'::DATE";
+  }
+
+  customerFilter = "c_mktsegment = 'BUILDING'";
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId lineitemPlanNodeId;
+  core::PlanNodeId ordersPlanNodeId;
+  core::PlanNodeId customerPlanNodeId;
+
+  auto customers = PlanBuilder(planNodeIdGenerator)
+                       .tableScan(
+                           kCustomer,
+                           customerSelectedRowType,
+                           customerFileColumns,
+                           {customerFilter})
+                       .capturePlanNodeId(customerPlanNodeId)
+                       .planNode();
+
+  auto custkeyJoinNode =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(
+              kOrders,
+              ordersSelectedRowType,
+              ordersFileColumns,
+              {orderDateFilter})
+          .capturePlanNodeId(ordersPlanNodeId)
+          .hashJoin(
+              {"o_custkey"},
+              {"c_custkey"},
+              customers,
+              "",
+              {"o_orderdate", "o_shippriority", "o_orderkey"})
+          .planNode();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(
+              kLineitem,
+              lineitemSelectedRowType,
+              lineitemFileColumns,
+              {shipDateFilter})
+          .capturePlanNodeId(lineitemPlanNodeId)
+          .project(
+              {"l_extendedprice * (1.0 - l_discount) AS part_revenue",
+               "l_orderkey"})
+          .hashJoin(
+              {"l_orderkey"},
+              {"o_orderkey"},
+              custkeyJoinNode,
+              "",
+              {"l_orderkey", "o_orderdate", "o_shippriority", "part_revenue"})
+          .partialAggregation(
+              {"l_orderkey", "o_orderdate", "o_shippriority"},
+              {"sum(part_revenue) as revenue"})
+          .localPartition({})
+          .finalAggregation()
+          .project({"l_orderkey", "revenue", "o_orderdate", "o_shippriority"})
+          .orderBy({"revenue DESC", "o_orderdate"}, false)
+          .limit(0, 10, false)
+          .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[lineitemPlanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFiles[ordersPlanNodeId] = getTableFilePaths(kOrders);
+  context.dataFiles[customerPlanNodeId] = getTableFilePaths(kCustomer);
   context.dataFileFormat = format_;
   return context;
 }
