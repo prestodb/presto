@@ -23,8 +23,10 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
+import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -43,6 +45,7 @@ public class ColumnWriterOptions
     private final CompressionBufferPool compressionBufferPool;
     private final Set<Integer> flattenedNodes;
     private final boolean mapStatisticsEnabled;
+    private final int maxFlattenedMapKeyCount;
 
     public ColumnWriterOptions(
             CompressionKind compressionKind,
@@ -56,11 +59,14 @@ public class ColumnWriterOptions
             int preserveDirectEncodingStripeCount,
             CompressionBufferPool compressionBufferPool,
             Set<Integer> flattenedNodes,
-            boolean mapStatisticsEnabled)
+            boolean mapStatisticsEnabled,
+            int maxFlattenedMapKeyCount)
     {
+        checkArgument(maxFlattenedMapKeyCount > 0, "maxFlattenedMapKeyCount must be positive: %s", maxFlattenedMapKeyCount);
+        requireNonNull(compressionMaxBufferSize, "compressionMaxBufferSize is null");
+
         this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
         this.compressionLevel = requireNonNull(compressionLevel, "compressionLevel is null");
-        requireNonNull(compressionMaxBufferSize, "compressionMaxBufferSize is null");
         this.compressionMaxBufferSize = toIntExact(compressionMaxBufferSize.toBytes());
         this.stringStatisticsLimit = requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null");
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
@@ -71,6 +77,7 @@ public class ColumnWriterOptions
         this.compressionBufferPool = requireNonNull(compressionBufferPool, "compressionBufferPool is null");
         this.flattenedNodes = requireNonNull(flattenedNodes, "flattenedNodes is null");
         this.mapStatisticsEnabled = mapStatisticsEnabled;
+        this.maxFlattenedMapKeyCount = maxFlattenedMapKeyCount;
     }
 
     public CompressionKind getCompressionKind()
@@ -133,6 +140,11 @@ public class ColumnWriterOptions
         return mapStatisticsEnabled;
     }
 
+    public int getMaxFlattenedMapKeyCount()
+    {
+        return maxFlattenedMapKeyCount;
+    }
+
     /**
      * Create a copy of this ColumnWriterOptions, but disable string and integer dictionary encodings.
      */
@@ -158,7 +170,8 @@ public class ColumnWriterOptions
                 .setPreserveDirectEncodingStripeCount(getPreserveDirectEncodingStripeCount())
                 .setCompressionBufferPool(getCompressionBufferPool())
                 .setFlattenedNodes(getFlattenedNodes())
-                .setMapStatisticsEnabled(isMapStatisticsEnabled());
+                .setMapStatisticsEnabled(isMapStatisticsEnabled())
+                .setMaxFlattenedMapKeyCount(getMaxFlattenedMapKeyCount());
     }
 
     public static Builder builder()
@@ -180,6 +193,7 @@ public class ColumnWriterOptions
         private CompressionBufferPool compressionBufferPool = new LastUsedCompressionBufferPool();
         private Set<Integer> flattenedNodes = ImmutableSet.of();
         private boolean mapStatisticsEnabled;
+        private int maxFlattenedMapKeyCount = DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT;
 
         private Builder() {}
 
@@ -255,6 +269,12 @@ public class ColumnWriterOptions
             return this;
         }
 
+        public Builder setMaxFlattenedMapKeyCount(int maxFlattenedMapKeyCount)
+        {
+            this.maxFlattenedMapKeyCount = maxFlattenedMapKeyCount;
+            return this;
+        }
+
         public ColumnWriterOptions build()
         {
             return new ColumnWriterOptions(
@@ -269,7 +289,8 @@ public class ColumnWriterOptions
                     preserveDirectEncodingStripeCount,
                     compressionBufferPool,
                     flattenedNodes,
-                    mapStatisticsEnabled);
+                    mapStatisticsEnabled,
+                    maxFlattenedMapKeyCount);
         }
     }
 }
