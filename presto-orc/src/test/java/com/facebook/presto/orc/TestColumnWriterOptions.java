@@ -44,6 +44,7 @@ public class TestColumnWriterOptions
         CompressionBufferPool compressionBufferPool = new CompressionBufferPool.LastUsedCompressionBufferPool();
         Set<Integer> flattenedNodes = ImmutableSet.of(1, 5);
         boolean mapStatisticsEnabled = true;
+        int maxFlattenedMapKeyCount = 27;
 
         ColumnWriterOptions options = ColumnWriterOptions.builder()
                 .setCompressionKind(compressionKind)
@@ -58,6 +59,7 @@ public class TestColumnWriterOptions
                 .setCompressionBufferPool(compressionBufferPool)
                 .setFlattenedNodes(flattenedNodes)
                 .setMapStatisticsEnabled(mapStatisticsEnabled)
+                .setMaxFlattenedMapKeyCount(maxFlattenedMapKeyCount)
                 .build();
 
         boolean checkDisabledDictionaryEncoding = false;
@@ -73,6 +75,7 @@ public class TestColumnWriterOptions
             assertEquals(actual.getCompressionBufferPool(), compressionBufferPool);
             assertEquals(actual.getFlattenedNodes(), flattenedNodes);
             assertEquals(actual.isMapStatisticsEnabled(), mapStatisticsEnabled);
+            assertEquals(actual.getMaxFlattenedMapKeyCount(), maxFlattenedMapKeyCount);
 
             if (checkDisabledDictionaryEncoding) {
                 assertFalse(actual.isStringDictionaryEncodingEnabled());
