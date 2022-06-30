@@ -71,6 +71,11 @@ public class ChannelSet
         return hash.contains(position, page, hashChannels);
     }
 
+    public boolean contains(int position, Page page, long rawHash)
+    {
+        return hash.contains(position, page, hashChannels, rawHash);
+    }
+
     public static class ChannelSetBuilder
     {
         private static final int[] HASH_CHANNELS = {0};
