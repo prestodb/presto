@@ -46,7 +46,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.sun.management.ThreadMXBean;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
@@ -266,7 +265,7 @@ public class DwrfMetadataReader
 
     private static List<EncryptionGroup> toEncryptionGroups(List<DwrfProto.EncryptionGroup> encryptionGroups)
     {
-        ImmutableList.Builder<EncryptionGroup> encryptionGroupBuilder = ImmutableList.builder();
+        ImmutableList.Builder<EncryptionGroup> encryptionGroupBuilder = ImmutableList.builderWithExpectedSize(encryptionGroups.size());
         for (DwrfProto.EncryptionGroup dwrfEncryptionGroup : encryptionGroups) {
             encryptionGroupBuilder.add(new EncryptionGroup(
                     dwrfEncryptionGroup.getNodesList(),
@@ -290,7 +289,7 @@ public class DwrfMetadataReader
 
     private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> stripeInformationList)
     {
-        ImmutableList.Builder<StripeInformation> stripeInfoBuilder = ImmutableList.builder();
+        ImmutableList.Builder<StripeInformation> stripeInfoBuilder = ImmutableList.builderWithExpectedSize(stripeInformationList.size());
         List<byte[]> previousKeyMetadata = ImmutableList.of();
         for (DwrfProto.StripeInformation dwrfStripeInfo : stripeInformationList) {
             StripeInformation prestoStripeInfo = toStripeInformation(dwrfStripeInfo, previousKeyMetadata);
@@ -400,7 +399,6 @@ public class DwrfMetadataReader
     private static Map<Integer, ColumnEncoding> toColumnEncoding(List<OrcType> types, List<DwrfProto.ColumnEncoding> columnEncodings)
     {
         Map<Integer, List<DwrfProto.ColumnEncoding>> groupedColumnEncodings = new HashMap<>(columnEncodings.size());
-        ImmutableMap.Builder<Integer, ColumnEncoding> resultBuilder = ImmutableMap.builder();
 
         for (int i = 0; i < columnEncodings.size(); i++) {
             DwrfProto.ColumnEncoding columnEncoding = columnEncodings.get(i);
@@ -414,9 +412,9 @@ public class DwrfMetadataReader
             groupedColumnEncodings.computeIfAbsent(column, key -> new ArrayList<>()).add(columnEncoding);
         }
 
+        ImmutableMap.Builder<Integer, ColumnEncoding> resultBuilder = ImmutableMap.builderWithExpectedSize(groupedColumnEncodings.size());
         for (Map.Entry<Integer, List<DwrfProto.ColumnEncoding>> entry : groupedColumnEncodings.entrySet()) {
             OrcType type = types.get(entry.getKey());
-
             resultBuilder.put(
                     entry.getKey(),
                     toColumnEncoding(type, entry.getValue()));
@@ -448,7 +446,7 @@ public class DwrfMetadataReader
     private RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
-        ImmutableList.Builder<Integer> positions = ImmutableList.builder();
+        ImmutableList.Builder<Integer> positions = ImmutableList.builderWithExpectedSize(positionsList.size());
         for (int index = 0; index < positionsList.size(); index++) {
             long longPosition = positionsList.get(index);
             int intPosition = (int) longPosition;
@@ -573,7 +571,9 @@ public class DwrfMetadataReader
 
     private static List<OrcType> toType(List<DwrfProto.Type> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toType));
+        return types.stream()
+                .map(DwrfMetadataReader::toType)
+                .collect(toImmutableList());
     }
 
     private static OrcTypeKind toTypeKind(DwrfProto.Type.Kind kind)
