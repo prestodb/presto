@@ -133,7 +133,6 @@
         <module>presto-parser</module>
         <module>presto-main</module>
         <module>presto-ml</module>
-        <module>presto-geospatial</module>
         <module>presto-geospatial-toolkit</module>
         <module>presto-benchmark</module>
         <module>presto-tests</module>
@@ -530,12 +529,6 @@
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
                 <version>${dep.docker-java.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-geospatial</artifactId>
-                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -2356,7 +2349,7 @@
 
                 java \
                   -cp ./presto-geospatial/target/presto-geospatial-*-tests-with-dependencies.jar \
-                  com.facebook.presto.plugin.geospatial.BenchmarkSTIntersects
+                  com.facebook.presto.geospatial.BenchmarkSTIntersects
             -->
             <build>
                 <plugins>
