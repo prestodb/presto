@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
@@ -189,7 +190,7 @@ public class TestTimestampWriteAndRead
                         Optional.empty(),
                         ImmutableList.of(writeType),
                         ImmutableList.of(writeValues),
-                        new NoOpOrcWriterStats());
+                        NOOP_WRITER_STATS);
 
                 assertFileContentsPresto(
                         ImmutableList.of(readType),
