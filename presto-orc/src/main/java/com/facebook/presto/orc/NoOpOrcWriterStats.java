@@ -20,6 +20,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class NoOpOrcWriterStats
         implements WriterStats
 {
+    public static final NoOpOrcWriterStats NOOP_WRITER_STATS = new NoOpOrcWriterStats();
+
     @Override
     public void recordStripeWritten(
             int stripeMinBytes,

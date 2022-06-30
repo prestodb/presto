@@ -41,6 +41,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
@@ -203,7 +204,7 @@ public abstract class AbstractTestDwrfStripeCaching
                     HIVE_STORAGE_TIME_ZONE,
                     true,
                     BOTH,
-                    new NoOpOrcWriterStats());
+                    NOOP_WRITER_STATS);
 
             // write 4 stripes with 100 values each
             int count = 0;
