@@ -23,8 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -43,9 +45,10 @@ public class HashSemiJoinOperator
         private final SetSupplier setSupplier;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
+        private final Optional<Integer> probeJoinHashChannel;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
+        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, Optional<Integer> probeJoinHashChannel)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -53,6 +56,7 @@ public class HashSemiJoinOperator
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
+            this.probeJoinHashChannel = probeJoinHashChannel;
         }
 
         @Override
@@ -60,7 +64,7 @@ public class HashSemiJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashSemiJoinOperator.class.getSimpleName());
-            return new HashSemiJoinOperator(operatorContext, setSupplier, probeJoinChannel);
+            return new HashSemiJoinOperator(operatorContext, setSupplier, probeJoinChannel, probeJoinHashChannel);
         }
 
         @Override
@@ -72,18 +76,19 @@ public class HashSemiJoinOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel);
+            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeJoinHashChannel);
         }
     }
 
     private final int probeJoinChannel;
     private final ListenableFuture<ChannelSet> channelSetFuture;
+    private final Optional<Integer> probeHashChannel;
 
     private ChannelSet channelSet;
     private Page outputPage;
     private boolean finishing;
 
-    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, int probeJoinChannel)
+    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, int probeJoinChannel, Optional<Integer> probeHashChannel)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
@@ -93,6 +98,7 @@ public class HashSemiJoinOperator
 
         this.channelSetFuture = channelSetFuture.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;
+        this.probeHashChannel = probeHashChannel;
     }
 
     @Override
@@ -148,6 +154,7 @@ public class HashSemiJoinOperator
 
         Page probeJoinPage = page.getLoadedPage(probeJoinChannel);
         Block probeJoinNulls = probeJoinPage.getBlock(0).mayHaveNull() ? probeJoinPage.getBlock(0) : null;
+        Optional<Block> hashBlock = probeHashChannel.map(page::getBlock);
 
         // update hashing strategy to use probe cursor
         for (int position = 0; position < page.getPositionCount(); position++) {
@@ -160,7 +167,14 @@ public class HashSemiJoinOperator
                 }
             }
             else {
-                boolean contains = channelSet.contains(position, probeJoinPage);
+                boolean contains;
+                if (hashBlock.isPresent()) {
+                    long rawHash = BIGINT.getLong(hashBlock.get(), position);
+                    contains = channelSet.contains(position, probeJoinPage, rawHash);
+                }
+                else {
+                    contains = channelSet.contains(position, probeJoinPage);
+                }
                 if (!contains && channelSet.containsNull()) {
                     blockBuilder.appendNull();
                 }

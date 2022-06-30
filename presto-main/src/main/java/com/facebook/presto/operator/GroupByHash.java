@@ -75,6 +75,11 @@ public interface GroupByHash
 
     boolean contains(int position, Page page, int[] hashChannels);
 
+    default boolean contains(int position, Page page, int[] hashChannels, long rawHash)
+    {
+        return contains(position, page, hashChannels);
+    }
+
     long getRawHash(int groupId);
 
     @VisibleForTesting
