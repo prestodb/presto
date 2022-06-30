@@ -34,7 +34,7 @@ class DBGenLease {
   DBGenLease() {
     // load_dists()/cleanup_dists() need to be called to ensure the global
     // variables required by dbgen are populated.
-    load_dists();
+    load_dists(10 * 1024 * 1024); // 10 MB buffer size for text generation.
   }
   ~DBGenLease() {
     cleanup_dists();

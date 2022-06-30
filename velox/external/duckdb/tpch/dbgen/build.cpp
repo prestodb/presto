@@ -70,11 +70,11 @@ long mk_cust(DSS_HUGE n_cust, customer_t *c) {
 	static char szFormat[100];
 
 	if (!bInit) {
-		snprintf(szFormat, sizeof(szFormat), C_NAME_FMT, 9, &HUGE_FORMAT[1]);
+		sprintf(szFormat, C_NAME_FMT, 9, &HUGE_FORMAT[1]);
 		bInit = 1;
 	}
 	c->custkey = n_cust;
-	snprintf(c->name, sizeof(c->name), szFormat, C_NAME_TAG, n_cust);
+	sprintf(c->name, szFormat, C_NAME_TAG, n_cust);
 	V_STR(C_ADDR_LEN, C_ADDR_SD, c->address);
 	c->alen = (int)strlen(c->address);
 	RANDOM(i, 0, (nations.count - 1), C_NTRG_SD);
@@ -123,7 +123,7 @@ long mk_order(DSS_HUGE index, order_t *o, long upd_num) {
 	static char szFormat[100];
 
 	if (!bInit) {
-		snprintf(szFormat, sizeof(szFormat), O_CLRK_FMT, 9, &HUGE_FORMAT[1]);
+		sprintf(szFormat, O_CLRK_FMT, 9, &HUGE_FORMAT[1]);
 		bInit = 1;
 	}
 	if (asc_date == NULL)
@@ -144,7 +144,7 @@ long mk_order(DSS_HUGE index, order_t *o, long upd_num) {
 
 	pick_str(&o_priority_set, O_PRIO_SD, o->opriority);
 	RANDOM(clk_num, 1, MAX((scale * O_CLRK_SCL), O_CLRK_SCL), O_CLRK_SD);
-	snprintf(o->clerk, sizeof(o->clerk), szFormat, O_CLRK_TAG, clk_num);
+	sprintf(o->clerk, szFormat, O_CLRK_TAG, clk_num);
 	TEXT(O_CMNT_LEN, O_CMNT_SD, o->comment);
 	o->clen = (int)strlen(o->comment);
 #ifdef DEBUG
@@ -222,16 +222,16 @@ long mk_part(DSS_HUGE index, part_t *p) {
 	static char szBrandFormat[100];
 
 	if (!bInit) {
-		snprintf(szFormat, sizeof(szFormat), P_MFG_FMT, 1, &HUGE_FORMAT[1]);
-		snprintf(szBrandFormat, sizeof(szBrandFormat), P_BRND_FMT, 2, &HUGE_FORMAT[1]);
+		sprintf(szFormat, P_MFG_FMT, 1, &HUGE_FORMAT[1]);
+		sprintf(szBrandFormat, P_BRND_FMT, 2, &HUGE_FORMAT[1]);
 		bInit = 1;
 	}
 	p->partkey = index;
 	agg_str(&colors, (long)P_NAME_SCL, (long)P_NAME_SD, p->name);
 	RANDOM(temp, P_MFG_MIN, P_MFG_MAX, P_MFG_SD);
-	snprintf(p->mfgr, sizeof(p->mfgr), szFormat, P_MFG_TAG, temp);
+	sprintf(p->mfgr, szFormat, P_MFG_TAG, temp);
 	RANDOM(brnd, P_BRND_MIN, P_BRND_MAX, P_BRND_SD);
-	snprintf(p->brand, sizeof(p->brand), szBrandFormat, P_BRND_TAG, (temp * 10 + brnd));
+	sprintf(p->brand, szBrandFormat, P_BRND_TAG, (temp * 10 + brnd));
 	p->tlen = pick_str(&p_types_set, P_TYPE_SD, p->type);
 	p->tlen = (int)strlen(p_types_set.list[p->tlen].text);
 	RANDOM(p->size, P_SIZE_MIN, P_SIZE_MAX, P_SIZE_SD);
@@ -257,11 +257,11 @@ long mk_supp(DSS_HUGE index, supplier_t *s) {
 	static char szFormat[100];
 
 	if (!bInit) {
-		snprintf(szFormat, sizeof(szFormat), S_NAME_FMT, 9, &HUGE_FORMAT[1]);
+		sprintf(szFormat, S_NAME_FMT, 9, &HUGE_FORMAT[1]);
 		bInit = 1;
 	}
 	s->suppkey = index;
-	snprintf(s->name, sizeof(s->name), szFormat, S_NAME_TAG, index);
+	sprintf(s->name, szFormat, S_NAME_TAG, index);
 	V_STR(S_ADDR_LEN, S_ADDR_SD, s->address);
 	s->alen = (int)strlen(s->address);
 	RANDOM(i, 0, nations.count - 1, S_NTRG_SD);

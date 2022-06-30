@@ -133,6 +133,14 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
     VELOX_NYI();
   }
 
+  bool OnDiskFile(::duckdb::FileHandle& /*handle*/) override {
+    return false;
+  }
+
+  bool CanSeek() override {
+    return false;
+  }
+
   std::vector<std::string> Glob(
       const std::string& /*path*/,
       ::duckdb::FileOpener* /*opener*/ = nullptr) override {
@@ -140,7 +148,7 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
   }
 
   virtual std::string GetName() const override {
-    VELOX_NYI();
+    return "dwio::InputStream";
   }
 
  private:
