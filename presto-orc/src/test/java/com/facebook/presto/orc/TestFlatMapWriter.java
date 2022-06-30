@@ -41,6 +41,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcTester.arrayType;
 import static com.facebook.presto.orc.OrcTester.createOrcWriter;
 import static com.facebook.presto.orc.OrcTester.mapType;
@@ -241,7 +242,7 @@ public class TestFlatMapWriter
                     Optional.empty(),
                     ImmutableList.of(mapType),
                     writerOptions,
-                    new NoOpOrcWriterStats())) {
+                    NOOP_WRITER_STATS)) {
                 // write a block with 2 keys
                 orcWriter.write(createMapPageForKeyLimitTest(mapType, maxFlattenedMapKeyCount - 1));
 

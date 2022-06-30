@@ -26,7 +26,6 @@ import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.DwrfEncryptionInfo;
 import com.facebook.presto.orc.FileOrcDataSource;
-import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcTester;
 import com.facebook.presto.orc.OrcWriter;
@@ -55,6 +54,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcTester.createOrcWriter;
@@ -312,7 +312,7 @@ public class TestWriterBlockRawSize
 
         for (OrcEncoding encoding : OrcEncoding.values()) {
             try (TempFile tempFile = new TempFile()) {
-                OrcWriter writer = createOrcWriter(tempFile.getFile(), encoding, ZSTD, Optional.empty(), types, writerOptions, new NoOpOrcWriterStats());
+                OrcWriter writer = createOrcWriter(tempFile.getFile(), encoding, ZSTD, Optional.empty(), types, writerOptions, NOOP_WRITER_STATS);
                 for (int i = 0; i < numBlocksPerFile; i++) {
                     writer.write(new Page(blocks));
                 }

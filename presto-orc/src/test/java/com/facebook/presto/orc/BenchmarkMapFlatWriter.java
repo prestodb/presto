@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
@@ -117,7 +118,7 @@ public class BenchmarkMapFlatWriter
                 HIVE_STORAGE_TIME_ZONE,
                 false,
                 BOTH,
-                new NoOpOrcWriterStats());
+                NOOP_WRITER_STATS);
 
         for (Block block : data.blocks) {
             writer.write(new Page(block));

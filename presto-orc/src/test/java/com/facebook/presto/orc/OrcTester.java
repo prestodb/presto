@@ -155,6 +155,7 @@ import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.AbstractTestOrcReader.intsBetween;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
@@ -635,7 +636,7 @@ public class OrcTester
         assertEquals(writeTypes.size(), readValues.size());
 
         AtomicLong totalSize = new AtomicLong(0);
-        WriterStats stats = new NoOpOrcWriterStats();
+        WriterStats stats = NOOP_WRITER_STATS;
 
         Set<Integer> flattenedColumns = ImmutableSet.of();
         if (flattenAllColumns) {
