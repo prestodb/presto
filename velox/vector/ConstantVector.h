@@ -251,10 +251,6 @@ class ConstantVector final : public SimpleVector<T> {
     return true;
   }
 
-  bool isConstantEncoding() const override {
-    return true;
-  }
-
   bool isScalar() const override {
     return valueVector_ ? valueVector_->isScalar() : true;
   }

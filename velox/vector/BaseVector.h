@@ -304,8 +304,8 @@ class BaseVector {
   }
 
   // Returns true if this vector is encoded as constant (ConstantVector).
-  virtual bool isConstantEncoding() const {
-    return false;
+  bool isConstantEncoding() const {
+    return encoding_ == VectorEncoding::Simple::CONSTANT;
   }
 
   // Returns true if this vector has a scalar type. If so, values are
