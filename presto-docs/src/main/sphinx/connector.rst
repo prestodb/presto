@@ -18,6 +18,7 @@ from different data sources.
     connector/elasticsearch
     connector/hive
     connector/hive-security
+    connector/hudi
     connector/iceberg
     connector/jmx
     connector/kafka
