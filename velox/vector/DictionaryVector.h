@@ -21,6 +21,7 @@
 #include <folly/container/F14Map.h>
 
 #include "velox/common/base/SimdUtil.h"
+#include "velox/vector/LazyVector.h"
 #include "velox/vector/SimpleVector.h"
 #include "velox/vector/TypeAliases.h"
 
@@ -150,7 +151,17 @@ class DictionaryVector : public SimpleVector<T> {
     if (initialized_) {
       return this;
     }
-    dictionaryValues_ = BaseVector::loadedVectorShared(dictionaryValues_);
+
+    SelectivityVector rows(dictionaryValues_->size(), false);
+    for (vector_size_t i = 0; i < this->size(); i++) {
+      if (!BaseVector::isNullAt(i)) {
+        auto ind = getDictionaryIndex(i);
+        rows.setValid(ind, true);
+      }
+    }
+    rows.updateBounds();
+
+    LazyVector::ensureLoadedRows(dictionaryValues_, rows);
     setInternalState();
     return this;
   }

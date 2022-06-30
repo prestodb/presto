@@ -36,7 +36,7 @@ using facebook::velox::ComplexType;
 // contract.
 class TestingLoader : public VectorLoader {
  public:
-  explicit TestingLoader(VectorPtr data) : data_(data) {}
+  explicit TestingLoader(VectorPtr data) : data_(data), rowCounter_(0) {}
 
   void loadInternal(RowSet rows, ValueHook* hook, VectorPtr* result) override {
     if (hook) {
@@ -45,6 +45,11 @@ class TestingLoader : public VectorLoader {
       return;
     }
     *result = data_;
+    rowCounter_ += rows.size();
+  }
+
+  int32_t rowCount() const {
+    return rowCounter_;
   }
 
  private:
@@ -66,6 +71,7 @@ class TestingLoader : public VectorLoader {
     }
   }
   VectorPtr data_;
+  int32_t rowCounter_;
 };
 
 struct NonPOD {
@@ -1676,4 +1682,37 @@ TEST_F(VectorTest, multipleDictionariesOverLazy) {
   for (auto i = 0; i < size; i++) {
     ASSERT_EQ(i, dict->as<SimpleVector<int32_t>>()->valueAt(i));
   }
+}
+
+/// Test lazy loading of nested dictionary vector
+TEST_F(VectorTest, selectiveLoadingOfLazyDictionaryNested) {
+  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
+
+  vector_size_t size = 10;
+  auto indices =
+      makeIndices(size, [&](auto row) { return (row % 2 == 0) ? row : 0; });
+  auto data =
+      vectorMaker->flatVector<int32_t>(size, [](auto row) { return row; });
+
+  auto loader = std::make_unique<TestingLoader>(data);
+  auto loaderPtr = loader.get();
+  auto lazyVector = std::make_shared<LazyVector>(
+      pool_.get(), INTEGER(), size, std::move(loader));
+
+  auto indicesInner =
+      makeIndices(size, [&](auto row) { return (row % 2 == 0) ? row : 0; });
+  auto indicesOuter =
+      makeIndices(size, [&](auto row) { return (row % 4 == 0) ? row : 0; });
+
+  auto dict = BaseVector::wrapInDictionary(
+      nullptr,
+      indicesOuter,
+      size,
+      BaseVector::wrapInDictionary(nullptr, indicesInner, size, lazyVector));
+
+  dict->loadedVector();
+  ASSERT_EQ(loaderPtr->rowCount(), 1 + size / 4);
+
+  dict->loadedVector();
+  ASSERT_EQ(loaderPtr->rowCount(), 1 + size / 4);
 }
