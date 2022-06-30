@@ -222,6 +222,9 @@ public class TestQueryStats
             new DataSize(26, BYTE),
             27,
 
+            new DataSize(30, BYTE),
+            29,
+
             new DataSize(28, BYTE),
             29,
 
@@ -305,6 +308,9 @@ public class TestQueryStats
 
         assertEquals(actual.getProcessedInputDataSize(), new DataSize(26, BYTE));
         assertEquals(actual.getProcessedInputPositions(), 27);
+
+        assertEquals(actual.getShuffledDataSize(), new DataSize(30, BYTE));
+        assertEquals(actual.getShuffledPositions(), 29);
 
         assertEquals(actual.getOutputDataSize(), new DataSize(28, BYTE));
         assertEquals(actual.getOutputPositions(), 29);

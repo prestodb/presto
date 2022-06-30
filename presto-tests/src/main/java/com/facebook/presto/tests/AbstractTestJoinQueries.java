@@ -15,16 +15,22 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
@@ -33,11 +39,62 @@ import static com.facebook.presto.tests.QueryTemplate.parameter;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestJoinQueries
         extends AbstractTestQueryFramework
 {
+    @Test
+    public void testShuffledStatsWithInnerJoin()
+    {
+        // NOTE: only test shuffled stats with distributed query runner and disk spilling is disabled.
+        if (!(getQueryRunner() instanceof DistributedQueryRunner) || getQueryRunner().getDefaultSession().getSystemProperty("spill_enabled", Boolean.class)) {
+            return;
+        }
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+
+        // Get the number of rows in orders table for query stats verification below.
+        long ordersRows = getTableRowCount("orders");
+        // Get the number of rows in lineitem table for query stats verification below.
+        long lineitemRows = getTableRowCount("lineitem");
+
+        String query = "SELECT a.orderkey, a.orderstatus, b.linenumber FROM orders a JOIN lineitem b ON a.orderkey = b.orderkey";
+        // Set session property to enforce a hash partitioned join.
+        Session partitionedJoin = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
+                .build();
+        QueryId partitionQueryId = queryRunner.executeWithQueryId(partitionedJoin, query).getQueryId();
+        QueryInfo partitionJoinQueryInfo = queryRunner.getQueryInfo(partitionQueryId);
+        long expectedRawInputRows = ordersRows + lineitemRows;
+        // Verify the number shuffled rows, raw input rows and output rows in hash partitioned join.
+        // NOTE: the latter two shall be the same for both hash partitioned join and broadcast join.
+        assertEquals(partitionJoinQueryInfo.getQueryStats().getRawInputPositions(), expectedRawInputRows);
+        long expectedOutputRows = lineitemRows;
+        assertEquals(partitionJoinQueryInfo.getQueryStats().getOutputPositions(), expectedOutputRows);
+        long expectedPartitionJoinShuffledRows = lineitemRows + ordersRows + expectedOutputRows;
+        assertEquals(partitionJoinQueryInfo.getQueryStats().getShuffledPositions(), expectedPartitionJoinShuffledRows);
+
+        // Set session property to enforce a broadcast join.
+        Session broadcastJoin = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
+                .build();
+
+        QueryId broadcastQueryId = queryRunner.executeWithQueryId(broadcastJoin, query).getQueryId();
+        assertNotEquals(partitionQueryId, broadcastQueryId);
+        QueryInfo broadcastJoinQueryInfo = queryRunner.getQueryInfo(broadcastQueryId);
+        assertEquals(broadcastJoinQueryInfo.getQueryStats().getRawInputPositions(), expectedRawInputRows);
+        assertEquals(broadcastJoinQueryInfo.getQueryStats().getOutputPositions(), expectedOutputRows);
+        // NOTE: the number of shuffled bytes except the final output should be a multiple of the number of rows in lineitem table in broadcast join case.
+        assertEquals(((broadcastJoinQueryInfo.getQueryStats().getShuffledPositions() - expectedOutputRows) % lineitemRows), 0);
+        assertTrue((broadcastJoinQueryInfo.getQueryStats().getShuffledPositions() - expectedOutputRows) >= lineitemRows);
+        // Both partitioned join and broadcast join should have the same raw input data size.
+        assertEquals(partitionJoinQueryInfo.getQueryStats().getRawInputDataSize().toBytes(), broadcastJoinQueryInfo.getQueryStats().getRawInputDataSize().toBytes());
+        assertNotEquals(partitionJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes(), broadcastJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes());
+    }
+
     @Test
     public void testRowFieldAccessorInJoin()
     {
@@ -2458,5 +2515,14 @@ public abstract class AbstractTestJoinQueries
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name())
                 .build();
+    }
+
+    private long getTableRowCount(String tableName)
+    {
+        String countQuery = "SELECT COUNT(*) FROM " + tableName;
+        MaterializedRow countRow = Iterables.getOnlyElement(getQueryRunner().execute(countQuery));
+        int rowFieldCount = countRow.getFieldCount();
+        assertEquals(rowFieldCount, 1);
+        return (long) countRow.getField(0);
     }
 }
