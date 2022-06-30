@@ -1056,6 +1056,8 @@ public class QueryStateMachine
                 queryStats.getRawInputPositions(),
                 queryStats.getProcessedInputDataSize(),
                 queryStats.getProcessedInputPositions(),
+                queryStats.getShuffledDataSize(),
+                queryStats.getShuffledPositions(),
                 queryStats.getOutputDataSize(),
                 queryStats.getOutputPositions(),
                 queryStats.getWrittenOutputPositions(),
