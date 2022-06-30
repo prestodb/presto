@@ -121,10 +121,6 @@
             <outputDirectory>plugin/ml</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>${project.build.directory}/dependency/presto-geospatial-${project.version}</directory>
-            <outputDirectory>plugin/geospatial</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>${project.build.directory}/dependency/presto-mysql-${project.version}</directory>
             <outputDirectory>plugin/mysql</outputDirectory>
         </fileSet>
