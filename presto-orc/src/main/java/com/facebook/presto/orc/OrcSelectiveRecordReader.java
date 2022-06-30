@@ -147,7 +147,7 @@ public class OrcSelectiveRecordReader
     @Nullable
     private RuntimeException constantFilterError;
 
-    private int readPositions;
+    private long readPositions;
 
     // true if row number needs to be added, false otherwise
     private final boolean appendRowNumber;
@@ -621,7 +621,7 @@ public class OrcSelectiveRecordReader
         return streamReaders;
     }
 
-    public int getReadPositions()
+    public long getReadPositions()
     {
         return readPositions;
     }
