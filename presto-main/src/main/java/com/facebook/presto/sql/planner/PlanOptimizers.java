@@ -137,6 +137,7 @@ import com.facebook.presto.sql.planner.optimizations.MergeJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
 import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
+import com.facebook.presto.sql.planner.optimizations.PhysicalResourceOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
@@ -170,6 +171,7 @@ public class PlanOptimizers
     private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
+    private final PhysicalResourceOptimizer physicalResourceOptimizer;
 
     @Inject
     public PlanOptimizers(
@@ -570,7 +572,9 @@ public class PlanOptimizers
                         .add(new InlineProjections(metadata.getFunctionAndTypeManager()))
                         .build()));
 
+        this.physicalResourceOptimizer = new PhysicalResourceOptimizer(metadata);
         if (!forceSingleNode) {
+            builder.add(physicalResourceOptimizer);
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
             builder.add(new IterativeOptimizer(
                     ruleStats,
@@ -587,7 +591,7 @@ public class PlanOptimizers
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser, partitioningProviderManager)));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser, partitioningProviderManager, physicalResourceOptimizer)));
         }
 
         //noinspection UnusedAssignment
@@ -685,5 +689,10 @@ public class PlanOptimizers
     public List<PlanOptimizer> getRuntimeOptimizers()
     {
         return runtimeOptimizers;
+    }
+
+    public PhysicalResourceOptimizer getPhysicalResourceOptimizer()
+    {
+        return physicalResourceOptimizer;
     }
 }

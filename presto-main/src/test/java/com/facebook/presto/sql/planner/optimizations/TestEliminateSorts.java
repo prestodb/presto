@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
@@ -45,6 +47,7 @@ public class TestEliminateSorts
         extends BasePlanTest
 {
     private static final String QUANTITY_ALIAS = "QUANTITY";
+    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
 
     private static final ExpectedValueProvider<WindowNode.Specification> windowSpec = specification(
             ImmutableList.of(),
@@ -95,7 +98,7 @@ public class TestEliminateSorts
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getCostCalculator(),
                         new TranslateExpressions(getMetadata(), new SqlParser()).rules()),
-                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser(), new PartitioningProviderManager()),
+                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser(), new PartitioningProviderManager(), new PhysicalResourceOptimizer(METADATA)),
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(

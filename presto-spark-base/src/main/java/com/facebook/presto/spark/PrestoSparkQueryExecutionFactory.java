@@ -420,12 +420,16 @@ public class PrestoSparkQueryExecutionFactory
             }
             else {
                 planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
-                if (isAutomaticResourceManagementEnabled(session)) {
-                    new PhysicalResourceOptimizer(metadata, session, planAndMore.getPlan().getRoot()).optimize(session, sparkContext);
+                boolean isOkayToUseOptimizedResourceSettings = isAutomaticResourceManagementEnabled(session) && planAndMore.getPhysicalResourceSettings().isValid();
+                if (isOkayToUseOptimizedResourceSettings) {
+                    log.info("Setting optimized executor count to " + planAndMore.getPhysicalResourceSettings().getExecutorCount());
+                    sparkContext.conf().set("spark.dynamicAllocation.maxExecutors", Integer.toString(planAndMore.getPhysicalResourceSettings().getExecutorCount()));
                 }
                 SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector);
                 log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionAndTypeManager(), session, true));
-                fragmentedPlan = configureOutputPartitioning(session, fragmentedPlan);
+                log.info("MYMARKER - calling configureOutputPartitioning ");
+                fragmentedPlan = configureOutputPartitioning(session, fragmentedPlan, planAndMore.getPhysicalResourceSettings(), isOkayToUseOptimizedResourceSettings);
+                log.info("MYMARKER - done with configureOutputPartitioning ");
                 TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
 
                 JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
@@ -519,12 +523,12 @@ public class PrestoSparkQueryExecutionFactory
         }
     }
 
-    private SubPlan configureOutputPartitioning(Session session, SubPlan subPlan)
+    private SubPlan configureOutputPartitioning(Session session, SubPlan subPlan, final PhysicalResourceSettings physicalResourceSettings, boolean isOkayToUseOptimizedResourceSettings)
     {
         PlanFragment fragment = subPlan.getFragment();
         if (!fragment.getPartitioningScheme().getBucketToPartition().isPresent()) {
             PartitioningHandle partitioningHandle = fragment.getPartitioningScheme().getPartitioning().getHandle();
-            Optional<int[]> bucketToPartition = getBucketToPartition(session, partitioningHandle);
+            Optional<int[]> bucketToPartition = getBucketToPartition(session, partitioningHandle, physicalResourceSettings, isOkayToUseOptimizedResourceSettings);
             if (bucketToPartition.isPresent()) {
                 fragment = fragment.withBucketToPartition(bucketToPartition);
             }
@@ -532,14 +536,15 @@ public class PrestoSparkQueryExecutionFactory
         return new SubPlan(
                 fragment,
                 subPlan.getChildren().stream()
-                        .map(child -> configureOutputPartitioning(session, child))
+                        .map(child -> configureOutputPartitioning(session, child, physicalResourceSettings, isOkayToUseOptimizedResourceSettings))
                         .collect(toImmutableList()));
     }
 
-    private Optional<int[]> getBucketToPartition(Session session, PartitioningHandle partitioningHandle)
+    private Optional<int[]> getBucketToPartition(Session session, PartitioningHandle partitioningHandle, PhysicalResourceSettings physicalResourceSettings, boolean isOkayToUseOptimizedResourceSettings)
     {
         if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
-            int hashPartitionCount = getHashPartitionCount(session);
+            int hashPartitionCount = (isOkayToUseOptimizedResourceSettings && physicalResourceSettings.isValid()) ? physicalResourceSettings.getHashPartitionCount() : getHashPartitionCount(session);
+            log.info("hashPartitionCount set to =>" + hashPartitionCount);
             return Optional.of(IntStream.range(0, hashPartitionCount).toArray());
         }
         //  FIXED_ARBITRARY_DISTRIBUTION is used for UNION ALL
@@ -548,7 +553,8 @@ public class PrestoSparkQueryExecutionFactory
             // given modular hash function, partition count could be arbitrary size
             // simply reuse hash_partition_count for convenience
             // it can also be set by a separate session property if needed
-            int partitionCount = getHashPartitionCount(session);
+            int partitionCount = (isOkayToUseOptimizedResourceSettings && physicalResourceSettings.isValid()) ? physicalResourceSettings.getHashPartitionCount() : getHashPartitionCount(session);
+            log.info("hashPartitionCount set to =>" + partitionCount);
             return Optional.of(IntStream.range(0, partitionCount).toArray());
         }
         if (partitioningHandle.getConnectorId().isPresent()) {
