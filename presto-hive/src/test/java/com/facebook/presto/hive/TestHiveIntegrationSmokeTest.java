@@ -5778,6 +5778,9 @@ public class TestHiveIntegrationSmokeTest
                         ", ds\n" +
                         "FROM\n" +
                         "  orders_partitioned\n");
+
+        computeActual("DROP TABLE orders_partitioned");
+        computeActual("DROP MATERIALIZED VIEW test_orders_view");
     }
 
     @Test
