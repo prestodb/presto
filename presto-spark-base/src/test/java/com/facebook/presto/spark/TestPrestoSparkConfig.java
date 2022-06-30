@@ -49,7 +49,14 @@ public class TestPrestoSparkConfig
                 .setRetryOnOutOfMemoryBroadcastJoinEnabled(false)
                 .setRetryOnOutOfMemoryWithIncreasedMemorySettingsEnabled(false)
                 .setOutOfMemoryRetryPrestoSessionProperties("")
-                .setOutOfMemoryRetrySparkConfigs(""));
+                .setOutOfMemoryRetrySparkConfigs("")
+                .setAverageInputDataSizePerExecutor(new DataSize(10, GIGABYTE))
+                .setMaxExecutorCount(600)
+                .setMinExecutorCount(200)
+                .setAverageInputDataSizePerPartition(new DataSize(2, GIGABYTE))
+                .setMaxHashPartitionCount(4096)
+                .setMinHashPartitionCount(1024)
+                .setSparkResourceAllocationStrategyEnabled(false));
     }
 
     @Test
@@ -74,6 +81,13 @@ public class TestPrestoSparkConfig
                 .put("spark.retry-on-out-of-memory-with-increased-memory-settings-enabled", "true")
                 .put("spark.retry-presto-session-properties", "query_max_memory_per_node=1MB,query_max_total_memory_per_node=1MB")
                 .put("spark.retry-spark-configs", "spark.executor.memory=1g,spark.task.cpus=5")
+                .put("spark.average-input-datasize-per-executor", "5GB")
+                .put("spark.max-executor-count", "29")
+                .put("spark.min-executor-count", "2")
+                .put("spark.average-input-datasize-per-partition", "1GB")
+                .put("spark.max-hash-partition-count", "333")
+                .put("spark.min-hash-partition-count", "30")
+                .put("spark.resource-allocation-strategy-enabled", "true")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -93,7 +107,14 @@ public class TestPrestoSparkConfig
                 .setRetryOnOutOfMemoryBroadcastJoinEnabled(true)
                 .setRetryOnOutOfMemoryWithIncreasedMemorySettingsEnabled(true)
                 .setOutOfMemoryRetryPrestoSessionProperties("query_max_memory_per_node=1MB,query_max_total_memory_per_node=1MB")
-                .setOutOfMemoryRetrySparkConfigs("spark.executor.memory=1g,spark.task.cpus=5");
+                .setOutOfMemoryRetrySparkConfigs("spark.executor.memory=1g,spark.task.cpus=5")
+                .setAverageInputDataSizePerExecutor(new DataSize(5, GIGABYTE))
+                .setMaxExecutorCount(29)
+                .setMinExecutorCount(2)
+                .setAverageInputDataSizePerPartition(new DataSize(1, GIGABYTE))
+                .setMaxHashPartitionCount(333)
+                .setMinHashPartitionCount(30)
+                .setSparkResourceAllocationStrategyEnabled(true);
         assertFullMapping(properties, expected);
     }
 }

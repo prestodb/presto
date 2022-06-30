@@ -51,6 +51,13 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED = "spark_retry_on_out_of_memory_with_increased_memory_settings_enabled";
     public static final String OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES = "out_of_memory_retry_presto_session_properties";
     public static final String OUT_OF_MEMORY_RETRY_SPARK_CONFIGS = "out_of_memory_retry_spark_configs";
+    public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR = "spark_average_input_data_size_per_executor";
+    public static final String SPARK_MAX_EXECUTOR_COUNT = "spark_max_executor_count";
+    public static final String SPARK_MIN_EXECUTOR_COUNT = "spark_min_executor_count";
+    public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION = "spark_average_input_data_size_per_partition";
+    public static final String SPARK_MAX_HASH_PARTITION_COUNT = "spark_max_hash_partition_count";
+    public static final String SPARK_MIN_HASH_PARTITION_COUNT = "spark_min_hash_partition_count";
+    public static final String SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED = "spark_resource_allocation_strategy_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -145,7 +152,42 @@ public class PrestoSparkSessionProperties
                         prestoSparkConfig.getOutOfMemoryRetrySparkConfigs(),
                         true,
                         value -> MAP_SPLITTER.split(nullToEmpty((String) value)),
-                        value -> value));
+                        value -> value),
+                dataSizeProperty(
+                        SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR,
+                        "Average input data size per executor",
+                        prestoSparkConfig.getAverageInputDataSizePerExecutor(),
+                       false),
+                integerProperty(
+                        SPARK_MAX_EXECUTOR_COUNT,
+                        "Maximum count of executors to run a query",
+                        prestoSparkConfig.getMaxExecutorCount(),
+                        false),
+                integerProperty(
+                        SPARK_MIN_EXECUTOR_COUNT,
+                        "Minimum count of executors to run a query",
+                        prestoSparkConfig.getMinExecutorCount(),
+                        false),
+                dataSizeProperty(
+                        SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION,
+                        "Average input data size per partition",
+                        prestoSparkConfig.getAverageInputDataSizePerPartition(),
+                        false),
+                integerProperty(
+                        SPARK_MAX_HASH_PARTITION_COUNT,
+                        "Maximum hash partition count required by the query",
+                        prestoSparkConfig.getMaxHashPartitionCount(),
+                        false),
+                integerProperty(
+                        SPARK_MIN_HASH_PARTITION_COUNT,
+                        "Minimum hash partition count required by the query",
+                        prestoSparkConfig.getMinHashPartitionCount(),
+                        false),
+                booleanProperty(
+                        SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED,
+                        "Flag to enable optimized resource allocation strategy",
+                        prestoSparkConfig.isSparkResourceAllocationStrategyEnabled(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -231,5 +273,39 @@ public class PrestoSparkSessionProperties
     public static Map<String, String> getOutOfMemoryRetrySparkConfigs(Session session)
     {
         return session.getSystemProperty(OUT_OF_MEMORY_RETRY_SPARK_CONFIGS, Map.class);
+    }
+
+    public static DataSize getAverageInputDataSizePerExecutor(Session session)
+    {
+        return session.getSystemProperty(SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR, DataSize.class);
+    }
+
+    public static int getMaxExecutorCount(Session session)
+    {
+        return session.getSystemProperty(SPARK_MAX_EXECUTOR_COUNT, Integer.class);
+    }
+
+    public static int getMinExecutorCount(Session session)
+    {
+        return session.getSystemProperty(SPARK_MIN_EXECUTOR_COUNT, Integer.class);
+    }
+
+    public static DataSize getAverageInputDataSizePerPartition(Session session)
+    {
+        return session.getSystemProperty(SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION, DataSize.class);
+    }
+
+    public static int getMaxHashPartitionCount(Session session)
+    {
+        return session.getSystemProperty(SPARK_MAX_HASH_PARTITION_COUNT, Integer.class);
+    }
+    public static int getMinHashPartitionCount(Session session)
+    {
+        return session.getSystemProperty(SPARK_MIN_HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static boolean isSparkResourceAllocationStrategyEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED, Boolean.class);
     }
 }

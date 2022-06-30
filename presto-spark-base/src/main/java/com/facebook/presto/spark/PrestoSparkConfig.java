@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.Map;
@@ -52,6 +53,13 @@ public class PrestoSparkConfig
     private boolean retryOnOutOfMemoryWithIncreasedMemorySettingsEnabled;
     private Map<String, String> outOfMemoryRetryPrestoSessionProperties = ImmutableMap.of();
     private Map<String, String> outOfMemoryRetrySparkConfigs = ImmutableMap.of();
+    private DataSize averageInputDataSizePerExecutor = new DataSize(10, GIGABYTE);
+    private int maxExecutorCount = 600;
+    private int minExecutorCount = 200;
+    private DataSize averageInputDataSizePerPartition = new DataSize(2, GIGABYTE);
+    private int maxHashPartitionCount = 4096;
+    private int minHashPartitionCount = 1024;
+    private boolean isResourceAllocationStrategyEnabled;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -286,6 +294,101 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setOutOfMemoryRetrySparkConfigs(String outOfMemoryRetrySparkConfigs)
     {
         this.outOfMemoryRetrySparkConfigs = MAP_SPLITTER.split(nullToEmpty(outOfMemoryRetrySparkConfigs));
+        return this;
+    }
+
+    public DataSize getAverageInputDataSizePerExecutor()
+    {
+        return averageInputDataSizePerExecutor;
+    }
+
+    @Config("spark.average-input-datasize-per-executor")
+    @ConfigDescription("Provides average input data size used per executor")
+    public PrestoSparkConfig setAverageInputDataSizePerExecutor(DataSize averageInputDataSizePerExecutor)
+    {
+        this.averageInputDataSizePerExecutor = averageInputDataSizePerExecutor;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxExecutorCount()
+    {
+        return maxExecutorCount;
+    }
+
+    @Config("spark.max-executor-count")
+    @ConfigDescription("Provides the maximum count of the executors the query will allocate")
+    public PrestoSparkConfig setMaxExecutorCount(int maxExecutorCount)
+    {
+        this.maxExecutorCount = maxExecutorCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinExecutorCount()
+    {
+        return minExecutorCount;
+    }
+
+    @Config("spark.min-executor-count")
+    @ConfigDescription("Provides the minimum count of the executors the query will allocate")
+    public PrestoSparkConfig setMinExecutorCount(int minExecutorCount)
+    {
+        this.minExecutorCount = minExecutorCount;
+        return this;
+    }
+
+    public DataSize getAverageInputDataSizePerPartition()
+    {
+        return averageInputDataSizePerPartition;
+    }
+
+    @Config("spark.average-input-datasize-per-partition")
+    @ConfigDescription("Provides average input data size per partition")
+    public PrestoSparkConfig setAverageInputDataSizePerPartition(DataSize averageInputDataSizePerPartition)
+    {
+        this.averageInputDataSizePerPartition = averageInputDataSizePerPartition;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxHashPartitionCount()
+    {
+        return maxHashPartitionCount;
+    }
+
+    @Config("spark.max-hash-partition-count")
+    @ConfigDescription("Provides the maximum number of the hash partition count the query can allocate")
+    public PrestoSparkConfig setMaxHashPartitionCount(int maxHashPartitionCount)
+    {
+        this.maxHashPartitionCount = maxHashPartitionCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinHashPartitionCount()
+    {
+        return minHashPartitionCount;
+    }
+
+    @Config("spark.min-hash-partition-count")
+    @ConfigDescription("Provides the minimum number of the hash partition count the query can allocate")
+    public PrestoSparkConfig setMinHashPartitionCount(int minHashPartitionCount)
+    {
+        this.minHashPartitionCount = minHashPartitionCount;
+        return this;
+    }
+
+    public boolean isSparkResourceAllocationStrategyEnabled()
+    {
+        return isResourceAllocationStrategyEnabled;
+    }
+
+    @Config("spark.resource-allocation-strategy-enabled")
+    @ConfigDescription("Determines whether the resource allocation strategy for executor and partition count is enabled")
+    public PrestoSparkConfig setSparkResourceAllocationStrategyEnabled(boolean isResourceAllocationStrategyEnabled)
+    {
+        this.isResourceAllocationStrategyEnabled = isResourceAllocationStrategyEnabled;
         return this;
     }
 }
