@@ -186,4 +186,7 @@ class DateTimeFormatter {
 std::shared_ptr<DateTimeFormatter> buildMysqlDateTimeFormatter(
     const std::string_view& format);
 
+std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
+    const std::string_view& format);
+
 } // namespace facebook::velox::functions

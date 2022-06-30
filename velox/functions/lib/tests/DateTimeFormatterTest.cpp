@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/functions/lib/DateTimeFormatter.h"
+#include <velox/common/base/VeloxException.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/DateTimeFormatterBuilder.h"
@@ -25,7 +26,21 @@ using namespace facebook::velox;
 
 namespace facebook::velox::functions {
 
-class DateTimeFormatterTest : public testing::Test {};
+class DateTimeFormatterTest : public testing::Test {
+ protected:
+  void testTokenRange(
+      char specifier,
+      int numTokenStart,
+      int numTokenEnd,
+      const DateTimeFormatSpecifier& token) {
+    for (size_t i = numTokenStart; i <= numTokenEnd; i++) {
+      std::string pattern(i, specifier);
+      std::vector<DateTimeToken> expected;
+      expected = {DateTimeToken(FormatPattern{token, i})};
+      EXPECT_EQ(expected, buildJodaDateTimeFormatter(pattern)->tokens());
+    }
+  }
+};
 
 TEST_F(DateTimeFormatterTest, fixedLengthTokenBuilder) {
   DateTimeFormatterBuilder builder(100);
@@ -128,6 +143,171 @@ TEST_F(DateTimeFormatterTest, variableLengthTokenBuilder) {
       DateTimeToken(
           FormatPattern{DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID, 3})};
   EXPECT_EQ(formatter->tokens(), expectedTokens);
+}
+
+class JodaDateTimeFormatterTest : public DateTimeFormatterTest {};
+
+TEST_F(JodaDateTimeFormatterTest, validJodaBuild) {
+  std::vector<DateTimeToken> expected;
+
+  // G specifier case
+  expected = {DateTimeToken(FormatPattern{DateTimeFormatSpecifier::ERA, 2})};
+  EXPECT_EQ(expected, buildJodaDateTimeFormatter("G")->tokens());
+  // minRepresentDigits should be unchanged with higher number of specifier for
+  // ERA
+  expected = {DateTimeToken(FormatPattern{DateTimeFormatSpecifier::ERA, 2})};
+  EXPECT_EQ(expected, buildJodaDateTimeFormatter("GGGG")->tokens());
+
+  // C specifier case
+  testTokenRange('C', 1, 3, DateTimeFormatSpecifier::CENTURY_OF_ERA);
+
+  // Y specifier case
+  testTokenRange('Y', 1, 4, DateTimeFormatSpecifier::YEAR_OF_ERA);
+
+  // x specifier case
+  testTokenRange('x', 1, 4, DateTimeFormatSpecifier::WEEK_YEAR);
+
+  // w specifier case
+  testTokenRange('w', 1, 4, DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR);
+
+  // e specifier case
+  testTokenRange('e', 1, 4, DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED);
+
+  // E specifier case
+  testTokenRange('E', 1, 4, DateTimeFormatSpecifier::DAY_OF_WEEK_TEXT);
+
+  // y specifier case
+  testTokenRange('y', 1, 4, DateTimeFormatSpecifier::YEAR);
+
+  // D specifier case
+  testTokenRange('D', 1, 4, DateTimeFormatSpecifier::DAY_OF_YEAR);
+
+  // M specifier case
+  testTokenRange('M', 1, 2, DateTimeFormatSpecifier::MONTH_OF_YEAR);
+  testTokenRange('M', 3, 4, DateTimeFormatSpecifier::MONTH_OF_YEAR_TEXT);
+
+  // d specifier case
+  testTokenRange('d', 1, 4, DateTimeFormatSpecifier::DAY_OF_MONTH);
+
+  // a specifier case
+  expected = {
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::HALFDAY_OF_DAY, 2})};
+  EXPECT_EQ(expected, buildJodaDateTimeFormatter("a")->tokens());
+  // minRepresentDigits should be unchanged with higher number of specifier for
+  // HALFDAY_OF_DAY
+  expected = {
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::HALFDAY_OF_DAY, 2})};
+  EXPECT_EQ(expected, buildJodaDateTimeFormatter("aa")->tokens());
+
+  // K specifier case
+  testTokenRange('K', 1, 4, DateTimeFormatSpecifier::HOUR_OF_HALFDAY);
+
+  // h specifier case
+  testTokenRange('h', 1, 4, DateTimeFormatSpecifier::CLOCK_HOUR_OF_HALFDAY);
+
+  // H specifier case
+  testTokenRange('H', 1, 4, DateTimeFormatSpecifier::HOUR_OF_DAY);
+
+  // k specifier case
+  testTokenRange('k', 1, 4, DateTimeFormatSpecifier::CLOCK_HOUR_OF_DAY);
+
+  // m specifier case
+  testTokenRange('m', 1, 4, DateTimeFormatSpecifier::MINUTE_OF_HOUR);
+
+  // s specifier
+  testTokenRange('s', 1, 4, DateTimeFormatSpecifier::SECOND_OF_MINUTE);
+
+  // S specifier
+  testTokenRange('S', 1, 4, DateTimeFormatSpecifier::FRACTION_OF_SECOND);
+
+  // z specifier
+  testTokenRange('z', 1, 4, DateTimeFormatSpecifier::TIMEZONE);
+
+  // Z specifier
+  testTokenRange('Z', 1, 4, DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID);
+
+  // Literal case
+  expected = {DateTimeToken(" ")};
+  EXPECT_EQ(expected, buildJodaDateTimeFormatter(" ")->tokens());
+  expected = {DateTimeToken("1234567890")};
+  EXPECT_EQ(expected, buildJodaDateTimeFormatter("1234567890")->tokens());
+  expected = {DateTimeToken("'")};
+  EXPECT_EQ(expected, buildJodaDateTimeFormatter("''")->tokens());
+  expected = {DateTimeToken("abcdefghijklmnopqrstuvwxyz")};
+  EXPECT_EQ(
+      expected,
+      buildJodaDateTimeFormatter("'abcdefghijklmnopqrstuvwxyz'")->tokens());
+  expected = {DateTimeToken("'abcdefg'hijklmnop'qrstuv'wxyz'")};
+  EXPECT_EQ(
+      expected,
+      buildJodaDateTimeFormatter("'''abcdefg''hijklmnop''qrstuv''wxyz'''")
+          ->tokens());
+  expected = {DateTimeToken("'1234abcd")};
+  EXPECT_EQ(expected, buildJodaDateTimeFormatter("''1234'abcd'")->tokens());
+
+  // Specifier combinations
+  expected = {
+      DateTimeToken("'"),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::CENTURY_OF_ERA, 3}),
+      DateTimeToken("-"),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::YEAR_OF_ERA, 4}),
+      DateTimeToken("/"),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::WEEK_YEAR, 3}),
+      DateTimeToken("//"),
+      DateTimeToken(
+          FormatPattern{DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR, 3}),
+      DateTimeToken("-00-"),
+      DateTimeToken(
+          FormatPattern{DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED, 4}),
+      DateTimeToken("--"),
+      DateTimeToken(
+          FormatPattern{DateTimeFormatSpecifier::DAY_OF_WEEK_TEXT, 6}),
+      DateTimeToken("---"),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::YEAR, 5}),
+      DateTimeToken("///"),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::DAY_OF_YEAR, 4}),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::MONTH_OF_YEAR, 2}),
+      DateTimeToken("-"),
+      DateTimeToken(
+          FormatPattern{DateTimeFormatSpecifier::MONTH_OF_YEAR_TEXT, 4}),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::DAY_OF_MONTH, 4}),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::HOUR_OF_HALFDAY, 2}),
+      DateTimeToken(
+          FormatPattern{DateTimeFormatSpecifier::CLOCK_HOUR_OF_HALFDAY, 3}),
+      DateTimeToken(
+          FormatPattern{DateTimeFormatSpecifier::CLOCK_HOUR_OF_DAY, 2}),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::HOUR_OF_DAY, 2}),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::MINUTE_OF_HOUR, 2}),
+      DateTimeToken(
+          FormatPattern{DateTimeFormatSpecifier::SECOND_OF_MINUTE, 1}),
+      DateTimeToken(
+          FormatPattern{DateTimeFormatSpecifier::FRACTION_OF_SECOND, 6}),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::TIMEZONE, 3}),
+      DateTimeToken(
+          FormatPattern{DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID, 3}),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::ERA, 2}),
+      DateTimeToken("abcdefghijklmnopqrstuvwxyz"),
+      DateTimeToken(FormatPattern{DateTimeFormatSpecifier::HALFDAY_OF_DAY, 2}),
+  };
+
+  EXPECT_EQ(
+      expected,
+      buildJodaDateTimeFormatter(
+          "''CCC-YYYY/xxx//www-00-eeee--EEEEEE---yyyyy///DDDDMM-MMMMddddKKhhhkkHHmmsSSSSSSzzzZZZGGGG'abcdefghijklmnopqrstuvwxyz'aaa")
+          ->tokens());
+}
+
+TEST_F(JodaDateTimeFormatterTest, invalidJodaBuild) {
+  // Invalid specifiers
+  EXPECT_THROW(buildJodaDateTimeFormatter("q"), VeloxUserError);
+  EXPECT_THROW(buildJodaDateTimeFormatter("r"), VeloxUserError);
+  EXPECT_THROW(buildJodaDateTimeFormatter("g"), VeloxUserError);
+
+  // Unclosed literal sequence
+  EXPECT_THROW(buildJodaDateTimeFormatter("'abcd"), VeloxUserError);
+
+  // Empty format string
+  EXPECT_THROW(buildJodaDateTimeFormatter(""), VeloxUserError);
 }
 
 class MysqlDateTimeTest : public DateTimeFormatterTest {};
