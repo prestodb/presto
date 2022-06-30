@@ -95,9 +95,9 @@ public class PhysicalResourceOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        AbstractMap.SimpleImmutableEntry<Double, Integer> sourceStatistics = new CollectSourceStats(metadata, session).collectSourceStats(plan);
+        AbstractMap.SimpleImmutableEntry<Double, Boolean> sourceStatistics = new CollectSourceStats(metadata, session).collectSourceStats(plan);
 
-        if (0 != sourceStatistics.getValue()) {
+        if (0 == sourceStatistics.getValue().compareTo(true)) {
             log.warn(String.format("Source missing statistics, skipping automatic resource tuning."));
             return plan;
         }
@@ -227,44 +227,26 @@ public class PhysicalResourceOptimizer
             this.session = session;
         }
 
-        public AbstractMap.SimpleImmutableEntry<Double, Integer> collectSourceStats(PlanNode root)
+        public AbstractMap.SimpleImmutableEntry<Double, Boolean> collectSourceStats(PlanNode root)
         {
             log.info("Sourav inside collectSourceStats");
             Visitor visitor = new Visitor();
             root.accept(visitor, null);
 
-            AbstractMap.SimpleImmutableEntry<List<TableStatistics>, Integer> sourceStatistics = visitor.getStatsForSources();
+            AbstractMap.SimpleImmutableEntry<List<TableStatistics>, Boolean> sourceStatistics = visitor.getStatsForSources();
 
             Iterator<TableStatistics> tableStatisticsIterator = sourceStatistics.getKey().iterator();
             Double totalSourceSize = 0.0;
             int totalNumberOfSources = sourceStatistics.getKey().size();
             boolean isNaNPresent = false;
-            int numberOfSourceMissingData = sourceStatistics.getValue();
-            int numberOfSourcesWithNaNs = 0;
             while (tableStatisticsIterator.hasNext()) {
                 TableStatistics ts = tableStatisticsIterator.next();
                 log.info("iterating through table stats size -> " + ts.getTotalSize().getValue());
-                if (Double.isNaN(ts.getTotalSize().getValue())) {
-                    numberOfSourcesWithNaNs++;
-                }
-                else {
-                    totalSourceSize = totalSourceSize + ts.getTotalSize().getValue();
-                }
-            }
-            double failureRate = ((numberOfSourceMissingData + numberOfSourcesWithNaNs) * 100) / (totalNumberOfSources + numberOfSourceMissingData);
-
-            log.info("The failute rate =>" + failureRate);
-            if (failureRate > THRESHOLD_FOR_RESOURCE_OPTIMIZATION) {
-                if (numberOfSourcesWithNaNs > 0) {
-                    totalSourceSize = Double.NaN;
-                }
-            }
-            else {
-                numberOfSourceMissingData = 0;
+                totalSourceSize = totalSourceSize + ts.getTotalSize().getValue();
             }
 
             log.info("In collectSourceStats totalSourceSize -> " + totalSourceSize);
-            return new AbstractMap.SimpleImmutableEntry(totalSourceSize, numberOfSourceMissingData);
+            return new AbstractMap.SimpleImmutableEntry(totalSourceSize, sourceStatistics.getValue());
         }
 
         private class Visitor
@@ -272,10 +254,11 @@ public class PhysicalResourceOptimizer
         {
             private final ImmutableList.Builder<TableStatistics> tableStatisticsBuilder = ImmutableList.builder();
             private Integer numberOfSourceMissingData = 0;
+            private Boolean isSourceMissingData = false;
 
-            public AbstractMap.SimpleImmutableEntry<List<TableStatistics>, Integer> getStatsForSources()
+            public AbstractMap.SimpleImmutableEntry<List<TableStatistics>, Boolean> getStatsForSources()
             {
-                return new AbstractMap.SimpleImmutableEntry(tableStatisticsBuilder.build(), numberOfSourceMissingData);
+                return new AbstractMap.SimpleImmutableEntry(tableStatisticsBuilder.build(), isSourceMissingData);
             }
 
             private Column createColumn(ColumnMetadata columnMetadata)
@@ -306,6 +289,7 @@ public class PhysicalResourceOptimizer
                 else {
                     log.info("statistics unavailable for table-> " + node.toString());
                     numberOfSourceMissingData++;
+                    isSourceMissingData = true;
                 }
 
                 return null;
