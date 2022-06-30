@@ -413,7 +413,7 @@ class BaseVector {
       vector_size_t targetIndex,
       vector_size_t sourceIndex,
       vector_size_t count) {
-    VELOX_NYI();
+    VELOX_UNSUPPORTED("Only flat vectors support copy operation");
   }
 
   // Returns a vector of the type of 'source' where 'indices' contains
@@ -502,7 +502,7 @@ class BaseVector {
   // virtual and defined here because we must be able to access this in type
   // agnostic code without a switch on all data types.
   virtual std::shared_ptr<BaseVector> valueVector() const {
-    throw std::runtime_error("Vector is not a wrapper");
+    VELOX_UNSUPPORTED("Vector is not a wrapper");
   }
 
   virtual BaseVector* loadedVector() {
@@ -517,11 +517,11 @@ class BaseVector {
       std::shared_ptr<BaseVector>);
 
   virtual const BufferPtr& values() const {
-    throw std::runtime_error("Only flat vectors have a values buffer");
+    VELOX_UNSUPPORTED("Only flat vectors have a values buffer");
   }
 
   virtual const void* valuesAsVoid() const {
-    throw std::runtime_error("Only flat vectors have a values buffer");
+    VELOX_UNSUPPORTED("Only flat vectors have a values buffer");
   }
 
   // Returns true for flat vectors with unique values buffer and no
