@@ -122,7 +122,7 @@ public class OptimizedPartitionedOutputOperator
                 operatorContext);
 
         operatorContext.setInfoSupplier(pagePartitioner.getPartitionedOutputInfoSupplier());
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(OptimizedPartitionedOutputOperator.class.getSimpleName());
         this.systemMemoryContext.setBytes(pagePartitioner.getRetainedSizeInBytes());
     }
 
@@ -343,7 +343,7 @@ public class OptimizedPartitionedOutputOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PartitionedOutputOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, OptimizedPartitionedOutputOperator.class.getSimpleName());
             return new OptimizedPartitionedOutputOperator(
                     operatorContext,
                     sourceTypes,
