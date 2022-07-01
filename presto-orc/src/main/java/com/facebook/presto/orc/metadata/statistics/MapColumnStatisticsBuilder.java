@@ -25,14 +25,27 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class MapColumnStatisticsBuilder
         implements StatisticsBuilder
 {
+    private final ImmutableList.Builder<MapStatisticsEntry> entries = new ImmutableList.Builder<>();
+    private final boolean collectKeyStats;
+
     private long nonNullValueCount;
     private boolean hasEntries;
-    private final ImmutableList.Builder<MapStatisticsEntry> entries = new ImmutableList.Builder<>();
+
+    /**
+     * @param collectKeyStats - if true the builder will collect key entries and produce MapColumnStatistics,
+     * if false the builder won't collect key entries and will produce generic ColumnStatistics
+     */
+    public MapColumnStatisticsBuilder(boolean collectKeyStats)
+    {
+        this.collectKeyStats = collectKeyStats;
+    }
 
     @Override
     public void addBlock(Type type, Block block)
@@ -45,14 +58,22 @@ public class MapColumnStatisticsBuilder
     {
         requireNonNull(key, "key is null");
         requireNonNull(columnStatistics, "columnStatistics is null");
-        nonNullValueCount += columnStatistics.getNumberOfValues();
         hasEntries = true;
-        entries.add(new MapStatisticsEntry(key, columnStatistics));
+        if (collectKeyStats) {
+            entries.add(new MapStatisticsEntry(key, columnStatistics));
+        }
+    }
+
+    public void increaseValueCount(long count)
+    {
+        checkArgument(count >= 0, "count is negative");
+        nonNullValueCount += count;
     }
 
     private Optional<MapStatistics> buildMapStatistics()
     {
-        if (hasEntries) {
+        if (hasEntries && collectKeyStats) {
+            checkState(nonNullValueCount > 0, "MapColumnStatisticsBuilder has map entries, but nonNullValueCount is 0");
             MapStatistics mapStatistics = new MapStatistics(entries.build());
             return Optional.of(mapStatistics);
         }
@@ -62,7 +83,8 @@ public class MapColumnStatisticsBuilder
     @Override
     public ColumnStatistics buildColumnStatistics()
     {
-        if (hasEntries) {
+        if (hasEntries && collectKeyStats) {
+            checkState(nonNullValueCount > 0, "MapColumnStatisticsBuilder has map entries, but nonNullValueCount is 0");
             MapStatistics mapStatistics = new MapStatistics(entries.build());
             return new MapColumnStatistics(nonNullValueCount, null, mapStatistics);
         }
@@ -72,6 +94,7 @@ public class MapColumnStatisticsBuilder
     public static Optional<MapStatistics> mergeMapStatistics(List<ColumnStatistics> stats)
     {
         Map<DwrfProto.KeyInfo, List<ColumnStatistics>> columnStatisticsByKey = new LinkedHashMap<>();
+        long nonNullValueCount = 0;
 
         for (ColumnStatistics columnStatistics : stats) {
             if (columnStatistics.getNumberOfValues() > 0) {
@@ -86,16 +109,18 @@ public class MapColumnStatisticsBuilder
                     List<ColumnStatistics> allKeyStats = columnStatisticsByKey.computeIfAbsent(entry.getKey(), (k) -> new ArrayList<>());
                     allKeyStats.add(entry.getColumnStatistics());
                 }
+                nonNullValueCount += columnStatistics.getNumberOfValues();
             }
         }
 
         // merge all column stats for each key
-        MapColumnStatisticsBuilder mapStatisticsBuilder = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder mapStatisticsBuilder = new MapColumnStatisticsBuilder(true);
         for (Map.Entry<DwrfProto.KeyInfo, List<ColumnStatistics>> entry : columnStatisticsByKey.entrySet()) {
             ColumnStatistics mergedColumnStatistics = mergeColumnStatistics(entry.getValue());
             DwrfProto.KeyInfo key = entry.getKey();
             mapStatisticsBuilder.addMapStatistics(key, mergedColumnStatistics);
         }
+        mapStatisticsBuilder.increaseValueCount(nonNullValueCount);
 
         return mapStatisticsBuilder.buildMapStatistics();
     }

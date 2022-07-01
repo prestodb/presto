@@ -28,6 +28,7 @@ import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.MapColumnStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StatisticsBuilder;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.ByteString;
@@ -96,6 +97,7 @@ public class MapFlatColumnWriter
     private final CompressedMetadataWriter metadataWriter;
     private final KeyManager keyManager;
     private final int maxFlattenedMapKeyCount;
+    private final boolean mapStatsEnabled;
 
     // Pre-create a value block with a single null value to avoid creating a block
     // region for null values.
@@ -112,6 +114,7 @@ public class MapFlatColumnWriter
     // Number of non-null rows in the current row group. Used for statistics and
     // to catch up value writers on missing keys
     private int nonNullRowGroupValueCount;
+    private int nonNullStripeValueCount;
 
     // Contains the last row written by a certain value writer.
     // It is used to catch up on missing keys.
@@ -148,6 +151,7 @@ public class MapFlatColumnWriter
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.nullValueBlock = createNullValueBlock(requireNonNull(valueType, "valueType is null"));
         this.maxFlattenedMapKeyCount = columnWriterOptions.getMaxFlattenedMapKeyCount();
+        this.mapStatsEnabled = columnWriterOptions.isMapStatisticsEnabled();
 
         this.columnWriterOptions = requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
@@ -228,15 +232,15 @@ public class MapFlatColumnWriter
         }
         Arrays.fill(valueWritersLastRow, 0);
 
-        ColumnStatistics mapStats = new ColumnStatistics((long) nonNullRowGroupValueCount, null);
-        rowGroupColumnStatistics.add(mapStats);
+        Map<Integer, ColumnStatistics> columnStatistics = getColumnStatisticsFromValueWriters(ColumnWriter::finishRowGroup, nonNullRowGroupValueCount);
+        ColumnStatistics mapStatistics = requireNonNull(columnStatistics.get(nodeIndex), "ColumnStatistics for the map node is missing");
+        rowGroupColumnStatistics.add(mapStatistics);
+
         rowsInFinishedRowGroups.add(nonNullRowGroupValueCount);
+        nonNullStripeValueCount += nonNullRowGroupValueCount;
         nonNullRowGroupValueCount = 0;
 
-        return ImmutableMap.<Integer, ColumnStatistics>builder()
-                .put(nodeIndex, mapStats)
-                .putAll(getValueColumnStatistics(ColumnWriter::finishRowGroup))
-                .build();
+        return columnStatistics;
     }
 
     @Override
@@ -245,9 +249,8 @@ public class MapFlatColumnWriter
         checkState(closed);
 
         return ImmutableMap.<Integer, ColumnStatistics>builder()
-                .put(nodeIndex, mergeColumnStatistics(rowGroupColumnStatistics))
                 .put(keyNodeIndex, keyManager.getStripeColumnStatistics())
-                .putAll(getValueColumnStatistics(ColumnWriter::getColumnStripeStatistics))
+                .putAll(getColumnStatisticsFromValueWriters(ColumnWriter::getColumnStripeStatistics, nonNullStripeValueCount))
                 .build();
     }
 
@@ -264,23 +267,48 @@ public class MapFlatColumnWriter
         return emptyValueColumnStatistics;
     }
 
-    private Map<Integer, ColumnStatistics> getValueColumnStatistics(Function<ColumnWriter, Map<Integer, ColumnStatistics>> getStats)
+    /**
+     * Returns merged stats from the value writers + map stats built on top of value node stats
+     * Aggregates statistics of all value writers. A value column can be complex (it is a tree of nodes), we need to
+     * aggregate every level of the tree, across all value writers.
+     */
+    private Map<Integer, ColumnStatistics> getColumnStatisticsFromValueWriters(Function<ColumnWriter, Map<Integer, ColumnStatistics>> getStats, int valueCount)
     {
+        MapColumnStatisticsBuilder mapStatsBuilder = new MapColumnStatisticsBuilder(mapStatsEnabled);
+        mapStatsBuilder.increaseValueCount(valueCount);
+
+        // return some stats even if the map is empty
         if (valueWriters.isEmpty()) {
-            return getEmptyValueColumnStatistics();
+            return ImmutableMap.<Integer, ColumnStatistics>builder()
+                    .put(nodeIndex, mapStatsBuilder.buildColumnStatistics())
+                    .putAll(getEmptyValueColumnStatistics())
+                    .build();
         }
 
+        // collect statistics from all value writers, aggregate by the node
         ImmutableListMultimap.Builder<Integer, ColumnStatistics> allValueStats = ImmutableListMultimap.builder();
         for (MapFlatValueWriter valueWriter : valueWriters) {
-            Map<Integer, ColumnStatistics> valueColumnStatistic = getStats.apply(valueWriter.getValueWriter());
-            allValueStats.putAll(valueColumnStatistic.entrySet());
+            Map<Integer, ColumnStatistics> valueColumnStatistics = getStats.apply(valueWriter.getValueWriter());
+            allValueStats.putAll(valueColumnStatistics.entrySet());
+
+            // feed the value node statistics into the map statistics builder
+            if (mapStatsEnabled) {
+                ColumnStatistics valueNodeStats = valueColumnStatistics.get(valueNodeIndex);
+                if (valueNodeStats != null) {
+                    mapStatsBuilder.addMapStatistics(valueWriter.getDwrfKey(), valueNodeStats);
+                }
+            }
         }
 
+        // merge multiple column statistics grouped by the node into a single statistics object for each node
         ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
-        allValueStats.build().asMap().forEach((nodeIndex, nodeStats) -> {
+        allValueStats.build().asMap().forEach((node, nodeStats) -> {
             ColumnStatistics mergedNodeStats = mergeColumnStatistics((List<ColumnStatistics>) nodeStats);
-            columnStatistics.put(nodeIndex, mergedNodeStats);
+            columnStatistics.put(node, mergedNodeStats);
         });
+
+        // add map statistics
+        columnStatistics.put(nodeIndex, mapStatsBuilder.buildColumnStatistics());
 
         return columnStatistics.build();
     }
@@ -416,6 +444,7 @@ public class MapFlatColumnWriter
         rowGroupColumnStatistics.clear();
         rowsInFinishedRowGroups.clear();
         nonNullRowGroupValueCount = 0;
+        nonNullStripeValueCount = 0;
         Arrays.fill(valueWritersLastRow, 0);
     }
 
