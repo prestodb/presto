@@ -13,6 +13,7 @@ add_subdirectory(tpch)
 
 add_compile_definitions(DISABLE_DUCKDB_REMOTE_INSTALL)
 add_compile_definitions(BUILD_PARQUET_EXTENSION)
+
 # Certain Clang compiler versions throw "deprecated declarations" warnings for
 # DuckDB's parquet-amalgamation.h. This warning is from the Thrift library
 # that DuckDB embeds and is also on Thrift master.
@@ -20,6 +21,24 @@ add_compile_definitions(BUILD_PARQUET_EXTENSION)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wno-deprecated-declarations)
 endif()
-add_library(duckdb duckdb.cpp parquet-amalgamation.cpp)
+
+add_library(
+  duckdb
+  duckdb-1.cpp
+  duckdb-2.cpp
+  duckdb-3.cpp
+  duckdb-4.cpp
+  duckdb-5.cpp
+  duckdb-6.cpp
+  duckdb-7.cpp
+  duckdb-8.cpp
+  duckdb-fastpforlib.cpp
+  duckdb-fmt.cpp
+  duckdb-hyperloglog.cpp
+  duckdb-libpg_query.cpp
+  duckdb-miniz.cpp
+  duckdb-re2.cpp
+  duckdb-utf8proc.cpp
+  parquet-amalgamation.cpp)
 
 set_property(TARGET duckdb PROPERTY JOB_POOL_COMPILE high_memory_pool)
