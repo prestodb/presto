@@ -15,6 +15,7 @@
  */
 
 #include <folly/Random.h>
+#include <folly/init/Init.h>
 
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -201,4 +202,10 @@ TEST_F(VeloxSubstraitRoundTripPlanConverterTest, sumMask) {
       "SELECT sum(c0) FILTER (WHERE c2 % 2 < 10), "
       "sum(c0) FILTER (WHERE c3 % 3 = 0), sum(c1) FILTER (WHERE c3 % 3 = 0) "
       "FROM tmp");
+}
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::init(&argc, &argv, false);
+  return RUN_ALL_TESTS();
 }
