@@ -16,17 +16,16 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Query;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +36,7 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
-//todo: Refactor code to allow simpler stubbing of Metadata calls
+@Test(singleThreaded = true)
 public class TestMaterializedViewQueryOptimizer
         extends AbstractAnalyzerTest
 {
@@ -50,12 +49,13 @@ public class TestMaterializedViewQueryOptimizer
     private static final String VIEW_1 = "view_1";
     private static final String VIEW_2 = "view_2";
     private static final String VIEW_3 = "view_3";
+    private static final String SESSION_SCHEMA = "s1";
 
     private RowExpressionDomainTranslator domainTranslator;
 
     private static final Session TEST_SESSION = testSessionBuilder()
             .setCatalog(TPCH_CATALOG)
-            .setSchema("s1")
+            .setSchema(SESSION_SCHEMA)
             .setSystemProperty("parse_decimal_literals_as_double", "true")
             .build();
 
@@ -1393,23 +1393,31 @@ public class TestMaterializedViewQueryOptimizer
         transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
-                .readOnly()
                 .execute(TEST_SESSION, session -> {
                     Query baseQuery = (Query) SQL_PARSER.createStatement(baseQuerySql, createParsingOptions(session));
                     Query expectedViewQuery = (Query) SQL_PARSER.createStatement(expectedViewSql, createParsingOptions(session));
 
-                    QualifiedObjectName viewName = QualifiedObjectName.valueOf(
-                            Joiner.on(".").join(session.getCatalog().get(), session.getSchema().get(), baseTableName));
+                    metadata.createMaterializedView(
+                            session,
+                            TPCH_CATALOG,
+                            null,
+                            createStubConnectorMaterializedViewDefinition(
+                                    originalViewName,
+                                    originalViewSql,
+                                    SESSION_SCHEMA,
+                                    ImmutableList.of(new SchemaTableName(SESSION_SCHEMA, baseTableName))),
+                            false);
 
                     Query optimizedBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(
                             metadata,
                             session,
                             SQL_PARSER,
                             accessControl,
-                            domainTranslator,
-                            ImmutableMap.of(viewName, ImmutableList.of(createStubConnectorMaterializedViewDefinition(originalViewName, originalViewSql))))
+                            domainTranslator)
                             .process(baseQuery);
                     assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
+
+                    metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, baseTableName));
                 });
     }
 
@@ -1418,21 +1426,26 @@ public class TestMaterializedViewQueryOptimizer
         transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
-                .readOnly()
                 .execute(TEST_SESSION, session -> {
                     Query baseQuery = (Query) SQL_PARSER.createStatement(baseQuerySql, createParsingOptions(session));
                     Query expectedViewQuery = (Query) SQL_PARSER.createStatement(expectedQueryAfterOptimization, createParsingOptions(session));
 
-                    Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViewMap = new HashMap<>();
+                    List<QualifiedObjectName> createdMaterializedViews = new ArrayList<>();
 
                     for (Map.Entry<String, Map<String, String>> baseToViewMap : viewQueries.entrySet()) {
-                        String baseTableName = baseToViewMap.getKey();
                         for (Map.Entry<String, String> viewNameToSqlMap : baseToViewMap.getValue().entrySet()) {
-                            QualifiedObjectName viewName = QualifiedObjectName.valueOf(
-                                    Joiner.on(".").join(session.getCatalog().get(), session.getSchema().get(), baseTableName));
-                            baseTableToMaterializedViewMap.computeIfAbsent(viewName, (x) -> new ArrayList<>());
-                            baseTableToMaterializedViewMap.get(viewName).add(
-                                    createStubConnectorMaterializedViewDefinition(viewNameToSqlMap.getKey(), viewNameToSqlMap.getValue()));
+                            metadata.createMaterializedView(
+                                    session,
+                                    TPCH_CATALOG,
+                                    null,
+                                    createStubConnectorMaterializedViewDefinition(
+                                            viewNameToSqlMap.getKey(),
+                                            viewNameToSqlMap.getValue(),
+                                            SESSION_SCHEMA,
+                                            ImmutableList.of(new SchemaTableName(SESSION_SCHEMA, baseToViewMap.getKey()))),
+                                    false);
+
+                            createdMaterializedViews.add(QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, viewNameToSqlMap.getKey()));
                         }
                     }
 
@@ -1441,20 +1454,23 @@ public class TestMaterializedViewQueryOptimizer
                             session,
                             SQL_PARSER,
                             accessControl,
-                            domainTranslator,
-                            baseTableToMaterializedViewMap)
+                            domainTranslator)
                             .process(baseQuery);
                     assertEquals(optimizedBaseToViewQuery, expectedViewQuery);
+
+                    for (QualifiedObjectName materializedView : createdMaterializedViews) {
+                        metadata.dropMaterializedView(session, materializedView);
+                    }
                 });
     }
 
-    private ConnectorMaterializedViewDefinition createStubConnectorMaterializedViewDefinition(String viewName, String viewSql)
+    private ConnectorMaterializedViewDefinition createStubConnectorMaterializedViewDefinition(String viewName, String viewSql, String schema, List<SchemaTableName> baseTables)
     {
         return new ConnectorMaterializedViewDefinition(
                 viewSql,
-                "",
+                schema,
                 viewName,
-                ImmutableList.of(),
+                baseTables,
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),

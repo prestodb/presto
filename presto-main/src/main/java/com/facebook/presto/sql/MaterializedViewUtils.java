@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +53,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class MaterializedViewUtils
 {
+    public static final QualifiedName MIN = QualifiedName.of("MIN");
+    public static final QualifiedName MAX = QualifiedName.of("MAX");
+    public static final QualifiedName SUM = QualifiedName.of("SUM");
+    public static final QualifiedName COUNT = QualifiedName.of("COUNT");
+    public static final Set<QualifiedName> SUPPORTED_FUNCTION_CALLS = ImmutableSet.of(MIN, MAX, SUM, COUNT);
+
     private MaterializedViewUtils() {}
 
     public static Session buildOwnerSession(Session session, Optional<String> owner, SessionPropertyManager sessionPropertyManager, String catalog, String schema)
