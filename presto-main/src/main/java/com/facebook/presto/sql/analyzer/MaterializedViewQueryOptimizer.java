@@ -24,6 +24,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -72,10 +73,11 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
@@ -86,6 +88,8 @@ import static com.facebook.presto.sql.ExpressionUtils.removeExpressionPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeGroupingElementPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSingleColumnPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSortItemPrefix;
+import static com.facebook.presto.sql.MaterializedViewUtils.COUNT;
+import static com.facebook.presto.sql.MaterializedViewUtils.SUM;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -106,34 +110,25 @@ public class MaterializedViewQueryOptimizer
 {
     private static final Logger log = Logger.get(MaterializedViewQueryOptimizer.class);
 
-    private static final QualifiedName MIN = QualifiedName.of("MIN");
-    private static final QualifiedName MAX = QualifiedName.of("MAX");
-    private static final QualifiedName SUM = QualifiedName.of("SUM");
-    private static final QualifiedName COUNT = QualifiedName.of("COUNT");
-    private static final Set<QualifiedName> SUPPORTED_FUNCTION_CALLS = ImmutableSet.of(MIN, MAX, SUM, COUNT);
-
     private final Metadata metadata;
     private final Session session;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
     private final RowExpressionDomainTranslator domainTranslator;
     private final LogicalRowExpressions logicalRowExpressions;
-    private final Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViews;
 
     public MaterializedViewQueryOptimizer(
             Metadata metadata,
             Session session,
             SqlParser sqlParser,
             AccessControl accessControl,
-            RowExpressionDomainTranslator domainTranslator,
-            Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViews)
+            RowExpressionDomainTranslator domainTranslator)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
         this.sqlParser = requireNonNull(sqlParser, "sql parser is null");
         this.accessControl = requireNonNull(accessControl, "access control is null");
         this.domainTranslator = requireNonNull(domainTranslator, "row expression domain translator is null");
-        this.baseTableToMaterializedViews = requireNonNull(baseTableToMaterializedViews, "base table to materialized views is null");
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
@@ -328,21 +323,49 @@ public class MaterializedViewQueryOptimizer
 
     private QuerySpecification rewriteQuerySpecificationIfCompatible(QuerySpecification querySpecification, Table baseTable)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, baseTable, baseTable.getName());
-        List<ConnectorMaterializedViewDefinition> linkedMaterializedViews = baseTableToMaterializedViews.getOrDefault(tableName, ImmutableList.of());
+        Optional<String> errorMessage = MaterializedViewRewriteQueryShapeValidator.validate(querySpecification);
 
-        for (ConnectorMaterializedViewDefinition materializedViewDefinition : linkedMaterializedViews) {
-            Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
-            Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));
+        if (errorMessage.isPresent()) {
+            log.warn("Rewrite failed for base table %s with error message { %s }. ", baseTable.getName(), errorMessage.get());
+            return querySpecification;
+        }
 
-            QuerySpecification rewrittenQuerySpecification = new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery).rewrite(querySpecification);
+        List<QualifiedObjectName> referencedMaterializedViews = metadata.getReferencedMaterializedViews(
+                session,
+                createQualifiedObjectName(session, baseTable, baseTable.getName()));
 
-            if (rewrittenQuerySpecification != querySpecification) {
+        // TODO: Select the most compatible and efficient materialized view for query rewrite optimization https://github.com/prestodb/presto/issues/16431
+        // TODO: Refactor query optimization code https://github.com/prestodb/presto/issues/16759
+
+        for (QualifiedObjectName materializedViewName : referencedMaterializedViews) {
+            QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(metadata, materializedViewName, querySpecification);
+
+            if (rewrittenQuerySpecification == querySpecification) {
+                continue;
+            }
+            if (!isMaterializedViewDataConsistencyEnabled(session)) {
                 session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
                 return rewrittenQuerySpecification;
             }
+            // TODO: We should be able to leverage this information in the StatementAnalyzer as well.
+            MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, materializedViewName);
+            if (materializedViewStatus.isPartiallyMaterialized() || materializedViewStatus.isFullyMaterialized()) {
+                session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
+                return rewrittenQuerySpecification;
+            }
+            session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, NONE, 1);
         }
         return querySpecification;
+    }
+
+    private QuerySpecification getRewrittenQuerySpecification(Metadata metadata, QualifiedObjectName materializedViewName, QuerySpecification originalQuerySpecification)
+    {
+        ConnectorMaterializedViewDefinition materializedView = metadata.getMaterializedView(session, materializedViewName).orElseThrow(() ->
+                new IllegalStateException("Materialized view definition not present in metadata as expected."));
+        Table materializedViewTable = new Table(QualifiedName.of(materializedView.getTable()));
+        Query materializedViewQuery = (Query) sqlParser.createStatement(materializedView.getOriginalSql(), createParsingOptions(session));
+
+        return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery).rewrite(originalQuerySpecification);
     }
 
     private class QuerySpecificationRewriter
@@ -565,9 +588,6 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitFunctionCall(FunctionCall node, Void context)
         {
-            if (!SUPPORTED_FUNCTION_CALLS.contains(node.getName())) {
-                throw new SemanticException(NOT_SUPPORTED, node, node.getName() + " function is not supported in query optimizer");
-            }
             ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
 
             if (materializedViewInfo.getBaseToViewColumnMap().containsKey(node)) {

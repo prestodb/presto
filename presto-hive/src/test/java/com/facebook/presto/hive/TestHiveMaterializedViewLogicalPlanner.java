@@ -1883,6 +1883,82 @@ public class TestHiveMaterializedViewLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewOptimizationWithUnsupportedFunctionSubquery()
+    {
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned";
+        String table2 = "lineitem_partitioned";
+        String view = "orders_view";
+        String view2 = "lineitem_view";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, comment, '2020-01-01' AS ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, comment, '2019-01-02' AS ds FROM orders WHERE orderkey > 1000 AND orderkey < 2000", table));
+
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, quantity, '2020-01-01' AS ds FROM lineitem WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, quantity, '2019-01-02' AS ds FROM lineitem WHERE orderkey > 1000 AND orderkey < 2000", table2));
+
+            queryRunner.execute(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT max(length(comment)) as longest_comment, orderkey, ds FROM %s GROUP BY ds, orderkey", view, table));
+
+            queryRunner.execute(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT sum(quantity) as total_quantity, orderkey, ds FROM %s GROUP BY ds, orderkey", view2, table2));
+
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+            assertTrue(getQueryRunner().tableExists(getSession(), view2));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2019-01-02'", view2), 248);
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table2, ImmutableList.of(view2));
+
+            String baseQuery = format("SELECT * FROM " +
+                    "(SELECT ds, orderkey, max(length(comment)) as longest_comment FROM %s GROUP BY ds, orderkey) s1 " +
+                    "INNER JOIN " +
+                    "(SELECT ds, orderkey, sum(quantity) as total_quantity FROM %s GROUP BY ds, orderkey) s2 " +
+                    "ON s1.orderkey = s2.orderkey " +
+                    "ORDER BY s1.orderkey, longest_comment", table, table2);
+
+            MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
+            MaterializedResult baseQueryResult = computeActual(baseQuery);
+            assertEquals(baseQueryResult, optimizedQueryResult);
+
+            assertPlan(queryOptimizationWithMaterializedView, baseQuery, anyTree(
+                    node(JoinNode.class,
+                            exchange(
+                                    anyTree(
+                                            constrainedTableScan(table,
+                                                    ImmutableMap.of(),
+                                                    ImmutableMap.of()))),
+                            exchange(
+                                    anyTree(
+                                            exchange(
+                                                    anyTree(
+                                                            constrainedTableScan(table2,
+                                                                    ImmutableMap.of(),
+                                                                    ImmutableMap.of("ds_14", "ds", "orderkey_13", "orderkey"))),
+                                                    anyTree(
+                                                            constrainedTableScan(view2,
+                                                                    ImmutableMap.of(),
+                                                                    ImmutableMap.of("ds_42", "ds", "orderkey_41", "orderkey")))))))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view2);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table2);
+        }
+    }
+
+    @Test
     public void testMaterializedViewForJoinWithMultiplePartitions()
     {
         QueryRunner queryRunner = getQueryRunner();
