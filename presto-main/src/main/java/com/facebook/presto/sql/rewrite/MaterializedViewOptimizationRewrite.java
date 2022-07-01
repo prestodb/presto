@@ -13,16 +13,11 @@
  */
 package com.facebook.presto.sql.rewrite;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
-import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.analyzer.MaterializedViewCandidateExtractor;
 import com.facebook.presto.sql.analyzer.MaterializedViewQueryOptimizer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -34,17 +29,11 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
-import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static java.util.Objects.requireNonNull;
@@ -52,7 +41,6 @@ import static java.util.Objects.requireNonNull;
 public class MaterializedViewOptimizationRewrite
         implements StatementRewrite.Rewrite
 {
-    private static final Logger log = Logger.get(MaterializedViewOptimizationRewrite.class);
     @Override
     public Statement rewrite(
             Session session,
@@ -112,43 +100,12 @@ public class MaterializedViewOptimizationRewrite
             AccessControl accessControl,
             Query node)
     {
-        MaterializedViewCandidateExtractor materializedViewCandidateExtractor = new MaterializedViewCandidateExtractor(session, metadata);
-        materializedViewCandidateExtractor.process(node);
-        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViewCandidateMap = materializedViewCandidateExtractor.getMaterializedViewCandidatesForTable();
-        // TODO: Select the most compatible and efficient materialized view for query rewrite optimization https://github.com/prestodb/presto/issues/16431
-        // TODO: Refactor query optimization code https://github.com/prestodb/presto/issues/16759
-
-        Map<QualifiedObjectName, List<ConnectorMaterializedViewDefinition>> baseTableToMaterializedViewDefinitionMap = new HashMap<>();
-        baseTableToMaterializedViewCandidateMap.forEach((baseTable, materializedViewNames) -> {
-            for (QualifiedObjectName materializedViewName : materializedViewNames) {
-                MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, materializedViewName);
-                // TODO: Refactor this so we increment metric only when rewrite would have occurred
-                if (!(materializedViewStatus.isPartiallyMaterialized() || materializedViewStatus.isFullyMaterialized())
-                        && isMaterializedViewDataConsistencyEnabled(session)) {
-                    session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, NONE, 1);
-                    continue;
-                }
-                ConnectorMaterializedViewDefinition materializedView = metadata.getMaterializedView(session, materializedViewName).orElseThrow(() ->
-                        new IllegalStateException("Materialized view definition not present in metadata as expected."));
-                baseTableToMaterializedViewDefinitionMap.putIfAbsent(baseTable, new ArrayList<>());
-                baseTableToMaterializedViewDefinitionMap.get(baseTable).add(materializedView);
-            }
-        });
-
-        // No fresh materialized views to use - no need to attempt rewrite
-        if (baseTableToMaterializedViewDefinitionMap.isEmpty()) {
-            log.warn("Failed to optimize query as no fresh materialized view was available for tables: " +
-                    Joiner.on(",").join(baseTableToMaterializedViewDefinitionMap.keySet()));
-            return node;
-        }
-
         Query rewritten = (Query) new MaterializedViewQueryOptimizer(
                 metadata,
                 session,
                 sqlParser,
                 accessControl,
-                new RowExpressionDomainTranslator(metadata),
-                ImmutableMap.copyOf(baseTableToMaterializedViewDefinitionMap))
+                new RowExpressionDomainTranslator(metadata))
                 .process(node);
 
         if (rewritten != node) {
