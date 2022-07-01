@@ -22,6 +22,7 @@ import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
@@ -55,9 +56,9 @@ public class TestHiveDistributedQueries
     {
         Optional<EventListener> eventListener = getQueryRunner().getEventListener();
         assertTrue(eventListener.isPresent());
-        assertTrue(eventListener.get() instanceof TestingHiveEventListener);
+        assertTrue(eventListener.get() instanceof TestingHiveEventListener, eventListener.get().getClass().getName());
         Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener.get()).getRunningQueries();
-        assertTrue(runningQueryIds.isEmpty(), format("Query completion events not sent for %d queries", runningQueryIds.size()));
+        assertEquals(runningQueryIds, new HashSet<>(), format("Query completion events not sent for %d queries", runningQueryIds.size()));
         super.close();
     }
 
