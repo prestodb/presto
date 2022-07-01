@@ -50,7 +50,7 @@ public class TestMapColumnStatisticsBuilder
     @Test
     public void testAddMapStatisticsNoValues()
     {
-        MapColumnStatisticsBuilder builder = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder builder = new MapColumnStatisticsBuilder(true);
         ColumnStatistics columnStatistics = builder.buildColumnStatistics();
         assertEquals(columnStatistics.getClass(), ColumnStatistics.class);
         assertEquals(columnStatistics.getNumberOfValues(), 0);
@@ -66,12 +66,13 @@ public class TestMapColumnStatisticsBuilder
         ColumnStatistics columnStatistics1 = new ColumnStatistics(3L, null);
         ColumnStatistics columnStatistics2 = new ColumnStatistics(5L, null);
 
-        MapColumnStatisticsBuilder builder = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder builder = new MapColumnStatisticsBuilder(true);
         builder.addMapStatistics(key1, columnStatistics1);
         builder.addMapStatistics(key2, columnStatistics2);
+        builder.increaseValueCount(10);
 
         MapColumnStatistics columnStatistics = (MapColumnStatistics) builder.buildColumnStatistics();
-        assertEquals(columnStatistics.getNumberOfValues(), 8);
+        assertEquals(columnStatistics.getNumberOfValues(), 10L);
 
         MapStatistics mapStatistics = columnStatistics.getMapStatistics();
         List<MapStatisticsEntry> entries = mapStatistics.getEntries();
@@ -87,14 +88,16 @@ public class TestMapColumnStatisticsBuilder
     {
         // merge two stats with keys: [k0,k1] and [k1,k2]
         // column statistics for k1 should be merged together
-        MapColumnStatisticsBuilder builder1 = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder builder1 = new MapColumnStatisticsBuilder(true);
         builder1.addMapStatistics(keys[0], new IntegerColumnStatistics(3L, null, new IntegerStatistics(1L, 2L, 3L)));
         builder1.addMapStatistics(keys[1], new IntegerColumnStatistics(5L, null, new IntegerStatistics(10L, 20L, 30L)));
+        builder1.increaseValueCount(8);
         ColumnStatistics columnStatistics1 = builder1.buildColumnStatistics();
 
-        MapColumnStatisticsBuilder builder2 = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder builder2 = new MapColumnStatisticsBuilder(true);
         builder2.addMapStatistics(keys[1], new IntegerColumnStatistics(7L, null, new IntegerStatistics(25L, 95L, 100L)));
         builder2.addMapStatistics(keys[2], new IntegerColumnStatistics(9L, null, new IntegerStatistics(12L, 22L, 32L)));
+        builder2.increaseValueCount(16);
         ColumnStatistics columnStatistics2 = builder2.buildColumnStatistics();
 
         MapStatistics mergedMapStatistics = MapColumnStatisticsBuilder.mergeMapStatistics(ImmutableList.of(columnStatistics1, columnStatistics2)).get();
@@ -105,8 +108,9 @@ public class TestMapColumnStatisticsBuilder
     public void testMergeMapStatisticsMissingStats(KeyInfo[] keys)
     {
         // valid map stat
-        MapColumnStatisticsBuilder builder1 = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder builder1 = new MapColumnStatisticsBuilder(true);
         builder1.addMapStatistics(keys[0], new ColumnStatistics(3L, null));
+        builder1.increaseValueCount(3);
         ColumnStatistics columnStatistics1 = builder1.buildColumnStatistics();
 
         // invalid map stat
@@ -121,17 +125,20 @@ public class TestMapColumnStatisticsBuilder
     {
         // merge two stats with keys: [k0,k1] and [k1,k2]
         // column statistics for k1 should be merged together
-        MapColumnStatisticsBuilder builder1 = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder builder1 = new MapColumnStatisticsBuilder(true);
         builder1.addMapStatistics(keys[0], new IntegerColumnStatistics(3L, null, new IntegerStatistics(1L, 2L, 3L)));
         builder1.addMapStatistics(keys[1], new IntegerColumnStatistics(5L, null, new IntegerStatistics(10L, 20L, 30L)));
+        builder1.increaseValueCount(10);
         ColumnStatistics columnStatistics1 = builder1.buildColumnStatistics();
 
-        MapColumnStatisticsBuilder builder2 = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder builder2 = new MapColumnStatisticsBuilder(true);
         builder2.addMapStatistics(keys[1], new IntegerColumnStatistics(7L, null, new IntegerStatistics(25L, 95L, 100L)));
         builder2.addMapStatistics(keys[2], new IntegerColumnStatistics(9L, null, new IntegerStatistics(12L, 22L, 32L)));
+        builder2.increaseValueCount(20);
         ColumnStatistics columnStatistics2 = builder2.buildColumnStatistics();
 
         ColumnStatistics mergedColumnStatistics = ColumnStatistics.mergeColumnStatistics(ImmutableList.of(columnStatistics1, columnStatistics2));
+        assertEquals(mergedColumnStatistics.getNumberOfValues(), 30);
         MapStatistics mergedMapStatistics = mergedColumnStatistics.getMapStatistics();
         assertMergedMapStatistics(keys, mergedMapStatistics);
     }
