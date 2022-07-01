@@ -19,10 +19,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.Footer;
-import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
-import com.facebook.presto.orc.metadata.StripeInformation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -30,9 +27,7 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,7 +40,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 
 public class TestOrcFileIntrospection
 {
@@ -65,26 +59,26 @@ public class TestOrcFileIntrospection
         }
 
         // check we got all objects
-        assertNotNull(introspector.fileTail);
-        assertNotNull(introspector.fileFooter);
-        assertEquals(introspector.fileFooter.getNumberOfRows(), 15);
+        assertNotNull(introspector.getFileTail());
+        assertNotNull(introspector.getFileFooter());
+        assertEquals(introspector.getFileFooter().getNumberOfRows(), 15);
 
-        assertEquals(introspector.stripes.size(), 2);
-        assertEquals(introspector.stripes.get(0).getRowCount(), 10);
-        assertEquals(introspector.stripes.get(1).getRowCount(), 5);
+        assertEquals(introspector.getStripes().size(), 2);
+        assertEquals(introspector.getStripes().get(0).getRowCount(), 10);
+        assertEquals(introspector.getStripes().get(1).getRowCount(), 5);
 
-        assertEquals(introspector.stripeInformations.size(), 2);
-        assertEquals(introspector.stripeInformations.get(0).getNumberOfRows(), 10);
-        assertEquals(introspector.stripeInformations.get(1).getNumberOfRows(), 5);
+        assertEquals(introspector.getStripeInformations().size(), 2);
+        assertEquals(introspector.getStripeInformations().get(0).getNumberOfRows(), 10);
+        assertEquals(introspector.getStripeInformations().get(1).getNumberOfRows(), 5);
 
-        assertEquals(introspector.rowGroupIndexesByStripeOffset.size(), 2);
+        assertEquals(introspector.getRowGroupIndexesByStripeOffset().size(), 2);
 
         // check we got the file column statistics
-        assertEquals(introspector.fileFooter.getFileStats().size(), 2);
+        assertEquals(introspector.getFileFooter().getFileStats().size(), 2);
 
         // check we got the row group column statistics
-        Map<StreamId, List<RowGroupIndex>> stripeRowGroupIndexes1 = introspector.rowGroupIndexesByStripeOffset.get(introspector.stripeInformations.get(0).getOffset());
-        Map<StreamId, List<RowGroupIndex>> stripeRowGroupIndexes2 = introspector.rowGroupIndexesByStripeOffset.get(introspector.stripeInformations.get(1).getOffset());
+        Map<StreamId, List<RowGroupIndex>> stripeRowGroupIndexes1 = introspector.getRowGroupIndexesByStripeOffset().get(introspector.getStripeInformations().get(0).getOffset());
+        Map<StreamId, List<RowGroupIndex>> stripeRowGroupIndexes2 = introspector.getRowGroupIndexesByStripeOffset().get(introspector.getStripeInformations().get(1).getOffset());
         List<RowGroupIndex> rowGroupIndexes1 = stripeRowGroupIndexes1.get(new StreamId(1, 0, ROW_INDEX));
         List<RowGroupIndex> rowGroupIndexes2 = stripeRowGroupIndexes2.get(new StreamId(1, 0, ROW_INDEX));
         assertEquals(rowGroupIndexes1.size(), 2);
@@ -115,7 +109,6 @@ public class TestOrcFileIntrospection
                 ImmutableList.of(type),
                 writerOptions,
                 NOOP_WRITER_STATS)) {
-            // write a block with 2 keys
             orcWriter.write(page);
         }
     }
@@ -179,44 +172,5 @@ public class TestOrcFileIntrospection
             type.writeLong(blockBuilder, i);
         }
         return new Page(blockBuilder.build());
-    }
-
-    private static class CapturingOrcFileIntrospector
-            implements OrcFileIntrospector
-    {
-        private final List<StripeInformation> stripeInformations = new ArrayList<>();
-        private final List<Stripe> stripes = new ArrayList<>();
-        private final Map<Long, Map<StreamId, List<RowGroupIndex>>> rowGroupIndexesByStripeOffset = new HashMap<>();
-        private Footer fileFooter;
-        private OrcFileTail fileTail;
-
-        @Override
-        public void onFileFooter(Footer fileFooter)
-        {
-            assertNull(this.fileFooter);
-            this.fileFooter = fileFooter;
-        }
-
-        @Override
-        public void onFileTail(OrcFileTail fileTail)
-        {
-            assertNull(this.fileTail);
-            this.fileTail = fileTail;
-        }
-
-        @Override
-        public void onStripe(StripeInformation stripeInformation, Stripe stripe)
-        {
-            this.stripeInformations.add(stripeInformation);
-            this.stripes.add(stripe);
-        }
-
-        @Override
-        public void onRowGroupIndexes(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes)
-        {
-            Long stripeOffset = stripe.getOffset();
-            assertNull(rowGroupIndexesByStripeOffset.get(stripeOffset));
-            rowGroupIndexesByStripeOffset.put(stripeOffset, columnIndexes);
-        }
     }
 }
