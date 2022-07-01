@@ -355,17 +355,19 @@ public class TestDwrfMetadataReader
         ColumnStatistics integerColumnStatistics1 = new IntegerColumnStatistics(7L, null, new IntegerStatistics(25L, 95L, 100L));
         ColumnStatistics integerColumnStatistics2 = new IntegerColumnStatistics(9L, null, new IntegerStatistics(12L, 22L, 32L));
 
-        MapColumnStatisticsBuilder mapStatsIntKeyBuilder = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder mapStatsIntKeyBuilder = new MapColumnStatisticsBuilder(true);
         mapStatsIntKeyBuilder.addMapStatistics(DwrfProto.KeyInfo.newBuilder().setIntKey(2).build(), integerColumnStatistics1);
         mapStatsIntKeyBuilder.addMapStatistics(DwrfProto.KeyInfo.newBuilder().setIntKey(3).build(), integerColumnStatistics2);
+        mapStatsIntKeyBuilder.increaseValueCount(23L);
         ColumnStatistics mapColumnStatisticsIntKey = mapStatsIntKeyBuilder.buildColumnStatistics();
 
-        MapColumnStatisticsBuilder mapStatsStringKeyBuilder = new MapColumnStatisticsBuilder();
+        MapColumnStatisticsBuilder mapStatsStringKeyBuilder = new MapColumnStatisticsBuilder(true);
         mapStatsStringKeyBuilder.addMapStatistics(DwrfProto.KeyInfo.newBuilder().setBytesKey(ByteString.copyFromUtf8("k1")).build(), integerColumnStatistics1);
         mapStatsStringKeyBuilder.addMapStatistics(DwrfProto.KeyInfo.newBuilder().setBytesKey(ByteString.copyFromUtf8("k2")).build(), integerColumnStatistics2);
+        mapStatsStringKeyBuilder.increaseValueCount(23L);
         ColumnStatistics mapColumnStatisticsStringKey = mapStatsStringKeyBuilder.buildColumnStatistics();
 
-        ColumnStatistics expectedDisabledMapStats = new ColumnStatistics(16L, null);
+        ColumnStatistics expectedDisabledMapStats = new ColumnStatistics(23L, null);
 
         OrcReaderOptions orcReaderOptionsDisabledMapStats = OrcReaderOptions.builder()
                 .withMaxMergeDistance(new DataSize(1, MEGABYTE))

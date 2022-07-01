@@ -39,6 +39,11 @@ public class ColumnStatistics
     private final long numberOfValues;
     private final HiveBloomFilter bloomFilter;
 
+    public ColumnStatistics(Long numberOfValues)
+    {
+        this(numberOfValues, null);
+    }
+
     public ColumnStatistics(
             Long numberOfValues,
             HiveBloomFilter bloomFilter)
