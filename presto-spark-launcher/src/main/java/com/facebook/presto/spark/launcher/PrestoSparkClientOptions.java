@@ -17,13 +17,14 @@ import io.airlift.airline.Option;
 
 public class PrestoSparkClientOptions
 {
-    @Option(name = {"-f", "--file"}, title = "file", description = "sql file to execute", required = true)
+    //TODO : remove required=false with airline 2.x migration and add MutualyExclusive with query option
+    @Option(name = {"-f", "--file"}, title = "file", description = "sql file to execute")
     public String file;
 
-    @Option(name = {"-p", "--package"}, title = "file", description = "presto-spark-package-*.tar.gz path", required = true)
+    @Option(name = {"-p", "--package"}, title = "package", description = "presto-spark-package-*.tar.gz path", required = true)
     public String packagePath;
 
-    @Option(name = {"-c", "--config"}, title = "file", description = "config.properties path", required = true)
+    @Option(name = {"-c", "--config"}, title = "config", description = "config.properties path", required = true)
     public String config;
 
     @Option(name = {"--catalogs"}, title = "directory", description = "catalog configuration directory path", required = true)
@@ -34,4 +35,8 @@ public class PrestoSparkClientOptions
 
     @Option(name = "--schema", title = "schema", description = "Default schema")
     public String schema;
+
+    //TODO : remove required=false with airline 2.x migration and add MutualyExclusive with file option
+    @Option(name = {"-q", "--query"}, title = "query", description = "sql query to execute")
+    public String query;
 }

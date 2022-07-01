@@ -41,12 +41,16 @@ import java.io.UncheckedIOException;
 import java.nio.file.Paths;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spark.testing.Processes.destroyProcess;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -263,17 +267,21 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
     }
 
     private void executeOnSpark(String query)
+            throws IOException, InterruptedException
+    {
+        executeOnSparkQueryOrFile(query, false);
+    }
+
+    private void executeOnSparkQueryOrFile(String query, boolean queryAsFile)
             throws InterruptedException, IOException
     {
-        File queryFile = new File(tempDir, randomUUID() + ".sql");
-        write(query.getBytes(UTF_8), queryFile);
-
-        int exitCode = dockerCompose.run(
+        List<String> parametersVolume = Arrays.asList(new String[] {
                 "-v", format("%s:/presto/launcher.jar", prestoLauncher.getAbsolutePath()),
                 "-v", format("%s:/presto/package.tar.gz", prestoPackage.getAbsolutePath()),
-                "-v", format("%s:/presto/query.sql", queryFile.getAbsolutePath()),
                 "-v", format("%s:/presto/etc/config.properties", configProperties.getAbsolutePath()),
                 "-v", format("%s:/presto/etc/catalogs", catalogDirectory.getAbsolutePath()),
+        });
+        List<String> parametersSparkSubmit = Arrays.asList(new String[] {
                 "spark-submit",
                 "/spark/bin/spark-submit",
                 "--executor-memory", "512m",
@@ -287,7 +295,24 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "--catalogs", "/presto/etc/catalogs",
                 "--catalog", "hive",
                 "--schema", "default",
-                "--file", "/presto/query.sql");
+        });
+        if (queryAsFile) {
+            File queryFile = new File(tempDir, randomUUID() + ".sql");
+            write(query.getBytes(UTF_8), queryFile);
+            parametersVolume.addAll(Arrays.asList(new String[] {
+                    "-v", format("%s:/presto/query.sql", queryFile.getAbsolutePath())
+            }));
+            parametersSparkSubmit.addAll(Arrays.asList(new String[] {
+                    "--file", "/presto/query.sql"
+            }));
+        }
+        else {
+            parametersSparkSubmit.addAll(Arrays.asList(new String[] {
+                    "--query", query
+            }));
+        }
+
+        int exitCode = dockerCompose.run(Stream.of(parametersVolume, parametersSparkSubmit).flatMap(Collection::stream).collect(Collectors.toList()));
         assertEquals(exitCode, 0);
     }
 
@@ -496,6 +521,17 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         MaterializedResult expected = localQueryRunner.execute(query);
         assertEqualsIgnoreOrder(actual, expected);
         dropTable(tableName);
+    }
+
+    @Test
+    public void testQueryAsFile()
+            throws Exception
+    {
+        executeOnSparkQueryOrFile("SELECT * FROM orders", true);
+        MaterializedResult actual = localQueryRunner.execute("SELECT * FROM test_orders_bucketed");
+        MaterializedResult expected = localQueryRunner.execute("SELECT * FROM orders_bucketed");
+        assertEqualsIgnoreOrder(actual, expected);
+        dropTable("test_orders_bucketed");
     }
 
     private void dropTable(String table)
