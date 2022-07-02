@@ -85,6 +85,8 @@ public class PluginManager
     // AfterBurner classes.
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("com.facebook.presto.spi.")
+            .add("com.facebook.presto.sql.gen")
+            .add("com.facebook.presto.operator")
             .add("com.fasterxml.jackson.annotation.")
             .add("com.fasterxml.jackson.module.afterburner.")
             .add("io.airlift.slice.")

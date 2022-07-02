@@ -31,9 +31,11 @@ import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.operator.aggregation.ExternalAggregationFunctionShim;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -437,6 +439,18 @@ public class FunctionAndTypeManager
 
     public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
+        if (functionNamespaceManager.get().canResolveFunction()) {
+            AggregationFunctionImplementation aggregationFunctionImplementation = functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle);
+            if (aggregationFunctionImplementation instanceof InternalAggregationFunction) {
+                return (InternalAggregationFunction) aggregationFunctionImplementation;
+            }
+            else {
+                return ExternalAggregationFunctionShim.create(aggregationFunctionImplementation);
+            }
+        }
+
         return builtInTypeAndFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
     }
 

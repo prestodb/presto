@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spiller.StandaloneSpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
@@ -31,6 +32,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalAggregationFunction
+        implements AggregationFunctionImplementation
 {
     private final String name;
     private final List<Type> parameterTypes;
