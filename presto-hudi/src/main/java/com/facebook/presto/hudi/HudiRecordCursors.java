@@ -70,9 +70,7 @@ class HudiRecordCursors
     {
         requireNonNull(session, "session is null");
         checkArgument(dataColumns.stream().allMatch(HudiRecordCursors::isRegularColumn), "dataColumns contains non regular column");
-
-        HudiFile baseFile = split.getBaseFile().orElseThrow(
-                () -> new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "Split without base file not supported yet"));
+        HudiFile baseFile = getHudiBaseFile(split);
         Path path = new Path(baseFile.getPath());
 
         HdfsContext context = new HdfsContext(session,
@@ -109,8 +107,7 @@ class HudiRecordCursors
 
         // create record reader for split
         try {
-            HudiFile baseFile = split.getBaseFile().orElseThrow(
-                    () -> new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "Split without base file not supported yet"));
+            HudiFile baseFile = getHudiBaseFile(split);
             Path path = new Path(baseFile.getPath());
             FileSplit fileSplit = new FileSplit(path, baseFile.getStart(), baseFile.getLength(), (String[]) null);
             List<HoodieLogFile> logFiles = split.getLogFiles().stream().map(file -> new HoodieLogFile(file.getPath())).collect(toList());
@@ -161,5 +158,10 @@ class HudiRecordCursors
     private static boolean isRegularColumn(HudiColumnHandle column)
     {
         return column.getColumnType() == HudiColumnHandle.ColumnType.REGULAR;
+    }
+    private static HudiFile getHudiBaseFile(HudiSplit hudiSplit)
+    {
+        // use first log file as base file for MOR table if it hasn't base file
+        return hudiSplit.getBaseFile().orElse(hudiSplit.getLogFiles().get(0));
     }
 }

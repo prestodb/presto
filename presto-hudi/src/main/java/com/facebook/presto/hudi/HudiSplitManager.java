@@ -38,7 +38,6 @@ import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.FileSlice;
-import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
@@ -122,6 +121,8 @@ public class HudiSplitManager
             String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
             fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, timestamp, false)
                     .map(fileSlice -> createHudiSplit(table, fileSlice, timestamp, hudiPartition))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
                     .forEach(builder::add);
         }
         return new FixedSplitSource(builder.build());
@@ -143,22 +144,23 @@ public class HudiSplitManager
         }
     }
 
-    private HudiSplit createHudiSplit(HudiTableHandle table, FileSlice slice, String timestamp, HudiPartition partition)
+    private Optional<HudiSplit> createHudiSplit(HudiTableHandle table, FileSlice slice, String timestamp, HudiPartition partition)
     {
-        HoodieBaseFile hoodieBaseFile = slice.getBaseFile().get();
-        HudiFile baseFile = new HudiFile(hoodieBaseFile.getPath(), 0, hoodieBaseFile.getFileLen());
+        HudiFile hudiFile = slice.getBaseFile().map(f -> new HudiFile(f.getPath(), 0, f.getFileLen())).orElse(null);
+        if (null == hudiFile && table.getTableType() == HudiTableType.COW) {
+            return Optional.empty();
+        }
         List<HudiFile> logFiles = slice.getLogFiles()
                 .map(logFile -> new HudiFile(logFile.getPath().toString(), 0, logFile.getFileSize()))
                 .collect(toImmutableList());
-
-        return new HudiSplit(
+        return Optional.of(new HudiSplit(
                 table,
                 timestamp,
                 partition,
-                Optional.of(baseFile),
+                Optional.ofNullable(hudiFile),
                 logFiles,
                 ImmutableList.of(),
-                NodeSelectionStrategy.NO_PREFERENCE);
+                NodeSelectionStrategy.NO_PREFERENCE));
     }
 
     public static HudiPartition getHudiPartition(ExtendedHiveMetastore metastore, MetastoreContext context, HudiTableLayoutHandle tableLayout, String partitionName)
