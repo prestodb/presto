@@ -30,6 +30,7 @@ import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
 import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient.ErrorCode;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.spi.data.FieldSpec;
+import org.apache.pinot.spi.utils.ByteArray;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,6 +44,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
@@ -473,7 +475,7 @@ public class PinotSegmentPageSource
     private Slice getSlice(int rowIndex, int columnIndex)
     {
         checkColumnType(columnIndex, new Type[] {
-                VARCHAR, JSON
+                VARCHAR, JSON, VARBINARY
         });
         DataSchema.ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         switch (columnType) {
@@ -499,6 +501,9 @@ public class PinotSegmentPageSource
                     return Slices.EMPTY_SLICE;
                 }
                 return Slices.utf8Slice(field);
+            case BYTES:
+                ByteArray byteArray = currentDataTable.getDataTable().getBytes(rowIndex, columnIndex);
+                return Slices.wrappedBuffer(byteArray.getBytes());
         }
         return Slices.EMPTY_SLICE;
     }
@@ -538,7 +543,8 @@ public class PinotSegmentPageSource
                 matches = true;
             }
         }
-        checkArgument(matches, "Expected column %s to be type %s but is %s", columnIndex, expectedTypes, actual);
+        checkArgument(matches, "Expected column %s to be type %s but is %s", columnIndex,
+                Arrays.toString(expectedTypes), actual);
     }
 
     protected static Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)
