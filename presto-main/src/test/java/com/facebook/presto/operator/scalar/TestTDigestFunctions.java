@@ -415,6 +415,35 @@ public class TestTDigestFunctions
     }
 
     @Test
+    public void testConstructTDigest()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        ImmutableList<Double> values = ImmutableList.of(0.0d, 1.0d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 7.0d, 8.0d, 9.0d);
+        values.stream().forEach(tDigest::add);
+
+        List<Double> weights = Collections.nCopies(values.size(), 1.0);
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        int count = values.size();
+
+        String sql = format("construct_tdigest(ARRAY%s, ARRAY%s, %s, %s, %s, %s, %s)",
+                values,
+                weights,
+                compression,
+                min,
+                max,
+                sum,
+                count);
+
+        functionAssertions.selectSingleValue(
+                sql,
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+    }
+
+    @Test
     public void testDestructureTDigest()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
@@ -453,6 +482,39 @@ public class TestTDigestFunctions
     }
 
     @Test
+    public void testConstructTDigestLarge()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        List<Double> values = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            values.add((double) i);
+        }
+
+        values.stream().forEach(tDigest::add);
+
+        List<Double> weights = Collections.nCopies(values.size(), 1.0);
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        long count = values.size();
+
+        String sql = format("construct_tdigest(ARRAY%s, ARRAY%s, %s, %s, %s, %s, %s)",
+                values,
+                weights,
+                compression,
+                min,
+                max,
+                sum,
+                count);
+
+        functionAssertions.selectSingleValue(
+                sql,
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+    }
+
+    @Test
     public void testDestructureTDigestLarge()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
@@ -478,6 +540,105 @@ public class TestTDigestFunctions
         functionAssertions.assertFunction(format("%s.max", sql), DOUBLE, max);
         functionAssertions.assertFunction(format("%s.sum", sql), DOUBLE, sum);
         functionAssertions.assertFunction(format("%s.count", sql), BIGINT, count);
+    }
+
+    @Test
+    public void testConstructTDigestNormalDistribution()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        List<Double> values = new ArrayList<>();
+        NormalDistribution normal = new NormalDistribution(500, 20);
+        int samples = 100;
+
+        for (int k = 0; k < samples; k++) {
+            double value = normal.sample();
+            tDigest.add(value);
+            values.add(value);
+        }
+
+        List<Double> weights = Collections.nCopies(values.size(), 1.0);
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        long count = values.size();
+
+        String sql = format("construct_tdigest(ARRAY%s, ARRAY%s, %s, %s, %s, %s, %s)",
+                values,
+                weights,
+                compression,
+                min,
+                max,
+                sum,
+                count);
+
+        functionAssertions.selectSingleValue(
+                sql,
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+    }
+
+    @Test
+    public void testConstructTDigestInverse()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        ImmutableList<Double> values = ImmutableList.of(0.0d, 1.0d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 7.0d, 8.0d, 9.0d);
+        values.stream().forEach(tDigest::add);
+
+        List<Integer> weights = Collections.nCopies(values.size(), 1);
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        long count = values.size();
+
+        SqlVarbinary sqlVarbinary = new SqlVarbinary(tDigest.serialize().getBytes());
+        String tdigestStr = sqlVarbinary.toString().replaceAll("\\s+", " ");
+
+        String destructureTdigestSql = format("destructure_tdigest(CAST(X'%s' AS tdigest(%s)))",
+                new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "),
+                DOUBLE);
+
+        // Asserting that calling destructure_tdigest on the generated tdigest
+        // produces values that equal those declared above
+        functionAssertions.assertFunction(
+                destructureTdigestSql,
+                TDIGEST_CENTROIDS_ROW_TYPE,
+                ImmutableList.of(values, weights, compression, min, max, sum, count));
+
+        functionAssertions.assertFunction(format("%s.compression", destructureTdigestSql), DOUBLE, compression);
+        functionAssertions.assertFunction(format("%s.min", destructureTdigestSql), DOUBLE, min);
+        functionAssertions.assertFunction(format("%s.max", destructureTdigestSql), DOUBLE, max);
+        functionAssertions.assertFunction(format("%s.sum", destructureTdigestSql), DOUBLE, sum);
+        functionAssertions.assertFunction(format("%s.count", destructureTdigestSql), BIGINT, count);
+        functionAssertions.assertFunction(
+                format("%s.centroid_means", destructureTdigestSql),
+                new ArrayType(DOUBLE),
+                values);
+        functionAssertions.assertFunction(
+                format("%s.centroid_weights", destructureTdigestSql),
+                new ArrayType(INTEGER),
+                weights);
+
+        String constructTdigestSql = format("construct_tdigest(ARRAY%s, ARRAY%s, %s, %s, %s, %s, %s)",
+                values,
+                weights,
+                compression,
+                min,
+                max,
+                sum,
+                count);
+
+        // Asserting that calling construct_tdigest with the raw values
+        // produces a varbinary that equals the generated tdigest declared above
+        SqlVarbinary constructedSqlVarbinary = functionAssertions.selectSingleValue(
+                constructTdigestSql,
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+
+        // If this is true then by definition calling construct_tdigest(destructure_tdigest(...)...)
+        // will work
+        assertEquals(constructedSqlVarbinary, sqlVarbinary);
     }
 
     // disabled because test takes almost 10s

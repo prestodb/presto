@@ -34,6 +34,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 public final class TDigestFunctions
 {
@@ -135,5 +136,38 @@ public final class TDigestFunctions
 
         blockBuilder.closeEntry();
         return TDIGEST_CENTROIDS_ROW_TYPE.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+    }
+
+    @ScalarFunction(value = "construct_tdigest", visibility = EXPERIMENTAL)
+    @Description("Create a TDigest by passing in its internal state.")
+    @SqlType("tdigest(double)")
+    public static Slice constructTDigest(
+            @SqlType("array(double)") Block centroidMeansBlock,
+            @SqlType("array(double)") Block centroidWeightsBlock,
+            @SqlType(StandardTypes.DOUBLE) double compression,
+            @SqlType(StandardTypes.DOUBLE) double min,
+            @SqlType(StandardTypes.DOUBLE) double max,
+            @SqlType(StandardTypes.DOUBLE) double sum,
+            @SqlType(StandardTypes.BIGINT) long count)
+    {
+        double[] centroidMeans = new double[centroidMeansBlock.getPositionCount()];
+        for (int i = 0; i < centroidMeansBlock.getPositionCount(); i++) {
+            centroidMeans[i] = DOUBLE.getDouble(centroidMeansBlock, i);
+        }
+        double[] centroidWeights = new double[centroidWeightsBlock.getPositionCount()];
+        for (int i = 0; i < centroidWeightsBlock.getPositionCount(); i++) {
+            centroidWeights[i] = DOUBLE.getDouble(centroidWeightsBlock, i);
+        }
+
+        TDigest tDigest = createTDigest(
+                centroidMeans,
+                centroidWeights,
+                compression,
+                min,
+                max,
+                sum,
+                toIntExact(count));
+
+        return tDigest.serialize();
     }
 }
