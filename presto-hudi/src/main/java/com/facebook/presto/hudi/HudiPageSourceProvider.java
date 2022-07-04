@@ -82,23 +82,22 @@ public class HudiPageSourceProvider
     {
         HudiTableLayoutHandle layout = (HudiTableLayoutHandle) layoutHandle;
         HudiSplit hudiSplit = (HudiSplit) split;
-        HudiFile baseFile = hudiSplit.getBaseFile().orElseThrow(() ->
-                new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "Split without base file is invalid"));
-        Path path = new Path(baseFile.getPath());
-
-        Configuration configuration = hdfsEnvironment.getConfiguration(
-                new HdfsContext(session,
-                        layout.getTable().getSchemaName(),
-                        layout.getTable().getTableName(),
-                        baseFile.getPath(),
-                        false),
-                path);
         HudiTableType tableType = layout.getTable().getTableType();
         List<HudiColumnHandle> hudiColumnHandles = columns.stream().map(HudiColumnHandle.class::cast).collect(toList());
         List<HudiColumnHandle> dataColumns = hudiColumnHandles.stream().filter(HudiColumnHandle::isRegularColumn).collect(toList());
 
         final ConnectorPageSource dataColumnPageSource;
         if (tableType == HudiTableType.COW) {
+            HudiFile baseFile = hudiSplit.getBaseFile().orElseThrow(() ->
+                    new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "Split without base file is invalid"));
+            Path path = new Path(baseFile.getPath());
+            Configuration configuration = hdfsEnvironment.getConfiguration(
+                    new HdfsContext(session,
+                            layout.getTable().getSchemaName(),
+                            layout.getTable().getTableName(),
+                            baseFile.getPath(),
+                            false),
+                    path);
             dataColumnPageSource = createParquetPageSource(
                     typeManager,
                     hdfsEnvironment,
