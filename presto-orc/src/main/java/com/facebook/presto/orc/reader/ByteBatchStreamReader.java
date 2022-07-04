@@ -15,8 +15,8 @@ package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -49,6 +50,7 @@ public class ByteBatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteBatchStreamReader.class).instanceSize();
 
+    private final Type type;
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
@@ -71,8 +73,10 @@ public class ByteBatchStreamReader
     public ByteBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcLocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
-        requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, TinyintType.class::isInstance);
+        this.type = requireNonNull(type, "type is null");
+        // Iceberg maps ORC tinyint type to integer
+        verifyStreamType(streamDescriptor, type, t -> t == TINYINT || t == INTEGER);
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -112,7 +116,7 @@ public class ByteBatchStreamReader
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
             presentStream.skip(nextBatchSize);
-            block = RunLengthEncodedBlock.create(TINYINT, null, nextBatchSize);
+            block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
         }
         else if (presentStream == null) {
             block = readNonNullBlock();
@@ -127,7 +131,7 @@ public class ByteBatchStreamReader
                 block = readNullBlock(isNull, nextBatchSize - nullCount);
             }
             else {
-                block = RunLengthEncodedBlock.create(TINYINT, null, nextBatchSize);
+                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
             }
         }
 
@@ -141,8 +145,15 @@ public class ByteBatchStreamReader
             throws IOException
     {
         verify(dataStream != null);
-        byte[] values = dataStream.next(nextBatchSize);
-        return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
+        byte[] values = new byte[nextBatchSize];
+        dataStream.next(values, nextBatchSize);
+        if (type == TINYINT) {
+            return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
+        if (type == INTEGER) {
+            return new IntArrayBlock(nextBatchSize, Optional.empty(), convertToIntArray(values));
+        }
+        throw new VerifyError("Unsupported type " + type);
     }
 
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
@@ -159,7 +170,13 @@ public class ByteBatchStreamReader
 
         byte[] result = ReaderUtils.unpackByteNulls(nonNullValueTemp, isNull);
 
-        return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        if (type == TINYINT) {
+            return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        }
+        if (type == INTEGER) {
+            return new IntArrayBlock(nextBatchSize, Optional.of(isNull), convertToIntArray(result));
+        }
+        throw new VerifyError("Unsupported type " + type);
     }
 
     private void openRowGroup()
@@ -199,6 +216,15 @@ public class ByteBatchStreamReader
         dataStream = null;
 
         rowGroupOpen = false;
+    }
+
+    private static int[] convertToIntArray(byte[] bytes)
+    {
+        int[] values = new int[bytes.length];
+        for (int i = 0; i < bytes.length; i++) {
+            values[i] = bytes[i];
+        }
+        return values;
     }
 
     @Override

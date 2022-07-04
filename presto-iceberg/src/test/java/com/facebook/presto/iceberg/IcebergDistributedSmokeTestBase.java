@@ -18,11 +18,17 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.facebook.presto.tests.sql.TestTable;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,7 +37,9 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -734,5 +742,33 @@ public class IcebergDistributedSmokeTestBase
                         "  (NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
 
         dropTable(session, tableName);
+    }
+
+    @Test
+    public void testTinyintType()
+            throws Exception
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_tinyint", "CREATE TABLE {TABLE_NAME} (\"_col0\") WITH (format = 'ORC') AS VALUES (127), (NULL)")) {
+            Path orcFilePath = Paths.get(new URL((String) computeScalar(format("SELECT DISTINCT file_path FROM \"%s$files\"", table.getName()))).toURI());
+            Files.copy(new File(getResource("single-tinyint-column.orc").toURI()).toPath(), orcFilePath, REPLACE_EXISTING);
+            Files.delete(orcFilePath.resolveSibling(format(".%s.crc", orcFilePath.getFileName())));
+
+            assertQuery("DESCRIBE " + table.getName(), "VALUES ('_col0', 'integer', '', '')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 127, NULL");
+        }
+    }
+
+    @Test
+    public void testSmallintType()
+            throws Exception
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_smallint", "CREATE TABLE {TABLE_NAME} (\"_col0\") WITH (format = 'ORC') AS VALUES (32767), (NULL)")) {
+            Path orcFilePath = Paths.get(new URL((String) computeScalar(format("SELECT DISTINCT file_path FROM \"%s$files\"", table.getName()))).toURI());
+            Files.copy(new File(getResource("single-smallint-column.orc").toURI()).toPath(), orcFilePath, REPLACE_EXISTING);
+            Files.delete(orcFilePath.resolveSibling(format(".%s.crc", orcFilePath.getFileName())));
+
+            assertQuery("DESCRIBE " + table.getName(), "VALUES ('_col0', 'integer', '', '')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 32767, NULL");
+        }
     }
 }
