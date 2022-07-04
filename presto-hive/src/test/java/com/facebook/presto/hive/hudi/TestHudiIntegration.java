@@ -61,7 +61,9 @@ public class TestHudiIntegration
                         "('stock_ticks_mor_ro'), " +
                         "('stock_ticks_mor_rt')," +
                         "('stock_ticks_morn_ro')," +
-                        "('stock_ticks_morn_rt')");
+                        "('stock_ticks_morn_rt')," +
+                        "('stock_ticks_morn_only_log_ro')," +
+                        "('stock_ticks_morn_only_log_rt')");
 
         FunctionAndTypeManager typeManager = getQueryRunner().getMetadata().getFunctionAndTypeManager();
 
@@ -84,6 +86,7 @@ public class TestHudiIntegration
         @Language("SQL") String sqlTemplate = "SELECT symbol, max(ts) FROM %s GROUP BY symbol HAVING symbol = 'GOOG'";
         @Language("SQL") String sqlResult = "SELECT 'GOOG', '2018-08-31 10:59:00'";
         @Language("SQL") String sqlResultReadOptimized = "SELECT 'GOOG', '2018-08-31 10:29:00'";
+        @Language("SQL") String sqlResultEmpty = "SELECT * FROM VALUES ('', '') LIMIT 0";
 
         assertQuery(format(sqlTemplate, "stock_ticks_cow"), sqlResult);
         assertQuery(format(sqlTemplate, "stock_ticks_cown"), sqlResult);
@@ -91,6 +94,8 @@ public class TestHudiIntegration
         assertQuery(format(sqlTemplate, "stock_ticks_mor_rt"), sqlResult);
         assertQuery(format(sqlTemplate, "stock_ticks_morn_ro"), sqlResultReadOptimized);
         assertQuery(format(sqlTemplate, "stock_ticks_morn_rt"), sqlResult);
+        assertQuery(format(sqlTemplate, "stock_ticks_morn_only_log_ro"), sqlResultEmpty);
+        assertQuery(format(sqlTemplate, "stock_ticks_morn_only_log_rt"), sqlResult);
     }
 
     @Test
@@ -104,6 +109,7 @@ public class TestHudiIntegration
         @Language("SQL") String sqlResultReadOptimized = "SELECT * FROM VALUES " +
                 "('GOOG_2018-08-31 09', 'GOOG', '2018-08-31 09:59:00', 6330, 1230.5, 1230.02), " +
                 "('GOOG_2018-08-31 10', 'GOOG', '2018-08-31 10:29:00', 3391, 1230.1899, 1230.085)";
+        @Language("SQL") String sqlResultEmpty = "SELECT * FROM VALUES ('', '') LIMIT 0";
 
         assertQuery(format(sqlTemplate, "stock_ticks_cow"), sqlResult);
         assertQuery(format(sqlTemplate, "stock_ticks_cown"), sqlResult);
@@ -111,6 +117,8 @@ public class TestHudiIntegration
         assertQuery(format(sqlTemplate, "stock_ticks_mor_rt"), sqlResult);
         assertQuery(format(sqlTemplate, "stock_ticks_morn_ro"), sqlResultReadOptimized);
         assertQuery(format(sqlTemplate, "stock_ticks_morn_rt"), sqlResult);
+        assertQuery(format(sqlTemplate, "stock_ticks_morn_only_log_ro"), sqlResultEmpty);
+        assertQuery(format(sqlTemplate, "stock_ticks_morn_only_log_rt"), sqlResult);
     }
 
     @Test
