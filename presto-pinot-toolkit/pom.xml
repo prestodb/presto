@@ -596,6 +596,11 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -631,6 +636,7 @@
                                     <ignoredDependency>org.apache.pinot:pinot-core-jdk8::</ignoredDependency>
                                     <ignoredDependency>com.google.protobuf:protobuf-java::</ignoredDependency>
                                     <ignoredDependency>io.grpc:::</ignoredDependency>
+                                    <ignoredDependency>commons-codec:commons-codec::</ignoredDependency>
                                 </ignoredDependencies>
                             </configuration>
                         </execution>
