@@ -316,7 +316,8 @@ TEST_P(MappedMemoryTest, singleAllocationTest) {
   const std::vector<MachinePageCount>& sizes = instance_->sizeClasses();
   MachinePageCount capacity = kCapacity;
   std::vector<std::unique_ptr<MappedMemory::Allocation>> allocations;
-  for (auto& size : sizes) {
+  for (auto i = 0; i < sizes.size(); ++i) {
+    auto size = sizes[i];
     allocateMultiple(size, capacity / size + 10, allocations);
     EXPECT_EQ(allocations.size() - 1, capacity / size);
     EXPECT_TRUE(instance_->checkConsistency());
@@ -324,6 +325,12 @@ TEST_P(MappedMemoryTest, singleAllocationTest) {
 
     allocations.clear();
     EXPECT_EQ(instance_->numAllocated(), 0);
+
+    auto stats = instance_->stats();
+    EXPECT_LT(0, stats.sizes[i].clocks());
+    EXPECT_GE(stats.sizes[i].totalBytes, capacity * MappedMemory::kPageSize);
+    EXPECT_GE(stats.sizes[i].numAllocations, capacity / size);
+
     if (useMmap_) {
       EXPECT_EQ(instance_->numMapped(), kCapacity);
     }

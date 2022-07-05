@@ -20,6 +20,7 @@
 #include <sys/mman.h>
 
 #include <iostream>
+#include <numeric>
 
 namespace facebook::velox::memory {
 
@@ -132,11 +133,19 @@ class MappedMemoryImpl : public MappedMemory {
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t)> beforeAllocCB = nullptr) override;
+      std::function<void(int64_t)> beforeAllocCB = nullptr) override {
+    bool result;
+    stats_.recordAllocate(numPages * kPageSize, 1, [&]() {
+      result = allocateContiguousImpl(
+          numPages, collateral, allocation, beforeAllocCB);
+    });
+    return result;
+  }
 
-  void freeContiguous(ContiguousAllocation& allocation) override;
-
-  bool checkConsistency() const override;
+  void freeContiguous(ContiguousAllocation& allocation) override {
+    stats_.recordFree(
+        allocation.size(), [&]() { freeContiguousImpl(allocation); });
+  }
 
   MachinePageCount numAllocated() const override {
     return numAllocated_;
@@ -146,7 +155,21 @@ class MappedMemoryImpl : public MappedMemory {
     return numMapped_;
   }
 
+  Stats stats() const override {
+    return stats_;
+  }
+
+  bool checkConsistency() const override;
+
  private:
+  bool allocateContiguousImpl(
+      MachinePageCount numPages,
+      Allocation* FOLLY_NULLABLE collateral,
+      ContiguousAllocation& allocation,
+      std::function<void(int64_t)> beforeAllocCB);
+
+  void freeContiguousImpl(ContiguousAllocation& allocation);
+
   std::atomic<MachinePageCount> numAllocated_;
   // When using mmap/madvise, the current of number pages backed by memory.
   std::atomic<MachinePageCount> numMapped_;
@@ -154,6 +177,7 @@ class MappedMemoryImpl : public MappedMemory {
   std::mutex mallocsMutex_;
   // Tracks malloc'd pointers to detect bad frees.
   std::unordered_set<void*> mallocs_;
+  Stats stats_;
 };
 
 } // namespace
@@ -186,7 +210,13 @@ bool MappedMemoryImpl::allocate(
     for (int32_t i = 0; i < mix.numSizes; ++i) {
       MachinePageCount numPages =
           mix.sizeCounts[i] * sizeClassSizes_[mix.sizeIndices[i]];
-      void* ptr = malloc(numPages * kPageSize); // NOLINT
+      void* ptr;
+      stats_.recordAllocate(
+          sizeClassSizes_[mix.sizeIndices[i]] * kPageSize,
+          mix.sizeCounts[i],
+          [&]() {
+            ptr = malloc(numPages * kPageSize); // NOLINT
+          });
       if (!ptr) {
         // Failed to allocate memory from memory.
         break;
@@ -216,7 +246,7 @@ bool MappedMemoryImpl::allocate(
   throw std::runtime_error("Not implemented");
 }
 
-bool MappedMemoryImpl::allocateContiguous(
+bool MappedMemoryImpl::allocateContiguousImpl(
     MachinePageCount numPages,
     Allocation* FOLLY_NULLABLE collateral,
     ContiguousAllocation& allocation,
@@ -275,7 +305,12 @@ int64_t MappedMemoryImpl::free(Allocation& allocation) {
         }
         mallocs_.erase(ptr);
       }
-      ::free(ptr); // NOLINT
+      stats_.recordFree(
+          std::min<int64_t>(
+              sizeClassSizes_.back() * kPageSize, run.numPages() * kPageSize),
+          [&]() {
+            ::free(ptr); // NOLINT
+          });
     }
   } else {
     throw std::runtime_error("Not implemented");
@@ -284,7 +319,8 @@ int64_t MappedMemoryImpl::free(Allocation& allocation) {
   allocation.clear();
   return numFreed * kPageSize;
 }
-void MappedMemoryImpl::freeContiguous(ContiguousAllocation& allocation) {
+
+void MappedMemoryImpl::freeContiguousImpl(ContiguousAllocation& allocation) {
   if (allocation.data() && allocation.size()) {
     if (munmap(allocation.data(), allocation.size()) < 0) {
       LOG(ERROR) << "munmap returned " << errno << "for " << allocation.data()
@@ -452,6 +488,48 @@ bool ScopedMappedMemory::allocateContiguous(
     allocation.reset(this, allocation.data(), allocation.size());
   }
   return success;
+}
+Stats Stats::operator-(const Stats& other) const {
+  Stats result;
+  for (auto i = 0; i < sizes.size(); ++i) {
+    result.sizes[i] = sizes[i] - other.sizes[i];
+  }
+  result.numAdvise = numAdvise - other.numAdvise;
+  return result;
+}
+
+std::string Stats::toString() const {
+  std::stringstream out;
+  int64_t totalClocks = 0;
+  int64_t totalBytes = 0;
+  for (auto i = 0; i < sizes.size(); ++i) {
+    totalClocks += sizes[i].clocks();
+    totalBytes += sizes[i].totalBytes;
+  }
+  out << fmt::format(
+      "Alloc: {}MB {} Gigaclocks, {}MB advised\n",
+      totalBytes >> 20,
+      totalClocks >> 30,
+      numAdvise >> 8);
+
+  // Sort the size classes by decreasing clocks.
+  std::vector<int32_t> indices(sizes.size());
+  std::iota(indices.begin(), indices.end(), 0);
+  std::sort(indices.begin(), indices.end(), [&](int32_t left, int32_t right) {
+    return sizes[left].clocks() > sizes[right].clocks();
+  });
+  for (auto i : indices) {
+    // Do not report size classes with under 1M clocks.
+    if (sizes[i].clocks() < 1000000) {
+      break;
+    }
+    out << fmt::format(
+        "Size {}K: {}MB {} Megaclocks\n",
+        sizes[i].size * 4,
+        sizes[i].totalBytes >> 20,
+        sizes[i].clocks() >> 20);
+  }
+  return out.str();
 }
 
 } // namespace facebook::velox::memory

@@ -15,13 +15,19 @@
  */
 #pragma once
 
+#include <folly/CppAttributes.h>
+#include <folly/chrono/Hardware.h>
+#include <atomic>
 #include <chrono>
 
 namespace facebook::velox {
 
+// Measures the time between construction and destruction with
+// std::chrono::steady_clock and increments a user-supplied counter
+// with the elapsed time in microseconds.
 class MicrosecondTimer {
  public:
-  MicrosecondTimer(uint64_t* timer) : timer_(timer) {
+  explicit MicrosecondTimer(uint64_t* FOLLY_NONNULL timer) : timer_(timer) {
     start_ = std::chrono::steady_clock::now();
   }
 
@@ -35,6 +41,32 @@ class MicrosecondTimer {
  private:
   std::chrono::steady_clock::time_point start_;
   uint64_t* timer_;
+};
+
+// Measures the time between construction and destruction with
+// CPU clock counter (rdtsc on X86) and increments a user-supplied counter
+// with the cycle count.
+class ClockTimer {
+ public:
+  explicit ClockTimer(uint64_t& total)
+      : total_(&total), start_(folly::hardware_timestamp()) {}
+
+  explicit ClockTimer(std::atomic<uint64_t>& total)
+      : atomicTotal_(&total), start_(folly::hardware_timestamp()) {}
+
+  ~ClockTimer() {
+    auto elapsed = folly::hardware_timestamp() - start_;
+    if (total_) {
+      *total_ += elapsed;
+    } else {
+      *atomicTotal_ += elapsed;
+    }
+  }
+
+ private:
+  uint64_t* FOLLY_NULLABLE total_{nullptr};
+  std::atomic<uint64_t>* FOLLY_NULLABLE atomicTotal_{nullptr};
+  uint64_t start_;
 };
 
 // Returns the current epoch time in milliseconds.

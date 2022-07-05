@@ -67,14 +67,27 @@ class MmapAllocator : public MappedMemory {
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t)> beforeAllocCB = nullptr) override;
+      std::function<void(int64_t)> beforeAllocCB = nullptr) override {
+    bool result;
+    stats_.recordAllocate(numPages * kPageSize, 1, [&]() {
+      result = allocateContiguousImpl(
+          numPages, collateral, allocation, beforeAllocCB);
+    });
+    return result;
+  }
 
-  void freeContiguous(ContiguousAllocation& allocation) override;
+  void freeContiguous(ContiguousAllocation& allocation) override {
+    stats_.recordFree(
+        allocation.size(), [&]() { freeContiguousImpl(allocation); });
+  }
 
   // Checks internal consistency of allocation data
   // structures. Returns true if OK. May return false if there are
   // concurrent alocations and frees during the consistency check. This
   // is a false positive but not dangerous.
+  //
+  // Checks that the totals of mapped free and mapped and allocated
+  // pages match the data in the bitmaps in the size classes.
   bool checkConsistency() const override;
 
   MachinePageCount capacity() const {
@@ -96,6 +109,12 @@ class MmapAllocator : public MappedMemory {
   }
 
   std::string toString() const override;
+
+  Stats stats() const override {
+    auto stats = stats_;
+    stats.numAdvise = numAdvisedPages_;
+    return stats;
+  }
 
  private:
   static constexpr uint64_t kAllSet = 0xffffffffffffffff;
@@ -224,6 +243,14 @@ class MmapAllocator : public MappedMemory {
     uint64_t numAdvisedAway_ = 0;
   };
 
+  bool allocateContiguousImpl(
+      MachinePageCount numPages,
+      Allocation* FOLLY_NULLABLE collateral,
+      ContiguousAllocation& allocation,
+      std::function<void(int64_t)> beforeAllocCB);
+
+  void freeContiguousImpl(ContiguousAllocation& allocation);
+
   // Ensures that there are at least 'newMappedNeeded' pages that are
   // not backing any existing allocation. If capacity_ - numMapped_ <
   // newMappedNeeded, advises away enough pages backing freed slots in
@@ -271,6 +298,7 @@ class MmapAllocator : public MappedMemory {
   uint64_t numAllocatedPages_ = 0;
   uint64_t numAdvisedPages_ = 0;
   Failure injectedFailure_{Failure::kNone};
+  Stats stats_;
 };
 
 } // namespace facebook::velox::memory
