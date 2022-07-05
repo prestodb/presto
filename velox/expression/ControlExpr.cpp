@@ -165,6 +165,118 @@ void FieldReference::evalSpecialFormSimplified(
   BaseVector::flattenVector(&result, rows.end());
 }
 
+namespace {
+
+enum class BooleanMix { kAllTrue, kAllFalse, kAllNull, kMixNonNull, kMix };
+
+/// Checks if bits in specified positions are all set, all unset or mixed.
+BooleanMix refineBooleanMixNonNull(
+    const uint64_t* bits,
+    const SelectivityVector& rows) {
+  int32_t first = bits::findFirstBit(bits, rows.begin(), rows.end());
+  if (first < 0) {
+    return BooleanMix::kAllFalse;
+  }
+  if (first == rows.begin() && bits::isAllSet(bits, rows.begin(), rows.end())) {
+    return BooleanMix::kAllTrue;
+  }
+  return BooleanMix::kMixNonNull;
+}
+
+BooleanMix getFlatBool(
+    BaseVector* vector,
+    const SelectivityVector& activeRows,
+    EvalCtx& context,
+    BufferPtr* tempValues,
+    BufferPtr* tempNulls,
+    bool mergeNullsToValues,
+    const uint64_t** valuesOut,
+    const uint64_t** nullsOut) {
+  VELOX_CHECK_EQ(vector->typeKind(), TypeKind::BOOLEAN);
+  const auto size = activeRows.end();
+  switch (vector->encoding()) {
+    case VectorEncoding::Simple::FLAT: {
+      auto values =
+          vector->asUnchecked<FlatVector<bool>>()->rawValues<uint64_t>();
+      if (!values) {
+        return BooleanMix::kAllNull;
+      }
+      auto nulls = vector->rawNulls();
+      if (nulls && mergeNullsToValues) {
+        uint64_t* mergedValues;
+        BaseVector::ensureBuffer<bool>(
+            size, context.pool(), tempValues, &mergedValues);
+
+        bits::andBits(
+            mergedValues, values, nulls, activeRows.begin(), activeRows.end());
+
+        bits::andBits(
+            mergedValues,
+            activeRows.asRange().bits(),
+            activeRows.begin(),
+            activeRows.end());
+
+        *valuesOut = mergedValues;
+        return refineBooleanMixNonNull(mergedValues, activeRows);
+      }
+      *valuesOut = values;
+      if (!mergeNullsToValues) {
+        *nullsOut = nulls;
+      }
+      return nulls ? BooleanMix::kMix
+                   : refineBooleanMixNonNull(values, activeRows);
+    }
+    case VectorEncoding::Simple::CONSTANT: {
+      if (vector->isNullAt(0)) {
+        return BooleanMix::kAllNull;
+      }
+      return vector->asUnchecked<ConstantVector<bool>>()->valueAt(0)
+          ? BooleanMix::kAllTrue
+          : BooleanMix::kAllFalse;
+    }
+    default: {
+      uint64_t* nullsToSet = nullptr;
+      uint64_t* valuesToSet = nullptr;
+      if (vector->mayHaveNulls() && !mergeNullsToValues) {
+        BaseVector::ensureBuffer<bool>(
+            size, context.pool(), tempNulls, &nullsToSet);
+        memset(nullsToSet, bits::kNotNullByte, bits::nbytes(size));
+      }
+      BaseVector::ensureBuffer<bool>(
+          size, context.pool(), tempValues, &valuesToSet);
+      memset(valuesToSet, 0, bits::nbytes(size));
+      DecodedVector decoded(*vector, activeRows);
+      auto values = decoded.data<uint64_t>();
+      auto nulls = decoded.nulls();
+      auto indices = decoded.indices();
+      auto nullIndices = decoded.nullIndices();
+      activeRows.applyToSelected([&](int32_t i) {
+        auto index = indices[i];
+        bool isNull =
+            nulls && bits::isBitNull(nulls, nullIndices ? nullIndices[i] : i);
+        if (mergeNullsToValues && nulls) {
+          if (!isNull && bits::isBitSet(values, index)) {
+            bits::setBit(valuesToSet, i);
+          }
+        } else if (!isNull && bits::isBitSet(values, index)) {
+          bits::setBit(valuesToSet, i);
+        }
+        if (nullsToSet && isNull) {
+          bits::setNull(nullsToSet, i);
+        }
+      });
+      if (!mergeNullsToValues) {
+        *nullsOut = nullsToSet;
+      }
+      *valuesOut = valuesToSet;
+      return nullsToSet ? BooleanMix::kMix
+                        : refineBooleanMixNonNull(valuesToSet, activeRows);
+    }
+  }
+}
+
+} // namespace
+
 void SwitchExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
@@ -183,8 +295,6 @@ void SwitchExpr::evalSpecialForm(
   VarSetter finalSelection(
       context.mutableFinalSelection(), &rows, context.isFinalSelection());
   VarSetter isFinalSelection(context.mutableIsFinalSelection(), false);
-
-  const bool isString = type()->kind() == TypeKind::VARCHAR;
 
   for (auto i = 0; i < numCases_; i++) {
     if (!remainingRows.get()->hasSelections()) {
@@ -545,113 +655,6 @@ void ConjunctExpr::updateResult(
             }
           });
       activeRows->updateBounds();
-    }
-  }
-}
-
-namespace {
-/// Checks if bits in specified positions are all set, all unset or mixed.
-BooleanMix refineBooleanMixNonNull(
-    const uint64_t* bits,
-    const SelectivityVector& rows) {
-  int32_t first = bits::findFirstBit(bits, rows.begin(), rows.end());
-  if (first < 0) {
-    return BooleanMix::kAllFalse;
-  }
-  if (first == rows.begin() && bits::isAllSet(bits, rows.begin(), rows.end())) {
-    return BooleanMix::kAllTrue;
-  }
-  return BooleanMix::kMixNonNull;
-}
-} // namespace
-
-BooleanMix getFlatBool(
-    BaseVector* vector,
-    const SelectivityVector& activeRows,
-    EvalCtx& context,
-    BufferPtr* tempValues,
-    BufferPtr* tempNulls,
-    bool mergeNullsToValues,
-    const uint64_t** valuesOut,
-    const uint64_t** nullsOut) {
-  VELOX_CHECK_EQ(vector->typeKind(), TypeKind::BOOLEAN);
-  const auto size = activeRows.end();
-  switch (vector->encoding()) {
-    case VectorEncoding::Simple::FLAT: {
-      auto values = vector->asFlatVector<bool>()->rawValues<uint64_t>();
-      if (!values) {
-        return BooleanMix::kAllNull;
-      }
-      auto nulls = vector->rawNulls();
-      if (nulls && mergeNullsToValues) {
-        uint64_t* mergedValues;
-        BaseVector::ensureBuffer<bool>(
-            size, context.pool(), tempValues, &mergedValues);
-
-        bits::andBits(
-            mergedValues, values, nulls, activeRows.begin(), activeRows.end());
-
-        bits::andBits(
-            mergedValues,
-            activeRows.asRange().bits(),
-            activeRows.begin(),
-            activeRows.end());
-
-        *valuesOut = mergedValues;
-        return refineBooleanMixNonNull(mergedValues, activeRows);
-      }
-      *valuesOut = values;
-      if (!mergeNullsToValues) {
-        *nullsOut = nulls;
-      }
-      return nulls ? BooleanMix::kMix
-                   : refineBooleanMixNonNull(values, activeRows);
-    }
-    case VectorEncoding::Simple::CONSTANT: {
-      if (vector->isNullAt(0)) {
-        return BooleanMix::kAllNull;
-      }
-      return vector->as<ConstantVector<bool>>()->valueAt(0)
-          ? BooleanMix::kAllTrue
-          : BooleanMix::kAllFalse;
-    }
-    default: {
-      uint64_t* nullsToSet = nullptr;
-      uint64_t* valuesToSet = nullptr;
-      if (vector->mayHaveNulls() && !mergeNullsToValues) {
-        BaseVector::ensureBuffer<bool>(
-            size, context.pool(), tempNulls, &nullsToSet);
-        memset(nullsToSet, bits::kNotNullByte, bits::nbytes(size));
-      }
-      BaseVector::ensureBuffer<bool>(
-          size, context.pool(), tempValues, &valuesToSet);
-      memset(valuesToSet, 0, bits::nbytes(size));
-      DecodedVector decoded(*vector, activeRows);
-      auto values = decoded.data<uint64_t>();
-      auto nulls = decoded.nulls();
-      auto indices = decoded.indices();
-      auto nullIndices = decoded.nullIndices();
-      activeRows.applyToSelected([&](int32_t i) {
-        auto index = indices[i];
-        bool isNull =
-            nulls && bits::isBitNull(nulls, nullIndices ? nullIndices[i] : i);
-        if (mergeNullsToValues && nulls) {
-          if (!isNull && bits::isBitSet(values, index)) {
-            bits::setBit(valuesToSet, i);
-          }
-        } else if (!isNull && bits::isBitSet(values, index)) {
-          bits::setBit(valuesToSet, i);
-        }
-        if (nullsToSet && isNull) {
-          bits::setNull(nullsToSet, i);
-        }
-      });
-      if (!mergeNullsToValues) {
-        *nullsOut = nullsToSet;
-      }
-      *valuesOut = valuesToSet;
-      return nullsToSet ? BooleanMix::kMix
-                        : refineBooleanMixNonNull(valuesToSet, activeRows);
     }
   }
 }

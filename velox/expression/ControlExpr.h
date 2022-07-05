@@ -46,18 +46,6 @@ class SpecialForm : public Expr {
             trackCpuUsage) {}
 };
 
-enum class BooleanMix { kAllTrue, kAllFalse, kAllNull, kMixNonNull, kMix };
-
-BooleanMix getFlatBool(
-    BaseVector* vector,
-    const SelectivityVector& activeRows,
-    EvalCtx& context,
-    BufferPtr* tempValues,
-    BufferPtr* tempNulls,
-    bool mergeNullsToValues,
-    const uint64_t** valuesOut,
-    const uint64_t** nullsOut);
-
 class ConstantExpr : public SpecialForm {
  public:
   ConstantExpr(TypePtr type, variant value)
