@@ -33,19 +33,19 @@ public class OracleQueryRunner
 {
     private OracleQueryRunner() {}
 
-    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server)
+    public static DistributedQueryRunner createOracleQueryRunner(OracleServerTester server)
             throws Exception
     {
         return createOracleQueryRunner(server, ImmutableList.of());
     }
 
-    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server, TpchTable<?>... tables)
+    public static DistributedQueryRunner createOracleQueryRunner(OracleServerTester server, TpchTable<?>... tables)
             throws Exception
     {
         return createOracleQueryRunner(server, ImmutableList.copyOf(tables));
     }
 
-    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createOracleQueryRunner(OracleServerTester server, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -57,8 +57,8 @@ public class OracleQueryRunner
 
             Map<String, String> connectorProperties = new HashMap<>();
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", TestingOracleServer.TEST_USER);
-            connectorProperties.putIfAbsent("connection-password", TestingOracleServer.TEST_PASS);
+            connectorProperties.putIfAbsent("connection-user", OracleServerTester.TEST_USER);
+            connectorProperties.putIfAbsent("connection-password", OracleServerTester.TEST_PASS);
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new OraclePlugin());
@@ -78,7 +78,7 @@ public class OracleQueryRunner
     {
         return testSessionBuilder()
                 .setCatalog("oracle")
-                .setSchema(TestingOracleServer.TEST_SCHEMA)
+                .setSchema(OracleServerTester.TEST_SCHEMA)
                 .build();
     }
 
@@ -88,7 +88,7 @@ public class OracleQueryRunner
         Logging.initialize();
 
         DistributedQueryRunner queryRunner = createOracleQueryRunner(
-                new TestingOracleServer(),
+                new OracleServerTester(),
                 TpchTable.getTables());
 
         Logger log = Logger.get(OracleQueryRunner.class);
