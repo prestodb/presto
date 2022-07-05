@@ -661,24 +661,40 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
   // the partial aggregation.
 
   // Distinct aggregation.
-  AssertQueryBuilder(duckDbQueryRunner_)
-      .config(core::QueryConfig::kMaxPartialAggregationMemory, "100")
-      .plan(PlanBuilder()
-                .values(vectors)
-                .partialAggregation({"c0"}, {})
-                .finalAggregation()
-                .planNode())
-      .assertResults("SELECT distinct c0 FROM tmp");
+  core::PlanNodeId aggNodeId;
+  auto task =
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .config(core::QueryConfig::kMaxPartialAggregationMemory, "100")
+          .plan(PlanBuilder()
+                    .values(vectors)
+                    .partialAggregation({"c0"}, {})
+                    .capturePlanNodeId(aggNodeId)
+                    .finalAggregation()
+                    .planNode())
+          .assertResults("SELECT distinct c0 FROM tmp");
+  EXPECT_GT(
+      toPlanStats(task->taskStats())
+          .at(aggNodeId)
+          .customStats.at("flushRowCount")
+          .sum,
+      0);
 
   // Count aggregation.
-  AssertQueryBuilder(duckDbQueryRunner_)
-      .config(core::QueryConfig::kMaxPartialAggregationMemory, "100")
-      .plan(PlanBuilder()
-                .values(vectors)
-                .partialAggregation({"c0"}, {"count(1)"})
-                .finalAggregation()
-                .planNode())
-      .assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
+  task = AssertQueryBuilder(duckDbQueryRunner_)
+             .config(core::QueryConfig::kMaxPartialAggregationMemory, "100")
+             .plan(PlanBuilder()
+                       .values(vectors)
+                       .partialAggregation({"c0"}, {"count(1)"})
+                       .capturePlanNodeId(aggNodeId)
+                       .finalAggregation()
+                       .planNode())
+             .assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
+  EXPECT_GT(
+      toPlanStats(task->taskStats())
+          .at(aggNodeId)
+          .customStats.at("flushRowCount")
+          .count,
+      0);
 }
 
 // Validates partial aggregate output types for SUM/MIN/MAX.

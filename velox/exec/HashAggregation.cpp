@@ -185,6 +185,15 @@ void HashAggregation::prepareOutput(vector_size_t size) {
   }
 }
 
+void HashAggregation::flushPartialOutputIfNeed() {
+  if (partialFull_) {
+    stats().addRuntimeStat(
+        "flushRowCount", RuntimeCounter(groupingSet_->numRows()));
+    groupingSet_->resetPartial();
+    partialFull_ = false;
+  }
+}
+
 RowVectorPtr HashAggregation::getOutput() {
   if (finished_) {
     input_ = nullptr;
@@ -222,10 +231,7 @@ RowVectorPtr HashAggregation::getOutput() {
     // allow for memory reuse.
     input_ = nullptr;
 
-    if (partialFull_) {
-      groupingSet_->resetPartial();
-      partialFull_ = false;
-    }
+    flushPartialOutputIfNeed();
     return output;
   }
 
@@ -238,10 +244,7 @@ RowVectorPtr HashAggregation::getOutput() {
   if (!hasData) {
     resultIterator_.reset();
 
-    if (partialFull_) {
-      partialFull_ = false;
-      groupingSet_->resetPartial();
-    }
+    flushPartialOutputIfNeed();
 
     if (noMoreInput_) {
       finished_ = true;

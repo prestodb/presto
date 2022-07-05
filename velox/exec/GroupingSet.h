@@ -80,6 +80,11 @@ class GroupingSet {
                     : std::pair<int64_t, int64_t>(0, 0);
   }
 
+  /// Return the number of rows kept in memory.
+  int64_t numRows() const {
+    return table_ ? table_->rows()->numRows() : 0;
+  }
+
  private:
   void addInputForActiveRows(const RowVectorPtr& input, bool mayPushdown);
 

@@ -53,6 +53,7 @@ class HashAggregation : public Operator {
 
  private:
   void prepareOutput(vector_size_t size);
+  void flushPartialOutputIfNeed();
 
   /// Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
