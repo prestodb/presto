@@ -459,20 +459,20 @@ public class QueryContext
         @Override
         public ListenableFuture<?> reserveMemory(String allocationTag, long delta, boolean enforceBroadcastMemoryLimit)
         {
-            ListenableFuture<?> future = reserveMemoryFunction.apply(allocationTag, delta);
             if (enforceBroadcastMemoryLimit) {
                 updateBroadcastMemoryFunction.accept(delta);
             }
+            ListenableFuture<?> future = reserveMemoryFunction.apply(allocationTag, delta);
             return future;
         }
 
         @Override
         public boolean tryReserveMemory(String allocationTag, long delta, boolean enforceBroadcastMemoryLimit)
         {
-            if (!tryReserveMemoryFunction.test(allocationTag, delta)) {
+            if (enforceBroadcastMemoryLimit && !tryUpdateBroadcastMemoryFunction.test(delta)) {
                 return false;
             }
-            return !enforceBroadcastMemoryLimit || tryUpdateBroadcastMemoryFunction.test(delta);
+            return tryReserveMemoryFunction.test(allocationTag, delta);
         }
     }
 
