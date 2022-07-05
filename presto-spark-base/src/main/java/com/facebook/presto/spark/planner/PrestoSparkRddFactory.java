@@ -241,14 +241,16 @@ public class PrestoSparkRddFactory
             // Task with no inputs may produce results (e.g.: ValuesNode).
             // To force the task to be scheduled we create a PrestoSparkTaskSourceRdd that contains exactly one partition.
             // Since there's also no table scans in the fragment, the list of TaskSource's for this partition is empty.
-            taskSourceRdd = Optional.of(new PrestoSparkTaskSourceRdd(sparkContext.sc(), ImmutableList.of(ImmutableList.of())));
+            PrestoSparkTaskSourceRdd prestoSparkTaskSourceRdd = new PrestoSparkTaskSourceRdd(sparkContext.sc(), ImmutableList.of(ImmutableList.of()));
+            prestoSparkTaskSourceRdd.setName(getRDDName(fragment.getId().getId()));
+            taskSourceRdd = Optional.of(prestoSparkTaskSourceRdd);
         }
         else {
             taskSourceRdd = Optional.empty();
         }
 
         return JavaPairRDD.fromRDD(
-                PrestoSparkTaskRdd.create(sparkContext.sc(), taskSourceRdd, shuffleInputRddMap, taskProcessor),
+                PrestoSparkTaskRdd.create(sparkContext.sc(), taskSourceRdd, shuffleInputRddMap, taskProcessor).setName(getRDDName(fragment.getId().getId())),
                 classTag(MutablePartitionId.class),
                 classTag(outputType));
     }
@@ -305,7 +307,9 @@ public class PrestoSparkRddFactory
             taskSourcesByPartitionId.addAll(Multimaps.asMap(taskSourcesMap).values());
         }
 
-        return new PrestoSparkTaskSourceRdd(sparkContext.sc(), taskSourcesByPartitionId);
+        PrestoSparkTaskSourceRdd prestoSparkTaskSourceRdd = new PrestoSparkTaskSourceRdd(sparkContext.sc(), taskSourcesByPartitionId);
+        prestoSparkTaskSourceRdd.setName(getRDDName(fragmentId.getId()));
+        return prestoSparkTaskSourceRdd;
     }
 
     private PrestoSparkSplitAssigner createSplitAssigner(
@@ -370,5 +374,10 @@ public class PrestoSparkRddFactory
                 broadcastInputs.keySet(),
                 missingInputs,
                 expectedInputs);
+    }
+
+    public static String getRDDName(int planFragmentId)
+    {
+        return "PlanFragment #" + planFragmentId;
     }
 }
