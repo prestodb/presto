@@ -60,7 +60,7 @@ public class SpillableHashAggregationBuilder
     private final long memoryLimitForMerge;
     private final long memoryLimitForMergeWithMemory;
     private Optional<Spiller> spiller = Optional.empty();
-    private Optional<MergingHashAggregationBuilder> merger = Optional.empty();
+    private Optional<MergingInMemoryHashAggregationBuilder> merger = Optional.empty();
     private Optional<MergeHashSort> mergeHashSort = Optional.empty();
     private ListenableFuture<?> spillInProgress = immediateFuture(null);
     private final JoinCompiler joinCompiler;
@@ -218,6 +218,7 @@ public class SpillableHashAggregationBuilder
         }
         else {
             checkSpillSucceeded(spillToDisk());
+            updateMemory();
             return mergeFromDisk();
         }
     }
@@ -300,7 +301,7 @@ public class SpillableHashAggregationBuilder
 
     private WorkProcessor<Page> mergeSortedPages(WorkProcessor<Page> sortedPages, long memoryLimitForMerge)
     {
-        merger = Optional.of(new MergingHashAggregationBuilder(
+        merger = Optional.of(new MergingInMemoryHashAggregationBuilder(
                 accumulatorFactories,
                 step,
                 expectedGroups,
@@ -308,7 +309,7 @@ public class SpillableHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 sortedPages,
-                operatorContext.newLocalSystemMemoryContext(SpillableHashAggregationBuilder.class.getSimpleName()),
+                operatorContext.newLocalSystemMemoryContext(MergingInMemoryHashAggregationBuilder.class.getSimpleName()),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler));
