@@ -79,6 +79,7 @@ class TpchQueryBuilder {
   TpchPlan getQ1Plan() const;
   TpchPlan getQ3Plan() const;
   TpchPlan getQ6Plan() const;
+  TpchPlan getQ10Plan() const;
   TpchPlan getQ13Plan() const;
   TpchPlan getQ18Plan() const;
 
@@ -105,6 +106,11 @@ class TpchQueryBuilder {
   static const std::unordered_map<std::string, std::vector<std::string>>
       kTables_;
   static const std::vector<std::string> kTableNames_;
+
+  static constexpr const char* kLineitem = "lineitem";
+  static constexpr const char* kCustomer = "customer";
+  static constexpr const char* kOrders = "orders";
+  static constexpr const char* kNation = "nation";
 };
 
 } // namespace facebook::velox::exec::test

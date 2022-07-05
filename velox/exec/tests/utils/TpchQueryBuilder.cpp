@@ -19,11 +19,41 @@
 
 namespace facebook::velox::exec::test {
 
-static int64_t toDate(std::string_view stringDate) {
+namespace {
+int64_t toDate(std::string_view stringDate) {
   Date date;
   parseTo(stringDate, date);
   return date.days();
 }
+
+/// DWRF does not support Date type and Varchar is used.
+/// Return the Date filter expression as per data format.
+std::string formatDateFilter(
+    const std::string& stringDate,
+    const RowTypePtr& rowType,
+    const std::string& lowerBound,
+    const std::string& upperBound) {
+  bool isDwrf = rowType->findChild(stringDate)->isVarchar();
+  auto suffix = isDwrf ? "" : "::DATE";
+
+  if (!lowerBound.empty() && !upperBound.empty()) {
+    return fmt::format(
+        "{} between {}{} and {}{}",
+        stringDate,
+        lowerBound,
+        suffix,
+        upperBound,
+        suffix);
+  } else if (!lowerBound.empty()) {
+    return fmt::format("{} > {}{}", stringDate, lowerBound, suffix);
+  } else if (!upperBound.empty()) {
+    return fmt::format("{} < {}{}", stringDate, upperBound, suffix);
+  }
+
+  VELOX_FAIL(
+      "Date range check expression must have either a lower or an upper bound");
+}
+} // namespace
 
 void TpchQueryBuilder::initialize(const std::string& dataPath) {
   for (const auto& [tableName, columns] : kTables_) {
@@ -82,6 +112,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ3Plan();
     case 6:
       return getQ6Plan();
+    case 10:
+      return getQ10Plan();
     case 13:
       return getQ13Plan();
     case 18:
@@ -92,7 +124,6 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
 }
 
 TpchPlan TpchQueryBuilder::getQ1Plan() const {
-  static const std::string kLineitem = "lineitem";
   std::vector<std::string> selectedColumns = {
       "l_returnflag",
       "l_linestatus",
@@ -102,18 +133,12 @@ TpchPlan TpchQueryBuilder::getQ1Plan() const {
       "l_tax",
       "l_shipdate"};
 
-  auto selectedRowType = getRowType(kLineitem, selectedColumns);
+  const auto selectedRowType = getRowType(kLineitem, selectedColumns);
   const auto& fileColumnNames = getFileColumnNames(kLineitem);
 
   // shipdate <= '1998-09-02'
   const auto shipDate = "l_shipdate";
-  std::string filter;
-  // DWRF does not support Date type. Use Varchar instead.
-  if (selectedRowType->findChild(shipDate)->isVarchar()) {
-    filter = "l_shipdate <= '1998-09-02'";
-  } else {
-    filter = "l_shipdate <= '1998-09-02'::DATE";
-  }
+  auto filter = formatDateFilter(shipDate, selectedRowType, "", "'1998-09-03'");
 
   core::PlanNodeId lineitemPlanNodeId;
 
@@ -152,43 +177,26 @@ TpchPlan TpchQueryBuilder::getQ1Plan() const {
 }
 
 TpchPlan TpchQueryBuilder::getQ3Plan() const {
-  static const std::string kCustomer = "customer";
-  static const std::string kOrders = "orders";
-  static const std::string kLineitem = "lineitem";
-
   std::vector<std::string> lineitemColumns = {
       "l_shipdate", "l_orderkey", "l_extendedprice", "l_discount"};
   std::vector<std::string> ordersColumns = {
       "o_orderdate", "o_shippriority", "o_custkey", "o_orderkey"};
   std::vector<std::string> customerColumns = {"c_custkey", "c_mktsegment"};
 
-  auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
   const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
-  auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
   const auto& ordersFileColumns = getFileColumnNames(kOrders);
-  auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
+  const auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
   const auto& customerFileColumns = getFileColumnNames(kCustomer);
 
   const auto orderDate = "o_orderdate";
   const auto shipDate = "l_shipdate";
-  std::string orderDateFilter;
-  std::string shipDateFilter;
-  std::string customerFilter;
-
-  // DWRF does not support Date type. Use Varchar instead.
-  if (ordersSelectedRowType->findChild(orderDate)->isVarchar()) {
-    orderDateFilter = "o_orderdate < '1995-03-15'";
-  } else {
-    orderDateFilter = "o_orderdate < '1995-03-15'::DATE";
-  }
-
-  if (lineitemSelectedRowType->findChild(shipDate)->isVarchar()) {
-    shipDateFilter = "l_shipdate > '1995-03-15'";
-  } else {
-    shipDateFilter = "l_shipdate > '1995-03-15'::DATE";
-  }
-
-  customerFilter = "c_mktsegment = 'BUILDING'";
+  auto orderDateFilter =
+      formatDateFilter(orderDate, ordersSelectedRowType, "", "'1995-03-15'");
+  auto shipDateFilter =
+      formatDateFilter(shipDate, lineitemSelectedRowType, "'1995-03-15'", "");
+  auto customerFilter = "c_mktsegment = 'BUILDING'";
 
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
   core::PlanNodeId lineitemPlanNodeId;
@@ -257,22 +265,15 @@ TpchPlan TpchQueryBuilder::getQ3Plan() const {
 }
 
 TpchPlan TpchQueryBuilder::getQ6Plan() const {
-  static const std::string kLineitem = "lineitem";
   std::vector<std::string> selectedColumns = {
       "l_shipdate", "l_extendedprice", "l_quantity", "l_discount"};
 
-  auto selectedRowType = getRowType(kLineitem, selectedColumns);
+  const auto selectedRowType = getRowType(kLineitem, selectedColumns);
   const auto& fileColumnNames = getFileColumnNames(kLineitem);
 
   const auto shipDate = "l_shipdate";
-  std::string shipDateFilter;
-  // DWRF does not support Date type. Use Varchar instead.
-  if (selectedRowType->findChild(shipDate)->isVarchar()) {
-    shipDateFilter = "l_shipdate between '1994-01-01' and '1994-12-31'";
-  } else {
-    shipDateFilter =
-        "l_shipdate between '1994-01-01'::DATE and '1994-12-31'::DATE";
-  }
+  auto shipDateFilter = formatDateFilter(
+      shipDate, selectedRowType, "'1994-01-01'", "'1994-12-31'");
 
   core::PlanNodeId lineitemPlanNodeId;
   auto plan = PlanBuilder()
@@ -296,17 +297,144 @@ TpchPlan TpchQueryBuilder::getQ6Plan() const {
   return context;
 }
 
+TpchPlan TpchQueryBuilder::getQ10Plan() const {
+  std::vector<std::string> customerColumns = {
+      "c_nationkey",
+      "c_custkey",
+      "c_acctbal",
+      "c_name",
+      "c_address",
+      "c_phone",
+      "c_comment"};
+  std::vector<std::string> nationColumns = {"n_nationkey", "n_name"};
+  std::vector<std::string> lineitemColumns = {
+      "l_orderkey", "l_returnflag", "l_extendedprice", "l_discount"};
+  std::vector<std::string> ordersColumns = {
+      "o_orderdate", "o_orderkey", "o_custkey"};
+
+  const auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
+  const auto& customerFileColumns = getFileColumnNames(kCustomer);
+  const auto nationSelectedRowType = getRowType(kNation, nationColumns);
+  const auto& nationFileColumns = getFileColumnNames(kNation);
+  const auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
+  const auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto& ordersFileColumns = getFileColumnNames(kOrders);
+
+  const auto lineitemReturnFlagFilter = "l_returnflag = 'R'";
+  const auto orderDate = "o_orderdate";
+  auto orderDateFilter = formatDateFilter(
+      orderDate, ordersSelectedRowType, "'1993-10-01'", "'1993-12-31'");
+
+  std::vector<std::string> customerOutputColumns = {
+      "c_name", "c_acctbal", "c_phone", "c_address", "c_custkey", "c_comment"};
+
+  auto mergeColumnNames = [](std::vector<std::string>& v1,
+                             const std::vector<std::string>& v2) {
+    v1.insert(v1.end(), v2.begin(), v2.end());
+    return v1;
+  };
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId customerScanNodeId;
+  core::PlanNodeId nationScanNodeId;
+  core::PlanNodeId lineitemScanNodeId;
+  core::PlanNodeId ordersScanNodeId;
+
+  auto nation =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kNation, nationSelectedRowType, nationFileColumns)
+          .capturePlanNodeId(nationScanNodeId)
+          .planNode();
+
+  auto orders = PlanBuilder(planNodeIdGenerator)
+                    .tableScan(
+                        kOrders,
+                        ordersSelectedRowType,
+                        ordersFileColumns,
+                        {orderDateFilter})
+                    .capturePlanNodeId(ordersScanNodeId)
+                    .planNode();
+
+  auto partialPlan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kCustomer, customerSelectedRowType, customerFileColumns)
+          .capturePlanNodeId(customerScanNodeId)
+          .hashJoin(
+              {"c_custkey"},
+              {"o_custkey"},
+              orders,
+              "",
+              mergeColumnNames(
+                  customerOutputColumns, {"c_nationkey", "o_orderkey"}))
+          .hashJoin(
+              {"c_nationkey"},
+              {"n_nationkey"},
+              nation,
+              "",
+              mergeColumnNames(customerOutputColumns, {"n_name", "o_orderkey"}))
+          .planNode();
+
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(
+                      kLineitem,
+                      lineitemSelectedRowType,
+                      lineitemFileColumns,
+                      {lineitemReturnFlagFilter})
+                  .capturePlanNodeId(lineitemScanNodeId)
+                  .project(
+                      {"l_extendedprice * (1.0 - l_discount) AS part_revenue",
+                       "l_orderkey"})
+                  .hashJoin(
+                      {"l_orderkey"},
+                      {"o_orderkey"},
+                      partialPlan,
+                      "",
+                      mergeColumnNames(
+                          customerOutputColumns, {"part_revenue", "n_name"}))
+                  .partialAggregation(
+                      {"c_custkey",
+                       "c_name",
+                       "c_acctbal",
+                       "n_name",
+                       "c_address",
+                       "c_phone",
+                       "c_comment"},
+                      {"sum(part_revenue) as revenue"})
+                  .localPartition({})
+                  .finalAggregation()
+                  .orderBy({"revenue DESC"}, false)
+                  .project(
+                      {"c_custkey",
+                       "c_name",
+                       "revenue",
+                       "c_acctbal",
+                       "n_name",
+                       "c_address",
+                       "c_phone",
+                       "c_comment"})
+                  .limit(0, 20, false)
+                  .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[customerScanNodeId] = getTableFilePaths(kCustomer);
+  context.dataFiles[nationScanNodeId] = getTableFilePaths(kNation);
+  context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFiles[ordersScanNodeId] = getTableFilePaths(kOrders);
+  context.dataFileFormat = format_;
+  return context;
+}
+
 TpchPlan TpchQueryBuilder::getQ13Plan() const {
-  static const std::string kOrders = "orders";
-  static const std::string kCustomer = "customer";
   std::vector<std::string> ordersColumns = {
       "o_custkey", "o_comment", "o_orderkey"};
   std::vector<std::string> customerColumns = {"c_custkey"};
 
-  auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
   const auto& ordersFileColumns = getFileColumnNames(kOrders);
 
-  auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
+  const auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
   const auto& customerFileColumns = getFileColumnNames(kCustomer);
 
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
@@ -352,21 +480,18 @@ TpchPlan TpchQueryBuilder::getQ13Plan() const {
 }
 
 TpchPlan TpchQueryBuilder::getQ18Plan() const {
-  static const std::string kLineitem = "lineitem";
-  static const std::string kOrders = "orders";
-  static const std::string kCustomer = "customer";
   std::vector<std::string> lineitemColumns = {"l_orderkey", "l_quantity"};
   std::vector<std::string> ordersColumns = {
       "o_orderkey", "o_custkey", "o_orderdate", "o_totalprice"};
   std::vector<std::string> customerColumns = {"c_name", "c_custkey"};
 
-  auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
   const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
 
-  auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
   const auto& ordersFileColumns = getFileColumnNames(kOrders);
 
-  auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
+  const auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
   const auto& customerFileColumns = getFileColumnNames(kCustomer);
 
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
@@ -431,9 +556,10 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
 }
 
 const std::vector<std::string> TpchQueryBuilder::kTableNames_ = {
-    "lineitem",
-    "orders",
-    "customer"};
+    kLineitem,
+    kOrders,
+    kCustomer,
+    kNation};
 
 const std::unordered_map<std::string, std::vector<std::string>>
     TpchQueryBuilder::kTables_ = {
@@ -478,6 +604,13 @@ const std::unordered_map<std::string, std::vector<std::string>>
                 "c_phone",
                 "c_acctbal",
                 "c_mktsegment",
-                "c_comment"})};
+                "c_comment"}),
+        std::make_pair(
+            "nation",
+            std::vector<std::string>{
+                "n_nationkey",
+                "n_name",
+                "n_regionkey",
+                "n_comment"})};
 
 } // namespace facebook::velox::exec::test
