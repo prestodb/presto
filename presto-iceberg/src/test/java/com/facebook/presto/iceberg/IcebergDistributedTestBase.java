@@ -17,20 +17,18 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.util.Objects.requireNonNull;
 
-@Test
-public class TestAbstractIcebergDistributed
+public class IcebergDistributedTestBase
         extends AbstractTestDistributedQueries
 {
     private final CatalogType catalogType;
 
-    protected TestAbstractIcebergDistributed(CatalogType catalogType)
+    protected IcebergDistributedTestBase(CatalogType catalogType)
     {
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
