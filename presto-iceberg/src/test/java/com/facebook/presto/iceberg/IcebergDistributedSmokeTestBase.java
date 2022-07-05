@@ -38,14 +38,14 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestAbstractIcebergSmoke
+public class IcebergDistributedSmokeTestBase
         extends AbstractTestIntegrationSmokeTest
 {
     private final CatalogType catalogType;
 
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
-    protected TestAbstractIcebergSmoke(CatalogType catalogType)
+    protected IcebergDistributedSmokeTestBase(CatalogType catalogType)
     {
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
