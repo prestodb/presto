@@ -29,6 +29,7 @@ target_link_libraries(
   velox_functions_test_lib
   velox_exec_test_util
   velox_expression
+  velox_memory
   gtest
   gtest_main
   gmock

@@ -125,6 +125,7 @@ struct KllSketch {
 
  private:
   KllSketch(const Allocator&, uint32_t seed);
+  void doInsert(T);
   uint32_t insertPosition();
   int findLevelToCompact() const;
   void addEmptyTopLevelToCompletelyFullSketch();
@@ -174,10 +175,10 @@ struct KllSketch {
   uint32_t k_;
   Allocator allocator_;
 
-  // Cannot use sfmt19937 here because the object cannot be guaranteed
-  // to be placed on 16 bytes aligned memory (e.g. in
-  // HashStringAllocator).
-  std::independent_bits_engine<std::mt19937, 1, uint32_t> randomBit_;
+  // mt19937 uses too much memory (up to 5000 bytes), we choose to use
+  // default_random_engine here to sacrifice some randomness for memory.
+  std::independent_bits_engine<std::default_random_engine, 1, uint32_t>
+      randomBit_;
 
   size_t n_;
   T minValue_;

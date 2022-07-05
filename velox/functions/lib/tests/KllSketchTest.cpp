@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/functions/lib/KllSketch.h"
 #include <gtest/gtest.h>
+
+#include "velox/common/memory/HashStringAllocator.h"
+#include "velox/functions/lib/KllSketch.h"
 
 namespace facebook::velox::functions::kll::test {
 namespace {
@@ -268,6 +270,27 @@ TEST(KllSketchTest, mergeDeserialized) {
   for (int i = 0; i < M; ++i) {
     EXPECT_NEAR(q[i], v[i] / (2 * N), kEpsilon);
   }
+}
+
+// Suppose the number of elements inserted is N
+// 1. When N < K, the memory usage should be O(N).
+// 2. Otherwise it's \f$ K \sum_i \(\frac{2}{3}\)^i \f$ and it converges to
+//    about O(3K).
+TEST(KllSketchTest, memoryUsage) {
+  HashStringAllocator alloc(memory::MappedMemory::getInstance());
+  KllSketch<int64_t, StlAllocator<int64_t>> kll(
+      1024, StlAllocator<int64_t>(&alloc));
+  EXPECT_LE(alloc.retainedSize() - alloc.freeSpace(), 64);
+  kll.insert(0);
+  EXPECT_LE(alloc.retainedSize() - alloc.freeSpace(), 64);
+  for (int i = 1; i < 1024; ++i) {
+    kll.insert(i);
+  }
+  EXPECT_LE(alloc.retainedSize() - alloc.freeSpace(), 8500);
+  for (int i = 1024; i < 8192; ++i) {
+    kll.insert(i);
+  }
+  EXPECT_LE(alloc.retainedSize() - alloc.freeSpace(), 28000);
 }
 
 } // namespace

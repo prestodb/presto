@@ -255,8 +255,8 @@ KllSketch<T, A, C>::KllSketch(uint32_t k, const A& allocator, uint32_t seed)
       allocator_(allocator),
       randomBit_(seed),
       n_(0),
-      items_(k, allocator),
-      levels_(2, k, AllocU32(allocator)),
+      items_(allocator),
+      levels_(2, AllocU32(allocator)),
       isLevelZeroSorted_(false) {}
 
 template <typename T, typename A, typename C>
@@ -273,9 +273,7 @@ void KllSketch<T, A, C>::setK(uint32_t k) {
   }
   VELOX_CHECK_EQ(n_, 0);
   k_ = k;
-  items_.resize(k);
   levels_.resize(2);
-  levels_[0] = levels_[1] = k;
 }
 
 template <typename T, typename A, typename C>
@@ -286,7 +284,23 @@ void KllSketch<T, A, C>::insert(T value) {
     minValue_ = std::min(minValue_, value, C());
     maxValue_ = std::max(maxValue_, value, C());
   }
-  items_[insertPosition()] = value;
+  doInsert(value);
+}
+
+template <typename T, typename A, typename C>
+void KllSketch<T, A, C>::doInsert(T value) {
+  VELOX_DCHECK_GT(k_, 0);
+  VELOX_DCHECK_GE(levels_.size(), 2);
+  if (items_.size() < k_) {
+    // Do not allocate all k elements in the beginning because in some group-by
+    // aggregation most of the group size is small and won't use all k spaces.
+    items_.push_back(value);
+    ++levels_[1];
+  } else {
+    items_[insertPosition()] = value;
+  }
+  ++n_;
+  isLevelZeroSorted_ = false;
 }
 
 template <typename T, typename A, typename C>
@@ -358,8 +372,6 @@ uint32_t KllSketch<T, A, C>::insertPosition() {
       }
     }
   }
-  ++n_;
-  isLevelZeroSorted_ = false;
   return --levels_[0];
 }
 
@@ -505,7 +517,7 @@ void KllSketch<T, A, C>::mergeViews(const folly::Range<const View*>& others) {
       continue;
     }
     for (uint32_t j = other.levels[0]; j < other.levels[1]; ++j) {
-      items_[insertPosition()] = other.items[j];
+      doInsert(other.items[j]);
     }
   }
   // Merge higher levels.
