@@ -36,9 +36,9 @@ import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Properties;
 import java.util.function.Function;
@@ -65,7 +65,7 @@ class HudiRecordCursors
             Properties schema,
             HudiSplit split,
             List<HudiColumnHandle> dataColumns,
-            DateTimeZone hiveStorageTimeZone,
+            ZoneId hiveStorageTimeZone,
             TypeManager typeManager)
     {
         requireNonNull(session, "session is null");
