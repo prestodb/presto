@@ -93,7 +93,7 @@ RowVectorPtr genTpchOrders(
 //
 /// In order to make this function reproducible and deterministic, the
 /// parameters (maxRows and offset) refer to orders, not lineitems, and thus the
-/// number of linteitem returned rows will be on average 4 * maxOrderRows.
+/// number of lineitem returned rows will be on average 4 * maxOrderRows.
 ///
 /// Returns a row vector containing on average `maxOrderRows * 4` (from
 /// `maxOrderRows` to `maxOrderRows * 7`) rows of the "lineitem" table. The

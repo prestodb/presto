@@ -142,12 +142,9 @@ std::optional<RowVectorPtr> TpchDataSource::next(
   VELOX_CHECK_NOT_NULL(
       currentSplit_, "No split to process. Call addSplit() first.");
 
-  auto outputVector = getTpchData(
-      tpchTable_,
-      std::min(size, (splitEnd_ - splitOffset_)),
-      splitOffset_,
-      scaleFactor_,
-      pool_);
+  size_t maxRows = std::min(size, (splitEnd_ - splitOffset_));
+  auto outputVector =
+      getTpchData(tpchTable_, maxRows, splitOffset_, scaleFactor_, pool_);
 
   // If the split is exhausted.
   if (!outputVector || outputVector->size() == 0) {
@@ -155,7 +152,10 @@ std::optional<RowVectorPtr> TpchDataSource::next(
     return nullptr;
   }
 
-  splitOffset_ += outputVector->size();
+  // splitOffset needs to advance based on maxRows passed to getTpchData(), and
+  // not the actual number of returned rows in the output vector, as they are
+  // not the same for lineitem.
+  splitOffset_ += maxRows;
   completedRows_ += outputVector->size();
   completedBytes_ += outputVector->retainedSize();
 
