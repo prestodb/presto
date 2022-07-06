@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
+import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlanFragment;
 import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -256,7 +257,7 @@ public class TestCanonicalPlanGenerator
                 false);
         List<CanonicalPlanFragment> leafCanonicalPlans = getLeafSubPlans(subplan).stream()
                 .map(SubPlan::getFragment)
-                .map(fragment -> generateCanonicalPlan(fragment.getRoot(), fragment.getPartitioningScheme()))
+                .map(fragment -> generateCanonicalPlanFragment(fragment.getRoot(), fragment.getPartitioningScheme()))
                 .map(Optional::get)
                 .collect(Collectors.toList());
         assertEquals(leafCanonicalPlans.size(), 2);
@@ -271,8 +272,8 @@ public class TestCanonicalPlanGenerator
     {
         PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, OPTIMIZED_AND_VALIDATED, false))).getFragment();
         PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, OPTIMIZED_AND_VALIDATED, false))).getFragment();
-        Optional<CanonicalPlanFragment> canonicalPlan1 = generateCanonicalPlan(fragment1.getRoot(), fragment1.getPartitioningScheme());
-        Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), fragment2.getPartitioningScheme());
+        Optional<CanonicalPlanFragment> canonicalPlan1 = generateCanonicalPlanFragment(fragment1.getRoot(), fragment1.getPartitioningScheme());
+        Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlanFragment(fragment2.getRoot(), fragment2.getPartitioningScheme());
         assertTrue(canonicalPlan1.isPresent());
         assertTrue(canonicalPlan2.isPresent());
         assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
