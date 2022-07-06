@@ -17,9 +17,14 @@
 #include "velox/expression/ExprCompiler.h"
 #include "velox/expression/CastExpr.h"
 #include "velox/expression/CoalesceExpr.h"
-#include "velox/expression/ControlExpr.h"
+#include "velox/expression/ConjunctExpr.h"
+#include "velox/expression/ConstantExpr.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/FieldReference.h"
+#include "velox/expression/LambdaExpr.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
+#include "velox/expression/SwitchExpr.h"
+#include "velox/expression/TryExpr.h"
 #include "velox/expression/VectorFunction.h"
 
 namespace facebook::velox::exec {
@@ -28,6 +33,12 @@ namespace {
 
 using core::ITypedExpr;
 using core::TypedExprPtr;
+
+const char* const kAnd = "and";
+const char* const kOr = "or";
+const char* const kTry = "try";
+const char* const kSwitch = "switch";
+const char* const kIf = "if";
 
 struct ITypedExprHasher {
   size_t operator()(const ITypedExpr* expr) const {

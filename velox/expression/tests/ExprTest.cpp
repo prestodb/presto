@@ -20,7 +20,8 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/dwio/common/DataSink.h"
-#include "velox/expression/ControlExpr.h"
+#include "velox/expression/ConjunctExpr.h"
+#include "velox/expression/ConstantExpr.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"

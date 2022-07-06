@@ -19,9 +19,9 @@
 
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/core/Expressions.h"
-#include "velox/expression/ControlExpr.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprCompiler.h"
+#include "velox/expression/FieldReference.h"
 #include "velox/expression/VarSetter.h"
 #include "velox/expression/VectorFunction.h"
 

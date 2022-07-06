@@ -15,9 +15,7 @@
  */
 
 #include "velox/substrait/VeloxToSubstraitExpr.h"
-#include "velox/type/Type.h"
-
-#include "velox/expression/ControlExpr.h"
+#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::substrait {
 
@@ -138,7 +136,7 @@ const ::substrait::Expression& VeloxToSubstraitExprConvertor::toSubstraitExpr(
 
   // The processing is different for different function names.
   // TODO add support for if Expr and switch Expr
-  if (functionName != exec::kIf && functionName != exec::kSwitch) {
+  if (functionName != "if" && functionName != "switch") {
     ::substrait::Expression_ScalarFunction* scalarExpr =
         substraitExpr->mutable_scalar_function();
 

@@ -15,23 +15,22 @@
  */
 #pragma once
 
-#include "velox/expression/SpecialForm.h"
+#include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {
 
-const char* const kCoalesce = "coalesce";
-
-class CoalesceExpr : public SpecialForm {
+class SpecialForm : public Expr {
  public:
-  CoalesceExpr(TypePtr type, std::vector<ExprPtr>&& inputs);
-
-  void evalSpecialForm(
-      const SelectivityVector& rows,
-      EvalCtx& context,
-      VectorPtr& result) override;
-
-  bool propagatesNulls() const override {
-    return false;
-  }
+  SpecialForm(
+      TypePtr type,
+      std::vector<ExprPtr>&& inputs,
+      const std::string& name,
+      bool trackCpuUsage)
+      : Expr(
+            std::move(type),
+            std::move(inputs),
+            name,
+            true /* specialForm */,
+            trackCpuUsage) {}
 };
 } // namespace facebook::velox::exec

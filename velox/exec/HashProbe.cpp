@@ -17,7 +17,7 @@
 #include "velox/exec/HashProbe.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
-#include "velox/expression/ControlExpr.h"
+#include "velox/expression/FieldReference.h"
 
 namespace facebook::velox::exec {
 

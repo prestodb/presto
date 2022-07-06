@@ -16,7 +16,6 @@
 
 #include "velox/expression/EvalCtx.h"
 #include "velox/common/base/RawVector.h"
-#include "velox/expression/ControlExpr.h"
 #include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {

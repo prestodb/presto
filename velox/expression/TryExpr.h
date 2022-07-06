@@ -19,19 +19,33 @@
 
 namespace facebook::velox::exec {
 
-const char* const kCoalesce = "coalesce";
-
-class CoalesceExpr : public SpecialForm {
+class TryExpr : public SpecialForm {
  public:
-  CoalesceExpr(TypePtr type, std::vector<ExprPtr>&& inputs);
+  TryExpr(TypePtr type, ExprPtr&& input)
+      : SpecialForm(
+            std::move(type),
+            {std::move(input)},
+            "try",
+            false /* trackCpuUsage */) {}
 
   void evalSpecialForm(
       const SelectivityVector& rows,
       EvalCtx& context,
       VectorPtr& result) override;
 
+  void evalSpecialFormSimplified(
+      const SelectivityVector& rows,
+      EvalCtx& context,
+      VectorPtr& result) override;
+
   bool propagatesNulls() const override {
-    return false;
+    return inputs_[0]->propagatesNulls();
   }
+
+ private:
+  void nullOutErrors(
+      const SelectivityVector& rows,
+      EvalCtx& context,
+      VectorPtr& result);
 };
 } // namespace facebook::velox::exec

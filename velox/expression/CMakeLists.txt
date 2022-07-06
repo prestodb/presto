@@ -20,15 +20,21 @@ target_link_libraries(velox_expression_functions velox_common_base
 
 add_library(
   velox_expression
+  BooleanMix.cpp
   CastExpr.cpp
   CoalesceExpr.cpp
-  ControlExpr.cpp
+  ConjunctExpr.cpp
+  ConstantExpr.cpp
   EvalCtx.cpp
   Expr.cpp
   ExprCompiler.cpp
   ExprToSubfieldFilter.cpp
+  FieldReference.cpp
+  LambdaExpr.cpp
   VectorFunction.cpp
-  SimpleFunctionRegistry.cpp)
+  SimpleFunctionRegistry.cpp
+  SwitchExpr.cpp
+  TryExpr.cpp)
 
 target_link_libraries(velox_expression velox_core velox_vector
                       velox_common_base velox_expression_functions)

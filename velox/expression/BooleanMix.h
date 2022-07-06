@@ -15,23 +15,19 @@
  */
 #pragma once
 
-#include "velox/expression/SpecialForm.h"
+#include "velox/expression/EvalCtx.h"
 
 namespace facebook::velox::exec {
 
-const char* const kCoalesce = "coalesce";
+enum class BooleanMix { kAllTrue, kAllFalse, kAllNull, kMixNonNull, kMix };
 
-class CoalesceExpr : public SpecialForm {
- public:
-  CoalesceExpr(TypePtr type, std::vector<ExprPtr>&& inputs);
-
-  void evalSpecialForm(
-      const SelectivityVector& rows,
-      EvalCtx& context,
-      VectorPtr& result) override;
-
-  bool propagatesNulls() const override {
-    return false;
-  }
-};
+BooleanMix getFlatBool(
+    BaseVector* vector,
+    const SelectivityVector& activeRows,
+    EvalCtx& context,
+    BufferPtr* tempValues,
+    BufferPtr* tempNulls,
+    bool mergeNullsToValues,
+    const uint64_t** valuesOut,
+    const uint64_t** nullsOut);
 } // namespace facebook::velox::exec
