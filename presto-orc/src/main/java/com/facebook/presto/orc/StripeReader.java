@@ -98,6 +98,7 @@ public class StripeReader
     private final boolean cacheable;
     private final Multimap<Integer, Integer> dwrfEncryptionGroupColumns;
     private final RuntimeStats runtimeStats;
+    private final Optional<OrcFileIntrospector> fileIntrospector;
 
     public StripeReader(
             OrcDataSource orcDataSource,
@@ -112,7 +113,8 @@ public class StripeReader
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
             Map<Integer, Integer> dwrfEncryptionGroupMap,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            Optional<OrcFileIntrospector> fileIntrospector)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
@@ -127,6 +129,7 @@ public class StripeReader
         this.cacheable = cacheable;
         this.dwrfEncryptionGroupColumns = invertEncryptionGroupMap(requireNonNull(dwrfEncryptionGroupMap, "dwrfEncryptionGroupMap is null"));
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        this.fileIntrospector = requireNonNull(fileIntrospector, "fileIntrospector is null");
     }
 
     private Multimap<Integer, Integer> invertEncryptionGroupMap(Map<Integer, Integer> dwrfEncryptionGroupMap)
@@ -189,6 +192,7 @@ public class StripeReader
 
             // read the row index for each column
             Map<StreamId, List<RowGroupIndex>> columnIndexes = readColumnIndexes(includedStreams, streamsData, stripeId);
+            fileIntrospector.ifPresent(introspector -> introspector.onRowGroupIndexes(stripe, columnIndexes));
             if (writeValidation.isPresent()) {
                 writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), stripe.getOffset(), columnIndexes);
             }
@@ -246,6 +250,7 @@ public class StripeReader
         Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors, sharedDecompressionBuffer);
 
         long totalBytes = 0;
+        ImmutableMap.Builder<StreamId, List<RowGroupIndex>> columnIndexes = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : includedStreams.entrySet()) {
             if (entry.getKey().getStreamKind() == ROW_INDEX) {
                 List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(hiveWriterVersion, streamsData.get(entry.getKey()), null);
@@ -256,8 +261,14 @@ public class StripeReader
                         totalBytes += columnStatistics.getTotalValueSizeInBytes();
                     }
                 }
+
+                if (fileIntrospector.isPresent()) {
+                    columnIndexes.put(entry.getKey(), rowGroupIndexes);
+                }
             }
         }
+
+        fileIntrospector.ifPresent(introspector -> introspector.onRowGroupIndexes(stripe, columnIndexes.build()));
 
         // value streams
         Map<StreamId, ValueInputStream<?>> valueStreams = createValueStreams(includedStreams, streamsData, columnEncodings);
