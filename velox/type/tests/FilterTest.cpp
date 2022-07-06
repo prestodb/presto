@@ -18,6 +18,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <optional>
 
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/type/Filter.h"
@@ -803,6 +804,69 @@ TEST(FilterTest, bytesValues) {
   EXPECT_TRUE(filter->testBytesRange(std::nullopt, "Igne", false));
   EXPECT_TRUE(filter->testBytesRange(std::nullopt, "ocean", false));
   EXPECT_FALSE(filter->testBytesRange(std::nullopt, "Banana", false));
+}
+
+TEST(FilterTest, negatedBytesValues) {
+  // create a filter
+  std::vector<std::string> values(
+      {"fifteen", "two", "ten", "extended", "vocabulary"});
+  auto filter = notIn(values);
+
+  EXPECT_TRUE(filter->testBytes("hello", 5));
+  EXPECT_TRUE(filter->testBytes("tent", 4));
+  EXPECT_TRUE(filter->testBytes("", 0));
+  EXPECT_TRUE(filter->testBytes("ten", 1)); // short-circuit accept by length
+
+  EXPECT_FALSE(filter->testBytes("extended", 8));
+  EXPECT_FALSE(filter->testBytes("vocabulary", 10));
+  EXPECT_FALSE(filter->testBytes("two", 3));
+  EXPECT_FALSE(filter->testNull());
+
+  EXPECT_TRUE(filter->testLength(0));
+  EXPECT_TRUE(filter->testLength(1));
+  EXPECT_TRUE(filter->testLength(3));
+  EXPECT_TRUE(filter->testLength(99));
+  EXPECT_TRUE(filter->testLength(std::numeric_limits<int32_t>::max()));
+
+  EXPECT_TRUE(filter->testBytesRange("a", "b", false));
+  EXPECT_TRUE(filter->testBytesRange("hello", "helloa", false));
+  EXPECT_TRUE(filter->testBytesRange("hello", "hello", false));
+  EXPECT_TRUE(filter->testBytesRange("b", "a", false));
+  EXPECT_TRUE(filter->testBytesRange("zzz", std::nullopt, false));
+  EXPECT_TRUE(filter->testBytesRange("", std::nullopt, false));
+  EXPECT_TRUE(filter->testBytesRange(std::nullopt, "a", false));
+  EXPECT_TRUE(filter->testBytesRange(std::nullopt, "zzzzz", false));
+  EXPECT_TRUE(filter->testBytesRange("ten", "two", false));
+
+  EXPECT_FALSE(filter->testBytesRange("two", "two", false));
+  EXPECT_FALSE(filter->testBytesRange("two", "two", true));
+
+  auto filter_copy = std::make_unique<NegatedBytesValues>(*filter, true);
+  EXPECT_TRUE(filter_copy->testNull());
+  EXPECT_TRUE(filter_copy->testBytes("hello", 5));
+  EXPECT_TRUE(filter_copy->testBytes("tent", 4));
+  EXPECT_TRUE(filter_copy->testLength(2));
+  EXPECT_TRUE(filter_copy->testLength(6));
+  EXPECT_TRUE(filter_copy->testBytesRange("hello", "hello", false));
+  EXPECT_TRUE(filter_copy->testBytesRange("two", "two", true));
+
+  EXPECT_FALSE(filter_copy->testBytes("extended", 8));
+  EXPECT_FALSE(filter_copy->testBytesRange("ten", "ten", false));
+
+  auto filter_with_nulls = filter->clone(true);
+  EXPECT_TRUE(filter_with_nulls->testNull());
+  EXPECT_TRUE(filter_with_nulls->testBytesRange("fifteen", "fifteen", true));
+  EXPECT_FALSE(filter_with_nulls->testBytes("fifteen", 7));
+  EXPECT_FALSE(filter_with_nulls->testBytesRange("fifteen", "fifteen", false));
+
+  auto filter_nulls_copy = filter_with_nulls->clone();
+  EXPECT_TRUE(filter_nulls_copy->testNull());
+  EXPECT_TRUE(filter_nulls_copy->testBytesRange("fifteen", "fifteen", true));
+  EXPECT_FALSE(filter_nulls_copy->testBytes("fifteen", 7));
+  EXPECT_FALSE(filter_nulls_copy->testBytesRange("fifteen", "fifteen", false));
+
+  auto filter_no_nulls = filter_nulls_copy->clone(false);
+  EXPECT_FALSE(filter_no_nulls->testNull());
 }
 
 TEST(FilterTest, multiRange) {

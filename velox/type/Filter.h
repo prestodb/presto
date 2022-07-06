@@ -45,6 +45,7 @@ enum class FilterKind {
   kFloatRange,
   kBytesRange,
   kBytesValues,
+  kNegatedBytesValues,
   kBigintMultiRange,
   kMultiRange,
 };
@@ -1400,6 +1401,53 @@ class BigintMultiRange final : public Filter {
  private:
   const std::vector<std::unique_ptr<BigintRange>> ranges_;
   std::vector<int64_t> lowerBounds_;
+};
+
+/// NOT IN-list filter for string data type.
+class NegatedBytesValues final : public Filter {
+ public:
+  /// @param values List of values that fail the filter. Must contain at least
+  /// one entry.
+  /// @param nullAllowed Null values are passing the filter if true.
+  NegatedBytesValues(const std::vector<std::string>& values, bool nullAllowed)
+      : Filter(true, nullAllowed, FilterKind::kNegatedBytesValues) {
+    VELOX_CHECK(!values.empty(), "values must not be empty");
+    nonNegated_ = std::make_unique<BytesValues>(values, !nullAllowed);
+  }
+
+  NegatedBytesValues(const NegatedBytesValues& other, bool nullAllowed)
+      : Filter(true, nullAllowed, other.kind()),
+        nonNegated_(std::make_unique<BytesValues>(*other.nonNegated_)) {}
+
+  std::unique_ptr<Filter> clone(
+      std::optional<bool> nullAllowed = std::nullopt) const final {
+    return std::make_unique<NegatedBytesValues>(
+        *this, nullAllowed.value_or(nullAllowed_));
+  }
+
+  bool testLength(int32_t /* unused */) const final {
+    // it is very rare that we will reject all strings of a given length
+    // using a NegatedBytesValues filter.
+    return true;
+  }
+
+  bool testBytes(const char* value, int32_t length) const final {
+    return !nonNegated_->testBytes(value, length);
+  }
+
+  bool testBytesRange(
+      std::optional<std::string_view> min,
+      std::optional<std::string_view> max,
+      bool hasNull) const final;
+
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
+
+  const folly::F14FastSet<std::string>& values() const {
+    return nonNegated_->values();
+  }
+
+ private:
+  std::unique_ptr<BytesValues> nonNegated_;
 };
 
 /// Represents a combination of two of more filters with

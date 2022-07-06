@@ -270,6 +270,12 @@ inline std::unique_ptr<common::BytesValues> in(
   return std::make_unique<common::BytesValues>(values, nullAllowed);
 }
 
+inline std::unique_ptr<common::NegatedBytesValues> notIn(
+    const std::vector<std::string>& values,
+    bool nullAllowed = false) {
+  return std::make_unique<common::NegatedBytesValues>(values, nullAllowed);
+}
+
 inline std::unique_ptr<common::BoolValue> boolEqual(
     bool value,
     bool nullAllowed = false) {

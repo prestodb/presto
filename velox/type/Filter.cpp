@@ -69,6 +69,9 @@ std::string Filter::toString() const {
     case FilterKind::kBytesValues:
       strKind = "BytesValues";
       break;
+    case FilterKind::kNegatedBytesValues:
+      strKind = "NegatedBytesValues";
+      break;
     case FilterKind::kBigintMultiRange:
       strKind = "BigintMultiRange";
       break;
@@ -588,6 +591,20 @@ bool BytesValues::testBytesRange(
     return false;
   }
 
+  return true;
+}
+
+bool NegatedBytesValues::testBytesRange(
+    std::optional<std::string_view> min,
+    std::optional<std::string_view> max,
+    bool hasNull) const {
+  if (hasNull && nullAllowed_) {
+    return true;
+  }
+  if (min.has_value() && max.has_value() && min.value() == max.value()) {
+    return testBytes(min->data(), min->length());
+  }
+  // a range of strings will always contain at least one string not in a set
   return true;
 }
 
@@ -1213,7 +1230,9 @@ std::unique_ptr<Filter> NegatedBigintValuesUsingHashTable::mergeWith(
     case FilterKind::kNegatedBigintValuesUsingHashTable: {
       auto otherNegated =
           dynamic_cast<const NegatedBigintValuesUsingHashTable*>(other);
-      VELOX_CHECK_NOT_NULL(otherNegated);
+      VELOX_CHECK_NOT_NULL(
+          otherNegated,
+          "NegatedBigintValueUsingHashTable - Mismatching filter and filter kind");
       bool bothNullAllowed = nullAllowed_ && other->testNull();
       return combineNegatedBigintLists(
           values(), otherNegated->values(), bothNullAllowed);
@@ -1501,4 +1520,9 @@ std::unique_ptr<Filter> BytesValues::mergeWith(const Filter* other) const {
   }
 }
 
+std::unique_ptr<Filter> NegatedBytesValues::mergeWith(
+    const Filter* other) const {
+  (void)other; // silence linter
+  VELOX_NYI("mergeWith is not yet supported for NegatedBytesValues.")
+}
 } // namespace facebook::velox::common
