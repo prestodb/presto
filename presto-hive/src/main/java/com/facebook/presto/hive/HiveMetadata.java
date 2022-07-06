@@ -2443,13 +2443,13 @@ public class HiveMetadata
                         baseTable -> {
                             MaterializedDataPredicates baseTableMaterializedPredicates = getMaterializedDataPredicates(metastore, metastoreContext, typeManager, baseTable, timeZone);
                             SchemaTableName schemaTableName = new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName());
-                            Map<String, String> viewToBaseIndirectMappedColumns = viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(viewDefinition, baseTable).orElse(ImmutableMap.of());
+                            Map<String, String> steve = viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(viewDefinition, baseTable).orElse(ImmutableMap.of());
 
                             return differenceDataPredicates(
                                     baseTableMaterializedPredicates,
                                     materializedDataPredicates,
                                     viewToBasePartitionMap.getOrDefault(schemaTableName, ImmutableMap.of()),
-                                    viewToBaseIndirectMappedColumns);
+                                    steve);
                         }));
 
         for (MaterializedDataPredicates dataPredicates : partitionsFromBaseTables.values()) {
