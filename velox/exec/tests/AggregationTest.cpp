@@ -18,6 +18,7 @@
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/RowContainer.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -190,6 +191,69 @@ bool registerSumNonPODAggregate(const std::string& name) {
 
 static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
     registerSumNonPODAggregate("sumnonpod");
+
+/// No-op implementation of Aggregate. Provides public access to following
+/// base class methods: setNull, clearNull and isNull.
+class AggregateFunc : public Aggregate {
+ public:
+  explicit AggregateFunc(TypePtr resultType) : Aggregate(resultType) {}
+
+  int32_t accumulatorFixedWidthSize() const override {
+    return 0;
+  }
+
+  bool setNullTest(char* group) {
+    return Aggregate::setNull(group);
+  }
+
+  bool clearNullTest(char* group) {
+    return Aggregate::clearNull(group);
+  }
+
+  bool isNullTest(char* group) const {
+    return Aggregate::isNull(group);
+  }
+
+  void initializeNewGroups(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/) override {}
+
+  void addRawInput(
+      char** /*groups*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {}
+
+  void extractValues(
+      char** /*groups*/,
+      int32_t /*numGroups*/,
+      VectorPtr* /*result*/) override {}
+
+  void addIntermediateResults(
+      char** /*groups*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {}
+
+  void addSingleGroupRawInput(
+      char* /*group*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {}
+
+  void addSingleGroupIntermediateResults(
+      char* /*group*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {}
+
+  void extractAccumulators(
+      char** /*groups*/,
+      int32_t /*numGroups*/,
+      VectorPtr* /*result*/) override {}
+
+  void finalize(char** /*groups*/, int32_t /*numGroups*/) override {}
+};
 
 class AggregationTest : public OperatorTestBase {
  protected:
@@ -560,6 +624,28 @@ TEST_F(AggregationTest, aggregateOfNulls) {
            .planNode();
 
   assertQuery(op, "SELECT sum(c1), min(c1), max(c1) FROM tmp");
+}
+
+// Verify behavior of setNull method.
+TEST_F(AggregationTest, setNull) {
+  AggregateFunc aggregate(BIGINT());
+  int32_t nullOffset = 0;
+  aggregate.setOffsets(
+      0,
+      RowContainer::nullByte(nullOffset),
+      RowContainer::nullMask(nullOffset),
+      0);
+  char group;
+  aggregate.clearNullTest(&group);
+  EXPECT_FALSE(aggregate.isNullTest(&group));
+
+  // Verify setNull returns true if value is non null.
+  EXPECT_TRUE(aggregate.setNullTest(&group));
+  EXPECT_TRUE(aggregate.isNullTest(&group));
+
+  // Verify setNull returns false if value is already null.
+  EXPECT_FALSE(aggregate.setNullTest(&group));
+  EXPECT_TRUE(aggregate.isNullTest(&group));
 }
 
 TEST_F(AggregationTest, hashmodes) {

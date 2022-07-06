@@ -244,6 +244,15 @@ class Aggregate {
     numNulls_ += indices.size();
   }
 
+  inline bool setNull(char* group) {
+    if (group[nullByte_] & nullMask_) {
+      return false;
+    }
+    group[nullByte_] |= nullMask_;
+    ++numNulls_;
+    return true;
+  }
+
   inline bool clearNull(char* group) {
     if (numNulls_) {
       uint8_t mask = group[nullByte_];
