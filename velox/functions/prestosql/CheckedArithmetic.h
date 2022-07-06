@@ -26,59 +26,53 @@ namespace facebook::velox::functions {
 template <typename T>
 struct CheckedPlusFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = checkedPlus(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct CheckedMinusFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = checkedMinus(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct CheckedMultiplyFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = checkedMultiply(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct CheckedDivideFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = checkedDivide(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct CheckedModulusFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
+  FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = checkedModulus(a, b);
-    return true;
   }
 };
 
 template <typename T>
 struct CheckedNegateFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput& a) {
+  FOLLY_ALWAYS_INLINE void call(TInput& result, const TInput& a) {
     result = checkedNegate(a);
-    return true;
   }
 };
 
