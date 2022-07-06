@@ -31,13 +31,16 @@ import java.util.Optional;
 public class CanonicalRowExpressionRewriter
         extends RowExpressionRewriter<Void>
 {
-    private static final CanonicalRowExpressionRewriter SINGLETON = new CanonicalRowExpressionRewriter();
+    private final boolean removeConstants;
 
-    private CanonicalRowExpressionRewriter() {}
-
-    public static RowExpression canonicalizeRowExpression(RowExpression expression)
+    private CanonicalRowExpressionRewriter(boolean removeConstants)
     {
-        return RowExpressionTreeRewriter.rewriteWith(SINGLETON, expression, null);
+        this.removeConstants = removeConstants;
+    }
+
+    public static RowExpression canonicalizeRowExpression(RowExpression expression, boolean removeConstants)
+    {
+        return RowExpressionTreeRewriter.rewriteWith(new CanonicalRowExpressionRewriter(removeConstants), expression, null);
     }
 
     @Override
@@ -60,7 +63,11 @@ public class CanonicalRowExpressionRewriter
     @Override
     public RowExpression rewriteConstant(ConstantExpression literal, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
     {
-        return literal.canonicalize();
+        if (!removeConstants) {
+            return literal.canonicalize();
+        }
+        // We replace the constant value with null.
+        return new ConstantExpression(null, literal.getType());
     }
 
     @Override

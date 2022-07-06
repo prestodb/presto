@@ -396,6 +396,21 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
+    protected Plan plan(@Language("SQL") String sql, Session session)
+    {
+        QueryExplainer explainer = getQueryExplainer();
+        try {
+            return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                    .singleStatement()
+                    .execute(session, transactionSession -> {
+                        return explainer.getLogicalPlan(transactionSession, sqlParser.createStatement(sql, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP);
+                    });
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Planning failed for SQL: " + sql, e);
+        }
+    }
+
     protected SubPlan subplan(String sql)
     {
         return subplan(sql, queryRunner.getDefaultSession());
