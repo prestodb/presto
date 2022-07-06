@@ -18,7 +18,12 @@
 
 #include "velox/common/memory/Memory.h"
 #include "velox/vector/BaseVector.h"
-#include "velox/vector/arrow/Abi.h"
+
+/// These 2 definitions should be included by user from either
+///   1. <arrow/c/abi.h> or
+///   2. "velox/vector/arrow/Abi.h"
+struct ArrowArray;
+struct ArrowSchema;
 
 namespace facebook::velox {
 

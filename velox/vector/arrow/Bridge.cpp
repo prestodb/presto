@@ -15,11 +15,13 @@
  */
 
 #include "velox/vector/arrow/Bridge.h"
+
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/arrow/Abi.h"
 
 namespace facebook::velox {
 
@@ -302,7 +304,7 @@ const char* exportArrowFormatStr(const TypePtr& type) {
       return "tdD"; // date32[days]
     // Complex/nested types.
     case TypeKind::ARRAY:
-      return "+L"; // large list
+      return "+l"; // list
     case TypeKind::MAP:
       return "+m"; // map
     case TypeKind::ROW:
@@ -390,9 +392,22 @@ void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema) {
 
   // Allocate private data buffer holder and recurse down to children types.
   auto bridgeHolder = std::make_unique<VeloxToArrowSchemaBridgeHolder>();
-  const size_t numChildren = type->size();
 
-  if (numChildren > 0) {
+  if (type->kind() == TypeKind::MAP) {
+    // Need to wrap the key and value types in a struct type.
+    VELOX_DCHECK_EQ(type->size(), 2);
+    auto child = std::make_unique<ArrowSchema>();
+    exportToArrow(
+        ROW({"key", "value"}, {type->childAt(0), type->childAt(1)}), *child);
+    child->name = "entries";
+    bridgeHolder->childrenOwned.resize(1);
+    bridgeHolder->childrenRaw.resize(1);
+    bridgeHolder->childrenOwned[0] = std::move(child);
+    arrowSchema.children = bridgeHolder->childrenRaw.data();
+    arrowSchema.n_children = 1;
+    arrowSchema.children[0] = bridgeHolder->childrenOwned[0].get();
+
+  } else if (const size_t numChildren = type->size(); numChildren > 0) {
     bridgeHolder->childrenRaw.resize(numChildren);
     bridgeHolder->childrenOwned.resize(numChildren);
 
@@ -423,6 +438,10 @@ void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema) {
 
         if (bridgeHolder->rowType) {
           currentSchema->name = bridgeHolder->rowType->nameOf(i).data();
+        } else if (type->kind() == TypeKind::ARRAY) {
+          // Name is required, and "item" is the default name used in arrow
+          // itself.
+          currentSchema->name = "item";
         }
         arrowSchema.children[i] = currentSchema.get();
       } catch (const VeloxException& e) {
@@ -488,19 +507,24 @@ TypePtr importFromArrow(const ArrowSchema& arrowSchema) {
     case '+': {
       switch (format[1]) {
         // Array/list.
-        case 'L':
+        case 'l':
           VELOX_CHECK_EQ(arrowSchema.n_children, 1);
           VELOX_CHECK_NOT_NULL(arrowSchema.children[0]);
           return ARRAY(importFromArrow(*arrowSchema.children[0]));
 
         // Map.
-        case 'm':
-          VELOX_CHECK_EQ(arrowSchema.n_children, 2);
+        case 'm': {
+          VELOX_CHECK_EQ(arrowSchema.n_children, 1);
           VELOX_CHECK_NOT_NULL(arrowSchema.children[0]);
-          VELOX_CHECK_NOT_NULL(arrowSchema.children[1]);
+          auto& child = *arrowSchema.children[0];
+          VELOX_CHECK_EQ(strcmp(child.format, "+s"), 0);
+          VELOX_CHECK_EQ(child.n_children, 2);
+          VELOX_CHECK_NOT_NULL(child.children[0]);
+          VELOX_CHECK_NOT_NULL(child.children[1]);
           return MAP(
-              importFromArrow(*arrowSchema.children[0]),
-              importFromArrow(*arrowSchema.children[1]));
+              importFromArrow(*child.children[0]),
+              importFromArrow(*child.children[1]));
+        }
 
         // Struct/rows.
         case 's': {

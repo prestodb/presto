@@ -21,6 +21,7 @@ target_link_libraries(
   velox_core
   velox_arrow_bridge
   velox_vector_test_lib
+  arrow
   gtest
   gtest_main
   glog::glog
