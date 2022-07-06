@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -55,11 +56,11 @@ public class TpchTableLayoutHandle
     }
 
     @Override
-    public Object getIdentifier(Optional<ConnectorSplit> split)
+    public Object getIdentifier(Optional<ConnectorSplit> split, PlanCanonicalizationStrategy strategy)
     {
         return ImmutableMap.builder()
                 .put("table", table)
-                .put("predicate", predicate)
+                .put("predicate", predicate.canonicalize(false))
                 .build();
     }
 }

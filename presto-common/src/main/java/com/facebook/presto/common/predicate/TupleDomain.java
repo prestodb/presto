@@ -36,6 +36,8 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Comparator.comparing;
+import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -481,6 +483,13 @@ public final class TupleDomain<T>
             }
         });
         return TupleDomain.withColumnDomains(unmodifiableMap(compactedDomains));
+    }
+
+    public TupleDomain<T> canonicalize(boolean removeConstants)
+    {
+        return new TupleDomain<>(domains.map(d -> unmodifiableMap(d.entrySet().stream()
+                .sorted(comparing(domain -> domain.getKey().toString()))
+                .collect(toLinkedMap(Entry::getKey, entry -> entry.getValue().canonicalize(removeConstants))))));
     }
 
     public static <T, K, U> Collector<T, ?, Map<K, U>> toLinkedMap(Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper)
