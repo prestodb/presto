@@ -262,7 +262,7 @@ class FlatVector final : public SimpleVector<T> {
       vector_size_t index,
       vector_size_t otherIndex,
       CompareFlags flags) const override {
-    if (other->encoding() == VectorEncoding::Simple::FLAT) {
+    if (other->isFlatEncoding()) {
       auto otherFlat = other->asUnchecked<FlatVector<T>>();
       bool otherNull = otherFlat->isNullAt(otherIndex);
       bool isNull = BaseVector::isNullAt(index);

@@ -159,8 +159,8 @@ class SimpleFunctionAdapter : public VectorFunction {
     if constexpr (isVariadicType<arg_at<POSITION>>::value) {
       return true;
     } else if constexpr (isArgFlatConstantFastPathEligible<POSITION>) {
-      if (args[POSITION]->encoding() != VectorEncoding::Simple::FLAT &&
-          args[POSITION]->encoding() != VectorEncoding::Simple::CONSTANT) {
+      if (!args[POSITION]->isFlatEncoding() &&
+          !args[POSITION]->isConstantEncoding()) {
         return false;
       }
     }

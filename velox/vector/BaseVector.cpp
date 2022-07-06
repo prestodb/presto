@@ -715,7 +715,7 @@ uint64_t BaseVector::estimateFlatSize() const {
 }
 
 namespace {
-bool isFlatEncoding(VectorEncoding::Simple encoding) {
+bool isReusableEncoding(VectorEncoding::Simple encoding) {
   return encoding == VectorEncoding::Simple::FLAT ||
       encoding == VectorEncoding::Simple::ARRAY ||
       encoding == VectorEncoding::Simple::MAP ||
@@ -727,7 +727,7 @@ bool isFlatEncoding(VectorEncoding::Simple encoding) {
 void BaseVector::prepareForReuse(
     std::shared_ptr<BaseVector>& vector,
     vector_size_t size) {
-  if (!vector.unique() || !isFlatEncoding(vector->encoding())) {
+  if (!vector.unique() || !isReusableEncoding(vector->encoding())) {
     vector = BaseVector::create(vector->type(), size, vector->pool());
     return;
   }

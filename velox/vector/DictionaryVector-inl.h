@@ -59,7 +59,7 @@ void DictionaryVector<T>::setInternalState() {
   if (dictionaryValues_->isScalar()) {
     scalarDictionaryValues_ =
         reinterpret_cast<SimpleVector<T>*>(dictionaryValues_->loadedVector());
-    if (scalarDictionaryValues_->encoding() == VectorEncoding::Simple::FLAT &&
+    if (scalarDictionaryValues_->isFlatEncoding() &&
         !std::is_same<T, bool>::value) {
       rawDictionaryValues_ =
           reinterpret_cast<FlatVector<T>*>(scalarDictionaryValues_)

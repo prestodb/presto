@@ -60,7 +60,7 @@ void FlatVector<bool>::copyValuesAndNulls(
     rawNulls = BaseVector::mutableRawNulls();
   }
   uint64_t* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
-  if (source->encoding() == VectorEncoding::Simple::FLAT) {
+  if (source->isFlatEncoding()) {
     auto flat = source->asUnchecked<FlatVector<bool>>();
     auto* sourceValues = source->typeKind() != TypeKind::UNKNOWN
         ? flat->rawValues<uint64_t>()
@@ -147,7 +147,7 @@ void FlatVector<bool>::copyValuesAndNulls(
   if (source->mayHaveNulls()) {
     rawNulls = BaseVector::mutableRawNulls();
   }
-  if (source->encoding() == VectorEncoding::Simple::FLAT) {
+  if (source->isFlatEncoding()) {
     if (source->typeKind() != TypeKind::UNKNOWN) {
       auto* sourceValues =
           source->asUnchecked<FlatVector<bool>>()->rawValues<uint64_t>();

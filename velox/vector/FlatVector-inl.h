@@ -158,7 +158,7 @@ void FlatVector<T>::copyValuesAndNulls(
     mutableRawValues();
   }
 
-  if (source->encoding() == VectorEncoding::Simple::FLAT) {
+  if (source->isFlatEncoding()) {
     auto flat = source->asUnchecked<FlatVector<T>>();
     auto* sourceValues =
         source->typeKind() != TypeKind::UNKNOWN ? flat->rawValues() : nullptr;
@@ -239,7 +239,7 @@ void FlatVector<T>::copyValuesAndNulls(
     mutableRawValues();
   }
 
-  if (source->encoding() == VectorEncoding::Simple::FLAT) {
+  if (source->isFlatEncoding()) {
     auto flat = source->asUnchecked<FlatVector<T>>();
     if (!flat->values() || flat->values()->size() == 0) {
       // The vector must have all-null values.

@@ -303,7 +303,12 @@ class BaseVector {
     return false;
   }
 
-  // Returns true if this vector is encoded as constant (ConstantVector).
+  /// Returns true if this vector is encoded as flat (FlatVector).
+  bool isFlatEncoding() const {
+    return encoding_ == VectorEncoding::Simple::FLAT;
+  }
+
+  /// Returns true if this vector is encoded as constant (ConstantVector).
   bool isConstantEncoding() const {
     return encoding_ == VectorEncoding::Simple::CONSTANT;
   }
