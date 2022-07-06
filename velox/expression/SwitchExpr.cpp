@@ -23,9 +23,6 @@ void SwitchExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
-
   LocalSelectivityVector remainingRows(context, rows);
 
   LocalSelectivityVector thenRows(context);

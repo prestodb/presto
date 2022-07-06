@@ -36,11 +36,6 @@ void CoalesceExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  // Make sure to include current expression in the error message in case of an
-  // exception.
-  ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
-
   // Null positions to populate.
   exec::LocalSelectivityVector activeRowsHolder(context, rows.end());
   auto activeRows = activeRowsHolder.get();

@@ -22,9 +22,6 @@ void TryExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
-
   VarSetter throwOnError(context.mutableThrowOnError(), false);
   // It's possible with nested TRY expressions that some rows already threw
   // exceptions in earlier expressions that haven't been handled yet. To avoid

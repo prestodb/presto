@@ -105,9 +105,6 @@ void LambdaExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
-
   if (!typeWithCapture_) {
     makeTypeWithCapture(context);
   }

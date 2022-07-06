@@ -21,9 +21,6 @@ void ConstantExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
-
   if (!sharedSubexprValues_) {
     sharedSubexprValues_ =
         BaseVector::createConstant(value_, 1, context.execCtx()->pool());

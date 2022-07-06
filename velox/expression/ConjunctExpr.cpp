@@ -94,9 +94,6 @@ void ConjunctExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
-
   // TODO Revisit error handling
   bool throwOnError = *context.mutableThrowOnError();
   VarSetter saveError(context.mutableThrowOnError(), false);

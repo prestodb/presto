@@ -636,9 +636,6 @@ void CastExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
-
   VectorPtr input;
   inputs_[0]->eval(rows, context, input);
   auto fromType = inputs_[0]->type();

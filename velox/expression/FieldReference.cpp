@@ -22,9 +22,6 @@ void FieldReference::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
-
   if (result) {
     BaseVector::ensureWritable(rows, type_, context.pool(), &result);
   }
