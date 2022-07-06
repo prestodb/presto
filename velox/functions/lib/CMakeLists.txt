@@ -15,6 +15,7 @@ find_library(RE2 re2 REQUIRED)
 
 add_library(
   velox_functions_lib
+  ApproxMostFrequentStreamSummary.h
   DateTimeFormatter.cpp
   DateTimeFormatterBuilder.cpp
   IsNull.cpp
@@ -24,7 +25,8 @@ add_library(
   KllSketch-inl.h
   LambdaFunctionUtil.cpp
   Re2Functions.cpp
-  StringEncodingUtils.cpp)
+  StringEncodingUtils.cpp
+  ZetaDistribution.h)
 
 target_link_libraries(velox_functions_lib velox_vector ${RE2}
                       ${FOLLY_WITH_DEPENDENCIES})
