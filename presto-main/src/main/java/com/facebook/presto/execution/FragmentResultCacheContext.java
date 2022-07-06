@@ -35,7 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
+import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlanFragment;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -66,7 +66,7 @@ public class FragmentResultCacheContext
             return Optional.empty();
         }
 
-        Optional<CanonicalPlanFragment> canonicalPlanFragment = generateCanonicalPlan(root, partitioningScheme);
+        Optional<CanonicalPlanFragment> canonicalPlanFragment = generateCanonicalPlanFragment(root, partitioningScheme);
         if (!canonicalPlanFragment.isPresent()) {
             return Optional.empty();
         }

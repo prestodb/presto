@@ -65,7 +65,7 @@ public class CanonicalPlanGenerator
         this.strategy = strategy;
     }
 
-    public static Optional<CanonicalPlanFragment> generateCanonicalPlan(PlanNode root, PartitioningScheme partitioningScheme)
+    public static Optional<CanonicalPlanFragment> generateCanonicalPlanFragment(PlanNode root, PartitioningScheme partitioningScheme)
     {
         Map<VariableReferenceExpression, VariableReferenceExpression> originalToNewVariableNames = new HashMap<>();
         Optional<PlanNode> canonicalPlan = root.accept(new CanonicalPlanGenerator(DEFAULT), originalToNewVariableNames);
