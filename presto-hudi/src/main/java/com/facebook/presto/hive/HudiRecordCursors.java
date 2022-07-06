@@ -21,8 +21,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -40,7 +40,7 @@ public final class HudiRecordCursors
             long totalBytes,
             Properties hiveSchema,
             List<HudiColumnHandle> hiveColumnHandles,
-            DateTimeZone hiveStorageTimeZone,
+            ZoneId hiveStorageTimeZone,
             TypeManager typeManager)
     {
         return new GenericHiveRecordCursor<>(
