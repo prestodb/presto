@@ -16,6 +16,7 @@
 #include "velox/exec/tests/utils/TpchQueryBuilder.h"
 #include "velox/common/base/tests/Fs.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/tpch/gen/TpchGen.h"
 
 namespace facebook::velox::exec::test {
 
@@ -565,52 +566,15 @@ const std::unordered_map<std::string, std::vector<std::string>>
     TpchQueryBuilder::kTables_ = {
         std::make_pair(
             "lineitem",
-            std::vector<std::string>{
-                "l_orderkey",
-                "l_partkey",
-                "l_suppkey",
-                "l_linenumber",
-                "l_quantity",
-                "l_extendedprice",
-                "l_discount",
-                "l_tax",
-                "l_returnflag",
-                "l_linestatus",
-                "l_shipdate",
-                "l_commitdate",
-                "l_receiptdate",
-                "l_shipinstruct",
-                "l_shipmode",
-                "l_comment"}),
+            tpch::getTableSchema(tpch::Table::TBL_LINEITEM)->names()),
         std::make_pair(
             "orders",
-            std::vector<std::string>{
-                "o_orderkey",
-                "o_custkey",
-                "o_orderstatus",
-                "o_totalprice",
-                "o_orderdate",
-                "o_orderpriority",
-                "o_clerk",
-                "o_shippriority",
-                "o_comment"}),
+            tpch::getTableSchema(tpch::Table::TBL_ORDERS)->names()),
         std::make_pair(
             "customer",
-            std::vector<std::string>{
-                "c_custkey",
-                "c_name",
-                "c_address",
-                "c_nationkey",
-                "c_phone",
-                "c_acctbal",
-                "c_mktsegment",
-                "c_comment"}),
+            tpch::getTableSchema(tpch::Table::TBL_CUSTOMER)->names()),
         std::make_pair(
             "nation",
-            std::vector<std::string>{
-                "n_nationkey",
-                "n_name",
-                "n_regionkey",
-                "n_comment"})};
+            tpch::getTableSchema(tpch::Table::TBL_NATION)->names())};
 
 } // namespace facebook::velox::exec::test
