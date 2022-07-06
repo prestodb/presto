@@ -120,6 +120,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private final Optional<OrcWriteValidation.StatisticsValidation> rowGroupStatisticsValidation;
     private final Optional<OrcWriteValidation.StatisticsValidation> stripeStatisticsValidation;
     private final Optional<OrcWriteValidation.StatisticsValidation> fileStatisticsValidation;
+    private final Optional<OrcFileIntrospector> fileIntrospector;
 
     private final RuntimeStats runtimeStats;
 
@@ -153,7 +154,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            Optional<OrcFileIntrospector> fileIntrospector)
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -176,6 +178,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.systemMemoryUsage = systemMemoryUsage;
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        this.fileIntrospector = requireNonNull(fileIntrospector, "fileIntrospector is null");
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -258,7 +261,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 stripeMetadataSource,
                 cacheable,
                 this.dwrfEncryptionGroupMap,
-                runtimeStats);
+                runtimeStats,
+                fileIntrospector);
 
         this.streamReaders = requireNonNull(streamReaders, "streamReaders is null");
         for (int columnId = 0; columnId < root.getFieldCount(); columnId++) {
@@ -670,6 +674,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
             rowGroups = stripe.getRowGroups().iterator();
         }
+        fileIntrospector.ifPresent(introspector -> introspector.onStripe(stripeInformation, stripe));
     }
 
     @VisibleForTesting
