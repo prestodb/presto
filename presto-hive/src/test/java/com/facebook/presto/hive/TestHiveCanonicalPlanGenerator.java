@@ -18,9 +18,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockJsonSerde;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.sql.planner.CanonicalPlan;
 import com.facebook.presto.sql.planner.CanonicalPlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -35,6 +37,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
@@ -70,6 +74,53 @@ public class TestHiveCanonicalPlanGenerator
             throws Exception
     {
         return HiveQueryRunner.createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM));
+    }
+
+    @Test
+    public void testCanonicalizationStrategies()
+            throws Exception
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        try {
+            queryRunner.execute("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['ds', 'ts']) AS " +
+                    "SELECT orderkey, orderpriority, comment, custkey, '2020-09-01' as ds, '00:01' as ts FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, comment, custkey, '2020-09-02' as ds, '00:02' as ts FROM orders WHERE orderkey < 1000");
+
+            assertSameCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey from test_orders",
+                    "SELECT orderkey from test_orders",
+                    CONNECTOR);
+
+            assertSameCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey from test_orders where ds > '2020-09-01'",
+                    "SELECT orderkey from test_orders where ds = '2020-09-02'",
+                    CONNECTOR);
+
+            assertDifferentCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
+                    "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
+                    CONNECTOR);
+
+            assertDifferentCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
+                    "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
+                    REMOVE_SAFE_CONSTANTS);
+
+            assertSameCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey, CAST('1' AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10 AND ts >= '00:01'",
+                    "SELECT orderkey, CAST('11' AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 10 AND ts >= '00:02'",
+                    REMOVE_SAFE_CONSTANTS);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_orders");
+        }
     }
 
     @Test
@@ -183,7 +234,9 @@ public class TestHiveCanonicalPlanGenerator
                 .map(Optional::get)
                 .collect(Collectors.toList());
         assertEquals(leafCanonicalPlans.size(), 2);
-        assertEquals(objectMapper.writeValueAsString(leafCanonicalPlans.get(0)), objectMapper.writeValueAsString(leafCanonicalPlans.get(1)));
+        String s1 = objectMapper.writeValueAsString(leafCanonicalPlans.get(0));
+        String s2 = objectMapper.writeValueAsString(leafCanonicalPlans.get(1));
+        assertEquals(s1, s2);
     }
 
     private void assertDifferentCanonicalLeafSubPlan(Session session, String sql1, String sql2)
@@ -196,5 +249,29 @@ public class TestHiveCanonicalPlanGenerator
         assertTrue(canonicalPlan1.isPresent());
         assertTrue(canonicalPlan2.isPresent());
         assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
+    }
+
+    private void assertDifferentCanonicalLeafPlan(Session session, String sql1, String sql2, PlanCanonicalizationStrategy strategy)
+            throws Exception
+    {
+        PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, session))).getFragment();
+        PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, session))).getFragment();
+        Optional<CanonicalPlan> canonicalPlan1 = generateCanonicalPlan(fragment1.getRoot(), strategy);
+        Optional<CanonicalPlan> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), strategy);
+        assertTrue(canonicalPlan1.isPresent());
+        assertTrue(canonicalPlan2.isPresent());
+        assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
+    }
+
+    private void assertSameCanonicalLeafPlan(Session session, String sql1, String sql2, PlanCanonicalizationStrategy strategy)
+            throws Exception
+    {
+        PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, session))).getFragment();
+        PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, session))).getFragment();
+        Optional<CanonicalPlan> canonicalPlan1 = generateCanonicalPlan(fragment1.getRoot(), strategy);
+        Optional<CanonicalPlan> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), strategy);
+        assertTrue(canonicalPlan1.isPresent());
+        assertTrue(canonicalPlan2.isPresent());
+        assertEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
     }
 }
