@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <velox/buffer/Buffer.h>
 #include "folly/Random.h"
 #include "folly/lang/Assume.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -1205,6 +1206,92 @@ void testBufferLifeCycle(
       });
 }
 
+void testFlatmapAsMapFieldLifeCycle(
+    const std::shared_ptr<const RowType>& schema,
+    const std::shared_ptr<Config>& config,
+    std::mt19937& rng,
+    size_t batchSize,
+    bool hasNull) {
+  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto& pool = *scopedPool;
+  std::vector<VectorPtr> batches;
+  std::function<bool(vector_size_t)> isNullAt = nullptr;
+  if (hasNull) {
+    isNullAt = [](vector_size_t i) { return i % 2 == 0; };
+  }
+  auto vector =
+      BatchMaker::createBatch(schema, batchSize * 5, pool, rng, isNullAt);
+  batches.push_back(vector);
+
+  auto sink = std::make_unique<MemorySink>(pool, 1024 * 1024);
+  auto sinkPtr = sink.get();
+  auto writer =
+      E2EWriterTestUtil::writeData(std::move(sink), schema, batches, config);
+
+  auto input =
+      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
+
+  ReaderOptions readerOpts;
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setReturnFlatVector(true);
+  auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  std::vector<BufferPtr> buffers;
+  std::vector<size_t> bufferIndices;
+  VectorPtr result;
+
+  EXPECT_TRUE(rowReader->next(batchSize, result));
+  auto child =
+      std::dynamic_pointer_cast<MapVector>(result->as<RowVector>()->childAt(0));
+  BaseVector* rowPtr = result.get();
+  MapVector* childPtr = child.get();
+  Buffer* rawNulls = child->nulls().get();
+  BufferPtr sizes = child->sizes();
+  Buffer* rawOffsets = child->offsets().get();
+  BaseVector* keysPtr = child->mapKeys().get();
+  child.reset();
+
+  EXPECT_TRUE(rowReader->next(batchSize, result));
+  child =
+      std::dynamic_pointer_cast<MapVector>(result->as<RowVector>()->childAt(0));
+  EXPECT_EQ(rawNulls, child->nulls().get());
+  EXPECT_NE(sizes, child->sizes());
+  EXPECT_EQ(rawOffsets, child->offsets().get());
+  EXPECT_EQ(keysPtr, child->mapKeys().get());
+  // there is a TODO in FlatMapColumnReader next() (result is not reused)
+  // should be EQ; fix: https://fburl.com/code/wtrq8r5q
+  EXPECT_NE(childPtr, child.get());
+  EXPECT_EQ(rowPtr, result.get());
+
+  auto mapKeys = child->mapKeys();
+  auto rawSizes = child->sizes().get();
+  childPtr = child.get();
+  child.reset();
+
+  EXPECT_TRUE(rowReader->next(batchSize, result));
+  child =
+      std::dynamic_pointer_cast<MapVector>(result->as<RowVector>()->childAt(0));
+  EXPECT_EQ(rawNulls, child->nulls().get());
+  EXPECT_EQ(rawSizes, child->sizes().get());
+  EXPECT_EQ(rawOffsets, child->offsets().get());
+  EXPECT_NE(mapKeys, child->mapKeys());
+  // there is a TODO in FlatMapColumnReader next() (result is not reused)
+  // should be EQ; fix: https://fburl.com/code/wtrq8r5q
+  EXPECT_NE(childPtr, child.get());
+  EXPECT_EQ(rowPtr, result.get());
+
+  EXPECT_TRUE(rowReader->next(batchSize, result));
+  auto childCurr =
+      std::dynamic_pointer_cast<MapVector>(result->as<RowVector>()->childAt(0));
+  EXPECT_NE(rawNulls, childCurr->nulls().get());
+  EXPECT_NE(rawSizes, childCurr->sizes().get());
+  EXPECT_NE(rawOffsets, childCurr->offsets().get());
+  EXPECT_NE(keysPtr, childCurr->mapKeys().get());
+  EXPECT_NE(childPtr, childCurr.get());
+  EXPECT_EQ(rowPtr, result.get());
+}
+
 } // namespace
 
 TEST(TestReader, testBufferLifeCycle) {
@@ -1246,6 +1333,25 @@ TEST(TestReader, testBufferLifeCycle) {
     testBufferLifeCycle(schema, config, rng, batchSize, false);
     testBufferLifeCycle(schema, config, rng, batchSize, true);
   }
+}
+
+TEST(TestReader, DISABLED_testFlatmapAsMapFieldLifeCycle) {
+  // Remove DISABLED_ prefix from name once T125297232 is complete
+  const size_t batchSize = 10;
+  auto schema = ROW({
+      MAP(VARCHAR(), INTEGER()),
+  });
+
+  auto config = std::make_shared<Config>();
+  config->set(Config::FLATTEN_MAP, true);
+  config->set(Config::MAP_FLAT_COLS, {0});
+
+  auto seed = folly::Random::rand32();
+  LOG(INFO) << "seed: " << seed;
+  std::mt19937 rng{seed};
+
+  testFlatmapAsMapFieldLifeCycle(schema, config, rng, batchSize, false);
+  testFlatmapAsMapFieldLifeCycle(schema, config, rng, batchSize, true);
 }
 
 TEST(TestReader, testOrcReaderSimple) {
