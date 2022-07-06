@@ -66,10 +66,6 @@ class ColumnWriter {
     encoding.set_sequence(sequence_);
   }
 
-  std::unique_ptr<BufferedOutputStream> newStream(StreamKind kind) {
-    return context_.newStream(DwrfStreamIdentifier{id_, sequence_, 0, kind});
-  }
-
   WriterContext& context_;
   const uint32_t id_;
   const uint32_t sequence_;
@@ -217,8 +213,18 @@ class BaseColumnWriter : public ColumnWriter {
     return id_ == 0;
   }
 
+  std::unique_ptr<BufferedOutputStream> newStream(StreamKind kind) {
+    return context_.newStream(
+        DwrfStreamIdentifier{id_, sequence_, type_.column, kind});
+  }
+
+  void suppressStream(StreamKind kind, uint32_t sequence) {
+    context_.suppressStream(
+        DwrfStreamIdentifier{id_, sequence, type_.column, kind});
+  }
+
   void suppressStream(StreamKind kind) {
-    context_.suppressStream(DwrfStreamIdentifier{id_, sequence_, 0, kind});
+    suppressStream(kind, sequence_);
   }
 
   template <typename T>

@@ -1688,8 +1688,8 @@ struct IntegerColumnWriterTypedTestCase {
             encoding.kind());
         ASSERT_EQ(finalDictionarySize, encoding.dictionarysize());
       }
-      typeWithId = TypeWithId::create(rowType);
-      auto reqType = typeWithId->childAt(0);
+
+      auto reqType = TypeWithId::create(rowType)->childAt(0);
       auto columnReader = ColumnReader::build(reqType, reqType, streams);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
@@ -2921,8 +2921,8 @@ struct StringColumnWriterTestCase {
             encoding.kind());
         ASSERT_EQ(finalDictionarySize, encoding.dictionarysize());
       }
-      typeWithId = TypeWithId::create(rowType);
-      auto reqType = typeWithId->childAt(0);
+
+      auto reqType = TypeWithId::create(rowType)->childAt(0);
       auto columnReader = ColumnReader::build(reqType, reqType, streams);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
@@ -3823,6 +3823,45 @@ TEST(ColumnWriterTests, RemovePresentStream) {
   TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
   DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_PRESENT};
   ASSERT_EQ(streams.getStream(si, false), nullptr);
+}
+
+TEST(ColumnWriterTests, ColumnIdInStream) {
+  auto config = std::make_shared<Config>();
+  auto scopedPool = getDefaultScopedMemoryPool();
+  auto& pool = scopedPool->getPool();
+
+  std::vector<std::optional<int32_t>> data;
+  auto size = 100;
+  for (auto i = 0; i < size; ++i) {
+    data.push_back(i);
+  }
+  auto vector = populateBatch<int32_t>(data, &pool);
+  WriterContext context{config, getDefaultScopedMemoryPool()};
+  auto type = std::make_shared<const IntegerType>();
+  const uint32_t kNodeId = 4;
+  const uint32_t kColumnId = 2;
+  auto typeWithId = std::make_shared<const TypeWithId>(
+      type,
+      std::vector<std::shared_ptr<const TypeWithId>>{},
+      /* id */ kNodeId,
+      /* maxId */ kNodeId,
+      /* column */ kColumnId);
+
+  // write
+  auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
+
+  writer->write(vector, Ranges::of(0, size));
+  writer->createIndexEntry();
+  proto::StripeFooter sf;
+  writer->flush([&sf](auto /* unused */) -> proto::ColumnEncoding& {
+    return *sf.add_encoding();
+  });
+
+  // get data stream
+  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
+  DwrfStreamIdentifier si{
+      kNodeId, /* sequence */ 0, kColumnId, proto::Stream_Kind_DATA};
+  ASSERT_NE(streams.getStream(si, false), nullptr);
 }
 
 template <typename T>

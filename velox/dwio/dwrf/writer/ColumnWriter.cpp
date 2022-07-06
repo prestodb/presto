@@ -216,11 +216,9 @@ class IntegerColumnWriter : public BaseColumnWriter {
       // Suppress the stream used to initialize dictionary encoder.
       // TODO: passing factory method into the dict encoder also works
       // around this problem but has messier code organization.
-      context_.suppressStream(DwrfStreamIdentifier{
-          id_,
-          context_.shareFlatMapDictionaries ? 0 : sequence_,
-          0,
-          StreamKind::StreamKind_DICTIONARY_DATA});
+      suppressStream(
+          StreamKind::StreamKind_DICTIONARY_DATA,
+          context_.shareFlatMapDictionaries ? 0 : sequence_);
       initStreamWriters(useDictionaryEncoding_);
     }
     reset();
@@ -352,11 +350,9 @@ class IntegerColumnWriter : public BaseColumnWriter {
     // Suppress the stream used to initialize dictionary encoder.
     // TODO: passing factory method into the dict encoder also works
     // around this problem but has messier code organization.
-    context_.suppressStream(DwrfStreamIdentifier{
-        id_,
-        context_.shareFlatMapDictionaries ? 0 : sequence_,
-        0,
-        StreamKind::StreamKind_DICTIONARY_DATA});
+    suppressStream(
+        StreamKind::StreamKind_DICTIONARY_DATA,
+        context_.shareFlatMapDictionaries ? 0 : sequence_);
     dictEncoder_.clear();
     rows_.clear();
     strideOffsets_.clear();
