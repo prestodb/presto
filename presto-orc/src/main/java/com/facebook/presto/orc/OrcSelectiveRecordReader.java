@@ -186,7 +186,8 @@ public class OrcSelectiveRecordReader
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            Optional<OrcFileIntrospector> fileIntrospector)
     {
         super(includedColumns,
                 requiredSubfields,
@@ -229,7 +230,8 @@ public class OrcSelectiveRecordReader
                 initialBatchSize,
                 stripeMetadataSource,
                 cacheable,
-                runtimeStats);
+                runtimeStats,
+                fileIntrospector);
 
         // Hive column indices can't be used to index into arrays because they are negative
         // for partition and hidden columns. Hence, we create synthetic zero-based indices.
