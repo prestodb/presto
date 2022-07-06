@@ -48,6 +48,7 @@ import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -116,6 +117,25 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private long completedBytes;
     private Object rowData;
     private boolean closed;
+
+    public GenericHiveRecordCursor(
+            Configuration configuration,
+            Path path,
+            RecordReader<K, V> recordReader,
+            long totalBytes,
+            Properties splitSchema,
+            List<HiveColumnHandle> columns,
+            ZoneId hiveStorageTimeZoneId,
+            TypeManager typeManager)
+    {
+        this(configuration, path, recordReader, totalBytes, splitSchema, columns, getDateTimeZone(hiveStorageTimeZoneId), typeManager);
+    }
+
+    private static DateTimeZone getDateTimeZone(ZoneId hiveStorageTimeZoneId)
+    {
+        requireNonNull(hiveStorageTimeZoneId, "hiveStorageTimeZoneId is null");
+        return DateTimeZone.forID(hiveStorageTimeZoneId.getId());
+    }
 
     public GenericHiveRecordCursor(
             Configuration configuration,

@@ -34,10 +34,10 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -131,7 +131,7 @@ public class HudiPageSourceProvider
                     schema,
                     hudiSplit,
                     dataColumns,
-                    DateTimeZone.UTC, // TODO configurable
+                    ZoneId.of("UTC"), // TODO configurable
                     typeManager);
             List<Type> types = dataColumns.stream()
                     .map(column -> column.getHiveType().getType(typeManager))
