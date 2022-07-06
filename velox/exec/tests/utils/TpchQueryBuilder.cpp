@@ -111,6 +111,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ1Plan();
     case 3:
       return getQ3Plan();
+    case 5:
+      return getQ5Plan();
     case 6:
       return getQ6Plan();
     case 10:
@@ -261,6 +263,136 @@ TpchPlan TpchQueryBuilder::getQ3Plan() const {
   context.dataFiles[lineitemPlanNodeId] = getTableFilePaths(kLineitem);
   context.dataFiles[ordersPlanNodeId] = getTableFilePaths(kOrders);
   context.dataFiles[customerPlanNodeId] = getTableFilePaths(kCustomer);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getQ5Plan() const {
+  std::vector<std::string> customerColumns = {"c_custkey", "c_nationkey"};
+  std::vector<std::string> ordersColumns = {
+      "o_orderdate", "o_custkey", "o_orderkey"};
+  std::vector<std::string> lineitemColumns = {
+      "l_suppkey", "l_orderkey", "l_discount", "l_extendedprice"};
+  std::vector<std::string> supplierColumns = {"s_nationkey", "s_suppkey"};
+  std::vector<std::string> nationColumns = {
+      "n_nationkey", "n_name", "n_regionkey"};
+  std::vector<std::string> regionColumns = {"r_regionkey", "r_name"};
+
+  auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
+  const auto& customerFileColumns = getFileColumnNames(kCustomer);
+  auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto& ordersFileColumns = getFileColumnNames(kOrders);
+  auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
+  auto supplierSelectedRowType = getRowType(kSupplier, supplierColumns);
+  const auto& supplierFileColumns = getFileColumnNames(kSupplier);
+  auto nationSelectedRowType = getRowType(kNation, nationColumns);
+  const auto& nationFileColumns = getFileColumnNames(kNation);
+  auto regionSelectedRowType = getRowType(kRegion, regionColumns);
+  const auto& regionFileColumns = getFileColumnNames(kRegion);
+
+  std::string regionNameFilter = "r_name = 'ASIA'";
+  const auto orderDate = "o_orderdate";
+  std::string orderDateFilter = formatDateFilter(
+      orderDate, ordersSelectedRowType, "'1994-01-01'", "'1994-12-31'");
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId customerScanNodeId;
+  core::PlanNodeId ordersScanNodeId;
+  core::PlanNodeId lineitemScanNodeId;
+  core::PlanNodeId supplierScanNodeId;
+  core::PlanNodeId nationScanNodeId;
+  core::PlanNodeId regionScanNodeId;
+
+  auto region = PlanBuilder(planNodeIdGenerator)
+                    .tableScan(
+                        kRegion,
+                        regionSelectedRowType,
+                        regionFileColumns,
+                        {regionNameFilter})
+                    .capturePlanNodeId(regionScanNodeId)
+                    .planNode();
+
+  auto orders = PlanBuilder(planNodeIdGenerator)
+                    .tableScan(
+                        kOrders,
+                        ordersSelectedRowType,
+                        ordersFileColumns,
+                        {orderDateFilter})
+                    .capturePlanNodeId(ordersScanNodeId)
+                    .planNode();
+
+  auto customer =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kCustomer, customerSelectedRowType, customerFileColumns)
+          .capturePlanNodeId(customerScanNodeId)
+          .planNode();
+
+  auto nationJoinRegion =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kNation, nationSelectedRowType, nationFileColumns)
+          .capturePlanNodeId(nationScanNodeId)
+          .hashJoin(
+              {"n_regionkey"},
+              {"r_regionkey"},
+              region,
+              "",
+              {"n_nationkey", "n_name"})
+          .planNode();
+
+  auto supplierJoinNationRegion =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kSupplier, supplierSelectedRowType, supplierFileColumns)
+          .capturePlanNodeId(supplierScanNodeId)
+          .hashJoin(
+              {"s_nationkey"},
+              {"n_nationkey"},
+              nationJoinRegion,
+              "",
+              {"s_suppkey", "n_name", "s_nationkey"})
+          .planNode();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kLineitem, lineitemSelectedRowType, lineitemFileColumns)
+          .capturePlanNodeId(lineitemScanNodeId)
+          .project(
+              {"l_extendedprice * (1.0 - l_discount) AS part_revenue",
+               "l_orderkey",
+               "l_suppkey"})
+          .hashJoin(
+              {"l_suppkey"},
+              {"s_suppkey"},
+              supplierJoinNationRegion,
+              "",
+              {"n_name", "part_revenue", "s_nationkey", "l_orderkey"})
+          .hashJoin(
+              {"l_orderkey"},
+              {"o_orderkey"},
+              orders,
+              "",
+              {"n_name", "part_revenue", "s_nationkey", "o_custkey"})
+          .hashJoin(
+              {"s_nationkey", "o_custkey"},
+              {"c_nationkey", "c_custkey"},
+              customer,
+              "",
+              {"n_name", "part_revenue"})
+          .partialAggregation({"n_name"}, {"sum(part_revenue) as revenue"})
+          .localPartition({})
+          .finalAggregation()
+          .orderBy({"revenue DESC"}, false)
+          .project({"n_name", "revenue"})
+          .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[customerScanNodeId] = getTableFilePaths(kCustomer);
+  context.dataFiles[ordersScanNodeId] = getTableFilePaths(kOrders);
+  context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFiles[supplierScanNodeId] = getTableFilePaths(kSupplier);
+  context.dataFiles[nationScanNodeId] = getTableFilePaths(kNation);
+  context.dataFiles[regionScanNodeId] = getTableFilePaths(kRegion);
   context.dataFileFormat = format_;
   return context;
 }
@@ -556,11 +688,8 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
   return context;
 }
 
-const std::vector<std::string> TpchQueryBuilder::kTableNames_ = {
-    kLineitem,
-    kOrders,
-    kCustomer,
-    kNation};
+const std::vector<std::string> TpchQueryBuilder::kTableNames_ =
+    {kLineitem, kOrders, kCustomer, kNation, kRegion, kSupplier};
 
 const std::unordered_map<std::string, std::vector<std::string>>
     TpchQueryBuilder::kTables_ = {
@@ -575,6 +704,12 @@ const std::unordered_map<std::string, std::vector<std::string>>
             tpch::getTableSchema(tpch::Table::TBL_CUSTOMER)->names()),
         std::make_pair(
             "nation",
-            tpch::getTableSchema(tpch::Table::TBL_NATION)->names())};
+            tpch::getTableSchema(tpch::Table::TBL_NATION)->names()),
+        std::make_pair(
+            "region",
+            tpch::getTableSchema(tpch::Table::TBL_REGION)->names()),
+        std::make_pair(
+            "supplier",
+            tpch::getTableSchema(tpch::Table::TBL_SUPPLIER)->names())};
 
 } // namespace facebook::velox::exec::test

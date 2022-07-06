@@ -137,27 +137,33 @@ std::shared_ptr<exec::test::TempDirectoryPath> ParquetTpchTest::tempDirectory_ =
 TpchQueryBuilder ParquetTpchTest::tpchBuilder_(
     dwio::common::FileFormat::PARQUET);
 
-std::unordered_map<std::string, std::string> ParquetTpchTest::duckDbParquetWriteSQL_ =
-    {std::make_pair(
-         "lineitem",
-         R"(COPY (SELECT l_orderkey, l_partkey, l_suppkey, l_linenumber,
+std::unordered_map<std::string, std::string> ParquetTpchTest::duckDbParquetWriteSQL_ = {
+    std::make_pair(
+        "lineitem",
+        R"(COPY (SELECT l_orderkey, l_partkey, l_suppkey, l_linenumber,
         l_quantity::DOUBLE as quantity, l_extendedprice::DOUBLE as extendedprice, l_discount::DOUBLE as discount,
         l_tax::DOUBLE as tax, l_returnflag, l_linestatus, l_shipdate AS shipdate, l_commitdate, l_receiptdate,
         l_shipinstruct, l_shipmode, l_comment FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))"),
-     std::make_pair(
-         "orders",
-         R"(COPY (SELECT o_orderkey, o_custkey, o_orderstatus,
+    std::make_pair(
+        "orders",
+        R"(COPY (SELECT o_orderkey, o_custkey, o_orderstatus,
         o_totalprice::DOUBLE as o_totalprice,
         o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment
         FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))"),
-     std::make_pair(
-         "customer",
-         R"(COPY (SELECT c_custkey, c_name, c_address, c_nationkey, c_phone,
+    std::make_pair(
+        "customer",
+        R"(COPY (SELECT c_custkey, c_name, c_address, c_nationkey, c_phone,
         c_acctbal::DOUBLE as c_acctbal, c_mktsegment, c_comment
         FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))"),
-     std::make_pair(
-         "nation",
-         R"(COPY (SELECT * FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))")};
+    std::make_pair(
+        "nation",
+        R"(COPY (SELECT * FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))"),
+    std::make_pair(
+        "region",
+        R"(COPY (SELECT * FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))"),
+    std::make_pair(
+        "supplier",
+        R"(COPY (SELECT * FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))")};
 
 TEST_F(ParquetTpchTest, Q1) {
   assertQuery(1, 2, 10);
@@ -166,6 +172,11 @@ TEST_F(ParquetTpchTest, Q1) {
 TEST_F(ParquetTpchTest, Q3) {
   std::vector<uint32_t> sortingKeys{1, 2};
   assertQuery(3, 4, 30, std::move(sortingKeys));
+}
+
+TEST_F(ParquetTpchTest, Q5) {
+  std::vector<uint32_t> sortingKeys{1};
+  assertQuery(5, 7, 60, std::move(sortingKeys));
 }
 
 TEST_F(ParquetTpchTest, Q6) {

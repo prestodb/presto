@@ -78,6 +78,7 @@ class TpchQueryBuilder {
  private:
   TpchPlan getQ1Plan() const;
   TpchPlan getQ3Plan() const;
+  TpchPlan getQ5Plan() const;
   TpchPlan getQ6Plan() const;
   TpchPlan getQ10Plan() const;
   TpchPlan getQ13Plan() const;
@@ -111,6 +112,8 @@ class TpchQueryBuilder {
   static constexpr const char* kCustomer = "customer";
   static constexpr const char* kOrders = "orders";
   static constexpr const char* kNation = "nation";
+  static constexpr const char* kRegion = "region";
+  static constexpr const char* kSupplier = "supplier";
 };
 
 } // namespace facebook::velox::exec::test
