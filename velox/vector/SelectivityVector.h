@@ -245,6 +245,13 @@ class SelectivityVector {
     }
   }
 
+  /// Set null bits in 'nulls' for active rows.
+  void setNulls(BufferPtr& nulls) const {
+    VELOX_CHECK_NOT_NULL(nulls);
+    bits::andWithNegatedBits(
+        nulls->asMutable<uint64_t>(), bits_.data(), begin_, end_);
+  }
+
   /**
    * Merges the valid vector of another SelectivityVector by or'ing
    * them together. This is used to support memoization where a state

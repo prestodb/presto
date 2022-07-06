@@ -138,76 +138,103 @@ void RowVector::copy(
     vector_size_t targetIndex,
     vector_size_t sourceIndex,
     vector_size_t count) {
-  auto sourceValue = source->wrappedVector();
-  if (sourceValue->isConstantEncoding()) {
-    // A null constant does not have a value vector, so wrappedVector
-    // returns the constant.
-    VELOX_CHECK(sourceValue->isNullAt(0));
-    for (auto i = 0; i < count; ++i) {
-      setNull(targetIndex + i, true);
-    }
-    return;
+  SelectivityVector rows(targetIndex + count);
+  rows.setValidRange(0, targetIndex, false);
+  rows.updateBounds();
+
+  BufferPtr indices;
+  vector_size_t* toSourceRow = nullptr;
+  if (sourceIndex != targetIndex) {
+    indices =
+        AlignedBuffer::allocate<vector_size_t>(targetIndex + count, pool_);
+    toSourceRow = indices->asMutable<vector_size_t>();
+    std::iota(
+        toSourceRow + targetIndex,
+        toSourceRow + targetIndex + count,
+        sourceIndex);
   }
-  if (childrenSize_ == 0) {
-    return;
+
+  copy(source, rows, toSourceRow);
+}
+
+void RowVector::copy(
+    const BaseVector* source,
+    const SelectivityVector& rows,
+    const vector_size_t* toSourceRow) {
+  for (auto i = 0; i < children_.size(); ++i) {
+    BaseVector::ensureWritable(
+        rows, type()->asRow().childAt(i), pool(), &children_[i]);
   }
-  VELOX_CHECK_EQ(sourceValue->encoding(), VectorEncoding::Simple::ROW);
-  auto sourceAsRow = sourceValue->asUnchecked<RowVector>();
-  VELOX_CHECK(children_.size() && children_[0]);
-  VELOX_DCHECK(BaseVector::length_ >= targetIndex + count);
-  vector_size_t childSize = this->childSize();
-  auto rowType = type()->as<TypeKind::ROW>();
-  SelectivityVector allRows;
-  for (int32_t i = 0; i < children_.size(); ++i) {
-    auto& child = children_[i];
-    if (child->isConstantEncoding()) {
-      if (!allRows.size()) {
-        // Initialize 'allRows' on first use.
-        allRows.resize(childSize);
-        allRows.clearAll();
-      }
-      BaseVector::ensureWritable(allRows, rowType.childAt(i), pool(), &child);
-    } else {
-      // Non-constants will become writable at their original size.
-      BaseVector::ensureWritable(
-          SelectivityVector::empty(), rowType.childAt(i), pool(), &child);
+
+  // Copy non-null values.
+  SelectivityVector nonNullRows = rows;
+
+  SelectivityVector allRows(source->size());
+  DecodedVector decodedSource(*source, allRows);
+  if (decodedSource.isIdentityMapping()) {
+    if (source->mayHaveNulls()) {
+      auto rawNulls = source->rawNulls();
+      rows.applyToSelected([&](auto row) {
+        auto idx = toSourceRow ? toSourceRow[row] : row;
+        if (bits::isBitNull(rawNulls, idx)) {
+          nonNullRows.setValid(row, false);
+        }
+      });
+      nonNullRows.updateBounds();
     }
-    if (childSize < targetIndex + count) {
-      child->resize(targetIndex + count);
+
+    auto rowSource = source->loadedVector()->as<RowVector>();
+    for (auto i = 0; i < childrenSize_; ++i) {
+      children_[i]->copy(
+          rowSource->childAt(i)->loadedVector(), nonNullRows, toSourceRow);
+    }
+  } else {
+    auto nullIndices = decodedSource.nullIndices();
+    auto nulls = decodedSource.nulls();
+
+    if (nulls) {
+      rows.applyToSelected([&](auto row) {
+        auto idx = toSourceRow ? toSourceRow[row] : row;
+        idx = nullIndices ? nullIndices[idx] : idx;
+        if (bits::isBitNull(nulls, idx)) {
+          nonNullRows.setValid(row, false);
+        }
+      });
+      nonNullRows.updateBounds();
+    }
+
+    // Copy baseSource[indices[toSource[row]]] into row.
+    auto indices = decodedSource.indices();
+    BufferPtr mappedIndices;
+    vector_size_t* rawMappedIndices = nullptr;
+    if (toSourceRow) {
+      mappedIndices =
+          AlignedBuffer::allocate<vector_size_t>(rows.size(), pool_);
+      rawMappedIndices = mappedIndices->asMutable<vector_size_t>();
+      nonNullRows.applyToSelected(
+          [&](auto row) { rawMappedIndices[row] = indices[toSourceRow[row]]; });
+    }
+
+    auto baseSource = decodedSource.base()->as<RowVector>();
+    for (auto i = 0; i < childrenSize_; ++i) {
+      children_[i]->copy(
+          baseSource->childAt(i)->loadedVector(),
+          nonNullRows,
+          rawMappedIndices ? rawMappedIndices : indices);
     }
   }
-  // Shortcut for insert of non-null at end of children.
-  if (!source->mayHaveNulls() && targetIndex == childSize) {
-    if (sourceAsRow == source) {
-      appendToChildren(sourceAsRow, sourceIndex, count, targetIndex);
-    } else {
-      for (int32_t i = 0; i < count; ++i) {
-        appendToChildren(
-            sourceAsRow,
-            source->wrappedIndex(sourceIndex + i),
-            1,
-            childSize + i);
-      }
-    }
-    return;
+
+  if (nulls_) {
+    nonNullRows.clearNulls(nulls_);
   }
-  auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
-  for (int32_t i = 0; i < count; ++i) {
-    auto childIndex = targetIndex + i;
-    if (source->isNullAt(sourceIndex + i)) {
-      setNull(childIndex, true);
-    } else {
-      if (setNotNulls) {
-        setNull(childIndex, false);
-      }
-      vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex + i);
-      for (int32_t j = 0; j < children_.size(); ++j) {
-        childAt(j)->copy(
-            sourceAsRow->childAt(j)->loadedVector(),
-            childIndex,
-            wrappedIndex,
-            1);
-      }
+
+  // Copy nulls.
+  if (source->mayHaveNulls()) {
+    SelectivityVector nullRows = rows;
+    nullRows.deselect(nonNullRows);
+    if (nullRows.hasSelections()) {
+      ensureNulls();
+      nullRows.setNulls(nulls_);
     }
   }
 }

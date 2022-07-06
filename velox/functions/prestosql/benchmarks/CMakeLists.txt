@@ -127,3 +127,7 @@ target_link_libraries(velox_functions_benchmarks_string_writer_no_nulls
 add_executable(velox_functions_prestosql_benchmarks_zip ZipBenchmark.cpp)
 target_link_libraries(velox_functions_prestosql_benchmarks_zip
                       ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_functions_prestosql_benchmarks_row Row.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_row
+                      ${BENCHMARK_DEPENDENCIES})

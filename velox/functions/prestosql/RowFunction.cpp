@@ -35,12 +35,7 @@ class RowFunction : public exec::VectorFunction {
         rows.size(),
         std::move(argsCopy),
         0 /*nullCount*/);
-    if (*result) {
-      BaseVector::ensureWritable(rows, outputType, context->pool(), result);
-      (*result)->copy(row.get(), rows, nullptr);
-    } else {
-      *result = std::move(row);
-    }
+    context->moveOrCopyResult(row, rows, *result);
   }
 
   bool isDefaultNullBehavior() const override {

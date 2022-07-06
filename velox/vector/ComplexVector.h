@@ -123,6 +123,11 @@ class RowVector : public BaseVector {
       vector_size_t sourceIndex,
       vector_size_t count) override;
 
+  void copy(
+      const BaseVector* source,
+      const SelectivityVector& rows,
+      const vector_size_t* toSourceRow) override;
+
   void move(vector_size_t source, vector_size_t target) override;
 
   uint64_t retainedSize() const override {
