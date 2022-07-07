@@ -420,6 +420,60 @@ void AssignUniqueIdNode::addDetails(std::stringstream& /* stream */) const {
 }
 
 namespace {
+RowTypePtr getWindowOutputType(
+    const RowTypePtr& inputType,
+    const std::vector<std::string>& windowColumnNames,
+    const std::vector<WindowNode::Function>& windowFunctions) {
+  VELOX_CHECK_EQ(
+      windowColumnNames.size(),
+      windowFunctions.size(),
+      "Number of window column names must be equal to number of window functions");
+
+  std::vector<std::string> names = inputType->names();
+  std::vector<TypePtr> types = inputType->children();
+
+  for (int32_t i = 0; i < windowColumnNames.size(); i++) {
+    names.push_back(windowColumnNames[i]);
+    types.push_back(windowFunctions[i].functionCall->type());
+  }
+  return ROW(std::move(names), std::move(types));
+}
+
+} // namespace
+
+WindowNode::WindowNode(
+    PlanNodeId id,
+    std::vector<FieldAccessTypedExprPtr> partitionKeys,
+    std::vector<FieldAccessTypedExprPtr> sortingKeys,
+    std::vector<SortOrder> sortingOrders,
+    std::vector<std::string> windowColumnNames,
+    std::vector<Function> windowFunctions,
+    PlanNodePtr source)
+    : PlanNode(std::move(id)),
+      partitionKeys_(std::move(partitionKeys)),
+      sortingKeys_(std::move(sortingKeys)),
+      sortingOrders_(std::move(sortingOrders)),
+      windowFunctions_(std::move(windowFunctions)),
+      sources_{std::move(source)},
+      outputType_(getWindowOutputType(
+          sources_[0]->outputType(),
+          windowColumnNames,
+          windowFunctions_)) {
+  VELOX_CHECK_GT(
+      windowFunctions_.size(),
+      0,
+      "Window node must have at least one window function");
+  VELOX_CHECK_EQ(
+      sortingKeys_.size(),
+      sortingOrders_.size(),
+      "Number of sorting keys must be equal to the number of sorting orders");
+}
+
+void WindowNode::addDetails(std::stringstream& stream) const {
+  VELOX_NYI();
+}
+
+namespace {
 void addSortingKeys(
     std::stringstream& stream,
     const std::vector<FieldAccessTypedExprPtr>& sortingKeys,
