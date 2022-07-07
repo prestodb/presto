@@ -19,8 +19,9 @@
 namespace facebook::velox::aggregate {
 
 const char* const kApproxDistinct = "approx_distinct";
-const char* const kApproxSet = "approx_set";
+const char* const kApproxMostFrequent = "approx_most_frequent";
 const char* const kApproxPercentile = "approx_percentile";
+const char* const kApproxSet = "approx_set";
 const char* const kArbitrary = "arbitrary";
 const char* const kArrayAgg = "array_agg";
 const char* const kAvg = "avg";

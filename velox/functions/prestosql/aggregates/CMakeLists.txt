@@ -20,6 +20,7 @@ add_library(
   velox_aggregates OBJECT
   AggregateNames.h
   ApproxDistinctAggregate.cpp
+  ApproxMostFrequentAggregate.cpp
   ApproxPercentileAggregate.cpp
   ArbitraryAggregate.cpp
   ArrayAggAggregate.cpp

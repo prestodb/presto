@@ -601,7 +601,7 @@ bool GroupingSet::getOutputWithSpill(const RowVectorPtr& result) {
     nonSpilledIndex_ += numGroups;
     return true;
   }
-  while (outputPartition_ < spiller_->state().numPartitions()) {
+  while (outputPartition_ < spiller_->state().maxPartitions()) {
     if (!merge_) {
       merge_ = spiller_->startMerge(outputPartition_);
     }

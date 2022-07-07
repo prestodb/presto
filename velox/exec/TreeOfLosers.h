@@ -56,7 +56,7 @@ class MergeStream {
 };
 
 // Implements a tree of losers algorithm for merging ordered
-// streams. The TreeOfLosers owns two or more instances of
+// streams. The TreeOfLosers owns one or more instances of
 // Stream. At each call of next(), it returns the Stream that has
 // the lowest value as first value from the set of Streams. It
 // returns nullptr when all Streams are at end. The order is
@@ -70,7 +70,7 @@ class TreeOfLosers {
       : streams_(std::move(streams)) {
     static_assert(std::is_base_of<MergeStream, Stream>::value);
     VELOX_CHECK_LT(streams_.size(), std::numeric_limits<TIndex>::max());
-    VELOX_CHECK_GT(streams_.size(), 1);
+    VELOX_CHECK_GE(streams_.size(), 1);
 
     int32_t size = 0;
     int32_t levelSize = 1;

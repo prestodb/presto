@@ -115,8 +115,8 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& postAggregationProjections,
     std::function<std::shared_ptr<exec::Task>(AssertQueryBuilder& builder)>
         assertResults) {
-  // Run partial + final.
   {
+    SCOPED_TRACE("Run partial + final");
     PlanBuilder builder;
     makeSource(builder);
     builder.partialAggregation(groupingKeys, aggregates).finalAggregation();
@@ -128,8 +128,8 @@ void AggregationTestBase::testAggregations(
     assertResults(queryBuilder);
   }
 
-  // Run single.
   {
+    SCOPED_TRACE("Run single");
     PlanBuilder builder;
     makeSource(builder);
     builder.singleAggregation(groupingKeys, aggregates);
@@ -141,8 +141,8 @@ void AggregationTestBase::testAggregations(
     assertResults(queryBuilder);
   }
 
-  // Run single with spilling.
   if (!noSpill_) {
+    SCOPED_TRACE("Run single with spilling");
     PlanBuilder builder;
     makeSource(builder);
     builder.singleAggregation(groupingKeys, aggregates);
@@ -158,8 +158,8 @@ void AggregationTestBase::testAggregations(
     EXPECT_LT(0, spilledBytes(*task));
   }
 
-  // Run partial + intermediate + final.
   {
+    SCOPED_TRACE("Run partial + intermediate + final");
     PlanBuilder builder;
     makeSource(builder);
     builder.partialAggregation(groupingKeys, aggregates)
@@ -173,8 +173,8 @@ void AggregationTestBase::testAggregations(
     assertResults(queryBuilder);
   }
 
-  // Run partial + local exchange + final.
   if (!groupingKeys.empty()) {
+    SCOPED_TRACE("Run partial + local exchange + final");
     auto planNodeIdGenerator =
         std::make_shared<exec::test::PlanNodeIdGenerator>();
     PlanBuilder sourceBuilder{planNodeIdGenerator};
@@ -195,8 +195,9 @@ void AggregationTestBase::testAggregations(
     assertResults(queryBuilder.maxDrivers(2));
   }
 
-  // Run partial + local exchange + intermediate + local exchange + final.
   {
+    SCOPED_TRACE(
+        "Run partial + local exchange + intermediate + local exchange + final");
     auto planNodeIdGenerator =
         std::make_shared<exec::test::PlanNodeIdGenerator>();
     PlanBuilder sourceBuilder{planNodeIdGenerator};
