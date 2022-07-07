@@ -136,8 +136,29 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
   if (values_.empty()) {
     return std::make_unique<velox::common::IsNull>();
   }
-  StringView lower = valueAtPct(startPct);
-  StringView upper = valueAtPct(startPct + selectPct);
+
+  // used to determine if we can test a values filter reasonably
+  int32_t lowerIndex;
+  int32_t upperIndex;
+  StringView lower = valueAtPct(startPct, &lowerIndex);
+  StringView upper = valueAtPct(startPct + selectPct, &upperIndex);
+  if (upperIndex - lowerIndex < 1000 && ++counter_ % 10 <= 3) {
+    std::vector<std::string> inRange;
+    inRange.reserve(upperIndex - lowerIndex);
+    for (StringView s : values_) {
+      // do comparison
+      if (lower <= s && s <= upper) {
+        inRange.push_back(s.getString());
+      }
+    }
+    if (counter_ % 2 == 0 && selectPct != 100.0) {
+      return std::make_unique<velox::common::NegatedBytesValues>(
+          inRange, selectPct < 75);
+    }
+    return std::make_unique<velox::common::BytesValues>(
+        inRange, selectPct > 25);
+  }
+
   return std::make_unique<velox::common::BytesRange>(
       std::string(lower),
       false,
