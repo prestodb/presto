@@ -99,19 +99,17 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
     bool tryInplace = ascii &&
         (inputStringsVector->encoding() == VectorEncoding::Simple::FLAT);
 
-    bool inputVectorMoved =
-        prepareFlatResultsVector(result, rows, context, args.at(0));
-
-    bool inPlace = tryInplace && inputVectorMoved;
-
-    if (inPlace) {
+    // If tryInplace, then call prepareFlatResultsVector(). If the latter
+    // returns true, note that the input arg was moved to result, so that the
+    // buffer can be reused as output.
+    if (tryInplace &&
+        prepareFlatResultsVector(result, rows, context, args.at(0))) {
       auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
-
       applyInternalInPlace(rows, decodedInput, resultFlatVector);
       return;
     }
 
-    // Not in place path
+    // Not in place path.
     VectorPtr emptyVectorPtr;
     prepareFlatResultsVector(result, rows, context, emptyVectorPtr);
     auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
