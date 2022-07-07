@@ -15,6 +15,7 @@
  */
 #include "velox/common/memory/MappedMemory.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/memory/AllocationPool.h"
 #include "velox/common/memory/MmapAllocator.h"
 
 #include <thread>
@@ -275,6 +276,43 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
   MappedMemory* instance_;
   std::atomic<int32_t> sequence_ = {};
 };
+
+TEST_P(MappedMemoryTest, allocationPoolTest) {
+  const size_t kNumLargeAllocPages = instance_->largestSizeClass() * 2;
+  AllocationPool pool(instance_);
+
+  pool.allocateFixed(10);
+  EXPECT_EQ(pool.numTotalAllocations(), 1);
+  EXPECT_EQ(pool.currentRunIndex(), 0);
+  EXPECT_EQ(pool.currentOffset(), 10);
+
+  pool.allocateFixed(kNumLargeAllocPages * MappedMemory::kPageSize);
+  EXPECT_EQ(pool.numTotalAllocations(), 2);
+  EXPECT_EQ(pool.currentRunIndex(), 0);
+  EXPECT_EQ(pool.currentOffset(), 10);
+
+  pool.allocateFixed(20);
+  EXPECT_EQ(pool.numTotalAllocations(), 2);
+  EXPECT_EQ(pool.currentRunIndex(), 0);
+  EXPECT_EQ(pool.currentOffset(), 30);
+
+  // Leaving 10 bytes room
+  pool.allocateFixed(128 * 4096 - 10);
+  EXPECT_EQ(pool.numTotalAllocations(), 3);
+  EXPECT_EQ(pool.currentRunIndex(), 0);
+  EXPECT_EQ(pool.currentOffset(), 524278);
+
+  pool.allocateFixed(5);
+  EXPECT_EQ(pool.numTotalAllocations(), 3);
+  EXPECT_EQ(pool.currentRunIndex(), 0);
+  EXPECT_EQ(pool.currentOffset(), (524278 + 5));
+
+  pool.allocateFixed(100);
+  EXPECT_EQ(pool.numTotalAllocations(), 4);
+  EXPECT_EQ(pool.currentRunIndex(), 0);
+  EXPECT_EQ(pool.currentOffset(), 100);
+  pool.clear();
+}
 
 TEST_P(MappedMemoryTest, allocationTest) {
   const int32_t kPageSize = MappedMemory::kPageSize;

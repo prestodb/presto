@@ -45,13 +45,26 @@ class AllocationPool {
   // is at least one machine page. Throws std::bad_alloc if no space.
   void newRun(int32_t preferredSize);
 
-  int32_t numAllocations() const {
+  int32_t numTotalAllocations() const {
+    return numSmallAllocations() + numLargeAllocations();
+  }
+
+  int32_t numSmallAllocations() const {
     return 1 + allocations_.size();
+  }
+
+  int32_t numLargeAllocations() const {
+    return largeAllocations_.size();
   }
 
   const memory::MappedMemory::Allocation* allocationAt(int32_t index) const {
     return index == allocations_.size() ? &allocation_
                                         : allocations_[index].get();
+  }
+
+  const memory::MappedMemory::ContiguousAllocation* largeAllocationAt(
+      int32_t index) const {
+    return largeAllocations_[index].get();
   }
 
   int32_t currentRunIndex() const {
@@ -66,6 +79,9 @@ class AllocationPool {
     int32_t totalPages = allocation_.numPages();
     for (auto& allocation : allocations_) {
       totalPages += allocation->numPages();
+    }
+    for (auto& largeAllocation : largeAllocations_) {
+      totalPages += largeAllocation->numPages();
     }
     return totalPages * memory::MappedMemory::kPageSize;
   }
@@ -103,8 +119,12 @@ class AllocationPool {
     return allocation_.runAt(currentRun_);
   }
 
+  void newRunImpl(memory::MachinePageCount numPages);
+
   memory::MappedMemory* mappedMemory_;
   std::vector<std::unique_ptr<memory::MappedMemory::Allocation>> allocations_;
+  std::vector<std::unique_ptr<memory::MappedMemory::ContiguousAllocation>>
+      largeAllocations_;
   memory::MappedMemory::Allocation allocation_;
   int32_t currentRun_ = 0;
   int32_t currentOffset_ = 0;

@@ -398,7 +398,8 @@ void HashStringAllocator::ensureAvailable(int32_t bytes, Position& position) {
 void HashStringAllocator::checkConsistency() const {
   uint64_t numFree = 0;
   uint64_t freeBytes = 0;
-  for (auto i = 0; i < pool_.numAllocations(); ++i) {
+  VELOX_CHECK_EQ(pool_.numLargeAllocations(), 0);
+  for (auto i = 0; i < pool_.numSmallAllocations(); ++i) {
     auto allocation = pool_.allocationAt(i);
     for (auto runIndex = 0; runIndex < allocation->numRuns(); ++runIndex) {
       auto run = allocation->runAt(runIndex);

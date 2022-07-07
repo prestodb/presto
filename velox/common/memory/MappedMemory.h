@@ -424,6 +424,10 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
 
   static void destroyTestOnly();
 
+  virtual MachinePageCount largestSizeClass() const {
+    return sizeClassSizes_.back();
+  }
+
   virtual const std::vector<MachinePageCount>& sizeClasses() const {
     return sizeClassSizes_;
   }
