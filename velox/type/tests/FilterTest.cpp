@@ -1098,64 +1098,21 @@ void testMergeWithBytes(Filter* left, Filter* right) {
       << ", merged: " << merged->toString();
 
   std::vector<std::string> testValues = {
-      "a",
-      "b",
-      "c",
-      "d",
-      "e",
-      "f",
-      "g",
-      "h",
-      "i",
-      "j",
-      "k",
-      "l",
-      "m",
-      "n",
-      "o",
-      "p",
-      "q",
-      "r",
-      "s",
-      "t",
-      "u",
-      "v",
-      "w",
-      "x",
-      "y",
-      "z",
-      "abca",
-      "abcb",
-      "abcc",
-      "abcd",
-      "A",
-      "B",
-      "C",
-      "D",
-      "AB",
-      "AC",
-      "AD",
-      "1",
-      "2",
-      "11",
-      "22",
-      "12345",
-      "AbcDedFghIJkl",
-      "!@3456^&*()",
-      "!",
-      "#",
-      "^&",
-      "-=",
-      " ",
-      "[]",
-      "|",
-      "?",
-      "?!",
-      "!?!",
-      "/",
-      "<",
-      ">",
-      "=",
+      "a",           "b",    "c",     "d",
+      "e",           "f",    "g",     "h",
+      "i",           "j",    "k",     "l",
+      "m",           "n",    "o",     "p",
+      "q",           "r",    "s",     "t",
+      "u",           "v",    "w",     "x",
+      "y",           "z",    "abca",  "abcb",
+      "abcc",        "abcd", "A",     "B",
+      "C",           "D",    "AB",    "AC",
+      "AD",          "0",    "1",     "2",
+      "11",          "22",   "12345", "AbcDedFghIJkl",
+      "!@3456^&*()", "!",    "#",     "^&",
+      "-=",          " ",    "[]",    "|",
+      "?",           "?!",   "!?!",   "+",
+      "/",           "<",    ">",     "=",
       "//<<>>"};
 
   for (const auto& test : testValues) {
@@ -1419,6 +1376,13 @@ TEST(FilterTest, mergeWithBytesValues) {
   filters.push_back(
       in({"!", "!!jj", ">><<", "[]", "12345", "123", "1", "2"}, true));
 
+  filters.push_back(notIn({"a"}));
+  filters.push_back(notIn({"a", "b", "c"}));
+  filters.push_back(notIn({"e", "g", "!"}, true));
+  filters.push_back(notIn({""}));
+  filters.push_back(notIn({"a", "b", "c", "d", "e", "f", "g"}));
+  filters.push_back(notIn({"!!jj", ">><<", "g", "1234", "12345", "15210"}));
+
   for (const auto& left : filters) {
     for (const auto& right : filters) {
       testMergeWithBytes(left.get(), right.get());
@@ -1498,6 +1462,15 @@ TEST(FilterTest, mergeWithBytesMultiRange) {
 
   filters.push_back(in({"e", "f", "!", "h"}));
   filters.push_back(in({"e", "f", "g", "h"}, true));
+
+  // test notIn vs. single ranges and multi-ranges
+  filters.push_back(notIn({"a", "c", "g", "t"}));
+  filters.push_back(notIn({"k", "", "tt"}));
+  filters.push_back(notIn({"bc", "cc", "dc"}));
+  filters.push_back(notIn({"+"}, true));
+  filters.push_back(notIn({"1", "3", "2"}));
+  std::vector<std::string> ends = {"p", "t"};
+  filters.push_back(notIn(ends));
 
   filters.push_back(orFilter(between("!", "f"), greaterThanOrEqual("h")));
   filters.push_back(orFilter(between("b", "f"), lessThanOrEqual("a")));
