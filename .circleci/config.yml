@@ -143,7 +143,7 @@ jobs:
             export CCACHE_DIR=$(realpath .ccache)
             ccache -sz -M 5Gi
             source /opt/rh/gcc-toolset-9/enable
-            make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
             ccache -s
           no_output_timeout: 1h
       - store_artifacts:
@@ -372,7 +372,7 @@ jobs:
             export CCACHE_DIR=$(realpath .ccache)
             ccache -sz -M 5Gi
             source /opt/rh/gcc-toolset-9/enable
-            make release EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_HDFS=ON -DVELOX_ENABLE_S3=ON" AWSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make release EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_HDFS=ON -DVELOX_ENABLE_S3=ON" AWSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
           no_output_timeout: 1h
       - store_artifacts:

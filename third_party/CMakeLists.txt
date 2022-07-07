@@ -26,15 +26,14 @@ if(VELOX_ENABLE_ARROW)
       -DARROW_PARQUET=ON -DARROW_JEMALLOC=OFF -DARROW_SIMD_LEVEL=NONE
       -DARROW_RUNTIME_SIMD_LEVEL=NONE
       -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}/install -DARROW_BUILD_STATIC=ON)
-  set(ARROW_LIBARROW ${ARROW_PREFIX}/install/lib/libarrow.a)
-  set(ARROW_LIBPARQUET ${ARROW_PREFIX}/install/lib/libparquet.a)
+  set(ARROW_LIBDIR ${ARROW_PREFIX}/install/${CMAKE_INSTALL_LIBDIR})
   ExternalProject_Add(
     arrow_ep
     PREFIX ${ARROW_PREFIX}
     URL "https://dlcdn.apache.org/arrow/arrow-8.0.0/apache-arrow-8.0.0.tar.gz"
     SOURCE_SUBDIR cpp
     CMAKE_ARGS ${ARROW_CMAKE_ARGS}
-    BUILD_BYPRODUCTS ${ARROW_LIBARROW} ${ARROW_LIBPARQUET})
+    BUILD_BYPRODUCTS ${ARROW_LIBDIR}/libarrow.a ${ARROW_LIBDIR}/libparquet.a)
   add_library(arrow STATIC IMPORTED GLOBAL)
   add_library(parquet STATIC IMPORTED GLOBAL)
   add_dependencies(arrow arrow_ep)
@@ -43,7 +42,8 @@ if(VELOX_ENABLE_ARROW)
   set_target_properties(
     arrow parquet PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
                              ${ARROW_PREFIX}/install/include)
-  set_target_properties(arrow PROPERTIES IMPORTED_LOCATION ${ARROW_LIBARROW})
+  set_target_properties(arrow PROPERTIES IMPORTED_LOCATION
+                                         ${ARROW_LIBDIR}/libarrow.a)
   set_target_properties(parquet PROPERTIES IMPORTED_LOCATION
-                                           ${ARROW_LIBPARQUET})
+                                           ${ARROW_LIBDIR}/libparquet.a)
 endif()
