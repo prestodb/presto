@@ -149,3 +149,34 @@ TEST_F(MergeTest, localMerge) {
   testTwoKeys(vectors, "c0", "c3");
   testTwoKeys(vectors, "c3", "c0");
 }
+
+/// Verifies an edge case where output batch fills up when one of the sources
+/// has only one row left.
+TEST_F(MergeTest, offByOne) {
+  auto data1 = makeRowVector({
+      makeFlatVector<int64_t>({0, 1, 10}),
+  });
+
+  auto data2 = makeRowVector({
+      makeFlatVector<int64_t>({2, 3, 4, 5}),
+  });
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .localMerge(
+              {"c0"},
+              {
+                  PlanBuilder(planNodeIdGenerator).values({data1}).planNode(),
+                  PlanBuilder(planNodeIdGenerator).values({data2}).planNode(),
+              })
+          .planNode();
+
+  CursorParameters params;
+  params.planNode = plan;
+  params.queryCtx = core::QueryCtx::createForTest();
+  params.queryCtx->setConfigOverridesUnsafe(
+      {{core::QueryConfig::kPreferredOutputBatchSize, "6"}});
+  assertQueryOrdered(params, "VALUES (0), (1), (2), (3), (4), (5), (10)", {0});
+}
