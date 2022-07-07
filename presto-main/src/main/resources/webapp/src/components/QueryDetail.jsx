@@ -1420,6 +1420,26 @@ export class QueryDetail extends React.Component {
                                             {query.queryStats.rawInputDataSize}
                                         </td>
                                     </tr>
+                                   <tr>
+                                        <td className="info-title">
+                                            <span className="text" data-toggle="tooltip" data-placement="right" title="The total number of rows shuffled across all query stages">
+                                                Shuffled Rows
+                                            </span>
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.shuffledPositions)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            <span className="text" data-toggle="tooltip" data-placement="right" title="The total number of bytes shuffled across all query stages">
+                                                Shuffled Data
+                                            </span>
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.shuffledDataSize}
+                                        </td>
+                                    </tr>
                                     <tr>
                                         <td className="info-title">
                                             Peak User Memory
