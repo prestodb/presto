@@ -253,15 +253,9 @@ void HashProbe::addInput(RowVectorPtr input) {
         activeRows_.size(),
         [&](vector_size_t row) { lookup_->rows.push_back(row); });
   }
-  if (lookup_->rows.empty()) {
-    if (joinType_ != core::JoinType::kAnti) {
-      input_ = nullptr;
-    }
-    return;
-  }
+
   passingInputRowsInitialized_ = false;
-  if (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-      (isAntiJoin(joinType_) && filter_)) {
+  if (isLeftJoin(joinType_) || isFullJoin(joinType_) || isAntiJoin(joinType_)) {
     // Make sure to allocate an entry in 'hits' for every input row to allow for
     // including rows without a match in the output. Also, make sure to
     // initialize all 'hits' to nullptr as HashTable::joinProbe will only
@@ -270,7 +264,9 @@ void HashProbe::addInput(RowVectorPtr input) {
     auto& hits = lookup_->hits;
     hits.resize(numInput);
     std::fill(hits.data(), hits.data() + numInput, nullptr);
-    table_->joinProbe(*lookup_);
+    if (!lookup_->rows.empty()) {
+      table_->joinProbe(*lookup_);
+    }
 
     // Update lookup_->rows to include all input rows, not just activeRows_ as
     // we need to include all rows in the output.
@@ -279,6 +275,10 @@ void HashProbe::addInput(RowVectorPtr input) {
     std::iota(rows.begin(), rows.end(), 0);
     results_.reset(*lookup_);
   } else {
+    if (lookup_->rows.empty()) {
+      input_ = nullptr;
+      return;
+    }
     lookup_->hits.resize(lookup_->rows.back() + 1);
     table_->joinProbe(*lookup_);
     results_.reset(*lookup_);

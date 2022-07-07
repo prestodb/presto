@@ -1081,6 +1081,28 @@ TEST_F(HashJoinTest, leftJoin) {
       "SELECT t.row_number, t.c1 FROM t LEFT JOIN (SELECT c0 FROM u WHERE c0 < 0) u ON t.c0 = u.c0 ORDER BY 1",
       {0});
 
+  // No match on the join key
+  auto noMatchBuildSide =
+      PlanBuilder(planNodeIdGenerator)
+          .values({rightVectors})
+          .project({"c0 - 123::INTEGER AS u_c0", "c1 AS u_c1"})
+          .planNode();
+  op = PlanBuilder(planNodeIdGenerator)
+           .values(leftVectors)
+           .hashJoin(
+               {"c0"},
+               {"u_c0"},
+               noMatchBuildSide,
+               "",
+               {"row_number", "c0", "u_c1"},
+               core::JoinType::kLeft)
+           .planNode();
+
+  assertQueryOrdered(
+      op,
+      "SELECT t.row_number, t.c0, u.c1 FROM t LEFT JOIN (SELECT c0 - 123::INTEGER AS u_c0, c1 FROM u) u ON t.c0 = u.u_c0 ORDER BY 1",
+      {0});
+
   // All left-side rows have a match on the build side.
   op = PlanBuilder(planNodeIdGenerator)
            .values(leftVectors)
@@ -1367,6 +1389,27 @@ TEST_F(HashJoinTest, fullJoin) {
   assertQuery(
       op,
       "SELECT t.c1 FROM t FULL OUTER JOIN (SELECT * FROM u WHERE c0 > 100) u ON t.c0 = u.c0");
+
+  // No match on join key
+  auto noMatchBuildSide = PlanBuilder(planNodeIdGenerator)
+                              .values({rightVectors})
+                              .filter("c0 < 0")
+                              .project({"c0 AS u_c0", "c1 AS u_c1"})
+                              .planNode();
+  op = PlanBuilder(planNodeIdGenerator)
+           .values(leftVectors)
+           .hashJoin(
+               {"c0"},
+               {"u_c0"},
+               noMatchBuildSide,
+               "",
+               {"c1"},
+               core::JoinType::kFull)
+           .planNode();
+
+  assertQuery(
+      op,
+      "SELECT t.c1 FROM t FULL OUTER JOIN (SELECT * FROM u WHERE c0 < 0) u ON t.c0 = u.c0");
 
   // Additional filter.
   op = PlanBuilder(planNodeIdGenerator)
