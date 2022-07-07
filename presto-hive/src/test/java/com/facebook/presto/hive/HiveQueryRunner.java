@@ -26,6 +26,7 @@ import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpcds.TpcdsTableName;
 import com.facebook.presto.tpcds.TpcdsPlugin;
@@ -89,6 +90,12 @@ public final class HiveQueryRunner
         return createQueryRunner(tables, ImmutableMap.of(), Optional.empty());
     }
 
+    public static DistributedQueryRunner createQueryRunner(boolean catalogServerEnabled, Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createQueryRunner(tables, ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), catalogServerEnabled);
+    }
+
     public static DistributedQueryRunner createQueryRunner(
             Iterable<TpchTable<?>> tpchTables,
             Map<String, String> extraProperties,
@@ -134,7 +141,7 @@ public final class HiveQueryRunner
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
             throws Exception
     {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, extraCoordinatorProperties, security, extraHiveProperties, workerCount, baseDataDir, externalWorkerLauncher, Optional.empty());
+        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, extraCoordinatorProperties, security, extraHiveProperties, workerCount, baseDataDir, externalWorkerLauncher, Optional.empty(), false);
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -147,7 +154,8 @@ public final class HiveQueryRunner
             Optional<Integer> workerCount,
             Optional<Path> baseDataDir,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            Optional<ExtendedHiveMetastore> externalMetastore)
+            Optional<ExtendedHiveMetastore> externalMetastore,
+            boolean catalogServerEnabled)
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
@@ -166,6 +174,7 @@ public final class HiveQueryRunner
                         .setNodeCount(workerCount.orElse(4))
                         .setExtraProperties(systemProperties)
                         .setCoordinatorProperties(extraCoordinatorProperties)
+                        .setCatalogServerEnabled(catalogServerEnabled)
                         .setBaseDataDir(baseDataDir)
                         .setExternalWorkerLauncher(externalWorkerLauncher)
                         .build();
