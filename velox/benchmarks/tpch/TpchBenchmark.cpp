@@ -46,7 +46,7 @@ static bool validateDataFormat(const char* flagname, const std::string& value) {
   }
   std::cout
       << fmt::format(
-             "Invalid value for --{}: {}. Allowed values are [\"parquet\", \"orc\"]",
+             "Invalid value for --{}: {}. Allowed values are [\"parquet\", \"dwrf\"]",
              flagname,
              value)
       << std::endl;
@@ -56,6 +56,21 @@ static bool validateDataFormat(const char* flagname, const std::string& value) {
 void ensureTaskCompletion(exec::Task* task) {
   // ASSERT_TRUE requires a function with return type void.
   ASSERT_TRUE(waitForTaskCompletion(task));
+}
+
+void printResults(const std::vector<RowVectorPtr>& results) {
+  std::cout << "Results:" << std::endl;
+  bool printType = true;
+  for (const auto& vector : results) {
+    // Print RowType only once.
+    if (printType) {
+      std::cout << vector->type()->asRow().toString() << std::endl;
+      printType = false;
+    }
+    for (size_t i = 0; i < vector->size(); ++i) {
+      std::cout << vector->toString(i) << std::endl;
+    }
+  }
 }
 } // namespace
 
@@ -68,6 +83,7 @@ DEFINE_bool(
     include_custom_stats,
     false,
     "Include custom statistics along with execution statistics");
+DEFINE_bool(include_results, false, "Include results in the output");
 DEFINE_int32(num_drivers, 4, "Number of drivers");
 DEFINE_string(data_format, "parquet", "Data format");
 DEFINE_int32(num_splits_per_file, 10, "Number of splits per file");
@@ -90,7 +106,8 @@ class TpchBenchmark {
     connector::registerConnector(hiveConnector);
   }
 
-  std::shared_ptr<Task> run(const TpchPlan& tpchPlan) {
+  std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> run(
+      const TpchPlan& tpchPlan) {
     CursorParameters params;
     params.maxDrivers = FLAGS_num_drivers;
     params.planNode = tpchPlan.plan;
@@ -112,8 +129,7 @@ class TpchBenchmark {
       }
       noMoreSplits = true;
     };
-    auto [cursor, results] = readCursor(params, addSplits);
-    return cursor->task();
+    return readCursor(params, addSplits);
   }
 };
 
@@ -165,8 +181,13 @@ int main(int argc, char** argv) {
     folly::runBenchmarks();
   } else {
     const auto queryPlan = queryBuilder->getQueryPlan(FLAGS_run_query_verbose);
-    const auto task = benchmark.run(queryPlan);
+    const auto [cursor, actualResults] = benchmark.run(queryPlan);
+    auto task = cursor->task();
     ensureTaskCompletion(task.get());
+    if (FLAGS_include_results) {
+      printResults(actualResults);
+      std::cout << std::endl;
+    }
     const auto stats = task->taskStats();
     std::cout << fmt::format(
                      "Execution time: {}",
