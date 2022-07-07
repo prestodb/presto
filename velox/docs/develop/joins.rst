@@ -2,12 +2,12 @@
 Joins
 =====
 
-Velox supports inner, left, right, full outer, semi and anti hash joins using
+Velox supports inner, left, right, full outer, left semi, and anti hash joins using
 either partitioned or broadcast distribution strategies. Velox also supports
 cross joins.
 
 Velox also supports inner and left merge join for the case where join inputs are
-sorted on the join keys. Right, full, semi and anti merge joins are not
+sorted on the join keys. Right, full, left semi, and anti merge joins are not
 supported yet.
 
 Hash Join Implementation
@@ -21,7 +21,7 @@ values need to match, and an optional filter to apply to join results.
     :width: 400
     :align: center
 
-The join type can be one of kInner, kLeft, kRight, kFull, kSemi, or kAnti.
+The join type can be one of kInner, kLeft, kRight, kFull, kLeftSemi, or kAnti.
 
 Filter is optional. If specified it can be any expression over the results of
 the join. This expression will be evaluated using the same expression
@@ -174,7 +174,7 @@ join key values on the build side are unique it is possible to replace the join
 completely with the pushed down filter. Velox detects such opportunities and
 turns the join into a no-op after pushing the filter down.
 
-Dynamic filter pushdown optimization is enabled for inner and semi joins.
+Dynamic filter pushdown optimization is enabled for inner and left semi joins.
 
 Broadcast Join
 ~~~~~~~~~~~~~~
@@ -229,7 +229,7 @@ safe because that row cannot possibly match anything on these destinations.
 Empty Build Side
 ~~~~~~~~~~~~~~~~
 
-For inner and semi joins, when the build side is empty, Velox implements an
+For inner and left semi joins, when the build side is empty, Velox implements an
 optimization to finish the join early and return an empty set of results
 without waiting to receive all the probe side input. In this case all upstream
 operators are canceled to avoid unnecessary computation.
@@ -237,7 +237,7 @@ operators are canceled to avoid unnecessary computation.
 Skipping Duplicate Keys
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-When building a hash table for semi or anti join HashBuild operator skips
+When building a hash table for left semi or anti join HashBuild operator skips
 entries with duplicate keys as these are not needed. This is achieved by
 configuring exec::HashTable to set the "allowDuplicates" flag to false. This
 optimization reduces memory usage of the hash table in case the build side

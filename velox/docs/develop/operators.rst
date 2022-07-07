@@ -186,7 +186,7 @@ and emitting results.
    * - Property
      - Description
    * - joinType
-     - Join type: inner, left, right, full, semi, anti. You can read about different join types in this `blog post <https://dataschool.com/how-to-teach-people-sql/sql-join-types-explained-visually/>`_.
+     - Join type: inner, left, right, full, left semi, anti. You can read about different join types in this `blog post <https://dataschool.com/how-to-teach-people-sql/sql-join-types-explained-visually/>`_.
    * - leftKeys
      - Columns from the left hand side input that are part of the equality condition. At least one must be specified.
    * - rightKeys

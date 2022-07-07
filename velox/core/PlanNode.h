@@ -931,7 +931,7 @@ class PartitionedOutputNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
-enum class JoinType { kInner, kLeft, kRight, kFull, kSemi, kAnti };
+enum class JoinType { kInner, kLeft, kRight, kFull, kLeftSemi, kAnti };
 
 inline const char* joinTypeName(JoinType joinType) {
   switch (joinType) {
@@ -943,8 +943,8 @@ inline const char* joinTypeName(JoinType joinType) {
       return "RIGHT";
     case JoinType::kFull:
       return "FULL";
-    case JoinType::kSemi:
-      return "SEMI";
+    case JoinType::kLeftSemi:
+      return "LEFT SEMI";
     case JoinType::kAnti:
       return "ANTI";
   }
@@ -967,8 +967,8 @@ inline bool isFullJoin(JoinType joinType) {
   return joinType == JoinType::kFull;
 }
 
-inline bool isSemiJoin(JoinType joinType) {
-  return joinType == JoinType::kSemi;
+inline bool isLeftSemiJoin(JoinType joinType) {
+  return joinType == JoinType::kLeftSemi;
 }
 
 inline bool isAntiJoin(JoinType joinType) {
@@ -1017,8 +1017,8 @@ class AbstractJoinNode : public PlanNode {
     return joinType_ == JoinType::kFull;
   }
 
-  bool isSemiJoin() const {
-    return joinType_ == JoinType::kSemi;
+  bool isLeftSemiJoin() const {
+    return joinType_ == JoinType::kLeftSemi;
   }
 
   bool isAntiJoin() const {

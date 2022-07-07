@@ -182,9 +182,9 @@ class HashProbe : public Operator {
     bool currentRowPassed{false};
   };
 
-  // For semi join with extra filter, de-duplicates probe side rows with
+  // For left semi join with extra filter, de-duplicates probe side rows with
   // multiple matches.
-  class SemiJoinTracker {
+  class LeftSemiJoinTracker {
    public:
     // Called for each row that the filter passes. Expects that probe
     // side rows with multiple matches are next to each other. Calls onLastMatch
@@ -225,9 +225,9 @@ class HashProbe : public Operator {
   /// matches on the build side but didn't pass the filter.
   NoMatchDetector noMatchDetector_;
 
-  /// For semi join with filter, de-duplicates probe side rows with multiple
-  /// matches.
-  SemiJoinTracker semiJoinTracker_;
+  /// For left semi join with filter, de-duplicates probe side rows with
+  /// multiple matches.
+  LeftSemiJoinTracker leftSemiJoinTracker_;
 
   // Keeps track of returned results between successive batches of
   // output for a batch of input.

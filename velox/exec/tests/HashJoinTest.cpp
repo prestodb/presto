@@ -482,7 +482,7 @@ TEST_F(HashJoinTest, innerJoinWithEmptyBuild) {
   assertQueryReturnsEmptyResult(op);
 }
 
-TEST_F(HashJoinTest, semiJoin) {
+TEST_F(HashJoinTest, leftSemiJoin) {
   auto leftVectors = makeRowVector({
       makeFlatVector<int32_t>(
           1'234, [](auto row) { return row % 11; }, nullEvery(13)),
@@ -508,7 +508,7 @@ TEST_F(HashJoinTest, semiJoin) {
                         .planNode(),
                     "",
                     {"c1"},
-                    core::JoinType::kSemi)
+                    core::JoinType::kLeftSemi)
                 .planNode();
 
   assertQuery(op, "SELECT t.c1 FROM t WHERE t.c0 IN (SELECT c0 FROM u)");
@@ -526,14 +526,14 @@ TEST_F(HashJoinTest, semiJoin) {
                    .planNode(),
                "",
                {"c1"},
-               core::JoinType::kSemi)
+               core::JoinType::kLeftSemi)
            .planNode();
 
   assertQuery(
       op, "SELECT t.c1 FROM t WHERE t.c0 IN (SELECT c0 FROM u WHERE c0 < 0)");
 }
 
-TEST_F(HashJoinTest, semiJoinWithFilter) {
+TEST_F(HashJoinTest, leftSemiJoinWithFilter) {
   auto leftVectors = makeRowVector(
       {"t0", "t1"},
       {
@@ -562,7 +562,7 @@ TEST_F(HashJoinTest, semiJoinWithFilter) {
                         .planNode(),
                     "",
                     {"t0", "t1"},
-                    core::JoinType::kSemi)
+                    core::JoinType::kLeftSemi)
                 .planNode();
 
   assertQuery(
@@ -578,7 +578,7 @@ TEST_F(HashJoinTest, semiJoinWithFilter) {
                    .planNode(),
                "t1 != u1",
                {"t0", "t1"},
-               core::JoinType::kSemi)
+               core::JoinType::kLeftSemi)
            .planNode();
 
   assertQuery(
@@ -782,7 +782,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
     EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
     EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
 
-    // Semi join.
+    // Left semi join.
     op = PlanBuilder(planNodeIdGenerator)
              .tableScan(probeType)
              .capturePlanNodeId(leftScanId)
@@ -792,7 +792,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                  buildSide,
                  "",
                  {"c0", "c1"},
-                 core::JoinType::kSemi)
+                 core::JoinType::kLeftSemi)
              .project({"c0", "c1 + 1"})
              .planNode();
 
@@ -944,12 +944,17 @@ TEST_F(HashJoinTest, dynamicFilters) {
     EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
     EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
 
-    // Semi join.
+    // Left semi join.
     op = PlanBuilder(planNodeIdGenerator)
              .tableScan(probeType, {"c0 < 200::INTEGER"})
              .capturePlanNodeId(leftScanId)
              .hashJoin(
-                 {"c0"}, {"u_c0"}, buildSide, "", {"c1"}, core::JoinType::kSemi)
+                 {"c0"},
+                 {"u_c0"},
+                 buildSide,
+                 "",
+                 {"c1"},
+                 core::JoinType::kLeftSemi)
              .project({"c1 + 1"})
              .planNode();
 

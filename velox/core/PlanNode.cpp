@@ -332,9 +332,6 @@ AbstractJoinNode::AbstractJoinNode(
       leftKeys_.size(),
       rightKeys_.size(),
       "JoinNode requires same number of join keys on left and right sides");
-  if (isSemiJoin() || isAntiJoin()) {
-    VELOX_CHECK_NULL(filter, "Semi and anti join does not support filter");
-  }
   auto leftType = sources_[0]->outputType();
   for (auto key : leftKeys_) {
     VELOX_CHECK(
