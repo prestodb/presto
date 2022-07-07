@@ -65,3 +65,18 @@ target_link_libraries(
   gtest_main
   ${gflags_LIBRARIES}
   glog::glog)
+
+add_executable(velox_negated_bytes_values_benchmark
+               NegatedBytesValuesBenchmark.cpp)
+
+target_link_libraries(
+  velox_negated_bytes_values_benchmark
+  velox_type
+  velox_serialization
+  ${FOLLY}
+  ${FOLLY_BENCHMARK}
+  ${DOUBLE_CONVERSION}
+  gtest
+  gtest_main
+  ${gflags_LIBRARIES}
+  glog::glog)
