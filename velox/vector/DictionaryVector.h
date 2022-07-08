@@ -214,6 +214,17 @@ class DictionaryVector : public SimpleVector<T> {
     setInternalState();
   }
 
+  /// Resizes the vector to be of size 'size'. If setNotNull is true
+  /// the newly added elements point to the value at the 0th index.
+  /// If setNotNull is false then the values and isNull is undefined.
+  void resize(vector_size_t size, bool setNotNull = true) override {
+    if (size > BaseVector::length_) {
+      BaseVector::resizeIndices(size, 0, &indices_, &rawIndices_);
+    }
+
+    BaseVector::resize(size, setNotNull);
+  }
+
  private:
   // return the dictionary index for the specified vector index.
   inline vector_size_t getDictionaryIndex(vector_size_t idx) const {

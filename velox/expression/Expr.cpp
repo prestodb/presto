@@ -659,11 +659,7 @@ void Expr::addNulls(
   }
 
   if (result->size() < rows.end()) {
-    // Not all Vectors support resize.  Since we only want to append nulls,
-    // we can work around that by calling setSize to resize the vector and
-    // ensureNullsCapacity to resize the nulls_ bit vector.
-    result->setSize(rows.end());
-    result->ensureNullsCapacity(rows.end(), true);
+    result->resize(rows.end());
   }
 
   result->addNulls(rawNulls, rows);
