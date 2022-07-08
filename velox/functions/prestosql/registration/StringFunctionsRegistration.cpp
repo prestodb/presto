@@ -51,9 +51,8 @@ void registerSimpleFunctions() {
   registerFunction<LTrimFunction, Varchar, Varchar>({"ltrim"});
   registerFunction<RTrimFunction, Varchar, Varchar>({"rtrim"});
 
-  registerFunction<udf_pad<true>, Varchar, Varchar, int64_t, Varchar>({"lpad"});
-  registerFunction<udf_pad<false>, Varchar, Varchar, int64_t, Varchar>(
-      {"rpad"});
+  registerFunction<LPadFunction, Varchar, Varchar, int64_t, Varchar>({"lpad"});
+  registerFunction<RPadFunction, Varchar, Varchar, int64_t, Varchar>({"rpad"});
 
   // Register hash functions.
   registerFunction<XxHash64Function, Varbinary, Varbinary>({"xxhash64"});

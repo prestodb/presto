@@ -649,10 +649,12 @@ FOLLY_ALWAYS_INLINE void pad(
     const TInString& string,
     const int64_t size,
     const TInString& padString) {
+  static constexpr size_t padMaxSize = 1024 * 1024; // 1MB
+
   VELOX_USER_CHECK(
-      size >= 0 && size <= std::numeric_limits<int32_t>::max(),
-      "size must be in the range [0..{})",
-      std::numeric_limits<int32_t>::max());
+      size >= 0 && size <= padMaxSize,
+      "pad size must be in the range [0..{})",
+      padMaxSize);
   VELOX_USER_CHECK(padString.size() > 0, "padString must not be empty");
 
   int64_t stringCharLength = length<isAscii>(string);

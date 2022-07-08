@@ -52,11 +52,6 @@ int main(int argc, char** argv) {
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable.
   std::unordered_set<std::string> skipFunctions = {
-      // The pad functions cause the test to OOM. The 2nd arg is only bound by
-      // the max value of int32_t, which leads to strings billions of characters
-      // long.
-      "lpad",
-      "rpad",
       // Fuzzer and the underlying engine are confused about cardinality(HLL)
       // (since HLL is a user defined type), and end up trying to use
       // cardinality passing a VARBINARY (since HLL's implementation uses an
