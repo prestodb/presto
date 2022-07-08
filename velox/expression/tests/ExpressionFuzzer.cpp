@@ -346,17 +346,8 @@ class ExpressionFuzzer {
   }
 
   RowVectorPtr generateRowVector() {
-    std::vector<VectorPtr> vectors;
-    vectors.reserve(inputRowTypes_.size());
-    size_t idx = 0;
-
-    for (const auto& inputRowType : inputRowTypes_) {
-      auto vector = vectorFuzzer_.fuzz(inputRowType);
-
-      vectors.emplace_back(vector);
-      ++idx;
-    }
-    return vectors.empty() ? nullptr : vectorMaker_.rowVector(vectors);
+    return vectorFuzzer_.fuzzRow(
+        ROW(std::move(inputRowNames_), std::move(inputRowTypes_)));
   }
 
   core::TypedExprPtr generateArgConstant(const TypePtr& arg) {
@@ -371,15 +362,16 @@ class ExpressionFuzzer {
 
   core::TypedExprPtr generateArgColumn(const TypePtr& arg) {
     inputRowTypes_.emplace_back(arg);
+    inputRowNames_.emplace_back(fmt::format("c{}", inputRowTypes_.size() - 1));
 
     return std::make_shared<core::FieldAccessTypedExpr>(
-        arg, fmt::format("c{}", inputRowTypes_.size() - 1));
+        arg, inputRowNames_.back());
   }
 
   core::TypedExprPtr generateArg(const TypePtr& arg) {
     size_t argClass = folly::Random::rand32(3, rng_);
 
-    // Toss a coin a choose between a constant, a column reference, or another
+    // Toss a coin and choose between a constant, a column reference, or another
     // expression (function).
     //
     // TODO: Add more expression types:
@@ -559,7 +551,8 @@ class ExpressionFuzzer {
     for (size_t i = 0; i < steps; ++i) {
       LOG(INFO) << "==============================> Started iteration " << i
                 << " (seed: " << currentSeed_ << ")";
-      inputRowTypes_.clear();
+      VELOX_CHECK(inputRowTypes_.empty());
+      VELOX_CHECK(inputRowNames_.empty());
 
       // Pick a random signature to chose the root return type.
       size_t idx = folly::Random::rand32(signatures_.size(), rng_);
@@ -616,6 +609,7 @@ class ExpressionFuzzer {
   // Contains the input column references that need to be generated for one
   // particular iteration.
   std::vector<TypePtr> inputRowTypes_;
+  std::vector<std::string> inputRowNames_;
 };
 
 } // namespace

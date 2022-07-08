@@ -21,6 +21,7 @@
 
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
+#include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox {
 
@@ -99,7 +100,7 @@ class VectorFuzzer {
   VectorPtr fuzzComplex(const TypePtr& type);
 
   // Returns a "fuzzed" row vector with randomized data and nulls.
-  VectorPtr fuzzRow(const RowTypePtr& rowType);
+  RowVectorPtr fuzzRow(const RowTypePtr& rowType);
 
   variant randVariant(const TypePtr& arg);
 
@@ -130,7 +131,7 @@ class VectorFuzzer {
 
   VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
 
-  VectorPtr
+  RowVectorPtr
   fuzzRow(const RowTypePtr& rowType, vector_size_t size, bool mayHaveNulls);
 
   // Generate a random null vector.

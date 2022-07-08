@@ -366,11 +366,11 @@ VectorPtr VectorFuzzer::fuzzDictionary(const VectorPtr& vector) {
       BufferPtr(nullptr), indices, vectorSize, vector);
 }
 
-VectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
+RowVectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
   return fuzzRow(rowType, opts_.vectorSize, false);
 }
 
-VectorPtr VectorFuzzer::fuzzRow(
+RowVectorPtr VectorFuzzer::fuzzRow(
     const RowTypePtr& rowType,
     vector_size_t size,
     bool mayHaveNulls) {
