@@ -88,4 +88,15 @@ TEST_F(VectorToStringTest, row) {
       "1: {2, 2.299999952316284, 1}\n"
       "2: {3, 444.55999755859375, 1}");
 }
+
+TEST_F(VectorToStringTest, opaque) {
+  auto opaque = BaseVector::create(OPAQUE<int>(), 10, pool_.get());
+
+  ASSERT_EQ(opaque->toString(), "[FLAT OPAQUE<int>: 10 elements, no nulls]");
+  ASSERT_EQ(
+      opaque->toString(0, 3),
+      "0: <opaque>\n"
+      "1: <opaque>\n"
+      "2: <opaque>");
+}
 } // namespace facebook::velox::test

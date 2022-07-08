@@ -180,7 +180,7 @@ class SimpleVector : public BaseVector {
       out << "null";
     } else {
       if constexpr (std::is_same<T, std::shared_ptr<void>>::value) {
-        VELOX_NYI("Can't serialize opaque objects yet");
+        out << "<opaque>";
       } else {
         out << velox::to<std::string>(valueAt(index));
       }
