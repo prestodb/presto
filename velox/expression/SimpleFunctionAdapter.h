@@ -73,6 +73,17 @@ class SimpleFunctionAdapter : public VectorFunction {
       TypeKind::UNKNOWN&& CppToType<arg_at<POSITION>>::typeKind !=
       TypeKind::BOOLEAN&& CppToType<arg_at<POSITION>>::isPrimitiveType;
 
+  /// If the initialize() method provided by functions throw, we don't (can't)
+  /// throw immediately; rather, we capture the exception using this member
+  /// variable and set that as error for every single active row. This is needed
+  /// because of a subtle semantic issue:
+  ///
+  /// Consider the function "f(p1, c1)" where c1 is a constant that makes f()
+  /// throw on initialize(). If we throw immediately on initialize() and p1 is
+  /// composed only of nulls, the expected behavior would be to optimize this
+  /// function out and return null, not to throw.
+  std::exception_ptr initializeException_;
+
   struct ApplyContext {
     ApplyContext(
         const SelectivityVector* _rows,
@@ -145,7 +156,11 @@ class SimpleFunctionAdapter : public VectorFunction {
       std::shared_ptr<const Type> returnType)
       : fn_{std::make_unique<FUNC>(move(returnType))} {
     if constexpr (FUNC::udf_has_initialize) {
-      unpack<0>(config, constantInputs);
+      try {
+        unpack<0>(config, constantInputs);
+      } catch (const std::exception& e) {
+        initializeException_ = std::current_exception();
+      }
     }
   }
 
@@ -285,6 +300,16 @@ class SimpleFunctionAdapter : public VectorFunction {
 
     ApplyContext applyContext{
         &rows, outputType, context, reusableResult, isResultReused};
+
+    // If the function provides an initialize() method and it threw, we set that
+    // exception in all active rows and we're done with it.
+    if constexpr (FUNC::udf_has_initialize) {
+      if (UNLIKELY(initializeException_ != nullptr)) {
+        applyContext.context->setErrors(
+            *applyContext.rows, initializeException_);
+        return;
+      }
+    }
 
     // Enable fast all-ASCII path if all string inputs are ASCII and the
     // function provides ASCII-only path.
