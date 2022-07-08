@@ -76,6 +76,37 @@ int32_t SystemConfig::httpExecThreads() const {
   return threadsOpt.hasValue() ? threadsOpt.value() : kHttpExecThreadsDefault;
 }
 
+int32_t SystemConfig::numIoThreads() const {
+  auto opt = optionalProperty<int32_t>(std::string(kNumIoThreads));
+  return opt.hasValue() ? opt.value() : kNumIoThreadsDefault;
+}
+
+int32_t SystemConfig::shutdownOnsetSec() const {
+  auto opt = optionalProperty<int32_t>(std::string(kShutdownOnsetSec));
+  return opt.hasValue() ? opt.value() : kShutdownOnsetSecDefault;
+}
+
+int32_t SystemConfig::systemMemoryGb() const {
+  auto opt = optionalProperty<int32_t>(std::string(kSystemMemoryGb));
+  return opt.hasValue() ? opt.value() : kSystemMemoryGbDefault;
+}
+
+int32_t SystemConfig::asyncCacheSsdGb() const {
+  auto opt = optionalProperty<int32_t>(std::string(kAsyncCacheSsdGb));
+  return opt.hasValue() ? opt.value() : kAsyncCacheSsdGbDefault;
+}
+
+std::string_view SystemConfig::asyncCacheSsdPath() const {
+  auto opt =
+      optionalProperty<std::string_view>(std::string(kAsyncCacheSsdPath));
+  return opt.hasValue() ? opt.value() : kAsyncCacheSsdPathDefault;
+}
+
+bool SystemConfig::enableSerializedPageChecksum() const {
+  auto opt = optionalProperty<bool>(std::string(kEnableSerializedPageChecksum));
+  return opt.hasValue() ? opt.value() : kEnableSerializedPageChecksumDefault;
+}
+
 bool SystemConfig::enableVeloxTaskLogging() const {
   auto loggingOpt =
       optionalProperty<bool>(std::string(kEnableVeloxTaskLogging));

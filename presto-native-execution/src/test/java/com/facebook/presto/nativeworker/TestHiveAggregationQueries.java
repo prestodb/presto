@@ -50,8 +50,14 @@ public class TestHiveAggregationQueries
         // non-deterministic query
         assertQuerySucceeds("SELECT orderkey, arbitrary(comment) FROM lineitem GROUP BY 1");
 
-        assertQuery("SELECT orderkey, array_agg(linenumber) FROM lineitem GROUP BY 1");
+        // TODO results from array_agg() are not deterministic so we just compare cardinality for the time being
+        // We can switch to array_sort() once it becomes available from velox
+        assertQuery("SELECT orderkey, cardinality(array_agg(linenumber)) FROM lineitem GROUP BY 1");
         assertQuery("SELECT orderkey, map_agg(linenumber, discount) FROM lineitem GROUP BY 1");
+
+        // TODO results from map_union() are not deterministic so we just compare cardinality for the time being
+        assertQuery("SELECT cardinality(map_union(quantity_by_linenumber)) FROM orders_ex");
+
         assertQuery("SELECT orderkey, count_if(linenumber % 2 > 0) FROM lineitem GROUP BY 1");
         assertQuery("SELECT orderkey, bool_and(linenumber % 2 = 1) FROM lineitem GROUP BY 1");
         assertQuery("SELECT orderkey, bool_or(linenumber % 2 = 0) FROM lineitem GROUP BY 1");
@@ -115,6 +121,15 @@ public class TestHiveAggregationQueries
         // Verify that Velox can read HLL binaries written by Java Presto.
         assertQuery("SELECT cardinality(cast(hll as hyperloglog)) FROM orders_hll");
         assertQuery("SELECT cardinality(merge(cast(hll as hyperloglog))) FROM orders_hll");
+    }
+
+    @Test
+    public void testApproxMostFrequent()
+    {
+        assertQuery("SELECT approx_most_frequent(3, linenumber, 1000) FROM lineitem");
+        assertQuerySucceeds("SELECT orderkey, approx_most_frequent(3, linenumber, 10) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT approx_most_frequent(3, orderkey, 1000) FROM lineitem");
+        assertQuerySucceeds("SELECT linenumber, approx_most_frequent(3, orderkey, 10) FROM lineitem GROUP BY 1");
     }
 
     @Test

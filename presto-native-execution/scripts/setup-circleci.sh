@@ -14,7 +14,7 @@
 set -e
 set -x
 
-export FB_OS_VERSION=v2021.05.10.00
+export FB_OS_VERSION=v2022.03.14.00
 export nproc=$(getconf _NPROCESSORS_ONLN)
 
 dnf install -y maven
@@ -33,7 +33,7 @@ export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
 CPU_TARGET="${CPU_TARGET:-avx}"
-SOURCE_FILE="$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-helper-functions.sh"
+SOURCE_FILE="$(dirname "${BASH_SOURCE}")/setup-helper-functions.sh"
 export COMPILER_FLAGS=$(source "$SOURCE_FILE" && echo -n $(get_cxx_flags $CPU_TARGET))
 
 (
