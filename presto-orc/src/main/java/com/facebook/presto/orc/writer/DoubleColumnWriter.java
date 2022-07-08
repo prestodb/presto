@@ -52,6 +52,7 @@ public class DoubleColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleColumnWriter.class).instanceSize();
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
+    private static final long TYPE_SIZE = Double.BYTES;
 
     private final int column;
     private final int sequence;
@@ -118,7 +119,7 @@ public class DoubleColumnWriter
                 nonNullValueCount++;
             }
         }
-        return nonNullValueCount * Double.BYTES + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+        return nonNullValueCount * TYPE_SIZE + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
     }
 
     @Override
