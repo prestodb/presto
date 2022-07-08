@@ -20,6 +20,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.google.common.base.Preconditions;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -65,13 +66,6 @@ public class LogicalPropertiesImpl
         this.keyProperty = requireNonNull(keyProperty, "keyProperty is null");
     }
 
-    private static void checkArgument(boolean condition, String message)
-    {
-        if (!condition) {
-            throw new IllegalArgumentException(message);
-        }
-    }
-
     /**
      * Determines if one set of logical properties is more general than another set.
      * A set of logical properties is more general than another set if they can satisfy
@@ -84,9 +78,9 @@ public class LogicalPropertiesImpl
     private boolean isMoreGeneralThan(LogicalPropertiesImpl otherLogicalProperties)
     {
         requireNonNull(otherLogicalProperties, "otherLogicalProperties is null");
-        return (this.maxCardProperty.moreGeneral(otherLogicalProperties.maxCardProperty) &&
-                this.keyProperty.moreGeneral(otherLogicalProperties.keyProperty) &&
-                this.equivalenceClassProperty.isMoreGeneralThan(otherLogicalProperties.equivalenceClassProperty));
+        return (maxCardProperty.moreGeneral(otherLogicalProperties.maxCardProperty) &&
+                keyProperty.moreGeneral(otherLogicalProperties.keyProperty) &&
+                equivalenceClassProperty.isMoreGeneralThan(otherLogicalProperties.equivalenceClassProperty));
     }
 
     /**
@@ -99,7 +93,7 @@ public class LogicalPropertiesImpl
     public boolean equals(LogicalPropertiesImpl otherLogicalProperties)
     {
         requireNonNull(otherLogicalProperties, "otherLogicalProperties is null");
-        return ((this.isMoreGeneralThan(otherLogicalProperties)) && otherLogicalProperties.isMoreGeneralThan(this));
+        return ((isMoreGeneralThan(otherLogicalProperties)) && otherLogicalProperties.isMoreGeneralThan(this));
     }
 
     /**
@@ -146,14 +140,14 @@ public class LogicalPropertiesImpl
     public boolean isDistinct(Set<VariableReferenceExpression> keyVars)
     {
         requireNonNull(keyVars, "keyVars is null");
-        checkArgument(!keyVars.isEmpty(), "keyVars is empty");
-        return this.keyRequirementSatisfied(new Key(keyVars));
+        Preconditions.checkArgument(!keyVars.isEmpty(), "keyVars is empty");
+        return keyRequirementSatisfied(new Key(keyVars));
     }
 
     @Override
     public boolean isAtMostSingleRow()
     {
-        return this.isAtMost(1);
+        return isAtMost(1);
     }
 
     @Override
@@ -188,19 +182,19 @@ public class LogicalPropertiesImpl
     }
 
     /**
-     * This logical properties builder should be used by PlanNode's that do not
+     * This logical properties' builder should be used by PlanNode that do not
      * (yet perhaps) propagate or add logical properties. For example, a GroupIdNode does
      * not propagate or add logical properties. This is the PlanNode default.
      */
-    public static class NoPropagateBuilder
+    public static class DoNotPropagateBuilder
     {
-        KeyProperty keyProperty = new KeyProperty();
-        MaxCardProperty maxCardProperty = new MaxCardProperty();
-        EquivalenceClassProperty equivalenceClassProperty;
+        private final KeyProperty keyProperty = new KeyProperty();
+        private final MaxCardProperty maxCardProperty = new MaxCardProperty();
+        private final EquivalenceClassProperty equivalenceClassProperty;
 
-        NoPropagateBuilder(FunctionResolution functionResolution)
+        DoNotPropagateBuilder(FunctionResolution functionResolution)
         {
-            this.equivalenceClassProperty = new EquivalenceClassProperty(functionResolution);
+            equivalenceClassProperty = new EquivalenceClassProperty(functionResolution);
         }
 
         LogicalPropertiesImpl build()
@@ -243,10 +237,10 @@ public class LogicalPropertiesImpl
      */
     public static class TableScanBuilder
     {
-        List<Set<VariableReferenceExpression>> keys;
-        KeyProperty keyProperty = new KeyProperty();
-        MaxCardProperty maxCardProperty = new MaxCardProperty();
-        EquivalenceClassProperty equivalenceClassProperty;
+        private final List<Set<VariableReferenceExpression>> keys;
+        private final KeyProperty keyProperty = new KeyProperty();
+        private final MaxCardProperty maxCardProperty = new MaxCardProperty();
+        private final EquivalenceClassProperty equivalenceClassProperty;
 
         TableScanBuilder(List<Set<VariableReferenceExpression>> keys, FunctionResolution functionResolution)
         {
@@ -257,7 +251,7 @@ public class LogicalPropertiesImpl
 
         LogicalPropertiesImpl build()
         {
-            keyProperty.addKeys(keys.stream().map(keyCols -> new Key(keyCols)).collect(Collectors.toSet()));
+            keyProperty.addKeys(keys.stream().map(Key::new).collect(Collectors.toSet()));
             return new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty);
         }
     }
@@ -335,7 +329,7 @@ public class LogicalPropertiesImpl
     }
 
     /**
-     * This logical properties builder should be used by PlanNode's that propagate their
+     * This logical properties builder should be used by PlanNode that propagate their
      * source properties and add a limit. For example, TopNNode and LimitNode.
      */
     public static class PropagateAndLimitBuilder
@@ -388,7 +382,7 @@ public class LogicalPropertiesImpl
             requireNonNull(sourceProperties, "sourceProperties is null");
             requireNonNull(keyVariables, "keyVariables is null");
             requireNonNull(outputVariables, "outputVariables is null");
-            checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
+            Preconditions.checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
             this.sourceProperties = sourceProperties;
             this.key = new Key(keyVariables);
             this.outputVariables = outputVariables;
@@ -431,7 +425,7 @@ public class LogicalPropertiesImpl
             requireNonNull(keyVariables, "keyVariables is null");
             requireNonNull(outputVariables, "outputVariables is null");
             requireNonNull(limit, "limit is null");
-            checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
+            Preconditions.checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
             this.sourceProperties = sourceProperties;
             this.keyVariables = keyVariables;
             this.outputVariables = outputVariables;
@@ -527,8 +521,8 @@ public class LogicalPropertiesImpl
             // first determine if the join is n to 1 and/or 1 to n
             boolean nToOne = false;
             boolean oneToN = false;
-            Set<VariableReferenceExpression> rightJoinVariables = this.equijoinPredicates.stream().map(predicate -> predicate.getRight()).collect(Collectors.toSet());
-            Set<VariableReferenceExpression> leftJoinVariables = this.equijoinPredicates.stream().map(predicate -> predicate.getLeft()).collect(Collectors.toSet());
+            Set<VariableReferenceExpression> rightJoinVariables = this.equijoinPredicates.stream().map(JoinNode.EquiJoinClause::getRight).collect(Collectors.toSet());
+            Set<VariableReferenceExpression> leftJoinVariables = this.equijoinPredicates.stream().map(JoinNode.EquiJoinClause::getLeft).collect(Collectors.toSet());
 
             //if n-to-1 inner or left join then propagate left source keys and maxcard
             if ((rightProperties.maxCardProperty.isAtMostOne() || (!rightJoinVariables.isEmpty() && rightProperties.isDistinct(rightJoinVariables))) &&
@@ -568,12 +562,10 @@ public class LogicalPropertiesImpl
 
             //update equivalence classes with equijoin predicates, note that if nulls are injected, equivalence does not hold propagate
             if (joinType == INNER) {
-                equijoinPredicates.stream().forEach(joinVariables -> equivalenceClassProperty.update(joinVariables.getLeft(), joinVariables.getRight()));
+                equijoinPredicates.forEach(joinVariables -> equivalenceClassProperty.update(joinVariables.getLeft(), joinVariables.getRight()));
 
                 //update equivalence classes with any residual filter predicate
-                if (filterPredicate.isPresent()) {
-                    equivalenceClassProperty.update(filterPredicate.get());
-                }
+                filterPredicate.ifPresent(equivalenceClassProperty::update);
             }
 
             //since we likely merged equivalence class from left and right source we will normalize the key property
