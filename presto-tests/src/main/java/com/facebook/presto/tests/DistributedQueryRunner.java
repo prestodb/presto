@@ -334,9 +334,11 @@ public class DistributedQueryRunner
         }
 
         int availableCoordinators = 0;
-        while (availableCoordinators != coordinators.size()) {
-            MILLISECONDS.sleep(10);
-            availableCoordinators = getResourceManager().get().getNodeManager().getCoordinators().size();
+        if (getResourceManager().isPresent()) {
+            while (availableCoordinators != coordinators.size()) {
+                MILLISECONDS.sleep(10);
+                availableCoordinators = getResourceManager().get().getNodeManager().getCoordinators().size();
+            }
         }
     }
 
@@ -394,7 +396,16 @@ public class DistributedQueryRunner
                 extraModules,
                 baseDataDir);
 
-        String nodeRole = coordinator ? "coordinator" : resourceManager ? "resourceManager" : "worker";
+        String nodeRole = "worker";
+        if (coordinator) {
+            nodeRole = "coordinator";
+        }
+        else if (resourceManager) {
+            nodeRole = "resourceManager";
+        }
+        else if (catalogServer) {
+            nodeRole = "catalogServer";
+        }
         log.info("Created %s TestingPrestoServer in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
 
         return server;
@@ -522,7 +533,12 @@ public class DistributedQueryRunner
 
     public Optional<TestingPrestoServer> getResourceManager()
     {
-        return Optional.of(resourceManagers.get().get(0));
+        return resourceManagers.isPresent() && !resourceManagers.get().isEmpty() ? Optional.of(resourceManagers.get().get(0)) : Optional.empty();
+    }
+
+    public Optional<TestingPrestoServer> getCatalogServer()
+    {
+        return catalogServer;
     }
 
     public TestingPrestoServer getResourceManager(int resourceManager)
