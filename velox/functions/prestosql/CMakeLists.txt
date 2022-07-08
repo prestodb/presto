@@ -22,7 +22,6 @@ add_library(
   ArrayDistinct.cpp
   ArrayDuplicates.cpp
   ArrayIntersectExcept.cpp
-  ArrayMinMax.cpp
   ArrayPosition.cpp
   ElementAt.cpp
   FilterFunctions.cpp

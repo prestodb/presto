@@ -47,6 +47,31 @@
 namespace facebook::velox::functions {
 
 template <typename T>
+VectorPtr fastMin(const VectorPtr& in) {
+  const auto numRows = in->size();
+  auto result = std::static_pointer_cast<FlatVector<T>>(
+      BaseVector::create(in->type()->childAt(0), numRows, in->pool()));
+  auto rawResults = result->mutableRawValues();
+
+  auto arrayVector = in->as<ArrayVector>();
+  auto rawOffsets = arrayVector->rawOffsets();
+  auto rawSizes = arrayVector->rawSizes();
+  auto rawElements = arrayVector->elements()->as<FlatVector<T>>()->rawValues();
+  for (auto row = 0; row < numRows; ++row) {
+    const auto start = rawOffsets[row];
+    const auto end = start + rawSizes[row];
+    if (start == end) {
+      result->setNull(row, true); // NULL
+    } else {
+      rawResults[row] =
+          *std::min_element(rawElements + start, rawElements + end);
+    }
+  }
+
+  return result;
+}
+
+template <typename T>
 struct ArrayMinSimpleFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
@@ -161,10 +186,6 @@ struct ArrayMinNullFreeFastPathFunction {
   }
 };
 
-void registerVectorFunctionFastPath() {
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_min, "vector_fast_path");
-}
-
 void registerSimpleFunctions() {
   registerFunction<ArrayMinSimpleFunction, int32_t, Array<int32_t>>(
       {"array_min_simple"});
@@ -183,7 +204,6 @@ namespace {
 class CallNullFreeBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   CallNullFreeBenchmark() : FunctionBenchmarkBase() {
-    registerVectorFunctionFastPath();
     registerSimpleFunctions();
   }
 
@@ -199,6 +219,18 @@ class CallNullFreeBenchmark : public functions::test::FunctionBenchmarkBase {
         WITH_NULL_ELEMENTS ? [](auto idx) { return idx % 19 == 0; } : noNulls);
 
     return vectorMaker_.rowVector({arrayVector});
+  }
+
+  size_t runFast() {
+    folly::BenchmarkSuspender suspender;
+    auto arrayVector = makeData()->childAt(0);
+    suspender.dismiss();
+
+    int cnt = 0;
+    for (auto i = 0; i < 100; i++) {
+      cnt += fastMin<int32_t>(arrayVector)->size();
+    }
+    return cnt;
   }
 
   size_t runInteger(const std::string& functionName) {
@@ -221,17 +253,16 @@ class CallNullFreeBenchmark : public functions::test::FunctionBenchmarkBase {
   }
 
   bool hasSameResults(
-      exec::ExprSet& expr1,
-      exec::ExprSet& expr2,
+      const VectorPtr& expected,
+      exec::ExprSet& expr,
       const RowVectorPtr& input) {
-    auto result1 = evaluate(expr1, input);
-    auto result2 = evaluate(expr2, input);
-    if (result1->size() != result2->size()) {
+    auto result = evaluate(expr, input);
+    if (expected->size() != result->size()) {
       return false;
     }
 
-    for (auto i = 0; i < result1->size(); i++) {
-      if (!result1->equalValueAt(result2.get(), i, i)) {
+    for (auto i = 0; i < result->size(); i++) {
+      if (!result->equalValueAt(result.get(), i, i)) {
         return false;
       }
     }
@@ -240,7 +271,8 @@ class CallNullFreeBenchmark : public functions::test::FunctionBenchmarkBase {
 
   void test() {
     auto input = makeData();
-    auto exprSetRef = compileExpression("vector_fast_path(c0)", input->type());
+    auto fastResult = fastMin<int32_t>(input->childAt(0));
+
     std::vector<std::string> functions = {
         "array_min_simple",
         "array_min_default_contains_nulls_behavior",
@@ -250,7 +282,7 @@ class CallNullFreeBenchmark : public functions::test::FunctionBenchmarkBase {
     for (const auto& name : functions) {
       auto other =
           compileExpression(fmt::format("{}(c0)", name), input->type());
-      if (!hasSameResults(exprSetRef, other, input)) {
+      if (!hasSameResults(fastResult, other, input)) {
         VELOX_UNREACHABLE(fmt::format("testing failed at function {}", name));
       }
     }
@@ -259,7 +291,7 @@ class CallNullFreeBenchmark : public functions::test::FunctionBenchmarkBase {
 
 BENCHMARK_MULTI(vectorFastPath) {
   CallNullFreeBenchmark benchmark;
-  return benchmark.runInteger("vector_fast_path");
+  return benchmark.runFast();
 }
 
 BENCHMARK_MULTI(simpleMinInteger) {
