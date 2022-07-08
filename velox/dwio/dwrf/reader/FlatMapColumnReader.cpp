@@ -453,16 +453,39 @@ void FlatMapColumnReader<T>::next(
       : MAP(keysVector->type(), valuesVector->type());
 
   // TODO Reuse
-  result = std::make_shared<MapVector>(
-      &memoryPool_,
-      mapType,
-      nulls,
-      numValues,
-      offsets,
-      lengths,
-      keysVector,
-      valuesVector,
-      nullCount);
+  if (result && result->type() == mapType) {
+    LOG(INFO) << "reusing flat map result" << std::endl;
+    // not assigning memoryPool_ and mapType for now
+    // figuring out how to assign variables instead of creating new shared ptr
+    // mapVector->nulls = nulls;
+    // mapVector->length = numValues;
+    // mapVector->offsets() = std::move(offsets); // const
+    // mapVector->sizes() = std::move(lengths); // const
+    // mapVector->mapKeys() = std::move(keysVector);
+    // mapVector->mapValues() = std::move(valuesVector);
+    // mapVector->nullCount
+    result = std::make_shared<MapVector>(
+        &memoryPool_,
+        mapType,
+        nulls,
+        numValues,
+        offsets,
+        lengths,
+        keysVector,
+        valuesVector,
+        nullCount);
+  } else {
+    result = std::make_shared<MapVector>(
+        &memoryPool_,
+        mapType,
+        nulls,
+        numValues,
+        offsets,
+        lengths,
+        keysVector,
+        valuesVector,
+        nullCount);
+  }
 }
 
 template <>
