@@ -103,8 +103,14 @@ benchmarks-basic-dump:
 unittest: debug			#: Build with debugging and run unit tests
 	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure
 
-fuzzertest: debug		#: Build with debugging and run expression fuzzer test.
-	$(BUILD_BASE_DIR)/debug/velox/expression/tests/velox_expression_fuzzer_test --steps 100000 --logtostderr=1 --minloglevel=0
+# Build with debugging and run expression fuzzer test. Use a fixed seed to 
+# ensure the tests are reproducible.
+fuzzertest: debug
+	$(BUILD_BASE_DIR)/debug/velox/expression/tests/velox_expression_fuzzer_test \
+		--seed 123456 \
+		--steps 100000 \
+		--logtostderr=1 \
+		--minloglevel=0
 
 format-fix: 			#: Fix formatting issues in the current branch
 	scripts/check.py format branch --fix

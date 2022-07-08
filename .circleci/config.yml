@@ -161,7 +161,7 @@ jobs:
       - run:
           name: "Run Fuzzer Tests"
           command: |
-            _build/debug/velox/expression/tests/velox_expression_fuzzer_test --steps 100000 --logtostderr=1 --minloglevel=0
+            make fuzzertest
           no_output_timeout: 5m
       - run:
          name: "Run the velox examples"
