@@ -136,4 +136,15 @@ public final class TDigestFunctions
         blockBuilder.closeEntry();
         return TDIGEST_CENTROIDS_ROW_TYPE.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
     }
+
+    @ScalarFunction(value = "trimmed_mean", visibility = EXPERIMENTAL)
+    @Description("Returns an estimate of the mean, excluding portions of the distribution outside the provided quantile bounds.")
+    @SqlType("double")
+    public static double trimmedMeanTDigestDouble(@SqlType("tdigest(double)") Slice input, @SqlType(StandardTypes.DOUBLE) double lowerQuantileBound, @SqlType(StandardTypes.DOUBLE) double upperQuantileBound)
+    {
+        checkCondition(lowerQuantileBound >= 0 && lowerQuantileBound <= 1, INVALID_FUNCTION_ARGUMENT, "Lower quantile bound should be in [0,1].");
+        checkCondition(upperQuantileBound >= 0 && upperQuantileBound <= 1, INVALID_FUNCTION_ARGUMENT, "Upper quantile bound should be in [0,1].");
+        TDigest digest = createTDigest(input);
+        return digest.trimmedMean(lowerQuantileBound, upperQuantileBound);
+    }
 }

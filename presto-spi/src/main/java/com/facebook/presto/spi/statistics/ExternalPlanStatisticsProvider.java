@@ -20,6 +20,8 @@ import java.util.function.Function;
 
 public interface ExternalPlanStatisticsProvider
 {
+    String getName();
+
     PlanStatistics getStats(
             PlanNode plan,
             Function<PlanNode, String> planPrinter,

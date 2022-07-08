@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.274-SNAPSHOT</version>
+    <version>0.275-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -56,8 +56,8 @@
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.10.8</dep.joda.version>
-        <dep.tempto.version>1.51</dep.tempto.version>
-        <dep.testng.version>6.10</dep.testng.version>
+        <dep.tempto.version>1.53</dep.tempto.version>
+        <dep.testng.version>7.5</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.3</dep.logback.version>
         <dep.parquet.version>1.12.0</dep.parquet.version>
@@ -65,6 +65,7 @@
         <dep.asm.version>9.0</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>2.7.3</dep.alluxio.version>
+        <dep.slf4j.version>1.7.32</dep.slf4j.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.pinot.version>0.10.0</dep.pinot.version>
         <dep.druid.version>0.19.0</dep.druid.version>
@@ -72,6 +73,7 @@
         <dep.hudi.version>0.11.0</dep.hudi.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
+        <dep.ratis.version>2.2.0</dep.ratis.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -1705,6 +1707,66 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.ratis</groupId>
+                <artifactId>ratis-server</artifactId>
+                <version>${dep.ratis.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ratis</groupId>
+                <artifactId>ratis-grpc</artifactId>
+                <version>${dep.ratis.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ratis</groupId>
+                <artifactId>ratis-server-api</artifactId>
+                <version>${dep.ratis.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ratis</groupId>
+                <artifactId>ratis-common</artifactId>
+                <version>${dep.ratis.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ratis</groupId>
+                <artifactId>ratis-client</artifactId>
+                <version>${dep.ratis.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>${dep.kafka.version}</version>
@@ -2128,6 +2190,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M7</version>
                 <configuration combine.children="append">
                     <includes>
                         <include>**/Test*.java</include>
@@ -2172,13 +2235,13 @@
                         <DynamicDependency>
                             <groupId>org.apache.maven.surefire</groupId>
                             <artifactId>surefire-testng</artifactId>
-                            <version>2.22.0</version>
+                            <version>3.0.0-M7</version>
                             <repositoryType>PLUGIN</repositoryType>
                         </DynamicDependency>
                         <DynamicDependency>
                             <groupId>org.apache.maven.surefire</groupId>
                             <artifactId>surefire-junit4</artifactId>
-                            <version>2.22.0</version>
+                            <version>3.0.0-M7</version>
                             <repositoryType>PLUGIN</repositoryType>
                         </DynamicDependency>
                         <DynamicDependency>

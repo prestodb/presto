@@ -427,6 +427,9 @@ public class MockPinotClusterInfoFetcher
         if (TestPinotSplitManager.hybridTable.getTableName().equalsIgnoreCase(table)) {
             return new TimeBoundary("secondsSinceEpoch", "4562345");
         }
+        if (TestPinotSplitManager.hybridTableWithTsTimeColumn.getTableName().equalsIgnoreCase(table)) {
+            return new TimeBoundary("ts", "2022-05-29 23:56:53.312");
+        }
 
         return new TimeBoundary();
     }

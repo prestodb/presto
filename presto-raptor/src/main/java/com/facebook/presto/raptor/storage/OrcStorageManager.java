@@ -103,6 +103,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isBucketNumberColumn;
@@ -167,7 +168,7 @@ public class OrcStorageManager
     private final ExecutorService commitExecutor;
     private final OrcDataEnvironment orcDataEnvironment;
     private final OrcFileRewriter fileRewriter;
-    private final NoOpOrcWriterStats stats = new NoOpOrcWriterStats();
+    private final NoOpOrcWriterStats stats = NOOP_WRITER_STATS;
     private final OrcFileTailSource orcFileTailSource;
     private final StripeMetadataSourceFactory stripeMetadataSourceFactory;
 
@@ -296,7 +297,12 @@ public class OrcStorageManager
                     orcFileTailSource,
                     stripeMetadataSourceFactory,
                     new RaptorOrcAggregatedMemoryContext(),
-                    new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
+                    OrcReaderOptions.builder()
+                            .withMaxMergeDistance(readerAttributes.getMaxMergeDistance())
+                            .withTinyStripeThreshold(readerAttributes.getTinyStripeThreshold())
+                            .withMaxBlockSize(HUGE_MAX_READ_BLOCK_SIZE)
+                            .withZstdJniDecompressionEnabled(readerAttributes.isZstdJniDecompressionEnabled())
+                            .build(),
                     hiveFileContext.isCacheable(),
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY,
@@ -388,11 +394,12 @@ public class OrcStorageManager
                     orcFileTailSource,
                     new StorageStripeMetadataSource(),
                     new RaptorOrcAggregatedMemoryContext(),
-                    new OrcReaderOptions(
-                            defaultReaderAttributes.getMaxMergeDistance(),
-                            defaultReaderAttributes.getTinyStripeThreshold(),
-                            HUGE_MAX_READ_BLOCK_SIZE,
-                            defaultReaderAttributes.isZstdJniDecompressionEnabled()),
+                    OrcReaderOptions.builder()
+                            .withMaxMergeDistance(defaultReaderAttributes.getMaxMergeDistance())
+                            .withTinyStripeThreshold(defaultReaderAttributes.getTinyStripeThreshold())
+                            .withMaxBlockSize(HUGE_MAX_READ_BLOCK_SIZE)
+                            .withZstdJniDecompressionEnabled(defaultReaderAttributes.isZstdJniDecompressionEnabled())
+                            .build(),
                     false,
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY,
@@ -558,7 +565,12 @@ public class OrcStorageManager
                     orcFileTailSource,
                     stripeMetadataSourceFactory,
                     new RaptorOrcAggregatedMemoryContext(),
-                    new OrcReaderOptions(defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, defaultReaderAttributes.isZstdJniDecompressionEnabled()),
+                    OrcReaderOptions.builder()
+                            .withMaxMergeDistance(defaultReaderAttributes.getMaxMergeDistance())
+                            .withTinyStripeThreshold(defaultReaderAttributes.getTinyStripeThreshold())
+                            .withMaxBlockSize(HUGE_MAX_READ_BLOCK_SIZE)
+                            .withZstdJniDecompressionEnabled(defaultReaderAttributes.isZstdJniDecompressionEnabled())
+                            .build(),
                     false,
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY,

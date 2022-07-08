@@ -37,6 +37,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -71,6 +72,7 @@ public final class IcebergSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
     private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
     private static final String CACHE_ENABLED = "cache_enabled";
+    private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private static final String NESSIE_REFERENCE_NAME = "nessie_reference_name";
     private static final String NESSIE_REFERENCE_HASH = "nessie_reference_hash";
@@ -245,6 +247,11 @@ public final class IcebergSessionProperties
                         "Enable cache for Iceberg",
                         cacheConfig.isCachingEnabled(),
                         false),
+                doubleProperty(
+                        MINIMUM_ASSIGNED_SPLIT_WEIGHT,
+                        "Minimum assigned split weight",
+                        icebergConfig.getMinimumAssignedSplitWeight(),
+                        false),
                 stringProperty(
                         NESSIE_REFERENCE_NAME,
                         "Nessie reference name to use",
@@ -410,5 +417,10 @@ public final class IcebergSessionProperties
     public static String getNessieReferenceHash(ConnectorSession session)
     {
         return session.getProperty(NESSIE_REFERENCE_HASH, String.class);
+    }
+
+    public static double getMinimumAssignedSplitWeight(ConnectorSession session)
+    {
+        return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
     }
 }

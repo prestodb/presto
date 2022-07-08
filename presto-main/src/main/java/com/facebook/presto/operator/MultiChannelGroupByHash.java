@@ -261,6 +261,12 @@ public class MultiChannelGroupByHash
     public boolean contains(int position, Page page, int[] hashChannels)
     {
         long rawHash = hashStrategy.hashRow(position, page);
+        return contains(position, page, hashChannels, rawHash);
+    }
+
+    @Override
+    public boolean contains(int position, Page page, int[] hashChannels, long rawHash)
+    {
         int hashPosition = (int) getHashPosition(rawHash, mask);
 
         // look for a slot containing this key

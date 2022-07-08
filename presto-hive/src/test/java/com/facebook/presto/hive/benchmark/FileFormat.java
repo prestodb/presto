@@ -42,7 +42,6 @@ import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageWriter;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
-import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
@@ -92,6 +91,7 @@ import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFo
 import static com.facebook.presto.hive.pagefile.PageFileWriterFactory.createPagesSerdeForPageFile;
 import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
@@ -613,7 +613,7 @@ public enum FileFormat
                     hiveStorageTimeZone,
                     false,
                     BOTH,
-                    new NoOpOrcWriterStats());
+                    NOOP_WRITER_STATS);
         }
 
         @Override
@@ -652,7 +652,7 @@ public enum FileFormat
                     hiveStorageTimeZone,
                     false,
                     BOTH,
-                    new NoOpOrcWriterStats());
+                    NOOP_WRITER_STATS);
         }
 
         @Override

@@ -159,6 +159,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     ImmutableList.of(VARCHAR),
                     ImmutableList.of(0),
                     ImmutableList.of(),
+                    ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     false,
                     ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),

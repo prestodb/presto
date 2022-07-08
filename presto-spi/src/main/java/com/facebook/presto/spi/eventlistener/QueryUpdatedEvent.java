@@ -11,11 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.statistics;
+package com.facebook.presto.spi.eventlistener;
 
-public interface ExternalPlanStatisticsProviderFactory
+import static java.util.Objects.requireNonNull;
+
+public class QueryUpdatedEvent
 {
-    String getName();
+    private final QueryMetadata metadata;
 
-    ExternalPlanStatisticsProvider getExternalPlanStatisticsProvider();
+    public QueryUpdatedEvent(QueryMetadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
+    public QueryMetadata getMetadata()
+    {
+        return metadata;
+    }
 }

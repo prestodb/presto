@@ -44,6 +44,7 @@ import java.util.function.Supplier;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
@@ -147,7 +148,7 @@ public class TestOrcWriter
                     HIVE_STORAGE_TIME_ZONE,
                     true,
                     validationMode,
-                    new NoOpOrcWriterStats());
+                    NOOP_WRITER_STATS);
 
             // write down some data with unsorted streams
             String[] data = new String[] {"a", "bbbbb", "ccc", "dd", "eeee"};
@@ -209,7 +210,7 @@ public class TestOrcWriter
                 HIVE_STORAGE_TIME_ZONE,
                 false,
                 null,
-                new NoOpOrcWriterStats());
+                NOOP_WRITER_STATS);
 
         int entries = 65536;
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);

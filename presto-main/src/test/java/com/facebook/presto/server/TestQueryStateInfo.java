@@ -260,6 +260,8 @@ public class TestQueryStateInfo
                         28,
                         DataSize.valueOf("29GB"),
                         30,
+                        DataSize.valueOf("32GB"),
+                        40,
                         DataSize.valueOf("31GB"),
                         32,
                         33,

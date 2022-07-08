@@ -38,7 +38,9 @@ public class TestServerConfig
                 .setEnhancedErrorReporting(true)
                 .setQueryResultsCompressionEnabled(true)
                 .setResourceManagerEnabled(false)
-                .setResourceManager(false));
+                .setResourceManager(false)
+                .setCatalogServer(false)
+                .setCatalogServerEnabled(false));
     }
 
     @Test
@@ -54,6 +56,8 @@ public class TestServerConfig
                 .put("query-results.compression-enabled", "false")
                 .put("resource-manager-enabled", "true")
                 .put("resource-manager", "true")
+                .put("catalog-server-enabled", "true")
+                .put("catalog-server", "true")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -65,7 +69,9 @@ public class TestServerConfig
                 .setEnhancedErrorReporting(false)
                 .setQueryResultsCompressionEnabled(false)
                 .setResourceManagerEnabled(true)
-                .setResourceManager(true);
+                .setResourceManager(true)
+                .setCatalogServer(true)
+                .setCatalogServerEnabled(true);
 
         assertFullMapping(properties, expected);
     }

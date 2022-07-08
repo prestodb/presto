@@ -149,6 +149,7 @@ public class MetastoreUtil
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     public static final String USER_DEFINED_TYPE_ENCODING_ENABLED = "user_defined_type_encoding";
+    public static final String DEFAULT_METASTORE_USER = "presto";
 
     @SuppressWarnings("OctalInteger")
     public static final FsPermission ALL_PERMISSIONS = new FsPermission((short) 0777);

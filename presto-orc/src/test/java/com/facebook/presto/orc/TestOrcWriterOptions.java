@@ -30,6 +30,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestOrcWriterOptions
 {
@@ -63,7 +64,9 @@ public class TestOrcWriterOptions
     {
         OrcWriterOptions options = OrcWriterOptions.builder().build();
 
-        assertEquals(ImmutableSet.of(), options.getFlattenedColumns());
+        assertEquals(options.getFlattenedColumns(), ImmutableSet.of());
+        assertFalse(options.isMapStatisticsEnabled());
+        assertEquals(options.getMaxFlattenedMapKeyCount(), 20000);
     }
 
     @Test
@@ -85,6 +88,8 @@ public class TestOrcWriterOptions
         boolean stringDictionarySortingEnabled = false;
         boolean stringDictionaryEncodingEnabled = false;
         int preserveDirectEncodingStripeCount = 10;
+        boolean mapStatisticsEnabled = true;
+        int maxFlattenedMapKeyCount = 27;
 
         OrcWriterOptions.Builder builder = OrcWriterOptions.builder()
                 .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
@@ -105,7 +110,9 @@ public class TestOrcWriterOptions
                 .withStringDictionarySortingEnabled(stringDictionarySortingEnabled)
                 .withStringDictionaryEncodingEnabled(stringDictionaryEncodingEnabled)
                 .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount)
-                .withFlattenedColumns(ImmutableSet.of(4, 3));
+                .withFlattenedColumns(ImmutableSet.of(4, 3))
+                .withMapStatisticsEnabled(mapStatisticsEnabled)
+                .withMaxFlattenedMapKeyCount(maxFlattenedMapKeyCount);
 
         OrcWriterOptions options = builder.build();
 
@@ -126,7 +133,9 @@ public class TestOrcWriterOptions
         assertEquals(stringDictionaryEncodingEnabled, options.isStringDictionaryEncodingEnabled());
         assertEquals(Optional.empty(), options.getDwrfStripeCacheOptions());
         assertEquals(preserveDirectEncodingStripeCount, options.getPreserveDirectEncodingStripeCount());
-        assertEquals(ImmutableSet.of(4, 3), options.getFlattenedColumns());
+        assertEquals(options.getFlattenedColumns(), ImmutableSet.of(4, 3));
+        assertEquals(options.isMapStatisticsEnabled(), mapStatisticsEnabled);
+        assertEquals(options.getMaxFlattenedMapKeyCount(), maxFlattenedMapKeyCount);
     }
 
     @Test
@@ -149,6 +158,8 @@ public class TestOrcWriterOptions
         boolean integerDictionaryEncodingEnabled = false;
         boolean stringDictionarySortingEnabled = true;
         int preserveDirectEncodingStripeCount = 0;
+        boolean mapStatisticsEnabled = true;
+        int maxFlattenedMapKeyCount = 27;
 
         OrcWriterOptions writerOptions = OrcWriterOptions.builder()
                 .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
@@ -172,6 +183,8 @@ public class TestOrcWriterOptions
                 .withDwrfStripeCacheMode(dwrfStripeCacheMode)
                 .withPreserveDirectEncodingStripeCount(preserveDirectEncodingStripeCount)
                 .withFlattenedColumns(ImmutableSet.of(4))
+                .withMapStatisticsEnabled(mapStatisticsEnabled)
+                .withMaxFlattenedMapKeyCount(maxFlattenedMapKeyCount)
                 .build();
 
         String expectedString = "OrcWriterOptions{flushPolicy=DefaultOrcWriterFlushPolicy{stripeMaxRowCount=1100000, " +
@@ -181,7 +194,8 @@ public class TestOrcWriterOptions
                 "compressionLevel=OptionalInt[5], streamLayoutFactory=ColumnSizeLayoutFactory{}, integerDictionaryEncodingEnabled=false, " +
                 "stringDictionarySortingEnabled=true, stringDictionaryEncodingEnabled=true, " +
                 "dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}], " +
-                "ignoreDictionaryRowGroupSizes=false, preserveDirectEncodingStripeCount=0, flattenedColumns=[4]}";
+                "ignoreDictionaryRowGroupSizes=false, preserveDirectEncodingStripeCount=0, flattenedColumns=[4], mapStatisticsEnabled=true, " +
+                "maxFlattenedMapKeyCount=27}";
         assertEquals(expectedString, writerOptions.toString());
     }
 }

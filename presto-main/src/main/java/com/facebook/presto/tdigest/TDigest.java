@@ -566,6 +566,58 @@ public class TDigest
         return weightedAverage(mean[n - 1], z1, max, z2);
     }
 
+    public double trimmedMean(double lowerQuantileBound, double upperQuantileBound)
+    {
+        checkArgument(lowerQuantileBound >= 0 && lowerQuantileBound <= 1, "lowerQuantileBound should be in [0,1], got %s", lowerQuantileBound);
+        checkArgument(upperQuantileBound >= 0 && upperQuantileBound <= 1, "upperQuantileBound should be in [0,1], got %s", upperQuantileBound);
+
+        if (unmergedWeight > 0) {
+            compress();
+        }
+
+        if (activeCentroids == 0 || lowerQuantileBound >= upperQuantileBound) {
+            return Double.NaN;
+        }
+
+        if (lowerQuantileBound == 0 && upperQuantileBound == 1) {
+            return sum / totalWeight;
+        }
+
+        double lowerIndex = lowerQuantileBound * totalWeight;
+        double upperIndex = upperQuantileBound * totalWeight;
+
+        double weightSoFar = 0;
+        double sumInBounds = 0;
+        double weightInBounds = 0;
+        for (int i = 0; i < activeCentroids; i++) {
+            if (weightSoFar < lowerIndex && lowerIndex <= weightSoFar + weight[i] && upperIndex <= weightSoFar + weight[i]) {
+                // lower and upper bounds are so close together that they are in the same weight interval
+                return mean[i];
+            }
+            else if (weightSoFar < lowerIndex && lowerIndex <= weightSoFar + weight[i]) {
+                // the lower bound is between our current point and the next point
+                double addedWeight = weightSoFar + weight[i] - lowerIndex;
+                sumInBounds += mean[i] * addedWeight;
+                weightInBounds += addedWeight;
+            }
+            else if (upperIndex < weightSoFar + weight[i] && upperIndex > weightSoFar) {
+                // the upper bound is between our current point and the next point
+                double addedWeight = upperIndex - weightSoFar;
+                sumInBounds += mean[i] * addedWeight;
+                weightInBounds += addedWeight;
+                return sumInBounds / weightInBounds;
+            }
+            else if (lowerIndex <= weightSoFar && weightSoFar <= upperIndex) {
+                // we are somewhere in between the lower and upper bounds
+                sumInBounds += mean[i] * weight[i];
+                weightInBounds += weight[i];
+            }
+            weightSoFar += weight[i];
+        }
+
+        return sumInBounds / weightInBounds;
+    }
+
     public int centroidCount()
     {
         mergeNewValues();

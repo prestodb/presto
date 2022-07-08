@@ -241,11 +241,12 @@ public class IcebergPageSourceProvider
                         fileFormatDataSourceStats,
                         false);
             case ORC:
-                OrcReaderOptions readerOptions = new OrcReaderOptions(
-                        getOrcMaxMergeDistance(session),
-                        getOrcTinyStripeThreshold(session),
-                        getOrcMaxReadBlockSize(session),
-                        isOrcZstdJniDecompressionEnabled(session));
+                OrcReaderOptions readerOptions = OrcReaderOptions.builder()
+                        .withMaxMergeDistance(getOrcMaxMergeDistance(session))
+                        .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
+                        .withMaxBlockSize(getOrcMaxReadBlockSize(session))
+                        .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
+                        .build();
 
                 // TODO: Implement EncryptionInformation in IcebergSplit instead of Optional.empty()
                 return createBatchOrcPageSource(

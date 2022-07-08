@@ -2465,6 +2465,7 @@ public class LocalExecutionPlanner
             int buildChannel = buildSource.getLayout().get(node.getFilteringSourceJoinVariable());
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashVariable().map(variableChannelGetter(buildSource));
+            Optional<Integer> probeHashChannel = node.getSourceHashVariable().map(variableChannelGetter(probeSource));
 
             SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -2500,7 +2501,7 @@ public class LocalExecutionPlanner
                     .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
                     .build();
 
-            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel);
+            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
             return new PhysicalOperation(operator, outputMappings, context, probeSource);
         }
 
@@ -2541,6 +2542,7 @@ public class LocalExecutionPlanner
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingVariables,
+                        ImmutableList.of(),
                         PARTIAL,
                         Optional.empty(),
                         Optional.empty(),
@@ -2646,6 +2648,7 @@ public class LocalExecutionPlanner
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingVariables,
+                        ImmutableList.of(),
                         INTERMEDIATE,
                         Optional.empty(),
                         Optional.empty(),
@@ -2700,6 +2703,7 @@ public class LocalExecutionPlanner
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingVariables,
+                        ImmutableList.of(),
                         FINAL,
                         Optional.empty(),
                         Optional.empty(),
@@ -3075,6 +3079,7 @@ public class LocalExecutionPlanner
                     node.getAggregations(),
                     node.getGlobalGroupingSets(),
                     node.getGroupingKeys(),
+                    node.getPreGroupedVariables(),
                     node.getStep(),
                     node.getHashVariable(),
                     node.getGroupIdVariable(),
@@ -3099,6 +3104,7 @@ public class LocalExecutionPlanner
                 Map<VariableReferenceExpression, Aggregation> aggregations,
                 Set<Integer> globalGroupingSets,
                 List<VariableReferenceExpression> groupbyVariables,
+                List<VariableReferenceExpression> preGroupedVariables,
                 Step step,
                 Optional<VariableReferenceExpression> hashVariable,
                 Optional<VariableReferenceExpression> groupIdVariable,
@@ -3167,11 +3173,13 @@ public class LocalExecutionPlanner
             }
             else {
                 Optional<Integer> hashChannel = hashVariable.map(variableChannelGetter(source));
+                List<Integer> preGroupedChannels = getChannelsForVariables(preGroupedVariables, source.getLayout());
                 return new HashAggregationOperatorFactory(
                         context.getNextOperatorId(),
                         planNodeId,
                         groupByTypes,
                         groupByChannels,
+                        preGroupedChannels,
                         ImmutableList.copyOf(globalGroupingSets),
                         step,
                         hasDefaultOutput,

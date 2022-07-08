@@ -58,6 +58,12 @@ Functions
     T-digest and array of values between 0 and 1 which represent the quantiles
     to return.
 
+.. function:: trimmed_mean(tdigest<double>, lower_quantile, upper_quantile) -> double
+
+    Returns an estimate of the mean, excluding portions of the distribution
+    outside the provided quantile bounds. Both ``lower_quantile`` and ``upper_quantile``
+    must be between 0 and 1.
+
 .. function:: tdigest_agg(x) -> tdigest<double>
 
     Returns the ``tdigest`` which is composed of  all input values of ``x``.
