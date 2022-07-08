@@ -34,7 +34,8 @@ class ConfigBase {
     if (propertyValue.has_value()) {
       return propertyValue.value();
     } else {
-      VELOX_FAIL("{} is required in the {} file.", propertyName, filePath_);
+      VELOX_USER_FAIL(
+          "{} is required in the {} file.", propertyName, filePath_);
     }
   }
 
@@ -43,7 +44,8 @@ class ConfigBase {
     if (propertyValue.has_value()) {
       return propertyValue.value();
     } else {
-      VELOX_FAIL("{} is required in the {} file.", propertyName, filePath_);
+      VELOX_USER_FAIL(
+          "{} is required in the {} file.", propertyName, filePath_);
     }
   }
 

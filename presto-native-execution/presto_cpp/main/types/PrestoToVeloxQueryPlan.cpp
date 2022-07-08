@@ -170,13 +170,76 @@ std::unique_ptr<common::Filter> boolRangeToFilter(
     bool nullAllowed,
     const VeloxExprConverter& exprConverter,
     const TypePtr& type) {
-  bool lowValue = toBoolean(range.low.valueBlock, exprConverter, type);
-  bool highValue = toBoolean(range.high.valueBlock, exprConverter, type);
-  if (lowValue != highValue) {
-    VELOX_CHECK(!nullAllowed, "Unexpected range of all values");
-    return std::make_unique<common::IsNotNull>();
+  bool lowExclusive = range.low.bound == protocol::Bound::ABOVE;
+  bool lowUnbounded = range.low.valueBlock == nullptr && lowExclusive;
+  bool highExclusive = range.high.bound == protocol::Bound::BELOW;
+  bool highUnbounded = range.high.valueBlock == nullptr && highExclusive;
+
+  if (!lowUnbounded && !highUnbounded) {
+    bool lowValue = toBoolean(range.low.valueBlock, exprConverter, type);
+    bool highValue = toBoolean(range.high.valueBlock, exprConverter, type);
+    VELOX_CHECK_EQ(
+        lowValue,
+        highValue,
+        "Boolean range should not be [FALSE, TRUE] after coordinator "
+        "optimization.");
+    return std::make_unique<common::BoolValue>(lowValue, nullAllowed);
   }
-  return std::make_unique<common::BoolValue>(lowValue, nullAllowed);
+  // Presto coordinator has made optimizations to the bool range already. For
+  // example, [FALSE, TRUE) will be optimized and shown here as (-infinity,
+  // TRUE). Plus (-infinity, +infinity) case has been guarded in toFilter()
+  // method, here it can only be one side bounded scenarios.
+  VELOX_CHECK_NE(
+      lowUnbounded,
+      highUnbounded,
+      "Passed in boolean range can only have one side bounded range scenario");
+  if (!lowUnbounded) {
+    VELOX_CHECK(
+        highUnbounded,
+        "Boolean range should not be double side bounded after coordinator "
+        "optimization.");
+    bool lowValue = toBoolean(range.low.valueBlock, exprConverter, type);
+
+    // (TRUE, +infinity) case, should resolve to filter all
+    if (lowExclusive && lowValue) {
+      if (nullAllowed) {
+        return std::make_unique<common::IsNull>();
+      }
+      return std::make_unique<common::AlwaysFalse>();
+    }
+
+    // Both cases (FALSE, +infinity) or [TRUE, +infinity) should evaluate to
+    // true. Case [FALSE, +infinity) should not be expected
+    VELOX_CHECK(
+        !(!lowExclusive && !lowValue),
+        "Case [FALSE, +infinity) should "
+        "not be expected");
+    return std::make_unique<common::BoolValue>(true, nullAllowed);
+  }
+  if (!highUnbounded) {
+    VELOX_CHECK(
+        lowUnbounded,
+        "Boolean range should not be double side bounded after coordinator "
+        "optimization.");
+    bool highValue = toBoolean(range.high.valueBlock, exprConverter, type);
+
+    // (-infinity, FALSE) case, should resolve to filter all
+    if (highExclusive && !highValue) {
+      if (nullAllowed) {
+        return std::make_unique<common::IsNull>();
+      }
+      return std::make_unique<common::AlwaysFalse>();
+    }
+
+    // Both cases (-infinity, TRUE) or (-infinity, FALSE] should evaluate to
+    // false. Case (-infinity, TRUE] should not be expected
+    VELOX_CHECK(
+        !(!highExclusive && highValue),
+        "Case (-infinity, TRUE] should "
+        "not be expected");
+    return std::make_unique<common::BoolValue>(false, nullAllowed);
+  }
+  VELOX_UNREACHABLE();
 }
 
 std::unique_ptr<common::DoubleRange> doubleRangeToFilter(
@@ -253,6 +316,63 @@ std::unique_ptr<common::BytesRange> varcharRangeToFilter(
       nullAllowed);
 }
 
+std::unique_ptr<common::Filter> combineIntegerRanges(
+    std::vector<std::unique_ptr<common::BigintRange>>& bigintFilters,
+    bool nullAllowed) {
+  bool allSingleValue = std::all_of(
+      bigintFilters.begin(), bigintFilters.end(), [](const auto& range) {
+        return range->isSingleValue();
+      });
+
+  if (allSingleValue) {
+    std::vector<int64_t> values;
+    values.reserve(bigintFilters.size());
+    for (const auto& filter : bigintFilters) {
+      values.emplace_back(filter->lower());
+    }
+    return common::createBigintValues(values, nullAllowed);
+  }
+
+  bool allNegatedValues = true;
+  bool foundMaximum = false;
+  assert(bigintFilters.size() > 1); // true by size checks on ranges
+  std::vector<int64_t> rejectedValues;
+
+  // check if int64 min is a rejected value
+  if (bigintFilters[0]->lower() == std::numeric_limits<int64_t>::min() + 1) {
+    rejectedValues.emplace_back(std::numeric_limits<int64_t>::min());
+  }
+  if (bigintFilters[0]->lower() > std::numeric_limits<int64_t>::min() + 1) {
+    // too many value at the lower end, bail out
+    return std::make_unique<common::BigintMultiRange>(
+        std::move(bigintFilters), nullAllowed);
+  }
+  rejectedValues.push_back(bigintFilters[0]->upper() + 1);
+  for (int i = 1; i < bigintFilters.size(); ++i) {
+    if (bigintFilters[i]->lower() != bigintFilters[i - 1]->upper() + 2) {
+      allNegatedValues = false;
+      break;
+    }
+    if (bigintFilters[i]->upper() == std::numeric_limits<int64_t>::max()) {
+      foundMaximum = true;
+      break;
+    }
+    rejectedValues.push_back(bigintFilters[i]->upper() + 1);
+    // make sure there is another range possible above this one
+    if (bigintFilters[i]->upper() == std::numeric_limits<int64_t>::max() - 1) {
+      foundMaximum = true;
+      break;
+    }
+  }
+
+  if (allNegatedValues && foundMaximum) {
+    return common::createNegatedBigintValues(rejectedValues, nullAllowed);
+  }
+
+  return std::make_unique<common::BigintMultiRange>(
+      std::move(bigintFilters), nullAllowed);
+}
+
 std::unique_ptr<common::Filter> toFilter(
     const std::shared_ptr<const Type>& type,
     const protocol::Range& range,
@@ -316,23 +436,7 @@ std::unique_ptr<common::Filter> toFilter(
       bigintFilters.emplace_back(
           bigintRangeToFilter(range, nullAllowed, exprConverter, type));
     }
-
-    bool allSingleValue = std::all_of(
-        bigintFilters.begin(), bigintFilters.end(), [](const auto& range) {
-          return range->isSingleValue();
-        });
-
-    if (allSingleValue) {
-      std::vector<int64_t> values;
-      values.reserve(bigintFilters.size());
-      for (const auto& filter : bigintFilters) {
-        values.emplace_back(filter->lower());
-      }
-      return common::createBigintValues(values, nullAllowed);
-    }
-
-    return std::make_unique<common::BigintMultiRange>(
-        std::move(bigintFilters), nullAllowed);
+    return combineIntegerRanges(bigintFilters, nullAllowed);
   }
 
   if (type->kind() == TypeKind::VARCHAR) {
@@ -356,6 +460,23 @@ std::unique_ptr<common::Filter> toFilter(
       }
       return std::make_unique<common::BytesValues>(values, nullAllowed);
     }
+  }
+
+  if (type->kind() == TypeKind::BOOLEAN) {
+    VELOX_CHECK_EQ(ranges.size(), 2, "Multi bool ranges size can only be 2.");
+    std::unique_ptr<common::Filter> boolFilter;
+    for (const auto& range : ranges) {
+      auto filter = boolRangeToFilter(range, nullAllowed, exprConverter, type);
+      if (filter->kind() == common::FilterKind::kAlwaysFalse or
+          filter->kind() == common::FilterKind::kIsNull) {
+        continue;
+      }
+      VELOX_CHECK_NULL(boolFilter);
+      boolFilter = std::move(filter);
+    }
+
+    VELOX_CHECK_NOT_NULL(boolFilter);
+    return boolFilter;
   }
 
   std::vector<std::unique_ptr<common::Filter>> filters;
@@ -583,11 +704,11 @@ std::vector<TypedExprPtr> toTypedExprs(
   return typedExprs;
 }
 
-std::vector<ChannelIndex> toChannels(
+std::vector<column_index_t> toChannels(
     const RowTypePtr& type,
     const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
         fields) {
-  std::vector<ChannelIndex> channels;
+  std::vector<column_index_t> channels;
   channels.reserve(fields.size());
   for (const auto& field : fields) {
     auto channel = type->getChildIdx(field->name());
@@ -596,7 +717,9 @@ std::vector<ChannelIndex> toChannels(
   return channels;
 }
 
-ChannelIndex exprToChannel(const core::ITypedExpr* expr, const TypePtr& type) {
+column_index_t exprToChannel(
+    const core::ITypedExpr* expr,
+    const TypePtr& type) {
   if (auto field = dynamic_cast<const core::FieldAccessTypedExpr*>(expr)) {
     return type->as<TypeKind::ROW>().getChildIdx(field->name());
   }
@@ -610,7 +733,7 @@ ChannelIndex exprToChannel(const core::ITypedExpr* expr, const TypePtr& type) {
 // Stores partitioned output channels.
 // For each 'kConstantChannel', there is an entry in 'constValues'.
 struct PartitionedOutputChannels {
-  std::vector<ChannelIndex> channels;
+  std::vector<column_index_t> channels;
   // Each vector holding a single value for a constant channel.
   std::vector<VectorPtr> constValues;
 };

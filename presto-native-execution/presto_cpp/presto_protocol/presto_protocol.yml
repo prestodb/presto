@@ -126,6 +126,7 @@ AbstractClasses:
         - { name: ValuesNode,               key: .ValuesNode }
         - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
         - { name: MergeJoinNode,            key: com.facebook.presto.sql.planner.plan.MergeJoinNode }
+        - { name: WindowNode,               key: com.facebook.presto.sql.planner.plan.WindowNode }
 
     RowExpression:
       super: JsonEncodedSubclass
@@ -190,6 +191,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/RowNumberNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/UnnestNode.java
+  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/WindowNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorType.java
   - presto-main/src/main/java/com/facebook/presto/execution/ExecutionFailureInfo.java
   - presto-main/src/main/java/com/facebook/presto/execution/Location.java
