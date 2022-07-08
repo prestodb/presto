@@ -624,6 +624,7 @@ Note that in the range-loop, the range expression is assigned to a universal ref
      auto itt = *it;
      for(const auto& e : *itt){..}
 
+.. _outputs-write:
 Outputs (Writer Types)
 **********************
 

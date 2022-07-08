@@ -1,0 +1,66 @@
+****************
+June 2022 Update
+****************
+
+Documentation
+=============
+
+* Add documentation for :ref:`complex types writers<outputs-write>`.
+
+Core Library
+============
+
+* Add support for INTERVAL DAY TO SECOND Presto type.
+* Allow cast between DATE and TIMESTAMP types.
+* Allow cast from JSON to scalar, ARRAY, and MAP types.
+* Add :ref:`GroupIdNode<group-id-node>` and GroupId operator to support aggregations over grouping sets.
+* Add support for function signatures with DECIMAL input and return types using flex and bison to evaluate formulas for calculating the return precision and scale based on input precisions and scales.
+* Add support for conversion of DuckDB DECIMALS to Velox DECIMALS.
+* Add support for running tasks on the caller's thread.
+* Fix expression evaluation to disable sub-expression optimization for non-deterministic functions.
+
+Presto Functions
+================
+
+* Add :func:`degrees`, :func:`e`, and :func:`sha512` functions.
+* Add aggregate function :func:`map_union`.
+* Optimize :func:`zip` for the case when all arrays are flat and the same size.
+* Extend :func:`plus`, :func:`minus` functions to support DATE, INTERVAL DAY TO SECOND argument types.
+
+Hive Connector
+==============
+
+* Add support for reading files from HDFS.
+* Add limited ORC support.
+* Optimize `NOT IN (<list of integers>)` filters pushed down into DWRF reader.
+
+TPC-H Connector
+===============
+
+* Add `totalParts` and `partNumber` to TpchSplit.
+
+Performance and Correctness
+===========================
+
+* Add q3 to TPC-H benchmark.
+* Add utility to benchmark dataset generation speed to TPC-H connector.
+* Optimize constant aggregation mask.
+* Optimize VectorWriter for a subset of simple functions that return strings.
+* Optimize DictionaryVector wrapping LazyVector to load only necessary rows.
+
+Debugging Experience
+====================
+
+* Separate the user exception stack from the runtime exception stack trace collection control.
+
+Credits
+=======
+
+Adam Simpkins, Aditi Pandit, Amit Dutta, Behnam Robatmili, Chad Austin,
+Connor Devlin, Daniel Ng, Dark Knight, Deepak Majeti, Denis Yaroshevskiy,
+Huameng Jiang, Jake Jung, Jialiang Tan, Jie1 Zhang, Jimmy Lu, Karteek Murthy,
+Katie Mancini, Ke Jia, Kevin Wilfong, Krishna Pai, Laith Sakka, Masha Basmanova,
+Michael Shang, Mindaugas Rukas, Orri Erling, Patrick Stuedi, Paul Saab,
+Pedro Eugenio Rocha Pedreira, Pramod Sathyanarayana, Sahana CB, Sergey Pershin,
+Wei He, Xavier Deguillard, Xiaoxuan Meng, Yating Zhou, Yoav Helfman, Zeyi (Rice) Fan,
+Zhenyuan Zhao, artem.malyshev, benitakbritto, frankobe, usurai, yingsu00, zhaozhenhui
