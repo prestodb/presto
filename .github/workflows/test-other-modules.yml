@@ -57,4 +57,5 @@ jobs:
             !presto-redis,
             !presto-elasticsearch,
             !presto-orc,
-            !presto-thrift-connector'
+            !presto-thrift-connector,
+            !presto-native-execution'
