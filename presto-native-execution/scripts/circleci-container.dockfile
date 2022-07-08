@@ -11,8 +11,9 @@
 # limitations under the License.
 # Build the test and build container for presto_cpp
 #
-FROM prestocpp/velox-circleci:mikesh-20220331
+FROM prestocpp/velox-avx-circleci:mikesh-20220628
 
 COPY setup-circleci.sh /
+COPY setup-helper-functions.sh /
 RUN chmod +x ./setup-circleci.sh
 RUN mkdir build && ( cd build && ../setup-circleci.sh ) && rm -rf build
