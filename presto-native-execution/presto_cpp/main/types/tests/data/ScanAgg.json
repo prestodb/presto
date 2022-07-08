@@ -58,7 +58,40 @@
             },
             "domainPredicate":{
               "columnDomains":[
-
+                {
+                  "column":"psudo_bool_column",
+                  "domain":{
+                    "values":{
+                      "@type":"sortable",
+                      "type":"boolean",
+                      "ranges":[
+                        {
+                          "low":{
+                            "type":"boolean",
+                            "bound":"ABOVE"
+                          },
+                          "high":{
+                            "type":"boolean",
+                            "valueBlock":"CgAAAEJZVEVfQVJSQVkBAAAAAAE=",
+                            "bound":"BELOW"
+                          }
+                        },
+                        {
+                          "low":{
+                            "type":"boolean",
+                            "valueBlock":"CgAAAEJZVEVfQVJSQVkBAAAAAAE=",
+                            "bound":"ABOVE"
+                          },
+                          "high":{
+                            "type":"boolean",
+                            "bound":"BELOW"
+                          }
+                        }
+                      ]
+                    },
+                    "nullAllowed":false
+                  }
+                }
               ]
             },
             "remainingPredicate":{

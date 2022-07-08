@@ -34,7 +34,8 @@ class ConfigBase {
     if (propertyValue.has_value()) {
       return propertyValue.value();
     } else {
-      VELOX_FAIL("{} is required in the {} file.", propertyName, filePath_);
+      VELOX_USER_FAIL(
+          "{} is required in the {} file.", propertyName, filePath_);
     }
   }
 
@@ -43,7 +44,8 @@ class ConfigBase {
     if (propertyValue.has_value()) {
       return propertyValue.value();
     } else {
-      VELOX_FAIL("{} is required in the {} file.", propertyName, filePath_);
+      VELOX_USER_FAIL(
+          "{} is required in the {} file.", propertyName, filePath_);
     }
   }
 
@@ -80,6 +82,14 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
+  static constexpr std::string_view kNumIoThreads{"num-io-threads"};
+  static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
+  static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
+  static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
+  static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
+  static constexpr std::string_view kEnableSerializedPageChecksum{
+      "enable-serialized-page-checksum"};
+
   static constexpr std::string_view kEnableVeloxTaskLogging{
       "enable_velox_task_logging"};
   // Most server nodes today (May 2022) have at least 16 cores.
@@ -88,6 +98,13 @@ class SystemConfig : public ConfigBase {
   static constexpr int32_t kMaxDriversPerTaskDefault = 16;
   static constexpr int32_t kConcurrentLifespansPerTaskDefault = 1;
   static constexpr int32_t kHttpExecThreadsDefault = 8;
+  static constexpr int32_t kNumIoThreadsDefault = 30;
+  static constexpr int32_t kShutdownOnsetSecDefault = 10;
+  static constexpr int32_t kSystemMemoryGbDefault = 40;
+  static constexpr int32_t kAsyncCacheSsdGbDefault = 0;
+  static constexpr std::string_view kAsyncCacheSsdPathDefault{
+      "/mnt/flash/async_cache."};
+  static constexpr bool kEnableSerializedPageChecksumDefault = true;
   static constexpr bool kEnableVeloxTaskLoggingDefault = true;
 
   static SystemConfig* instance();
@@ -103,6 +120,18 @@ class SystemConfig : public ConfigBase {
   int32_t concurrentLifespansPerTask() const;
 
   int32_t httpExecThreads() const;
+
+  int32_t numIoThreads() const;
+
+  int32_t shutdownOnsetSec() const;
+
+  int32_t systemMemoryGb() const;
+
+  int32_t asyncCacheSsdGb() const;
+
+  std::string_view asyncCacheSsdPath() const;
+
+  bool enableSerializedPageChecksum() const;
 
   bool enableVeloxTaskLogging() const;
 };

@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/common/ConfigReader.h"
 #include <fstream>
+#include "velox/common/base/Exceptions.h"
 #include "velox/core/Context.h"
 
 namespace facebook::presto::util {
@@ -24,8 +25,7 @@ std::unordered_map<std::string, std::string> readConfig(
 
   std::ifstream configFile(filePath);
   if (!configFile.is_open()) {
-    throw std::runtime_error(
-        fmt::format("Couldn't open config file {} for reading.", filePath));
+    VELOX_USER_FAIL("Couldn't open config file {} for reading.", filePath);
   }
 
   std::unordered_map<std::string, std::string> properties;
@@ -49,8 +49,7 @@ std::string requiredProperty(
     const std::string& name) {
   auto it = properties.find(name);
   if (it == properties.end()) {
-    throw std::runtime_error(
-        std::string("Missing configuration property ") + name);
+    VELOX_USER_FAIL("Missing configuration property {}", name);
   }
   return it->second;
 }
@@ -60,8 +59,7 @@ std::string requiredProperty(
     const std::string& name) {
   auto value = properties.get(name);
   if (!value.hasValue()) {
-    throw std::runtime_error(
-        std::string("Missing configuration property ") + name);
+    VELOX_USER_FAIL("Missing configuration property {}", name);
   }
   return value.value();
 }

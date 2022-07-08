@@ -41,9 +41,26 @@ abstract class TestHiveQueries
         assertQuery("SELECT * FROM nation WHERE nationkey >= 4");
         assertQuery("SELECT * FROM nation WHERE nationkey BETWEEN 3 AND 7");
         assertQuery("SELECT * FROM nation WHERE nationkey IN (1, 3, 5)");
+        assertQuery("SELECT * FROM nation WHERE nationkey NOT IN (1, 3, 5)");
+        assertQuery("SELECT * FROM nation WHERE nationkey NOT IN (1, 8, 11)");
+        assertQuery("SELECT * FROM nation WHERE nationkey NOT IN (1, 2, 3)");
+        assertQuery("SELECT * FROM nation WHERE nationkey NOT IN (-14, 2)");
+        assertQuery("SELECT * FROM nation WHERE nationkey NOT IN (1, 2, 3, 4, 5, 10, 11, 12, 13)");
+        // Java coordinator/workers causes these queries to fail, even though the INT_MAX ones work on cpp
+        // "SELECT * FROM nation WHERE nationkey NOT IN (2, 33, " + Long.MAX_VALUE + ")"
+        // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", 2, 33)"
+        // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", " + Long.MAX_VALUE + ")"
         assertQuery("SELECT nationkey * 10, nationkey % 5, -nationkey, nationkey / 3 FROM nation");
         assertQuery("SELECT *, nationkey / 3 FROM nation");
         assertQuery("SELECT nationkey IS NULL FROM nation");
+        assertQuery("SELECT * FROM nation WHERE name <> 'SAUDI ARABIA'");
+        assertQuery("SELECT * FROM nation WHERE name NOT IN ('RUSSIA', 'UNITED STATES', 'CHINA')");
+        assertQuery("SELECT * FROM nation WHERE name NOT IN ('aaa', 'UniteD StateS', 'UNITED STATEs', 'uNITED STATES')");
+        assertQuery("SELECT * FROM nation WHERE name NOT IN ('', ';', 'new country w1th $p3c1@l ch@r@c73r5')");
+        assertQuery("SELECT * FROM nation WHERE name NOT BETWEEN 'A' AND 'K'"); // should not produce NegatedBytesValues
+        assertQuery("SELECT * FROM lineitem WHERE shipmode <> 'FOB'");
+        assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('RAIL', 'AIR')");
+        assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('', 'TRUCK', 'FOB', 'RAIL')");
         assertQuery("SELECT x IS DISTINCT FROM y, y IS NOT DISTINCT FROM x FROM (SELECT shipinstruct AS x, IF(shipinstruct='NONE', NULL, shipinstruct) AS y FROM lineitem)");
 
         assertQuery("SELECT rand() < 1, random() < 1 FROM nation", "SELECT true, true FROM nation");
@@ -74,8 +91,13 @@ abstract class TestHiveQueries
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE tax_as_real BETWEEN 0.02 AND 0.06");
 
         assertQuery("SELECT * FROM lineitem WHERE is_open=true");
+        assertQuery("SELECT * FROM lineitem WHERE is_open<>true");
         assertQuery("SELECT * FROM lineitem WHERE is_open");
         assertQuery("SELECT * FROM lineitem WHERE is_open=false");
+        assertQuery("SELECT * FROM lineitem WHERE is_open=true or is_open is null");
+        assertQuery("SELECT * FROM lineitem WHERE is_open<>true or is_open is null");
+        assertQuery("SELECT * FROM lineitem WHERE is_open or is_open is null");
+        assertQuery("SELECT * FROM lineitem WHERE is_open=false or is_open is null");
         assertQuery("SELECT * FROM lineitem WHERE NOT is_open");
         assertQuery("SELECT * FROM lineitem WHERE is_returned=true");
         assertQuery("SELECT * FROM lineitem WHERE is_returned");
@@ -190,6 +212,10 @@ abstract class TestHiveQueries
         assertQuery("SELECT try_cast(nationkey + 0.01 as JSON), try_cast(array[suppkey, nationkey] as JSON), try_cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON), try_cast(row(name, suppkey) as JSON), try_cast(array[map(array[name, address], array[1, 2]), map(array[name, phone], array[3, 4])] as JSON), try_cast(map(array[name, address, phone], array[array[1, 2], array[3, 4], array[5, 6]]) as JSON), try_cast(map(array[suppkey], array[name]) as JSON), try_cast(row(array[name, address], array[], array[null], map(array[phone], array[null])) as JSON) from supplier");
         assertQuery("SELECT try_cast(orderdate as JSON) FROM orders");
         assertQueryFails("SELECT try_cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast .* to JSON");
+
+        // Round-trip tests of casts for Json.
+        assertQuery("SELECT cast(cast(name as JSON) as VARCHAR), cast(cast(size as JSON) as INTEGER), cast(cast(size + 0.01 as JSON) as DOUBLE), cast(cast(size > 5 as JSON) as BOOLEAN) FROM part");
+        assertQuery("SELECT cast(cast(array[suppkey, nationkey] as JSON) as ARRAY(INTEGER)), cast(cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON) as MAP(VARCHAR(40), DOUBLE)) from supplier");
     }
 
     @Test
