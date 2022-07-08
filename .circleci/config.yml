@@ -1,26 +1,135 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/2.0/configuration-reference
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 version: 2.1
+workflows:
+  version: 2
+  dist-compile:
+    jobs:
+      - linux-build
+      - linux-parquet-S3-build
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
-jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
+executors:
+  build:
     docker:
-      - image: cimg/base:stable
-    # Add steps to the job
-    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
+      - image : prestocpp/prestocpp-avx-circleci:mikesh-20220628
+    resource_class: xlarge
+    environment:
+      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+
+jobs:
+  linux-build:
+    executor: build
     steps:
       - checkout
       - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+          name: "Update velox"
+          command: |
+            cd presto-native-execution
+            make velox-submodule
+      - run:
+          name: "Calculate merge-base date for CCache"
+          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/master HEAD) | tee merge-base-date
+      - restore_cache:
+          name: "Restore CCache cache"
+          keys:
+            - native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+      - run:
+          name: Build
+          command: |
+            mkdir -p .ccache
+            export CCACHE_DIR=$(realpath .ccache)
+            ccache -sz -M 8Gi
+            source /opt/rh/gcc-toolset-9/enable
+            cd presto-native-execution
+            cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            ninja -C _build/debug -j 8
+            ccache -s
+      - save_cache:
+          name: "Save CCache cache"
+          key: native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          paths:
+            - .ccache/
+      - run:
+          name: 'Run Unit Tests'
+          command: |
+            cd presto-native-execution/_build/debug
+            ctest -j 8 -VV --output-on-failure --exclude-regex velox.*
 
-# Invoke jobs via workflows
-# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
-workflows:
-  say-hello-workflow:
-    jobs:
-      - say-hello
+      - restore_cache:
+          name: "Restore Maven Cache"
+          key: native-exe-linux-maven-{{ checksum "pom.xml" }}
+
+      - run:
+          name: Populate Maven cache
+          command: |
+            if [[ ! -e ${HOME}/.m2/repository ]]; then
+              mkdir -p ${HOME}/.m2/repository
+              mvn de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
+            fi
+
+      - save_cache:
+          name: "Save Maven cache"
+          key: native-exe-linux-maven-{{ checksum "pom.xml" }}
+          paths:
+            - ${HOME}/.m2/repository
+
+      - run:
+          name: Run presto-native-execution tests
+          command: |
+            export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
+            export TEMP_PATH="/tmp"
+            mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
+
+  linux-parquet-S3-build:
+    # Only builds presto_cpp in release mode with Parquet and S3 enabled
+    executor: build
+    steps:
+      - checkout
+      - run:
+          name: "Update velox submodule"
+          command: |
+            cd presto-native-execution
+            make velox-submodule
+      - run:
+          name: "Calculate merge-base date for CCache"
+          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
+      - restore_cache:
+          name: "Restore CCache cache"
+          keys:
+            - native-exe-linux-adapters-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+      - run:
+          name: "Install S3 adapter dependencies"
+          command: |
+            mkdir -p ${HOME}/adapter-deps/install
+            source /opt/rh/gcc-toolset-9/enable
+            set -xu
+            cd presto-native-execution
+            DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./velox/scripts/setup-adapters.sh
+      - run:
+          name: Build
+          command: |
+            mkdir -p .ccache
+            export CCACHE_DIR=$(realpath .ccache)
+            ccache -sz -M 8Gi
+            source /opt/rh/gcc-toolset-9/enable
+            cd presto-native-execution
+            cmake -B _build/release -GNinja -DAWSSDK_ROOT_DIR=${HOME}/adapter-deps/install -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Release -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            ninja -C _build/release -j 8
+            ccache -s
+      - save_cache:
+          name: "Save CCache cache"
+          key: native-exe-linux-adapters-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          paths:
+            - .ccache/
