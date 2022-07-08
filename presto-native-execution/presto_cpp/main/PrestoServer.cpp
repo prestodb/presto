@@ -44,7 +44,7 @@
 DEFINE_int32(num_io_threads, 30, "Number of IO threads");
 
 #ifdef PRESTO_ENABLE_PARQUET
-#include "velox/dwio/parquet/reader/ParquetReader.h" // @manual
+#include "velox/dwio/parquet/RegisterParquetReader.h" // @manual
 #endif
 
 DEFINE_int32(
@@ -54,7 +54,7 @@ DEFINE_int32(
     " and starting shutting down.");
 DEFINE_int32(
     system_memory_gb,
-    37,
+    40,
     "System memory available for Presto Server in Gb.");
 
 // If non-0, AsyncDataCache uses this amount of local file system
@@ -114,7 +114,7 @@ std::string getLocalIp() {
     boost::asio::ip::address addr = (it++)->endpoint().address();
     // simple check to see if the address is not ::
     if (addr.to_string().length() > 4) {
-      return fmt::format("[{}]", addr.to_string());
+      return fmt::format("{}", addr.to_string());
     }
   }
   VELOX_FAIL(
@@ -146,27 +146,35 @@ void PrestoServer::run() {
   registerOptionalHiveStorageAdapters();
   protocol::registerHiveConnectors();
 
+  auto systemConfig = SystemConfig::instance();
+
   auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
-      FLAGS_num_io_threads,
+      systemConfig->numIoThreads(),
       std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
   folly::setUnsafeMutableGlobalIOExecutor(executor);
 
-  auto systemConfig = SystemConfig::instance();
-  systemConfig->initialize(configDirectoryPath_ + "/config.properties");
   auto nodeConfig = NodeConfig::instance();
-  nodeConfig->initialize(configDirectoryPath_ + "/node.properties");
-
-  auto servicePort = systemConfig->httpServerHttpPort();
-  nodeVersion_ = systemConfig->prestoVersion();
-  int httpExecThreads = systemConfig->httpExecThreads();
-  environment_ = nodeConfig->nodeEnvironment();
-  nodeId_ = nodeConfig->nodeId();
-  address_ = nodeConfig->nodeIp(getLocalIp);
-  nodeLocation_ = nodeConfig->nodeLocation();
-  if (address_.find(':') != std::string::npos && address_.front() != '[') {
-    address_ = fmt::format("[{}]", address_);
+  int servicePort;
+  int httpExecThreads;
+  try {
+    systemConfig->initialize(configDirectoryPath_ + "/config.properties");
+    nodeConfig->initialize(configDirectoryPath_ + "/node.properties");
+    servicePort = systemConfig->httpServerHttpPort();
+    nodeVersion_ = systemConfig->prestoVersion();
+    httpExecThreads = systemConfig->httpExecThreads();
+    environment_ = nodeConfig->nodeEnvironment();
+    nodeId_ = nodeConfig->nodeId();
+    address_ = nodeConfig->nodeIp(getLocalIp);
+    // Add [] to an ipv6 address.
+    if (address_.find(':') != std::string::npos && address_.front() != '[') {
+      address_ = fmt::format("[{}]", address_);
+    }
+    nodeLocation_ = nodeConfig->nodeLocation();
+  } catch (const VeloxUserError& e) {
+    // VeloxUserError is always logged as an error.
+    // Avoid logging again.
+    exit(EXIT_FAILURE);
   }
-
   initializeAsyncCache();
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
@@ -259,7 +267,7 @@ void PrestoServer::run() {
   taskManager_->setBaseUri(fmt::format(kBaseUriFormat, address_, servicePort));
   taskResource_ = std::make_unique<TaskResource>(*taskManager_);
   taskResource_->registerUris(*httpServer_);
-  if (FLAGS_enable_serialized_page_checksum) {
+  if (systemConfig->enableSerializedPageChecksum()) {
     enableChecksum();
   }
 
@@ -332,17 +340,19 @@ void PrestoServer::run() {
 
 void PrestoServer::initializeAsyncCache() {
   auto nodeConfig = NodeConfig::instance();
-  uint64_t memoryGb =
-      nodeConfig->nodeMemoryGb([]() { return FLAGS_system_memory_gb; });
+  auto systemConfig = SystemConfig::instance();
+  uint64_t memoryGb = nodeConfig->nodeMemoryGb(
+      [&]() { return systemConfig->systemMemoryGb(); });
   LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
   std::unique_ptr<cache::SsdCache> ssd;
-  if (FLAGS_async_cache_ssd_gb) {
+  auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
+  if (asyncCacheSsdGb) {
     constexpr int32_t kNumSsdShards = 16;
     cacheExecutor_ =
         std::make_unique<folly::IOThreadPoolExecutor>(kNumSsdShards);
     ssd = std::make_unique<cache::SsdCache>(
-        FLAGS_async_cache_ssd_path,
-        FLAGS_async_cache_ssd_gb << 30,
+        systemConfig->asyncCacheSsdPath(),
+        asyncCacheSsdGb << 30,
         kNumSsdShards,
         cacheExecutor_.get());
   }
@@ -358,14 +368,15 @@ void PrestoServer::initializeAsyncCache() {
 
 void PrestoServer::stop() {
   // Make sure we only go here once.
+  auto shutdownOnsetSec = SystemConfig::instance()->shutdownOnsetSec();
   if (not shuttingDown_.exchange(true)) {
     LOG(INFO) << "SHUTDOWN: Initiating shutdown. Will wait for "
-              << FLAGS_shutdown_onset_sec << " seconds.";
+              << shutdownOnsetSec << " seconds.";
     this->setNodeState(NodeState::SHUTTING_DOWN);
 
     // Give coordinator some time to receive our new node state and stop sending
     // any tasks.
-    std::this_thread::sleep_for(std::chrono::seconds(FLAGS_shutdown_onset_sec));
+    std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
 
     size_t numTasks{0};
     auto taskNumbers = taskManager_->getTaskNumbers(numTasks);
@@ -382,7 +393,7 @@ void PrestoServer::stop() {
 
     // Give coordinator some time to request tasks stats for completed or failed
     // tasks.
-    std::this_thread::sleep_for(std::chrono::seconds(FLAGS_shutdown_onset_sec));
+    std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
 
     if (httpServer_) {
       LOG(INFO) << "SHUTDOWN: All tasks are completed. Stopping HTTP Server...";
@@ -393,11 +404,17 @@ void PrestoServer::stop() {
 }
 
 std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
-  auto uri = folly::Uri(SystemConfig::instance()->discoveryUri());
+  try {
+    auto uri = folly::Uri(SystemConfig::instance()->discoveryUri());
 
-  return [uri]() {
-    return folly::SocketAddress(uri.hostname(), uri.port(), true);
-  };
+    return [uri]() {
+      return folly::SocketAddress(uri.hostname(), uri.port(), true);
+    };
+  } catch (const VeloxUserError& e) {
+    // VeloxUserError is always logged as an error.
+    // Avoid logging again.
+    exit(EXIT_FAILURE);
+  }
 }
 
 std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListiner() {
@@ -408,9 +425,10 @@ std::vector<std::string> PrestoServer::registerConnectors(
     const fs::path& configDirectoryPath) {
   static const std::string kPropertiesExtension = ".properties";
 
-  if (FLAGS_num_io_threads) {
+  auto numIoThreads = SystemConfig::instance()->numIoThreads();
+  if (numIoThreads) {
     connectorIoExecutor_ =
-        std::make_unique<folly::IOThreadPoolExecutor>(FLAGS_num_io_threads);
+        std::make_unique<folly::IOThreadPoolExecutor>(numIoThreads);
   }
   std::vector<std::string> catalogNames;
 
@@ -465,7 +483,9 @@ std::shared_ptr<velox::connector::Connector> PrestoServer::connectorWithCache(
 }
 
 void PrestoServer::populateMemAndCPUInfo() {
-  const int64_t nodeMemoryGb = FLAGS_system_memory_gb - cacheRamCapacityGb_;
+  auto systemConfig = SystemConfig::instance();
+  const int64_t nodeMemoryGb =
+      systemConfig->systemMemoryGb() - cacheRamCapacityGb_;
   protocol::MemoryInfo memoryInfo{
       {double(nodeMemoryGb), protocol::DataUnit::GIGABYTE}};
 
@@ -532,7 +552,9 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 }
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
-  const int64_t nodeMemoryGb = FLAGS_system_memory_gb - cacheRamCapacityGb_;
+  auto systemConfig = SystemConfig::instance();
+  const int64_t nodeMemoryGb =
+      systemConfig->systemMemoryGb() - cacheRamCapacityGb_;
 
   const double cpuLoadPct{cpuMon_.getCPULoadPct()};
 

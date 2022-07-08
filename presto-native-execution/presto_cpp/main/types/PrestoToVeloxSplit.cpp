@@ -25,7 +25,7 @@ namespace {
 dwio::common::FileFormat toVeloxFileFormat(
     const facebook::presto::protocol::String& format) {
   if (format == "com.facebook.hive.orc.OrcInputFormat") {
-    return dwio::common::FileFormat::ORC;
+    return dwio::common::FileFormat::DWRF;
   } else if (
       format ==
       "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat") {
