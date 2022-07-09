@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.testing;
 
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -27,12 +28,12 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 
 public final class TreeAssertions
 {
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private TreeAssertions() {}
 
     public static void assertFormattedSql(SqlParser sqlParser, Node expected)
@@ -43,11 +44,11 @@ public final class TreeAssertions
 
     public static void assertFormattedSql(SqlParser sqlParser, ParsingOptions parsingOptions, Node expected)
     {
-        String formatted = formatSql(expected, Optional.empty());
+        String formatted = SQL_FORMATTER.formatSql(expected, Optional.empty());
 
         // verify round-trip of formatting already-formatted SQL
         Statement actual = parseFormatted(sqlParser, parsingOptions, formatted, expected);
-        assertEquals(formatSql(actual, Optional.empty()), formatted);
+        assertEquals(SQL_FORMATTER.formatSql(actual, Optional.empty()), formatted);
 
         // compare parsed tree with parsed tree of formatted SQL
         if (!actual.equals(expected)) {

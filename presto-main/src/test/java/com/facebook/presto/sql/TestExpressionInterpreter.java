@@ -87,7 +87,6 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
-import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
@@ -143,6 +142,7 @@ public class TestExpressionInterpreter
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
     private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
+    private static final ExpressionFormatter expressionFormatter = new ExpressionFormatter();
 
     @BeforeClass
     public void setup()
@@ -1784,7 +1784,7 @@ public class TestExpressionInterpreter
     {
         ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
         assertEquals(SQL_PARSER.createExpression(expression, parsingOptions),
-                SQL_PARSER.createExpression(formatExpression(SQL_PARSER.createExpression(expression, parsingOptions), Optional.empty()), parsingOptions));
+                SQL_PARSER.createExpression(expressionFormatter.formatExpression(SQL_PARSER.createExpression(expression, parsingOptions), Optional.empty()), parsingOptions));
     }
 
     private static Object evaluate(Expression expression, boolean deterministic)

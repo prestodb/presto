@@ -32,6 +32,7 @@ import static org.testng.Assert.assertFalse;
 
 public class TestStatementBuilder
 {
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     @Test
@@ -320,7 +321,7 @@ public class TestStatementBuilder
         println(statement.toString());
         println("");
 
-        println(SqlFormatter.formatSql(statement, Optional.empty()));
+        println(SQL_FORMATTER.formatSql(statement, Optional.empty()));
         println("");
         assertFormattedSql(SQL_PARSER, statement);
 
@@ -331,7 +332,7 @@ public class TestStatementBuilder
     private static void assertSqlFormatter(String expression, String formatted)
     {
         Expression originalExpression = SQL_PARSER.createExpression(expression, new ParsingOptions());
-        String real = SqlFormatter.formatSql(originalExpression, Optional.empty());
+        String real = SQL_FORMATTER.formatSql(originalExpression, Optional.empty());
         assertEquals(real, formatted);
     }
 

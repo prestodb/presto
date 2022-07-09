@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -168,7 +169,6 @@ import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.QueryUtil.values;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
@@ -194,6 +194,7 @@ import static org.testng.Assert.fail;
 
 public class TestSqlParser
 {
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     @Test
@@ -2691,8 +2692,8 @@ public class TestSqlParser
         if (!parsed.equals(expected)) {
             fail(format("expected\n\n%s\n\nto parse as\n\n%s\n\nbut was\n\n%s\n",
                     indent(input),
-                    indent(formatSql(expected, Optional.empty())),
-                    indent(formatSql(parsed, Optional.empty()))));
+                    indent(SQL_FORMATTER.formatSql(expected, Optional.empty())),
+                    indent(SQL_FORMATTER.formatSql(parsed, Optional.empty()))));
         }
     }
 

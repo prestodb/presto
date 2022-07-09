@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -42,7 +43,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -66,6 +66,7 @@ public class TestQueryRewriter
     private static final QueryRewriteConfig QUERY_REWRITE_CONFIG = new QueryRewriteConfig()
             .setTablePrefix("local.tmp")
             .setTableProperties("{\"p_int\": 30, \"p_long\": 4294967297, \"p_double\": 1.5, \"p_varchar\": \"test\", \"p_bool\": true}");
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private static StandaloneQueryRunner queryRunner;
@@ -324,7 +325,7 @@ public class TestQueryRewriter
     {
         assertTrue(statement instanceof CreateTableAsSelect);
         Query query = ((CreateTableAsSelect) statement).getQuery();
-        assertEquals(formatSql(query, Optional.empty()), formatSql(sqlParser.createStatement(selectQuery, PARSING_OPTIONS), Optional.empty()));
+        assertEquals(SQL_FORMATTER.formatSql(query, Optional.empty()), SQL_FORMATTER.formatSql(sqlParser.createStatement(selectQuery, PARSING_OPTIONS), Optional.empty()));
     }
 
     private static List<Statement> templateToStatements(List<String> templates, String tableName)
@@ -338,10 +339,10 @@ public class TestQueryRewriter
     private static void assertStatements(List<Statement> actual, List<Statement> expected)
     {
         List<String> actualQueries = actual.stream()
-                .map(statement -> formatSql(statement, Optional.empty()))
+                .map(statement -> SQL_FORMATTER.formatSql(statement, Optional.empty()))
                 .collect(toImmutableList());
         List<String> expectedQueries = expected.stream()
-                .map(statement -> formatSql(statement, Optional.empty()))
+                .map(statement -> SQL_FORMATTER.formatSql(statement, Optional.empty()))
                 .collect(toImmutableList());
         assertEquals(actualQueries, expectedQueries);
     }

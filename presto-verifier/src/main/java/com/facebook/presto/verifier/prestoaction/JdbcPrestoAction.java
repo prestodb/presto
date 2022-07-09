@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
@@ -44,7 +45,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.verifier.prestoaction.QueryActionUtil.mangleSessionProperties;
 import static java.util.Objects.requireNonNull;
 
@@ -52,6 +52,7 @@ public class JdbcPrestoAction
         implements PrestoAction
 {
     public static final String QUERY_ACTION_TYPE = "presto-jdbc";
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private static final Logger log = Logger.get(JdbcPrestoAction.class);
 
     private final SqlExceptionClassifier exceptionClassifier;
@@ -130,7 +131,7 @@ public class JdbcPrestoAction
 
     private <T> T executeOnce(Statement statement, QueryStage queryStage, StatementExecutor<T> statementExecutor)
     {
-        String query = formatSql(statement, Optional.empty());
+        String query = SQL_FORMATTER.formatSql(statement, Optional.empty());
         String clientInfo = new ClientInfo(
                 testId,
                 testName,

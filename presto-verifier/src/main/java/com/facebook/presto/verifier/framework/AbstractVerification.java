@@ -70,6 +70,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         implements Verification
 {
     private static final String INTERNAL_ERROR = "VERIFIER_INTERNAL_ERROR";
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
 
     private final QueryActions queryActions;
     private final SourceQuery sourceQuery;
@@ -424,7 +425,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
 
     protected static String formatSql(Statement statement)
     {
-        return SqlFormatter.formatSql(statement, Optional.empty());
+        return SQL_FORMATTER.formatSql(statement, Optional.empty());
     }
 
     protected static List<String> formatSqls(List<Statement> statements)

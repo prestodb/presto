@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -31,7 +32,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -83,6 +83,7 @@ public class TestLimitQueryDeterminismAnalyzer
             Optional.of(new QueryStats("id", "", false, false, false, 1, 2, 3, 4, 5, 0, 7, 8, 9, 10, 11, 12, 0, 0, 0, Optional.empty())),
             Optional.empty());
     private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private static final String ORDER_BY_LIMIT_QUERY = "INSERT INTO test\n" +
@@ -242,6 +243,6 @@ public class TestLimitQueryDeterminismAnalyzer
     {
         Statement expectedStatement = sqlParser.createStatement(expectedQuery, PARSING_OPTIONS);
         Statement actualStatement = prestoAction.getLastStatement();
-        assertEquals(formatSql(actualStatement, Optional.empty()), formatSql(expectedStatement, Optional.empty()));
+        assertEquals(SQL_FORMATTER.formatSql(actualStatement, Optional.empty()), SQL_FORMATTER.formatSql(expectedStatement, Optional.empty()));
     }
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.benchmark.retry.RetryDriver;
 import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,7 +36,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.benchmark.framework.QueryException.Type.CLUSTER_CONNECTION;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -49,6 +49,7 @@ public class JdbcPrestoAction
     private final String jdbcUrl;
     private final Duration queryTimeout;
     private final RetryDriver networkRetry;
+    private final SqlFormatter sqlFormatter = new SqlFormatter();
 
     public JdbcPrestoAction(
             SqlExceptionClassifier exceptionClassifier,
@@ -88,7 +89,7 @@ public class JdbcPrestoAction
 
     private <R> QueryResult<R> executeOnce(Statement statement, Optional<ResultSetConverter<R>> converter)
     {
-        String query = formatSql(statement, Optional.empty());
+        String query = sqlFormatter.formatSql(statement, Optional.empty());
         ProgressMonitor progressMonitor = new ProgressMonitor();
 
         try (PrestoConnection connection = getConnection()) {

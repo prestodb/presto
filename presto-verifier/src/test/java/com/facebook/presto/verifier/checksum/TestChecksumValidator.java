@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -42,7 +43,6 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.verifier.VerifierTestUtil.createChecksumValidator;
@@ -94,6 +94,7 @@ public class TestChecksumValidator
             .put("row.r._col1$sum", 0.0)
             .put("row.r.b$checksum", new SqlVarbinary(new byte[] {0xe}))
             .build();
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private final ChecksumValidator checksumValidator = createChecksumValidator(new VerifierConfig()
@@ -165,7 +166,7 @@ public class TestChecksumValidator
                         "FROM\n" +
                         "  test:di\n",
                 PARSING_OPTIONS);
-        assertEquals(formatSql(checksumQuery, Optional.empty()), formatSql(expectedChecksumQuery, Optional.empty()));
+        assertEquals(SQL_FORMATTER.formatSql(checksumQuery, Optional.empty()), SQL_FORMATTER.formatSql(expectedChecksumQuery, Optional.empty()));
     }
 
     @Test

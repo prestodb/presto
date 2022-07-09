@@ -23,14 +23,16 @@ import java.util.Optional;
 
 public interface DataDefinitionTask<T extends Statement>
 {
+    SqlFormatter SQL_FORMATTER = new SqlFormatter();
+
     String getName();
 
     default String explain(T statement, List<Expression> parameters)
     {
         if (statement instanceof Prepare) {
-            return SqlFormatter.formatSql(statement, Optional.empty());
+            return SQL_FORMATTER.formatSql(statement, Optional.empty());
         }
 
-        return SqlFormatter.formatSql(statement, Optional.of(parameters));
+        return SQL_FORMATTER.formatSql(statement, Optional.of(parameters));
     }
 }

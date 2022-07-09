@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -41,7 +42,6 @@ import static com.facebook.presto.execution.warnings.WarningHandlingLevel.AS_ERR
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static java.lang.String.format;
@@ -50,6 +50,7 @@ import static java.util.stream.Collectors.joining;
 
 public class QueryPreparer
 {
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private final SqlParser sqlParser;
 
     @Inject
@@ -102,7 +103,7 @@ public class QueryPreparer
 
     private static String getFormattedQuery(Statement statement, List<Expression> parameters)
     {
-        String formattedQuery = formatSql(
+        String formattedQuery = SQL_FORMATTER.formatSql(
                 statement,
                 parameters.isEmpty() ? Optional.empty() : Optional.of(parameters));
         return format("-- Formatted Query:\n%s", formattedQuery);

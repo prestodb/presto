@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.Statement;
@@ -31,7 +32,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.COLUMN_MISMATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.ROW_COUNT_MISMATCH;
@@ -43,6 +43,7 @@ import static java.util.Locale.ENGLISH;
 
 public class DataVerificationUtil
 {
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private static final Logger log = Logger.get(DataVerificationUtil.class);
 
     private DataVerificationUtil() {}
@@ -58,7 +59,7 @@ public class DataVerificationUtil
                 runAndConsume(() -> queryAction.execute(teardownQuery, forTeardown(bundle.get().getCluster())), queryStatsConsumer);
             }
             catch (Throwable t) {
-                log.warn("Failed to teardown %s: %s", bundle.get().getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery, Optional.empty()));
+                log.warn("Failed to teardown %s: %s", bundle.get().getCluster().name().toLowerCase(ENGLISH), SQL_FORMATTER.formatSql(teardownQuery, Optional.empty()));
             }
         }
     }

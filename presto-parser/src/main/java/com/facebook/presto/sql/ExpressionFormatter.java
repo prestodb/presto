@@ -73,6 +73,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.TemplateExpressionRewriter;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
@@ -92,7 +93,6 @@ import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -103,22 +103,36 @@ public final class ExpressionFormatter
 {
     private static final ThreadLocal<DecimalFormat> doubleFormatter = ThreadLocal.withInitial(
             () -> new DecimalFormat("0.###################E0###", new DecimalFormatSymbols(Locale.US)));
+    private static Boolean formatTemplate;
 
-    private ExpressionFormatter() {}
-
-    public static String formatExpression(Expression expression, Optional<List<Expression>> parameters)
+    public ExpressionFormatter()
     {
-        return new Formatter(parameters).process(expression, null);
+        this(false);
     }
 
-    public static String formatQualifiedName(QualifiedName name)
+    public ExpressionFormatter(Boolean formatTemplate)
+    {
+        this.formatTemplate = formatTemplate;
+    }
+
+    public String formatExpression(Expression expression, Optional<List<Expression>> parameters)
+    {
+        if (!formatTemplate) {
+            return new Formatter(this, parameters, formatTemplate).process(expression, null);
+        }
+        else {
+            return new Formatter(this, parameters, formatTemplate).process(TemplateExpressionRewriter.rewrite(expression), null);
+        }
+    }
+
+    public String formatQualifiedName(QualifiedName name)
     {
         return name.getParts().stream()
-                .map(ExpressionFormatter::formatIdentifier)
+                .map(s -> formatIdentifier(s))
                 .collect(joining("."));
     }
 
-    public static String formatIdentifier(String s)
+    public String formatIdentifier(String s)
     {
         return '"' + s.replace("\"", "\"\"") + '"';
     }
@@ -127,10 +141,14 @@ public final class ExpressionFormatter
             extends AstVisitor<String, Void>
     {
         private final Optional<List<Expression>> parameters;
+        private final ExpressionFormatter expressionFormatter;
+        private final SqlFormatter sqlFormatter;
 
-        public Formatter(Optional<List<Expression>> parameters)
+        public Formatter(ExpressionFormatter expressionFormatter, Optional<List<Expression>> parameters, Boolean formatTemplate)
         {
             this.parameters = parameters;
+            this.expressionFormatter = expressionFormatter;
+            this.sqlFormatter = new SqlFormatter(formatTemplate);
         }
 
         @Override
@@ -199,13 +217,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitStringLiteral(StringLiteral node, Void context)
         {
-            return formatStringLiteral(node.getValue());
+            return expressionFormatter.formatStringLiteral(node.getValue());
         }
 
         @Override
         protected String visitCharLiteral(CharLiteral node, Void context)
         {
-            return "CHAR " + formatStringLiteral(node.getValue());
+            return "CHAR " + expressionFormatter.formatStringLiteral(node.getValue());
         }
 
         @Override
@@ -229,7 +247,7 @@ public final class ExpressionFormatter
         {
             ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
             for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value, parameters));
+                valueStrings.add(sqlFormatter.formatSql(value, parameters));
             }
             return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
         }
@@ -237,7 +255,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
-            return formatSql(node.getBase(), parameters) + "[" + formatSql(node.getIndex(), parameters) + "]";
+            return sqlFormatter.formatSql(node.getBase(), parameters) + "[" + sqlFormatter.formatSql(node.getIndex(), parameters) + "]";
         }
 
         @Override
@@ -262,7 +280,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitGenericLiteral(GenericLiteral node, Void context)
         {
-            return node.getType() + " " + formatStringLiteral(node.getValue());
+            return node.getType() + " " + expressionFormatter.formatStringLiteral(node.getValue());
         }
 
         @Override
@@ -302,13 +320,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubqueryExpression(SubqueryExpression node, Void context)
         {
-            return "(" + formatSql(node.getQuery(), parameters) + ")";
+            return "(" + sqlFormatter.formatSql(node.getQuery(), parameters) + ")";
         }
 
         @Override
         protected String visitExists(ExistsPredicate node, Void context)
         {
-            return "(EXISTS " + formatSql(node.getSubquery(), parameters) + ")";
+            return "(EXISTS " + sqlFormatter.formatSql(node.getSubquery(), parameters) + ")";
         }
 
         @Override
@@ -325,13 +343,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, Void context)
         {
-            return formatExpression(node.getName(), parameters);
+            return expressionFormatter.formatExpression(node.getName(), parameters);
         }
 
         @Override
         protected String visitSymbolReference(SymbolReference node, Void context)
         {
-            return formatIdentifier(node.getName());
+            return expressionFormatter.formatIdentifier(node.getName());
         }
 
         @Override
@@ -361,11 +379,11 @@ public final class ExpressionFormatter
                 arguments = "DISTINCT " + arguments;
             }
 
-            builder.append(formatQualifiedName(node.getName()))
+            builder.append(expressionFormatter.formatQualifiedName(node.getName()))
                     .append('(').append(arguments);
 
             if (node.getOrderBy().isPresent()) {
-                builder.append(' ').append(formatOrderBy(node.getOrderBy().get(), parameters));
+                builder.append(' ').append(expressionFormatter.formatOrderBy(node.getOrderBy().get(), parameters));
             }
 
             builder.append(')');
@@ -610,7 +628,7 @@ public final class ExpressionFormatter
                 parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
             }
             if (node.getOrderBy().isPresent()) {
-                parts.add(formatOrderBy(node.getOrderBy().get(), parameters));
+                parts.add(expressionFormatter.formatOrderBy(node.getOrderBy().get(), parameters));
             }
             if (node.getFrame().isPresent()) {
                 parts.add(process(node.getFrame().get(), context));
@@ -691,7 +709,7 @@ public final class ExpressionFormatter
         }
     }
 
-    static String formatStringLiteral(String s)
+    String formatStringLiteral(String s)
     {
         s = s.replace("'", "''");
         if (CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(s)) {
@@ -724,24 +742,24 @@ public final class ExpressionFormatter
         return builder.toString();
     }
 
-    static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
+    String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
     {
         return "ORDER BY " + formatSortItems(orderBy.getSortItems(), parameters);
     }
 
-    static String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
+    String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
     {
         return Joiner.on(", ").join(sortItems.stream()
                 .map(sortItemFormatterFunction(parameters))
                 .iterator());
     }
 
-    static String formatGroupBy(List<GroupingElement> groupingElements)
+    String formatGroupBy(List<GroupingElement> groupingElements)
     {
         return formatGroupBy(groupingElements, Optional.empty());
     }
 
-    static String formatGroupBy(List<GroupingElement> groupingElements, Optional<List<Expression>> parameters)
+    String formatGroupBy(List<GroupingElement> groupingElements, Optional<List<Expression>> parameters)
     {
         ImmutableList.Builder<String> resultStrings = ImmutableList.builder();
 
@@ -773,7 +791,7 @@ public final class ExpressionFormatter
         return Joiner.on(", ").join(resultStrings.build());
     }
 
-    private static boolean isAsciiPrintable(int codePoint)
+    private boolean isAsciiPrintable(int codePoint)
     {
         if (codePoint >= 0x7F || codePoint < 0x20) {
             return false;
@@ -781,14 +799,14 @@ public final class ExpressionFormatter
         return true;
     }
 
-    private static String formatGroupingSet(List<Expression> groupingSet, Optional<List<Expression>> parameters)
+    private String formatGroupingSet(List<Expression> groupingSet, Optional<List<Expression>> parameters)
     {
         return format("(%s)", Joiner.on(", ").join(groupingSet.stream()
                 .map(e -> formatExpression(e, parameters))
                 .iterator()));
     }
 
-    private static Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters)
+    private Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters)
     {
         return input -> {
             StringBuilder builder = new StringBuilder();

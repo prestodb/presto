@@ -26,6 +26,7 @@ import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -55,7 +56,6 @@ import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
@@ -64,6 +64,7 @@ import static java.util.Objects.requireNonNull;
 public class CreateFunctionTask
         implements DDLDefinitionTask<CreateFunction>
 {
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private final SqlParser sqlParser;
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
 
@@ -162,7 +163,7 @@ public class CreateFunctionTask
                 returnType,
                 description,
                 routineCharacteristics,
-                formatSql(body, Optional.empty()),
+                SQL_FORMATTER.formatSql(body, Optional.empty()),
                 notVersioned());
     }
 

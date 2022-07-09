@@ -37,6 +37,7 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.QueryUtil;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -132,7 +133,6 @@ import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
@@ -177,6 +177,7 @@ final class ShowQueriesRewrite
     private static class Visitor
             extends AstVisitor<Node, Void>
     {
+        private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
         private final Metadata metadata;
         private final Session session;
         private final SqlParser sqlParser;
@@ -463,7 +464,7 @@ final class ShowQueriesRewrite
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.empty()), Optional.of(parameters)).trim();
+                String sql = SQL_FORMATTER.formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.empty()), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -494,7 +495,7 @@ final class ShowQueriesRewrite
                         false,
                         propertyNodes,
                         connectorTableMetadata.getComment());
-                return singleValueQuery("Create Materialized View", formatSql(createMaterializedView, Optional.of(parameters)).trim());
+                return singleValueQuery("Create Materialized View", SQL_FORMATTER.formatSql(createMaterializedView, Optional.of(parameters)).trim());
             }
 
             if (node.getType() == TABLE) {
@@ -531,7 +532,7 @@ final class ShowQueriesRewrite
                         false,
                         propertyNodes,
                         connectorTableMetadata.getComment());
-                return singleValueQuery("Create Table", formatSql(createTable, Optional.of(parameters)).trim());
+                return singleValueQuery("Create Table", SQL_FORMATTER.formatSql(createTable, Optional.of(parameters)).trim());
             }
 
             throw new UnsupportedOperationException("SHOW CREATE only supported for tables and views");
@@ -578,7 +579,7 @@ final class ShowQueriesRewrite
                                 NullCallClause.valueOf(sqlFunction.getRoutineCharacteristics().getNullCallClause().name())),
                         sqlParser.createReturn(sqlFunction.getBody(), createParsingOptions(session, warningCollector)));
                 rows.add(row(
-                        new StringLiteral(formatSql(createFunction, Optional.empty())),
+                        new StringLiteral(SQL_FORMATTER.formatSql(createFunction, Optional.empty())),
                         new StringLiteral(function.getSignature().getArgumentTypes().stream()
                                 .map(TypeSignature::toString)
                                 .collect(joining(", ")))));

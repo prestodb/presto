@@ -28,11 +28,12 @@ import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatm
 
 public final class SqlFormatterUtil
 {
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter();
     private SqlFormatterUtil() {}
 
     public static String getFormattedSql(Statement statement, SqlParser sqlParser, Optional<List<Expression>> parameters)
     {
-        String sql = SqlFormatter.formatSql(statement, parameters);
+        String sql = SQL_FORMATTER.formatSql(statement, parameters);
 
         // verify round-trip
         Statement parsed;

@@ -50,7 +50,7 @@ public final class Serialization
         public void serialize(Expression expression, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression, Optional.empty()));
+            jsonGenerator.writeString(new ExpressionFormatter().formatExpression(expression, Optional.empty()));
         }
     }
 
