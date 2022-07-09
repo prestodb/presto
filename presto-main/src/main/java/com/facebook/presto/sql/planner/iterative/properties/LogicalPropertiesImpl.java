@@ -20,7 +20,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.google.common.base.Preconditions;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,6 +34,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -140,7 +140,7 @@ public class LogicalPropertiesImpl
     public boolean isDistinct(Set<VariableReferenceExpression> keyVars)
     {
         requireNonNull(keyVars, "keyVars is null");
-        Preconditions.checkArgument(!keyVars.isEmpty(), "keyVars is empty");
+        checkArgument(!keyVars.isEmpty(), "keyVars is empty");
         return keyRequirementSatisfied(new Key(keyVars));
     }
 
@@ -382,7 +382,7 @@ public class LogicalPropertiesImpl
             requireNonNull(sourceProperties, "sourceProperties is null");
             requireNonNull(keyVariables, "keyVariables is null");
             requireNonNull(outputVariables, "outputVariables is null");
-            Preconditions.checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
+            checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
             this.sourceProperties = sourceProperties;
             this.key = new Key(keyVariables);
             this.outputVariables = outputVariables;
@@ -425,7 +425,7 @@ public class LogicalPropertiesImpl
             requireNonNull(keyVariables, "keyVariables is null");
             requireNonNull(outputVariables, "outputVariables is null");
             requireNonNull(limit, "limit is null");
-            Preconditions.checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
+            checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
             this.sourceProperties = sourceProperties;
             this.keyVariables = keyVariables;
             this.outputVariables = outputVariables;
