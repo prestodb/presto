@@ -907,7 +907,7 @@ public class TestPrestoSparkQueryRunner
         assertQueryFails(
                 session,
                 "select * from lineitem l join orders o on l.orderkey = o.orderkey",
-                "Query exceeded per-node total memory limit of 1MB \\[Broadcast size: .*MB\\]");
+                "Query exceeded per-node broadcast memory limit of 1MB \\[Broadcast size: .*MB\\]");
     }
 
     @Test
