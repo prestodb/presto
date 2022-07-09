@@ -27,12 +27,10 @@ import scala.Tuple2;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
-import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.spark.SparkErrorCode.STORAGE_ERROR;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -111,11 +109,9 @@ public class PrestoSparkStorageBasedBroadcastDependency
         }
 
         if (deserializedBroadcastSizeInBytes > queryMaxTotalMemoryPerNode.toBytes()) {
-            throw exceededLocalTotalMemoryLimit(
+            throw exceededLocalBroadcastMemoryLimit(
                     queryMaxTotalMemoryPerNode,
-                    format("Broadcast size: %s", succinctBytes(deserializedBroadcastSizeInBytes)),
-                    false,
-                    Optional.empty());
+                    format("Broadcast size: %s", succinctBytes(deserializedBroadcastSizeInBytes)));
         }
 
         broadcastVariable = sparkContext.broadcast(broadcastValue);
