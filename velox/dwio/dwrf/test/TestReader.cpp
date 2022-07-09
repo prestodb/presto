@@ -1335,8 +1335,7 @@ TEST(TestReader, testBufferLifeCycle) {
   }
 }
 
-TEST(TestReader, DISABLED_testFlatmapAsMapFieldLifeCycle) {
-  // Remove DISABLED_ prefix from name once T125297232 is complete
+TEST(TestReader, testFlatmapAsMapFieldLifeCycle) {
   const size_t batchSize = 10;
   auto schema = ROW({
       MAP(VARCHAR(), INTEGER()),
