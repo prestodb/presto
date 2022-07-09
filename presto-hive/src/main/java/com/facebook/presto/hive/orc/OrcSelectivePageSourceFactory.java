@@ -298,11 +298,13 @@ public class OrcSelectivePageSourceFactory
         DataSize streamBufferSize = getOrcStreamBufferSize(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
         DataSize maxReadBlockSize = getOrcMaxReadBlockSize(session);
-        OrcReaderOptions orcReaderOptions = new OrcReaderOptions(maxMergeDistance,
-                tinyStripeThreshold,
-                maxReadBlockSize,
-                isOrcZstdJniDecompressionEnabled(session),
-                appendRowNumberEnabled);
+        OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
+                .withMaxMergeDistance(maxMergeDistance)
+                .withTinyStripeThreshold(tinyStripeThreshold)
+                .withMaxBlockSize(maxReadBlockSize)
+                .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
+                .withAppendRowNumber(appendRowNumberEnabled)
+                .build();
         boolean lazyReadSmallRanges = getOrcLazyReadSmallRanges(session);
 
         OrcDataSource orcDataSource;

@@ -212,7 +212,8 @@ public class MongoMetadata
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        throw new UnsupportedOperationException();
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
+        mongoSession.renameTable(table.getSchemaTableName(), newTableName);
     }
 
     @Override

@@ -17,10 +17,15 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.WithQuery;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -30,6 +35,7 @@ public class MaterializedViewCandidateExtractor
         extends DefaultTraversalVisitor<Void, Void>
 {
     private final Set<QualifiedObjectName> tableNames = new HashSet<>();
+    private final Set<QualifiedObjectName> withTables = new HashSet<>();
     private final Metadata metadata;
     private final Session session;
 
@@ -40,31 +46,27 @@ public class MaterializedViewCandidateExtractor
     }
 
     @Override
+    protected Void visitWithQuery(WithQuery node, Void context)
+    {
+        withTables.add(createQualifiedObjectName(session, node, QualifiedName.of(node.getName().toString())));
+        return super.visitWithQuery(node, null);
+    }
+
+    @Override
     protected Void visitTable(Table node, Void context)
     {
         tableNames.add(createQualifiedObjectName(session, node, node.getName()));
         return null;
     }
 
-    public Set<QualifiedObjectName> getMaterializedViewCandidates()
+    public Map<QualifiedObjectName, List<QualifiedObjectName>> getMaterializedViewCandidatesForTable()
     {
-        Set<QualifiedObjectName> materializedViewCandidates = new HashSet<>();
+        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = new HashMap<>();
+        tableNames.removeAll(withTables);
 
         for (QualifiedObjectName baseTable : tableNames) {
-            List<QualifiedObjectName> materializedViews = metadata.getReferencedMaterializedViews(session, baseTable);
-
-            if (materializedViewCandidates.isEmpty()) {
-                materializedViewCandidates.addAll(materializedViews);
-            }
-            else {
-                materializedViewCandidates.retainAll(materializedViews);
-            }
-
-            if (materializedViewCandidates.isEmpty()) {
-                return materializedViewCandidates;
-            }
+            baseTableToMaterializedViews.put(baseTable, metadata.getReferencedMaterializedViews(session, baseTable));
         }
-
-        return materializedViewCandidates;
+        return ImmutableMap.copyOf(baseTableToMaterializedViews);
     }
 }

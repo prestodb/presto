@@ -82,6 +82,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -267,7 +268,7 @@ public class BenchmarkSelectiveStreamReaders
             }
 
             // Use writeOrcColumnsPresto so that orcType and varchar length can be written in file footer
-            writeOrcColumnsPresto(orcFile, ORC_12, NONE, Optional.empty(), Collections.nCopies(channelCount, type), values, new NoOpOrcWriterStats());
+            writeOrcColumnsPresto(orcFile, ORC_12, NONE, Optional.empty(), Collections.nCopies(channelCount, type), values, NOOP_WRITER_STATS);
         }
 
         @TearDown

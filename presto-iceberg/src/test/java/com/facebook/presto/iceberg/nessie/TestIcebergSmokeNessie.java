@@ -13,19 +13,21 @@
  */
 package com.facebook.presto.iceberg.nessie;
 
+import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
-import com.facebook.presto.iceberg.TestAbstractIcebergSmoke;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.containers.NessieContainer;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
 
+@Test
 public class TestIcebergSmokeNessie
-        extends TestAbstractIcebergSmoke
+        extends IcebergDistributedSmokeTestBase
 {
     private NessieContainer nessieContainer;
 

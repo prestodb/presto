@@ -53,6 +53,7 @@ public class FloatColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatColumnWriter.class).instanceSize();
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
+    private static final long TYPE_SIZE = Float.BYTES;
 
     private final int column;
     private final int sequence;
@@ -120,7 +121,7 @@ public class FloatColumnWriter
                 nonNullValueCount++;
             }
         }
-        return nonNullValueCount * Float.BYTES + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+        return nonNullValueCount * TYPE_SIZE + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
     }
 
     @Override

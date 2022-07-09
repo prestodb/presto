@@ -32,6 +32,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
@@ -80,7 +81,7 @@ public class TestOrcSelectiveStreamReaders
 
             for (CompressionKind compression : compressions) {
                 TempFile tempFile = new TempFile();
-                writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.empty(), types, values, new NoOpOrcWriterStats());
+                writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.empty(), types, values, NOOP_WRITER_STATS);
 
                 OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
                 Map<Integer, Type> includedColumns = IntStream.range(0, types.size())

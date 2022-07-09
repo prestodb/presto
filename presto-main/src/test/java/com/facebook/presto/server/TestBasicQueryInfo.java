@@ -103,6 +103,8 @@ public class TestBasicQueryInfo
                                 30,
                                 DataSize.valueOf("31GB"),
                                 32,
+                                DataSize.valueOf("32GB"),
+                                40,
                                 33,
                                 DataSize.valueOf("34GB"),
                                 DataSize.valueOf("35GB"),

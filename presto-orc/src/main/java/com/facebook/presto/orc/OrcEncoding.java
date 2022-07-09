@@ -25,7 +25,7 @@ public enum OrcEncoding
 {
     ORC {
         @Override
-        public MetadataReader createMetadataReader(RuntimeStats runtimeStats)
+        public MetadataReader createMetadataReader(RuntimeStats runtimeStats, OrcReaderOptions orcReaderOptions)
         {
             return new OrcMetadataReader(runtimeStats);
         }
@@ -38,9 +38,9 @@ public enum OrcEncoding
     },
     DWRF {
         @Override
-        public MetadataReader createMetadataReader(RuntimeStats runtimeStats)
+        public MetadataReader createMetadataReader(RuntimeStats runtimeStats, OrcReaderOptions orcReaderOptions)
         {
-            return new DwrfMetadataReader(runtimeStats);
+            return new DwrfMetadataReader(runtimeStats, orcReaderOptions);
         }
 
         @Override
@@ -50,7 +50,7 @@ public enum OrcEncoding
         }
     };
 
-    public abstract MetadataReader createMetadataReader(RuntimeStats runtimeStats);
+    public abstract MetadataReader createMetadataReader(RuntimeStats runtimeStats, OrcReaderOptions orcReaderOptions);
 
     public abstract MetadataWriter createMetadataWriter();
 }

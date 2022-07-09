@@ -98,11 +98,12 @@ public class KuduQueryRunnerFactory
         return prefix;
     }
 
-    private static void installKuduConnector(QueryRunner runner, String schema)
+    private static synchronized void installKuduConnector(QueryRunner runner, String schema)
     {
         String masterAddresses = System.getProperty("kudu.client.master-addresses", "localhost:7051");
         Map<String, String> properties;
-        if (!isSchemaEmulationEnabled()) {
+        boolean isSchemaEmulationEnabled = isSchemaEmulationEnabled();
+        if (!isSchemaEmulationEnabled) {
             properties = ImmutableMap.of(
                     "kudu.schema-emulation.enabled", "false",
                     "kudu.client.master-addresses", masterAddresses);
@@ -117,7 +118,7 @@ public class KuduQueryRunnerFactory
         runner.installPlugin(new KuduPlugin());
         runner.createCatalog("kudu", "kudu", properties);
 
-        if (isSchemaEmulationEnabled()) {
+        if (isSchemaEmulationEnabled) {
             runner.execute("DROP SCHEMA IF EXISTS " + schema);
             runner.execute("CREATE SCHEMA " + schema);
         }

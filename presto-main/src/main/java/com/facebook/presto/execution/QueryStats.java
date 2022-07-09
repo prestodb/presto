@@ -15,7 +15,11 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.operator.ExchangeOperator;
+import com.facebook.presto.operator.MergeOperator;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.ScanFilterAndProjectOperator;
+import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -100,6 +104,9 @@ public class QueryStats
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
 
+    private final DataSize shuffledDataSize;
+    private final long shuffledPositions;
+
     private final DataSize outputDataSize;
     private final long outputPositions;
 
@@ -171,6 +178,9 @@ public class QueryStats
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
+
+            @JsonProperty("shuffledDataSize") DataSize shuffledDataSize,
+            @JsonProperty("shuffledPositions") long shuffledPositions,
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
@@ -252,6 +262,10 @@ public class QueryStats
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
+        this.shuffledDataSize = requireNonNull(shuffledDataSize, "shuffledDataSize is null");
+        checkArgument(shuffledPositions >= 0, "shuffledPositions is negative");
+        this.shuffledPositions = shuffledPositions;
+
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
@@ -309,6 +323,9 @@ public class QueryStats
         long processedInputDataSize = 0;
         long processedInputPositions = 0;
 
+        long shuffledDataSize = 0;
+        long shuffledPositions = 0;
+
         long outputDataSize = 0;
         long outputPositions = 0;
 
@@ -354,12 +371,19 @@ public class QueryStats
 
             if (stageInfo.getPlan().isPresent()) {
                 PlanFragment plan = stageInfo.getPlan().get();
-                if (!plan.getTableScanSchedulingOrder().isEmpty()) {
-                    rawInputDataSize += stageExecutionStats.getRawInputDataSize().toBytes();
-                    rawInputPositions += stageExecutionStats.getRawInputPositions();
-
-                    processedInputDataSize += stageExecutionStats.getProcessedInputDataSize().toBytes();
-                    processedInputPositions += stageExecutionStats.getProcessedInputPositions();
+                for (OperatorStats operatorStats : stageExecutionStats.getOperatorSummaries()) {
+                    // NOTE: we need to literally check each operator type to tell if the source is from table input or shuffled input. A stage can have input from both types of source.
+                    String operatorType = operatorStats.getOperatorType();
+                    if (operatorType.equals(ExchangeOperator.class.getSimpleName()) || operatorType.equals(MergeOperator.class.getSimpleName())) {
+                        shuffledPositions += operatorStats.getRawInputPositions();
+                        shuffledDataSize += operatorStats.getRawInputDataSize().toBytes();
+                    }
+                    else if (operatorType.equals(TableScanOperator.class.getSimpleName()) || operatorType.equals(ScanFilterAndProjectOperator.class.getSimpleName())) {
+                        rawInputDataSize += operatorStats.getRawInputPositions();
+                        rawInputPositions += operatorStats.getRawInputPositions();
+                        processedInputDataSize += stageExecutionStats.getProcessedInputDataSize().toBytes();
+                        processedInputPositions += stageExecutionStats.getProcessedInputPositions();
+                    }
                 }
 
                 if (plan.isOutputTableWriterFragment()) {
@@ -454,6 +478,8 @@ public class QueryStats
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
+                succinctBytes(shuffledDataSize),
+                shuffledPositions,
                 succinctBytes(outputDataSize),
                 outputPositions,
 
@@ -523,6 +549,8 @@ public class QueryStats
                 false,
                 ImmutableSet.of(),
                 new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                0,
                 new DataSize(0, BYTE),
                 0,
                 new DataSize(0, BYTE),
@@ -807,6 +835,18 @@ public class QueryStats
     public long getProcessedInputPositions()
     {
         return processedInputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getShuffledDataSize()
+    {
+        return shuffledDataSize;
+    }
+
+    @JsonProperty
+    public long getShuffledPositions()
+    {
+        return shuffledPositions;
     }
 
     @JsonProperty

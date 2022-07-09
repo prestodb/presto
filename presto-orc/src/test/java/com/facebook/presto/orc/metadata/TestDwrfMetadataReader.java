@@ -18,13 +18,20 @@ import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.IntegerColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
+import com.facebook.presto.orc.metadata.statistics.MapColumnStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
@@ -42,6 +49,7 @@ import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.TEST_CODE_P
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.concatSlice;
 import static com.facebook.presto.orc.proto.DwrfProto.Stream.Kind.DATA;
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -51,7 +59,14 @@ public class TestDwrfMetadataReader
 {
     private final long footerLength = 10;
     private final long compressionBlockSize = 8192;
-    private final DwrfMetadataReader dwrfMetadataReader = new DwrfMetadataReader(new RuntimeStats());
+    private final OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
+            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+            .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+            .withMaxBlockSize(new DataSize(1, MEGABYTE))
+            .withReadMapStatistics(true)
+            .build();
+    // this metadata reader has enabled map stats
+    private final DwrfMetadataReader dwrfMetadataReader = new DwrfMetadataReader(new RuntimeStats(), orcReaderOptions);
     private final DwrfProto.PostScript baseProtoPostScript = DwrfProto.PostScript.newBuilder()
             .setWriterVersion(HiveWriterVersion.ORC_HIVE_8732.getOrcWriterVersion())
             .setFooterLength(footerLength)
@@ -332,5 +347,51 @@ public class TestDwrfMetadataReader
                 minStringTruncateToValidRange(min, version),
                 maxStringTruncateToValidRange(max, version),
                 sum);
+    }
+
+    @DataProvider
+    public Object[][] columnStatisticsSupplier()
+    {
+        ColumnStatistics integerColumnStatistics1 = new IntegerColumnStatistics(7L, null, new IntegerStatistics(25L, 95L, 100L));
+        ColumnStatistics integerColumnStatistics2 = new IntegerColumnStatistics(9L, null, new IntegerStatistics(12L, 22L, 32L));
+
+        MapColumnStatisticsBuilder mapStatsIntKeyBuilder = new MapColumnStatisticsBuilder(true);
+        mapStatsIntKeyBuilder.addMapStatistics(DwrfProto.KeyInfo.newBuilder().setIntKey(2).build(), integerColumnStatistics1);
+        mapStatsIntKeyBuilder.addMapStatistics(DwrfProto.KeyInfo.newBuilder().setIntKey(3).build(), integerColumnStatistics2);
+        mapStatsIntKeyBuilder.increaseValueCount(23L);
+        ColumnStatistics mapColumnStatisticsIntKey = mapStatsIntKeyBuilder.buildColumnStatistics();
+
+        MapColumnStatisticsBuilder mapStatsStringKeyBuilder = new MapColumnStatisticsBuilder(true);
+        mapStatsStringKeyBuilder.addMapStatistics(DwrfProto.KeyInfo.newBuilder().setBytesKey(ByteString.copyFromUtf8("k1")).build(), integerColumnStatistics1);
+        mapStatsStringKeyBuilder.addMapStatistics(DwrfProto.KeyInfo.newBuilder().setBytesKey(ByteString.copyFromUtf8("k2")).build(), integerColumnStatistics2);
+        mapStatsStringKeyBuilder.increaseValueCount(23L);
+        ColumnStatistics mapColumnStatisticsStringKey = mapStatsStringKeyBuilder.buildColumnStatistics();
+
+        ColumnStatistics expectedDisabledMapStats = new ColumnStatistics(23L, null);
+
+        OrcReaderOptions orcReaderOptionsDisabledMapStats = OrcReaderOptions.builder()
+                .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+                .withMaxBlockSize(new DataSize(1, MEGABYTE))
+                .withReadMapStatistics(false)
+                .build();
+        DwrfMetadataReader dwrfMetadataReaderDisabledMapStats = new DwrfMetadataReader(new RuntimeStats(), orcReaderOptionsDisabledMapStats);
+
+        return new Object[][] {
+                {integerColumnStatistics1, integerColumnStatistics1, dwrfMetadataReader},
+                {integerColumnStatistics1, integerColumnStatistics1, dwrfMetadataReaderDisabledMapStats},
+                {mapColumnStatisticsIntKey, mapColumnStatisticsIntKey, dwrfMetadataReader},
+                {mapColumnStatisticsIntKey, expectedDisabledMapStats, dwrfMetadataReaderDisabledMapStats},
+                {mapColumnStatisticsStringKey, mapColumnStatisticsStringKey, dwrfMetadataReader},
+                {mapColumnStatisticsStringKey, expectedDisabledMapStats, dwrfMetadataReaderDisabledMapStats}
+        };
+    }
+
+    @Test(dataProvider = "columnStatisticsSupplier")
+    public void testToColumnStatisticsRoundtrip(ColumnStatistics input, ColumnStatistics output, DwrfMetadataReader dwrfMetadataReader)
+    {
+        DwrfProto.ColumnStatistics dwrfColumnStatistics = DwrfMetadataWriter.toColumnStatistics(input);
+        ColumnStatistics actual = dwrfMetadataReader.toColumnStatistics(HiveWriterVersion.ORC_HIVE_8732, dwrfColumnStatistics, false, null);
+        assertEquals(actual, output);
     }
 }

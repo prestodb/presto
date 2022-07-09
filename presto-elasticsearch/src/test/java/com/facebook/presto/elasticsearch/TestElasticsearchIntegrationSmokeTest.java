@@ -868,6 +868,15 @@ public class TestElasticsearchIntegrationSmokeTest
         assertQuery(
                 "SELECT count(*) FROM orders_alias",
                 "SELECT count(*) FROM orders");
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .aliases(indexAliasesRequest()
+                        .addAliasAction(IndicesAliasesRequest.AliasActions.remove()
+                                .index("orders")
+                                .alias("orders_alias")))
+                .actionGet();
     }
 
     @Test(enabled = false)

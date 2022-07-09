@@ -171,10 +171,10 @@ public class TestHiveScalarFunctions
     private static void assertNaN(Object o)
     {
         if (o instanceof Double) {
-            assertEquals((Double) o, Double.NaN);
+            assertEquals(((Double) o).doubleValue(), Double.NaN);
         }
         else if (o instanceof Float) {
-            assertEquals((Float) o, Float.NaN);
+            assertEquals(((Float) o).floatValue(), Float.NaN);
         }
         else {
             fail("Unexpected " + o);

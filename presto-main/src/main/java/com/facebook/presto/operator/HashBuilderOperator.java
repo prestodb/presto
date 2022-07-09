@@ -40,6 +40,8 @@ import java.util.OptionalLong;
 import java.util.Queue;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getDone;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -366,6 +368,14 @@ public class HashBuilderOperator
         checkState(spillInProgress.isDone(), "Previous spill still in progress");
         checkSpillSucceeded(spillInProgress);
         spillInProgress = getSpiller().spill(page);
+
+        // check that spilled data can still fit into memory limit as otherwise
+        // it fails later during unspilling when all spilled pages need to be loaded into memory
+        long maxUserMemoryBytes = getQueryMaxMemoryPerNode(operatorContext.getSession()).toBytes();
+        if (getSpiller().getSpilledPagesInMemorySize() > maxUserMemoryBytes) {
+            String additionalInfo = format("Spilled: %s, Operator: %s", succinctBytes(getSpiller().getSpilledPagesInMemorySize()), HashBuilderOperator.class.getSimpleName());
+            throw exceededLocalUserMemoryLimit(succinctBytes(maxUserMemoryBytes), additionalInfo, false, Optional.empty());
+        }
     }
 
     @Override

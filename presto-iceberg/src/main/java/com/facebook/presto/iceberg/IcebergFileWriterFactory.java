@@ -65,6 +65,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcOptimize
 import static com.facebook.presto.iceberg.TypeConverter.toOrcType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -78,7 +79,7 @@ public class IcebergFileWriterFactory
     private final TypeManager typeManager;
     private final FileFormatDataSourceStats readStats;
     private final NodeVersion nodeVersion;
-    private final NoOpOrcWriterStats orcWriterStats = new NoOpOrcWriterStats();
+    private final NoOpOrcWriterStats orcWriterStats = NOOP_WRITER_STATS;
     private final OrcFileWriterConfig orcFileWriterConfig;
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
 

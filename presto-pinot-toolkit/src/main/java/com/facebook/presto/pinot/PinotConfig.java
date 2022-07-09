@@ -96,7 +96,7 @@ public class PinotConfig
     // Requires Pinot version >= 0.4.0.
     private boolean usePinotSqlForBrokerQueries = true;
     // Requires Pinot version >= 0.6.0.
-    private boolean useStreamingForSegmentQueries;
+    private boolean useStreamingForSegmentQueries = true;
     private int streamingServerGrpcMaxInboundMessageBytes = DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES;
 
     private int numSegmentsPerSplit = 1;
