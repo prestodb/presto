@@ -16,7 +16,7 @@ _______________
 * Add memory limit check for join spilling and fail fast if exceeding to avoid unnecessary processing.
 * Add rate limiting functionality for each query on coordinator http endpoints.
 * Add support for ``LIKE`` predicate to ``SHOW SESSION`` and ``SHOW CATALOGS`` with ``ESCAPE`` support.
-* Add support for constraint optimizations to improve performance for querying catalogs that supports table constraints. This feature can be turned on by setting the session property ``exploit-constraints`` or config property ``optimizer.exploit-constraints`` to true.
+* Add support for constraint optimizations to improve performance for querying catalogs that supports table constraints. This feature can be turned on by setting the session property ``exploit_constraints`` or config property ``optimizer.exploit-constraints`` to ``true``.
 * Add support for local mode on ``/v1/cluster/`` to get information on locally running/queued queries. Can be enabled with the ``includeLocalInfoOnly`` property.
 * When cost-based optimizer fails, consider source table size when choosing join order and join distribution type. This might improve query plan for queries with complex projections on small tables. This optimization can be disabled by setting session property ``size_based_join_distribution_type`` to ``false``.
 
