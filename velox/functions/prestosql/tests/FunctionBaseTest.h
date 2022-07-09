@@ -230,6 +230,33 @@ class FunctionBaseTest : public testing::Test,
         name, signature, rowType, parse::parseExpr(body), execCtx_.pool());
   }
 
+  core::TypedExprPtr parseExpression(
+      const std::string& text,
+      const RowTypePtr& rowType) {
+    auto untyped = parse::parseExpr(text);
+    return core::Expressions::inferTypes(untyped, rowType, pool());
+  }
+
+  std::unique_ptr<exec::ExprSet> compileExpressions(
+      const std::vector<std::string>& exprs,
+      const RowTypePtr& rowType) {
+    std::vector<core::TypedExprPtr> expressions;
+    expressions.reserve(exprs.size());
+    for (const auto& expr : exprs) {
+      expressions.emplace_back(parseExpression(expr, rowType));
+    }
+    return std::make_unique<exec::ExprSet>(std::move(expressions), &execCtx_);
+  }
+
+  VectorPtr evaluate(exec::ExprSet& exprSet, const RowVectorPtr& input) {
+    exec::EvalCtx context(&execCtx_, &exprSet, input.get());
+
+    SelectivityVector rows(input->size());
+    std::vector<VectorPtr> result(1);
+    exprSet.eval(rows, &context, &result);
+    return result[0];
+  }
+
   std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
 

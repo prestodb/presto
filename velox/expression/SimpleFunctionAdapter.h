@@ -241,8 +241,10 @@ class SimpleFunctionAdapter : public VectorFunction {
       if constexpr (
           CppToType<typename arg_at<POSITION>::underlying_type>::typeKind ==
           return_type_traits::typeKind) {
-        if (args.size() > POSITION) {
-          return &args[POSITION];
+        for (auto i = POSITION; i < args.size(); i++) {
+          if (BaseVector::isReusableFlatVector(args[i])) {
+            return &args[i];
+          }
         }
       }
       // A Variadic arg is always the last, so if we haven't found a match yet,

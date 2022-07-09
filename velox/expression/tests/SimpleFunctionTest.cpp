@@ -890,4 +890,150 @@ TEST_F(SimpleFunctionTest, cseDisabledFuncWithInput) {
   }
 }
 
+TEST_F(SimpleFunctionTest, reuseArgVector) {
+  std::mt19937 rng;
+
+  vector_size_t size = 256;
+  auto data = makeRowVector({
+      makeFlatVector<float>(
+          size, [&](auto /*row*/) { return folly::Random::randDouble01(rng); }),
+  });
+
+  auto rowType = asRowType(data->type());
+  auto exprSet =
+      compileExpressions({"(c0 - 0.5::REAL) * 2.0::REAL + 0.3::REAL"}, rowType);
+
+  pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
+
+  auto prevAllocations = pool_->getMemoryUsageTracker()->getNumAllocs();
+
+  evaluate(*exprSet, data);
+  auto currAllocations = pool_->getMemoryUsageTracker()->getNumAllocs();
+
+  // Expect a single allocation for the result. Intermediate results should
+  // reuse memory.
+  ASSERT_EQ(1, currAllocations - prevAllocations);
+}
+
+template <typename T>
+struct FunctionWithVariadic {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename OUTPUT>
+  void call(OUTPUT& out, const arg_type<Variadic<int64_t>>& inputs) {
+    out = 0;
+    for (const auto& input : inputs) {
+      out += input.has_value() ? input.value() : 0;
+    }
+  }
+};
+
+VectorPtr testVariadicArgReuse(
+    core::ExecCtx* execCtx,
+    VectorMaker& vectorMaker,
+    std::vector<VectorPtr>& inputs,
+    const std::string& functionName,
+    const TypePtr& outputType) {
+  // This is a bit of a round about way of creating the SimpleFunctionAdapter,
+  // especially since it requires the caller to register the function as well,
+  // but it should be easier to maintain.
+  auto function = exec::SimpleFunctions()
+                      .resolveFunction(functionName, {})
+                      ->createFunction()
+                      ->createVectorFunction(execCtx->queryCtx()->config(), {});
+
+  // Create a dummy EvalCtx.
+  SelectivityVector rows(inputs[0]->size());
+  exec::ExprSet exprSet({}, execCtx);
+  RowVectorPtr inputRows = vectorMaker.rowVector({});
+  exec::EvalCtx evalCtx(execCtx, &exprSet, inputRows.get());
+
+  VectorPtr resultPtr;
+  function->apply(rows, inputs, outputType, &evalCtx, &resultPtr);
+
+  return resultPtr;
+}
+
+TEST_F(SimpleFunctionTest, variadicReuseFirstArg) {
+  std::string functionName = "function_with_variadic";
+  registerFunction<FunctionWithVariadic, int64_t, Variadic<int64_t>>(
+      {functionName});
+
+  vector_size_t size = 10;
+  std::vector<VectorPtr> inputs{
+      makeFlatVector<int64_t>(size, [&](auto row) { return row; }),
+      makeFlatVector<int64_t>(size, [&](auto row) { return row; })};
+
+  // SimpleFunctionAdapter will std::move the input when it's reused, so capture
+  // the pointer so we can compare it to the result.
+  auto* expectedVectorReused = inputs[0].get();
+  auto resultPtr = testVariadicArgReuse(
+      &execCtx_, vectorMaker_, inputs, functionName, BIGINT());
+
+  ASSERT_EQ(resultPtr.get(), expectedVectorReused);
+}
+
+TEST_F(SimpleFunctionTest, variadicReuseSecondArg) {
+  std::string functionName = "function_with_variadic";
+  registerFunction<FunctionWithVariadic, int64_t, Variadic<int64_t>>(
+      {functionName});
+
+  vector_size_t size = 10;
+  std::vector<VectorPtr> inputs{
+      makeFlatVector<int64_t>(size, [&](auto row) { return row; }),
+      makeFlatVector<int64_t>(size, [&](auto row) { return row; })};
+
+  // Copy the shared_ptr so it's not uniquely referenced and therefore
+  // ineligible to be reused.
+  VectorPtr firstArgHolder = inputs[0];
+  // SimpleFunctionAdapter will std::move the input when it's reused, so capture
+  // the pointer so we can compare it to the result.
+  auto* expectedVectorReused = inputs[1].get();
+  auto resultPtr = testVariadicArgReuse(
+      &execCtx_, vectorMaker_, inputs, functionName, BIGINT());
+
+  ASSERT_EQ(resultPtr.get(), expectedVectorReused);
+}
+
+TEST_F(SimpleFunctionTest, variadicReuseNoArgs) {
+  std::string functionName = "function_with_variadic";
+  registerFunction<FunctionWithVariadic, int64_t, Variadic<int64_t>>(
+      {functionName});
+
+  vector_size_t size = 10;
+  std::vector<VectorPtr> inputs{
+      makeFlatVector<int64_t>(size, [&](auto row) { return row; }),
+      makeFlatVector<int64_t>(size, [&](auto row) { return row; })};
+
+  // Copy the shared_ptrs so their not uniquely referenced and therefore
+  // ineligible to be reused.
+  std::vector<VectorPtr> inputsCopy = inputs;
+  auto resultPtr = testVariadicArgReuse(
+      &execCtx_, vectorMaker_, inputs, functionName, BIGINT());
+
+  ASSERT_NE(resultPtr, inputs[0]);
+  ASSERT_NE(resultPtr, inputs[1]);
+}
+
+TEST_F(SimpleFunctionTest, variadicReuseNoArgsDifferentType) {
+  std::string functionName = "function_with_variadic";
+  registerFunction<FunctionWithVariadic, int32_t, Variadic<int64_t>>(
+      {functionName});
+
+  vector_size_t size = 10;
+  std::vector<VectorPtr> inputs{
+      makeFlatVector<int64_t>(size, [&](auto row) { return row; }),
+      makeFlatVector<int64_t>(size, [&](auto row) { return row; })};
+
+  // SimpleFunctionAdapter will std::move the input when it's reused, so capture
+  // the pointer so we can compare it to the result.
+  auto* capturedArg0 = inputs[0].get();
+  auto* capturedArg1 = inputs[1].get();
+  auto resultPtr = testVariadicArgReuse(
+      &execCtx_, vectorMaker_, inputs, functionName, INTEGER());
+
+  ASSERT_NE(resultPtr.get(), capturedArg0);
+  ASSERT_NE(resultPtr.get(), capturedArg1);
+}
+
 } // namespace

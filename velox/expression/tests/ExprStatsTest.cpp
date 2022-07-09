@@ -19,15 +19,15 @@
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
-#include "velox/vector/tests/VectorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 
-class ExprStatsTest : public testing::Test, public VectorTestBase {
+class ExprStatsTest : public functions::test::FunctionBaseTest {
  protected:
   void SetUp() override {
     functions::prestosql::registerAllScalarFunctions();
@@ -40,40 +40,6 @@ class ExprStatsTest : public testing::Test, public VectorTestBase {
         {core::QueryConfig::kExprTrackCpuUsage, "true"},
     });
   }
-
-  core::TypedExprPtr parseExpression(
-      const std::string& text,
-      const RowTypePtr& rowType) {
-    auto untyped = parse::parseExpr(text);
-    return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
-  }
-
-  std::unique_ptr<exec::ExprSet> compileExpressions(
-      const std::vector<std::string>& exprs,
-      const RowTypePtr& rowType) {
-    std::vector<core::TypedExprPtr> expressions;
-    expressions.reserve(exprs.size());
-    for (const auto& expr : exprs) {
-      expressions.emplace_back(parseExpression(expr, rowType));
-    }
-    return std::make_unique<exec::ExprSet>(
-        std::move(expressions), execCtx_.get());
-  }
-
-  VectorPtr evaluate(exec::ExprSet& exprSet, const RowVectorPtr& input) {
-    exec::EvalCtx context(execCtx_.get(), &exprSet, input.get());
-
-    SelectivityVector rows(input->size());
-    std::vector<VectorPtr> result(1);
-    exprSet.eval(rows, &context, &result);
-    return result[0];
-  }
-
-  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
-  std::unique_ptr<core::ExecCtx> execCtx_{
-      std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
 };
 
 TEST_F(ExprStatsTest, printWithStats) {
@@ -327,29 +293,6 @@ TEST_F(ExprStatsTest, listener) {
     evaluate(*exprSet, data);
   }
   ASSERT_EQ(3, events.size());
-}
-
-TEST_F(ExprStatsTest, memoryAllocations) {
-  std::mt19937 rng;
-
-  vector_size_t size = 256;
-  auto data = makeRowVector({
-      makeFlatVector<float>(
-          size, [&](auto /*row*/) { return folly::Random::randDouble01(rng); }),
-  });
-
-  auto rowType = asRowType(data->type());
-  auto exprSet =
-      compileExpressions({"(c0 - 0.5::REAL) * 2.0::REAL + 0.3::REAL"}, rowType);
-
-  auto prevAllocations = pool_->getMemoryUsageTracker()->getNumAllocs();
-
-  evaluate(*exprSet, data);
-  auto currAllocations = pool_->getMemoryUsageTracker()->getNumAllocs();
-
-  // Expect a single allocation for the result. Intermediate results should
-  // reuse memory.
-  ASSERT_EQ(1, currAllocations - prevAllocations);
 }
 
 TEST_F(ExprStatsTest, errorLog) {
