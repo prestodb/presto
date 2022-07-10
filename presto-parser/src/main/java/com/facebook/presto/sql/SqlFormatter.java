@@ -120,6 +120,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
+import javax.inject.Inject;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -144,6 +146,7 @@ public final class SqlFormatter
         this(false);
     }
 
+    @Inject
     public SqlFormatter(Boolean formatTemplate)
     {
         this.expressionFormatter = new ExpressionFormatter(formatTemplate);

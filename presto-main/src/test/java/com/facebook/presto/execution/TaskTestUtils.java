@@ -215,6 +215,7 @@ public final class TaskTestUtils
         return QueryStateMachine.begin(
                 sqlString,
                 Optional.empty(),
+                Optional.empty(),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

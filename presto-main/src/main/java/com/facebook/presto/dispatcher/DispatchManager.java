@@ -37,6 +37,8 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.facebook.presto.sql.SqlFormatter;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -63,6 +65,7 @@ import static java.util.Objects.requireNonNull;
 
 public class DispatchManager
 {
+    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter(true);
     private final QueryIdGenerator queryIdGenerator;
     private final QueryPreparer queryPreparer;
     private final ResourceGroupManager<?> resourceGroupManager;
@@ -205,9 +208,13 @@ public class DispatchManager
             // mark existing transaction as active
             transactionManager.activateTransaction(session, isTransactionControlStatement(preparedQuery.getStatement()), accessControl);
 
+            List<Expression> parameters = preparedQuery.getParameters();
+            String queryTemplate = SQL_FORMATTER.formatSql(preparedQuery.getStatement(), parameters.isEmpty() ? Optional.empty() : Optional.of(parameters));
+
             DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
                     session,
                     query,
+                    Optional.of(queryTemplate),
                     preparedQuery,
                     slug,
                     retryCount,

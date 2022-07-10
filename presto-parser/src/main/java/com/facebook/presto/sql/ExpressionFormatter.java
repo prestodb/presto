@@ -84,6 +84,8 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
+import javax.inject.Inject;
+
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
@@ -110,6 +112,7 @@ public final class ExpressionFormatter
         this(false);
     }
 
+    @Inject
     public ExpressionFormatter(Boolean formatTemplate)
     {
         this.formatTemplate = formatTemplate;

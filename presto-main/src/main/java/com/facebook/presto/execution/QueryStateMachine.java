@@ -99,6 +99,7 @@ public class QueryStateMachine
 
     private final QueryId queryId;
     private final String query;
+    private final Optional<String> queryTemplate;
     private final Optional<String> preparedQuery;
     private final Session session;
     private final URI self;
@@ -159,6 +160,7 @@ public class QueryStateMachine
 
     private QueryStateMachine(
             String query,
+            Optional<String> queryTemplate,
             Optional<String> preparedQuery,
             Session session,
             URI self,
@@ -171,6 +173,7 @@ public class QueryStateMachine
             WarningCollector warningCollector)
     {
         this.query = requireNonNull(query, "query is null");
+        this.queryTemplate = requireNonNull(queryTemplate, "query template is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.session = requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
@@ -192,6 +195,7 @@ public class QueryStateMachine
      */
     public static QueryStateMachine begin(
             String query,
+            Optional<String> queryTemplate,
             Optional<String> preparedQuery,
             Session session,
             URI self,
@@ -206,6 +210,7 @@ public class QueryStateMachine
     {
         return beginWithTicker(
                 query,
+                queryTemplate,
                 preparedQuery,
                 session,
                 self,
@@ -222,6 +227,7 @@ public class QueryStateMachine
 
     static QueryStateMachine beginWithTicker(
             String query,
+            Optional<String> queryTemplate,
             Optional<String> preparedQuery,
             Session session,
             URI self,
@@ -244,6 +250,7 @@ public class QueryStateMachine
 
         QueryStateMachine queryStateMachine = new QueryStateMachine(
                 query,
+                queryTemplate,
                 preparedQuery,
                 session,
                 self,
@@ -450,6 +457,7 @@ public class QueryStateMachine
                 self,
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
+                queryTemplate,
                 expandedQuery.get(),
                 preparedQuery,
                 queryStats,
@@ -969,6 +977,7 @@ public class QueryStateMachine
                 queryInfo.getSelf(),
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
+                queryInfo.getQueryTemplate(),
                 queryInfo.getExpandedQuery(),
                 queryInfo.getPreparedQuery(),
                 pruneQueryStats(queryInfo.getQueryStats()),

@@ -53,6 +53,7 @@ public class TestBasicQueryInfo
                         URI.create("1"),
                         ImmutableList.of("2", "3"),
                         "SELECT 4",
+                        Optional.of("SELECT 4"),
                         Optional.empty(),
                         Optional.empty(),
                         new QueryStats(

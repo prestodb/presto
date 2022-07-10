@@ -630,6 +630,7 @@ public class TestQueryStateMachine
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,
                 Optional.empty(),
+                Optional.empty(),
                 TEST_SESSION,
                 LOCATION,
                 new ResourceGroupId("test"),

@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -32,8 +33,15 @@ import static org.testng.Assert.assertEquals;
 
 public class TestSqlTemplateFormatter
 {
-    private static final SqlFormatter SQL_FORMATTER = new SqlFormatter(true);
     private static final SqlParser SQL_PARSER = new SqlParser();
+
+    private static SqlFormatter sqlFormatter;
+
+    @BeforeClass
+    public void setup()
+    {
+        sqlFormatter = new SqlFormatter(true);
+    }
 
     @Test
     public void testSqlFormatterBinaryLiteral()
@@ -128,8 +136,8 @@ public class TestSqlTemplateFormatter
 
     private static void assertFormatted(Statement statement, Statement expectedStatement)
     {
-        String formattedStatement = SQL_FORMATTER.formatSql(statement, Optional.empty());
-        String formattedTemplateStatement = SQL_FORMATTER.formatSql(expectedStatement, Optional.empty());
+        String formattedStatement = sqlFormatter.formatSql(statement, Optional.empty());
+        String formattedTemplateStatement = sqlFormatter.formatSql(expectedStatement, Optional.empty());
         assertEquals(formattedStatement, formattedTemplateStatement);
     }
 

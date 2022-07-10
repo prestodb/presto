@@ -93,6 +93,7 @@ public class LocalDispatchQueryFactory
     public DispatchQuery createDispatchQuery(
             Session session,
             String query,
+            Optional<String> queryTemplate,
             PreparedQuery preparedQuery,
             String slug,
             int retryCount,
@@ -103,6 +104,7 @@ public class LocalDispatchQueryFactory
     {
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 query,
+                queryTemplate,
                 preparedQuery.getPrepareSql(),
                 session,
                 locationFactory.createQueryLocation(session.getQueryId()),

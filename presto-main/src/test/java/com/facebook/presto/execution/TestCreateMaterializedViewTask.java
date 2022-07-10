@@ -130,6 +130,7 @@ public class TestCreateMaterializedViewTask
 
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 sql,
+                Optional.of(sql),
                 Optional.empty(),
                 testSession,
                 URI.create("fake://uri"),
@@ -157,6 +158,7 @@ public class TestCreateMaterializedViewTask
 
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 sql,
+                Optional.of(sql),
                 Optional.empty(),
                 testSession,
                 URI.create("fake://uri"),

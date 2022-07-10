@@ -27,6 +27,7 @@ public interface DispatchQueryFactory
     DispatchQuery createDispatchQuery(
             Session session,
             String query,
+            Optional<String> queryTemplate,
             PreparedQuery preparedQuery,
             String slug,
             int retryCount,
