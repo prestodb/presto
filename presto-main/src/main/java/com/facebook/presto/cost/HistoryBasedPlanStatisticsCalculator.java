@@ -14,10 +14,10 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -25,11 +25,11 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.useExternalPlanStatisticsEnabled;
-import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
-import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonLogicalPlan;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -37,13 +37,11 @@ public class HistoryBasedPlanStatisticsCalculator
         implements StatsCalculator
 {
     private final Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider;
-    private final Metadata metadata;
     private final StatsCalculator delegate;
 
-    public HistoryBasedPlanStatisticsCalculator(Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider, Metadata metadata, StatsCalculator delegate)
+    public HistoryBasedPlanStatisticsCalculator(Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider, StatsCalculator delegate)
     {
         this.externalPlanStatisticsProvider = requireNonNull(externalPlanStatisticsProvider, "externalPlanStatisticsProvider is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
@@ -67,20 +65,15 @@ public class HistoryBasedPlanStatisticsCalculator
     {
         planNode = removeGroupReferences(planNode, lookup);
         ExternalPlanStatisticsProvider externalStatisticsProvider = externalPlanStatisticsProvider.get();
-        if (useExternalPlanStatisticsEnabled(session)) {
-            return externalStatisticsProvider.getStats(
-                    planNode,
-                    node -> jsonLogicalPlan(node, types, metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session),
-                    tableScanNode -> metadata.getTableStatistics(
-                            session,
-                            tableScanNode.getTable(),
-                            ImmutableList.copyOf(tableScanNode.getAssignments().values()),
-                            new Constraint<>(tableScanNode.getCurrentConstraint())));
-        }
-        if (!useHistoryBasedPlanStatisticsEnabled(session)) {
+        if (!useExternalPlanStatisticsEnabled(session)) {
             return PlanStatistics.empty();
         }
-        // Unimplemented
+        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics =
+                externalStatisticsProvider.getStats(ImmutableList.of(new PlanNodeWithHash(planNode, Optional.empty())));
+
+        if (statistics.size() == 1) {
+            return statistics.values().iterator().next().getLastRunStatistics();
+        }
         return PlanStatistics.empty();
     }
 }
