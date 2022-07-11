@@ -41,6 +41,7 @@ import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
@@ -91,6 +92,11 @@ public abstract class AbstractTestQueryFramework
             throws Exception
     {
         return new H2QueryRunner();
+    }
+
+    protected ObjectMapper createObjectMapper()
+    {
+        return new ObjectMapper();
     }
 
     @AfterClass(alwaysRun = true)
@@ -451,7 +457,8 @@ public abstract class AbstractTestQueryFramework
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                new PartitioningProviderManager()).getPlanningTimeOptimizers();
+                new PartitioningProviderManager())
+                .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), sqlParser, new FeaturesConfig()),
