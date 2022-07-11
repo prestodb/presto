@@ -161,6 +161,32 @@ public class LongColumnWriter
         return nonNullValueCount * typeSize + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
     }
 
+    @Override
+    public long writeBlock(Block block, PositionIterator positions, ColumnarBlockCache columnarBlockCache, ColumnWriterPools pools)
+    {
+        checkState(!closed);
+        checkArgument(block.getPositionCount() > 0, "Block is empty");
+
+        // record nulls
+        for (int i = 0; i < positions.getPositionCount(); i++) {
+            presentStream.writeBoolean(!block.isNull(positions.next()));
+        }
+
+        positions.reset();
+
+        // record values
+        int nonNullValueCount = 0;
+        for (int i = 0; i < positions.getPositionCount(); i++) {
+            int position = positions.next();
+            if (!block.isNull(position)) {
+                long value = type.getLong(block, position);
+                writeValue(value);
+                nonNullValueCount++;
+            }
+        }
+        return nonNullValueCount * typeSize + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+    }
+
     void writeValue(long value)
     {
         dataStream.writeLong(value);

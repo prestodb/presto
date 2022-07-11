@@ -40,6 +40,11 @@ public interface ColumnWriter
 
     long writeBlock(Block block);
 
+    default long writeBlock(Block block, PositionIterator positions, ColumnarBlockCache columnarBlockCache, ColumnWriterPools pools)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     Map<Integer, ColumnStatistics> finishRowGroup();
 
     void close();

@@ -132,6 +132,8 @@ public class LongArrayBlockBuilder
             initialized = true;
         }
 
+//        System.out.printf("%,d->%,d\n", values.length, newSize);
+
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         values = Arrays.copyOf(values, newSize);
         updateDataSize();

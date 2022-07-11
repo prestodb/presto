@@ -316,6 +316,74 @@ public class MapFlatColumnWriter
     @Override
     public long writeBlock(Block block)
     {
+        if (ExperimentMode.MODE == ExperimentMode.NEW) {
+            return writeBlockNew(block);
+        }
+        return writeBlockOld(block);
+    }
+
+    private final ColumnWriterPools pools = new ColumnWriterPools();
+    private final ColumnarBlockCache columnarBlockCache = new ColumnarBlockCache();
+    private final SinglePositionIterator positions = new SinglePositionIterator();
+
+    private long writeBlockNew(Block block)
+    {
+        checkState(!closed);
+        checkArgument(block.getPositionCount() > 0, "block is empty");
+
+        ColumnarMap columnarMap = toColumnarMap(block);
+        Block keysBlock = columnarMap.getKeysBlock();
+        Block valuesBlock = columnarMap.getValuesBlock();
+
+        long childRawSize = 0;
+        int nonNullValueCountBefore = nonNullRowGroupValueCount;
+
+        // write key+value entries one by one
+        for (int position = 0; position < columnarMap.getPositionCount(); position++) {
+            presentStream.writeBoolean(!columnarMap.isNull(position));
+        }
+
+        for (int position = 0; position < columnarMap.getPositionCount(); position++) {
+            if (!columnarMap.isNull(position)) {
+                int entryCount = columnarMap.getEntryCount(position);
+                int entryOffset = columnarMap.getOffset(position);
+                for (int i = 0; i < entryCount; i++) {
+                    int entryPosition = entryOffset + i;
+                    childRawSize += writeMapKeyValueNew(keysBlock, valuesBlock, entryPosition);
+                }
+                nonNullRowGroupValueCount++;
+            }
+        }
+
+        columnarBlockCache.clear();
+        positions.clear();
+
+        // TODO Implement size reporting
+        int blockNonNullValueCount = nonNullRowGroupValueCount - nonNullValueCountBefore;
+        return (columnarMap.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + childRawSize;
+    }
+
+    private long writeMapKeyValueNew(Block keysBlock, Block valuesBlock, int position)
+    {
+        checkArgument(!keysBlock.isNull(position), "Flat map key cannot be null. Node %s", nodeIndex);
+        MapFlatValueWriter valueWriter = keyManager.getOrCreateValueWriter(position, keysBlock);
+
+        // catch up value writer on missing rows
+        int valueWriterIdx = valueWriter.getSequence() - SEQUENCE_START_INDEX;
+        if (valueWritersLastRow[valueWriterIdx] < nonNullRowGroupValueCount) {
+            valueWriter.writeNotInMap(nonNullRowGroupValueCount - valueWritersLastRow[valueWriterIdx]);
+        }
+        valueWritersLastRow[valueWriterIdx] = nonNullRowGroupValueCount + 1;
+
+        positions.set(position);
+        long rawSize = valueWriter.writeSingleEntryBlock(valuesBlock, positions, columnarBlockCache, pools);
+        positions.clear();
+
+        return rawSize;
+    }
+
+    private long writeBlockOld(Block block)
+    {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "block is empty");
 

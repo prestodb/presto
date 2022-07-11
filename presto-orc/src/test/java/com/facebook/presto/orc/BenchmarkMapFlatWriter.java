@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.orc.writer.ExperimentMode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,6 +44,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -72,7 +74,7 @@ import static org.testng.Assert.assertEquals;
 
 @State(Scope.Thread)
 @OutputTimeUnit(MILLISECONDS)
-@Fork(3)
+@Fork(1)
 @Warmup(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
 @Measurement(iterations = 20, time = 1000, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
@@ -95,7 +97,41 @@ public class BenchmarkMapFlatWriter
     public void baseline(BenchmarkData data)
             throws IOException
     {
+        ExperimentMode.MODE = data.mode;
         doWrite(data);
+    }
+
+    @Test
+    public void test()
+            throws Exception
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+
+        OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
+                .withFlattenedColumns(ImmutableSet.of(0))
+                .build();
+
+        OrcWriter writer = new OrcWriter(
+                new OutputStreamDataSink(new FileOutputStream("/dev/null")),
+                ImmutableList.of("col1"),
+                ImmutableList.of(data.type),
+                DWRF,
+                ZSTD,
+                Optional.empty(),
+                NO_ENCRYPTION,
+                orcWriterOptions,
+                ImmutableMap.of(),
+                HIVE_STORAGE_TIME_ZONE,
+                false,
+                BOTH,
+                NOOP_WRITER_STATS);
+
+        while (true) {
+            for (Block block : data.blocks) {
+                writer.write(new Page(block));
+            }
+        }
     }
 
     private void doWrite(BenchmarkData data)
@@ -134,7 +170,14 @@ public class BenchmarkMapFlatWriter
         private File temporaryDirectory;
         private File orcFile;
 
-        @Param({"map<bigint,bigint>", "map<bigint,array<bigint>>"})
+        @Param({"OLD", "NEW"})
+        private ExperimentMode mode = ExperimentMode.NEW;
+
+        @Param({
+                "map<bigint,bigint>"
+//                ,
+//                "map<bigint,array<bigint>>"
+        })
         private String typeSignature = "map<bigint,bigint>";
 
         // total number of keys

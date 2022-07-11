@@ -89,6 +89,14 @@ class MapFlatValueWriter
         return size;
     }
 
+
+    public long writeSingleEntryBlock(Block block, PositionIterator positionIterator, ColumnarBlockCache columnarBlockCache, ColumnWriterPools pools)
+    {
+        long size = valueWriter.writeBlock(block, positionIterator, columnarBlockCache, pools);
+        inMapStream.writeBoolean(true);
+        return size;
+    }
+
     /**
      * Mark a row for this key as missing.
      */
