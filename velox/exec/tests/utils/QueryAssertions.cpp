@@ -190,7 +190,9 @@ velox::variant variantAt<TypeKind::DATE>(
 
 template <TypeKind kind>
 velox::variant variantAt(const ::duckdb::Value& value) {
-  using T = typename KindToFlatVector<kind>::WrapperType;
+  // NOTE: duckdb only support native cpp type for GetValue so we need to use
+  // DeepCopiedType instead of WrapperType here.
+  using T = typename TypeTraits<kind>::DeepCopiedType;
   return velox::variant(value.GetValue<T>());
 }
 
