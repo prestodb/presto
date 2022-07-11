@@ -55,7 +55,7 @@ class SimpleAggregatesBenchmark : public HiveConnectorTestBase {
 
     VectorFuzzer::Options opts;
     opts.vectorSize = kRowsPerVector;
-    opts.nullChance = 0;
+    opts.nullRatio = 0;
     VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
 
     std::vector<RowVectorPtr> vectors;
@@ -92,7 +92,7 @@ class SimpleAggregatesBenchmark : public HiveConnectorTestBase {
 
       // Generate random values with nulls.
 
-      opts.nullChance = 2; // 50%
+      opts.nullRatio = 0.5; // 50%
       fuzzer.setOptions(opts);
 
       children.emplace_back(fuzzer.fuzzFlat(INTEGER()));

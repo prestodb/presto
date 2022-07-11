@@ -35,7 +35,7 @@ class VectorCompareBenchmark : public functions::test::FunctionBenchmarkBase {
       : FunctionBenchmarkBase(), vectorSize_(vectorSize), rows_(vectorSize) {
     VectorFuzzer::Options opts;
     opts.vectorSize = vectorSize_;
-    opts.nullChance = 0;
+    opts.nullRatio = 0;
     opts.containerVariableLength = 1000;
     VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
 

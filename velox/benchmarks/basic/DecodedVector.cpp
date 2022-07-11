@@ -35,7 +35,7 @@ class DecodedVectorBenchmark : public functions::test::FunctionBenchmarkBase {
       : FunctionBenchmarkBase(), vectorSize_(vectorSize), rows_(vectorSize) {
     VectorFuzzer::Options opts;
     opts.vectorSize = vectorSize_;
-    opts.nullChance = 0;
+    opts.nullRatio = 0;
     VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
 
     flatVector_ = fuzzer.fuzzFlat(BIGINT());

@@ -42,28 +42,28 @@ class SelectivityVectorBenchmark
         rows1PerCent_(vectorSize) {
     VectorFuzzer::Options opts;
     opts.vectorSize = vectorSize_;
-    opts.nullChance = 0;
+    opts.nullRatio = 0;
     VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
     flatVector_ = fuzzer.fuzzFlat(BIGINT());
 
     for (size_t i = 0; i < vectorSize_; ++i) {
       // Set half to invalid.
-      if (fuzzer.oneIn(2)) {
+      if (fuzzer.coinToss(0.5)) {
         rows50PerCent_.setValid(i, false);
       }
 
-      // Set 9/10 to invalid.
-      if (!fuzzer.oneIn(10)) {
+      // Set 90% to invalid.
+      if (fuzzer.coinToss(0.9)) {
         rows10PerCent_.setValid(i, false);
       }
 
-      // Set 99/100 to invalid.
-      if (!fuzzer.oneIn(100)) {
+      // Set 99% to invalid.
+      if (fuzzer.coinToss(0.99)) {
         rows1PerCent_.setValid(i, false);
       }
 
-      // Set 1/100 to invalid.
-      if (fuzzer.oneIn(100)) {
+      // Set 1% to invalid.
+      if (fuzzer.coinToss(0.01)) {
         rows99PerCent_.setValid(i, false);
       }
     }

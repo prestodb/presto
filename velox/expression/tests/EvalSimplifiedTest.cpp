@@ -82,7 +82,7 @@ class EvalSimplifiedTest : public FunctionBaseTest {
     fuzzerOpts.vectorSize = 100;
     fuzzerOpts.stringVariableLength = true;
     fuzzerOpts.stringLength = 100;
-    fuzzerOpts.nullChance = 10;
+    fuzzerOpts.nullRatio = 0.1;
 
     for (size_t i = 0; i < iterations_; ++i) {
       LOG(INFO) << "============== Starting iteration with seed: " << seed_;

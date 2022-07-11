@@ -42,9 +42,9 @@ class VectorFuzzer {
   struct Options {
     size_t vectorSize{100};
 
-    // One in X chance of generating a null value in the output vector (e.g: 10
-    // for 10%, 2 for 50%, 1 for 100%, 0 for 0%).
-    size_t nullChance{0};
+    /// Chance of generating a null value in the output vector (`nullRatio` is a
+    /// double between 0 and 1).
+    double nullRatio{0};
 
     // Size of the generated strings. If `stringVariableLength` is true, the
     // semantic of this option becomes "string maximum length". Here this
@@ -117,9 +117,9 @@ class VectorFuzzer {
     rng_.seed(seed);
   }
 
-  // Returns true 1/n of times.
-  bool oneIn(size_t n) {
-    return folly::Random::oneIn(n, rng_);
+  /// Returns true n% of times (`n` is a double between 0 and 1).
+  bool coinToss(double n) {
+    return folly::Random::randDouble01(rng_) < n;
   }
 
  private:

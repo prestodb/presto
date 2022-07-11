@@ -242,12 +242,12 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type) {
 VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   VectorPtr vector;
 
-  // One in 5 chance of adding a constant vector.
-  if (oneIn(5)) {
+  // 20% chance of adding a constant vector.
+  if (coinToss(0.2)) {
     // If adding a constant vector, 50% of chance between:
     // - generate a regular constant vector (only for primitive types).
     // - generate a random vector and wrap it using a constant vector.
-    if (type->isPrimitiveType() && oneIn(2)) {
+    if (type->isPrimitiveType() && coinToss(0.5)) {
       vector = fuzzConstant(type, size);
     } else {
       // Vector size can't be zero.
@@ -263,7 +263,7 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   }
 
   // Toss a coin and add dictionary indirections.
-  while (oneIn(2)) {
+  while (coinToss(0.5)) {
     vector = fuzzDictionary(vector);
   }
   return vector;
@@ -274,7 +274,7 @@ VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type) {
 }
 
 VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
-  if (oneIn(opts_.nullChance)) {
+  if (coinToss(opts_.nullRatio)) {
     return BaseVector::createNullConstant(type, size, pool_);
   }
   return BaseVector::createConstant(randVariant(type), size, pool_);
@@ -294,7 +294,7 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
 
   // Second, generate a random null vector.
   for (size_t i = 0; i < vector->size(); ++i) {
-    if (oneIn(opts_.nullChance)) {
+    if (coinToss(opts_.nullRatio)) {
       vector->setNull(i, true);
     }
   }
@@ -387,7 +387,7 @@ RowVectorPtr VectorFuzzer::fuzzRow(
 BufferPtr VectorFuzzer::fuzzNulls(vector_size_t size) {
   NullsBuilder builder{size, pool_};
   for (size_t i = 0; i < size; ++i) {
-    if (oneIn(opts_.nullChance)) {
+    if (coinToss(opts_.nullRatio)) {
       builder.setNull(i);
     }
   }

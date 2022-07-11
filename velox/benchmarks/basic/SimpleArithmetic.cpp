@@ -114,7 +114,7 @@ class SimpleArithmeticBenchmark
   RowVectorPtr makeRowVector(vector_size_t size) {
     VectorFuzzer::Options opts;
     opts.vectorSize = size;
-    opts.nullChance = 0;
+    opts.nullRatio = 0;
     VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
 
     std::vector<VectorPtr> children;
@@ -124,7 +124,7 @@ class SimpleArithmeticBenchmark
     children.emplace_back(fuzzer.fuzzFlat(BIGINT())); // D
     children.emplace_back(fuzzer.fuzzConstant(DOUBLE())); // Constant
 
-    opts.nullChance = 2; // 50%
+    opts.nullRatio = 0.5; // 50%
     fuzzer.setOptions(opts);
     children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // HalfNull
 

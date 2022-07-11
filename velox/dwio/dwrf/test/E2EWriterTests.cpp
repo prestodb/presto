@@ -1152,7 +1152,7 @@ TEST(E2EWriterTests, fuzzSimple) {
   VectorFuzzer noNulls(
       {
           .vectorSize = batchSize,
-          .nullChance = 0,
+          .nullRatio = 0,
           .stringLength = 20,
           .stringVariableLength = true,
       },
@@ -1162,7 +1162,7 @@ TEST(E2EWriterTests, fuzzSimple) {
   VectorFuzzer hasNulls{
       {
           .vectorSize = batchSize,
-          .nullChance = 20,
+          .nullRatio = 0.05,
           .stringLength = 10,
           .stringVariableLength = true,
       },
@@ -1203,7 +1203,7 @@ TEST(E2EWriterTests, fuzzComplex) {
   VectorFuzzer noNulls(
       {
           .vectorSize = batchSize,
-          .nullChance = 0,
+          .nullRatio = 0,
           .stringLength = 20,
           .stringVariableLength = true,
           .containerLength = 5,
@@ -1215,7 +1215,7 @@ TEST(E2EWriterTests, fuzzComplex) {
   VectorFuzzer hasNulls{
       {
           .vectorSize = batchSize,
-          .nullChance = 20,
+          .nullRatio = 0.05,
           .stringLength = 10,
           .stringVariableLength = true,
           .containerLength = 5,
@@ -1253,7 +1253,7 @@ TEST(E2EWriterTests, fuzzFlatmap) {
   VectorFuzzer fuzzer(
       {
           .vectorSize = batchSize,
-          .nullChance = 0,
+          .nullRatio = 0,
           .stringLength = 20,
           .stringVariableLength = true,
           .containerLength = 5,
@@ -1279,7 +1279,7 @@ TEST(E2EWriterTests, fuzzFlatmap) {
     VectorFuzzer valueFuzzer(
         {
             .vectorSize = static_cast<size_t>(childSize),
-            .nullChance = 0,
+            .nullRatio = 0,
             .stringLength = 20,
             .stringVariableLength = true,
             .containerLength = 5,

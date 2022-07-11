@@ -50,7 +50,7 @@ class FeatureNormailzationBenchmark
   RowVectorPtr makeRowVector(vector_size_t size) {
     VectorFuzzer::Options opts;
     opts.vectorSize = size;
-    opts.nullChance = 0;
+    opts.nullRatio = 0;
     VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
 
     std::vector<VectorPtr> children{fuzzer.fuzzFlat(REAL())};

@@ -34,11 +34,11 @@ DEFINE_int32(
     100,
     "The number of elements on each generated vector.");
 
-DEFINE_int32(
-    null_chance,
-    10,
+DEFINE_double(
+    null_ratio,
+    0.1,
     "Chance of adding a null constant to the plan, or null value in a vector "
-    "(expressed using '1 in x' semantic).");
+    "(expressed as double from 0 to 1).");
 
 DEFINE_bool(
     retry_with_try,
@@ -171,7 +171,7 @@ VectorFuzzer::Options getFuzzerOptions() {
   opts.vectorSize = FLAGS_batch_size;
   opts.stringVariableLength = true;
   opts.stringLength = 100;
-  opts.nullChance = FLAGS_null_chance;
+  opts.nullRatio = FLAGS_null_ratio;
   return opts;
 }
 
@@ -326,11 +326,6 @@ class ExpressionFuzzer {
     seed(folly::Random::rand32(rng_));
   }
 
-  // Returns true 1/n of times.
-  bool oneIn(size_t n) {
-    return folly::Random::oneIn(n, rng_);
-  }
-
   void printRowVector(const RowVectorPtr& rowVector) {
     LOG(INFO) << "RowVector contents:";
 
@@ -351,8 +346,8 @@ class ExpressionFuzzer {
   }
 
   core::TypedExprPtr generateArgConstant(const TypePtr& arg) {
-    // One in ten times return a NULL constant.
-    if (oneIn(FLAGS_null_chance)) {
+    // 10% of times return a NULL constant.
+    if (vectorFuzzer_.coinToss(FLAGS_null_ratio)) {
       return std::make_shared<core::ConstantTypedExpr>(
           variant::null(arg->kind()));
     }
