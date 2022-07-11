@@ -18,8 +18,8 @@ import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
@@ -141,7 +141,7 @@ public class TestKHyperLogLogAggregationFunction
 
     private void testAggregation(Type valueType, List<?> values, Type uiiType, List<?> uiis)
     {
-        InternalAggregationFunction aggregationFunction = getAggregation(valueType, uiiType);
+        JavaAggregationFunctionImplementation aggregationFunction = getAggregation(valueType, uiiType);
         KHyperLogLog khll = null;
         long value;
         long uii;
@@ -211,9 +211,9 @@ public class TestKHyperLogLogAggregationFunction
         return Slices.utf8Slice(s);
     }
 
-    private static InternalAggregationFunction getAggregation(Type... arguments)
+    private static JavaAggregationFunctionImplementation getAggregation(Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(arguments)));
     }
 
     private List<Long> generateLongs(int size)

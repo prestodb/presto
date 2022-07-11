@@ -25,12 +25,12 @@ import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.UpdateMemory;
-import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.aggregation.GroupedAccumulator;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.BeforeClass;
@@ -75,7 +75,7 @@ public class TestSpatialPartitioningInternalAggregation
     @Test(dataProvider = "partitionCount")
     public void test(int partitionCount)
     {
-        InternalAggregationFunction function = getFunction();
+        JavaAggregationFunctionImplementation function = getFunction();
         List<OGCGeometry> geometries = makeGeometries();
         Block geometryBlock = makeGeometryBlock(geometries);
 
@@ -100,7 +100,7 @@ public class TestSpatialPartitioningInternalAggregation
     @Test
     public void testEmptyPartitionException()
     {
-        InternalAggregationFunction function = getFunction();
+        JavaAggregationFunctionImplementation function = getFunction();
 
         Block geometryBlock = GEOMETRY.createBlockBuilder(null, 0).build();
         Block partitionCountBlock = BlockAssertions.createRLEBlock(10, 0);
@@ -119,10 +119,10 @@ public class TestSpatialPartitioningInternalAggregation
         }
     }
 
-    private InternalAggregationFunction getFunction()
+    private JavaAggregationFunctionImplementation getFunction()
     {
         FunctionAndTypeManager functionAndTypeManager = functionAssertions.getMetadata().getFunctionAndTypeManager();
-        return functionAndTypeManager.getAggregateFunctionImplementation(
+        return functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER)));
     }
 

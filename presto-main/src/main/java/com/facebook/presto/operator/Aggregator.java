@@ -16,8 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.facebook.presto.spi.plan.AggregationNode;
 
 import static com.google.common.base.Preconditions.checkArgument;

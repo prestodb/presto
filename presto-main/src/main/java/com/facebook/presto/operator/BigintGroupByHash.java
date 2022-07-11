@@ -22,6 +22,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
 import com.facebook.presto.type.BigintOperators;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;

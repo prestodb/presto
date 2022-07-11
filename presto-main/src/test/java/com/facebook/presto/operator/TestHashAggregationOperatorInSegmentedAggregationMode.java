@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -55,7 +55,7 @@ public class TestHashAggregationOperatorInSegmentedAggregationMode
 {
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
-    private static final InternalAggregationFunction COUNT = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+    private static final JavaAggregationFunctionImplementation COUNT = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
             FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", ImmutableList.of()));
 
     private ExecutorService executor;

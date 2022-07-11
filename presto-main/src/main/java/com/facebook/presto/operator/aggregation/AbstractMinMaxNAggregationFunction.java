@@ -22,11 +22,14 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.state.MinMaxNState;
 import com.facebook.presto.operator.aggregation.state.MinMaxNStateFactory;
 import com.facebook.presto.operator.aggregation.state.MinMaxNStateSerializer;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -35,15 +38,14 @@ import java.util.function.Function;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.operator.aggregation.AccumulatorCompiler.generateAccumulatorClass;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.Signature.orderableTypeParameter;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -72,13 +74,13 @@ public abstract class AbstractMinMaxNAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInAggregationFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type type = boundVariables.getTypeVariable("E");
         return generateAggregation(type);
     }
 
-    protected InternalAggregationFunction generateAggregation(Type type)
+    protected BuiltInAggregationFunctionImplementation generateAggregation(Type type)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(AbstractMinMaxNAggregationFunction.class.getClassLoader());
 
@@ -106,18 +108,16 @@ public abstract class AbstractMinMaxNAggregationFunction
                         new MinMaxNStateFactory())),
                 outputType);
 
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+        Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
                 classLoader);
-
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
                 classLoader);
-
-        return new InternalAggregationFunction(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType),
-                outputType, true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+        return new BuiltInAggregationFunctionImplementation(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType), outputType,
+                true, false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     public static void input(BlockComparator comparator, Type type, MinMaxNState state, Block block, long n, int blockIndex)

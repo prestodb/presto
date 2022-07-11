@@ -109,8 +109,7 @@ import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.aggregation.LambdaProvider;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -135,8 +134,10 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.aggregation.LambdaProvider;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
@@ -2973,7 +2974,7 @@ public class LocalExecutionPlanner
                 boolean spillEnabled)
         {
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            InternalAggregationFunction internalAggregationFunction = functionAndTypeManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle());
+            JavaAggregationFunctionImplementation javaAggregateFunctionImplementation = functionAndTypeManager.getJavaAggregateFunctionImplementation(aggregation.getFunctionHandle());
 
             List<Integer> valueChannels = new ArrayList<>();
             for (RowExpression argument : aggregation.getArguments()) {
@@ -2988,8 +2989,10 @@ public class LocalExecutionPlanner
                     .filter(LambdaDefinitionExpression.class::isInstance)
                     .map(LambdaDefinitionExpression.class::cast)
                     .collect(toImmutableList());
+            checkState(lambdas.isEmpty() || javaAggregateFunctionImplementation instanceof BuiltInAggregationFunctionImplementation,
+                    "Only BuiltInAggregationFunctionImplementation Support Lambdas Interfaces");
             for (int i = 0; i < lambdas.size(); i++) {
-                List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
+                List<Class> lambdaInterfaces = ((BuiltInAggregationFunctionImplementation) javaAggregateFunctionImplementation).getLambdaInterfaces();
                 Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(
                         lambdas.get(i),
                         metadata,
@@ -3012,8 +3015,8 @@ public class LocalExecutionPlanner
                 sortKeys = orderBy.getOrderByVariables();
                 sortOrders = getOrderingList(orderBy);
             }
-
-            return generateAccumulatorFactory(internalAggregationFunction,
+            return generateAccumulatorFactory(
+                    javaAggregateFunctionImplementation,
                     valueChannels,
                     maskChannel,
                     source.getTypes(),

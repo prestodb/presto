@@ -16,7 +16,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -43,7 +43,7 @@ public class CountAggregationBenchmark
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey");
         FunctionAndTypeManager functionAndTypeManager = localQueryRunner.getMetadata().getFunctionAndTypeManager();
-        InternalAggregationFunction countFunction = functionAndTypeManager.getAggregateFunctionImplementation(
+        JavaAggregationFunctionImplementation countFunction = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("count", fromTypes(BIGINT)));
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(generateAccumulatorFactory(countFunction, ImmutableList.of(0), Optional.empty())), false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);

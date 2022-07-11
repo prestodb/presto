@@ -19,7 +19,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.AbstractTestAggregationFunction;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -36,13 +36,13 @@ import static java.lang.Float.floatToRawIntBits;
 public class TestRealAverageAggregation
         extends AbstractTestAggregationFunction
 {
-    private InternalAggregationFunction avgFunction;
+    private JavaAggregationFunctionImplementation avgFunction;
 
     @BeforeClass
     public void setUp()
     {
         FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
-        avgFunction = functionAndTypeManager.getAggregateFunctionImplementation(
+        avgFunction = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("avg", fromTypes(REAL)));
     }
 

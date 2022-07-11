@@ -59,7 +59,6 @@ import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.EntropyAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import com.facebook.presto.operator.aggregation.IntervalDayToSecondSumAggregation;
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthAverageAggregation;
@@ -182,6 +181,7 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -478,7 +478,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
+    private final LoadingCache<SpecializedFunctionKey, AggregationFunctionImplementation> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final LoadingCache<ExactTypeSignature, Type> parametricTypeCache;
     private final MagicLiteralFunction magicLiteralFunction;
@@ -1069,7 +1069,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
         checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
         Signature signature = ((BuiltInFunctionHandle) functionHandle).getSignature();

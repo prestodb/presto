@@ -11,15 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
 
-// Lambda has to be compiled into a dedicated class, as functions might be stateful (e.g. use CachedInstanceBinder)
-public interface LambdaProvider
+package com.facebook.presto.spi.function;
+
+import com.facebook.presto.spi.api.Experimental;
+
+@Experimental
+public interface AggregationFunctionImplementation
 {
-    // To support capture, we can enrich the interface into
-    // getLambda(Object[] capturedValues)
-
-    // The lambda capture is done through invokedynamic, and the CallSite will be cached after
-    // the first call. Thus separate classes have to be generated for different captures.
-    Object getLambda();
 }

@@ -19,8 +19,8 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -218,7 +218,7 @@ public class PushPartialAggregationThroughExchange
             AggregationNode.Aggregation originalAggregation = entry.getValue();
             String functionName = functionAndTypeManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getObjectName();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
-            InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
+            JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(functionHandle);
             VariableReferenceExpression intermediateVariable = context.getVariableAllocator().newVariable(entry.getValue().getCall().getSourceLocation(), functionName, function.getIntermediateType());
 
             checkState(!originalAggregation.getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");

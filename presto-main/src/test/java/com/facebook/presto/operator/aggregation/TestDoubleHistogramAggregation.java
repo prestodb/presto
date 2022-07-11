@@ -21,6 +21,8 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import org.testng.annotations.Test;
@@ -46,7 +48,7 @@ public class TestDoubleHistogramAggregation
     public TestDoubleHistogramAggregation()
     {
         FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
-        InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
+        JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, DOUBLE, DOUBLE)));
         factory = generateAccumulatorFactory(function, ImmutableList.of(0, 1, 2), Optional.empty());
         input = makeInput(10);

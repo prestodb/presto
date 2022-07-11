@@ -16,9 +16,9 @@ package com.facebook.presto;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.GroupByHash;
-import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.PageIndexer;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
 import com.facebook.presto.sql.gen.JoinCompiler;
 
 import java.util.List;

@@ -17,8 +17,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -55,7 +55,7 @@ import static java.util.stream.Collectors.toList;
 public class TestBingTileFunctions
         extends AbstractTestFunctions
 {
-    private InternalAggregationFunction approxDistinct;
+    private JavaAggregationFunctionImplementation approxDistinct;
 
     @BeforeClass
     protected void registerFunctions()
@@ -67,7 +67,7 @@ public class TestBingTileFunctions
         functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
         functionAssertions.getMetadata().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
         FunctionAndTypeManager functionAndTypeManager = functionAssertions.getMetadata().getFunctionAndTypeManager();
-        approxDistinct = functionAndTypeManager.getAggregateFunctionImplementation(
+        approxDistinct = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("approx_distinct", fromTypes(BING_TILE)));
     }
 

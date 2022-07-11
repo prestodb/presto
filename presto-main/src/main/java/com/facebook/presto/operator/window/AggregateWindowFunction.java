@@ -15,18 +15,20 @@ package com.facebook.presto.operator.window;
 
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.operator.UpdateMemory;
-import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.function.WindowIndex;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class AggregateWindowFunction
@@ -40,10 +42,12 @@ public class AggregateWindowFunction
     private int currentStart;
     private int currentEnd;
 
-    private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels)
+    private AggregateWindowFunction(AggregationFunctionImplementation function, List<Integer> argumentChannels)
     {
+        checkState(function instanceof BuiltInAggregationFunctionImplementation);
+        BuiltInAggregationFunctionImplementation builtinFunction = (BuiltInAggregationFunctionImplementation) function;
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
-        this.accumulatorFactory = generateAccumulatorFactory(function, createArgs(function), Optional.empty());
+        this.accumulatorFactory = generateAccumulatorFactory(builtinFunction, createArgs(builtinFunction), Optional.empty());
     }
 
     @Override
@@ -93,7 +97,7 @@ public class AggregateWindowFunction
         }
     }
 
-    public static WindowFunctionSupplier supplier(Signature signature, final InternalAggregationFunction function)
+    public static WindowFunctionSupplier supplier(Signature signature, final AggregationFunctionImplementation function)
     {
         requireNonNull(function, "function is null");
         return new AbstractWindowFunctionSupplier(signature, null)
@@ -106,7 +110,7 @@ public class AggregateWindowFunction
         };
     }
 
-    private static List<Integer> createArgs(InternalAggregationFunction function)
+    private static List<Integer> createArgs(BuiltInAggregationFunctionImplementation function)
     {
         ImmutableList.Builder<Integer> list = ImmutableList.builder();
         for (int i = 0; i < function.getParameterTypes().size(); i++) {

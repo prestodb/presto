@@ -31,9 +31,9 @@ import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -42,6 +42,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
@@ -423,6 +424,13 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
+    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
+        return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle);
+    }
+
     public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
@@ -435,9 +443,13 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getWindowFunctionImplementation(functionHandle);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    public JavaAggregationFunctionImplementation getJavaAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
-        return builtInTypeAndFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
+        AggregationFunctionImplementation implementation = getAggregateFunctionImplementation(functionHandle);
+        checkArgument(
+                implementation instanceof JavaAggregationFunctionImplementation,
+                format("Implementation of function %s is not a JavaAggregationFunctionImplementationAdapter", getFunctionMetadata(functionHandle).getName()));
+        return (JavaAggregationFunctionImplementation) implementation;
     }
 
     public JavaScalarFunctionImplementation getJavaScalarFunctionImplementation(FunctionHandle functionHandle)
