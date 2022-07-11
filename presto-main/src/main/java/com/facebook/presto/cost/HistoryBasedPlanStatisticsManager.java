@@ -13,24 +13,19 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.statistics.EmptyPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
 import com.google.inject.Inject;
 
-import static java.util.Objects.requireNonNull;
-
 public class HistoryBasedPlanStatisticsManager
 {
     private ExternalPlanStatisticsProvider externalPlanStatisticsProvider;
-    private final Metadata metadata;
     private boolean externalProviderAdded;
 
     @Inject
-    public HistoryBasedPlanStatisticsManager(Metadata metadata)
+    public HistoryBasedPlanStatisticsManager()
     {
         this.externalPlanStatisticsProvider = EmptyPlanStatisticsProvider.getInstance();
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.externalProviderAdded = false;
     }
 
@@ -45,6 +40,6 @@ public class HistoryBasedPlanStatisticsManager
 
     public HistoryBasedPlanStatisticsCalculator getHistoryBasedPlanStatisticsCalculator(StatsCalculator delegate)
     {
-        return new HistoryBasedPlanStatisticsCalculator(() -> externalPlanStatisticsProvider, metadata, delegate);
+        return new HistoryBasedPlanStatisticsCalculator(() -> externalPlanStatisticsProvider, delegate);
     }
 }
