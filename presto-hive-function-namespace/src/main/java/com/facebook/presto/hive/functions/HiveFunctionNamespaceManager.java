@@ -21,8 +21,10 @@ import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.hive.functions.aggregation.HiveAggregationFunction;
 import com.facebook.presto.hive.functions.scalar.HiveScalarFunction;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -36,7 +38,10 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.hive.ql.exec.UDAF;
 import org.apache.hadoop.hive.ql.exec.UDF;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFResolver;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFResolver2;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 
 import javax.inject.Inject;
@@ -51,12 +56,14 @@ import java.util.stream.Stream;
 import static com.facebook.presto.hive.functions.FunctionRegistry.getCurrentFunctionNames;
 import static com.facebook.presto.hive.functions.HiveFunctionErrorCode.functionNotFound;
 import static com.facebook.presto.hive.functions.HiveFunctionErrorCode.unsupportedFunctionType;
+import static com.facebook.presto.hive.functions.aggregation.HiveAggregationFunction.createHiveAggregateFunction;
 import static com.facebook.presto.hive.functions.scalar.HiveScalarFunction.createHiveScalarFunction;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -127,7 +134,7 @@ public class HiveFunctionNamespaceManager
     @Override
     public Collection<HiveFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
-        return getCurrentFunctionNames().stream().map(functionName -> createDummyHiveScalarFunction(functionName)).collect(toImmutableList());
+        return getCurrentFunctionNames().stream().map(functionName -> createDummyHiveFunction(functionName)).collect(toImmutableList());
     }
 
     public Collection<HiveFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName)
@@ -193,6 +200,9 @@ public class HiveFunctionNamespaceManager
                 if (anyAssignableFrom(functionClass, GenericUDF.class, UDF.class)) {
                     return createHiveScalarFunction(functionClass, name, key.getArgumentTypes(), typeManager);
                 }
+                else if (anyAssignableFrom(GenericUDAFResolver2.class, GenericUDAFResolver.class, UDAF.class)) {
+                    return createHiveAggregateFunction(functionClass, name, key.getArgumentTypes(), typeManager);
+                }
                 else {
                     throw unsupportedFunctionType(functionClass);
                 }
@@ -203,11 +213,11 @@ public class HiveFunctionNamespaceManager
         }
     }
 
-    private HiveFunction createDummyHiveScalarFunction(String functionName)
+    private HiveFunction createDummyHiveFunction(String functionName)
     {
         QualifiedObjectName hiveFunctionName = QualifiedObjectName.valueOf(catalogName, "default", functionName);
         Signature signature = new Signature(hiveFunctionName, SCALAR, TypeSignature.parseTypeSignature("T"));
-        return new DummyHiveScalarFunction(signature);
+        return new DummyHiveFunction(signature);
     }
 
     private static boolean anyAssignableFrom(Class<?> cls, Class<?>... supers)
@@ -215,10 +225,19 @@ public class HiveFunctionNamespaceManager
         return Stream.of(supers).anyMatch(s -> s.isAssignableFrom(cls));
     }
 
-    private static class DummyHiveScalarFunction
+    @Override
+    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    {
+        checkArgument(functionHandle instanceof HiveFunctionHandle);
+        HiveFunction function = functions.getUnchecked(FunctionKey.from(((HiveFunctionHandle) functionHandle)));
+        verify(function instanceof HiveAggregationFunction);
+        return ((HiveAggregationFunction) function).getImplementation();
+    }
+
+    private static class DummyHiveFunction
             extends HiveFunction
     {
-        public DummyHiveScalarFunction(Signature signature)
+        public DummyHiveFunction(Signature signature)
         {
             super(signature.getName(), signature, false, true, true, "");
         }
