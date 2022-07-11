@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -50,7 +51,7 @@ public class TestMapAggAggregation
     @Test
     public void testDuplicateKeysValues()
     {
-        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, VARCHAR);
+        JavaAggregationFunctionImplementation aggFunc = getAggregation(DOUBLE, VARCHAR);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, "a"),
@@ -68,7 +69,7 @@ public class TestMapAggAggregation
     @Test
     public void testSimpleMaps()
     {
-        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, VARCHAR);
+        JavaAggregationFunctionImplementation aggFunc = getAggregation(DOUBLE, VARCHAR);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, "a", 2.0, "b", 3.0, "c"),
@@ -93,7 +94,7 @@ public class TestMapAggAggregation
     @Test
     public void testNull()
     {
-        InternalAggregationFunction doubleDouble = getAggregation(DOUBLE, DOUBLE);
+        JavaAggregationFunctionImplementation doubleDouble = getAggregation(DOUBLE, DOUBLE);
         assertAggregation(
                 doubleDouble,
                 ImmutableMap.of(1.0, 2.0),
@@ -120,7 +121,7 @@ public class TestMapAggAggregation
     @Test
     public void testDoubleArrayMap()
     {
-        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, new ArrayType(VARCHAR));
+        JavaAggregationFunctionImplementation aggFunc = getAggregation(DOUBLE, new ArrayType(VARCHAR));
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, ImmutableList.of("a", "b"),
@@ -134,7 +135,7 @@ public class TestMapAggAggregation
     public void testDoubleMapMap()
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
-        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, innerMapType);
+        JavaAggregationFunctionImplementation aggFunc = getAggregation(DOUBLE, innerMapType);
 
         BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
@@ -156,7 +157,7 @@ public class TestMapAggAggregation
         RowType innerRowType = RowType.from(ImmutableList.of(
                 RowType.field("f1", INTEGER),
                 RowType.field("f2", DOUBLE)));
-        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, innerRowType);
+        JavaAggregationFunctionImplementation aggFunc = getAggregation(DOUBLE, innerRowType);
 
         BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 1L, 1.0));
@@ -175,7 +176,7 @@ public class TestMapAggAggregation
     @Test
     public void testArrayDoubleMap()
     {
-        InternalAggregationFunction aggFunc = getAggregation(new ArrayType(VARCHAR), DOUBLE);
+        JavaAggregationFunctionImplementation aggFunc = getAggregation(new ArrayType(VARCHAR), DOUBLE);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(
@@ -186,8 +187,8 @@ public class TestMapAggAggregation
                 createDoublesBlock(1.0, 2.0, 3.0));
     }
 
-    private InternalAggregationFunction getAggregation(Type... arguments)
+    private JavaAggregationFunctionImplementation getAggregation(Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(arguments)));
     }
 }

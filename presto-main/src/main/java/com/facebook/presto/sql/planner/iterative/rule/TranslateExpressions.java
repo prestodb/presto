@@ -17,7 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -93,10 +94,12 @@ public class TranslateExpressions
                             .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
                             .map(typeSignature -> (FunctionType) (metadata.getFunctionAndTypeManager().getType(typeSignature)))
                             .collect(toImmutableList());
-                    InternalAggregationFunction internalAggregationFunction = metadata.getFunctionAndTypeManager().getAggregateFunctionImplementation(callExpression.getFunctionHandle());
-                    List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
-                    verify(lambdaExpressions.size() == functionTypes.size());
-                    verify(lambdaExpressions.size() == lambdaInterfaces.size());
+                    JavaAggregationFunctionImplementation javaAggregateFunctionImplementation = metadata.getFunctionAndTypeManager().getJavaAggregateFunctionImplementation(callExpression.getFunctionHandle());
+                    if (javaAggregateFunctionImplementation instanceof BuiltInAggregationFunctionImplementation) {
+                        List<Class> lambdaInterfaces = ((BuiltInAggregationFunctionImplementation) javaAggregateFunctionImplementation).getLambdaInterfaces();
+                        verify(lambdaExpressions.size() == functionTypes.size());
+                        verify(lambdaExpressions.size() == lambdaInterfaces.size());
+                    }
 
                     for (int i = 0; i < lambdaExpressions.size(); i++) {
                         LambdaExpression lambdaExpression = lambdaExpressions.get(i);

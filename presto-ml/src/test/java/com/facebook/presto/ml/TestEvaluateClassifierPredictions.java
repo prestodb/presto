@@ -20,8 +20,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.UpdateMemory;
-import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -45,7 +45,7 @@ public class TestEvaluateClassifierPredictions
     public void testEvaluateClassifierPredictions()
     {
         metadata.registerBuiltInFunctions(extractFunctions(new MLPlugin().getFunctions()));
-        InternalAggregationFunction aggregation = functionAndTypeManager.getAggregateFunctionImplementation(
+        JavaAggregationFunctionImplementation aggregation = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("evaluate_classifier_predictions", fromTypes(BIGINT, BIGINT)));
         Accumulator accumulator = generateAccumulatorFactory(aggregation, ImmutableList.of(0, 1), Optional.empty()).createAccumulator(UpdateMemory.NOOP);
         accumulator.addInput(getPage());

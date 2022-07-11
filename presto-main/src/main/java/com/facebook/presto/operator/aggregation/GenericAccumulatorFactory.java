@@ -33,13 +33,17 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.MarkDistinctHash;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.WindowIndex;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
+import com.facebook.presto.spi.function.aggregation.LambdaProvider;
 import com.facebook.presto.spi.storage.SerializedStorageHandle;
 import com.facebook.presto.spiller.StandaloneSpiller;
 import com.facebook.presto.spiller.StandaloneSpillerFactory;
@@ -298,7 +302,7 @@ public class GenericAccumulatorFactory
     }
 
     public static AccumulatorFactory generateAccumulatorFactory(
-            InternalAggregationFunction functionImplementation,
+            JavaAggregationFunctionImplementation functionImplementation,
             List<Integer> argumentChannels,
             Optional<Integer> maskChannel,
             List<Type> sourceTypes,
@@ -348,7 +352,7 @@ public class GenericAccumulatorFactory
     }
 
     public static AccumulatorFactory generateAccumulatorFactory(
-            InternalAggregationFunction javaAggregationFunctionImplementation,
+            JavaAggregationFunctionImplementation javaAggregationFunctionImplementation,
             List<Integer> inputChannels, Optional<Integer> maskChannel)
     {
         return generateAccumulatorFactory(

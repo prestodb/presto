@@ -15,6 +15,10 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -23,7 +27,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
-public final class InternalAggregationFunction
+public final class BuiltInAggregationFunctionImplementation
+        implements JavaAggregationFunctionImplementation
 {
     private final String name;
     private final List<Type> parameterTypes;
@@ -39,7 +44,7 @@ public final class InternalAggregationFunction
 
     private final Class<? extends GroupedAccumulator> groupedAccumulatorClass;
 
-    public InternalAggregationFunction(
+    public BuiltInAggregationFunctionImplementation(
             String name,
             List<Type> parameterTypes,
             List<Type> intermediateType,
@@ -63,7 +68,7 @@ public final class InternalAggregationFunction
                 ImmutableList.of());
     }
 
-    public InternalAggregationFunction(
+    public BuiltInAggregationFunctionImplementation(
             String name,
             List<Type> parameterTypes,
             List<Type> intermediateType,

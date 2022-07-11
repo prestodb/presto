@@ -17,7 +17,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -37,14 +37,14 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class HashAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
 {
-    private final InternalAggregationFunction doubleSum;
+    private final JavaAggregationFunctionImplementation doubleSum;
 
     public HashAggregationBenchmark(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hash_agg", 5, 25);
 
         FunctionAndTypeManager functionAndTypeManager = localQueryRunner.getMetadata().getFunctionAndTypeManager();
-        doubleSum = functionAndTypeManager.getAggregateFunctionImplementation(
+        doubleSum = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("sum", fromTypes(DOUBLE)));
     }
 
