@@ -11,31 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
-  velox_functions_spark
-  ArraySort.cpp
-  CompareFunctionsNullSafe.cpp
-  Hash.cpp
-  In.cpp
-  LeastGreatest.cpp
-  Map.cpp
-  RegexFunctions.cpp
-  Register.cpp
-  RegisterArithmetic.cpp
-  RegisterCompare.cpp
-  Size.cpp
-  SplitFunctions.cpp
-  String.cpp
-  Subscript.cpp)
+add_library(velox_functions_spark_aggregates LastAggregate.cpp Register.cpp)
 
-target_link_libraries(velox_functions_spark velox_functions_lib
-                      velox_functions_prestosql_impl Folly::folly)
-
-set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
-                                                   high_memory_pool)
+target_link_libraries(velox_functions_spark_aggregates ${FMT} velox_exec
+                      velox_expression_functions velox_aggregates velox_vector)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
-  add_subdirectory(benchmarks)
-  add_subdirectory(aggregates)
 endif()
