@@ -11,31 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
+package com.facebook.presto.spi.function;
+
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.function.WindowIndex;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 
 import java.util.List;
 
-public interface Accumulator
+public interface JavaAggregationFunctionImplementation
+        extends AggregationFunctionImplementation
 {
-    long getEstimatedSize();
+    boolean isDecomposable();
 
-    Type getFinalType();
+    List<Type> getParameterTypes();
 
     Type getIntermediateType();
 
-    void addInput(Page page);
+    Type getFinalType();
 
-    void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
+    boolean isOrderSensitive();
 
-    void addIntermediate(Block block);
+    AggregationMetadata getAggregationMetadata();
 
-    void evaluateIntermediate(BlockBuilder blockBuilder);
+    Class<? extends Accumulator> getAccumulatorClass();
 
-    void evaluateFinal(BlockBuilder blockBuilder);
+    Class<? extends GroupedAccumulator> getGroupedAccumulatorClass();
 }

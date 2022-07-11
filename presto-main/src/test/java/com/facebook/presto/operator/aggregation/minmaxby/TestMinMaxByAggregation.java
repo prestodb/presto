@@ -23,9 +23,9 @@ import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -93,13 +93,13 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinUnknown()
     {
-        InternalAggregationFunction unknownKey = getMinByAggregation(UNKNOWN, DOUBLE);
+        JavaAggregationFunctionImplementation unknownKey = getMinByAggregation(UNKNOWN, DOUBLE);
         assertAggregation(
                 unknownKey,
                 null,
                 createBooleansBlock(null, null),
                 createDoublesBlock(1.0, 2.0));
-        InternalAggregationFunction unknownValue = getMinByAggregation(DOUBLE, UNKNOWN);
+        JavaAggregationFunctionImplementation unknownValue = getMinByAggregation(DOUBLE, UNKNOWN);
         assertAggregation(
                 unknownValue,
                 null,
@@ -110,13 +110,13 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxUnknown()
     {
-        InternalAggregationFunction unknownKey = getMaxByAggregation(UNKNOWN, DOUBLE);
+        JavaAggregationFunctionImplementation unknownKey = getMaxByAggregation(UNKNOWN, DOUBLE);
         assertAggregation(
                 unknownKey,
                 null,
                 createBooleansBlock(null, null),
                 createDoublesBlock(1.0, 2.0));
-        InternalAggregationFunction unknownValue = getMaxByAggregation(DOUBLE, UNKNOWN);
+        JavaAggregationFunctionImplementation unknownValue = getMaxByAggregation(DOUBLE, UNKNOWN);
         assertAggregation(
                 unknownValue,
                 null,
@@ -127,7 +127,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinNull()
     {
-        InternalAggregationFunction function = getMinByAggregation(DOUBLE, DOUBLE);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(DOUBLE, DOUBLE);
         assertAggregation(
                 function,
                 1.0,
@@ -143,7 +143,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxNull()
     {
-        InternalAggregationFunction function = getMaxByAggregation(DOUBLE, DOUBLE);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(DOUBLE, DOUBLE);
         assertAggregation(
                 function,
                 null,
@@ -159,7 +159,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinDoubleDouble()
     {
-        InternalAggregationFunction function = getMinByAggregation(DOUBLE, DOUBLE);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(DOUBLE, DOUBLE);
         assertAggregation(
                 function,
                 null,
@@ -176,7 +176,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxDoubleDouble()
     {
-        InternalAggregationFunction function = getMaxByAggregation(DOUBLE, DOUBLE);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(DOUBLE, DOUBLE);
         assertAggregation(
                 function,
                 null,
@@ -193,7 +193,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinDoubleVarchar()
     {
-        InternalAggregationFunction function = getMinByAggregation(VARCHAR, DOUBLE);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(VARCHAR, DOUBLE);
         assertAggregation(
                 function,
                 "z",
@@ -210,7 +210,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxDoubleVarchar()
     {
-        InternalAggregationFunction function = getMaxByAggregation(VARCHAR, DOUBLE);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(VARCHAR, DOUBLE);
         assertAggregation(
                 function,
                 "a",
@@ -227,7 +227,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongLongArray()
     {
-        InternalAggregationFunction function = getMinByAggregation(new ArrayType(BIGINT), BIGINT);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(new ArrayType(BIGINT), BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of(8L, 9L),
@@ -244,7 +244,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongArrayLong()
     {
-        InternalAggregationFunction function = getMinByAggregation(BIGINT, new ArrayType(BIGINT));
+        JavaAggregationFunctionImplementation function = getMinByAggregation(BIGINT, new ArrayType(BIGINT));
         assertAggregation(
                 function,
                 3L,
@@ -261,7 +261,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongArrayLong()
     {
-        InternalAggregationFunction function = getMaxByAggregation(BIGINT, new ArrayType(BIGINT));
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(BIGINT, new ArrayType(BIGINT));
         assertAggregation(
                 function,
                 1L,
@@ -278,7 +278,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongLongArray()
     {
-        InternalAggregationFunction function = getMaxByAggregation(new ArrayType(BIGINT), BIGINT);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(new ArrayType(BIGINT), BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of(1L, 2L),
@@ -296,7 +296,7 @@ public class TestMinMaxByAggregation
     public void testMinLongDecimalDecimal()
     {
         Type decimalType = createDecimalType(19, 1);
-        InternalAggregationFunction function = getMinByAggregation(decimalType, decimalType);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(decimalType, decimalType);
         assertAggregation(
                 function,
                 SqlDecimal.of("2.2"),
@@ -308,7 +308,7 @@ public class TestMinMaxByAggregation
     public void testMaxLongDecimalDecimal()
     {
         Type decimalType = createDecimalType(19, 1);
-        InternalAggregationFunction function = getMaxByAggregation(decimalType, decimalType);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(decimalType, decimalType);
         assertAggregation(
                 function,
                 SqlDecimal.of("3.3"),
@@ -320,7 +320,7 @@ public class TestMinMaxByAggregation
     public void testMinShortDecimalDecimal()
     {
         Type decimalType = createDecimalType(10, 1);
-        InternalAggregationFunction function = getMinByAggregation(decimalType, decimalType);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(decimalType, decimalType);
         assertAggregation(
                 function,
                 SqlDecimal.of("2.2"),
@@ -332,7 +332,7 @@ public class TestMinMaxByAggregation
     public void testMaxShortDecimalDecimal()
     {
         Type decimalType = createDecimalType(10, 1);
-        InternalAggregationFunction function = getMaxByAggregation(decimalType, decimalType);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(decimalType, decimalType);
         assertAggregation(
                 function,
                 SqlDecimal.of("3.3"),
@@ -343,7 +343,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinBooleanVarchar()
     {
-        InternalAggregationFunction function = getMinByAggregation(VARCHAR, BOOLEAN);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(VARCHAR, BOOLEAN);
         assertAggregation(
                 function,
                 "b",
@@ -354,7 +354,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxBooleanVarchar()
     {
-        InternalAggregationFunction function = getMaxByAggregation(VARCHAR, BOOLEAN);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(VARCHAR, BOOLEAN);
         assertAggregation(
                 function,
                 "c",
@@ -365,7 +365,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinIntegerVarchar()
     {
-        InternalAggregationFunction function = getMinByAggregation(VARCHAR, INTEGER);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(VARCHAR, INTEGER);
         assertAggregation(
                 function,
                 "a",
@@ -376,7 +376,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxIntegerVarchar()
     {
-        InternalAggregationFunction function = getMaxByAggregation(VARCHAR, INTEGER);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(VARCHAR, INTEGER);
         assertAggregation(
                 function,
                 "c",
@@ -387,7 +387,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinBooleanLongArray()
     {
-        InternalAggregationFunction function = getMinByAggregation(new ArrayType(BIGINT), BOOLEAN);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(new ArrayType(BIGINT), BOOLEAN);
         assertAggregation(
                 function,
                 null,
@@ -398,7 +398,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxBooleanLongArray()
     {
-        InternalAggregationFunction function = getMaxByAggregation(new ArrayType(BIGINT), BOOLEAN);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(new ArrayType(BIGINT), BOOLEAN);
         assertAggregation(
                 function,
                 asList(2L, 2L),
@@ -409,7 +409,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongVarchar()
     {
-        InternalAggregationFunction function = getMinByAggregation(VARCHAR, BIGINT);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(VARCHAR, BIGINT);
         assertAggregation(
                 function,
                 "a",
@@ -420,7 +420,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongVarchar()
     {
-        InternalAggregationFunction function = getMaxByAggregation(VARCHAR, BIGINT);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(VARCHAR, BIGINT);
         assertAggregation(
                 function,
                 "c",
@@ -431,7 +431,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinDoubleLongArray()
     {
-        InternalAggregationFunction function = getMinByAggregation(new ArrayType(BIGINT), DOUBLE);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(new ArrayType(BIGINT), DOUBLE);
         assertAggregation(
                 function,
                 asList(3L, 4L),
@@ -448,7 +448,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxDoubleLongArray()
     {
-        InternalAggregationFunction function = getMaxByAggregation(new ArrayType(BIGINT), DOUBLE);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(new ArrayType(BIGINT), DOUBLE);
         assertAggregation(
                 function,
                 null,
@@ -465,7 +465,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinSliceLongArray()
     {
-        InternalAggregationFunction function = getMinByAggregation(new ArrayType(BIGINT), VARCHAR);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(new ArrayType(BIGINT), VARCHAR);
         assertAggregation(
                 function,
                 asList(3L, 4L),
@@ -482,7 +482,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxSliceLongArray()
     {
-        InternalAggregationFunction function = getMaxByAggregation(new ArrayType(BIGINT), VARCHAR);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(new ArrayType(BIGINT), VARCHAR);
         assertAggregation(
                 function,
                 asList(2L, 2L),
@@ -499,7 +499,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongArrayLongArray()
     {
-        InternalAggregationFunction function = getMinByAggregation(new ArrayType(BIGINT), new ArrayType(BIGINT));
+        JavaAggregationFunctionImplementation function = getMinByAggregation(new ArrayType(BIGINT), new ArrayType(BIGINT));
         assertAggregation(
                 function,
                 asList(1L, 2L),
@@ -510,7 +510,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongArrayLongArray()
     {
-        InternalAggregationFunction function = getMaxByAggregation(new ArrayType(BIGINT), new ArrayType(BIGINT));
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(new ArrayType(BIGINT), new ArrayType(BIGINT));
         assertAggregation(
                 function,
                 asList(3L, 3L),
@@ -521,7 +521,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongArraySlice()
     {
-        InternalAggregationFunction function = getMinByAggregation(VARCHAR, new ArrayType(BIGINT));
+        JavaAggregationFunctionImplementation function = getMinByAggregation(VARCHAR, new ArrayType(BIGINT));
         assertAggregation(
                 function,
                 "c",
@@ -532,7 +532,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongArraySlice()
     {
-        InternalAggregationFunction function = getMaxByAggregation(VARCHAR, new ArrayType(BIGINT));
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(VARCHAR, new ArrayType(BIGINT));
         assertAggregation(
                 function,
                 "a",
@@ -543,7 +543,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinUnknownSlice()
     {
-        InternalAggregationFunction function = getMinByAggregation(VARCHAR, UNKNOWN);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(VARCHAR, UNKNOWN);
         assertAggregation(
                 function,
                 null,
@@ -554,7 +554,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxUnknownSlice()
     {
-        InternalAggregationFunction function = getMaxByAggregation(VARCHAR, UNKNOWN);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(VARCHAR, UNKNOWN);
         assertAggregation(
                 function,
                 null,
@@ -565,7 +565,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinUnknownLongArray()
     {
-        InternalAggregationFunction function = getMinByAggregation(new ArrayType(BIGINT), UNKNOWN);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(new ArrayType(BIGINT), UNKNOWN);
         assertAggregation(
                 function,
                 null,
@@ -576,7 +576,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxUnknownLongArray()
     {
-        InternalAggregationFunction function = getMaxByAggregation(new ArrayType(BIGINT), UNKNOWN);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(new ArrayType(BIGINT), UNKNOWN);
         assertAggregation(
                 function,
                 null,
@@ -608,13 +608,13 @@ public class TestMinMaxByAggregation
         assertEquals(deserializedState.getFirst(), singleState.getFirst());
     }
 
-    private InternalAggregationFunction getMinByAggregation(Type... arguments)
+    private JavaAggregationFunctionImplementation getMinByAggregation(Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("min_by", fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("min_by", fromTypes(arguments)));
     }
 
-    private InternalAggregationFunction getMaxByAggregation(Type... arguments)
+    private JavaAggregationFunctionImplementation getMaxByAggregation(Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("max_by", fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("max_by", fromTypes(arguments)));
     }
 }

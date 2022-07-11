@@ -23,30 +23,30 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AggregationMetadata;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import com.facebook.presto.operator.aggregation.GroupedAccumulator;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
 import com.facebook.presto.operator.aggregation.SetOfValues;
 import com.facebook.presto.operator.aggregation.state.SetAggregationState;
 import com.facebook.presto.operator.aggregation.state.SetAggregationStateFactory;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.operator.aggregation.AccumulatorCompiler.generateAccumulatorClass;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -76,7 +76,7 @@ public class SetAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInAggregationFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type type = boundVariables.getTypeVariable("T");
         ArrayType outputType = (ArrayType) functionAndTypeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(
@@ -90,7 +90,7 @@ public class SetAggregationFunction
         return true;
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type, ArrayType outputType)
+    private static BuiltInAggregationFunctionImplementation generateAggregation(Type type, ArrayType outputType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(SetAggregationFunction.class.getClassLoader());
 
@@ -113,17 +113,16 @@ public class SetAggregationFunction
                         stateFactory)),
                 outputType);
 
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+        Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
                 classLoader);
-
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
                 classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, true,
-                true, metadata, accumulatorClass, groupedAccumulatorClass);
+        return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType),
+                outputType, true, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)

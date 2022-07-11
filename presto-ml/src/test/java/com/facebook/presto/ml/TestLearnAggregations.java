@@ -28,9 +28,10 @@ import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.UpdateMemory;
-import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.testing.AggregationTestUtils;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -43,7 +44,6 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
-import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -63,7 +63,7 @@ public class TestLearnAggregations
     public void testLearn()
     {
         Type mapType = functionAndTypeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
-        InternalAggregationFunction aggregation = generateInternalAggregationFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature()), functionAndTypeManager);
+        BuiltInAggregationFunctionImplementation aggregation = AggregationTestUtils.generateBuiltinAggregationFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature()), functionAndTypeManager);
         assertLearnClassifier(generateAccumulatorFactory(aggregation, ImmutableList.of(0, 1), Optional.empty()).createAccumulator(UpdateMemory.NOOP));
     }
 
@@ -71,7 +71,7 @@ public class TestLearnAggregations
     public void testLearnLibSvm()
     {
         Type mapType = functionAndTypeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
-        InternalAggregationFunction aggregation = AggregationFromAnnotationsParser.parseFunctionDefinitionWithTypesConstraint(
+        BuiltInAggregationFunctionImplementation aggregation = AggregationFromAnnotationsParser.parseFunctionDefinitionWithTypesConstraint(
                 LearnLibSvmClassifierAggregation.class,
                 ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x"))

@@ -23,7 +23,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -71,11 +71,11 @@ public class TestAggregationOperator
 {
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
-    private static final InternalAggregationFunction LONG_AVERAGE = getAggregation("avg", BIGINT);
-    private static final InternalAggregationFunction DOUBLE_SUM = getAggregation("sum", DOUBLE);
-    private static final InternalAggregationFunction LONG_SUM = getAggregation("sum", BIGINT);
-    private static final InternalAggregationFunction REAL_SUM = getAggregation("sum", REAL);
-    private static final InternalAggregationFunction COUNT = getAggregation("count", BIGINT);
+    private static final JavaAggregationFunctionImplementation LONG_AVERAGE = getAggregation("avg", BIGINT);
+    private static final JavaAggregationFunctionImplementation DOUBLE_SUM = getAggregation("sum", DOUBLE);
+    private static final JavaAggregationFunctionImplementation LONG_SUM = getAggregation("sum", BIGINT);
+    private static final JavaAggregationFunctionImplementation REAL_SUM = getAggregation("sum", REAL);
+    private static final JavaAggregationFunctionImplementation COUNT = getAggregation("count", BIGINT);
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -97,8 +97,8 @@ public class TestAggregationOperator
     @Test
     public void testAggregation()
     {
-        InternalAggregationFunction countVarcharColumn = getAggregation("count", VARCHAR);
-        InternalAggregationFunction maxVarcharColumn = getAggregation("max", VARCHAR);
+        JavaAggregationFunctionImplementation countVarcharColumn = getAggregation("count", VARCHAR);
+        JavaAggregationFunctionImplementation maxVarcharColumn = getAggregation("max", VARCHAR);
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();
@@ -221,8 +221,8 @@ public class TestAggregationOperator
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
-    private static InternalAggregationFunction getAggregation(String name, Type... arguments)
+    private static JavaAggregationFunctionImplementation getAggregation(String name, Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(name, fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(name, fromTypes(arguments)));
     }
 }

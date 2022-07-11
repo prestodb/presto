@@ -17,10 +17,12 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -126,12 +128,12 @@ public class BenchmarkGroupedTypedHistogram
                 groupByIdBlocks[j] = groupByIdBlock;
             }
 
-            InternalAggregationFunction aggregationFunction =
+            JavaAggregationFunctionImplementation aggregationFunction =
                     getInternalAggregationFunctionVarChar(histogramGroupImplementation);
             groupedAccumulator = createGroupedAccumulator(aggregationFunction);
         }
 
-        private GroupedAccumulator createGroupedAccumulator(InternalAggregationFunction function)
+        private GroupedAccumulator createGroupedAccumulator(JavaAggregationFunctionImplementation function)
         {
             int[] args = GroupByAggregationTestUtils.createArgs(function);
 
@@ -154,11 +156,11 @@ public class BenchmarkGroupedTypedHistogram
         return groupedAccumulator;
     }
 
-    private static InternalAggregationFunction getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
+    private static JavaAggregationFunctionImplementation getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
     {
         FunctionAndTypeManager functionAndTypeManager = getMetadata(groupMode).getFunctionAndTypeManager();
 
-        return functionAndTypeManager.getAggregateFunctionImplementation(
+        return functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction(NAME, fromTypes(VARCHAR)));
     }
 

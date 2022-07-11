@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation.groupByAggregations;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 
 import static org.testng.Assert.assertEquals;
 
@@ -51,7 +51,7 @@ public class GroupByAggregationTestUtils
         }
     }
 
-    public static int[] createArgs(InternalAggregationFunction function)
+    public static int[] createArgs(JavaAggregationFunctionImplementation function)
     {
         int[] args = new int[function.getParameterTypes().size()];
         for (int i = 0; i < args.length; i++) {

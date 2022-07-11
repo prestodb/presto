@@ -18,7 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -53,9 +53,9 @@ public class TestStreamingAggregationOperator
 {
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
-    private static final InternalAggregationFunction LONG_SUM = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+    private static final JavaAggregationFunctionImplementation LONG_SUM = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
             FUNCTION_AND_TYPE_MANAGER.lookupFunction("sum", fromTypes(BIGINT)));
-    private static final InternalAggregationFunction COUNT = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+    private static final JavaAggregationFunctionImplementation COUNT = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
             FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", ImmutableList.of()));
 
     private ExecutorService executor;

@@ -19,9 +19,9 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.plugin.geospatial.GeoPlugin;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 
@@ -39,7 +39,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 public abstract class AbstractTestGeoAggregationFunctions
         extends AbstractTestFunctions
 {
-    private InternalAggregationFunction function;
+    private JavaAggregationFunctionImplementation function;
 
     @BeforeClass
     public void registerFunctions()
@@ -50,7 +50,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         }
         functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
         FunctionAndTypeManager functionAndTypeManager = functionAssertions.getMetadata().getFunctionAndTypeManager();
-        function = functionAndTypeManager.getAggregateFunctionImplementation(
+        function = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction(getFunctionName(), fromTypes(GEOMETRY)));
     }
 

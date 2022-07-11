@@ -20,12 +20,15 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.state.ReduceAggregationState;
 import com.facebook.presto.operator.aggregation.state.ReduceAggregationStateFactory;
 import com.facebook.presto.operator.aggregation.state.ReduceAggregationStateSerializer;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -34,12 +37,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.operator.aggregation.AccumulatorCompiler.generateAccumulatorClass;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -82,14 +84,14 @@ public class ReduceAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInAggregationFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type inputType = boundVariables.getTypeVariable("T");
         Type stateType = boundVariables.getTypeVariable("S");
         return generateAggregation(inputType, stateType);
     }
 
-    private InternalAggregationFunction generateAggregation(Type inputType, Type stateType)
+    private BuiltInAggregationFunctionImplementation generateAggregation(Type inputType, Type stateType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ReduceAggregationFunction.class.getClassLoader());
 
@@ -126,16 +128,15 @@ public class ReduceAggregationFunction
                 stateType,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
 
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+        Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
                 classLoader);
-
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
                 classLoader);
-        return new InternalAggregationFunction(
+        return new BuiltInAggregationFunctionImplementation(
                 getSignature().getNameSuffix(),
                 ImmutableList.of(inputType),
                 ImmutableList.of(stateType),

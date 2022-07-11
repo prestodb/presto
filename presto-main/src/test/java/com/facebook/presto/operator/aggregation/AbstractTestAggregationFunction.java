@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.Lists;
@@ -81,7 +82,7 @@ public abstract class AbstractTestAggregationFunction
         }
     }
 
-    protected final InternalAggregationFunction getFunction()
+    protected final JavaAggregationFunctionImplementation getFunction()
     {
         List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
         FunctionHandle functionHandle = functionAndTypeManager.resolveFunction(
@@ -89,7 +90,7 @@ public abstract class AbstractTestAggregationFunction
                 session.getTransactionId(),
                 qualifyObjectName(QualifiedName.of(getFunctionName())),
                 parameterTypes);
-        return functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
+        return functionAndTypeManager.getJavaAggregateFunctionImplementation(functionHandle);
     }
 
     protected abstract String getFunctionName();
