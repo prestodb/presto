@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.pinot.udf.PinotFunctions;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +33,6 @@ public class PinotPlugin
     @Override
     public Set<Class<?>> getFunctions()
     {
-        return ImmutableSet.of(PinotUserDefinedFunctions.class);
+        return ImmutableSet.of(PinotFunctions.class);
     }
 }

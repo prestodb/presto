@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.pinot;
+package com.facebook.presto.pinot.udf;
 
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
@@ -24,15 +24,15 @@ import org.apache.commons.codec.binary.Hex;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-public class PinotUserDefinedFunctions
+public class PinotFunctions
 {
-    private PinotUserDefinedFunctions() {}
+    private PinotFunctions() {}
 
     @Description("pinot binary decimal to double")
     @ScalarFunction(value = "pinot_binary_decimal_to_double")
     @SqlNullable
     @SqlType(StandardTypes.DOUBLE) // TODO: use StandardTypes.DECIMAL
-    public static Double pinotBinaryDecimalToBinary(
+    public static Double pinotBinaryDecimalToDouble(
             @SqlType(StandardTypes.VARBINARY) Slice input,
             @SqlType(StandardTypes.INTEGER) long bigIntegerRadix,
             @SqlType(StandardTypes.INTEGER) long scale,

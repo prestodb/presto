@@ -26,6 +26,8 @@ import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
 import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
@@ -216,6 +218,15 @@ public class TestPinotSegmentPageSource
                             dataTableBuilder.setColumn(colId,
                                     "{ " + generateRandomStringWithLength(RANDOM.nextInt(5)) + " : "
                                         + generateRandomStringWithLength(RANDOM.nextInt(10)) + " }");
+                            break;
+                        case BYTES:
+                            try {
+                                dataTableBuilder.setColumn(colId,
+                                        Hex.decodeHex("0DE0B6B3A7640000".toCharArray())); // Hex of BigDecimal.ONE
+                            }
+                            catch (DecoderException e) {
+                                // nothing to do here
+                            }
                             break;
                         default:
                             throw new RuntimeException("Unsupported type - " + columnDataTypes[colId]);
