@@ -294,7 +294,7 @@ public class PluginManager
         }
 
         for (ExternalPlanStatisticsProvider externalPlanStatisticsProvider : plugin.getExternalPlanStatisticsProviders()) {
-            log.info("Registering plan statistics provider factory %s", externalPlanStatisticsProvider.getName());
+            log.info("Registering plan statistics provider %s", externalPlanStatisticsProvider.getName());
             historyBasedPlanStatisticsManager.addExternalPlanStatisticsProviderFactory(externalPlanStatisticsProvider);
         }
     }
