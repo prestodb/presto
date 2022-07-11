@@ -24,6 +24,7 @@ import com.facebook.presto.operator.aggregation.state.CorrelationState;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
 import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.sql.gen.CompilerOperations;
 import com.google.common.base.CaseFormat;
@@ -51,8 +52,8 @@ public final class AggregationUtils
 
         boolean decomposableFunctions = aggregationNode.getAggregations().values().stream()
                 .map(AggregationNode.Aggregation::getFunctionHandle)
-                .map(functionAndTypeManager::getAggregateFunctionImplementation)
-                .allMatch(InternalAggregationFunction::isDecomposable);
+                .map(functionAndTypeManager::getJavaAggregateFunctionImplementation)
+                .allMatch(JavaAggregationFunctionImplementation::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }

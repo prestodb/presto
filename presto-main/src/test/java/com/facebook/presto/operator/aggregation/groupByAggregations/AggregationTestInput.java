@@ -15,11 +15,11 @@
 package com.facebook.presto.operator.aggregation.groupByAggregations;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.AggregationTestUtils;
-import com.facebook.presto.operator.aggregation.GroupedAccumulator;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.base.Suppliers;
 import org.testng.internal.collections.Ints;
 
@@ -31,14 +31,14 @@ import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory
 public class AggregationTestInput
 {
     private final Page[] pages;
-    private final InternalAggregationFunction function;
+    private final JavaAggregationFunctionImplementation function;
     private int[] args;
 
     private final int offset;
     private final boolean isReversed;
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
-    public AggregationTestInput(InternalAggregationFunction function, Page[] pages, int offset, boolean isReversed)
+    public AggregationTestInput(JavaAggregationFunctionImplementation function, Page[] pages, int offset, boolean isReversed)
     {
         this.pages = pages;
         this.function = function;

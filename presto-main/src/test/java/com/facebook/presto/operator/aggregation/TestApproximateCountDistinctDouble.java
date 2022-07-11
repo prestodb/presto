@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -24,9 +25,9 @@ public class TestApproximateCountDistinctDouble
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public InternalAggregationFunction getAggregationFunction()
+    public JavaAggregationFunctionImplementation getAggregationFunction()
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
                 FUNCTION_AND_TYPE_MANAGER.lookupFunction("approx_distinct", fromTypes(DOUBLE, DOUBLE)));
     }
 

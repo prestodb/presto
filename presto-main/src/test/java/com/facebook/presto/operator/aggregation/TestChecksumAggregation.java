@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
@@ -47,14 +48,14 @@ public class TestChecksumAggregation
     @Test
     public void testEmpty()
     {
-        InternalAggregationFunction booleanAgg = getAggregation(BOOLEAN);
+        JavaAggregationFunctionImplementation booleanAgg = getAggregation(BOOLEAN);
         assertAggregation(booleanAgg, null, createBooleansBlock());
     }
 
     @Test
     public void testBoolean()
     {
-        InternalAggregationFunction booleanAgg = getAggregation(BOOLEAN);
+        JavaAggregationFunctionImplementation booleanAgg = getAggregation(BOOLEAN);
         Block block = createBooleansBlock(null, null, true, false, false);
         assertAggregation(booleanAgg, expectedChecksum(BOOLEAN, block), block);
     }
@@ -62,7 +63,7 @@ public class TestChecksumAggregation
     @Test
     public void testLong()
     {
-        InternalAggregationFunction longAgg = getAggregation(BIGINT);
+        JavaAggregationFunctionImplementation longAgg = getAggregation(BIGINT);
         Block block = createLongsBlock(null, 1L, 2L, 100L, null, Long.MAX_VALUE, Long.MIN_VALUE);
         assertAggregation(longAgg, expectedChecksum(BIGINT, block), block);
     }
@@ -70,7 +71,7 @@ public class TestChecksumAggregation
     @Test
     public void testDouble()
     {
-        InternalAggregationFunction doubleAgg = getAggregation(DOUBLE);
+        JavaAggregationFunctionImplementation doubleAgg = getAggregation(DOUBLE);
         Block block = createDoublesBlock(null, 2.0, null, 3.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NaN);
         assertAggregation(doubleAgg, expectedChecksum(DOUBLE, block), block);
     }
@@ -78,7 +79,7 @@ public class TestChecksumAggregation
     @Test
     public void testString()
     {
-        InternalAggregationFunction stringAgg = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation stringAgg = getAggregation(VARCHAR);
         Block block = createStringsBlock("a", "a", null, "b", "c");
         assertAggregation(stringAgg, expectedChecksum(VARCHAR, block), block);
     }
@@ -86,7 +87,7 @@ public class TestChecksumAggregation
     @Test
     public void testShortDecimal()
     {
-        InternalAggregationFunction decimalAgg = getAggregation(createDecimalType(10, 2));
+        JavaAggregationFunctionImplementation decimalAgg = getAggregation(createDecimalType(10, 2));
         Block block = createShortDecimalsBlock("11.11", "22.22", null, "33.33", "44.44");
         DecimalType shortDecimalType = createDecimalType(1);
         assertAggregation(decimalAgg, expectedChecksum(shortDecimalType, block), block);
@@ -95,7 +96,7 @@ public class TestChecksumAggregation
     @Test
     public void testLongDecimal()
     {
-        InternalAggregationFunction decimalAgg = getAggregation(createDecimalType(19, 2));
+        JavaAggregationFunctionImplementation decimalAgg = getAggregation(createDecimalType(19, 2));
         Block block = createLongDecimalsBlock("11.11", "22.22", null, "33.33", "44.44");
         DecimalType longDecimalType = createDecimalType(19);
         assertAggregation(decimalAgg, expectedChecksum(longDecimalType, block), block);
@@ -105,7 +106,7 @@ public class TestChecksumAggregation
     public void testArray()
     {
         ArrayType arrayType = new ArrayType(BIGINT);
-        InternalAggregationFunction stringAgg = getAggregation(arrayType);
+        JavaAggregationFunctionImplementation stringAgg = getAggregation(arrayType);
         Block block = createArrayBigintBlock(asList(null, asList(1L, 2L), asList(3L, 4L), asList(5L, 6L)));
         assertAggregation(stringAgg, expectedChecksum(arrayType, block), block);
     }
@@ -124,8 +125,8 @@ public class TestChecksumAggregation
         return new SqlVarbinary(wrappedLongArray(result).getBytes());
     }
 
-    private InternalAggregationFunction getAggregation(Type argument)
+    private JavaAggregationFunctionImplementation getAggregation(Type argument)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("checksum", fromTypes(argument)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("checksum", fromTypes(argument)));
     }
 }

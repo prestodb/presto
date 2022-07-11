@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
 import org.testng.annotations.Test;
@@ -125,10 +126,10 @@ public class TestQuantileDigestAggregationFunction
     }
 
     @Override
-    protected InternalAggregationFunction getAggregationFunction(Type... type)
+    protected JavaAggregationFunctionImplementation getAggregationFunction(Type... type)
     {
         FunctionAndTypeManager functionAndTypeManager = METADATA.getFunctionAndTypeManager();
-        return functionAndTypeManager.getAggregateFunctionImplementation(
+        return functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("qdigest_agg", fromTypes(type)));
     }
 
@@ -177,7 +178,7 @@ public class TestQuantileDigestAggregationFunction
                 inputs);
     }
 
-    private void testAggregationBigints(InternalAggregationFunction function, Page page, double maxError, long... inputs)
+    private void testAggregationBigints(JavaAggregationFunctionImplementation function, Page page, double maxError, long... inputs)
     {
         // aggregate level
         assertAggregation(function,
@@ -193,7 +194,7 @@ public class TestQuantileDigestAggregationFunction
         assertPercentileWithinError(QDIGEST, StandardTypes.BIGINT, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
-    private void testAggregationReal(InternalAggregationFunction function, Page page, double maxError, float... inputs)
+    private void testAggregationReal(JavaAggregationFunctionImplementation function, Page page, double maxError, float... inputs)
     {
         assertAggregation(function,
                 QDIGEST_EQUALITY,
@@ -209,7 +210,7 @@ public class TestQuantileDigestAggregationFunction
     }
 
     @Override
-    protected void testAggregationDoubles(InternalAggregationFunction function, Page page, double maxError, double... inputs)
+    protected void testAggregationDoubles(JavaAggregationFunctionImplementation function, Page page, double maxError, double... inputs)
     {
         assertAggregation(function,
                 QDIGEST_EQUALITY,

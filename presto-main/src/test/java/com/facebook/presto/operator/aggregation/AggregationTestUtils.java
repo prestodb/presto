@@ -19,8 +19,11 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.BooleanType;
-import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.UpdateMemory;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.primitives.Ints;
 import org.apache.commons.math3.util.Precision;
 
@@ -42,12 +45,12 @@ public final class AggregationTestUtils
     {
     }
 
-    public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Block... blocks)
+    public static void assertAggregation(JavaAggregationFunctionImplementation function, Object expectedValue, Block... blocks)
     {
         assertAggregation(function, expectedValue, new Page(blocks));
     }
 
-    public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Page page)
+    public static void assertAggregation(JavaAggregationFunctionImplementation function, Object expectedValue, Page page)
     {
         BiFunction<Object, Object, Boolean> equalAssertion;
         if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
@@ -63,7 +66,7 @@ public final class AggregationTestUtils
         assertAggregation(function, equalAssertion, null, page, expectedValue);
     }
 
-    public static void assertAggregation(InternalAggregationFunction function, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
+    public static void assertAggregation(JavaAggregationFunctionImplementation function, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
     {
         int positions = page.getPositionCount();
         for (int i = 1; i < page.getChannelCount(); i++) {
@@ -111,7 +114,7 @@ public final class AggregationTestUtils
         return blockBuilder.build();
     }
 
-    private static void assertAggregationInternal(InternalAggregationFunction function, BiFunction<Object, Object, Boolean> isEqual, String testDescription, Object expectedValue, Page... pages)
+    private static void assertAggregationInternal(JavaAggregationFunctionImplementation function, BiFunction<Object, Object, Boolean> isEqual, String testDescription, Object expectedValue, Page... pages)
     {
         // This assertAggregation does not try to split up the page to test the correctness of combine function.
         // Do not use this directly. Always use the other assertAggregation.
@@ -136,7 +139,7 @@ public final class AggregationTestUtils
         }
     }
 
-    public static Object distinctAggregation(InternalAggregationFunction function, Page... pages)
+    public static Object distinctAggregation(JavaAggregationFunctionImplementation function, Page... pages)
     {
         Optional<Integer> maskChannel = Optional.of(pages[0].getChannelCount());
         // Execute normally
@@ -187,12 +190,12 @@ public final class AggregationTestUtils
         return maskedPages;
     }
 
-    public static Object aggregation(InternalAggregationFunction function, Block... blocks)
+    public static Object aggregation(JavaAggregationFunctionImplementation function, Block... blocks)
     {
         return aggregation(function, new Page(blocks));
     }
 
-    public static Object aggregation(InternalAggregationFunction function, Page... pages)
+    public static Object aggregation(JavaAggregationFunctionImplementation function, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = aggregation(function, createArgs(function), Optional.empty(), pages);
@@ -210,7 +213,7 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
-    private static Object aggregation(InternalAggregationFunction function, int[] args, Optional<Integer> maskChannel, Page... pages)
+    private static Object aggregation(JavaAggregationFunctionImplementation function, int[] args, Optional<Integer> maskChannel, Page... pages)
     {
         Accumulator aggregation = generateAccumulatorFactory(function, Ints.asList(args), maskChannel).createAccumulator(UpdateMemory.NOOP);
         for (Page page : pages) {
@@ -223,7 +226,7 @@ public final class AggregationTestUtils
         return BlockAssertions.getOnlyValue(aggregation.getFinalType(), block);
     }
 
-    public static Object partialAggregation(InternalAggregationFunction function, Page... pages)
+    public static Object partialAggregation(JavaAggregationFunctionImplementation function, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = partialAggregation(function, createArgs(function), pages);
@@ -241,7 +244,7 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
-    public static Object partialAggregation(InternalAggregationFunction function, int[] args, Page... pages)
+    public static Object partialAggregation(JavaAggregationFunctionImplementation function, int[] args, Page... pages)
     {
         AccumulatorFactory factory = generateAccumulatorFactory(function, Ints.asList(args), Optional.empty());
         Accumulator finalAggregation = factory.createIntermediateAccumulator();
@@ -267,12 +270,12 @@ public final class AggregationTestUtils
         return BlockAssertions.getOnlyValue(finalAggregation.getFinalType(), finalBlock);
     }
 
-    public static Object groupedAggregation(InternalAggregationFunction function, Page... pages)
+    public static Object groupedAggregation(JavaAggregationFunctionImplementation function, Page... pages)
     {
         return groupedAggregation(Objects::equals, function, pages);
     }
 
-    public static Object groupedAggregation(BiFunction<Object, Object, Boolean> isEqual, InternalAggregationFunction function, Page... pages)
+    public static Object groupedAggregation(BiFunction<Object, Object, Boolean> isEqual, JavaAggregationFunctionImplementation function, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = groupedAggregation(function, createArgs(function), pages);
@@ -290,7 +293,7 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
-    public static Object groupedAggregation(InternalAggregationFunction function, int[] args, Page... pages)
+    public static Object groupedAggregation(JavaAggregationFunctionImplementation function, int[] args, Page... pages)
     {
         GroupedAccumulator groupedAggregation = generateAccumulatorFactory(function, Ints.asList(args), Optional.empty()).createGroupedAccumulator(UpdateMemory.NOOP);
         for (Page page : pages) {
@@ -307,7 +310,7 @@ public final class AggregationTestUtils
         return groupValue;
     }
 
-    public static Object groupedPartialAggregation(BiFunction<Object, Object, Boolean> isEqual, InternalAggregationFunction function, Page... pages)
+    public static Object groupedPartialAggregation(BiFunction<Object, Object, Boolean> isEqual, JavaAggregationFunctionImplementation function, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = groupedPartialAggregation(function, createArgs(function), pages);
@@ -325,7 +328,7 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
-    public static Object groupedPartialAggregation(InternalAggregationFunction function, int[] args, Page... pages)
+    public static Object groupedPartialAggregation(JavaAggregationFunctionImplementation function, int[] args, Page... pages)
     {
         AccumulatorFactory factory = generateAccumulatorFactory(function, Ints.asList(args), Optional.empty());
         GroupedAccumulator finalAggregation = factory.createGroupedIntermediateAccumulator(UpdateMemory.NOOP);
@@ -357,7 +360,7 @@ public final class AggregationTestUtils
         return new GroupByIdBlock(groupId, blockBuilder.build());
     }
 
-    private static int[] createArgs(InternalAggregationFunction function)
+    private static int[] createArgs(JavaAggregationFunctionImplementation function)
     {
         int[] args = new int[function.getParameterTypes().size()];
         for (int i = 0; i < args.length; i++) {
@@ -366,14 +369,14 @@ public final class AggregationTestUtils
         return args;
     }
 
-    public static int[] reverseArgs(InternalAggregationFunction function)
+    public static int[] reverseArgs(JavaAggregationFunctionImplementation function)
     {
         int[] args = createArgs(function);
         Collections.reverse(Ints.asList(args));
         return args;
     }
 
-    public static int[] offsetArgs(InternalAggregationFunction function, int offset)
+    public static int[] offsetArgs(JavaAggregationFunctionImplementation function, int offset)
     {
         int[] args = createArgs(function);
         for (int i = 0; i < args.length; i++) {

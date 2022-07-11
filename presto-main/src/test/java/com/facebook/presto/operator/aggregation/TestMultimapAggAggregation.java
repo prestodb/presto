@@ -26,6 +26,8 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationT
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -122,7 +124,7 @@ public class TestMultimapAggAggregation
     @Test
     public void testMultiplePages()
     {
-        InternalAggregationFunction aggFunction = getInternalAggregationFunction(BIGINT, BIGINT);
+        JavaAggregationFunctionImplementation aggFunction = getInternalAggregationFunction(BIGINT, BIGINT);
         GroupedAccumulator groupedAccumulator = getGroupedAccumulator(aggFunction);
 
         testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
@@ -131,7 +133,7 @@ public class TestMultimapAggAggregation
     @Test
     public void testMultiplePagesAndGroups()
     {
-        InternalAggregationFunction aggFunction = getInternalAggregationFunction(BIGINT, BIGINT);
+        JavaAggregationFunctionImplementation aggFunction = getInternalAggregationFunction(BIGINT, BIGINT);
         GroupedAccumulator groupedAccumulator = getGroupedAccumulator(aggFunction);
 
         testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
@@ -141,7 +143,7 @@ public class TestMultimapAggAggregation
     @Test
     public void testManyValues()
     {
-        InternalAggregationFunction aggFunction = getInternalAggregationFunction(BIGINT, BIGINT);
+        JavaAggregationFunctionImplementation aggFunction = getInternalAggregationFunction(BIGINT, BIGINT);
         GroupedAccumulator groupedAccumulator = getGroupedAccumulator(aggFunction);
 
         int numGroups = 30000;
@@ -167,7 +169,7 @@ public class TestMultimapAggAggregation
     @Test
     public void testEmptyStateOutputIsNull()
     {
-        InternalAggregationFunction aggregationFunction = getInternalAggregationFunction(BIGINT, BIGINT);
+        JavaAggregationFunctionImplementation aggregationFunction = getInternalAggregationFunction(BIGINT, BIGINT);
         GroupedAccumulator groupedAccumulator = generateAccumulatorFactory(aggregationFunction, Ints.asList(), Optional.empty()).createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1);
         groupedAccumulator.evaluateFinal(0, blockBuilder);
@@ -177,16 +179,16 @@ public class TestMultimapAggAggregation
     private static <K, V> void testMultimapAgg(Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
     {
         checkState(expectedKeys.size() == expectedValues.size(), "expectedKeys and expectedValues should have equal size");
-        InternalAggregationFunction aggFunc = getInternalAggregationFunction(keyType, valueType);
+        JavaAggregationFunctionImplementation aggFunc = getInternalAggregationFunction(keyType, valueType);
         testMultimapAgg(aggFunc, keyType, expectedKeys, valueType, expectedValues);
     }
 
-    private static InternalAggregationFunction getInternalAggregationFunction(Type keyType, Type valueType)
+    private static JavaAggregationFunctionImplementation getInternalAggregationFunction(Type keyType, Type valueType)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(keyType, valueType)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(keyType, valueType)));
     }
 
-    private static <K, V> void testMultimapAgg(InternalAggregationFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
+    private static <K, V> void testMultimapAgg(JavaAggregationFunctionImplementation aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
     {
         Map<K, List<V>> map = new HashMap<>();
         for (int i = 0; i < expectedKeys.size(); i++) {
@@ -205,7 +207,7 @@ public class TestMultimapAggAggregation
     }
 
     private static <K, V> void testMultimapAggWithGroupBy(
-            InternalAggregationFunction aggregationFunction,
+            JavaAggregationFunctionImplementation aggregationFunction,
             GroupedAccumulator groupedAccumulator,
             int groupId,
             Type keyType,
@@ -229,7 +231,7 @@ public class TestMultimapAggAggregation
         input.runPagesOnAccumulatorWithAssertion(groupId, groupedAccumulator, testOutput);
     }
 
-    private GroupedAccumulator getGroupedAccumulator(InternalAggregationFunction aggFunction)
+    private GroupedAccumulator getGroupedAccumulator(JavaAggregationFunctionImplementation aggFunction)
     {
         return generateAccumulatorFactory(aggFunction, Ints.asList(GroupByAggregationTestUtils.createArgs(aggFunction)), Optional.empty()).createGroupedAccumulator(UpdateMemory.NOOP);
     }

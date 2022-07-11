@@ -16,17 +16,17 @@ package com.facebook.presto.operator.aggregation.groupByAggregations;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 
 public class AggregationTestInputBuilder
 {
-    private final InternalAggregationFunction function;
+    private final JavaAggregationFunctionImplementation function;
 
     private int offset = -1;
     private boolean isReversed;
     private Page[] pages;
 
-    public AggregationTestInputBuilder(Block[] blocks, InternalAggregationFunction function)
+    public AggregationTestInputBuilder(Block[] blocks, JavaAggregationFunctionImplementation function)
     {
         this.pages = GroupByAggregationTestUtils.createPages(blocks);
         this.function = function;

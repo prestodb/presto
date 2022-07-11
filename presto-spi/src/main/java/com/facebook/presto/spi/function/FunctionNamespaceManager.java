@@ -117,4 +117,9 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     void addUserDefinedType(UserDefinedType userDefinedType);
 
     Optional<UserDefinedType> getUserDefinedType(QualifiedObjectName typeName);
+
+    default AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    {
+        throw new UnsupportedOperationException("Does not support get aggregation function");
+    }
 }

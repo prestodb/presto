@@ -11,35 +11,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.spi.function.aggregation;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
-    public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = ImmutableSet.of(Block.class, long.class, double.class, boolean.class, Slice.class);
+    public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = new HashSet<>(Arrays.asList(Block.class, long.class, double.class, boolean.class, Slice.class));
 
     private final String name;
     private final List<ParameterMetadata> valueInputMetadata;
@@ -67,7 +67,7 @@ public class AggregationMetadata
                 outputFunction,
                 accumulatorStateDescriptors,
                 outputType,
-                ImmutableList.of());
+                Collections.emptyList());
     }
 
     public AggregationMetadata(
@@ -81,13 +81,13 @@ public class AggregationMetadata
             List<Class> lambdaInterfaces)
     {
         this.outputType = requireNonNull(outputType);
-        this.valueInputMetadata = ImmutableList.copyOf(requireNonNull(valueInputMetadata, "valueInputMetadata is null"));
+        this.valueInputMetadata = Collections.unmodifiableList(new ArrayList<>(requireNonNull(valueInputMetadata, "valueInputMetadata is null")));
         this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
-        this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
+        this.lambdaInterfaces = Collections.unmodifiableList(new ArrayList<>(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null")));
 
         verifyInputFunctionSignature(inputFunction, valueInputMetadata, lambdaInterfaces, accumulatorStateDescriptors);
         verifyCombineFunction(combineFunction, lambdaInterfaces, accumulatorStateDescriptors);
@@ -284,7 +284,7 @@ public class AggregationMetadata
             BLOCK_INDEX,
             STATE;
 
-            static ParameterType inputChannelParameterType(boolean isNullable, boolean isBlock, String methodName)
+            public static ParameterType inputChannelParameterType(boolean isNullable, boolean isBlock, String methodName)
             {
                 if (isBlock) {
                     if (isNullable) {
@@ -332,6 +332,13 @@ public class AggregationMetadata
         public AccumulatorStateFactory<?> getFactory()
         {
             return factory;
+        }
+    }
+
+    private static void checkArgument(boolean condition, String message, Object... messageArgs)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(format(message, messageArgs));
         }
     }
 }

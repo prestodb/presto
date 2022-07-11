@@ -20,6 +20,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.UpdateMemory;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -105,7 +107,7 @@ public class BenchmarkArrayAggregation
                     throw new UnsupportedOperationException();
             }
 
-            InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
+            JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                     functionAndTypeManager.lookupFunction(name, fromTypes(elementType)));
             accumulator = generateAccumulatorFactory(function, ImmutableList.of(0), Optional.empty()).createAccumulator(UpdateMemory.NOOP);
 
