@@ -15,12 +15,12 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
-import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
@@ -31,12 +31,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.function.Function;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.USE_EXTERNAL_PLAN_STATISTICS;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class TestExternalStatsProvider
 {
@@ -97,7 +99,9 @@ public class TestExternalStatsProvider
     private static class TestExternalPlanStatisticsProvider
             implements ExternalPlanStatisticsProvider
     {
-        public TestExternalPlanStatisticsProvider() {}
+        public TestExternalPlanStatisticsProvider()
+        {
+        }
 
         @Override
         public String getName()
@@ -106,15 +110,22 @@ public class TestExternalStatsProvider
         }
 
         @Override
-        public PlanStatistics getStats(PlanNode plan, Function<PlanNode, String> planPrinter, Function<TableScanNode, TableStatistics> tableStatisticsProvider)
+        public Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodeHashes)
         {
-            if (plan instanceof TableScanNode) {
-                TableScanNode node = (TableScanNode) plan;
-                if (node.getTable().toString().contains("orders")) {
-                    return new PlanStatistics(Estimate.of(100), Estimate.of(100), 1.0);
-                }
-            }
-            return PlanStatistics.empty();
+            return planNodeHashes.stream().collect(toImmutableMap(
+                    PlanNodeWithHash -> PlanNodeWithHash,
+                    PlanNodeWithHash -> {
+                        if (PlanNodeWithHash.getPlanNode() instanceof TableScanNode) {
+                            TableScanNode node = (TableScanNode) PlanNodeWithHash.getPlanNode();
+                            if (node.getTable().toString().contains("orders")) {
+                                return new HistoricalPlanStatistics(new PlanStatistics(Estimate.of(100), Estimate.of(100), 1.0));
+                            }
+                        }
+                        return new HistoricalPlanStatistics(PlanStatistics.empty());
+                    }));
         }
+
+        @Override
+        public void putStats(Map<PlanNodeWithHash, HistoricalPlanStatistics> hashesAndStatistics) {}
     }
 }
