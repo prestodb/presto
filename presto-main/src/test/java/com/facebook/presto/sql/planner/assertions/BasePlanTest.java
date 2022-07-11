@@ -13,10 +13,19 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.TestingBlockEncodingSerde;
+import com.facebook.presto.common.block.TestingBlockJsonSerde;
+import com.facebook.presto.common.type.TestingTypeDeserializer;
+import com.facebook.presto.common.type.TestingTypeManager;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
@@ -29,6 +38,8 @@ import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,12 +54,15 @@ import java.util.function.Predicate;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class BasePlanTest
 {
     private final LocalQueryRunnerSupplier queryRunnerSupplier;
+    private final ObjectMapper objectMapper;
+
     private LocalQueryRunner queryRunner;
 
     public BasePlanTest()
@@ -59,11 +73,30 @@ public class BasePlanTest
     public BasePlanTest(Map<String, String> sessionProperties)
     {
         this.queryRunnerSupplier = () -> createQueryRunner(sessionProperties);
+        this.objectMapper = createObjectMapper();
     }
 
     public BasePlanTest(LocalQueryRunnerSupplier supplier)
     {
         this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+        this.objectMapper = createObjectMapper();
+    }
+
+    public ObjectMapper getObjectMapper()
+    {
+        return objectMapper;
+    }
+
+    private static ObjectMapper createObjectMapper()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+        return new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)))
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
 
     private static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
@@ -75,7 +108,7 @@ public class BasePlanTest
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build());
+        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
