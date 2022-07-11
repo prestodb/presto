@@ -14,23 +14,33 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
+import com.facebook.presto.sql.planner.CanonicalPlanHashes;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Stack;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.useExternalPlanStatisticsEnabled;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
+import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -40,43 +50,94 @@ public class HistoryBasedPlanStatisticsCalculator
     private final Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider;
     private final Metadata metadata;
     private final StatsCalculator delegate;
+    private final ObjectMapper objectMapper;
 
-    public HistoryBasedPlanStatisticsCalculator(Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider, Metadata metadata, StatsCalculator delegate)
+    // TODO: Evict plan node hashes once a query finishes.
+    private final ConcurrentMap<QueryId, CanonicalPlanHashes> planNodeHashes;
+
+    public HistoryBasedPlanStatisticsCalculator(
+            Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider,
+            Metadata metadata,
+            StatsCalculator delegate,
+            ObjectMapper objectMapper)
     {
         this.externalPlanStatisticsProvider = requireNonNull(externalPlanStatisticsProvider, "externalPlanStatisticsProvider is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.planNodeHashes = new ConcurrentHashMap<>();
     }
 
     @Override
     public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         return delegate.calculateStats(node, sourceStats, lookup, session, types)
-                .combineStats(getStatistics(node, session, types, lookup));
+                .combineStats(getStatistics(node, session, lookup));
     }
 
-    private PlanNode removeGroupReferences(PlanNode planNode, Lookup lookup)
+    public void cacheHashBasedStatistics(Session session, PlanNode root, TypeProvider types)
     {
-        if (planNode instanceof GroupReference) {
-            return removeGroupReferences(lookup.resolve(planNode), lookup);
+        if (!useExternalPlanStatisticsEnabled(session)) {
+            return;
         }
-        List<PlanNode> children = planNode.getSources().stream().map(node -> removeGroupReferences(node, lookup)).collect(toImmutableList());
-        return planNode.replaceChildren(children);
+        CanonicalPlanHashes canonicalPlanHashes = new CanonicalPlanHashes(root, objectMapper);
+        planNodeHashes.put(session.getQueryId(), canonicalPlanHashes);
+
+        ImmutableList.Builder<PlanNodeWithHash> hashes = new ImmutableList.Builder<>();
+        Stack<PlanNode> stack = new Stack();
+        stack.push(root);
+        while (!stack.isEmpty()) {
+            PlanNode plan = stack.pop();
+            plan.getSources().forEach(source -> stack.push(source));
+            for (String hash : canonicalPlanHashes.getCanonicalPlanHashes(plan.getId()).values()) {
+                hashes.add(new PlanNodeWithHash(plan, Optional.of(hash)));
+            }
+        }
+        // Cache statistics for future calls
+        // TODO: Right now, we assume that underlying implementation will cache statistics
+        // when called. We should make this explicit by adding a cache here or through API.
+        externalPlanStatisticsProvider.get().getStats(hashes.build());
     }
 
-    private PlanStatistics getStatistics(PlanNode planNode, Session session, TypeProvider types, Lookup lookup)
+    @VisibleForTesting
+    public Optional<CanonicalPlanHashes> getCanonicalPlanHashes(QueryId queryId)
     {
-        planNode = removeGroupReferences(planNode, lookup);
-        ExternalPlanStatisticsProvider externalStatisticsProvider = externalPlanStatisticsProvider.get();
+        return Optional.ofNullable(planNodeHashes.get(queryId));
+    }
+
+    private PlanStatistics getStatistics(PlanNode planNode, Session session, Lookup lookup)
+    {
+        final PlanNode plan = resolveGroupReferences(planNode, lookup);
         if (!useExternalPlanStatisticsEnabled(session)) {
             return PlanStatistics.empty();
         }
-        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics =
-                externalStatisticsProvider.getStats(ImmutableList.of(new PlanNodeWithHash(planNode, Optional.empty())));
 
-        if (statistics.size() == 1) {
-            return statistics.values().iterator().next().getLastRunStatistics();
+        Map<PlanCanonicalizationStrategy, String> allHashes = getCanonicalPlanHashes(session.getQueryId())
+                .map(hashes -> hashes.getCanonicalPlanHashes(planNode.getId()))
+                .orElseGet(ImmutableMap::of);
+
+        List<PlanNodeWithHash> planNodeWithHashes = allHashes.values().stream()
+                .map(hash -> new PlanNodeWithHash(plan, Optional.of(hash)))
+                .collect(toImmutableList());
+
+        // If no hashes are found, try to fetch statistics without hash.
+        if (planNodeWithHashes.isEmpty()) {
+            planNodeWithHashes = ImmutableList.of(new PlanNodeWithHash(plan, Optional.empty()));
         }
-        return PlanStatistics.empty();
+
+        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = externalPlanStatisticsProvider.get().getStats(planNodeWithHashes);
+
+        // Return statistics corresponding to first strategy that we find, in order specified by `historyBasedPlanCanonicalizationStrategyList`
+        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+            for (Map.Entry<PlanNodeWithHash, HistoricalPlanStatistics> entry : statistics.entrySet()) {
+                if (allHashes.containsKey(strategy) && Optional.of(allHashes.get(strategy)).equals(entry.getKey().getHash())) {
+                    return entry.getValue().getLastRunStatistics();
+                }
+            }
+        }
+
+        return Optional.ofNullable(statistics.get(new PlanNodeWithHash(plan, Optional.empty())))
+                .map(stats -> stats.getLastRunStatistics())
+                .orElseGet(PlanStatistics::empty);
     }
 }

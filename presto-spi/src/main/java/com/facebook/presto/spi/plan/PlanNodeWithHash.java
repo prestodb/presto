@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 package com.facebook.presto.spi.plan;
-
 import java.util.Objects;
 import java.util.Optional;
 

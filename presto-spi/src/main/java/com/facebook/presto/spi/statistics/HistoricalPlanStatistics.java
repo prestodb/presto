@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.spi.statistics;
 
-import com.facebook.drift.annotations.ThriftConstructor;
-import com.facebook.drift.annotations.ThriftField;
-import com.facebook.drift.annotations.ThriftStruct;
-
 import java.util.Objects;
 
 import static java.lang.String.format;

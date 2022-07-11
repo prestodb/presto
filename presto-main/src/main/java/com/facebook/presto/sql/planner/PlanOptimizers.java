@@ -129,6 +129,7 @@ import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.HashBasedPartialDistinctLimit;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
+import com.facebook.presto.sql.planner.optimizations.HistoricalStatisticsCachingPlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.KeyBasedSampler;
@@ -569,6 +570,11 @@ public class PlanOptimizers
                         .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager).rules())
                         .add(new InlineProjections(metadata.getFunctionAndTypeManager()))
                         .build()));
+
+        // Cache history based plan hashes for each plan node.
+        // After this step, nodes with same PlanNodeId will share same history based statistics.
+        // TODO: Enforce that no rules after this change plan node ids unless needed
+        builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsCachingPlanOptimizer(statsCalculator)));
 
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges

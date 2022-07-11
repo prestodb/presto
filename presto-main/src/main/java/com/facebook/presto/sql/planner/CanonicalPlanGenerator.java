@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -54,7 +55,7 @@ import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class CanonicalPlanGenerator
-        extends InternalPlanVisitor<Optional<PlanNode>, Map<VariableReferenceExpression, VariableReferenceExpression>>
+        extends InternalPlanVisitor<Optional<PlanNode>, CanonicalPlanGenerator.Context>
 {
     private final PlanNodeIdAllocator planNodeidAllocator = new PlanNodeIdAllocator();
     private final PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
@@ -67,28 +68,28 @@ public class CanonicalPlanGenerator
 
     public static Optional<CanonicalPlanFragment> generateCanonicalPlanFragment(PlanNode root, PartitioningScheme partitioningScheme)
     {
-        Map<VariableReferenceExpression, VariableReferenceExpression> originalToNewVariableNames = new HashMap<>();
-        Optional<PlanNode> canonicalPlan = root.accept(new CanonicalPlanGenerator(DEFAULT), originalToNewVariableNames);
-        if (!originalToNewVariableNames.keySet().containsAll(partitioningScheme.getOutputLayout())) {
+        Context context = new Context();
+        Optional<PlanNode> canonicalPlan = root.accept(new CanonicalPlanGenerator(PlanCanonicalizationStrategy.DEFAULT), context);
+        if (!context.getExpressions().keySet().containsAll(partitioningScheme.getOutputLayout())) {
             return Optional.empty();
         }
-        return canonicalPlan.map(planNode -> new CanonicalPlanFragment(new CanonicalPlan(planNode, DEFAULT), getCanonicalPartitioningScheme(partitioningScheme, originalToNewVariableNames)));
+        return canonicalPlan.map(planNode -> new CanonicalPlanFragment(new CanonicalPlan(planNode, DEFAULT), getCanonicalPartitioningScheme(partitioningScheme, context.getExpressions())));
     }
 
     public static Optional<CanonicalPlan> generateCanonicalPlan(PlanNode root, PlanCanonicalizationStrategy strategy)
     {
-        Optional<PlanNode> canonicalPlanNode = root.accept(new CanonicalPlanGenerator(strategy), new HashMap<>());
+        Optional<PlanNode> canonicalPlanNode = root.accept(new CanonicalPlanGenerator(strategy), new CanonicalPlanGenerator.Context());
         return canonicalPlanNode.map(planNode -> new CanonicalPlan(planNode, strategy));
     }
 
     @Override
-    public Optional<PlanNode> visitPlan(PlanNode node, Map<VariableReferenceExpression, VariableReferenceExpression> context)
+    public Optional<PlanNode> visitPlan(PlanNode node, Context context)
     {
         return Optional.empty();
     }
 
     @Override
-    public Optional<PlanNode> visitOutput(OutputNode node, Map<VariableReferenceExpression, VariableReferenceExpression> context)
+    public Optional<PlanNode> visitOutput(OutputNode node, Context context)
     {
         if (strategy == DEFAULT) {
             return Optional.empty();
@@ -100,13 +101,14 @@ public class CanonicalPlanGenerator
         }
 
         List<RowExpressionReference> rowExpressionReferences = node.getOutputVariables().stream()
-                .map(variable -> new RowExpressionReference(inlineAndCanonicalize(context, variable, strategy == REMOVE_SAFE_CONSTANTS), variable))
+                .map(variable -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), variable, strategy == REMOVE_SAFE_CONSTANTS), variable))
                 .sorted(comparing(rowExpressionReference -> rowExpressionReference.getRowExpression().toString()))
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();
         for (RowExpressionReference rowExpressionReference : rowExpressionReferences) {
             VariableReferenceExpression reference = variableAllocator.newVariable(rowExpressionReference.getRowExpression());
+            context.mapExpression(rowExpressionReference.getVariableReferenceExpression(), reference);
             assignments.put(reference, rowExpressionReference.getRowExpression());
         }
         // Rewrite OutputNode as ProjectNode
@@ -116,12 +118,13 @@ public class CanonicalPlanGenerator
                 source.get(),
                 new Assignments(assignments.build()),
                 ProjectNode.Locality.LOCAL);
+        context.addPlan(node.getId(), new CanonicalPlan(canonicalPlan, strategy));
 
         return Optional.of(canonicalPlan);
     }
 
     @Override
-    public Optional<PlanNode> visitAggregation(AggregationNode node, Map<VariableReferenceExpression, VariableReferenceExpression> context)
+    public Optional<PlanNode> visitAggregation(AggregationNode node, Context context)
     {
         Optional<PlanNode> source = node.getSource().accept(this, context);
         if (!source.isPresent()) {
@@ -134,28 +137,31 @@ public class CanonicalPlanGenerator
         //   3. Get new variable reference for aggregation expression
         //   4. Record mapping from original variable reference to the new one
         List<AggregationReference> aggregationReferences = node.getAggregations().entrySet().stream()
-                .map(entry -> new AggregationReference(getCanonicalAggregation(entry.getValue(), context), entry.getKey()))
+                .map(entry -> new AggregationReference(getCanonicalAggregation(entry.getValue(), context.getExpressions()), entry.getKey()))
                 .sorted(comparing(aggregationReference -> aggregationReference.getAggregation().getCall().toString()))
                 .collect(toImmutableList());
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
         for (AggregationReference aggregationReference : aggregationReferences) {
             VariableReferenceExpression reference = variableAllocator.newVariable(aggregationReference.getAggregation().getCall());
-            context.put(aggregationReference.getVariableReferenceExpression(), reference);
+            context.mapExpression(aggregationReference.getVariableReferenceExpression(), reference);
             aggregations.put(reference, aggregationReference.getAggregation());
         }
 
-        return Optional.of(new AggregationNode(
+        PlanNode canonicalPlan = new AggregationNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 aggregations.build(),
-                getCanonicalGroupingSetDescriptor(node.getGroupingSets(), context),
+                getCanonicalGroupingSetDescriptor(node.getGroupingSets(), context.getExpressions()),
                 node.getPreGroupedVariables().stream()
-                        .map(context::get)
+                        .map(variable -> context.getExpressions().get(variable))
                         .collect(toImmutableList()),
                 node.getStep(),
                 node.getHashVariable().map(ignored -> variableAllocator.newHashVariable()),
-                node.getGroupIdVariable().map(context::get)));
+                node.getGroupIdVariable().map(variable -> context.getExpressions().get(variable)));
+
+        context.addPlan(node.getId(), new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
     }
 
     private Aggregation getCanonicalAggregation(Aggregation aggregation, Map<VariableReferenceExpression, VariableReferenceExpression> context)
@@ -209,7 +215,7 @@ public class CanonicalPlanGenerator
     }
 
     @Override
-    public Optional<PlanNode> visitGroupId(GroupIdNode node, Map<VariableReferenceExpression, VariableReferenceExpression> context)
+    public Optional<PlanNode> visitGroupId(GroupIdNode node, Context context)
     {
         Optional<PlanNode> source = node.getSource().accept(this, context);
         if (!source.isPresent()) {
@@ -218,36 +224,39 @@ public class CanonicalPlanGenerator
 
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> groupingColumns = ImmutableMap.builder();
         for (Entry<VariableReferenceExpression, VariableReferenceExpression> entry : node.getGroupingColumns().entrySet()) {
-            VariableReferenceExpression column = context.get(entry.getValue());
+            VariableReferenceExpression column = context.getExpressions().get(entry.getValue());
             VariableReferenceExpression reference = variableAllocator.newVariable(column, "gid");
-            context.put(entry.getKey(), reference);
+            context.mapExpression(entry.getKey(), reference);
             groupingColumns.put(reference, column);
         }
 
         ImmutableList.Builder<List<VariableReferenceExpression>> groupingSets = ImmutableList.builder();
         for (List<VariableReferenceExpression> groupingSet : node.getGroupingSets()) {
             groupingSets.add(groupingSet.stream()
-                    .map(context::get)
+                    .map(variable -> context.getExpressions().get(variable))
                     .collect(toImmutableList()));
         }
 
         VariableReferenceExpression groupId = variableAllocator.newVariable("groupid", INTEGER);
-        context.put(node.getGroupIdVariable(), groupId);
+        context.mapExpression(node.getGroupIdVariable(), groupId);
 
-        return Optional.of(new GroupIdNode(
+        PlanNode canonicalPlan = new GroupIdNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 groupingSets.build(),
                 groupingColumns.build(),
                 node.getAggregationArguments().stream()
-                        .map(context::get)
+                        .map(variable -> context.getExpressions().get(variable))
                         .collect(toImmutableList()),
-                groupId));
+                groupId);
+
+        context.addPlan(node.getId(), new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
     }
 
     @Override
-    public Optional<PlanNode> visitUnnest(UnnestNode node, Map<VariableReferenceExpression, VariableReferenceExpression> context)
+    public Optional<PlanNode> visitUnnest(UnnestNode node, Context context)
     {
         Optional<PlanNode> source = node.getSource().accept(this, context);
         if (!source.isPresent()) {
@@ -257,11 +266,11 @@ public class CanonicalPlanGenerator
         // Generate canonical unnestVariables.
         ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> newUnnestVariables = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariable : node.getUnnestVariables().entrySet()) {
-            VariableReferenceExpression input = (VariableReferenceExpression) inlineAndCanonicalize(context, unnestVariable.getKey());
+            VariableReferenceExpression input = (VariableReferenceExpression) inlineAndCanonicalize(context.getExpressions(), unnestVariable.getKey());
             ImmutableList.Builder<VariableReferenceExpression> newVariables = ImmutableList.builder();
             for (VariableReferenceExpression variable : unnestVariable.getValue()) {
                 VariableReferenceExpression newVariable = variableAllocator.newVariable(Optional.empty(), "unnest_field", variable.getType());
-                context.put(variable, newVariable);
+                context.mapExpression(variable, newVariable);
                 newVariables.add(newVariable);
             }
             newUnnestVariables.put(input, newVariables.build());
@@ -271,23 +280,26 @@ public class CanonicalPlanGenerator
         Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable()
                 .map(variable -> {
                     VariableReferenceExpression newVariable = variableAllocator.newVariable(Optional.empty(), "unnest_ordinality", variable.getType());
-                    context.put(variable, newVariable);
+                    context.mapExpression(variable, newVariable);
                     return newVariable;
                 });
 
-        return Optional.of(new UnnestNode(
+        PlanNode canonicalPlan = new UnnestNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 node.getReplicateVariables().stream()
-                        .map(variable -> (VariableReferenceExpression) inlineAndCanonicalize(context, variable))
+                        .map(variable -> (VariableReferenceExpression) inlineAndCanonicalize(context.getExpressions(), variable))
                         .collect(toImmutableList()),
                 newUnnestVariables.build(),
-                ordinalityVariable));
+                ordinalityVariable);
+
+        context.addPlan(node.getId(), new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
     }
 
     @Override
-    public Optional<PlanNode> visitProject(ProjectNode node, Map<VariableReferenceExpression, VariableReferenceExpression> context)
+    public Optional<PlanNode> visitProject(ProjectNode node, Context context)
     {
         Optional<PlanNode> source = node.getSource().accept(this, context);
         if (!source.isPresent()) {
@@ -295,22 +307,25 @@ public class CanonicalPlanGenerator
         }
 
         List<RowExpressionReference> rowExpressionReferences = node.getAssignments().entrySet().stream()
-                .map(entry -> new RowExpressionReference(inlineAndCanonicalize(context, entry.getValue(), strategy == REMOVE_SAFE_CONSTANTS), entry.getKey()))
+                .map(entry -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), entry.getValue(), strategy == REMOVE_SAFE_CONSTANTS), entry.getKey()))
                 .sorted(comparing(rowExpressionReference -> rowExpressionReference.getRowExpression().toString()))
                 .collect(toImmutableList());
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();
         for (RowExpressionReference rowExpressionReference : rowExpressionReferences) {
             VariableReferenceExpression reference = variableAllocator.newVariable(rowExpressionReference.getRowExpression());
-            context.put(rowExpressionReference.getVariableReferenceExpression(), reference);
+            context.mapExpression(rowExpressionReference.getVariableReferenceExpression(), reference);
             assignments.put(reference, rowExpressionReference.getRowExpression());
         }
 
-        return Optional.of(new ProjectNode(
+        PlanNode canonicalPlan = new ProjectNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
                 new Assignments(assignments.build()),
-                node.getLocality()));
+                node.getLocality());
+
+        context.addPlan(node.getId(), new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
     }
 
     private static class RowExpressionReference
@@ -336,18 +351,25 @@ public class CanonicalPlanGenerator
     }
 
     @Override
-    public Optional<PlanNode> visitFilter(FilterNode node, Map<VariableReferenceExpression, VariableReferenceExpression> context)
+    public Optional<PlanNode> visitFilter(FilterNode node, Context context)
     {
         Optional<PlanNode> source = node.getSource().accept(this, context);
-        return source.map(planNode -> new FilterNode(
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        PlanNode canonicalPlan = new FilterNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
-                inlineAndCanonicalize(context, node.getPredicate())));
+                inlineAndCanonicalize(context.getExpressions(), node.getPredicate()));
+
+        context.addPlan(node.getId(), new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
     }
 
     @Override
-    public Optional<PlanNode> visitTableScan(TableScanNode node, Map<VariableReferenceExpression, VariableReferenceExpression> context)
+    public Optional<PlanNode> visitTableScan(TableScanNode node, Context context)
     {
         List<ColumnReference> columnReferences = node.getAssignments().entrySet().stream()
                 .map(entry -> new ColumnReference(entry.getValue(), entry.getKey()))
@@ -357,17 +379,20 @@ public class CanonicalPlanGenerator
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
         for (ColumnReference columnReference : columnReferences) {
             VariableReferenceExpression reference = variableAllocator.newVariable(Optional.empty(), columnReference.getColumnHandle().toString(), columnReference.getVariableReferenceExpression().getType());
-            context.put(columnReference.getVariableReferenceExpression(), reference);
+            context.mapExpression(columnReference.getVariableReferenceExpression(), reference);
             outputVariables.add(reference);
             assignments.put(reference, columnReference.getColumnHandle());
         }
 
-        return Optional.of(new CanonicalTableScanNode(
+        PlanNode canonicalPlan = new CanonicalTableScanNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
                 getCanonicalTableHandle(node.getTable(), strategy),
                 outputVariables.build(),
-                assignments.build()));
+                assignments.build());
+
+        context.addPlan(node.getId(), new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
     }
 
     private static RowExpression inlineAndCanonicalize(
@@ -404,6 +429,32 @@ public class CanonicalPlanGenerator
         public VariableReferenceExpression getVariableReferenceExpression()
         {
             return variableReferenceExpression;
+        }
+    }
+
+    public static class Context
+    {
+        private final Map<VariableReferenceExpression, VariableReferenceExpression> expressions = new HashMap();
+        private final Map<PlanNodeId, CanonicalPlan> canonicalPlans = new HashMap();
+
+        public Map<VariableReferenceExpression, VariableReferenceExpression> getExpressions()
+        {
+            return expressions;
+        }
+
+        public Map<PlanNodeId, CanonicalPlan> getCanonicalPlans()
+        {
+            return canonicalPlans;
+        }
+
+        public void mapExpression(VariableReferenceExpression from, VariableReferenceExpression to)
+        {
+            expressions.put(from, to);
+        }
+
+        public void addPlan(PlanNodeId id, CanonicalPlan plan)
+        {
+            canonicalPlans.put(id, plan);
         }
     }
 }
