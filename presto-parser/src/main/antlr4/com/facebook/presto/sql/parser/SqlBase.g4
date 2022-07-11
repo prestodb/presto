@@ -403,6 +403,63 @@ primaryExpression
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     | '(' expression ')'                                                                  #parenthesizedExpression
     | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
+    | JSON_EXISTS '(' jsonPathInvocation (jsonExistsErrorBehavior ON ERROR)? ')'          #jsonExists
+    | JSON_VALUE '('
+        jsonPathInvocation
+        (RETURNING type)?
+        (emptyBehavior=jsonValueBehavior ON EMPTY)?
+        (errorBehavior=jsonValueBehavior ON ERROR)?
+      ')'                                                                                 #jsonValue
+    | JSON_QUERY '('
+        jsonPathInvocation
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+        (jsonQueryWrapperBehavior WRAPPER)?
+        ((KEEP | OMIT) QUOTES (ON SCALAR TEXT_STRING)?)?
+        (emptyBehavior=jsonQueryBehavior ON EMPTY)?
+        (errorBehavior=jsonQueryBehavior ON ERROR)?
+      ')'                                                                                 #jsonQuery
+    ;
+
+    jsonPathInvocation
+        : jsonValueExpression ',' path=string
+            (PASSING jsonArgument (',' jsonArgument)*)?
+        ;
+
+    jsonValueExpression
+        : expression (FORMAT jsonRepresentation)?
+        ;
+
+    jsonRepresentation
+        : JSON (ENCODING (UTF8 | UTF16 | UTF32))? // TODO add implementation-defined JSON representation option
+        ;
+
+    jsonArgument
+        : jsonValueExpression AS identifier
+        ;
+
+    jsonExistsErrorBehavior
+        : TRUE
+        | FALSE
+        | UNKNOWN
+        | ERROR
+        ;
+
+    jsonValueBehavior
+        : ERROR
+        | NULL
+        | DEFAULT expression
+        ;
+
+    jsonQueryWrapperBehavior
+        : WITHOUT ARRAY?
+        | WITH (CONDITIONAL | UNCONDITIONAL)? ARRAY?
+        ;
+
+    jsonQueryBehavior
+        : ERROR
+        | NULL
+        | EMPTY ARRAY
+        | EMPTY OBJECT
     ;
 
 string
@@ -563,9 +620,9 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
     | BERNOULLI
-    | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT | CURRENT_ROLE
-    | DATA | DATE | DAY | DEFINER | DESC | DETERMINISTIC | DISTRIBUTED
-    | EXCLUDING | EXPLAIN | EXTERNAL
+    | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | CURRENT | CURRENT_ROLE
+    | DATA | DATE | DAY | DEFAULT | DEFINER | DESC | DETERMINISTIC | DISTRIBUTED
+    | EMPTY | ENCODING | ERROR | EXCLUDING | EXPLAIN | EXTERNAL
     | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
     | GRANT | GRANTED | GRANTS | GRAPHVIZ
     | HOUR
@@ -574,15 +631,16 @@ nonReserved
     | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
     | MAP | MATERIALIZED | MINUTE | MONTH
     | NAME | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
-    | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
-    | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES
-    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
-    | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
+    | OBJECT | OFFSET | OMIT | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
+    | PARTITION | PARTITIONS | PASSING | POSITION | PRECEDING | PRIVILEGES | PROPERTIES
+    | QUOTES
+    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
+    | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
-    | TABLES | TABLESAMPLE | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | USE | USER
+    | TABLES | TABLESAMPLE | TEMPORARY | TEXT | TEXT_STRING | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
+    | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNKNOWN | USE | USER | UTF16 | UTF32 | UTF8
     | VALIDATE | VERBOSE | VIEW
-    | WORK | WRITE
+    | WORK | WRAPPER | WRITE
     | YEAR
     | ZONE
     ;
@@ -612,6 +670,7 @@ COLUMNS: 'COLUMNS';
 COMMENT: 'COMMENT';
 COMMIT: 'COMMIT';
 COMMITTED: 'COMMITTED';
+CONDITIONAL: 'CONDITIONAL';
 CONSTRAINT: 'CONSTRAINT';
 CREATE: 'CREATE';
 CROSS: 'CROSS';
@@ -626,6 +685,7 @@ DATA: 'DATA';
 DATE: 'DATE';
 DAY: 'DAY';
 DEALLOCATE: 'DEALLOCATE';
+DEFAULT: 'DEFAULT';
 DEFINER: 'DEFINER';
 DELETE: 'DELETE';
 DESC: 'DESC';
@@ -635,7 +695,10 @@ DISTINCT: 'DISTINCT';
 DISTRIBUTED: 'DISTRIBUTED';
 DROP: 'DROP';
 ELSE: 'ELSE';
+EMPTY: 'EMPTY';
+ENCODING: 'ENCODING';
 END: 'END';
+ERROR: 'ERROR';
 ESCAPE: 'ESCAPE';
 EXCEPT: 'EXCEPT';
 EXCLUDING: 'EXCLUDING';
@@ -676,8 +739,11 @@ INVOKER: 'INVOKER';
 IO: 'IO';
 IS: 'IS';
 ISOLATION: 'ISOLATION';
-JSON: 'JSON';
 JOIN: 'JOIN';
+JSON: 'JSON';
+JSON_EXISTS: 'JSON_EXISTS';
+JSON_QUERY: 'JSON_QUERY';
+JSON_VALUE: 'JSON_VALUE';
 LANGUAGE: 'LANGUAGE';
 LAST: 'LAST';
 LATERAL: 'LATERAL';
@@ -705,7 +771,9 @@ NOT: 'NOT';
 NULL: 'NULL';
 NULLIF: 'NULLIF';
 NULLS: 'NULLS';
+OBJECT: 'OBJECT';
 OFFSET: 'OFFSET';
+OMIT: 'OMIT';
 ON: 'ON';
 ONLY: 'ONLY';
 OPTION: 'OPTION';
@@ -717,11 +785,13 @@ OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
+PASSING: 'PASSING';
 POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PREPARE: 'PREPARE';
 PRIVILEGES: 'PRIVILEGES';
 PROPERTIES: 'PROPERTIES';
+QUOTES: 'QUOTES';
 RANGE: 'RANGE';
 READ: 'READ';
 RECURSIVE: 'RECURSIVE';
@@ -733,6 +803,7 @@ RESET: 'RESET';
 RESPECT: 'RESPECT';
 RESTRICT: 'RESTRICT';
 RETURN: 'RETURN';
+RETURNING: 'RETURNING';
 RETURNS: 'RETURNS';
 REVOKE: 'REVOKE';
 RIGHT: 'RIGHT';
@@ -742,6 +813,7 @@ ROLLBACK: 'ROLLBACK';
 ROLLUP: 'ROLLUP';
 ROW: 'ROW';
 ROWS: 'ROWS';
+SCALAR: 'SCALAR';
 SCHEMA: 'SCHEMA';
 SCHEMAS: 'SCHEMAS';
 SECOND: 'SECOND';
@@ -763,6 +835,7 @@ TABLES: 'TABLES';
 TABLESAMPLE: 'TABLESAMPLE';
 TEMPORARY: 'TEMPORARY';
 TEXT: 'TEXT';
+TEXT_STRING: 'STRING';
 THEN: 'THEN';
 TIME: 'TIME';
 TIMESTAMP: 'TIMESTAMP';
@@ -775,11 +848,16 @@ TYPE: 'TYPE';
 UESCAPE: 'UESCAPE';
 UNBOUNDED: 'UNBOUNDED';
 UNCOMMITTED: 'UNCOMMITTED';
+UNCONDITIONAL: 'UNCONDITIONAL';
 UNION: 'UNION';
+UNKNOWN: 'UNKNOWN';
 UNNEST: 'UNNEST';
 USE: 'USE';
 USER: 'USER';
 USING: 'USING';
+UTF16: 'UTF16';
+UTF32: 'UTF32';
+UTF8: 'UTF8';
 VALIDATE: 'VALIDATE';
 VALUES: 'VALUES';
 VERBOSE: 'VERBOSE';
@@ -788,6 +866,7 @@ WHEN: 'WHEN';
 WHERE: 'WHERE';
 WITH: 'WITH';
 WORK: 'WORK';
+WRAPPER: 'WRAPPER';
 WRITE: 'WRITE';
 YEAR: 'YEAR';
 ZONE: 'ZONE';

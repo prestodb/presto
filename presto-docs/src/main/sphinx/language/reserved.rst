@@ -50,6 +50,9 @@ Keyword                        SQL:2016      SQL-92
 ``INTO``                       reserved      reserved
 ``IS``                         reserved      reserved
 ``JOIN``                       reserved      reserved
+``JSON_EXISTS``                reserved
+``JSON_QUERY``                 reserved
+``JSON_VALUE``                 reserved
 ``LEFT``                       reserved      reserved
 ``LIKE``                       reserved      reserved
 ``LOCALTIME``                  reserved

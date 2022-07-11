@@ -80,6 +80,11 @@ import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.Isolation;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinOn;
+import com.facebook.presto.sql.tree.JsonExists;
+import com.facebook.presto.sql.tree.JsonPathInvocation;
+import com.facebook.presto.sql.tree.JsonPathParameter;
+import com.facebook.presto.sql.tree.JsonQuery;
+import com.facebook.presto.sql.tree.JsonValue;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Lateral;
@@ -88,6 +93,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -177,6 +183,10 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.JsonPathParameter.JsonFormat.JSON;
+import static com.facebook.presto.sql.tree.JsonPathParameter.JsonFormat.UTF16;
+import static com.facebook.presto.sql.tree.JsonPathParameter.JsonFormat.UTF32;
+import static com.facebook.presto.sql.tree.JsonPathParameter.JsonFormat.UTF8;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language.SQL;
@@ -2663,6 +2673,164 @@ public class TestSqlParser
 
         assertStatement("Use \"test_schema\"", new Use(Optional.empty(), quotedIdentifier("test_schema")));
         assertStatement("Use \"test_catalog\".\"test_schema\"", new Use(Optional.of(quotedIdentifier("test_catalog")), quotedIdentifier("test_schema")));
+    }
+
+    @Test
+    public void testJsonExists()
+    {
+        // test defaults
+        assertExpression("JSON_EXISTS(json_column, 'lax $[5]')",
+                new JsonExists(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 13)),
+                                new Identifier(location(1, 13), "json_column", false),
+                                JSON,
+                                new StringLiteral(location(1, 26), "lax $[5]"),
+                                ImmutableList.of()),
+                        JsonExists.ErrorBehavior.FALSE));
+
+        assertExpression("JSON_EXISTS(" +
+                "                               json_column FORMAT JSON ENCODING UTF8, " +
+                "                               'lax $[start_parameter TO end_parameter.ceiling()]' " +
+                "                                   PASSING " +
+                "                                           start_column AS start_parameter, " +
+                "                                           end_column FORMAT JSON ENCODING UTF16 AS end_parameter " +
+                "                               UNKNOWN ON ERROR)",
+                new JsonExists(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 44)),
+                                new Identifier(location(1, 44), "json_column", false),
+                                UTF8,
+                                new StringLiteral(location(1, 114), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                ImmutableList.of(
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 252)),
+                                                new Identifier(location(1, 268), "start_parameter", false),
+                                                new Identifier(location(1, 252), "start_column", false),
+                                                Optional.empty()),
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 328)),
+                                                new Identifier(location(1, 369), "end_parameter", false),
+                                                new Identifier(location(1, 328), "end_column", false),
+                                                Optional.of(UTF16)))),
+                        JsonExists.ErrorBehavior.UNKNOWN));
+    }
+
+    @Test
+    public void testJsonValue()
+    {
+        // test defaults
+        assertExpression("JSON_VALUE(json_column, 'lax $[5]')",
+                new JsonValue(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 12)),
+                                new Identifier(location(1, 12), "json_column", false),
+                                JSON,
+                                new StringLiteral(location(1, 25), "lax $[5]"),
+                                ImmutableList.of()),
+                        Optional.empty(),
+                        JsonValue.EmptyOrErrorBehavior.NULL,
+                        Optional.empty(),
+                        JsonValue.EmptyOrErrorBehavior.NULL,
+                        Optional.empty()));
+
+        assertExpression("JSON_VALUE(" +
+                "                               json_column FORMAT JSON ENCODING UTF8, " +
+                "                               'lax $[start_parameter TO end_parameter.ceiling()]' " +
+                "                                   PASSING " +
+                "                                           start_column AS start_parameter, " +
+                "                                           end_column FORMAT JSON ENCODING UTF16 AS end_parameter " +
+                "                               RETURNING double " +
+                "                               DEFAULT 5e0 ON EMPTY " +
+                "                               ERROR ON ERROR)",
+                new JsonValue(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 43)),
+                                new Identifier(location(1, 43), "json_column", false),
+                                UTF8,
+                                new StringLiteral(location(1, 113), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                ImmutableList.of(
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 251)),
+                                                new Identifier(location(1, 267), "start_parameter", false),
+                                                new Identifier(location(1, 251), "start_column", false),
+                                                Optional.empty()),
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 327)),
+                                                new Identifier(location(1, 368), "end_parameter", false),
+                                                new Identifier(location(1, 327), "end_column", false),
+                                                Optional.of(UTF16)))),
+                        Optional.of(new Identifier(location(1, 423), "double", false)),
+                        JsonValue.EmptyOrErrorBehavior.DEFAULT,
+                        Optional.of(new DoubleLiteral(location(1, 469), "5e0")),
+                        JsonValue.EmptyOrErrorBehavior.ERROR,
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testJsonQuery()
+    {
+        // test defaults
+        assertExpression("JSON_QUERY(json_column, 'lax $[5]')",
+                new JsonQuery(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 12)),
+                                new Identifier(location(1, 12), "json_column", false),
+                                JSON,
+                                new StringLiteral(location(1, 25), "lax $[5]"),
+                                ImmutableList.of()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        JsonQuery.ArrayWrapperBehavior.WITHOUT,
+                        Optional.empty(),
+                        JsonQuery.EmptyOrErrorBehavior.NULL,
+                        JsonQuery.EmptyOrErrorBehavior.NULL));
+
+        assertExpression("JSON_QUERY(" +
+                "                               json_column FORMAT JSON ENCODING UTF8, " +
+                "                               'lax $[start_parameter TO end_parameter.ceiling()]' " +
+                "                                   PASSING " +
+                "                                           start_column AS start_parameter, " +
+                "                                           end_column FORMAT JSON ENCODING UTF16 AS end_parameter " +
+                "                               RETURNING varchar FORMAT JSON ENCODING UTF32 " +
+                "                               WITH ARRAY WRAPPER " +
+                "                               OMIT QUOTES " +
+                "                               EMPTY ARRAY ON EMPTY " +
+                "                               ERROR ON ERROR)",
+                new JsonQuery(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 43)),
+                                new Identifier(location(1, 43), "json_column", false),
+                                UTF8,
+                                new StringLiteral(location(1, 113), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                ImmutableList.of(
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 251)),
+                                                new Identifier(location(1, 267), "start_parameter", false),
+                                                new Identifier(location(1, 251), "start_column", false),
+                                                Optional.empty()),
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 327)),
+                                                new Identifier(location(1, 368), "end_parameter", false),
+                                                new Identifier(location(1, 327), "end_column", false),
+                                                Optional.of(UTF16)))),
+                        Optional.of(new Identifier(location(1, 423), "varchar", false)),
+                        Optional.of(UTF32),
+                        JsonQuery.ArrayWrapperBehavior.UNCONDITIONAL,
+                        Optional.of(JsonQuery.QuotesBehavior.OMIT),
+                        JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
+                        JsonQuery.EmptyOrErrorBehavior.ERROR));
+    }
+
+    private static NodeLocation location(int line, int column)
+    {
+        return new NodeLocation(line, column);
     }
 
     private static void assertCast(String type)
