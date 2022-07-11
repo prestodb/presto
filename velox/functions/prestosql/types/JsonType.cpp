@@ -450,7 +450,9 @@ template <>
 FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::VARCHAR>(
     const folly::dynamic& object,
     exec::GenericWriter& writer) {
-  if (object.isBool()) {
+  if (isJsonType(writer.type())) {
+    writer.castTo<Varchar>().append(toJson(object));
+  } else if (object.isBool()) {
     writer.castTo<Varchar>().append(object.asBool() ? "true" : "false");
   } else {
     writer.castTo<Varchar>().append(object.asString());
@@ -536,7 +538,9 @@ FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::ARRAY>(
   auto& writerTyped = writer.castTo<Array<Any>>();
 
   for (auto it = object.begin(); it != object.end(); ++it) {
-    if (it->isNull()) {
+    // If casting to array of JSON, nulls in array elements should become the
+    // JSON text "null".
+    if (!isJsonType(writer.type()->childAt(0)) && it->isNull()) {
       writerTyped.add_null();
     } else {
       VELOX_DYNAMIC_TYPE_DISPATCH(
@@ -557,7 +561,9 @@ FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::MAP>(
   for (const auto& pair : object.items()) {
     VELOX_USER_CHECK(!pair.first.isNull(), "Map keys cannot be NULL.");
 
-    if (pair.second.isNull()) {
+    // If casting to map of JSON values, nulls in map values should become the
+    // JSON text "null".
+    if (!isJsonType(writer.type()->childAt(1)) && pair.second.isNull()) {
       auto& keyWriter = writerTyped.add_null();
       VELOX_DYNAMIC_TYPE_DISPATCH(
           castFromJsonTyped,
@@ -689,7 +695,8 @@ bool JsonCastOperator::isSupportedToType(const TypePtr& other) const {
     case TypeKind::MAP:
       return (
           isSupportedBasicType(other->childAt(0)) &&
-          isSupportedToType(other->childAt(1)));
+          isSupportedToType(other->childAt(1)) &&
+          !isJsonType(other->childAt(0)));
     default:
       return false;
   }

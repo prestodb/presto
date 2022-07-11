@@ -951,6 +951,38 @@ TEST_F(JsonCastTest, toNested) {
       JSON(), MAP(VARCHAR(), ARRAY(DOUBLE())), map, mapExpected);
 }
 
+TEST_F(JsonCastTest, toArrayAndMapOfJson) {
+  // Test casting to array of JSON.
+  auto array = makeNullableFlatVector<Json>(
+      {R"([[1,2],[null],null,"3"])"_sv, "[[]]"_sv, "[]"_sv}, JSON());
+  auto arrayExpected = makeNullableArrayVector<StringView>(
+      {{"[1,2]"_sv, "[null]"_sv, "null"_sv, "\"3\""_sv}, {"[]"_sv}, {}},
+      ARRAY(JSON()));
+
+  testCast<ComplexType>(JSON(), ARRAY(JSON()), array, arrayExpected);
+
+  // Test casting to map of JSON values.
+  auto map = makeNullableFlatVector<Json>(
+      {R"({"k1":[1,23],"k2":456,"k3":null,"k4":"a"})"_sv,
+       R"({"k5":{}})"_sv,
+       "{}"_sv},
+      JSON());
+  auto mapExpected = makeMapVector<StringView, StringView>(
+      {{{"k1"_sv, "[1,23]"_sv},
+        {"k2"_sv, "456"_sv},
+        {"k3"_sv, "null"_sv},
+        {"k4"_sv, "\"a\""_sv}},
+       {{"k5"_sv, "{}"_sv}},
+       {}},
+      MAP(VARCHAR(), JSON()));
+
+  testCast<ComplexType>(JSON(), MAP(VARCHAR(), JSON()), map, mapExpected);
+
+  // The type of map keys is not allowed to be JSON.
+  testThrow<Json, ComplexType>(
+      JSON(), MAP(JSON(), BIGINT()), {R"({"k1":1})"_sv});
+}
+
 TEST_F(JsonCastTest, toInvalid) {
   testThrow<Json, Timestamp>(JSON(), TIMESTAMP(), {"null"_sv});
   testThrow<Json, Date>(JSON(), DATE(), {"null"_sv});
