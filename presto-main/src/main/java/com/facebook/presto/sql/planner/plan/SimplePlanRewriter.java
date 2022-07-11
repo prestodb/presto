@@ -26,12 +26,17 @@ public abstract class SimplePlanRewriter<C>
 {
     public static <C> PlanNode rewriteWith(SimplePlanRewriter<C> rewriter, PlanNode node)
     {
-        return node.accept(rewriter, new RewriteContext<>(rewriter, null));
+        return rewriteWith(rewriter, node, null);
     }
 
     public static <C> PlanNode rewriteWith(SimplePlanRewriter<C> rewriter, PlanNode node, C context)
     {
-        return node.accept(rewriter, new RewriteContext<>(rewriter, context));
+        // If we rewrite a plan node, topmost node should remain statistically equivalent.
+        PlanNode result = node.accept(rewriter, new RewriteContext<>(rewriter, context));
+        if (node.getStatsEquivalentPlanNode().isPresent() && !result.getStatsEquivalentPlanNode().isPresent()) {
+            result = result.assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode());
+        }
+        return result;
     }
 
     @Override
@@ -83,7 +88,11 @@ public abstract class SimplePlanRewriter<C>
          */
         public PlanNode rewrite(PlanNode node, C userContext)
         {
+            // If we rewrite a plan node, topmost node should remain statistically equivalent.
             PlanNode result = node.accept(nodeRewriter, new RewriteContext<>(nodeRewriter, userContext));
+            if (node.getStatsEquivalentPlanNode().isPresent() && !result.getStatsEquivalentPlanNode().isPresent()) {
+                result = result.assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode());
+            }
             verify(result != null, "nodeRewriter returned null for %s", node.getClass().getName());
 
             return result;

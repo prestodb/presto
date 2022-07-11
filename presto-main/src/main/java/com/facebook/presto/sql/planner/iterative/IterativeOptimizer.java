@@ -162,7 +162,12 @@ public class IterativeOptimizer
                 Rule.Result result = transform(node, rule, matcher, context);
 
                 if (result.getTransformedPlan().isPresent()) {
-                    node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+                    // If we rewrite a plan node, topmost node should remain statistically equivalent.
+                    PlanNode transformedNode = result.getTransformedPlan().get();
+                    if (node.getStatsEquivalentPlanNode().isPresent() && !transformedNode.getStatsEquivalentPlanNode().isPresent()) {
+                        transformedNode = transformedNode.assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode());
+                    }
+                    node = context.memo.replace(group, transformedNode, rule.getClass().getName());
 
                     done = false;
                     progress = true;
