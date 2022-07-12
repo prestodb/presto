@@ -185,6 +185,16 @@ public class RemoteMetadataManager
                 : readValue(referencedMaterializedViewsListJson, new TypeReference<List<QualifiedObjectName>>() {});
     }
 
+    public CatalogServerCacheStats getCacheStats()
+    {
+        return catalogServerClient.get().getCacheStats();
+    }
+
+    public void refreshCache()
+    {
+        catalogServerClient.get().refreshCache();
+    }
+
     private <T> T readValue(String content, TypeReference<T> valueTypeRef)
     {
         try {

@@ -60,6 +60,7 @@ public class CatalogServer
     private final SessionPropertyManager sessionPropertyManager;
     private final TransactionManager transactionManager;
     private final ObjectMapper objectMapper;
+    private final CatalogServerCacheStats cacheStats;
 
     private final LoadingCache<CacheKey, Boolean> catalogExistsCache;
     private final LoadingCache<CacheKey, Boolean> schemaExistsCache;
@@ -79,6 +80,7 @@ public class CatalogServer
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.objectMapper = requireNonNull(objectMapper, "handleResolver is null");
+        this.cacheStats = new CatalogServerCacheStats();
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                 .maximumSize(CACHE_MAXIMUM_SIZE)
@@ -104,21 +106,27 @@ public class CatalogServer
     public boolean schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        return get(schemaExistsCache, new CacheKey<>(session, schema));
+        CacheKey cacheKey = new CacheKey<>(session, schema);
+        incrementCacheCount(cacheKey, schemaExistsCache, cacheStats.getSchemaExistsCacheStats());
+        return get(schemaExistsCache, cacheKey);
     }
 
     @ThriftMethod
     public boolean catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        return get(catalogExistsCache, new CacheKey(session, catalogName));
+        CacheKey cacheKey = new CacheKey<>(session, catalogName);
+        incrementCacheCount(cacheKey, catalogExistsCache, cacheStats.getCatalogExistsCacheStats());
+        return get(catalogExistsCache, cacheKey);
     }
 
     @ThriftMethod
     public String listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<String> schemaNames = get(listSchemaNamesCache, new CacheKey(session, catalogName));
+        CacheKey cacheKey = new CacheKey<>(session, catalogName);
+        incrementCacheCount(cacheKey, listSchemaNamesCache, cacheStats.getListSchemaNamesCacheStats());
+        List<String> schemaNames = get(listSchemaNamesCache, cacheKey);
         return schemaNames.isEmpty()
                 ? EMPTY_STRING
                 : writeValueAsString(schemaNames, objectMapper);
@@ -129,6 +137,7 @@ public class CatalogServer
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         CacheKey cacheKey = new CacheKey(session, table);
+        incrementCacheCount(cacheKey, getTableHandleCache, cacheStats.getGetTableHandleCacheStats());
         Optional<TableHandle> tableHandle = get(getTableHandleCache, cacheKey);
         if (!tableHandle.isPresent()) {
             getTableHandleCache.refresh(cacheKey);
@@ -142,7 +151,9 @@ public class CatalogServer
     public String listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<QualifiedObjectName> tableList = get(listTablesCache, new CacheKey(session, prefix));
+        CacheKey cacheKey = new CacheKey(session, prefix);
+        incrementCacheCount(cacheKey, listTablesCache, cacheStats.getListTablesCacheStats());
+        List<QualifiedObjectName> tableList = get(listTablesCache, cacheKey);
         return tableList.isEmpty()
                 ? EMPTY_STRING
                 : writeValueAsString(tableList, objectMapper);
@@ -152,7 +163,9 @@ public class CatalogServer
     public String listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<QualifiedObjectName> viewsList = get(listViewsCache, new CacheKey(session, prefix));
+        CacheKey cacheKey = new CacheKey(session, prefix);
+        incrementCacheCount(cacheKey, listViewsCache, cacheStats.getListViewsCacheStats());
+        List<QualifiedObjectName> viewsList = get(listViewsCache, cacheKey);
         return viewsList.isEmpty()
                 ? EMPTY_STRING
                 : writeValueAsString(viewsList, objectMapper);
@@ -162,7 +175,9 @@ public class CatalogServer
     public String getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Map<QualifiedObjectName, ViewDefinition> viewsMap = get(getViewsCache, new CacheKey(session, prefix));
+        CacheKey cacheKey = new CacheKey(session, prefix);
+        incrementCacheCount(cacheKey, getViewsCache, cacheStats.getGetViewsCacheStats());
+        Map<QualifiedObjectName, ViewDefinition> viewsMap = get(getViewsCache, cacheKey);
         return viewsMap.isEmpty()
                 ? EMPTY_STRING
                 : writeValueAsString(viewsMap, objectMapper);
@@ -172,7 +187,9 @@ public class CatalogServer
     public String getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Optional<ViewDefinition> viewDefinition = get(getViewCache, new CacheKey(session, viewName));
+        CacheKey cacheKey = new CacheKey(session, viewName);
+        incrementCacheCount(cacheKey, getViewCache, cacheStats.getGetViewCacheStats());
+        Optional<ViewDefinition> viewDefinition = get(getViewCache, cacheKey);
         return viewDefinition.map(view -> writeValueAsString(view, objectMapper))
                 .orElse(EMPTY_STRING);
     }
@@ -181,7 +198,9 @@ public class CatalogServer
     public String getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Optional<ConnectorMaterializedViewDefinition> connectorMaterializedViewDefinition = get(getMaterializedViewCache, new CacheKey(session, viewName));
+        CacheKey cacheKey = new CacheKey(session, viewName);
+        incrementCacheCount(cacheKey, getMaterializedViewCache, cacheStats.getGetMaterializedViewCacheStats());
+        Optional<ConnectorMaterializedViewDefinition> connectorMaterializedViewDefinition = get(getMaterializedViewCache, cacheKey);
         return connectorMaterializedViewDefinition.map(materializedView -> writeValueAsString(materializedView, objectMapper))
                 .orElse(EMPTY_STRING);
     }
@@ -190,10 +209,34 @@ public class CatalogServer
     public String getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<QualifiedObjectName> referencedMaterializedViewsList = get(getReferencedMaterializedViewsCache, new CacheKey(session, tableName));
+        CacheKey cacheKey = new CacheKey(session, tableName);
+        incrementCacheCount(cacheKey, getReferencedMaterializedViewsCache, cacheStats.getGetReferencedMaterializedViewsCacheStats());
+        List<QualifiedObjectName> referencedMaterializedViewsList = get(getReferencedMaterializedViewsCache, cacheKey);
         return referencedMaterializedViewsList.isEmpty()
                 ? EMPTY_STRING
                 : writeValueAsString(referencedMaterializedViewsList, objectMapper);
+    }
+
+    @ThriftMethod
+    public CatalogServerCacheStats getCacheStats()
+    {
+        return cacheStats;
+    }
+
+    @ThriftMethod
+    public void refreshCache()
+    {
+        catalogExistsCache.invalidateAll();
+        schemaExistsCache.invalidateAll();
+        listSchemaNamesCache.invalidateAll();
+        getTableHandleCache.invalidateAll();
+        listTablesCache.invalidateAll();
+        listViewsCache.invalidateAll();
+        getViewsCache.invalidateAll();
+        getViewCache.invalidateAll();
+        getMaterializedViewCache.invalidateAll();
+        getReferencedMaterializedViewsCache.invalidateAll();
+        cacheStats.clearAll();
     }
 
     /*
@@ -268,6 +311,16 @@ public class CatalogServer
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw e;
+        }
+    }
+
+    private void incrementCacheCount(CacheKey cacheKey, LoadingCache loadingCache, CatalogServerCacheStats.CacheStats cacheStats)
+    {
+        if (loadingCache.getIfPresent(cacheKey) != null) {
+            cacheStats.incrementCacheHit();
+        }
+        else {
+            cacheStats.incrementCacheMiss();
         }
     }
 
