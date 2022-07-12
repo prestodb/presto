@@ -311,8 +311,6 @@ class Expr {
   const std::vector<std::shared_ptr<Expr>> inputs_;
   const std::string name_;
   const std::shared_ptr<VectorFunction> vectorFunction_;
-  const bool specialForm_;
-  const bool trackCpuUsage_;
 
   // TODO make the following metadata const, e.g. call computeMetadata in the
   // constructor
@@ -321,6 +319,9 @@ class Expr {
   // subtrees. Empty if this is the same as 'distinctFields_' of
   // parent Expr.
   std::vector<FieldReference * FOLLY_NONNULL> distinctFields_;
+
+  const bool specialForm_;
+  const bool trackCpuUsage_;
 
   // True if a null in any of 'distinctFields_' causes 'this' to be
   // null for the row.
