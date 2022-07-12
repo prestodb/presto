@@ -48,6 +48,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.openjdk.jmh.annotations.Level.Invocation;
 
@@ -106,7 +107,7 @@ public class BenchmarkArrayAggregation
 
             InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
                     functionAndTypeManager.lookupFunction(name, fromTypes(elementType)));
-            accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator(UpdateMemory.NOOP);
+            accumulator = generateAccumulatorFactory(function, ImmutableList.of(0), Optional.empty()).createAccumulator(UpdateMemory.NOOP);
 
             block = createChannel(ARRAY_SIZE, elementType);
             page = new Page(block);

@@ -41,6 +41,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -116,13 +117,13 @@ public class HandTpchQuery1
                 ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(
-                        doubleSum.bind(ImmutableList.of(2), Optional.empty()),
-                        doubleSum.bind(ImmutableList.of(3), Optional.empty()),
-                        doubleSum.bind(ImmutableList.of(4), Optional.empty()),
-                        longAverage.bind(ImmutableList.of(2), Optional.empty()),
-                        doubleAverage.bind(ImmutableList.of(5), Optional.empty()),
-                        doubleAverage.bind(ImmutableList.of(6), Optional.empty()),
-                        countFunction.bind(ImmutableList.of(2), Optional.empty())),
+                        generateAccumulatorFactory(doubleSum, ImmutableList.of(2), Optional.empty()),
+                        generateAccumulatorFactory(doubleSum, ImmutableList.of(3), Optional.empty()),
+                        generateAccumulatorFactory(doubleSum, ImmutableList.of(4), Optional.empty()),
+                        generateAccumulatorFactory(longAverage, ImmutableList.of(2), Optional.empty()),
+                        generateAccumulatorFactory(doubleAverage, ImmutableList.of(5), Optional.empty()),
+                        generateAccumulatorFactory(doubleAverage, ImmutableList.of(6), Optional.empty()),
+                        generateAccumulatorFactory(countFunction, ImmutableList.of(2), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
                 10_000,

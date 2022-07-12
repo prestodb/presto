@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class DoubleSumAggregationBenchmark
@@ -45,7 +46,7 @@ public class DoubleSumAggregationBenchmark
         FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
         InternalAggregationFunction doubleSum = functionAndTypeManager.getAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("sum", fromTypes(DOUBLE)));
-        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(doubleSum.bind(ImmutableList.of(0), Optional.empty())), false);
+        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(generateAccumulatorFactory(doubleSum, ImmutableList.of(0), Optional.empty())), false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

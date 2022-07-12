@@ -46,6 +46,7 @@ import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.serialize;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.createGroupByIdBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getGroupValue;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -82,7 +83,7 @@ public class TestSpatialPartitioningInternalAggregation
 
         String expectedValue = getSpatialPartitioning(geometries, partitionCount);
 
-        AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1), Optional.empty());
+        AccumulatorFactory accumulatorFactory = generateAccumulatorFactory(function, Ints.asList(0, 1), Optional.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
         Accumulator accumulator = accumulatorFactory.createAccumulator(UpdateMemory.NOOP);
@@ -105,7 +106,7 @@ public class TestSpatialPartitioningInternalAggregation
         Block partitionCountBlock = BlockAssertions.createRLEBlock(10, 0);
         Page page = new Page(geometryBlock, partitionCountBlock);
 
-        AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1), Optional.empty());
+        AccumulatorFactory accumulatorFactory = generateAccumulatorFactory(function, Ints.asList(0, 1), Optional.empty());
         Accumulator accumulator = accumulatorFactory.createAccumulator(UpdateMemory.NOOP);
         accumulator.addInput(page);
         try {

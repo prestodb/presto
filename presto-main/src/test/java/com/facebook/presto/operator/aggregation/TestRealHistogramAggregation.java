@@ -33,6 +33,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
@@ -48,7 +49,7 @@ public class TestRealHistogramAggregation
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, REAL, DOUBLE)));
-        factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
+        factory = generateAccumulatorFactory(function, ImmutableList.of(0, 1, 2), Optional.empty());
         input = makeInput(10);
     }
 

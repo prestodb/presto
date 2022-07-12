@@ -26,6 +26,8 @@ import org.testng.internal.collections.Ints;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
+
 public class AggregationTestInput
 {
     private final Page[] pages;
@@ -94,7 +96,7 @@ public class AggregationTestInput
 
     public GroupedAccumulator createGroupedAccumulator()
     {
-        return function.bind(Ints.asList(args), Optional.empty())
+        return generateAccumulatorFactory(function, Ints.asList(args), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
     }
 }

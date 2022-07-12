@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.ParametricFunctionHelpers.bindDependencies;
+import static com.facebook.presto.operator.aggregation.AccumulatorCompiler.generateAccumulatorClass;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -108,6 +109,16 @@ public class ParametricAggregation
                         stateFactory)),
                 outputType);
 
+        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+                Accumulator.class,
+                metadata,
+                classLoader);
+
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+                GroupedAccumulator.class,
+                metadata,
+                classLoader);
+
         // Create specialized InternalAggregationFunction for Presto
         return new InternalAggregationFunction(getSignature().getNameSuffix(),
                 inputTypes,
@@ -115,7 +126,9 @@ public class ParametricAggregation
                 outputType,
                 details.isDecomposable(),
                 details.isOrderSensitive(),
-                new LazyAccumulatorFactoryBinder(metadata, classLoader));
+                metadata,
+                accumulatorClass,
+                groupedAccumulatorClass);
     }
 
     @VisibleForTesting

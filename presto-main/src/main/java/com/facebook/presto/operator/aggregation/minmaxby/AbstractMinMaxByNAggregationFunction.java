@@ -23,11 +23,11 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AbstractMinMaxNAggregationFunction;
-import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
+import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationMetadata;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.BlockComparator;
-import com.facebook.presto.operator.aggregation.GenericAccumulatorFactoryBinder;
+import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.TypedKeyValueHeap;
 import com.facebook.presto.spi.PrestoException;
@@ -39,6 +39,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.operator.aggregation.AccumulatorCompiler.generateAccumulatorClass;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
@@ -170,7 +171,16 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         new MinMaxByNStateFactory())),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), outputType, true, false, factory);
+        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+                Accumulator.class,
+                metadata,
+                classLoader);
+
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+                GroupedAccumulator.class,
+                metadata,
+                classLoader);
+        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), outputType, true,
+                false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 }

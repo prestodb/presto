@@ -297,6 +297,76 @@ public class GenericAccumulatorFactory
         }
     }
 
+    public static AccumulatorFactory generateAccumulatorFactory(
+            InternalAggregationFunction functionImplementation,
+            List<Integer> argumentChannels,
+            Optional<Integer> maskChannel,
+            List<Type> sourceTypes,
+            List<Integer> orderByChannels,
+            List<SortOrder> orderings,
+            PagesIndex.Factory pagesIndexFactory,
+            boolean distinct,
+            JoinCompiler joinCompiler,
+            List<LambdaProvider> lambdaProviders,
+            boolean spillEnabled,
+            Session session,
+            StandaloneSpillerFactory standaloneSpillerFactory)
+    {
+        try {
+            Constructor<? extends Accumulator> accumulatorConstructor = functionImplementation.getAccumulatorClass().getConstructor(
+                    List.class,     /* List<AccumulatorStateDescriptor> stateDescriptors */
+                    List.class,     /* List<Integer> inputChannel */
+                    Optional.class, /* Optional<Integer> maskChannel */
+                    List.class      /* List<LambdaProvider> lambdaProviders */);
+
+            Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor = functionImplementation.getGroupedAccumulatorClass().getConstructor(
+                    List.class,     /* List<AccumulatorStateDescriptor> stateDescriptors */
+                    List.class,     /* List<Integer> inputChannel */
+                    Optional.class, /* Optional<Integer> maskChannel */
+                    List.class      /* List<LambdaProvider> lambdaProviders */);
+
+            return new GenericAccumulatorFactory(
+                    functionImplementation.getAggregationMetadata().getAccumulatorStateDescriptors(),
+                    accumulatorConstructor,
+                    groupedAccumulatorConstructor,
+                    lambdaProviders,
+                    argumentChannels,
+                    maskChannel,
+                    sourceTypes,
+                    orderByChannels,
+                    orderings,
+                    pagesIndexFactory,
+                    joinCompiler,
+                    session,
+                    distinct,
+                    spillEnabled,
+                    standaloneSpillerFactory);
+        }
+        catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static AccumulatorFactory generateAccumulatorFactory(
+            InternalAggregationFunction javaAggregationFunctionImplementation,
+            List<Integer> inputChannels, Optional<Integer> maskChannel)
+    {
+        return generateAccumulatorFactory(
+                javaAggregationFunctionImplementation,
+                inputChannels,
+                maskChannel,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                null,
+                false,
+                null,
+                ImmutableList.of(),
+                false,
+                null,
+                null);
+    }
+
     private static class DistinctingAccumulator
             implements Accumulator
     {

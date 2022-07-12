@@ -42,6 +42,7 @@ import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQuer
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -93,7 +94,7 @@ public class HandTpchQuery6
                 new PlanNodeId("test"),
                 Step.SINGLE,
                 ImmutableList.of(
-                        doubleSum.bind(ImmutableList.of(0), Optional.empty())),
+                        generateAccumulatorFactory(doubleSum, ImmutableList.of(0), Optional.empty())),
                 false);
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);

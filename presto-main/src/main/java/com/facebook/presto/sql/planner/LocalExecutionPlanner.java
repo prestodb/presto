@@ -291,6 +291,7 @@ import static com.facebook.presto.operator.TableWriterUtils.FRAGMENT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.ROW_COUNT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -3017,7 +3018,7 @@ public class LocalExecutionPlanner
                 sortOrders = getOrderingList(orderBy);
             }
 
-            return internalAggregationFunction.bind(
+            return generateAccumulatorFactory(internalAggregationFunction,
                     valueChannels,
                     maskChannel,
                     source.getTypes(),
