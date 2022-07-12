@@ -34,18 +34,11 @@ inline bool isBitSet(const T* bits, int32_t idx) {
       (static_cast<T>(1) << (idx & ((sizeof(bits[0]) * 8) - 1)));
 }
 
-// Masks which store all `0` except one `1`, with the position of that `1` being
-// the index (from the right) of the index in the mask buffer. So e.g.
-// kOneBitmasks[0] has index 0th bit (from the right) set to 1.
-// So the has the sequence 0b00000001, 0b00000010, ..., 0b10000000
-// The reason we do this is that it's 21% faster for setNthBit<Value> in
-// benchmarks compared do doing the calculation inline (See code and results at
-// P127838775).
-static constexpr uint8_t kOneBitmasks[] =
-    {1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6, 1 << 7};
-
-// The inversion of kOneBitmasks - so stores all 1s except for one zero
-// being in the sequence 0b11111110, 0b11111101, ..., 0b01111111
+// The reason we do this is that it's slightly faster for
+// setNthBit<Value> in benchmarks compared to doing the calculation
+// inline (see D37623774). We do it only for clearBit because the
+// shift version requires 1 extra `not` instruction; for setBit, the
+// shift is faster.
 static constexpr uint8_t kZeroBitmasks[] = {
     static_cast<uint8_t>(~(1 << 0)),
     static_cast<uint8_t>(~(1 << 1)),
@@ -58,19 +51,19 @@ static constexpr uint8_t kZeroBitmasks[] = {
 };
 
 template <typename T>
-inline void setBit(T* bits, int32_t idx) {
+inline void setBit(T* bits, uint32_t idx) {
   auto bitsAs8Bit = reinterpret_cast<uint8_t*>(bits);
-  bitsAs8Bit[idx / 8] |= kOneBitmasks[idx % 8];
+  bitsAs8Bit[idx / 8] |= (1 << (idx % 8));
 }
 
 template <typename T>
-inline void clearBit(T* bits, int32_t idx) {
+inline void clearBit(T* bits, uint32_t idx) {
   auto bitsAs8Bit = reinterpret_cast<uint8_t*>(bits);
   bitsAs8Bit[idx / 8] &= kZeroBitmasks[idx % 8];
 }
 
 template <typename T>
-inline void setBit(T* bits, int32_t idx, bool value) {
+inline void setBit(T* bits, uint32_t idx, bool value) {
   value ? setBit(bits, idx) : clearBit(bits, idx);
 }
 
