@@ -34,6 +34,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.operator.aggregation.AccumulatorCompiler.generateAccumulatorClass;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
@@ -125,7 +126,15 @@ public class ReduceAggregationFunction
                 stateType,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+                Accumulator.class,
+                metadata,
+                classLoader);
+
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+                GroupedAccumulator.class,
+                metadata,
+                classLoader);
         return new InternalAggregationFunction(
                 getSignature().getNameSuffix(),
                 ImmutableList.of(inputType),
@@ -133,7 +142,9 @@ public class ReduceAggregationFunction
                 stateType,
                 true,
                 false,
-                factory,
+                metadata,
+                accumulatorClass,
+                groupedAccumulatorClass,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
     }
 

@@ -58,6 +58,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.BenchmarkHashAndSegmentedAggregationOperators.Context.ROWS_PER_PAGE;
 import static com.facebook.presto.operator.BenchmarkHashAndSegmentedAggregationOperators.Context.TOTAL_PAGES;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -141,8 +142,8 @@ public class BenchmarkHashAndSegmentedAggregationOperators
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     false,
-                    ImmutableList.of(COUNT.bind(ImmutableList.of(2), Optional.empty()),
-                            LONG_SUM.bind(ImmutableList.of(2), Optional.empty())),
+                    ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(2), Optional.empty()),
+                            generateAccumulatorFactory(LONG_SUM, ImmutableList.of(2), Optional.empty())),
                     hashChannel,
                     Optional.empty(),
                     100_000,

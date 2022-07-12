@@ -45,6 +45,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertTrue;
 
@@ -136,7 +137,7 @@ public class TestArrayAggregation
     public void testEmptyStateOutputsNull()
     {
         InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
-        GroupedAccumulator groupedAccumulator = bigIntAgg.bind(Ints.asList(new int[] {}), Optional.empty())
+        GroupedAccumulator groupedAccumulator = generateAccumulatorFactory(bigIntAgg, Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
@@ -218,7 +219,7 @@ public class TestArrayAggregation
     {
         int[] args = GroupByAggregationTestUtils.createArgs(function);
 
-        return function.bind(Ints.asList(args), Optional.empty())
+        return generateAccumulatorFactory(function, Ints.asList(args), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
     }
 
