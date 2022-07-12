@@ -38,7 +38,6 @@ void reset(VectorPtr& vector, vector_size_t size, bool hasNulls) {
     }
   }
   vector->resize(size);
-  vector->setSize(0);
 }
 
 void initializeStringVector(
@@ -326,6 +325,7 @@ vector_size_t copyNulls(
   // it's assumed that initVector is called before calling this method to
   // properly allocate/clear nulls buffer. So we only need to check against
   // target vector here.
+  target.resize(targetIndex + count, false);
   if (target.mayHaveNulls()) {
     auto tgtNulls = const_cast<uint64_t*>(target.rawNulls());
     auto srcNulls = source.rawNulls();
@@ -344,7 +344,6 @@ vector_size_t copyNulls(
       }
     }
   }
-  target.setSize(targetIndex + count);
   return nulls;
 }
 
@@ -590,11 +589,11 @@ bool copyNull(
   // it's assumed that initVector is called before calling this method to
   // properly allocate/clear nulls buffer. So we only need to check against
   // target vector here.
+  target.resize(targetIndex + 1, false);
   if (target.mayHaveNulls()) {
     bits::setNull(
         const_cast<uint64_t*>(target.rawNulls()), targetIndex, srcIsNull);
   }
-  target.setSize(targetIndex + 1);
   return srcIsNull;
 }
 

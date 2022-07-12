@@ -300,7 +300,7 @@ void FlatMapColumnReader<T>::initKeysVector(
     VectorPtr& vector,
     vector_size_t size) {
   flatmap_helper::initializeFlatVector<T>(vector, memoryPool_, size, false);
-  vector->setSize(size);
+  vector->resize(size, false);
 }
 
 template <>
@@ -313,7 +313,7 @@ void FlatMapColumnReader<StringView>::initKeysVector(
       size,
       false,
       std::vector<BufferPtr>{stringKeyBuffer_->getBuffer()});
-  vector->setSize(size);
+  vector->resize(size, false);
 }
 
 template <typename T>
@@ -657,6 +657,7 @@ void FlatMapStructEncodingColumnReader<T>::next(
   if (rowVector) {
     // Track children vectors in a local variable because readNulls may reset
     // the parent vector.
+    result->resize(numValues, false);
     children = rowVector->children();
     DWIO_ENSURE_EQ(children.size(), keyNodes_.size());
   }
@@ -690,7 +691,6 @@ void FlatMapStructEncodingColumnReader<T>::next(
   }
 
   if (result) {
-    result->setSize(numValues);
     result->setNullCount(nullCount);
   } else {
     result = std::make_shared<RowVector>(
