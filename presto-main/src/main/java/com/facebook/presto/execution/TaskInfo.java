@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.metadata.MetadataUpdates;
@@ -36,6 +39,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class TaskInfo
 {
     private final TaskId taskId;
@@ -50,6 +54,7 @@ public class TaskInfo
     private final String nodeId;
 
     @JsonCreator
+    @ThriftConstructor
     public TaskInfo(
             @JsonProperty("taskId") TaskId taskId,
             @JsonProperty("taskStatus") TaskStatus taskStatus,
@@ -74,54 +79,63 @@ public class TaskInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public TaskId getTaskId()
     {
         return taskId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public TaskStatus getTaskStatus()
     {
         return taskStatus;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public DateTime getLastHeartbeat()
     {
         return lastHeartbeat;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public OutputBufferInfo getOutputBuffers()
     {
         return outputBuffers;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public Set<PlanNodeId> getNoMoreSplits()
     {
         return noMoreSplits;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public TaskStats getStats()
     {
         return stats;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public boolean isNeedsPlan()
     {
         return needsPlan;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public MetadataUpdates getMetadataUpdates()
     {
         return metadataUpdates;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public String getNodeId()
     {
         return nodeId;
