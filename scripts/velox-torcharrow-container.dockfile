@@ -18,4 +18,4 @@ FROM quay.io/pypa/manylinux2014_x86_64:2022-02-13-594988e
 ARG cpu_target
 COPY setup-velox-torcharrow.sh /
 COPY setup-helper-functions.sh /
-RUN mkdir build && ( cd build && CPU_TARGET="$cpu_target" bash /setup-velox-torcharrow.sh )
+RUN mkdir build && ( cd build && CPU_TARGET="$cpu_target" bash /setup-velox-torcharrow.sh ) && rm -rf build
