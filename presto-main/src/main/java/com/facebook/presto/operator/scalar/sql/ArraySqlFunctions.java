@@ -59,11 +59,9 @@ public class ArraySqlFunctions
     @SqlType("map(bigint, int)")
     public static String arrayFrequencyBigint()
     {
-        return "RETURN reduce(" +
-                "input," +
-                "MAP()," +
-                "(m, x) -> IF (x IS NOT NULL, MAP_CONCAT(m,MAP_FROM_ENTRIES(ARRAY[ROW(x, COALESCE(ELEMENT_AT(m,x) + 1, 1))])), m)," +
-                "m -> m)";
+        return "RETURN TRANSFORM_VALUES(" +
+                "MULTIMAP_FROM_ENTRIES(TRANSFORM(FILTER(input, x -> x IS NOT NULL), x->(x, NULL))), " +
+                "(k, v) -> CAST(CARDINALITY(v) AS INTEGER))";
     }
 
     @SqlInvokedScalarFunction(value = "array_frequency", deterministic = true, calledOnNullInput = false)
@@ -72,11 +70,9 @@ public class ArraySqlFunctions
     @SqlType("map(varchar, int)")
     public static String arrayFrequencyVarchar()
     {
-        return "RETURN reduce(" +
-                "input," +
-                "MAP()," +
-                "(m, x) -> IF (x IS NOT NULL, MAP_CONCAT(m,MAP_FROM_ENTRIES(ARRAY[ROW(x, COALESCE(ELEMENT_AT(m,x) + 1, 1))])), m)," +
-                "m -> m)";
+        return "RETURN TRANSFORM_VALUES(" +
+                "MULTIMAP_FROM_ENTRIES(TRANSFORM(FILTER(input, x -> x IS NOT NULL), x->(x, NULL))), " +
+                "(k, v) -> CAST(CARDINALITY(v) AS INTEGER))";
     }
 
     @SqlInvokedScalarFunction(value = "array_duplicates", alias = {"array_dupes"}, deterministic = true, calledOnNullInput = false)
