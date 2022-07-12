@@ -26,24 +26,29 @@ std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultAllocator() {
   return std::make_shared<MemoryAllocator>();
 }
 
-void* MemoryAllocator::alloc(int64_t size) {
+void* FOLLY_NULLABLE MemoryAllocator::alloc(int64_t size) {
   return std::malloc(size);
 }
 
-void* MemoryAllocator::allocZeroFilled(int64_t numMembers, int64_t sizeEach) {
+void* FOLLY_NULLABLE
+MemoryAllocator::allocZeroFilled(int64_t numMembers, int64_t sizeEach) {
   return std::calloc(numMembers, sizeEach);
 }
 
-void* MemoryAllocator::allocAligned(uint16_t alignment, int64_t size) {
+void* FOLLY_NULLABLE
+MemoryAllocator::allocAligned(uint16_t alignment, int64_t size) {
   return aligned_alloc(alignment, size);
 }
 
-void* MemoryAllocator::realloc(void* p, int64_t /* size */, int64_t newSize) {
+void* FOLLY_NULLABLE MemoryAllocator::realloc(
+    void* FOLLY_NULLABLE p,
+    int64_t /* size */,
+    int64_t newSize) {
   return std::realloc(p, newSize);
 }
 
-void* MemoryAllocator::reallocAligned(
-    void* p,
+void* FOLLY_NULLABLE MemoryAllocator::reallocAligned(
+    void* FOLLY_NULLABLE p,
     uint16_t alignment,
     int64_t size,
     int64_t newSize) {
@@ -58,7 +63,7 @@ void* MemoryAllocator::reallocAligned(
   return block;
 }
 
-void MemoryAllocator::free(void* p, int64_t /* size */) {
+void MemoryAllocator::free(void* FOLLY_NULLABLE p, int64_t /* size */) {
   std::free(p);
 }
 
@@ -105,7 +110,7 @@ MemoryPool& MemoryPoolBase::getChildByName(const std::string& name) {
 }
 
 void MemoryPoolBase::visitChildren(
-    std::function<void(MemoryPool*)> visitor) const {
+    std::function<void(MemoryPool* FOLLY_NONNULL)> visitor) const {
   folly::SharedMutex::WriteHolder guard{childrenMutex_};
   for (const auto& child : children_) {
     visitor(child.get());

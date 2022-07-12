@@ -65,10 +65,12 @@ class ScopedMemoryPool;
 class AbstractMemoryPool {
  public:
   virtual ~AbstractMemoryPool() {}
-  virtual void* allocate(int64_t size) = 0;
-  virtual void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) = 0;
-  virtual void* reallocate(void* p, int64_t size, int64_t newSize) = 0;
-  virtual void free(void* p, int64_t size) = 0;
+  virtual void* FOLLY_NULLABLE allocate(int64_t size) = 0;
+  virtual void* FOLLY_NULLABLE
+  allocateZeroFilled(int64_t numMembers, int64_t sizeEach) = 0;
+  virtual void* FOLLY_NULLABLE
+  reallocate(void* FOLLY_NULLABLE p, int64_t size, int64_t newSize) = 0;
+  virtual void free(void* FOLLY_NULLABLE p, int64_t size) = 0;
   virtual size_t getPreferredSize(size_t size) = 0;
 };
 
@@ -113,7 +115,7 @@ class MemoryPool : public AbstractMemoryPool {
   virtual MemoryPool& getChildByName(const std::string& name) = 0;
   virtual uint64_t getChildCount() const = 0;
   virtual void visitChildren(
-      std::function<void(MemoryPool*)> visitor) const = 0;
+      std::function<void(MemoryPool* FOLLY_NONNULL)> visitor) const = 0;
 
   virtual std::shared_ptr<MemoryPool> genChild(
       std::weak_ptr<MemoryPool> parent,
@@ -125,7 +127,7 @@ class MemoryPool : public AbstractMemoryPool {
   virtual std::unique_ptr<ScopedMemoryPool> addScopedChild(
       const std::string& name,
       int64_t cap = kMaxMemory) = 0;
-  virtual void dropChild(const MemoryPool* child) = 0;
+  virtual void dropChild(const MemoryPool* FOLLY_NONNULL child) = 0;
 
   // Used to explicitly remove self when a user is done with the node, since
   // nodes are owned by parents and users only get object references. Any
@@ -171,11 +173,12 @@ class ScopedMemoryPool final : public MemoryPool {
     return pool_.getMemoryUsageTracker();
   }
 
-  void* allocate(int64_t size) override {
+  void* FOLLY_NULLABLE allocate(int64_t size) override {
     return pool_.allocate(size);
   }
 
-  void* reallocate(void* p, int64_t size, int64_t newSize) override {
+  void* FOLLY_NULLABLE
+  reallocate(void* FOLLY_NULLABLE p, int64_t size, int64_t newSize) override {
     return pool_.reallocate(p, size, newSize);
   }
 
@@ -193,61 +196,80 @@ class ScopedMemoryPool final : public MemoryPool {
   int64_t updateSubtreeMemoryUsage(int64_t size) override {
     return pool_.updateSubtreeMemoryUsage(size);
   }
-  void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override {
+
+  void* FOLLY_NULLABLE
+  allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override {
     return pool_.allocateZeroFilled(numMembers, sizeEach);
   }
+
   int64_t getCap() const override {
     return pool_.getCap();
   }
+
   uint16_t getAlignment() const override {
     return pool_.getAlignment();
   }
+
   void capMemoryAllocation() override {
     pool_.capMemoryAllocation();
   }
+
   void uncapMemoryAllocation() override {
     pool_.uncapMemoryAllocation();
   }
   bool isMemoryCapped() const override {
     return pool_.isMemoryCapped();
   }
+
   const std::string& getName() const override {
     return pool_.getName();
   }
+
   std::weak_ptr<MemoryPool> getWeakPtr() override {
     VELOX_NYI();
   }
+
   MemoryPool& getChildByName(const std::string& name) override {
     return pool_.getChildByName(name);
   }
+
   uint64_t getChildCount() const override {
     return pool_.getChildCount();
   }
+
   std::shared_ptr<MemoryPool> genChild(
       std::weak_ptr<MemoryPool> parent,
       const std::string& name,
       int64_t cap) override {
     return pool_.genChild(parent, name, cap);
   }
+
   MemoryPool& addChild(const std::string& name, int64_t cap = kMaxMemory)
       override {
     return pool_.addChild(name, cap);
   }
+
   std::unique_ptr<memory::ScopedMemoryPool> addScopedChild(
       const std::string& name,
       int64_t cap = kMaxMemory) override {
     return pool_.addScopedChild(name, cap);
   }
+
   void removeSelf() override {
     VELOX_NYI();
   }
+
   void visitChildren(
-      std::function<void(velox::memory::MemoryPool*)> visitor) const override {
+      std::function<void(velox::memory::MemoryPool* FOLLY_NONNULL)> visitor)
+      const override {
     pool_.visitChildren(visitor);
   }
-  void dropChild(const velox::memory::MemoryPool* child) override {
+
+  void dropChild(
+      const velox::memory::MemoryPool* FOLLY_NONNULL child) override {
     pool_.dropChild(child);
   }
+
   void setSubtreeMemoryUsage(int64_t size) override {
     pool_.setSubtreeMemoryUsage(size);
   }
@@ -268,14 +290,18 @@ class MemoryAllocator {
   // TODO: move to factory pattern with type trait.
   static std::shared_ptr<MemoryAllocator> createDefaultAllocator();
 
-  void* alloc(int64_t size);
-  void* allocZeroFilled(int64_t numMembers, int64_t sizeEach);
+  void* FOLLY_NULLABLE alloc(int64_t size);
+  void* FOLLY_NULLABLE allocZeroFilled(int64_t numMembers, int64_t sizeEach);
   // TODO: might be able to collapse this with templated class
-  void* allocAligned(uint16_t alignment, int64_t size);
-  void* realloc(void* p, int64_t size, int64_t newSize);
-  void*
-  reallocAligned(void* p, uint16_t alignment, int64_t size, int64_t newSize);
-  void free(void* p, int64_t size);
+  void* FOLLY_NULLABLE allocAligned(uint16_t alignment, int64_t size);
+  void* FOLLY_NULLABLE
+  realloc(void* FOLLY_NULLABLE p, int64_t size, int64_t newSize);
+  void* FOLLY_NULLABLE reallocAligned(
+      void* FOLLY_NULLABLE p,
+      uint16_t alignment,
+      int64_t size,
+      int64_t newSize);
+  void free(void* FOLLY_NULLABLE p, int64_t size);
 };
 
 class MemoryPoolBase : public std::enable_shared_from_this<MemoryPoolBase>,
@@ -290,7 +316,8 @@ class MemoryPoolBase : public std::enable_shared_from_this<MemoryPoolBase>,
   std::weak_ptr<MemoryPool> getWeakPtr() override;
   MemoryPool& getChildByName(const std::string& name) override;
   uint64_t getChildCount() const override;
-  void visitChildren(std::function<void(MemoryPool*)> visitor) const override;
+  void visitChildren(
+      std::function<void(MemoryPool* FOLLY_NONNULL)> visitor) const override;
 
   MemoryPool& addChild(const std::string& name, int64_t cap = kMaxMemory)
       override;
@@ -299,7 +326,7 @@ class MemoryPoolBase : public std::enable_shared_from_this<MemoryPoolBase>,
       int64_t cap = kMaxMemory) override;
   // Drops child (and implicitly the entire subtree) to reclaim memory.
   // Derived classes can override this behavior. e.g. append only semantics.
-  void dropChild(const MemoryPool* child) override;
+  void dropChild(const MemoryPool* FOLLY_NONNULL child) override;
   // Used to explicitly remove self when a user is done with the node, since
   // nodes are owned by parents and users only get object references. Any
   // reference to self would be invalid after this call. This will also drop the
@@ -344,12 +371,14 @@ class MemoryPoolImpl : public MemoryPoolBase {
   // memory cap accordingly. Since MemoryManager walks the MemoryPoolImpl
   // tree periodically, this is slightly stale and we have to reserve our own
   // overhead.
-  void* allocate(int64_t size) override;
-  void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override;
+  void* FOLLY_NULLABLE allocate(int64_t size) override;
+  void* FOLLY_NULLABLE
+  allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override;
 
   // No-op for attempts to shrink buffer.
-  void* reallocate(void* p, int64_t size, int64_t newSize) override;
-  void free(void* p, int64_t size) override;
+  void* FOLLY_NULLABLE
+  reallocate(void* FOLLY_NULLABLE p, int64_t size, int64_t newSize) override;
+  void free(void* FOLLY_NULLABLE p, int64_t size) override;
 
   //////////////////// Memory Management methods /////////////////////
   // Library checks for low memory mode on a push model. The respective root,
@@ -422,28 +451,29 @@ class MemoryPoolImpl : public MemoryPoolBase {
   }
 
   template <uint16_t A, typename = std::enable_if_t<A != kNoAlignment>>
-  void* allocAligned(ALIGNER<A> /* unused */, int64_t size) {
+  void* FOLLY_NULLABLE allocAligned(ALIGNER<A> /* unused */, int64_t size) {
     return allocator_.allocAligned(A, size);
   }
 
   template <uint16_t A>
-  void* allocAligned(ALIGNER<kNoAlignment> /* unused */, int64_t size) {
+  void* FOLLY_NULLABLE
+  allocAligned(ALIGNER<kNoAlignment> /* unused */, int64_t size) {
     return allocator_.alloc(size);
   }
 
   template <uint16_t A, typename = std::enable_if_t<A != kNoAlignment>>
-  void* reallocAligned(
+  void* FOLLY_NULLABLE reallocAligned(
       ALIGNER<A> /* unused */,
-      void* p,
+      void* FOLLY_NULLABLE p,
       int64_t size,
       int64_t newSize) {
     return allocator_.reallocAligned(p, A, size, newSize);
   }
 
   template <uint16_t A>
-  void* reallocAligned(
+  void* FOLLY_NULLABLE reallocAligned(
       ALIGNER<kNoAlignment> /* unused */,
-      void* p,
+      void* FOLLY_NULLABLE p,
       int64_t size,
       int64_t newSize) {
     return allocator_.realloc(p, size, newSize);
@@ -577,7 +607,8 @@ MemoryPoolImpl<Allocator, ALIGNMENT>::MemoryPoolImpl(
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>
-void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocate(int64_t size) {
+void* FOLLY_NULLABLE
+MemoryPoolImpl<Allocator, ALIGNMENT>::allocate(int64_t size) {
   if (this->isMemoryCapped()) {
     VELOX_MEM_MANUAL_CAP();
   }
@@ -587,7 +618,7 @@ void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocate(int64_t size) {
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>
-void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocateZeroFilled(
+void* FOLLY_NULLABLE MemoryPoolImpl<Allocator, ALIGNMENT>::allocateZeroFilled(
     int64_t numMembers,
     int64_t sizeEach) {
   VELOX_USER_CHECK_EQ(sizeEach, 1);
@@ -600,8 +631,8 @@ void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocateZeroFilled(
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>
-void* MemoryPoolImpl<Allocator, ALIGNMENT>::reallocate(
-    void* p,
+void* FOLLY_NULLABLE MemoryPoolImpl<Allocator, ALIGNMENT>::reallocate(
+    void* FOLLY_NULLABLE p,
     int64_t size,
     int64_t newSize) {
   auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, size);
@@ -625,7 +656,9 @@ void* MemoryPoolImpl<Allocator, ALIGNMENT>::reallocate(
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>
-void MemoryPoolImpl<Allocator, ALIGNMENT>::free(void* p, int64_t size) {
+void MemoryPoolImpl<Allocator, ALIGNMENT>::free(
+    void* FOLLY_NULLABLE p,
+    int64_t size) {
   auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, size);
   allocator_.free(p, alignedSize);
   release(alignedSize);
@@ -877,6 +910,7 @@ IMemoryManager& getProcessDefaultMemoryManager();
 std::unique_ptr<ScopedMemoryPool> getDefaultScopedMemoryPool(
     int64_t cap = kMaxMemory);
 
+// Allocator that uses passed in memory pool to allocate memory.
 template <typename T>
 class Allocator {
  public:
@@ -888,11 +922,11 @@ class Allocator {
   template <typename U>
   /* implicit */ Allocator(const Allocator<U>& a) : pool{a.pool} {}
 
-  T* allocate(size_t n) {
+  T* FOLLY_NULLABLE allocate(size_t n) {
     return static_cast<T*>(pool.allocate(n * sizeof(T)));
   }
 
-  void deallocate(T* p, size_t n) {
+  void deallocate(T* FOLLY_NULLABLE p, size_t n) {
     pool.free(p, n * sizeof(T));
   }
 
