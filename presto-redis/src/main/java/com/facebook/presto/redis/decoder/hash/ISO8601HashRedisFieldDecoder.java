@@ -16,10 +16,11 @@ package com.facebook.presto.redis.decoder.hash;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
-import java.util.Locale;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -32,7 +33,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 class ISO8601HashRedisFieldDecoder
         extends HashRedisFieldDecoder
 {
-    private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTimeParser().withLocale(Locale.ENGLISH).withZoneUTC();
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneId.of("UTC"));
 
     @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)
@@ -51,7 +52,7 @@ class ISO8601HashRedisFieldDecoder
         @Override
         public long getLong()
         {
-            long millis = FORMATTER.parseMillis(getSlice().toStringAscii());
+            long millis = LocalDate.from(FORMATTER.parse(getSlice().toStringAscii())).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
 
             Type type = columnHandle.getType();
             if (type.equals(DATE)) {
