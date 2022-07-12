@@ -61,6 +61,7 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.operator.aggregation.histogram.Histogram.NAME;
 import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.NEW;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -222,7 +223,7 @@ public class TestHistogram
     public void testEmptyHistogramOutputsNull()
     {
         InternalAggregationFunction function = getInternalDefaultVarcharAggregation();
-        GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
+        GroupedAccumulator groupedAccumulator = generateAccumulatorFactory(function, Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
@@ -313,7 +314,7 @@ public class TestHistogram
     {
         int[] args = GroupByAggregationTestUtils.createArgs(function);
 
-        return function.bind(Ints.asList(args), Optional.empty())
+        return generateAccumulatorFactory(function, Ints.asList(args), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
     }
 

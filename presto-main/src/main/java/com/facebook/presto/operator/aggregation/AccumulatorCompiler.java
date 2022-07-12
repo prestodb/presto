@@ -84,25 +84,7 @@ public class AccumulatorCompiler
     {
     }
 
-    public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
-    {
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
-                Accumulator.class,
-                metadata,
-                classLoader);
-
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
-                GroupedAccumulator.class,
-                metadata,
-                classLoader);
-
-        return new GenericAccumulatorFactoryBinder(
-                metadata.getAccumulatorStateDescriptors(),
-                accumulatorClass,
-                groupedAccumulatorClass);
-    }
-
-    private static <T> Class<? extends T> generateAccumulatorClass(
+    public static <T> Class<? extends T> generateAccumulatorClass(
             Class<T> accumulatorInterface,
             AggregationMetadata metadata,
             DynamicClassLoader classLoader)

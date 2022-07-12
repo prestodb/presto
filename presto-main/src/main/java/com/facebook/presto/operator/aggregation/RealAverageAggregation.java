@@ -33,6 +33,7 @@ import java.util.List;
 
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.operator.aggregation.AccumulatorCompiler.generateAccumulatorClass;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -94,7 +95,15 @@ public class RealAverageAggregation
                                 StateCompiler.generateStateFactory(longStateInterface, classLoader))),
                 REAL);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+                Accumulator.class,
+                metadata,
+                classLoader);
+
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+                GroupedAccumulator.class,
+                metadata,
+                classLoader);
         return new InternalAggregationFunction(
                 NAME,
                 ImmutableList.of(REAL),
@@ -104,7 +113,9 @@ public class RealAverageAggregation
                 REAL,
                 true,
                 false,
-                factory);
+                metadata,
+                accumulatorClass,
+                groupedAccumulatorClass);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)

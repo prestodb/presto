@@ -58,6 +58,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.BenchmarkHashAndStreamingAggregationOperators.Context.ROWS_PER_PAGE;
 import static com.facebook.presto.operator.BenchmarkHashAndStreamingAggregationOperators.Context.TOTAL_PAGES;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -143,8 +144,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     ImmutableList.of(VARCHAR),
                     ImmutableList.of(0),
                     AggregationNode.Step.SINGLE,
-                    ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                            LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
+                    ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                            generateAccumulatorFactory(LONG_SUM, ImmutableList.of(1), Optional.empty())),
                     new JoinCompiler(metadata, new FeaturesConfig()));
         }
 
@@ -162,8 +163,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     false,
-                    ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                            LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
+                    ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                            generateAccumulatorFactory(LONG_SUM, ImmutableList.of(1), Optional.empty())),
                     hashChannel,
                     Optional.empty(),
                     100_000,

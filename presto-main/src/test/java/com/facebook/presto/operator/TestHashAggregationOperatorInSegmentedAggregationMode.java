@@ -42,6 +42,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.OperatorAssertion.assertPagesEqualIgnoreOrder;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -70,7 +71,7 @@ public class TestHashAggregationOperatorInSegmentedAggregationMode
             ImmutableList.of(),
             Step.SINGLE,
             false,
-            ImmutableList.of(COUNT.bind(ImmutableList.of(2), Optional.empty())),
+            ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(2), Optional.empty())),
             Optional.empty(),
             Optional.empty(),
             4,

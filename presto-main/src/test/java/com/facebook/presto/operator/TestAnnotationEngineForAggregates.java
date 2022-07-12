@@ -26,7 +26,6 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.AggregationImplementation;
 import com.facebook.presto.operator.aggregation.AggregationMetadata;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.aggregation.LazyAccumulatorFactoryBinder;
 import com.facebook.presto.operator.aggregation.ParametricAggregation;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleStateSerializer;
@@ -260,8 +259,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getStateSerializerFactory().isPresent());
 
         InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
-        AccumulatorStateSerializer<?> createdSerializer = getOnlyElement(((LazyAccumulatorFactoryBinder) specialized.getAccumulatorFactoryBinder())
-                .getGenericAccumulatorFactoryBinder().getStateDescriptors()).getSerializer();
+        AccumulatorStateSerializer<?> createdSerializer = getOnlyElement(specialized.getAggregationMetadata().getAccumulatorStateDescriptors()).getSerializer();
         Class<?> serializerFactory = implementation.getStateSerializerFactory().get().type().returnType();
         assertTrue(serializerFactory.isInstance(createdSerializer));
     }

@@ -43,6 +43,7 @@ import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.throw
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.throwOverflowException;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.aggregation.AccumulatorCompiler.generateAccumulatorClass;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -121,9 +122,18 @@ public class DecimalSumAggregation
                         new LongDecimalWithOverflowStateFactory())),
                 outputType);
 
+        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+                Accumulator.class,
+                metadata,
+                classLoader);
+
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+                GroupedAccumulator.class,
+                metadata,
+                classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, true,
+                false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static java.util.Objects.requireNonNull;
 
 public class AggregateWindowFunction
@@ -42,7 +43,7 @@ public class AggregateWindowFunction
     private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels)
     {
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
-        this.accumulatorFactory = function.bind(createArgs(function), Optional.empty());
+        this.accumulatorFactory = generateAccumulatorFactory(function, createArgs(function), Optional.empty());
     }
 
     @Override
