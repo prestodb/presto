@@ -22,10 +22,10 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
+import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationMetadata;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import com.facebook.presto.operator.aggregation.GenericAccumulatorFactoryBinder;
+import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.google.common.collect.ImmutableList;
 
@@ -34,6 +34,7 @@ import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.operator.aggregation.AccumulatorCompiler.generateAccumulatorClass;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -106,8 +107,17 @@ public class Histogram
                         new HistogramStateFactory(keyType, EXPECTED_SIZE_FOR_HASHING, groupMode))),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(functionName, inputTypes, ImmutableList.of(intermediateType), outputType, true, false, factory);
+        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+                Accumulator.class,
+                metadata,
+                classLoader);
+
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+                GroupedAccumulator.class,
+                metadata,
+                classLoader);
+        return new InternalAggregationFunction(functionName, inputTypes, ImmutableList.of(intermediateType), outputType, true,
+                false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType)

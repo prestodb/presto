@@ -67,6 +67,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.PageSinkCommitStrategy.NO_COMMIT;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -217,7 +218,7 @@ public class TestTableWriterOperator
                         1,
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
-                        ImmutableList.of(longMaxFunction.bind(ImmutableList.of(0), Optional.empty())),
+                        ImmutableList.of(generateAccumulatorFactory(longMaxFunction, ImmutableList.of(0), Optional.empty())),
                         true),
                 outputTypes,
                 session,

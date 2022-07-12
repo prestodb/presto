@@ -13,18 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spiller.StandaloneSpillerFactory;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -39,7 +32,12 @@ public final class InternalAggregationFunction
     private final List<Class> lambdaInterfaces;
     private final boolean decomposable;
     private final boolean orderSensitive;
-    private final AccumulatorFactoryBinder factory;
+
+    private final AggregationMetadata aggregationMetadata;
+
+    private final Class<? extends Accumulator> accumulatorClass;
+
+    private final Class<? extends GroupedAccumulator> groupedAccumulatorClass;
 
     public InternalAggregationFunction(
             String name,
@@ -48,7 +46,9 @@ public final class InternalAggregationFunction
             Type finalType,
             boolean decomposable,
             boolean orderSensitive,
-            AccumulatorFactoryBinder factory)
+            AggregationMetadata aggregationMetadata,
+            Class<? extends Accumulator> accumulatorClass,
+            Class<? extends GroupedAccumulator> groupedAccumulatorClass)
     {
         this(
                 name,
@@ -57,7 +57,9 @@ public final class InternalAggregationFunction
                 finalType,
                 decomposable,
                 orderSensitive,
-                factory,
+                aggregationMetadata,
+                accumulatorClass,
+                groupedAccumulatorClass,
                 ImmutableList.of());
     }
 
@@ -68,7 +70,9 @@ public final class InternalAggregationFunction
             Type finalType,
             boolean decomposable,
             boolean orderSensitive,
-            AccumulatorFactoryBinder factory,
+            AggregationMetadata aggregationMetadata,
+            Class<? extends Accumulator> accumulatorClass,
+            Class<? extends GroupedAccumulator> groupedAccumulatorClass,
             List<Class> lambdaInterfaces)
     {
         this.name = requireNonNull(name, "name is null");
@@ -78,7 +82,9 @@ public final class InternalAggregationFunction
         this.finalType = requireNonNull(finalType, "finalType is null");
         this.decomposable = decomposable;
         this.orderSensitive = orderSensitive;
-        this.factory = requireNonNull(factory, "factory is null");
+        this.aggregationMetadata = aggregationMetadata;
+        this.accumulatorClass = accumulatorClass;
+        this.groupedAccumulatorClass = groupedAccumulatorClass;
         this.lambdaInterfaces = ImmutableList.copyOf(lambdaInterfaces);
     }
 
@@ -128,43 +134,18 @@ public final class InternalAggregationFunction
         return orderSensitive;
     }
 
-    public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel)
+    public AggregationMetadata getAggregationMetadata()
     {
-        return factory.bind(
-                inputChannels,
-                maskChannel,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                null,
-                false,
-                null,
-                ImmutableList.of(),
-                false,
-                null,
-                null);
+        return aggregationMetadata;
     }
 
-    public AccumulatorFactory bind(
-            List<Integer> inputChannels,
-            Optional<Integer> maskChannel,
-            List<Type> sourceTypes,
-            List<Integer> orderByChannels,
-            List<SortOrder> orderings,
-            PagesIndex.Factory pagesIndexFactory,
-            boolean distinct,
-            JoinCompiler joinCompiler,
-            List<LambdaProvider> lambdaProviders,
-            boolean spillEnabled,
-            Session session,
-            StandaloneSpillerFactory standaloneSpillerFactory)
+    public Class<? extends Accumulator> getAccumulatorClass()
     {
-        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, lambdaProviders, spillEnabled, session, standaloneSpillerFactory);
+        return accumulatorClass;
     }
 
-    @VisibleForTesting
-    public AccumulatorFactoryBinder getAccumulatorFactoryBinder()
+    public Class<? extends GroupedAccumulator> getGroupedAccumulatorClass()
     {
-        return factory;
+        return groupedAccumulatorClass;
     }
 }

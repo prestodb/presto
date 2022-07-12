@@ -54,6 +54,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -106,15 +107,15 @@ public class TestAggregationOperator
                 0,
                 new PlanNodeId("test"),
                 Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(1), Optional.empty()),
-                        LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty()),
-                        countVarcharColumn.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
-                        REAL_SUM.bind(ImmutableList.of(4), Optional.empty()),
-                        DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_SUM, ImmutableList.of(1), Optional.empty()),
+                        generateAccumulatorFactory(LONG_AVERAGE, ImmutableList.of(1), Optional.empty()),
+                        generateAccumulatorFactory(maxVarcharColumn, ImmutableList.of(2), Optional.empty()),
+                        generateAccumulatorFactory(countVarcharColumn, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_SUM, ImmutableList.of(3), Optional.empty()),
+                        generateAccumulatorFactory(REAL_SUM, ImmutableList.of(4), Optional.empty()),
+                        generateAccumulatorFactory(DOUBLE_SUM, ImmutableList.of(5), Optional.empty()),
+                        generateAccumulatorFactory(maxVarcharColumn, ImmutableList.of(6), Optional.empty())),
                 false);
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
@@ -133,7 +134,7 @@ public class TestAggregationOperator
     @Test
     public void testDistinctMaskWithNull()
     {
-        AccumulatorFactory distinctFactory = COUNT.bind(
+        AccumulatorFactory distinctFactory = generateAccumulatorFactory(COUNT,
                 ImmutableList.of(0),
                 Optional.of(1),
                 ImmutableList.of(BIGINT, BOOLEAN),
@@ -193,7 +194,7 @@ public class TestAggregationOperator
                 0,
                 new PlanNodeId("test"),
                 Step.SINGLE,
-                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
                 useSystemMemory);
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)

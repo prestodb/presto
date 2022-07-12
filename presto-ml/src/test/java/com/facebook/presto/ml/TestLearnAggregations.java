@@ -42,6 +42,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static org.testng.Assert.assertNotNull;
@@ -63,7 +64,7 @@ public class TestLearnAggregations
     {
         Type mapType = functionAndTypeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
         InternalAggregationFunction aggregation = generateInternalAggregationFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature()), functionAndTypeManager);
-        assertLearnClassifier(aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator(UpdateMemory.NOOP));
+        assertLearnClassifier(generateAccumulatorFactory(aggregation, ImmutableList.of(0, 1), Optional.empty()).createAccumulator(UpdateMemory.NOOP));
     }
 
     @Test
@@ -75,7 +76,7 @@ public class TestLearnAggregations
                 ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x"))
         ).specialize(BoundVariables.builder().setLongVariable("x", (long) Integer.MAX_VALUE).build(), 3, functionAndTypeManager);
-        assertLearnClassifier(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator(UpdateMemory.NOOP));
+        assertLearnClassifier(generateAccumulatorFactory(aggregation, ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator(UpdateMemory.NOOP));
     }
 
     private static void assertLearnClassifier(Accumulator accumulator)

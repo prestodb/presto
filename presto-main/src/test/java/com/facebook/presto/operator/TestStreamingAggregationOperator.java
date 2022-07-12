@@ -40,6 +40,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -79,8 +80,8 @@ public class TestStreamingAggregationOperator
                 ImmutableList.of(VARCHAR),
                 ImmutableList.of(1),
                 AggregationNode.Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(2), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_SUM, ImmutableList.of(2), Optional.empty())),
                 new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
     }
 

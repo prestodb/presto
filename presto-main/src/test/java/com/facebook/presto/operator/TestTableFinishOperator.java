@@ -57,6 +57,7 @@ import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.PageSinkCommitStrategy.LIFESPAN_COMMIT;
 import static com.facebook.presto.operator.PageSinkCommitStrategy.NO_COMMIT;
 import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -117,7 +118,7 @@ public class TestTableFinishOperator
                         1,
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
-                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(STATS_START_CHANNEL), Optional.empty())),
+                        ImmutableList.of(generateAccumulatorFactory(LONG_MAX, ImmutableList.of(STATS_START_CHANNEL), Optional.empty())),
                         true),
                 descriptor,
                 session,
@@ -198,7 +199,7 @@ public class TestTableFinishOperator
                         1,
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
-                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(STATS_START_CHANNEL), Optional.empty())),
+                        ImmutableList.of(generateAccumulatorFactory(LONG_MAX, ImmutableList.of(STATS_START_CHANNEL), Optional.empty())),
                         true),
                 descriptor,
                 session,
