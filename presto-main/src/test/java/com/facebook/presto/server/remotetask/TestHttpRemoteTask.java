@@ -24,9 +24,13 @@ import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.guice.ThriftCodecModule;
+import com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec;
+import com.facebook.drift.codec.utils.DurationToMillisThriftCodec;
+import com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -47,6 +51,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.server.ConnectorMetadataUpdateHandleJsonSerde;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.ConnectorId;
@@ -296,6 +301,10 @@ public class TestHttpRemoteTask
                         jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionDeserializer.class);
                         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
+                        thriftCodecBinder(binder).bindThriftCodec(TaskInfo.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(JodaDateTimeToEpochMillisThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(DurationToMillisThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(DataSizeToBytesThriftCodec.class);
                     }
 
                     @Provides
@@ -306,6 +315,7 @@ public class TestHttpRemoteTask
                             SmileCodec<TaskStatus> taskStatusSmileCodec,
                             ThriftCodec<TaskStatus> taskStatusThriftCodec,
                             JsonCodec<TaskInfo> taskInfoJsonCodec,
+                            ThriftCodec<TaskInfo> taskInfoThriftCodec,
                             SmileCodec<TaskInfo> taskInfoSmileCodec,
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
                             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
@@ -327,6 +337,7 @@ public class TestHttpRemoteTask
                                 taskStatusThriftCodec,
                                 taskInfoJsonCodec,
                                 taskInfoSmileCodec,
+                                taskInfoThriftCodec,
                                 taskUpdateRequestJsonCodec,
                                 taskUpdateRequestSmileCodec,
                                 planFragmentJsonCodec,
@@ -336,7 +347,9 @@ public class TestHttpRemoteTask
                                 new RemoteTaskStats(),
                                 new InternalCommunicationConfig().setThriftTransportEnabled(useThriftEncoding),
                                 createTestMetadataManager(),
-                                new TestQueryManager());
+                                new TestQueryManager(),
+                                new HandleResolver(),
+                                new ConnectorTypeSerdeManager(new ConnectorMetadataUpdateHandleJsonSerde()));
                     }
                 });
         Injector injector = app

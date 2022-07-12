@@ -19,6 +19,9 @@ import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.StatusResponseHandler.StatusResponse;
+import com.facebook.airlift.http.client.thrift.ThriftRequestUtils;
+import com.facebook.airlift.http.client.thrift.ThriftResponse;
+import com.facebook.airlift.http.client.thrift.ThriftResponseHandler;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
@@ -26,6 +29,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
@@ -43,6 +47,7 @@ import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
@@ -112,6 +117,7 @@ import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTra
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
+import static com.facebook.presto.server.thrift.ThriftCodecWrapper.unwrapThriftCodec;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TASK_UPDATE_SIZE_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
@@ -187,6 +193,8 @@ public final class HttpRemoteTask
     private final ScheduledExecutorService errorScheduledExecutor;
 
     private final Codec<TaskInfo> taskInfoCodec;
+    //Json codec required for TaskUpdateRequest endpoint which uses JSON and returns a TaskInfo
+    private final Codec<TaskInfo> taskInfoJsonCodec;
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Codec<PlanFragment> planFragmentCodec;
 
@@ -202,6 +210,7 @@ public final class HttpRemoteTask
 
     private final boolean binaryTransportEnabled;
     private final boolean thriftTransportEnabled;
+    private final boolean taskInfoThriftTransportEnabled;
     private final Protocol thriftProtocol;
     private final int maxTaskUpdateSizeInBytes;
     private final int maxUnacknowledgedSplits;
@@ -230,6 +239,7 @@ public final class HttpRemoteTask
             boolean summarizeTaskInfo,
             Codec<TaskStatus> taskStatusCodec,
             Codec<TaskInfo> taskInfoCodec,
+            Codec<TaskInfo> taskInfoJsonCodec,
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
             Codec<PlanFragment> planFragmentCodec,
             Codec<MetadataUpdates> metadataUpdatesCodec,
@@ -237,12 +247,15 @@ public final class HttpRemoteTask
             RemoteTaskStats stats,
             boolean binaryTransportEnabled,
             boolean thriftTransportEnabled,
+            boolean taskInfoThriftTransportEnabled,
             Protocol thriftProtocol,
             TableWriteInfo tableWriteInfo,
             int maxTaskUpdateSizeInBytes,
             MetadataManager metadataManager,
             QueryManager queryManager,
-            DecayCounter taskUpdateRequestSize)
+            DecayCounter taskUpdateRequestSize,
+            HandleResolver handleResolver,
+            ConnectorTypeSerdeManager connectorTypeSerdeManager)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -280,6 +293,7 @@ public final class HttpRemoteTask
             this.errorScheduledExecutor = errorScheduledExecutor;
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
+            this.taskInfoJsonCodec = taskInfoJsonCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.planFragmentCodec = planFragmentCodec;
             this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
@@ -288,6 +302,7 @@ public final class HttpRemoteTask
             this.stats = stats;
             this.binaryTransportEnabled = binaryTransportEnabled;
             this.thriftTransportEnabled = thriftTransportEnabled;
+            this.taskInfoThriftTransportEnabled = taskInfoThriftTransportEnabled;
             this.thriftProtocol = thriftProtocol;
             this.tableWriteInfo = tableWriteInfo;
             this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
@@ -353,9 +368,13 @@ public final class HttpRemoteTask
                     errorScheduledExecutor,
                     stats,
                     binaryTransportEnabled,
+                    taskInfoThriftTransportEnabled,
                     session,
                     metadataManager,
-                    queryManager);
+                    queryManager,
+                    handleResolver,
+                    connectorTypeSerdeManager,
+                    thriftProtocol);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();
@@ -716,10 +735,72 @@ public final class HttpRemoteTask
         updateSplitQueueSpace();
     }
 
+    private void onSuccessTaskInfo(TaskInfo result)
+    {
+        try {
+            updateTaskInfo(result);
+        }
+        finally {
+            if (!getTaskInfo().getTaskStatus().getState().isDone()) {
+                cleanUpLocally();
+            }
+        }
+    }
+
     private void updateTaskInfo(TaskInfo taskInfo)
     {
         taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
         taskInfoFetcher.updateTaskInfo(taskInfo);
+    }
+
+    private void cleanUpLocally()
+    {
+        // Update the taskInfo with the new taskStatus.
+
+        // Generally, we send a cleanup request to the worker, and update the TaskInfo on
+        // the coordinator based on what we fetched from the worker. If we somehow cannot
+        // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
+        // likely will not say the task is done however many times we try. In this case,
+        // we have to set the local query info directly so that we stop trying to fetch
+        // updated TaskInfo from the worker. This way, the task on the worker eventually
+        // expires due to lack of activity.
+
+        // This is required because the query state machine depends on TaskInfo (instead of task status)
+        // to transition its own state.
+        // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
+
+        // Since this TaskInfo is updated in the client the "complete" flag will not be set,
+        // indicating that the stats may not reflect the final stats on the worker.
+        updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
+    }
+
+    private void onFailureTaskInfo(
+            Throwable t,
+            String action,
+            Request request,
+            Backoff cleanupBackoff)
+    {
+        if (t instanceof RejectedExecutionException && httpClient.isClosed()) {
+            logError(t, "Unable to %s task at %s. HTTP client is closed.", action, request.getUri());
+            cleanUpLocally();
+            return;
+        }
+
+        // record failure
+        if (cleanupBackoff.failure()) {
+            logError(t, "Unable to %s task at %s. Back off depleted.", action, request.getUri());
+            cleanUpLocally();
+            return;
+        }
+
+        // reschedule
+        long delayNanos = cleanupBackoff.getBackoffDelayNanos();
+        if (delayNanos == 0) {
+            doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
+        }
+        else {
+            errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
+        }
     }
 
     private void scheduleUpdate()
@@ -786,7 +867,7 @@ public final class HttpRemoteTask
             responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
         }
         else {
-            responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoCodec);
+            responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoJsonCodec);
         }
 
         updateErrorTracker.startRequest();
@@ -838,8 +919,11 @@ public final class HttpRemoteTask
 
             // send cancel to task and ignore response
             HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
-            Request request = setContentTypeHeaders(binaryTransportEnabled, prepareDelete())
-                    .setUri(uriBuilder.build())
+            Request.Builder builder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
+            if (taskInfoThriftTransportEnabled) {
+                builder = ThriftRequestUtils.prepareThriftDelete(thriftProtocol);
+            }
+            Request request = builder.setUri(uriBuilder.build())
                     .build();
             scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
         }
@@ -870,7 +954,11 @@ public final class HttpRemoteTask
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
         HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-        Request request = setContentTypeHeaders(binaryTransportEnabled, prepareDelete())
+        Request.Builder requestBuilder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
+        if (taskInfoThriftTransportEnabled) {
+            requestBuilder = ThriftRequestUtils.prepareThriftDelete(Protocol.BINARY);
+        }
+        Request request = requestBuilder
                 .setUri(uriBuilder.build())
                 .build();
 
@@ -896,8 +984,12 @@ public final class HttpRemoteTask
 
             // send abort to task
             HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-            Request request = setContentTypeHeaders(binaryTransportEnabled, prepareDelete())
-                    .setUri(uriBuilder.build())
+            Request.Builder builder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
+            if (taskInfoThriftTransportEnabled) {
+                builder = ThriftRequestUtils.prepareThriftDelete(thriftProtocol);
+            }
+
+            Request request = builder.setUri(uriBuilder.build())
                     .build();
             scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
         }
@@ -916,75 +1008,24 @@ public final class HttpRemoteTask
     private void doScheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
         ResponseHandler responseHandler;
-        if (binaryTransportEnabled) {
+        if (taskInfoThriftTransportEnabled) {
+            responseHandler = new ThriftResponseHandler(unwrapThriftCodec(taskInfoCodec));
+            Futures.addCallback(httpClient.executeAsync(request, responseHandler),
+                    new ThriftResponseFutureCallback(action, request, cleanupBackoff),
+                    executor);
+        }
+        else if (binaryTransportEnabled) {
             responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
+            Futures.addCallback(httpClient.executeAsync(request, responseHandler),
+                    new BaseResponseFutureCallback(action, request, cleanupBackoff),
+                    executor);
         }
         else {
             responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoCodec);
+            Futures.addCallback(httpClient.executeAsync(request, responseHandler),
+                    new BaseResponseFutureCallback(action, request, cleanupBackoff),
+                    executor);
         }
-
-        Futures.addCallback(httpClient.executeAsync(request, responseHandler), new FutureCallback<BaseResponse<TaskInfo>>()
-        {
-            @Override
-            public void onSuccess(BaseResponse<TaskInfo> result)
-            {
-                try {
-                    updateTaskInfo(result.getValue());
-                }
-                finally {
-                    if (!getTaskInfo().getTaskStatus().getState().isDone()) {
-                        cleanUpLocally();
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-                if (t instanceof RejectedExecutionException && httpClient.isClosed()) {
-                    logError(t, "Unable to %s task at %s. HTTP client is closed.", action, request.getUri());
-                    cleanUpLocally();
-                    return;
-                }
-
-                // record failure
-                if (cleanupBackoff.failure()) {
-                    logError(t, "Unable to %s task at %s. Back off depleted.", action, request.getUri());
-                    cleanUpLocally();
-                    return;
-                }
-
-                // reschedule
-                long delayNanos = cleanupBackoff.getBackoffDelayNanos();
-                if (delayNanos == 0) {
-                    doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
-                }
-                else {
-                    errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
-                }
-            }
-
-            private void cleanUpLocally()
-            {
-                // Update the taskInfo with the new taskStatus.
-
-                // Generally, we send a cleanup request to the worker, and update the TaskInfo on
-                // the coordinator based on what we fetched from the worker. If we somehow cannot
-                // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
-                // likely will not say the task is done however many times we try. In this case,
-                // we have to set the local query info directly so that we stop trying to fetch
-                // updated TaskInfo from the worker. This way, the task on the worker eventually
-                // expires due to lack of activity.
-
-                // This is required because the query state machine depends on TaskInfo (instead of task status)
-                // to transition its own state.
-                // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
-
-                // Since this TaskInfo is updated in the client the "complete" flag will not be set,
-                // indicating that the stats may not reflect the final stats on the worker.
-                updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
-            }
-        }, executor);
     }
 
     /**
@@ -1123,6 +1164,60 @@ public final class HttpRemoteTask
         }
         else {
             log.error(t, format, args);
+        }
+    }
+
+    private class ThriftResponseFutureCallback
+            implements FutureCallback<ThriftResponse<TaskInfo>>
+    {
+        private final String action;
+        private final Request request;
+        private final Backoff cleanupBackoff;
+
+        public ThriftResponseFutureCallback(String action, Request request, Backoff cleanupBackoff)
+        {
+            this.action = action;
+            this.request = request;
+            this.cleanupBackoff = cleanupBackoff;
+        }
+
+        @Override
+        public void onSuccess(ThriftResponse<TaskInfo> result)
+        {
+            onSuccessTaskInfo(result.getValue());
+        }
+
+        @Override
+        public void onFailure(Throwable throwable)
+        {
+            onFailureTaskInfo(throwable, this.action, this.request, this.cleanupBackoff);
+        }
+    }
+
+    private class BaseResponseFutureCallback
+            implements FutureCallback<BaseResponse<TaskInfo>>
+    {
+        private final String action;
+        private final Request request;
+        private final Backoff cleanupBackoff;
+
+        public BaseResponseFutureCallback(String action, Request request, Backoff cleanupBackoff)
+        {
+            this.action = action;
+            this.request = request;
+            this.cleanupBackoff = cleanupBackoff;
+        }
+
+        @Override
+        public void onSuccess(BaseResponse<TaskInfo> result)
+        {
+            onSuccessTaskInfo(result.getValue());
+        }
+
+        @Override
+        public void onFailure(Throwable throwable)
+        {
+            onFailureTaskInfo(throwable, this.action, this.request, this.cleanupBackoff);
         }
     }
 }

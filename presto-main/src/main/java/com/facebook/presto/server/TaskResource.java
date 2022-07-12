@@ -20,6 +20,7 @@ import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -27,6 +28,7 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -57,6 +59,7 @@ import javax.ws.rs.container.CompletionCallback;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericEntity;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
@@ -79,6 +82,8 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
+import static com.facebook.presto.server.TaskResourceUtils.isThriftRequest;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
@@ -105,6 +110,8 @@ public class TaskResource
     private final TimeStat readFromOutputBufferTime = new TimeStat();
     private final TimeStat resultsRequestTime = new TimeStat();
     private final Codec<PlanFragment> planFragmentCodec;
+    private final HandleResolver handleResolver;
+    private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
     @Inject
     public TaskResource(
@@ -114,13 +121,17 @@ public class TaskResource
             @ForAsyncRpc ScheduledExecutorService timeoutExecutor,
             JsonCodec<PlanFragment> planFragmentJsonCodec,
             SmileCodec<PlanFragment> planFragmentSmileCodec,
-            InternalCommunicationConfig communicationConfig)
+            InternalCommunicationConfig communicationConfig,
+            HandleResolver handleResolver,
+            ConnectorTypeSerdeManager connectorTypeSerdeManager)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.planFragmentCodec = planFragmentJsonCodec;
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
     }
 
     @GET
@@ -160,21 +171,28 @@ public class TaskResource
 
     @GET
     @Path("{taskId}")
-    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public void getTaskInfo(
             @PathParam("taskId") final TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
+            @Context HttpHeaders httpHeaders,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+
+        boolean isThriftRequest = isThriftRequest(httpHeaders);
 
         if (currentState == null || maxWait == null) {
             TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
             if (shouldSummarize(uriInfo)) {
                 taskInfo = taskInfo.summarize();
+            }
+
+            if (isThriftRequest) {
+                taskInfo = convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
             }
             asyncResponse.resume(taskInfo);
             return;
@@ -183,7 +201,15 @@ public class TaskResource
         Duration waitTime = randomizeWaitTime(maxWait);
         ListenableFuture<TaskInfo> futureTaskInfo = addTimeout(
                 taskManager.getTaskInfo(taskId, currentState),
-                () -> taskManager.getTaskInfo(taskId),
+                () -> {
+                    TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
+                    if (isThriftRequest) {
+                        return convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
+                    }
+                    else {
+                        return taskInfo;
+                    }
+                },
                 waitTime,
                 timeoutExecutor);
 
@@ -244,12 +270,13 @@ public class TaskResource
 
     @DELETE
     @Path("{taskId}")
-    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public TaskInfo deleteTask(
             @PathParam("taskId") TaskId taskId,
             @QueryParam("abort") @DefaultValue("true") boolean abort,
-            @Context UriInfo uriInfo)
+            @Context UriInfo uriInfo,
+            @Context HttpHeaders httpHeaders)
     {
         requireNonNull(taskId, "taskId is null");
         TaskInfo taskInfo;
@@ -264,6 +291,11 @@ public class TaskResource
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
         }
+
+        if (isThriftRequest(httpHeaders)) {
+            taskInfo = convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
+        }
+
         return taskInfo;
     }
 

@@ -19,22 +19,29 @@ import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
+import com.facebook.airlift.http.client.thrift.ThriftRequestUtils;
+import com.facebook.airlift.http.client.thrift.ThriftResponseHandler;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.SimpleHttpResponseCallback;
 import com.facebook.presto.server.SimpleHttpResponseHandler;
 import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.server.thrift.ThriftHttpResponseHandler;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
@@ -59,8 +66,10 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
+import static com.facebook.presto.server.TaskResourceUtils.convertFromThriftTaskInfo;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
+import static com.facebook.presto.server.thrift.ThriftCodecWrapper.unwrapThriftCodec;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
@@ -106,9 +115,13 @@ public class TaskInfoFetcher
     private ListenableFuture<?> metadataUpdateFuture;
 
     private final boolean isBinaryTransportEnabled;
+    private final boolean isThriftTransportEnabled;
     private final Session session;
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
+    private final HandleResolver handleResolver;
+    private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
+    private final Protocol thriftProtocol;
 
     public TaskInfoFetcher(
             Consumer<Throwable> onFail,
@@ -125,9 +138,13 @@ public class TaskInfoFetcher
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled,
+            boolean isThriftTransportEnabled,
             Session session,
             MetadataManager metadataManager,
-            QueryManager queryManager)
+            QueryManager queryManager,
+            HandleResolver handleResolver,
+            ConnectorTypeSerdeManager connectorTypeSerdeManager,
+            Protocol thriftProtocol)
     {
         requireNonNull(initialTask, "initialTask is null");
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
@@ -151,9 +168,13 @@ public class TaskInfoFetcher
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+        this.isThriftTransportEnabled = isThriftTransportEnabled;
         this.session = requireNonNull(session, "session is null");
         this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
+        this.thriftProtocol = requireNonNull(thriftProtocol, "thriftProtocol is null");
     }
 
     public TaskInfo getTaskInfo()
@@ -257,27 +278,41 @@ public class TaskInfoFetcher
 
         HttpUriBuilder httpUriBuilder = uriBuilderFrom(taskStatus.getSelf());
         URI uri = summarizeTaskInfo ? httpUriBuilder.addParameter("summarize").build() : httpUriBuilder.build();
-        Request.Builder uriBuilder = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet());
-
-        if (taskInfoRefreshMaxWait.toMillis() != 0L) {
-            uriBuilder.setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
-                    .setHeader(PRESTO_MAX_WAIT, taskInfoRefreshMaxWait.toString());
-        }
-
-        Request request = uriBuilder.setUri(uri).build();
+        Request.Builder requestBuilder = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet());
 
         ResponseHandler responseHandler;
-        if (isBinaryTransportEnabled) {
+        if (isThriftTransportEnabled) {
+            requestBuilder = ThriftRequestUtils.prepareThriftGet(thriftProtocol);
+            responseHandler = new ThriftResponseHandler(unwrapThriftCodec(taskInfoCodec));
+        }
+        else if (isBinaryTransportEnabled) {
             responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
         }
         else {
             responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoCodec);
         }
 
+        if (taskInfoRefreshMaxWait.toMillis() != 0L) {
+            requestBuilder.setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
+                    .setHeader(PRESTO_MAX_WAIT, taskInfoRefreshMaxWait.toString());
+        }
+
+        Request request = requestBuilder.setUri(uri).build();
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, responseHandler);
         currentRequestStartNanos.set(System.nanoTime());
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR), executor);
+        FutureCallback callback;
+        if (isThriftTransportEnabled) {
+            callback = new ThriftHttpResponseHandler(this, request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR);
+        }
+        else {
+            callback = new SimpleHttpResponseHandler<>(this, request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR);
+        }
+
+        Futures.addCallback(
+                future,
+                callback,
+                executor);
     }
 
     synchronized void updateTaskInfo(TaskInfo newValue)
@@ -311,6 +346,9 @@ public class TaskInfoFetcher
             }
             updateStats(startNanos);
             errorTracker.requestSucceeded();
+            if (isThriftTransportEnabled) {
+                newValue = convertFromThriftTaskInfo(newValue, connectorTypeSerdeManager, handleResolver);
+            }
             updateTaskInfo(newValue);
         }
     }
