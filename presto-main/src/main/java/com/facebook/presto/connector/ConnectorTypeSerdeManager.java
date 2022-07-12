@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.presto.server.ForJsonMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorTypeSerde;
@@ -29,9 +30,13 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorTypeSerdeManager
 {
     private final Map<ConnectorId, ConnectorTypeSerdeProvider> connectorTypeSerdeProviderMap = new ConcurrentHashMap<>();
+    private final ConnectorTypeSerde<ConnectorMetadataUpdateHandle> connectorMetadataUpdateHandleJsonSerde;
 
     @Inject
-    public ConnectorTypeSerdeManager() {}
+    public ConnectorTypeSerdeManager(@ForJsonMetadataUpdateHandle ConnectorTypeSerde<ConnectorMetadataUpdateHandle> connectorMetadataUpdateHandleJsonSerde)
+    {
+        this.connectorMetadataUpdateHandleJsonSerde = requireNonNull(connectorMetadataUpdateHandleJsonSerde, "connectorMetadataUpdateHandleJsonSerde is null");
+    }
 
     public void addConnectorTypeSerdeProvider(ConnectorId connectorId, ConnectorTypeSerdeProvider connectorTypeSerdeProvider)
     {
@@ -48,9 +53,11 @@ public class ConnectorTypeSerdeManager
         connectorTypeSerdeProviderMap.remove(connectorId);
     }
 
-    public Optional<ConnectorTypeSerde<ConnectorMetadataUpdateHandle>> getMetadataUpdateHandleSerde(ConnectorId connectorId)
+    public ConnectorTypeSerde<ConnectorMetadataUpdateHandle> getMetadataUpdateHandleSerde(ConnectorId connectorId)
     {
         requireNonNull(connectorId, "connectorId is null");
-        return Optional.ofNullable(connectorTypeSerdeProviderMap.get(connectorId)).map(ConnectorTypeSerdeProvider::getConnectorMetadataUpdateHandleSerde);
+        return Optional.ofNullable(connectorTypeSerdeProviderMap.get(connectorId))
+                .map(ConnectorTypeSerdeProvider::getConnectorMetadataUpdateHandleSerde)
+                .orElse(connectorMetadataUpdateHandleJsonSerde);
     }
 }

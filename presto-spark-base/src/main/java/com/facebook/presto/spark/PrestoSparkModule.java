@@ -97,6 +97,8 @@ import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
+import com.facebook.presto.server.ConnectorMetadataUpdateHandleJsonSerde;
+import com.facebook.presto.server.ForJsonMetadataUpdateHandle;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.QuerySessionSupplier;
@@ -114,6 +116,8 @@ import com.facebook.presto.spark.node.PrestoSparkTaskManager;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
+import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
+import com.facebook.presto.spi.ConnectorTypeSerde;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -357,6 +361,12 @@ public class PrestoSparkModule
 
         // connector metadata update handle serde manager
         binder.bind(ConnectorTypeSerdeManager.class).in(Scopes.SINGLETON);
+
+        // connector metadata update handle json serde
+        binder.bind(new TypeLiteral<ConnectorTypeSerde<ConnectorMetadataUpdateHandle>>(){})
+                .annotatedWith(ForJsonMetadataUpdateHandle.class)
+                .to(ConnectorMetadataUpdateHandleJsonSerde.class)
+                .in(Scopes.SINGLETON);
 
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);
