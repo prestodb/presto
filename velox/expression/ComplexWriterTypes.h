@@ -67,15 +67,14 @@ struct PrimitiveWriter {
 };
 
 template <typename V>
-bool constexpr provide_std_interface = CppToType<V>::isPrimitiveType &&
-    !std::is_same<Varchar, V>::value && !std::is_same<Varbinary, V>::value;
+bool constexpr provide_std_interface =
+    CppToType<V>::isPrimitiveType && !std::is_same<Varchar, V>::value &&
+    !std::is_same<Varbinary, V>::value && !std::is_same<Any, V>::value;
 
-// Adding Any-type items requires commit, but CppToType<Any>::isPrimitiveType is
-// true, so we add an explicit condition for Any here.
+// bool is an exception, it requires commit but also provides std::interface.
 template <typename V>
-bool constexpr requires_commit = !CppToType<V>::isPrimitiveType ||
-    std::is_same<Varchar, V>::value || std::is_same<bool, V>::value ||
-    std::is_same<Varbinary, V>::value || std::is_same<Any, V>::value;
+bool constexpr requires_commit =
+    !provide_std_interface<V> || std::is_same<bool, V>::value;
 
 // The object passed to the simple function interface that represent a single
 // array entry.
