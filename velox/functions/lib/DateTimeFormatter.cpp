@@ -185,12 +185,15 @@ std::string DateTimeFormatter::format(
           result += padContent(century, '0', token.pattern.minRepresentDigits);
         } break;
 
-        case DateTimeFormatSpecifier::YEAR_OF_ERA:
-          result += padContent(
-              std::abs(static_cast<signed>(calDate.year())),
-              '0',
-              token.pattern.minRepresentDigits);
-          break;
+        case DateTimeFormatSpecifier::YEAR_OF_ERA: {
+          auto year = static_cast<signed>(calDate.year());
+          if (token.pattern.minRepresentDigits == 2) {
+            result += padContent(std::abs(year) % 100, '0', 2);
+          } else {
+            year = year <= 0 ? std::abs(year - 1) : year;
+            result += padContent(year, '0', token.pattern.minRepresentDigits);
+          }
+        } break;
 
         case DateTimeFormatSpecifier::DAY_OF_WEEK_0_BASED:
         case DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED: {
@@ -213,12 +216,20 @@ std::string DateTimeFormatter::format(
           }
         } break;
 
-        case DateTimeFormatSpecifier::YEAR:
-          result += padContent(
-              static_cast<signed>(calDate.year()),
-              '0',
-              token.pattern.minRepresentDigits);
-          break;
+        case DateTimeFormatSpecifier::YEAR: {
+          auto year = static_cast<signed>(calDate.year());
+          if (token.pattern.minRepresentDigits == 2) {
+            year = std::abs(year);
+            auto twoDigitYear = year % 100;
+            result +=
+                padContent(twoDigitYear, '0', token.pattern.minRepresentDigits);
+          } else {
+            result += padContent(
+                static_cast<signed>(calDate.year()),
+                '0',
+                token.pattern.minRepresentDigits);
+          }
+        } break;
 
         case DateTimeFormatSpecifier::DAY_OF_YEAR: {
           auto firstDayOfTheYear = date::year_month_day(

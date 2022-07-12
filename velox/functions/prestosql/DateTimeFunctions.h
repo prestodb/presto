@@ -888,6 +888,45 @@ struct DateParseFunction {
 };
 
 template <typename T>
+struct FormatDateTimeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  const date::time_zone* sessionTimeZone_ = nullptr;
+  std::shared_ptr<DateTimeFormatter> jodaDateTime_;
+  bool isConstFormat_ = false;
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<Timestamp>* /*timestamp*/,
+      const arg_type<Varchar>* formatString) {
+    sessionTimeZone_ = getTimeZoneFromConfig(config);
+    if (formatString != nullptr) {
+      jodaDateTime_ = buildJodaDateTimeFormatter(
+          std::string_view(formatString->data(), formatString->size()));
+      isConstFormat_ = true;
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& result,
+      const arg_type<Timestamp>& timestamp,
+      const arg_type<Varchar>& formatString) {
+    if (!isConstFormat_) {
+      jodaDateTime_ = buildJodaDateTimeFormatter(
+          std::string_view(formatString.data(), formatString.size()));
+    }
+
+    auto formattedResult = jodaDateTime_->format(timestamp, sessionTimeZone_);
+    auto resultSize = formattedResult.size();
+    result.resize(resultSize);
+    if (resultSize != 0) {
+      std::memcpy(result.data(), formattedResult.data(), resultSize);
+    }
+    return true;
+  }
+};
+
+template <typename T>
 struct ParseDateTimeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

@@ -85,6 +85,8 @@ void registerSimpleFunctions() {
       {"date_diff"});
   registerFunction<DateFormatFunction, Varchar, Timestamp, Varchar>(
       {"date_format"});
+  registerFunction<FormatDateTimeFunction, Varchar, Timestamp, Varchar>(
+      {"format_datetime"});
   registerFunction<
       ParseDateTimeFunction,
       TimestampWithTimezone,
