@@ -732,14 +732,40 @@ void testMapWriter(
   const auto writerDataTypeWithId = writerSchema->childAt(0);
 
   VLOG(2) << "Testing map writer " << dataType->toString() << " using "
-          << (useFlatMap ? "Flat Map" : "Regular Map");
+          << (useFlatMap ? "Flat Map" : "Regular Map")
+          << (useFlatMap && isStruct ? " - Struct" : "");
 
   const auto config = std::make_shared<Config>();
   if (useFlatMap) {
+    // collect keys
+    // iterate for each batch, for each key, if unique add to collection
+    // create TKEY type collection to pass to writer
+    std::unordered_set<TKEY> uniqueKeys;
+    for (auto batch : batches) { // base vector
+      // auto rows = std::dynamic_pointer_cast<RowVector>(batch);
+      // auto map = std::dynamic_pointer_cast<MapVector>(rows->childAt(0));
+
+      // auto keys = map->mapKeys();
+      // auto scalarKeys = std::dynamic_pointer_cast<FlatVector<TKEY>>(keys);
+      // for (int32_t i = 0; i < keys->size(); ++i) {
+      //   // add to collection if unique
+      //   LOG(INFO) << "Key: " << ValueOf<TKEY>::get(keys, i) << std::endl;
+
+      //   auto key = scalarKeys->valueAt(i);
+      //   if (uniqueKeys.find(key) != uniqueKeys.end()) {
+      //     uniqueKeys.insert(key);
+      //   }
+      // }
+    }
+
     config->set(Config::FLATTEN_MAP, true);
     config->set(Config::MAP_FLAT_COLS, {writerDataTypeWithId->column});
     config->set(
         Config::MAP_FLAT_DISABLE_DICT_ENCODING, disableDictionaryEncoding);
+    // add configs to define what columns to be interpreted as struct
+
+    // if isStruct, convert batches to struct before writing
+    // expect that if we pass isStruct true with useFlatMap false, it will fail
   }
 
   WriterContext context{config, getDefaultScopedMemoryPool()};
@@ -960,6 +986,8 @@ TEST(ColumnWriterTests, TestMapWriterDifferentKeyValue) {
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false);
 }
 
+TEST(ColumnWriterTests, TestMapWriterIsStructWithoutFlatMap) {}
+
 TEST(ColumnWriterTests, TestMapWriterMixedBatchTypeHandling) {
   using keyType = int32_t;
   using valueType = int32_t;
@@ -1008,6 +1036,7 @@ TEST(ColumnWriterTests, TestMapWriterBinaryKey) {
 
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false);
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true);
+  testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true, true);
 }
 
 template <typename keyType, typename valueType>
@@ -1020,6 +1049,7 @@ void testMapWriterImpl() {
 
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false);
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true);
+  testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true, true);
 }
 
 TEST(ColumnWriterTests, TestMapWriterNestedMap) {
