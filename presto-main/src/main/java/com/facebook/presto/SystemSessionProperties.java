@@ -233,6 +233,7 @@ public final class SystemSessionProperties
     public static final String PREFER_MERGE_JOIN = "prefer_merge_join";
     public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
     public static final String USE_HISTORY_BASED_PLAN_STATISTICS = "use_history_based_plan_statistics";
+    public static final String USE_EXTERNAL_PLAN_STATISTICS = "use_external_plan_statistics";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -2240,5 +2241,10 @@ public final class SystemSessionProperties
     public static boolean useHistoryBasedPlanStatisticsEnabled(Session session)
     {
         return session.getSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, Boolean.class);
+    }
+
+    public static boolean useExternalPlanStatisticsEnabled(Session session)
+    {
+        return session.getSystemProperty(USE_EXTERNAL_PLAN_STATISTICS, Boolean.class);
     }
 }
