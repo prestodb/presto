@@ -709,7 +709,17 @@ class GenericWriter {
       writer_ptr_t<Varchar>,
       writer_ptr_t<Varbinary>,
       writer_ptr_t<Array<Any>>,
-      writer_ptr_t<Map<Any, Any>>>;
+      writer_ptr_t<Map<Any, Any>>,
+      writer_ptr_t<Row<Any>>,
+      writer_ptr_t<Row<Any, Any>>,
+      writer_ptr_t<Row<Any, Any, Any>>,
+      writer_ptr_t<Row<Any, Any, Any, Any>>,
+      writer_ptr_t<Row<Any, Any, Any, Any, Any>>,
+      writer_ptr_t<Row<Any, Any, Any, Any, Any, Any>>,
+      writer_ptr_t<Row<Any, Any, Any, Any, Any, Any, Any>>,
+      writer_ptr_t<Row<Any, Any, Any, Any, Any, Any, Any, Any>>,
+      writer_ptr_t<Row<Any, Any, Any, Any, Any, Any, Any, Any, Any>>,
+      writer_ptr_t<Row<Any, Any, Any, Any, Any, Any, Any, Any, Any, Any>>>;
 
   GenericWriter(writer_variant_t& castWriter, TypePtr& castType, size_t& index)
       : castWriter_{castWriter}, castType_{castType}, index_{index} {}
