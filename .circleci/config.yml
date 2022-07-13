@@ -317,6 +317,17 @@ jobs:
             make debug EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_TESTING=OFF" NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
             ccache -s
           no_output_timeout: 1h
+      - run:
+          name: Build velox with substrait
+          command: |
+            mkdir -p .ccache
+            export CCACHE_DIR=$(realpath .ccache)
+            ccache -sz -M 5Gi
+            source /opt/rh/gcc-toolset-9/enable
+            make clean
+            make debug EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_TESTING=OFF -DVELOX_ENABLE_SUBSTRAIT=ON" NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
+            ccache -s
+          no_output_timeout: 1h
       - store_artifacts:
           path: '_build/debug/.ninja_log'
       - save_cache:
