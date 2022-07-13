@@ -25,11 +25,11 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.tests.AbstractTestingPrestoClient;
 import com.facebook.presto.tests.ResultsSession;
 import com.google.common.collect.ImmutableMap;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,7 +55,7 @@ import static java.util.Objects.requireNonNull;
 public class RedisLoader
         extends AbstractTestingPrestoClient<Void>
 {
-    private static final DateTimeFormatter ISO8601_FORMATTER = ISODateTimeFormat.dateTime();
+    private static final DateTimeFormatter ISO8601_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
 
     private final JedisPool jedisPool;
     private final String tableName;
@@ -170,13 +170,13 @@ public class RedisLoader
                 return value;
             }
             if (TIME.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimeLiteral(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.parse(Instant.ofEpochMilli(parseTimeLiteral(timeZoneKey, (String) value)).toString());
             }
             if (TIMESTAMP.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.parse(Instant.ofEpochMilli(parseTimestampWithoutTimeZone(timeZoneKey, (String) value)).toString());
             }
             if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                return ISO8601_FORMATTER.print(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value)));
+                return ISO8601_FORMATTER.parse(Instant.ofEpochMilli(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value))).toString());
             }
             throw new AssertionError("unhandled type: " + type);
         }
