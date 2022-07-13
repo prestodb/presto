@@ -119,6 +119,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ10Plan();
     case 13:
       return getQ13Plan();
+    case 14:
+      return getQ14Plan();
     case 18:
       return getQ18Plan();
     default:
@@ -612,6 +614,69 @@ TpchPlan TpchQueryBuilder::getQ13Plan() const {
   return context;
 }
 
+TpchPlan TpchQueryBuilder::getQ14Plan() const {
+  std::vector<std::string> lineitemColumns = {
+      "l_partkey", "l_extendedprice", "l_discount", "l_shipdate"};
+  std::vector<std::string> partColumns = {"p_partkey", "p_type"};
+
+  auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
+  auto partSelectedRowType = getRowType(kPart, partColumns);
+  const auto& partFileColumns = getFileColumnNames(kPart);
+
+  const std::string shipDate = "l_shipdate";
+  const std::string shipDateFilter = formatDateFilter(
+      shipDate, lineitemSelectedRowType, "'1995-09-01'", "'1995-09-30'");
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId lineitemScanNodeId;
+  core::PlanNodeId partScanNodeId;
+
+  auto part = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(kPart, partSelectedRowType, partFileColumns)
+                  .capturePlanNodeId(partScanNodeId)
+                  .planNode();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(
+              kLineitem,
+              lineitemSelectedRowType,
+              lineitemFileColumns,
+              {},
+              shipDateFilter)
+          .capturePlanNodeId(lineitemScanNodeId)
+          .project(
+              {"l_extendedprice * (1.0 - l_discount) as part_revenue",
+               "l_shipdate",
+               "l_partkey"})
+          .hashJoin(
+              {"l_partkey"},
+              {"p_partkey"},
+              part,
+              "",
+              {"part_revenue", "p_type"})
+          .project(
+              {"(CASE WHEN (p_type LIKE 'PROMO%') THEN part_revenue ELSE 0.0 END) as filter_revenue",
+               "part_revenue"})
+          .partialAggregation(
+              {},
+              {"sum(part_revenue) as total_revenue",
+               "sum(filter_revenue) as total_promo_revenue"})
+          .localPartition({})
+          .finalAggregation()
+          .project(
+              {"100.00 * total_promo_revenue/total_revenue as promo_revenue"})
+          .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFiles[partScanNodeId] = getTableFilePaths(kPart);
+  context.dataFileFormat = format_;
+  return context;
+}
+
 TpchPlan TpchQueryBuilder::getQ18Plan() const {
   std::vector<std::string> lineitemColumns = {"l_orderkey", "l_quantity"};
   std::vector<std::string> ordersColumns = {
@@ -689,7 +754,7 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
 }
 
 const std::vector<std::string> TpchQueryBuilder::kTableNames_ =
-    {kLineitem, kOrders, kCustomer, kNation, kRegion, kSupplier};
+    {kLineitem, kOrders, kCustomer, kNation, kRegion, kPart, kSupplier};
 
 const std::unordered_map<std::string, std::vector<std::string>>
     TpchQueryBuilder::kTables_ = {
@@ -708,6 +773,9 @@ const std::unordered_map<std::string, std::vector<std::string>>
         std::make_pair(
             "region",
             tpch::getTableSchema(tpch::Table::TBL_REGION)->names()),
+        std::make_pair(
+            "part",
+            tpch::getTableSchema(tpch::Table::TBL_PART)->names()),
         std::make_pair(
             "supplier",
             tpch::getTableSchema(tpch::Table::TBL_SUPPLIER)->names())};

@@ -82,6 +82,7 @@ class TpchQueryBuilder {
   TpchPlan getQ6Plan() const;
   TpchPlan getQ10Plan() const;
   TpchPlan getQ13Plan() const;
+  TpchPlan getQ14Plan() const;
   TpchPlan getQ18Plan() const;
 
   const std::vector<std::string>& getTableFilePaths(
@@ -113,6 +114,7 @@ class TpchQueryBuilder {
   static constexpr const char* kOrders = "orders";
   static constexpr const char* kNation = "nation";
   static constexpr const char* kRegion = "region";
+  static constexpr const char* kPart = "part";
   static constexpr const char* kSupplier = "supplier";
 };
 
