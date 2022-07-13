@@ -17,7 +17,7 @@
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #define XXH_INLINE_ALL
-#include "velox/external/xxhash.h"
+#include <xxhash.h>
 
 using facebook::velox::aggregate::hll::DenseHll;
 using facebook::velox::aggregate::hll::SparseHll;

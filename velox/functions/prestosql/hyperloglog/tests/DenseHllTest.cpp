@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/hyperloglog/DenseHll.h"
+
+#include <gtest/gtest.h>
 #include <algorithm>
 #include <map>
 #include <vector>
+
 #define XXH_INLINE_ALL
-#include <gtest/gtest.h>
+#include <xxhash.h>
+
 #include "velox/common/encode/Base64.h"
-#include "velox/external/xxhash.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::aggregate::hll;

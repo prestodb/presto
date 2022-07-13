@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 #define XXH_INLINE_ALL
+#include <xxhash.h>
+
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
-#include "velox/external/xxhash.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/hyperloglog/DenseHll.h"
 #include "velox/functions/prestosql/hyperloglog/HllUtils.h"

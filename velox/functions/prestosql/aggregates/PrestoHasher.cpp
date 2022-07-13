@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define XXH_INLINE_ALL
-
 #include "velox/functions/prestosql/aggregates/PrestoHasher.h"
-#include "velox/external/xxhash.h"
+
+#define XXH_INLINE_ALL
+#include <xxhash.h>
+
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 

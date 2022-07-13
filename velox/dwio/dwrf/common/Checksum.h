@@ -21,7 +21,7 @@
 
 #include <boost/crc.hpp>
 #define XXH_INLINE_ALL
-#include "velox/external/xxhash.h"
+#include <xxhash.h>
 
 namespace facebook::velox::dwrf {
 

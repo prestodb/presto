@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/hyperloglog/SparseHll.h"
+
 #define XXH_INLINE_ALL
+#include <xxhash.h>
+
 #include <gtest/gtest.h>
-#include "velox/external/xxhash.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::aggregate::hll;

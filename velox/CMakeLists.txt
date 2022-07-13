@@ -13,6 +13,7 @@
 # limitations under the License.
 
 # VELOX BASE
+include_directories(external/xxhash)
 add_subdirectory(buffer)
 add_subdirectory(common)
 add_subdirectory(core)

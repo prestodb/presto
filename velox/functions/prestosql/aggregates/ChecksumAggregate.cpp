@@ -15,10 +15,10 @@
  */
 
 #define XXH_INLINE_ALL
+#include <xxhash.h>
 
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
-#include "velox/external/xxhash.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/PrestoHasher.h"
 #include "velox/vector/FlatVector.h"
