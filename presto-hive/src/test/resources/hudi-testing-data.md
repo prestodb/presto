@@ -3,7 +3,7 @@
 The archive file `hudi-testing-data.zip` contains data files for 4 Hudi tables.
 
 - `stock_ticks_cow`: a partitioned copy-on-write table
-- `stock_ticks_cow`: a non-partitioned copy-on-write table,
+- `stock_ticks_cown`: a non-partitioned copy-on-write table,
 - `stock_ticks_mor`: a partitioned merge-on-read table
 - `stock_ticks_morn`: a non-partitioned merge-on-read table;
 
