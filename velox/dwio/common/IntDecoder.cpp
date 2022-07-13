@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/IntDecoder.h"
+#include "velox/dwio/common/IntDecoder.h"
 #include "velox/common/base/SimdUtil.h"
-#include "velox/dwio/dwrf/common/DirectDecoder.h"
-#include "velox/dwio/dwrf/common/RLEv1.h"
-#include "velox/dwio/dwrf/common/RLEv2.h"
+#include "velox/dwio/common/DirectDecoder.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 template <bool isSigned>
 void IntDecoder<isSigned>::skipLongs(uint64_t numValues) {
@@ -2407,56 +2405,6 @@ template void IntDecoder<false>::bulkReadRows(
     int16_t* result,
     int32_t initialRow);
 
-template <bool isSigned>
-std::unique_ptr<IntDecoder<isSigned>> IntDecoder<isSigned>::createRle(
-    std::unique_ptr<dwio::common::SeekableInputStream> input,
-    RleVersion version,
-    memory::MemoryPool& pool,
-    bool useVInts,
-    uint32_t numBytes) {
-  switch (static_cast<int64_t>(version)) {
-    case RleVersion_1:
-      return std::make_unique<RleDecoderV1<isSigned>>(
-          std::move(input), useVInts, numBytes);
-    case RleVersion_2:
-      return std::make_unique<RleDecoderV2<isSigned>>(std::move(input), pool);
-    default:
-      DWIO_ENSURE(false, "not supported");
-      return {};
-  }
-}
-
-template std::unique_ptr<IntDecoder<true>> IntDecoder<true>::createRle(
-    std::unique_ptr<dwio::common::SeekableInputStream> input,
-    RleVersion version,
-    memory::MemoryPool& pool,
-    bool useVInts,
-    uint32_t numBytes);
-template std::unique_ptr<IntDecoder<false>> IntDecoder<false>::createRle(
-    std::unique_ptr<dwio::common::SeekableInputStream> input,
-    RleVersion version,
-    memory::MemoryPool& pool,
-    bool useVInts,
-    uint32_t numBytes);
-
-template <bool isSigned>
-std::unique_ptr<IntDecoder<isSigned>> IntDecoder<isSigned>::createDirect(
-    std::unique_ptr<dwio::common::SeekableInputStream> input,
-    bool useVInts,
-    uint32_t numBytes) {
-  return std::make_unique<DirectDecoder<isSigned>>(
-      std::move(input), useVInts, numBytes);
-}
-
-template std::unique_ptr<IntDecoder<true>> IntDecoder<true>::createDirect(
-    std::unique_ptr<dwio::common::SeekableInputStream> input,
-    bool useVInts,
-    uint32_t numBytes);
-template std::unique_ptr<IntDecoder<false>> IntDecoder<false>::createDirect(
-    std::unique_ptr<dwio::common::SeekableInputStream> input,
-    bool useVInts,
-    uint32_t numBytes);
-
 #ifdef CODEGEN_BULK_VARINTS
 // Codegen for vint bulk decode. This is to document how varintSwitch
 // and similar functions were made and how to regenerate modified
@@ -2632,4 +2580,4 @@ void printVarintSwitch(int32_t mask_len, bool sparse) {
 
 #endif
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

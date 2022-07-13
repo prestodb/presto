@@ -17,18 +17,15 @@
 #include <limits>
 #include "folly/Benchmark.h"
 #include "folly/CpuId.h"
-#include "folly/Portability.h"
 #include "folly/Random.h"
 #include "folly/Varint.h"
 #include "folly/init/Init.h"
 #include "folly/lang/Bits.h"
 #include "velox/common/base/BitUtil.h"
+#include "velox/dwio/common/IntCodecCommon.h"
 #include "velox/dwio/common/exception/Exception.h"
-#include "velox/dwio/dwrf/common/IntCodecCommon.h"
-#include "velox/dwio/dwrf/common/IntDecoder.h"
 
 using namespace facebook::velox::dwio;
-using namespace facebook::velox::dwrf;
 namespace bits = facebook::velox::bits;
 
 const size_t kNumElements = 1000000;
@@ -125,7 +122,7 @@ uint64_t readVuLong(const char* buffer, size_t& len) {
     size_t pos = 0;
     do {
       ch = buffer[pos++];
-      result |= (ch & BASE_128_MASK) << offset;
+      result |= (ch & facebook::velox::dwio::common::BASE_128_MASK) << offset;
       offset += 7;
       len--;
     } while (ch < 0);
@@ -881,7 +878,8 @@ size_t writeVulongToBuffer(uint64_t val, char* buffer, size_t pos) {
       buffer[pos++] = static_cast<char>(val);
       return pos;
     } else {
-      buffer[pos++] = static_cast<char>(0x80 | (val & BASE_128_MASK));
+      buffer[pos++] = static_cast<char>(
+          0x80 | (val & facebook::velox::dwio::common::BASE_128_MASK));
       // cast val to unsigned so as to force 0-fill right shift
       val = (static_cast<uint64_t>(val) >> 7);
     }

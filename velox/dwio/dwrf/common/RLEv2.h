@@ -20,15 +20,15 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/Adaptor.h"
 #include "velox/dwio/common/DataBuffer.h"
+#include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/common/exception/Exception.h"
-#include "velox/dwio/dwrf/common/IntDecoder.h"
 
 #include <vector>
 
 namespace facebook::velox::dwrf {
 
 template <bool isSigned>
-class RleDecoderV2 : public IntDecoder<isSigned> {
+class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
  public:
   enum EncodingType {
     SHORT_REPEAT = 0,
@@ -86,22 +86,23 @@ class RleDecoderV2 : public IntDecoder<isSigned> {
   }
 
   unsigned char readByte() {
-    if (IntDecoder<isSigned>::bufferStart == IntDecoder<isSigned>::bufferEnd) {
+    if (dwio::common::IntDecoder<isSigned>::bufferStart ==
+        dwio::common::IntDecoder<isSigned>::bufferEnd) {
       int32_t bufferLength;
       const void* bufferPointer;
       DWIO_ENSURE(
-          IntDecoder<isSigned>::inputStream->Next(
+          dwio::common::IntDecoder<isSigned>::inputStream->Next(
               &bufferPointer, &bufferLength),
           "bad read in RleDecoderV2::readByte, ",
-          IntDecoder<isSigned>::inputStream->getName());
-      IntDecoder<isSigned>::bufferStart =
+          dwio::common::IntDecoder<isSigned>::inputStream->getName());
+      dwio::common::IntDecoder<isSigned>::bufferStart =
           static_cast<const char*>(bufferPointer);
-      IntDecoder<isSigned>::bufferEnd =
-          IntDecoder<isSigned>::bufferStart + bufferLength;
+      dwio::common::IntDecoder<isSigned>::bufferEnd =
+          dwio::common::IntDecoder<isSigned>::bufferStart + bufferLength;
     }
 
-    unsigned char result =
-        static_cast<unsigned char>(*IntDecoder<isSigned>::bufferStart++);
+    unsigned char result = static_cast<unsigned char>(
+        *dwio::common::IntDecoder<isSigned>::bufferStart++);
     return result;
   }
 

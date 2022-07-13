@@ -16,7 +16,9 @@
 
 #include <folly/Random.h>
 #include "velox/common/base/Nulls.h"
-#include "velox/dwio/dwrf/common/IntDecoder.h"
+#include "velox/dwio/common/IntDecoder.h"
+#include "velox/dwio/dwrf/common/DecoderUtil.h"
+#include "velox/dwio/dwrf/common/EncoderUtil.h"
 #include "velox/dwio/dwrf/common/IntEncoder.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 
@@ -44,7 +46,7 @@ void testInts(std::function<T()> generator) {
   DataBufferHolder holder{pool, capacity, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
   auto output = std::make_unique<BufferedOutputStream>(holder);
   auto encoder =
-      IntEncoder<isSigned>::createDirect(std::move(output), vInt, sizeof(T));
+      createDirectEncoder<isSigned>(std::move(output), vInt, sizeof(T));
 
   encoder->add(buffer.data(), Ranges::of(0, count), nulls.data());
 
@@ -78,7 +80,7 @@ void testInts(std::function<T()> generator) {
   auto input = std::make_unique<SeekableArrayInputStream>(
       sink.getData(), expectedSize, expectedSize);
   auto decoder =
-      IntDecoder<isSigned>::createDirect(std::move(input), vInt, sizeof(T));
+      createDirectDecoder<isSigned>(std::move(input), vInt, sizeof(T));
 
   std::array<int64_t, count / 2> vals;
   decoder->next(vals.data(), count / 2, nullptr);
@@ -88,8 +90,7 @@ void testInts(std::function<T()> generator) {
 
   input = std::make_unique<SeekableArrayInputStream>(
       sink.getData(), expectedSize, 100);
-  decoder =
-      IntDecoder<isSigned>::createDirect(std::move(input), vInt, sizeof(T));
+  decoder = createDirectDecoder<isSigned>(std::move(input), vInt, sizeof(T));
   int32_t numRead = 0;
   int32_t stride = 1;
   while (numRead < count / 2) {
@@ -108,8 +109,7 @@ void testInts(std::function<T()> generator) {
   // Bulk read consecutive.
   input = std::make_unique<SeekableArrayInputStream>(
       sink.getData(), expectedSize, 100);
-  decoder =
-      IntDecoder<isSigned>::createDirect(std::move(input), vInt, sizeof(T));
+  decoder = createDirectDecoder<isSigned>(std::move(input), vInt, sizeof(T));
   std::vector<uint64_t> result(count / 2);
   decoder->bulkRead(count / 2, result.data());
   for (auto i = 0; i < count / 2; ++i) {
@@ -128,8 +128,7 @@ void testInts(std::function<T()> generator) {
   }
   input = std::make_unique<SeekableArrayInputStream>(
       sink.getData(), expectedSize, 100);
-  decoder =
-      IntDecoder<isSigned>::createDirect(std::move(input), vInt, sizeof(T));
+  decoder = createDirectDecoder<isSigned>(std::move(input), vInt, sizeof(T));
   decoder->bulkReadRows(rows, result.data());
   for (auto i = 0; i < rows.size(); ++i) {
     ASSERT_EQ(buffer[rows[i] * 2 + 1], result[i]);
@@ -210,8 +209,8 @@ void testCorruptedVarInts() {
   };
   auto input = std::make_unique<SeekableArrayInputStream>(
       invalidInt.data(), invalidInt.size());
-  auto decoder = IntDecoder<isSigned>::createDirect(
-      std::move(input), true, sizeof(int64_t));
+  auto decoder =
+      createDirectDecoder<isSigned>(std::move(input), true, sizeof(int64_t));
 
   std::array<int64_t, 2> vals;
   // First value is always read on the slow path.

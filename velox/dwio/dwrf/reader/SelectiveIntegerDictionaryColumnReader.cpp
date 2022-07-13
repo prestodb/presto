@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/reader/SelectiveIntegerDictionaryColumnReader.h"
+#include "velox/dwio/dwrf/common/DecoderUtil.h"
 
 namespace facebook::velox::dwrf {
 using namespace dwio::common;
@@ -36,7 +37,7 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
   rleVersion_ = convertRleVersion(encoding.kind());
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
-  dataReader_ = IntDecoder</* isSigned = */ false>::createRle(
+  dataReader_ = createRleDecoder</* isSigned = */ false>(
       stripe.getStream(data, true),
       rleVersion_,
       memoryPool_,

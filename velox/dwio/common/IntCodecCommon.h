@@ -18,7 +18,7 @@
 
 #include <cstdint>
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 constexpr uint32_t SHORT_BYTE_SIZE = 2;
 constexpr uint32_t INT_BYTE_SIZE = 4;
@@ -26,8 +26,6 @@ constexpr uint32_t LONG_BYTE_SIZE = 8;
 
 constexpr uint64_t BASE_128_MASK = 0x7f;
 constexpr uint64_t BASE_256_MASK = 0xff;
-
-enum RleVersion { RleVersion_1, RleVersion_2 };
 
 // Timezone constants
 constexpr int64_t SECONDS_PER_HOUR = 60 * 60;
@@ -45,8 +43,4 @@ constexpr int64_t MAX_NANOS = 999'999'999;
 // 1 is reduced to epoch, as writer adds 1 for negative seconds.
 constexpr int64_t MIN_SECONDS = INT64_MIN + (EPOCH_OFFSET - 1);
 
-constexpr int32_t RLE_MINIMUM_REPEAT = 3;
-constexpr int32_t RLE_MAXIMUM_REPEAT = 127 + RLE_MINIMUM_REPEAT;
-constexpr int32_t RLE_MAX_LITERAL_SIZE = 128;
-
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

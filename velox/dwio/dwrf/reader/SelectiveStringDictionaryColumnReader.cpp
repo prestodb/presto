@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/reader/SelectiveStringDictionaryColumnReader.h"
+#include "velox/dwio/dwrf/common/DecoderUtil.h"
 
 namespace facebook::velox::dwrf {
 
@@ -41,21 +42,21 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
 
   const auto dataId = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dictVInts = stripe.getUseVInts(dataId);
-  dictIndex_ = IntDecoder</*isSigned*/ false>::createRle(
+  dictIndex_ = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(dataId, true),
       rleVersion,
       memoryPool_,
       dictVInts,
-      INT_BYTE_SIZE);
+      dwio::common::INT_BYTE_SIZE);
 
   const auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
-  lengthDecoder_ = IntDecoder</*isSigned*/ false>::createRle(
+  lengthDecoder_ = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(lenId, false),
       rleVersion,
       memoryPool_,
       lenVInts,
-      INT_BYTE_SIZE);
+      dwio::common::INT_BYTE_SIZE);
 
   blobStream_ = stripe.getStream(
       encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA), false);
@@ -77,12 +78,12 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
     const auto strideDictLenId =
         encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY_LENGTH);
     bool strideLenVInt = stripe.getUseVInts(strideDictLenId);
-    strideDictLengthDecoder_ = IntDecoder</*isSigned*/ false>::createRle(
+    strideDictLengthDecoder_ = createRleDecoder</*isSigned*/ false>(
         stripe.getStream(strideDictLenId, true),
         rleVersion,
         memoryPool_,
         strideLenVInt,
-        INT_BYTE_SIZE);
+        dwio::common::INT_BYTE_SIZE);
   }
   scanState_.updateRawState();
 }

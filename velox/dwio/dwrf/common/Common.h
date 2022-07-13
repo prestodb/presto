@@ -340,4 +340,10 @@ class PostScript {
   uint64_t stripeStatisticsLength_;
 };
 
+enum RleVersion { RleVersion_1, RleVersion_2 };
+
+constexpr int32_t RLE_MINIMUM_REPEAT = 3;
+constexpr int32_t RLE_MAXIMUM_REPEAT = 127 + RLE_MINIMUM_REPEAT;
+constexpr int32_t RLE_MAX_LITERAL_SIZE = 128;
+
 } // namespace facebook::velox::dwrf

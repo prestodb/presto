@@ -100,7 +100,7 @@ class SelectiveStringDirectColumnReader : public SelectiveColumnReader {
   template <bool scatter, bool skip>
   bool try8Consecutive(int32_t start, const int32_t* rows, int32_t row);
 
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> lengthDecoder_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> lengthDecoder_;
   std::unique_ptr<dwio::common::SeekableInputStream> blobStream_;
   const char* bufferStart_ = nullptr;
   const char* bufferEnd_ = nullptr;

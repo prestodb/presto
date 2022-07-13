@@ -20,7 +20,7 @@
 #include "velox/common/base/Nulls.h"
 #include "velox/dwio/common/Adaptor.h"
 #include "velox/dwio/common/DecoderUtil.h"
-#include "velox/dwio/dwrf/common/IntDecoder.h"
+#include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/dwrf/common/IntEncoder.h"
 
 #include <memory>
@@ -228,15 +228,16 @@ uint64_t RleEncoderV1<isSigned>::addImpl(
 struct DropValues;
 
 template <bool isSigned>
-class RleDecoderV1 : public IntDecoder<isSigned> {
+class RleDecoderV1 : public dwio::common::IntDecoder<isSigned> {
  public:
-  using super = IntDecoder<isSigned>;
+  using super = dwio::common::IntDecoder<isSigned>;
 
   RleDecoderV1(
       std::unique_ptr<dwio::common::SeekableInputStream> input,
       bool useVInts,
       uint32_t numBytes)
-      : IntDecoder<isSigned>{std::move(input), useVInts, numBytes},
+      : dwio::common::IntDecoder<
+            isSigned>{std::move(input), useVInts, numBytes},
         remainingValues(0),
         value(0),
         delta(0),
@@ -266,7 +267,7 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
       if (repeating) {
         value += delta * static_cast<int64_t>(count);
       } else {
-        IntDecoder<isSigned>::skipLongsFast(count);
+        dwio::common::IntDecoder<isSigned>::skipLongsFast(count);
       }
     }
   }
@@ -304,7 +305,7 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
           toSkip = visitor.process(value, atEnd);
           value += delta;
         } else {
-          value = IntDecoder<isSigned>::readLong();
+          value = dwio::common::IntDecoder<isSigned>::readLong();
           toSkip = visitor.process(value, atEnd);
         }
         --remainingValues;
@@ -489,15 +490,15 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
   }
 
   inline void readHeader() {
-    signed char ch = IntDecoder<isSigned>::readByte();
+    signed char ch = dwio::common::IntDecoder<isSigned>::readByte();
     if (ch < 0) {
       remainingValues = static_cast<uint64_t>(-ch);
       repeating = false;
     } else {
       remainingValues = static_cast<uint64_t>(ch) + RLE_MINIMUM_REPEAT;
       repeating = true;
-      delta = IntDecoder<isSigned>::readByte();
-      value = IntDecoder<isSigned>::readLong();
+      delta = dwio::common::IntDecoder<isSigned>::readByte();
+      value = dwio::common::IntDecoder<isSigned>::readLong();
     }
   }
 

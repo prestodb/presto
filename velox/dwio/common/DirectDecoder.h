@@ -18,9 +18,9 @@
 
 #include "velox/common/base/Nulls.h"
 #include "velox/dwio/common/DecoderUtil.h"
-#include "velox/dwio/dwrf/common/IntDecoder.h"
+#include "velox/dwio/common/IntDecoder.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 struct DropValues;
 
@@ -98,7 +98,8 @@ class DirectDecoder : public IntDecoder<isSigned> {
   void fastPath(const uint64_t* nulls, Visitor& visitor) {
     using T = typename Visitor::DataType;
     constexpr bool hasFilter =
-        !std::is_same<typename Visitor::FilterType, common::AlwaysTrue>::value;
+        !std::is_same<typename Visitor::FilterType, velox::common::AlwaysTrue>::
+            value;
     constexpr bool filterOnly =
         std::is_same<typename Visitor::Extract, DropValues>::value;
     constexpr bool hasHook =
@@ -217,4 +218,4 @@ class DirectDecoder : public IntDecoder<isSigned> {
   }
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

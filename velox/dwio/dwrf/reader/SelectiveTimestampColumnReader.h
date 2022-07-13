@@ -42,8 +42,8 @@ class SelectiveTimestampColumnReader : public SelectiveColumnReader {
   template <bool dense>
   void readHelper(RowSet rows);
 
-  std::unique_ptr<IntDecoder</*isSigned*/ true>> seconds_;
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> nano_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ true>> seconds_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> nano_;
 
   // Values from copied from 'seconds_'. Nanos are in 'values_'.
   BufferPtr secondsValues_;

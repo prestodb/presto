@@ -19,6 +19,7 @@
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/dwio/dwrf/common/Compression.h"
+#include "velox/dwio/dwrf/common/EncoderUtil.h"
 #include "velox/dwio/dwrf/writer/IndexBuilder.h"
 #include "velox/dwio/dwrf/writer/IntegerDictionaryEncoder.h"
 #include "velox/dwio/dwrf/writer/RatioTracker.h"
@@ -145,7 +146,7 @@ class WriterContext : public CompressionBufferPool {
               dictionaryPool,
               generalPool,
               getConfig(Config::DICTIONARY_SORT_KEYS),
-              IntEncoder</* isSigned = */ true>::createDirect(
+              createDirectEncoder</* isSigned */ true>(
                   newStream(
                       {ek.node,
                        ek.sequence,

@@ -20,10 +20,8 @@ add_library(
   Config.cpp
   DataBufferHolder.cpp
   Decryption.cpp
-  DirectDecoder.cpp
   Encryption.cpp
   EncryptionSpecification.cpp
-  IntDecoder.cpp
   IntEncoder.cpp
   OutputStream.cpp
   PagedInputStream.cpp

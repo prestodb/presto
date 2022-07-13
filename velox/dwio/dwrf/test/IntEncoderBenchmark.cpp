@@ -19,6 +19,7 @@
 #include <folly/init/Init.h>
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/dwrf/common/DataBufferHolder.h"
+#include "velox/dwio/dwrf/common/EncoderUtil.h"
 #include "velox/dwio/dwrf/common/IntEncoder.h"
 #include "velox/dwio/dwrf/common/Range.h"
 
@@ -33,7 +34,7 @@ static size_t generateAutoId(int64_t startId, int64_t count) {
   DataBufferHolder holder{*scopedPool, capacity};
   auto output = std::make_unique<BufferedOutputStream>(holder);
   auto encoder =
-      IntEncoder<true>::createDirect(std::move(output), true, sizeof(int64_t));
+      createDirectEncoder<true>(std::move(output), true, sizeof(int64_t));
 
   for (int64_t i = 0; i < count; i++) {
     encoder->writeValue(startId + i);
@@ -47,7 +48,7 @@ static size_t generateAutoId2(int64_t startId, int64_t count) {
   DataBufferHolder holder{*scopedPool, capacity};
   auto output = std::make_unique<BufferedOutputStream>(holder);
   auto encoder =
-      IntEncoder<true>::createDirect(std::move(output), true, sizeof(int64_t));
+      createDirectEncoder<true>(std::move(output), true, sizeof(int64_t));
 
   int64_t buffer[1024];
   int64_t currentId = startId;

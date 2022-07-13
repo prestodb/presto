@@ -17,8 +17,8 @@
 #pragma once
 
 #include <google/protobuf/wire_format_lite.h>
+#include "velox/dwio/common/IntCodecCommon.h"
 #include "velox/dwio/dwrf/common/Encryption.h"
-#include "velox/dwio/dwrf/common/IntCodecCommon.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
 #include "velox/dwio/dwrf/test/utils/DataFiles.h"
 #include "velox/dwio/dwrf/writer/IndexBuilder.h"
@@ -131,11 +131,12 @@ inline int64_t zigZagDecode(uint64_t val) {
 
 inline size_t writeVuLong(char* buffer, size_t pos, uint64_t val) {
   while (true) {
-    if ((val & ~BASE_128_MASK) == 0) {
+    if ((val & ~dwio::common::BASE_128_MASK) == 0) {
       buffer[pos++] = static_cast<char>(val);
       return pos;
     } else {
-      buffer[pos++] = static_cast<char>((val & BASE_128_MASK) | 0x80);
+      buffer[pos++] =
+          static_cast<char>((val & dwio::common::BASE_128_MASK) | 0x80);
       val >>= 7;
     }
   }

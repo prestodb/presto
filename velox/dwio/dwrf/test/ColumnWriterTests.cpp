@@ -21,10 +21,11 @@
 #include <optional>
 #include <vector>
 #include "velox/common/memory/Memory.h"
+#include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/common/exception/Exception.h"
-#include "velox/dwio/dwrf/common/IntDecoder.h"
+#include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/test/utils/MapBuilder.h"
@@ -3754,7 +3755,7 @@ TEST(ColumnWriterTests, IntDictWriterDirectValueOverflow) {
   auto stream = streams.getStream(si, true);
 
   // read it as long
-  auto decoder = IntDecoder<false>::createRle(
+  auto decoder = createRleDecoder<false>(
       std::move(stream), RleVersion_1, pool, streams.getUseVInts(si), 8);
   std::array<int64_t, size> actual;
   decoder->next(actual.data(), size, nullptr);
@@ -3800,7 +3801,7 @@ TEST(ColumnWriterTests, ShortDictWriterDictValueOverflow) {
   auto stream = streams.getStream(si, true);
 
   // read it as long
-  auto decoder = IntDecoder<false>::createRle(
+  auto decoder = createRleDecoder<false>(
       std::move(stream), RleVersion_1, pool, streams.getUseVInts(si), 8);
   std::array<int64_t, size> actual;
   decoder->next(actual.data(), size, nullptr);

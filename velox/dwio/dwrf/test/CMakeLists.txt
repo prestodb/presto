@@ -475,11 +475,6 @@ target_link_libraries(
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
 
-add_executable(velox_dwrf_int_decoder_benchmark IntDecoderBenchmark.cpp)
-target_link_libraries(
-  velox_dwrf_int_decoder_benchmark velox_dwio_common_exception velox_exception
-  velox_dwio_dwrf_common ${FOLLY} ${FOLLY_BENCHMARK})
-
 add_executable(velox_dwrf_int_encoder_benchmark IntEncoderBenchmark.cpp)
 target_link_libraries(
   velox_dwrf_int_encoder_benchmark velox_dwio_dwrf_common velox_memory

@@ -87,13 +87,14 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
   // values is in 'values.numValues'.
   void loadDictionary(
       dwio::common::SeekableInputStream& data,
-      IntDecoder</*isSigned*/ false>& lengthDecoder,
+      dwio::common::IntDecoder</*isSigned*/ false>& lengthDecoder,
       DictionaryValues& values);
   void ensureInitialized();
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> dictIndex_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> dictIndex_;
   std::unique_ptr<ByteRleDecoder> inDictionaryReader_;
   std::unique_ptr<dwio::common::SeekableInputStream> strideDictStream_;
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> strideDictLengthDecoder_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>>
+      strideDictLengthDecoder_;
 
   FlatVectorPtr<StringView> dictionaryValues_;
 
@@ -104,7 +105,7 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
   const StrideIndexProvider& provider_;
 
   // lazy load the dictionary
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> lengthDecoder_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> lengthDecoder_;
   std::unique_ptr<dwio::common::SeekableInputStream> blobStream_;
   bool initialized_{false};
 };

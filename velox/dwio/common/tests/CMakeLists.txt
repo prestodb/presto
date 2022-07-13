@@ -41,3 +41,8 @@ add_executable(velox_dwio_common_data_buffer_benchmark DataBufferBenchmark.cpp)
 target_link_libraries(
   velox_dwio_common_data_buffer_benchmark velox_dwio_common velox_memory
   velox_dwio_common_exception ${FOLLY} ${FOLLY_BENCHMARK})
+
+add_executable(velox_dwio_common_int_decoder_benchmark IntDecoderBenchmark.cpp)
+target_link_libraries(
+  velox_dwio_common_int_decoder_benchmark velox_dwio_common_exception
+  velox_exception velox_dwio_dwrf_common ${FOLLY} ${FOLLY_BENCHMARK})

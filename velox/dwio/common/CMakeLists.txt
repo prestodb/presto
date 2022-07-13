@@ -29,8 +29,10 @@ add_library(
   DataBuffer.cpp
   DataSink.cpp
   DecoderUtil.cpp
+  DirectDecoder.cpp
   DwioMetricsLog.cpp
   InputStream.cpp
+  IntDecoder.cpp
   IoStatistics.cpp
   MemoryInputStream.cpp
   Options.cpp

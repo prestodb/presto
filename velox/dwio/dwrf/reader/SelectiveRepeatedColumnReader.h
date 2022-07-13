@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/reader/SelectiveColumnReaderInternal.h"
 
 namespace facebook::velox::dwrf {
@@ -48,12 +49,12 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
     auto rleVersion = convertRleVersion(stripe.getEncoding(encodingKey).kind());
     auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
     bool lenVints = stripe.getUseVInts(lenId);
-    length_ = IntDecoder</*isSigned*/ false>::createRle(
+    length_ = createRleDecoder</*isSigned*/ false>(
         stripe.getStream(lenId, true),
         rleVersion,
         memoryPool_,
         lenVints,
-        INT_BYTE_SIZE);
+        dwio::common::INT_BYTE_SIZE);
   }
 
   void makeNestedRowSet(RowSet rows) {
@@ -168,7 +169,7 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   // read up to the last position corresponding to
   // the last non-null parent.
   vector_size_t childTargetReadOffset_ = 0;
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> length_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> length_;
 };
 
 class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {

@@ -72,7 +72,7 @@ void decodeAndVerify(
       std::make_unique<SeekableArrayInputStream>(
           memSink.getData(), memSink.size()),
       true,
-      INT_BYTE_SIZE);
+      dwio::common::INT_BYTE_SIZE);
 
   int64_t* decodedData = new int64_t[numValues];
   decoder.next(decodedData, numValues, nulls);

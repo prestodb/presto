@@ -16,6 +16,7 @@
 
 #include "velox/dwio/dwrf/common/RLEv2.h"
 #include "velox/dwio/common/SeekableInputStream.h"
+#include "velox/dwio/dwrf/common/Common.h"
 
 namespace facebook::velox::dwrf {
 
@@ -122,7 +123,7 @@ template <bool isSigned>
 RleDecoderV2<isSigned>::RleDecoderV2(
     std::unique_ptr<dwio::common::SeekableInputStream> input,
     MemoryPool& pool)
-    : IntDecoder<isSigned>{std::move(input), false, 0},
+    : dwio::common::IntDecoder<isSigned>{std::move(input), false, 0},
       firstByte(0),
       runLength(0),
       runRead(0),
@@ -157,9 +158,10 @@ template <bool isSigned>
 void RleDecoderV2<isSigned>::seekToRowGroup(
     dwio::common::PositionProvider& location) {
   // move the input stream
-  IntDecoder<isSigned>::inputStream->seekToPosition(location);
+  dwio::common::IntDecoder<isSigned>::inputStream->seekToPosition(location);
   // clear state
-  IntDecoder<isSigned>::bufferEnd = IntDecoder<isSigned>::bufferStart = 0;
+  dwio::common::IntDecoder<isSigned>::bufferEnd =
+      dwio::common::IntDecoder<isSigned>::bufferStart = 0;
   runRead = runLength = 0;
   // skip ahead the given number of records
   skip(location.next());
@@ -383,7 +385,7 @@ uint64_t RleDecoderV2<isSigned>::nextPatched(
         pl,
         0,
         "Corrupt PATCHED_BASE encoded data (pl==0)! ",
-        IntDecoder<isSigned>::inputStream->getName());
+        dwio::common::IntDecoder<isSigned>::inputStream->getName());
 
     // read the next base width number of bytes to extract base value
     base = readLongBE(byteSize);
@@ -410,7 +412,7 @@ uint64_t RleDecoderV2<isSigned>::nextPatched(
         (patchBitSize + pgw),
         64,
         "Corrupt PATCHED_BASE encoded data (patchBitSize + pgw > 64)! ",
-        IntDecoder<isSigned>::inputStream->getName());
+        dwio::common::IntDecoder<isSigned>::inputStream->getName());
     uint32_t cfb = getClosestFixedBits(patchBitSize + pgw);
     readLongs(unpackedPatch.data(), 0, pl, cfb);
     // any remaining bits are thrown out
@@ -492,16 +494,17 @@ uint64_t RleDecoderV2<isSigned>::nextDelta(
 
     // read the first value stored as vint
     if constexpr (isSigned) {
-      firstValue = IntDecoder<isSigned>::readVsLong();
+      firstValue = dwio::common::IntDecoder<isSigned>::readVsLong();
     } else {
-      firstValue = static_cast<int64_t>(IntDecoder<isSigned>::readVuLong());
+      firstValue = static_cast<int64_t>(
+          dwio::common::IntDecoder<isSigned>::readVuLong());
     }
 
     prevValue = firstValue;
 
     // read the fixed delta value stored as vint (deltas can be negative even
     // if all number are positive)
-    deltaBase = IntDecoder<isSigned>::readVsLong();
+    deltaBase = dwio::common::IntDecoder<isSigned>::readVsLong();
   }
 
   uint64_t nRead = std::min(runLength - runRead, numValues);

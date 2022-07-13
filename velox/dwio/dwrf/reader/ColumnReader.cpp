@@ -15,10 +15,11 @@
  */
 
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
+#include "velox/dwio/common/IntCodecCommon.h"
+#include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/common/TypeUtils.h"
 #include "velox/dwio/common/exception/Exceptions.h"
-#include "velox/dwio/dwrf/common/IntCodecCommon.h"
-#include "velox/dwio/dwrf/common/IntDecoder.h"
+#include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/reader/ConstantColumnReader.h"
 #include "velox/dwio/dwrf/reader/FlatMapColumnReader.h"
 #include "velox/type/Type.h"
@@ -32,6 +33,7 @@
 
 namespace facebook::velox::dwrf {
 
+using dwio::common::IntDecoder;
 using dwio::common::typeutils::CompatChecker;
 using memory::MemoryPool;
 
@@ -60,7 +62,7 @@ void fillTimestamps(
           nanos *= 10;
         }
       }
-      auto seconds = secondsPtr[i] + EPOCH_OFFSET;
+      auto seconds = secondsPtr[i] + dwio::common::EPOCH_OFFSET;
       if (seconds < 0 && nanos != 0) {
         seconds -= 1;
       }
@@ -335,7 +337,7 @@ void nextValues(
 template <class ReqT>
 class IntegerDirectColumnReader : public ColumnReader {
  private:
-  std::unique_ptr<IntDecoder</*isSigned*/ true>> ints;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ true>> ints;
 
  public:
   IntegerDirectColumnReader(
@@ -362,12 +364,12 @@ IntegerDirectColumnReader<ReqT>::IntegerDirectColumnReader(
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
   if (stripe.getFormat() == dwio::common::FileFormat::DWRF) {
-    ints = IntDecoder</*isSigned*/ true>::createDirect(
+    ints = createDirectDecoder</*isSigned*/ true>(
         stripe.getStream(data, true), dataVInts, numBytes);
   } else {
     auto encoding = stripe.getEncoding(encodingKey);
     RleVersion vers = convertRleVersion(encoding.kind());
-    ints = IntDecoder</*isSigned*/ true>::createRle(
+    ints = createRleDecoder</*isSigned*/ true>(
         stripe.getStream(data, true), vers, memoryPool_, dataVInts, numBytes);
   }
 }
@@ -418,7 +420,7 @@ class IntegerDictionaryColumnReader : public ColumnReader {
   BufferPtr dictionary;
   BufferPtr inDictionary;
   std::unique_ptr<ByteRleDecoder> inDictionaryReader;
-  std::unique_ptr<IntDecoder</* isSigned = */ false>> dataReader;
+  std::unique_ptr<dwio::common::IntDecoder</* isSigned = */ false>> dataReader;
   uint64_t dictionarySize;
   std::function<BufferPtr()> dictInit;
   bool initialized_{false};
@@ -495,7 +497,7 @@ IntegerDictionaryColumnReader<ReqT>::IntegerDictionaryColumnReader(
   RleVersion vers = convertRleVersion(encoding.kind());
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
-  dataReader = IntDecoder</* isSigned = */ false>::createRle(
+  dataReader = createRleDecoder</* isSigned = */ false>(
       stripe.getStream(data, true), vers, memoryPool_, dataVInts, numBytes);
 
   // make a lazy dictionary initializer
@@ -580,8 +582,8 @@ void IntegerDictionaryColumnReader<ReqT>::ensureInitialized() {
 
 class TimestampColumnReader : public ColumnReader {
  private:
-  std::unique_ptr<IntDecoder</*isSigned*/ true>> seconds;
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> nano;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ true>> seconds;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> nano;
 
   BufferPtr secondsBuffer_;
   BufferPtr nanosBuffer_;
@@ -608,16 +610,20 @@ TimestampColumnReader::TimestampColumnReader(
   RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
-  seconds = IntDecoder</*isSigned*/ true>::createRle(
-      stripe.getStream(data, true), vers, memoryPool_, vints, LONG_BYTE_SIZE);
+  seconds = createRleDecoder</*isSigned*/ true>(
+      stripe.getStream(data, true),
+      vers,
+      memoryPool_,
+      vints,
+      dwio::common::LONG_BYTE_SIZE);
   auto nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
   bool nanoVInts = stripe.getUseVInts(nanoData);
-  nano = IntDecoder</*isSigned*/ false>::createRle(
+  nano = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(nanoData, true),
       vers,
       memoryPool_,
       nanoVInts,
-      LONG_BYTE_SIZE);
+      dwio::common::LONG_BYTE_SIZE);
 }
 
 uint64_t TimestampColumnReader::skip(uint64_t numValues) {
@@ -843,10 +849,11 @@ class StringDictionaryColumnReader : public ColumnReader {
   BufferPtr strideDict;
   BufferPtr strideDictOffset;
   BufferPtr indices_;
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> dictIndex;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> dictIndex;
   std::unique_ptr<ByteRleDecoder> inDictionaryReader;
   std::unique_ptr<dwio::common::SeekableInputStream> strideDictStream;
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> strideDictLengthDecoder;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>>
+      strideDictLengthDecoder;
 
   FlatVectorPtr<StringView> combinedDictionaryValues_;
   FlatVectorPtr<StringView> dictionaryValues_;
@@ -862,7 +869,7 @@ class StringDictionaryColumnReader : public ColumnReader {
   const StrideIndexProvider& provider;
 
   // lazy load the dictionary
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> lengthDecoder;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> lengthDecoder;
   std::unique_ptr<dwio::common::SeekableInputStream> blobStream;
   const bool returnFlatVector_;
   bool initialized_{false};
@@ -922,21 +929,21 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
 
   const auto dataId = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dictVInts = stripe.getUseVInts(dataId);
-  dictIndex = IntDecoder</*isSigned*/ false>::createRle(
+  dictIndex = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(dataId, true),
       rleVersion,
       memoryPool_,
       dictVInts,
-      INT_BYTE_SIZE);
+      dwio::common::INT_BYTE_SIZE);
 
   const auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
-  lengthDecoder = IntDecoder</*isSigned*/ false>::createRle(
+  lengthDecoder = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(lenId, false),
       rleVersion,
       memoryPool_,
       lenVInts,
-      INT_BYTE_SIZE);
+      dwio::common::INT_BYTE_SIZE);
 
   blobStream = stripe.getStream(
       encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA), false);
@@ -961,12 +968,12 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
     const auto strideDictLenId =
         encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY_LENGTH);
     bool strideLenVInt = stripe.getUseVInts(strideDictLenId);
-    strideDictLengthDecoder = IntDecoder</*isSigned*/ false>::createRle(
+    strideDictLengthDecoder = createRleDecoder</*isSigned*/ false>(
         stripe.getStream(strideDictLenId, true),
         rleVersion,
         memoryPool_,
         strideLenVInt,
-        INT_BYTE_SIZE);
+        dwio::common::INT_BYTE_SIZE);
   }
 }
 
@@ -1365,7 +1372,7 @@ void StringDictionaryColumnReader::ensureInitialized() {
 
 class StringDirectColumnReader : public ColumnReader {
  private:
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> length;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> length;
   std::unique_ptr<dwio::common::SeekableInputStream> blobStream;
 
   /**
@@ -1403,12 +1410,12 @@ StringDirectColumnReader::StringDirectColumnReader(
       convertRleVersion(stripe.getEncoding(encodingKey).kind());
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
-  length = IntDecoder</*isSigned*/ false>::createRle(
+  length = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(lenId, true),
       rleVersion,
       memoryPool_,
       lenVInts,
-      INT_BYTE_SIZE);
+      dwio::common::INT_BYTE_SIZE);
   blobStream =
       stripe.getStream(encodingKey.forKind(proto::Stream_Kind_DATA), true);
 }
@@ -1656,7 +1663,7 @@ void StructColumnReader::next(
 class ListColumnReader : public ColumnReader {
  private:
   std::unique_ptr<ColumnReader> child;
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> length;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> length;
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
 
  public:
@@ -1687,8 +1694,12 @@ ListColumnReader::ListColumnReader(
 
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool vints = stripe.getUseVInts(lenId);
-  length = IntDecoder</*isSigned*/ false>::createRle(
-      stripe.getStream(lenId, true), vers, memoryPool_, vints, INT_BYTE_SIZE);
+  length = createRleDecoder</*isSigned*/ false>(
+      stripe.getStream(lenId, true),
+      vers,
+      memoryPool_,
+      vints,
+      dwio::common::INT_BYTE_SIZE);
 
   const auto& cs = stripe.getColumnSelector();
   auto& childType = requestedType_->childAt(0);
@@ -1814,7 +1825,7 @@ class MapColumnReader : public ColumnReader {
  private:
   std::unique_ptr<ColumnReader> keyReader;
   std::unique_ptr<ColumnReader> elementReader;
-  std::unique_ptr<IntDecoder</*isSigned*/ false>> length;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> length;
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
 
  public:
@@ -1845,8 +1856,12 @@ MapColumnReader::MapColumnReader(
 
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool vints = stripe.getUseVInts(lenId);
-  length = IntDecoder</*isSigned*/ false>::createRle(
-      stripe.getStream(lenId, true), vers, memoryPool_, vints, INT_BYTE_SIZE);
+  length = createRleDecoder</*isSigned*/ false>(
+      stripe.getStream(lenId, true),
+      vers,
+      memoryPool_,
+      vints,
+      dwio::common::INT_BYTE_SIZE);
 
   const auto& cs = stripe.getColumnSelector();
   auto& keyType = requestedType_->childAt(0);
@@ -2102,21 +2117,21 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
       return buildIntegerReader(
           dataType,
           requestedType->type->kind(),
-          INT_BYTE_SIZE,
+          dwio::common::INT_BYTE_SIZE,
           std::move(flatMapContext),
           stripe);
     case TypeKind::BIGINT:
       return buildIntegerReader(
           dataType,
           requestedType->type->kind(),
-          LONG_BYTE_SIZE,
+          dwio::common::LONG_BYTE_SIZE,
           std::move(flatMapContext),
           stripe);
     case TypeKind::SMALLINT:
       return buildIntegerReader(
           dataType,
           requestedType->type->kind(),
-          SHORT_BYTE_SIZE,
+          dwio::common::SHORT_BYTE_SIZE,
           std::move(flatMapContext),
           stripe);
     case TypeKind::VARBINARY:

@@ -63,8 +63,8 @@ class SelectiveIntegerDictionaryColumnReader
   void ensureInitialized();
 
   std::unique_ptr<ByteRleDecoder> inDictionaryReader_;
-  std::unique_ptr<IntDecoder</* isSigned = */ false>> dataReader_;
-  std::unique_ptr<IntDecoder</* isSigned = */ true>> dictReader_;
+  std::unique_ptr<dwio::common::IntDecoder</* isSigned = */ false>> dataReader_;
+  std::unique_ptr<dwio::common::IntDecoder</* isSigned = */ true>> dictReader_;
   std::function<BufferPtr()> dictInit_;
   RleVersion rleVersion_;
   bool initialized_{false};

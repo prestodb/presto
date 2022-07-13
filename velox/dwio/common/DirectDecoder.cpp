@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/DirectDecoder.h"
+#include "velox/dwio/common/DirectDecoder.h"
 #include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 template <bool isSigned>
 void DirectDecoder<isSigned>::seekToRowGroup(
@@ -106,4 +106,4 @@ template void DirectDecoder<false>::next(
     const uint64_t numValues,
     const uint64_t* nulls);
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

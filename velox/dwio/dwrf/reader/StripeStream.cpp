@@ -18,6 +18,7 @@
 
 #include "velox/common/base/BitSet.h"
 #include "velox/dwio/common/exception/Exception.h"
+#include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/common/wrap/coded-stream-wrapper.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
 
@@ -92,7 +93,7 @@ static inline void ensureCapacity(
 
 template <typename T>
 BufferPtr readDict(
-    IntDecoder<true>* dictReader,
+    dwio::common::IntDecoder<true>* dictReader,
     int64_t dictionarySize,
     velox::memory::MemoryPool* pool) {
   BufferPtr dictionaryBuffer = AlignedBuffer::allocate<T>(dictionarySize, pool);
@@ -121,7 +122,7 @@ StripeStreamsBase::getIntDictionaryInitializerForNode(
   DWIO_ENSURE(dataStream.get());
   stripeDictionaryCache_->registerIntDictionary(
       localEk,
-      [dictReader = IntDecoder</* isSigned = */ true>::createDirect(
+      [dictReader = createDirectDecoder</* isSigned = */ true>(
            std::move(dataStream), dictVInts, elementWidth),
        dictionaryWidth,
        dictionarySize](velox::memory::MemoryPool* pool) mutable {

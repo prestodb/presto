@@ -27,9 +27,9 @@
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/encryption/Encryption.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 class ColumnReaderFactory;
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common
 
 namespace facebook {
 namespace velox {

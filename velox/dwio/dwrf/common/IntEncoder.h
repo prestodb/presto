@@ -21,7 +21,8 @@
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/Nulls.h"
 #include "velox/common/encode/Coding.h"
-#include "velox/dwio/dwrf/common/IntCodecCommon.h"
+#include "velox/dwio/common/IntCodecCommon.h"
+#include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/OutputStream.h"
 #include "velox/dwio/dwrf/common/Range.h"
 
@@ -268,7 +269,7 @@ template <int32_t size>
     uint64_t value,
     char* buffer) {
   for (int32_t i = 1; i < size; i++) {
-    *buffer = static_cast<char>(0x80 | (value & BASE_128_MASK));
+    *buffer = static_cast<char>(0x80 | (value & dwio::common::BASE_128_MASK));
     value >>= 7;
     buffer++;
   }
@@ -322,7 +323,7 @@ int32_t IntEncoder<isSigned>::writeVulong(int64_t val, char* buffer) {
 template <bool isSigned>
 int32_t IntEncoder<isSigned>::writeLongLE(int64_t val, char* buffer) {
   for (int32_t i = 0; i < numBytes_; i++) {
-    *buffer = val & BASE_256_MASK;
+    *buffer = val & dwio::common::BASE_256_MASK;
     val >>= 8;
     buffer++;
   }
@@ -339,7 +340,7 @@ void IntEncoder<isSigned>::writeVulong(int64_t val) {
       writeByte(static_cast<char>(val));
       return;
     } else {
-      writeByte(static_cast<char>(0x80 | (val & BASE_128_MASK)));
+      writeByte(static_cast<char>(0x80 | (val & dwio::common::BASE_128_MASK)));
       // cast val to unsigned so as to force 0-fill right shift
       val = (static_cast<uint64_t>(val) >> 7);
     }
@@ -349,7 +350,7 @@ void IntEncoder<isSigned>::writeVulong(int64_t val) {
 template <bool isSigned>
 void IntEncoder<isSigned>::writeLongLE(int64_t val) {
   for (int32_t i = 0; i < numBytes_; i++) {
-    writeByte(static_cast<char>(val & BASE_256_MASK));
+    writeByte(static_cast<char>(val & dwio::common::BASE_256_MASK));
     val >>= 8;
   }
 }
