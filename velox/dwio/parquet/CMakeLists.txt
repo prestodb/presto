@@ -20,4 +20,4 @@ endif()
 
 add_library(velox_dwio_parquet_reader RegisterParquetReader.cpp)
 target_link_libraries(velox_dwio_parquet_reader
-                      velox_dwio_duckdb_parquet_reader gtest xsimd)
+                      velox_dwio_duckdb_parquet_reader xsimd)
