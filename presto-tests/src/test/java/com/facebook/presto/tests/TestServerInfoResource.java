@@ -35,7 +35,6 @@ import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
 public class TestServerInfoResource
 {
     private static final long SHUTDOWN_TIMEOUT_MILLIS = 240_000;
