@@ -1243,10 +1243,7 @@ std::unique_ptr<Filter> NegatedBigintValuesUsingHashTable::mergeWith(
     }
     case FilterKind::kNegatedBigintValuesUsingHashTable: {
       auto otherNegated =
-          dynamic_cast<const NegatedBigintValuesUsingHashTable*>(other);
-      VELOX_CHECK_NOT_NULL(
-          otherNegated,
-          "NegatedBigintValueUsingHashTable - Mismatching filter and filter kind");
+          static_cast<const NegatedBigintValuesUsingHashTable*>(other);
       bool bothNullAllowed = nullAllowed_ && other->testNull();
       return combineNegatedBigintLists(
           values(), otherNegated->values(), bothNullAllowed);
@@ -1565,9 +1562,7 @@ std::unique_ptr<Filter> NegatedBytesValues::mergeWith(
       return this->clone(false);
     case FilterKind::kNegatedBytesValues: {
       bool bothNullAllowed = nullAllowed_ && other->testNull();
-      auto negatedBytesOther = dynamic_cast<const NegatedBytesValues*>(other);
-      VELOX_CHECK_NOT_NULL(
-          negatedBytesOther, "Not a negatedBytes filter, but says it is");
+      auto negatedBytesOther = static_cast<const NegatedBytesValues*>(other);
       if (values().size() < negatedBytesOther->values().size()) {
         return other->mergeWith(this);
       }
@@ -1586,9 +1581,7 @@ std::unique_ptr<Filter> NegatedBytesValues::mergeWith(
           std::move(rejectedValues), bothNullAllowed);
     }
     case FilterKind::kBytesRange: {
-      auto bytesRangeOther = dynamic_cast<const BytesRange*>(other);
-      VELOX_CHECK_NOT_NULL(
-          bytesRangeOther, "Not a bytesRange filter, but says it is");
+      auto bytesRangeOther = static_cast<const BytesRange*>(other);
       bool bothNullAllowed = nullAllowed_ && other->testNull();
       // ordered set of values in the range that are rejected
       std::set<std::string> rejectedValues;
@@ -1602,11 +1595,15 @@ std::unique_ptr<Filter> NegatedBytesValues::mergeWith(
       bool loExclusive = !bytesRangeOther->lowerUnbounded() &&
           (bytesRangeOther->lowerExclusive() ||
            rejectedValues.count(bytesRangeOther->lower()) > 0);
-      rejectedValues.erase(bytesRangeOther->lower());
+      if (!bytesRangeOther->lowerUnbounded()) {
+        rejectedValues.erase(bytesRangeOther->lower());
+      }
       bool hiExclusive = !bytesRangeOther->upperUnbounded() &&
           (bytesRangeOther->upperExclusive() ||
            rejectedValues.count(bytesRangeOther->upper()) > 0);
-      rejectedValues.erase(bytesRangeOther->upper());
+      if (!bytesRangeOther->upperUnbounded()) {
+        rejectedValues.erase(bytesRangeOther->upper());
+      }
       if (rejectedValues.empty()) {
         return std::make_unique<BytesRange>(
             bytesRangeOther->lower(),
