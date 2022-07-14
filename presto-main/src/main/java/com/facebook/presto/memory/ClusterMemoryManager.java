@@ -242,7 +242,12 @@ public class ClusterMemoryManager
 
         // TODO revocable memory reservations can also leak and may need to be detected in the future
         // We are only concerned about the leaks in general pool.
-        memoryLeakDetector.checkForMemoryLeaks(allQueryInfoSupplier, pools.get(GENERAL_POOL).getQueryMemoryReservations());
+        if (memoryManagerService.isPresent()) {
+            memoryLeakDetector.checkForClusterMemoryLeaks(pools.get(GENERAL_POOL).getClusterInfo()::getRunningQueries, pools.get(GENERAL_POOL).getQueryMemoryReservations());
+        }
+        else {
+            memoryLeakDetector.checkForMemoryLeaks(allQueryInfoSupplier, pools.get(GENERAL_POOL).getQueryMemoryReservations());
+        }
 
         boolean outOfMemory = isClusterOutOfMemory();
         if (!outOfMemory) {

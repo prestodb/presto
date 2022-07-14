@@ -90,7 +90,12 @@ public class ClusterMemoryPool
 
     public synchronized ClusterMemoryPoolInfo getClusterInfo(Optional<QueryId> largestMemoryQuery)
     {
-        return new ClusterMemoryPoolInfo(getInfo(), blockedNodes, assignedQueries, largestMemoryQuery);
+        return new ClusterMemoryPoolInfo(getInfo(), blockedNodes, assignedQueries, largestMemoryQuery, Optional.empty());
+    }
+
+    public synchronized ClusterMemoryPoolInfo getClusterInfo(Optional<QueryId> largestMemoryQuery, Optional<List<QueryId>> runningQueries)
+    {
+        return new ClusterMemoryPoolInfo(getInfo(), blockedNodes, assignedQueries, largestMemoryQuery, runningQueries);
     }
 
     public MemoryPoolId getId()

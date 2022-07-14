@@ -20,6 +20,7 @@ import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -31,13 +32,14 @@ public final class ClusterMemoryPoolInfo
     private final int blockedNodes;
     private final int assignedQueries;
     private final Optional<QueryId> largestMemoryQuery;
+    private final Optional<List<QueryId>> runningQueries;
 
     public ClusterMemoryPoolInfo(
             MemoryPoolInfo memoryPoolInfo,
             int blockedNodes,
             int assignedQueries)
     {
-        this(memoryPoolInfo, blockedNodes, assignedQueries, Optional.empty());
+        this(memoryPoolInfo, blockedNodes, assignedQueries, Optional.empty(), Optional.empty());
     }
 
     @ThriftConstructor
@@ -46,12 +48,14 @@ public final class ClusterMemoryPoolInfo
             @JsonProperty("memoryPoolInfo") MemoryPoolInfo memoryPoolInfo,
             int blockedNodes,
             int assignedQueries,
-            Optional<QueryId> largestMemoryQuery)
+            Optional<QueryId> largestMemoryQuery,
+            Optional<List<QueryId>> runningQueries)
     {
         this.memoryPoolInfo = requireNonNull(memoryPoolInfo, "memoryPoolInfo is null");
         this.blockedNodes = blockedNodes;
         this.assignedQueries = assignedQueries;
         this.largestMemoryQuery = largestMemoryQuery;
+        this.runningQueries = runningQueries;
     }
 
     @ThriftField(1)
@@ -80,5 +84,12 @@ public final class ClusterMemoryPoolInfo
     public Optional<QueryId> getLargestMemoryQuery()
     {
         return largestMemoryQuery;
+    }
+
+    @ThriftField(5)
+    @JsonProperty
+    public Optional<List<QueryId>> getRunningQueries()
+    {
+        return runningQueries;
     }
 }
