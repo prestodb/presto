@@ -23,17 +23,24 @@ add_subdirectory(xsimd)
 if(VELOX_ENABLE_ARROW)
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep")
   set(ARROW_CMAKE_ARGS
-      -DARROW_PARQUET=ON -DARROW_JEMALLOC=OFF -DARROW_SIMD_LEVEL=NONE
+      -DARROW_PARQUET=ON
+      -DARROW_JEMALLOC=OFF
+      -DARROW_SIMD_LEVEL=NONE
       -DARROW_RUNTIME_SIMD_LEVEL=NONE
-      -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}/install -DARROW_BUILD_STATIC=ON)
+      -DARROW_WITH_UTF8PROC=OFF
+      -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}/install
+      -DARROW_BUILD_STATIC=ON)
   set(ARROW_LIBDIR ${ARROW_PREFIX}/install/${CMAKE_INSTALL_LIBDIR})
+  set(THRIFT
+      ${ARROW_PREFIX}/src/arrow_ep-build/thrift_ep-install/lib/libthrift.a)
   ExternalProject_Add(
     arrow_ep
     PREFIX ${ARROW_PREFIX}
     URL "https://dlcdn.apache.org/arrow/arrow-8.0.0/apache-arrow-8.0.0.tar.gz"
     SOURCE_SUBDIR cpp
     CMAKE_ARGS ${ARROW_CMAKE_ARGS}
-    BUILD_BYPRODUCTS ${ARROW_LIBDIR}/libarrow.a ${ARROW_LIBDIR}/libparquet.a)
+    BUILD_BYPRODUCTS ${ARROW_LIBDIR}/libarrow.a ${ARROW_LIBDIR}/libparquet.a
+                     ${THRIFT})
   add_library(arrow STATIC IMPORTED GLOBAL)
   add_library(parquet STATIC IMPORTED GLOBAL)
   add_dependencies(arrow arrow_ep)
@@ -44,6 +51,7 @@ if(VELOX_ENABLE_ARROW)
                              ${ARROW_PREFIX}/install/include)
   set_target_properties(arrow PROPERTIES IMPORTED_LOCATION
                                          ${ARROW_LIBDIR}/libarrow.a)
+  set_property(TARGET arrow PROPERTY INTERFACE_LINK_LIBRARIES ${RE2} ${THRIFT})
   set_target_properties(parquet PROPERTIES IMPORTED_LOCATION
                                            ${ARROW_LIBDIR}/libparquet.a)
 endif()
