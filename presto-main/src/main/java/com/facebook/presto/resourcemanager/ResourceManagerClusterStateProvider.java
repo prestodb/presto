@@ -53,6 +53,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
@@ -292,10 +293,17 @@ public class ResourceManagerClusterStateProvider
             }
         }
 
+        List<QueryId> runningQueries = nodeQueryStates.values().stream()
+                .map(CoordinatorQueriesState::getActiveQueries)
+                .flatMap(Collection::stream)
+                .filter(query -> query.getBasicQueryInfo().getState() == RUNNING)
+                .map(Query::getQueryId)
+                .collect(toImmutableList());
+
         ImmutableMap.Builder<MemoryPoolId, ClusterMemoryPoolInfo> memoryPoolInfos = ImmutableMap.builder();
         ClusterMemoryPool pool = new ClusterMemoryPool(GENERAL_POOL);
         pool.update(memoryInfos, queriesAssignedToGeneralPool);
-        ClusterMemoryPoolInfo clusterInfo = pool.getClusterInfo(Optional.ofNullable(largestGeneralPoolQuery).map(Query::getQueryId));
+        ClusterMemoryPoolInfo clusterInfo = pool.getClusterInfo(Optional.ofNullable(largestGeneralPoolQuery).map(Query::getQueryId), Optional.ofNullable(runningQueries));
         memoryPoolInfos.put(GENERAL_POOL, clusterInfo);
         if (isReservedPoolEnabled) {
             pool = new ClusterMemoryPool(RESERVED_POOL);

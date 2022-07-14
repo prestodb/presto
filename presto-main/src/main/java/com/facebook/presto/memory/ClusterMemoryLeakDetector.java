@@ -26,6 +26,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -62,6 +63,34 @@ public class ClusterMemoryLeakDetector
                 .stream()
                 .filter(entry -> entry.getValue() > 0)
                 .filter(entry -> isLeaked(queryIdToInfo, entry.getKey()))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+        if (!leakedQueryReservations.isEmpty()) {
+            log.debug("Memory leak detected. The following queries are already finished, " +
+                    "but they have memory reservations on some worker node(s): %s", leakedQueryReservations);
+        }
+
+        synchronized (this) {
+            leakedQueries = ImmutableSet.copyOf(leakedQueryReservations.keySet());
+        }
+    }
+
+    /**
+     *
+     * @param runningQueriesSupplier All running queries on a cluster.
+     * @param queryMemoryReservations The memory reservations of queries in the GENERAL cluster memory pool.
+     */
+    void checkForClusterMemoryLeaks(Supplier<Optional<List<QueryId>>> runningQueriesSupplier, Map<QueryId, Long> queryMemoryReservations)
+    {
+        requireNonNull(runningQueriesSupplier);
+        requireNonNull(queryMemoryReservations);
+
+        Optional<List<QueryId>> runningQueries = runningQueriesSupplier.get();
+
+        Map<QueryId, Long> leakedQueryReservations = queryMemoryReservations.entrySet()
+                .stream()
+                .filter(entry -> entry.getValue() > 0)
+                .filter(entry -> !runningQueries.isPresent() || !runningQueries.get().contains(entry.getKey()))
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         if (!leakedQueryReservations.isEmpty()) {
