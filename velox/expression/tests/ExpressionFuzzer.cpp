@@ -327,16 +327,11 @@ class ExpressionFuzzer {
   }
 
   void printRowVector(const RowVectorPtr& rowVector) {
-    LOG(INFO) << "RowVector contents:";
+    LOG(INFO) << "RowVector contents (" << rowVector->type()->toString()
+              << "):";
 
-    for (size_t i = 0; i < rowVector->childrenSize(); ++i) {
-      LOG(INFO) << "Column C" << i << ":";
-      auto child = rowVector->childAt(i);
-
-      // If verbose mode, print the whole vector.
-      for (size_t j = 0; j < child->size(); ++j) {
-        LOG(INFO) << "\tC" << i << "[" << j << "]: " << child->toString(j);
-      }
+    for (size_t i = 0; i < rowVector->size(); ++i) {
+      LOG(INFO) << "\tAt " << i << ": " << rowVector->toString(i);
     }
   }
 

@@ -986,6 +986,8 @@ TYPED_TEST(
 VectorFuzzer::Options fuzzerOptions() {
   return {
       .nullRatio = 0.1,
+      .containerHasNulls = false,
+      .dictionaryHasNulls = false,
       .stringVariableLength = true,
       .containerVariableLength = true,
       .useMicrosecondPrecisionTimestamp = true,

@@ -69,6 +69,8 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
   VectorFuzzer::Options opts;
   opts.vectorSize = 1;
   opts.nullRatio = 0.1;
+  opts.containerHasNulls = false;
+  opts.dictionaryHasNulls = false;
   opts.stringVariableLength = true;
   opts.stringLength = 20;
   // Spark uses microseconds to store timestamp

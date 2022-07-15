@@ -308,8 +308,10 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type) {
 VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
   VectorPtr vector;
   if (type->kind() == TypeKind::ROW) {
-    vector =
-        fuzzRow(std::dynamic_pointer_cast<const RowType>(type), size, true);
+    vector = fuzzRow(
+        std::dynamic_pointer_cast<const RowType>(type),
+        size,
+        opts_.containerHasNulls);
   } else {
     auto offsets = allocateOffsets(size, pool_);
     auto rawOffsets = offsets->asMutable<vector_size_t>();
@@ -324,7 +326,8 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
       childSize += length;
     }
 
-    auto nulls = fuzzNulls(size);
+    auto nulls = opts_.containerHasNulls ? fuzzNulls(size) : nullptr;
+
     if (type->kind() == TypeKind::ARRAY) {
       vector = std::make_shared<ArrayVector>(
           pool_,
@@ -361,25 +364,24 @@ VectorPtr VectorFuzzer::fuzzDictionary(const VectorPtr& vector) {
     rawIndices[i] = rand<vector_size_t>(rng_) % vectorSize;
   }
 
-  // TODO: We can fuzz nulls here as well.
-  return BaseVector::wrapInDictionary(
-      BufferPtr(nullptr), indices, vectorSize, vector);
+  auto nulls = opts_.dictionaryHasNulls ? fuzzNulls(vectorSize) : nullptr;
+  return BaseVector::wrapInDictionary(nulls, indices, vectorSize, vector);
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
-  return fuzzRow(rowType, opts_.vectorSize, false);
+  return fuzzRow(rowType, opts_.vectorSize, opts_.containerHasNulls);
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(
     const RowTypePtr& rowType,
     vector_size_t size,
-    bool mayHaveNulls) {
+    bool rowHasNulls) {
   std::vector<VectorPtr> children;
   for (auto i = 0; i < rowType->size(); ++i) {
     children.push_back(fuzz(rowType->childAt(i), size));
   }
 
-  auto nulls = mayHaveNulls ? fuzzNulls(size) : nullptr;
+  auto nulls = rowHasNulls ? fuzzNulls(size) : nullptr;
   return std::make_shared<RowVector>(
       pool_, rowType, nulls, size, std::move(children));
 }

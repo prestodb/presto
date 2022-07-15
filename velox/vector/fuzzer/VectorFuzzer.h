@@ -46,29 +46,39 @@ class VectorFuzzer {
     /// double between 0 and 1).
     double nullRatio{0};
 
-    // Size of the generated strings. If `stringVariableLength` is true, the
-    // semantic of this option becomes "string maximum length". Here this
-    // represents number of characters and not bytes.
+    /// If true, fuzzer will generate top-level nulls for containers
+    /// (arrays/maps/rows), i.e, nulls for the containers themselves, not the
+    /// elements.
+    ///
+    /// The amount of nulls are controlled by `nullRatio`.
+    bool containerHasNulls{true};
+
+    /// If true, fuzzer will generate top-level nulls for dictionaries.
+    bool dictionaryHasNulls{true};
+
+    /// Size of the generated strings. If `stringVariableLength` is true, the
+    /// semantic of this option becomes "string maximum length". Here this
+    /// represents number of characters and not bytes.
     size_t stringLength{50};
 
-    // Vector of String charsets to choose from; bias a charset by including it
-    // multiple times.
+    /// Vector of String charsets to choose from; bias a charset by including it
+    /// multiple times.
     std::vector<UTF8CharList> charEncodings{ASCII};
 
-    // If true, the length of strings are randomly generated and `stringLength`
-    // is treated as maximum length.
+    /// If true, the length of strings are randomly generated and `stringLength`
+    /// is treated as maximum length.
     bool stringVariableLength{false};
 
-    // Size of the generated array/map. If `containerVariableLength` is true,
-    // the semantic of this option becomes "container maximum length".
+    /// Size of the generated array/map. If `containerVariableLength` is true,
+    /// the semantic of this option becomes "container maximum length".
     size_t containerLength{10};
 
-    // If true, the length of array/map are randomly generated and
-    // `containerLength` is treated as maximum length.
+    /// If true, the length of array/map are randomly generated and
+    /// `containerLength` is treated as maximum length.
     bool containerVariableLength{false};
 
-    // If true, the random generated timestamp value will only be in
-    // microsecond precision (default is nanosecond).
+    /// If true, the random generated timestamp value will only be in
+    /// microsecond precision (default is nanosecond).
     bool useMicrosecondPrecisionTimestamp{false};
   };
 
@@ -102,6 +112,12 @@ class VectorFuzzer {
   // Returns a "fuzzed" row vector with randomized data and nulls.
   RowVectorPtr fuzzRow(const RowTypePtr& rowType);
 
+  // Same as the function above, but never return nulls for the top-level row
+  // elements.
+  RowVectorPtr fuzzInputRow(const RowTypePtr& rowType) {
+    return fuzzRow(rowType, opts_.vectorSize, false);
+  }
+
   variant randVariant(const TypePtr& arg);
 
   // Generates a random type, including maps, vectors, and arrays. maxDepth
@@ -132,7 +148,7 @@ class VectorFuzzer {
   VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
 
   RowVectorPtr
-  fuzzRow(const RowTypePtr& rowType, vector_size_t size, bool mayHaveNulls);
+  fuzzRow(const RowTypePtr& rowType, vector_size_t size, bool rowHasNulls);
 
   // Generate a random null vector.
   BufferPtr fuzzNulls(vector_size_t size);

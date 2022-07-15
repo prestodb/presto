@@ -1172,8 +1172,10 @@ TEST(E2EWriterTests, fuzzSimple) {
   auto iterations = 20;
   auto batches = 20;
   for (auto i = 0; i < iterations; ++i) {
-    testWriter(pool, type, batches, [&]() { return noNulls.fuzzRow(type); });
-    testWriter(pool, type, batches, [&]() { return hasNulls.fuzzRow(type); });
+    testWriter(
+        pool, type, batches, [&]() { return noNulls.fuzzInputRow(type); });
+    testWriter(
+        pool, type, batches, [&]() { return hasNulls.fuzzInputRow(type); });
   }
 }
 
@@ -1227,8 +1229,10 @@ TEST(E2EWriterTests, fuzzComplex) {
   auto iterations = 20;
   auto batches = 20;
   for (auto i = 0; i < iterations; ++i) {
-    testWriter(pool, type, batches, [&]() { return noNulls.fuzzRow(type); });
-    testWriter(pool, type, batches, [&]() { return hasNulls.fuzzRow(type); });
+    testWriter(
+        pool, type, batches, [&]() { return noNulls.fuzzInputRow(type); });
+    testWriter(
+        pool, type, batches, [&]() { return hasNulls.fuzzInputRow(type); });
   }
 }
 
