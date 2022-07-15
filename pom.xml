@@ -48,7 +48,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
-        <dep.aws-sdk.version>1.11.697</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.261</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
