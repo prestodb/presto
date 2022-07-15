@@ -143,7 +143,6 @@ public class DruidBrokerPageSource
                             type.writeLong(blockBuilder, floatToRawIntBits(value.floatValue()));
                         }
                         else if (type instanceof TimestampType) {
-
                             DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
                                     .withChronology(IsoChronology.INSTANCE);
 
