@@ -204,6 +204,10 @@ TEST_F(ParquetTpchTest, Q18) {
   assertQuery(18, 5, 30);
 }
 
+TEST_F(ParquetTpchTest, Q19) {
+  assertQuery(19, 3, 20);
+}
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::init(&argc, &argv, false);

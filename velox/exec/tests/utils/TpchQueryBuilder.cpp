@@ -123,6 +123,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ14Plan();
     case 18:
       return getQ18Plan();
+    case 19:
+      return getQ19Plan();
     default:
       VELOX_NYI("TPC-H query {} is not supported yet", queryId);
   }
@@ -749,6 +751,80 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
   context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
   context.dataFiles[ordersScanNodeId] = getTableFilePaths(kOrders);
   context.dataFiles[customerScanNodeId] = getTableFilePaths(kCustomer);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getQ19Plan() const {
+  std::vector<std::string> lineitemColumns = {
+      "l_partkey",
+      "l_shipmode",
+      "l_shipinstruct",
+      "l_extendedprice",
+      "l_discount",
+      "l_quantity"};
+  std::vector<std::string> partColumns = {
+      "p_partkey", "p_brand", "p_container", "p_size"};
+
+  auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
+  auto partSelectedRowType = getRowType(kPart, partColumns);
+  const auto& partFileColumns = getFileColumnNames(kPart);
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId lineitemScanNodeId;
+  core::PlanNodeId partScanNodeId;
+
+  const std::string shipModeFilter = "l_shipmode IN ('AIR', 'AIR REG')";
+  const std::string shipInstructFilter =
+      "(l_shipinstruct = 'DELIVER IN PERSON')";
+  const std::string joinFilterExpr =
+      "     ((p_brand = 'Brand#12')"
+      "     AND (l_quantity between 1.0 and 11.0)"
+      "     AND (p_container IN ('SM CASE', 'SM BOX', 'SM PACK', 'SM PKG'))"
+      "     AND (p_size BETWEEN 1 AND 5))"
+      " OR  ((p_brand ='Brand#23')"
+      "     AND (p_container IN ('MED BAG', 'MED BOX', 'MED PKG', 'MED PACK'))"
+      "     AND (l_quantity between 10.0 and 20.0)"
+      "     AND (p_size BETWEEN 1 AND 10))"
+      " OR  ((p_brand = 'Brand#34')"
+      "     AND (p_container IN ('LG CASE', 'LG BOX', 'LG PACK', 'LG PKG'))"
+      "     AND (l_quantity between 20.0 and 30.0)"
+      "     AND (p_size BETWEEN 1 AND 15))";
+
+  auto part = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(kPart, partSelectedRowType, partFileColumns)
+                  .capturePlanNodeId(partScanNodeId)
+                  .planNode();
+
+  auto plan = PlanBuilder(planNodeIdGenerator, pool_.get())
+                  .tableScan(
+                      kLineitem,
+                      lineitemSelectedRowType,
+                      lineitemFileColumns,
+                      {shipModeFilter, shipInstructFilter})
+                  .capturePlanNodeId(lineitemScanNodeId)
+                  .project(
+                      {"l_extendedprice * (1.0 - l_discount) as part_revenue",
+                       "l_shipmode",
+                       "l_shipinstruct",
+                       "l_partkey",
+                       "l_quantity"})
+                  .hashJoin(
+                      {"l_partkey"},
+                      {"p_partkey"},
+                      part,
+                      joinFilterExpr,
+                      {"part_revenue"})
+                  .partialAggregation({}, {"sum(part_revenue) as revenue"})
+                  .localPartition({})
+                  .finalAggregation()
+                  .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFiles[partScanNodeId] = getTableFilePaths(kPart);
   context.dataFileFormat = format_;
   return context;
 }

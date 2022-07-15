@@ -84,6 +84,7 @@ class TpchQueryBuilder {
   TpchPlan getQ13Plan() const;
   TpchPlan getQ14Plan() const;
   TpchPlan getQ18Plan() const;
+  TpchPlan getQ19Plan() const;
 
   const std::vector<std::string>& getTableFilePaths(
       const std::string& tableName) const {
@@ -116,6 +117,8 @@ class TpchQueryBuilder {
   static constexpr const char* kRegion = "region";
   static constexpr const char* kPart = "part";
   static constexpr const char* kSupplier = "supplier";
+  std::unique_ptr<memory::ScopedMemoryPool> pool_ =
+      memory::getDefaultScopedMemoryPool();
 };
 
 } // namespace facebook::velox::exec::test
