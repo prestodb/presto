@@ -268,6 +268,16 @@ public class AbstractAnalyzerTest
                         new ColumnMetadata("a&^[x", BIGINT))),
                 false));
 
+        // table with bigint, double, array of bigints and array of doubles column
+        SchemaTableName table13 = new SchemaTableName("s1", "t13");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table13, ImmutableList.of(
+                        new ColumnMetadata("w", BIGINT),
+                        new ColumnMetadata("x", BIGINT),
+                        new ColumnMetadata("y", BIGINT),
+                        new ColumnMetadata("z", BIGINT))),
+                false));
+
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(

@@ -1726,6 +1726,45 @@ public class TestAnalyzer
                 PERFORMANCE_WARNING, "line 1:105: JOIN ON condition(s) do not reference the joined relation and other relation in the same expression that can cause " +
                         "performance issues as it may lead to a cross join with filter");
         assertNoWarning(analyzeWithWarnings("select * from t1 inner join (select t2.a as t2_a, t3.a t3_a from t2 inner join t3 on t2.a=t3.a) ON t2_a = a"));
+        assertNoWarning(analyzeWithWarnings("select * from (select ARBITRARY(a) aa from t1 group by b) _ join (select w from t13)  ON w = aa"));
+        assertNoWarning(analyzeWithWarnings("with tt1 as (select a,b from t1) select b,x from t13 JOIN tt1 ON w = a"));
+        assertHasWarning(analyzeWithWarnings("with tt1 as (select a,b from t1) select b,x from t13 JOIN tt1 ON x = y"),
+                PERFORMANCE_WARNING, "line 1:68: JOIN ON condition(s) do not reference the joined table 'tt1' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a + 1"));
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a + t2.a = t1.b + t2.b"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t1.b + 1"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a * (t2.b + 1)"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t2 LEFT JOIN t1 ON t1.c = t1.a * (t1.b + 1)"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't1' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = -t2.a"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = -t1.b"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a = COALESCE(t1.a, t1.b, 1)"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a = COALESCE(t2.a, t2.b, 1)"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a = CASE WHEN t1.a > 0 THEN 1 WHEN t1.a < 0 THEN -1 WHEN t1.a = 0 THEN 0 END"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = CASE WHEN t1.a > 0 THEN 1 WHEN t1.a < 0 THEN -1 WHEN t1.a = 0 THEN 0 END"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a BETWEEN t1.a AND t1.b"));
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a BETWEEN t2.a AND t1.b"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a BETWEEN t2.a AND t2.b"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t6 LEFT JOIN t6 as t6_1 ON hamming_distance(t6.b, t6_1.b) > 0"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t6 LEFT JOIN t6 as t6_1 ON hamming_distance(t6.b, t6.b) > 0"),
+                PERFORMANCE_WARNING, "line 1:71: JOIN ON condition(s) do not reference the joined table 't6' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t10 ON t1.a = t10.b.x.z"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t10 ON t10.a = t10.b.x.z"),
+                PERFORMANCE_WARNING, "line 1:41: JOIN ON condition(s) do not reference the joined table 't10' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
     }
 
     @Test
