@@ -42,9 +42,9 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
@@ -172,10 +172,10 @@ public class QueryContext
         return queryMemoryContext;
     }
 
-    public synchronized void updateBroadcastMemory(long delta)
+    public synchronized void updateBroadcastMemory(long delta, String allocationTag)
     {
         if (delta >= 0) {
-            enforceBroadcastMemoryLimit(broadcastUsed, delta, maxBroadcastUsedMemory);
+            enforceBroadcastMemoryLimit(broadcastUsed, delta, maxBroadcastUsedMemory, allocationTag);
         }
         broadcastUsed += delta;
     }
@@ -189,9 +189,9 @@ public class QueryContext
     private synchronized ListenableFuture<?> updateUserMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
-            enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
+            enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory, allocationTag);
             long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
-            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
+            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory, allocationTag);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -203,7 +203,7 @@ public class QueryContext
     {
         long totalRevocableMemory = memoryPool.getQueryRevocableMemoryReservation(queryId);
         if (delta >= 0) {
-            enforceRevocableMemoryLimit(totalRevocableMemory, delta, maxRevocableMemory);
+            enforceRevocableMemoryLimit(totalRevocableMemory, delta, maxRevocableMemory, allocationTag);
             return memoryPool.reserveRevocable(queryId, delta);
         }
         memoryPool.freeRevocable(queryId, -delta);
@@ -231,7 +231,7 @@ public class QueryContext
         // RootAggregatedMemoryContext instance and this will be acquired in the same order).
         if (delta >= 0) {
             long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
-            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
+            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory, allocationTag);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -441,13 +441,13 @@ public class QueryContext
     {
         private final BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction;
         private final BiPredicate<String, Long> tryReserveMemoryFunction;
-        private final Consumer<Long> updateBroadcastMemoryFunction;
+        private final BiConsumer<Long, String> updateBroadcastMemoryFunction;
         private final Predicate<Long> tryUpdateBroadcastMemoryFunction;
 
         public QueryMemoryReservationHandler(
                 BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction,
                 BiPredicate<String, Long> tryReserveMemoryFunction,
-                Consumer<Long> updateBroadcastMemoryFunction,
+                BiConsumer<Long, String> updateBroadcastMemoryFunction,
                 Predicate<Long> tryUpdateBroadcastMemoryFunction)
         {
             this.reserveMemoryFunction = requireNonNull(reserveMemoryFunction, "reserveMemoryFunction is null");
@@ -460,7 +460,7 @@ public class QueryContext
         public ListenableFuture<?> reserveMemory(String allocationTag, long delta, boolean enforceBroadcastMemoryLimit)
         {
             if (enforceBroadcastMemoryLimit) {
-                updateBroadcastMemoryFunction.accept(delta);
+                updateBroadcastMemoryFunction.accept(delta, allocationTag);
             }
             ListenableFuture<?> future = reserveMemoryFunction.apply(allocationTag, delta);
             return future;
@@ -482,45 +482,51 @@ public class QueryContext
     }
 
     @GuardedBy("this")
-    private void enforceBroadcastMemoryLimit(long allocated, long delta, long maxMemory)
+    private void enforceBroadcastMemoryLimit(long allocated, long delta, long maxMemory, String allocationTag)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalBroadcastMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+            throw exceededLocalBroadcastMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta, allocationTag));
         }
     }
 
     @GuardedBy("this")
-    private void enforceUserMemoryLimit(long allocated, long delta, long maxMemory)
+    private void enforceUserMemoryLimit(long allocated, long delta, long maxMemory, String allocationTag)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
+            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta, allocationTag), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 
     @GuardedBy("this")
-    private void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory)
+    private void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory, String allocationTag)
     {
         long totalMemory = allocated + delta;
         peakNodeTotalMemory = Math.max(totalMemory, peakNodeTotalMemory);
         if (totalMemory > maxMemory) {
-            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
+            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta, allocationTag), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 
     @GuardedBy("this")
-    private void enforceRevocableMemoryLimit(long allocated, long delta, long maxMemory)
+    private void enforceRevocableMemoryLimit(long allocated, long delta, long maxMemory, String allocationTag)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
+            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta, allocationTag), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 
     @GuardedBy("this")
-    public String getAdditionalFailureInfo(long allocated, long delta)
+    public String getAdditionalFailureInfo(long allocated, long delta, String allocationTag)
     {
         Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations(queryId);
 
-        String additionalInfo = format("Allocated: %s, Delta: %s", succinctBytes(allocated), succinctBytes(delta));
+        String additionalInfo;
+        if (allocationTag != null && !allocationTag.isEmpty()) {
+            additionalInfo = format("Allocated: %s, Delta: %s (%s)", succinctBytes(allocated), succinctBytes(delta), allocationTag);
+        }
+        else {
+            additionalInfo = format("Allocated: %s, Delta: %s", succinctBytes(allocated), succinctBytes(delta));
+        }
 
         // It's possible that a query tries allocating more than the available memory
         // failing immediately before any allocation of that query is tagged
