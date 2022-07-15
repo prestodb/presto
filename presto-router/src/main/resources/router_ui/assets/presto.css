@@ -1,0 +1,818 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/** Element preset overrides **/
+/** ======================== **/
+
+body {
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+h2 {
+    color: #fff;
+}
+
+h3 {
+    color: #dadada;
+}
+
+h1 small, h2 small, h3 small, h4 small, h5 small, h6 small {
+    color: #888;
+}
+
+pre {
+    margin: 0;
+    padding: 5px;
+    color: #999;
+    background-color: #2C2F38;
+    border: none;
+}
+
+/** Boostrap overrides **/
+/** ================== **/
+
+.container {
+    min-width: 960px;
+    width: auto !important;
+    max-width: 1200px;
+}
+
+.modal-lg {
+    min-width: 960px;
+    width: auto !important;
+    max-width: 1200px;
+}
+
+.modal-content {
+    border: 1px solid #333;
+    background-color: rgba(0, 0, 0, 0.85);
+    padding-bottom: 20px;
+}
+
+.modal-header {
+    padding: 0;
+    margin-bottom: 5px;
+}
+
+.modal-header .close {
+    text-shadow: none;
+    color: #fff;
+    font-size: 36px;
+    opacity: 0.5;
+    margin-right: -8px;
+}
+
+.navbar-btn {
+    border-bottom: none;
+    margin: 0;
+}
+
+/* To make the table striping less stark */
+.table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: #353944;
+}
+
+.table > tbody > tr {
+    border-top: 1px solid #4A4A4A;
+}
+
+.table > tbody > tr > td {
+    border: none;
+}
+
+.table > tbody > tr:first-child {
+    border-top: none;
+}
+
+/* Allow some exceptions */
+.table > tbody > .tr-noborder {
+    border-top: none;
+}
+
+.btn-warning {
+    background-color: #655a4b;
+    border-color: #8c7253;
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+.dropdown-menu > li > .selected {
+    font-weight: 500;
+    color: #fff;
+    background-color: #6d6d6d;
+}
+
+.dropdown-menu > li > .selected:hover {
+    color: #fff;
+    background-color: #7b7b7b;
+}
+
+/** Convenience classes */
+/** =================== */
+
+.font-large {
+    font-size: 24px;
+}
+
+.font-white {
+    color: #fff;
+}
+
+.font-light {
+    color: #d6f3fb;
+}
+
+.italic-uppercase {
+    text-transform: uppercase;
+    font-style: italic;
+}
+
+.uppercase {
+    text-transform: uppercase;
+}
+
+.h2-hr {
+    margin: 0;
+    border-top: 2px solid #fff;
+}
+
+.h3-hr {
+    margin: 0;
+    border-top-color: #dedede;
+}
+
+.h4-hr {
+    margin: 0 0 10px 0;
+}
+
+.wrap-text {
+    word-break: break-all;
+}
+
+/** Navbar **/
+/** ====== **/
+
+.navbar {
+    padding: 0 5px 0 5px;
+    border-bottom: 1px solid #1EDCFF;
+}
+
+.navbar-brand {
+    color: #fff;
+    text-transform: uppercase;
+    font-size: 24px;
+    padding-left: 30px;
+    padding-top: 25px;
+}
+
+.navbar img {
+    width: 40px;
+    height: auto;
+    padding-top: 17px;
+}
+
+.navbar-cluster-info {
+    display: block;
+    box-sizing: border-box;
+    padding: 15px;
+    position: relative;
+    color: #666;
+    font-size: 11px;
+}
+
+.navbar-cluster-info .text {
+    color: #fff;
+    font-size: 16px;
+}
+
+#page-subtitle {
+    color: #8c8c8c;
+    padding-left: 3px;
+    text-transform: none;
+}
+
+.query-id {
+    margin-bottom: 0;
+}
+
+.nav-disabled {
+    pointer-events: none;
+    cursor: not-allowed;
+    background-color: #336171;
+    opacity: 1;
+    font-weight: 500;
+    border-color: #137698;
+}
+
+.progress-large {
+    margin: 0;
+    background-color: #808286;
+    height: 36px;
+    width: 100%;
+}
+
+.progress-large .progress-bar {
+    font-size: 18px;
+    line-height: 30px;
+}
+
+/** Common elements **/
+/** ====== **/
+
+.copy-button {
+    padding: 0 0 0 4px;
+}
+
+.copy-button:hover {
+    color: #fff;
+}
+
+.status-light {
+    border-radius: 50%;
+    text-shadow: 0 0 3px #250800;
+    color: #111111;
+    font-size: 16px;
+}
+
+.status-light-red {
+    color: #ff0100;
+    text-shadow: 0 0 3px #ff0100;
+}
+
+.status-light-green {
+    color: #1cff00;
+    text-shadow: 0 0 3px #1cff00;
+}
+
+.status-light:before {
+    content: '\25CF';
+}
+
+.header-inline-links {
+    float: right;
+    margin-top: 20px;
+}
+
+/** ===================== **/
+/** Cluster Overview Page **/
+/** ===================== **/
+
+/** HUD **/
+/** === **/
+
+.hud-container {
+    background-size: 5px 5px;
+    background-image: linear-gradient(to right, #2d2d2d 1px, transparent 1px), linear-gradient(to bottom, #2d2d2d 1px, transparent 1px);
+    margin: -15px 0 0 0;
+    padding: 15px 0 0 0;
+    height: 375px;
+}
+
+.stat-line-end {
+    padding-top: 3px;
+    margin-bottom: 20px;
+}
+
+.stat {
+    color: #fff;
+    border-bottom: 1px #424242 solid;
+    border-left: 1px #424242 solid;
+    margin: 0;
+    font-size: 72px;
+    height: 81px;
+    display: flex;
+    align-items: center;
+    padding-left: 0;
+    padding-top: 15px;
+}
+
+.stat-text {
+    padding: 0 5px 0 5px;
+    z-index: 99;
+}
+
+.stat-title {
+    text-align: left;
+    text-transform: uppercase;
+    margin: 0;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.stat-title > .text {
+    padding: 5px;
+    background-color: #3e3e3e;
+    color: #ccc;
+}
+
+.sparkline {
+    height: 80px;
+    width: 100%;
+    margin: 0;
+}
+
+.sparkline-tooltip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    visibility: hidden;
+    background-color: rgba(0, 0, 0, 0.6);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000);
+    -ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000)";
+    color: white;
+    font: 20px arial, san serif;
+    text-align: left;
+    white-space: nowrap;
+    padding: 0 40px 5px 5px;
+    border: none;
+    z-index: 100;
+}
+
+/** Query list **/
+/** ========== **/
+
+#query-list-title {
+    font-size: 22px;
+    background-color: #696E77;
+    padding: 3px 3px 3px 7px;
+    text-transform: uppercase;
+    color: #fff;
+    border-top: 1px solid #9DA4AF;
+}
+
+#query-list {
+    padding: 5px 0 0 15px;
+    border-bottom: 1px #424242 solid;
+    border-left: 1px #424242 solid;
+    border-right: 1px #424242 solid;
+}
+
+.error-message {
+    text-align: center;
+    padding: 20px;
+}
+
+.query {
+    border-bottom: 1px #424242 solid;
+    margin-bottom: 0px;
+    margin-left: -15px;
+    padding-left: 15px;
+}
+
+.query-snippet {
+    height: 138px;
+    overflow: hidden;
+}
+
+.query-snippet code {
+    overflow: hidden;
+}
+
+.progress {
+    margin: 0;
+    background-color: #808286;
+    height: 28px;
+}
+
+.progress-bar {
+    padding: 4px;
+    min-width: 14%;
+}
+
+.tinystat-row {
+    padding-right: 0;
+}
+
+.tinystat {
+    display: inline-block;
+    width: 100px;
+}
+
+.stat-row {
+    padding: 2px 0 1px 0;
+}
+
+.query-header {
+    padding: 4px 0 4px 0;
+    background-color: #1b1b1b;
+    margin: 0;
+}
+
+.query-header-queryid {
+    margin-left: -15px;
+    margin-right: -35px;
+    padding: 8px 0 8px 0;
+}
+
+.query-header-timestamp {
+    text-align: right;
+    color: #b1b1b1;
+}
+
+.query-progress-container {
+    padding: 0;
+}
+
+/** Query List Toolbar **/
+/** ================== **/
+
+.toolbar-row {
+    padding-right: 15px;
+}
+
+.toolbar-col {
+    background-color: #454a58;
+    margin-top: -5px;
+    padding: 5px;
+}
+
+.toolbar-row .form-control {
+    color: #000;
+}
+
+.toolbar-row .input-group-btn .btn:focus {
+    outline: none;
+    background-color: #5bc0de;
+    border: 1px #529eb5 solid;
+}
+
+.toolbar-row .input-group-btn .active:focus {
+    outline: none;
+    background-color: #277F98;
+    border: 1px #529eb5 solid;
+}
+
+.toolbar-row .input-group-btn .active {
+    background-color: #277F98;
+    border: 1px #529eb5 solid;
+}
+
+.style-radio {
+    color: #ebe6ff;
+    background-color: #2e264e;
+    border: 1px #5d4f94 solid;
+    font-weight: 500;
+}
+
+.filter-addon {
+    color: #000;
+    background-color: #fff;
+    border: none;
+    border-top: 2px solid #454A58;
+    border-bottom: 3px solid #454A58;
+}
+
+.toolbar-row .input-group .form-control {
+    margin-top: 2px;
+    margin-bottom: -2px;
+    width: 98%;
+}
+
+.toolbar-row .dropdown-menu li a {
+    color: #424242;
+}
+
+.toolbar-row .dropdown-menu li .selected {
+    background-color: #418194;
+    color: #fff;
+    font-weight: 500;
+}
+
+#error-type-dropdown {
+    margin-left: -1px;
+    height: 30px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    position: relative;
+    color: #fff;
+    background-color: #4ba1bb;
+    border-color: #46b8da;
+}
+
+.error-type-dropdown-menu {
+    margin-left: 143px;
+}
+
+/** Loading indicators **/
+/** ================== **/
+
+.sparkline .loader {
+    margin: 0 0 0 90px;
+}
+
+.sparkline .loader, .loader:after {
+    width: 50px;
+    height: 50px;
+}
+
+/** ================== **/
+/** Query Details Page **/
+/** ================== **/
+
+#query-detail {
+    color: #cecece;
+    font-size: 16px;
+}
+
+#tasks {
+    font-size: 15px;
+}
+
+#query-detail pre {
+    margin-top: 5px;
+    border: 1px #3a3a3a solid;
+}
+
+/** Summary Section **/
+/** =============== **/
+
+.info-title {
+    width: 180px;
+    font-weight: 500;
+    text-align: right;
+}
+
+.info-text {
+    color: #fff;
+}
+
+.table > tbody > tr > .info-sparkline-text {
+    color: #fff;
+    border-top: none;
+    text-align: right;
+    padding-top: 0;
+    font-size: 23px;
+}
+
+#stack-trace {
+    font-size: 10px;
+    line-height: 14px;
+    word-wrap: normal;
+    overflow-y: hidden;
+    max-width: 1000px;
+}
+
+/** Stage List **/
+/** =========== **/
+
+#stage-list {
+    margin-top: 5px;
+    text-align: right;
+}
+
+.stage-id {
+    font-size: 90px;
+    color: #b5b5b5;
+    text-align: center;
+}
+
+.stage-state-color {
+    border-left: 3px solid #4a4a4a;
+    margin-left: -8px;
+    padding-left: 8px;
+}
+
+.single-stage-table > tbody > tr > td {
+    border-top: none;
+}
+
+.stage-table .stage-table-stat-header {
+    color: #fff;
+}
+
+.stage-table {
+    width: 170px;
+    display: inline-table;
+    margin: -8px;
+}
+
+.stage-table-time {
+    width: 170px;
+}
+
+.stage-table-memory {
+    width: 140px;
+}
+
+.stage-table-tasks {
+    width: 100px;
+}
+
+.stage-table .stage-table-chart-header {
+    color: #fff;
+    text-align: center;
+}
+
+.stage-table tr td {
+    padding-right: 5px;
+}
+
+.stage-table tr th {
+    padding-right: 5px;
+}
+
+.stage-table-stat-title {
+    font-size: 12px;
+    line-height: 16px;
+    text-align: right;
+    text-transform: uppercase;
+    font-style: italic;
+    color: #757575;
+    width: 80px;
+}
+
+.stage-table-stat-text {
+    text-align: left;
+}
+
+.bar-chart-container {
+    padding-top: 10px;
+}
+
+.histogram-table {
+    margin-right: 10px;
+}
+
+.histogram-container {
+    padding-top: 10px;
+}
+
+.table > tbody > tr > td .expand-charts-container {
+    padding-top: 50px;
+}
+
+.expand-charts-button {
+    padding: 45px 3px 45px 4px;
+    background-color: #3A3F4C;
+}
+
+.expanded-chart-title {
+    width: auto;
+    padding-right: 5px;
+}
+
+.expanded-chart {
+    display: inline-table;
+}
+
+/** ===================== **/
+/** Common Graph Elements **/
+/** ===================== **/
+
+.graph-container {
+    padding: 15px;
+    background-color: #1b1b1b;
+    height: 1000px;
+    overflow: scroll;
+    width: 100%;
+}
+
+.graph-container svg {
+    display: block;
+    margin: 0 auto;
+}
+
+.graph-container .label {
+    font-size: 15px;
+    color: #fff;
+    font-weight: normal;
+    line-height: 18px;
+}
+
+/** ============== **/
+/** Live Plan Page **/
+/** ============== **/
+
+.graph-container table {
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.graph-container .highlight-row {
+    text-align: center;
+    padding: 5px;
+    margin: 5px 0 5px 0;
+    color: #2f2f2f;
+    background-color: #fff;
+}
+
+.graph-container .header-row {
+    font-weight: bold;
+    padding-bottom: 5px;
+}
+
+.graph-container hr {
+    margin-top:10px;
+    margin-bottom: 10px;
+}
+
+.clusters rect {
+    fill: #e0e0e0;
+}
+
+.node .stage-stats rect {
+    stroke: #999;
+    stroke-width: 1px;
+}
+
+.node rect {
+    fill: #404040;
+}
+
+text {
+    font-size: 15px;
+}
+
+.plan-edge {
+    stroke: #dadada;
+    fill: transparent;
+    stroke-width: 3;
+}
+
+.plan-arrowhead {
+    fill: #dadada;
+    stroke-width: 0;
+}
+
+g .cluster:hover {
+    cursor: pointer;
+}
+
+/** ============== **/
+/** Stage Page **/
+/** ============== **/
+
+#operator-detail-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.operator-statistic {
+    margin-top: 10px;
+}
+
+.operator-statistic-title {
+    margin-top: 25px;
+}
+
+g .operator-stats:hover {
+    cursor: pointer;
+}
+
+.stage-dropdown {
+    margin-top: 20px;
+    text-align: right;
+}
+
+/** ============== **/
+/**   Worker Page  **/
+/** ============== **/
+
+.query-memory-list-item {
+    border-bottom: 1px solid #383838;
+}
+
+.query-memory-list-header {
+    font-size: 13px;
+}
+
+.pool-memory {
+    background-color: #015b75;
+    padding: 4px;
+    font-size: 75%;
+    width: 100%;
+}
+
+.memory-progress-bar {
+    padding: 4px 0 0;
+    min-width: 0;
+}
+
+.memory-progress-bar-info {
+    background-color: #4d4d4d;
+}
+
+.stack-traces {
+    font-size: 11px;
+}

@@ -187,6 +187,7 @@
         <module>presto-test-coverage</module>
         <module>presto-hudi</module>
         <module>presto-native-execution</module>
+        <module>presto-router</module>
     </modules>
 
     <dependencyManagement>
