@@ -475,7 +475,7 @@ public class PrestoSparkTaskExecutorFactory
                 if (totalReservedMemory > maxTotalMemory.toBytes() && !memoryRevokeRequestInProgress.get() && !isMemoryRevokePending(taskContext)) {
                     throw exceededLocalTotalMemoryLimit(
                             maxTotalMemory,
-                            queryContext.getAdditionalFailureInfo(totalReservedMemory, 0) +
+                            queryContext.getAdditionalFailureInfo(totalReservedMemory, 0, "test-operator") +
                                     format("Total reserved memory: %s, Total revocable memory: %s",
                                             succinctBytes(pool.getQueryMemoryReservation(queryId)),
                                             succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))),
