@@ -91,8 +91,8 @@ public:
  * under the License.
  */
 
-#ifndef _THRIFT_THRIFT_H_
-#define _THRIFT_THRIFT_H_ 1
+#ifndef _DUCKDB_THRIFT_THRIFT_H_
+#define _DUCKDB_THRIFT_THRIFT_H_ 1
 
 
 
@@ -121,8 +121,8 @@ public:
 
 // clang-format off
 
-#ifndef _THRIFT_TRANSPORT_PLATFORM_SOCKET_H_
-#  define _THRIFT_TRANSPORT_PLATFORM_SOCKET_H_
+#ifndef _DUCKDB_THRIFT_TRANSPORT_PLATFORM_SOCKET_H_
+#  define _DUCKDB_THRIFT_TRANSPORT_PLATFORM_SOCKET_H_
 
 #ifdef _WIN32
 #ifdef _WINSOCKAPI_
@@ -236,7 +236,7 @@ public:
 #  define THRIFT_SHUT_RDWR SHUT_RDWR
 #endif
 
-#endif // _THRIFT_TRANSPORT_PLATFORM_SOCKET_H_
+#endif // _DUCKDB_THRIFT_TRANSPORT_PLATFORM_SOCKET_H_
 
 
 // LICENSE_CHANGE_END
@@ -329,8 +329,8 @@ public:
  * under the License.
  */
 
-#ifndef _THRIFT_TLOGGING_H_
-#define _THRIFT_TLOGGING_H_ 1
+#ifndef _DUCKDB_THRIFT_TLOGGING_H_
+#define _DUCKDB_THRIFT_TLOGGING_H_ 1
 
 
 
@@ -454,7 +454,7 @@ public:
 #define T_GENERIC_PROTOCOL(template_class, generic_prot, specific_prot)
 #endif
 
-#endif // #ifndef _THRIFT_TLOGGING_H_
+#endif // #ifndef _DUCKDB_THRIFT_TLOGGING_H_
 
 
 // LICENSE_CHANGE_END
@@ -546,7 +546,7 @@ void profile_write_pprof(FILE* gen_calls_f, FILE* virtual_calls_f);
 }
 } // duckdb_apache::thrift
 
-#endif // #ifndef _THRIFT_THRIFT_H_
+#endif // #ifndef _DUCKDB_THRIFT_THRIFT_H_
 
 
 // LICENSE_CHANGE_END
@@ -576,8 +576,8 @@ void profile_write_pprof(FILE* gen_calls_f, FILE* virtual_calls_f);
  * under the License.
  */
 
-#ifndef _THRIFT_TAPPLICATIONEXCEPTION_H_
-#define _THRIFT_TAPPLICATIONEXCEPTION_H_ 1
+#ifndef _DUCKDB_THRIFT_TAPPLICATIONEXCEPTION_H_
+#define _DUCKDB_THRIFT_TAPPLICATIONEXCEPTION_H_ 1
 
 
 
@@ -671,7 +671,7 @@ protected:
 }
 } // duckdb_apache::thrift
 
-#endif // #ifndef _THRIFT_TAPPLICATIONEXCEPTION_H_
+#endif // #ifndef _DUCKDB_THRIFT_TAPPLICATIONEXCEPTION_H_
 
 
 // LICENSE_CHANGE_END
@@ -701,8 +701,8 @@ protected:
  * under the License.
  */
 
-#ifndef _THRIFT_TBASE_H_
-#define _THRIFT_TBASE_H_ 1
+#ifndef _DUCKDB_THRIFT_TBASE_H_
+#define _DUCKDB_THRIFT_TBASE_H_ 1
 
 
 
@@ -730,8 +730,8 @@ protected:
  * under the License.
  */
 
-#ifndef _THRIFT_PROTOCOL_TPROTOCOL_H_
-#define _THRIFT_PROTOCOL_TPROTOCOL_H_ 1
+#ifndef _DUCKDB_THRIFT_PROTOCOL_TPROTOCOL_H_
+#define _DUCKDB_THRIFT_PROTOCOL_TPROTOCOL_H_ 1
 
 #ifdef _WIN32
 // Need to come before any Windows.h includes
@@ -763,8 +763,8 @@ protected:
  * under the License.
  */
 
-#ifndef _THRIFT_TRANSPORT_TTRANSPORT_H_
-#define _THRIFT_TRANSPORT_TTRANSPORT_H_ 1
+#ifndef _DUCKDB_THRIFT_TRANSPORT_TTRANSPORT_H_
+#define _DUCKDB_THRIFT_TRANSPORT_TTRANSPORT_H_ 1
 
 
 
@@ -792,8 +792,8 @@ protected:
  * under the License.
  */
 
-#ifndef _THRIFT_TRANSPORT_TTRANSPORTEXCEPTION_H_
-#define _THRIFT_TRANSPORT_TTRANSPORTEXCEPTION_H_ 1
+#ifndef _DUCKDB_THRIFT_TRANSPORT_TTRANSPORTEXCEPTION_H_
+#define _DUCKDB_THRIFT_TRANSPORT_TTRANSPORTEXCEPTION_H_ 1
 
 // FUCK OFF #include <boost/numeric/conversion/cast.hpp>
 #include <string>
@@ -878,7 +878,7 @@ protected:
 }
 } // duckdb_apache::thrift::transport
 
-#endif // #ifndef _THRIFT_TRANSPORT_TTRANSPORTEXCEPTION_H_
+#endif // #ifndef _DUCKDB_THRIFT_TRANSPORT_TTRANSPORTEXCEPTION_H_
 
 
 // LICENSE_CHANGE_END
@@ -1129,7 +1129,7 @@ public:
 }
 } // duckdb_apache::thrift::transport
 
-#endif // #ifndef _THRIFT_TRANSPORT_TTRANSPORT_H_
+#endif // #ifndef _DUCKDB_THRIFT_TRANSPORT_TTRANSPORT_H_
 
 
 // LICENSE_CHANGE_END
@@ -1159,8 +1159,8 @@ public:
  * under the License.
  */
 
-#ifndef _THRIFT_PROTOCOL_TPROTOCOLEXCEPTION_H_
-#define _THRIFT_PROTOCOL_TPROTOCOLEXCEPTION_H_ 1
+#ifndef _DUCKDB_THRIFT_PROTOCOL_TPROTOCOLEXCEPTION_H_
+#define _DUCKDB_THRIFT_PROTOCOL_TPROTOCOLEXCEPTION_H_ 1
 
 #include <string>
 
@@ -1244,7 +1244,7 @@ protected:
 }
 } // duckdb_apache::thrift::protocol
 
-#endif // #ifndef _THRIFT_PROTOCOL_TPROTOCOLEXCEPTION_H_
+#endif // #ifndef _DUCKDB_THRIFT_PROTOCOL_TPROTOCOLEXCEPTION_H_
 
 
 // LICENSE_CHANGE_END
@@ -1267,37 +1267,39 @@ protected:
 // but that doesn't work.
 // For a pretty in-depth explanation of the problem, see
 // http://cellperformance.beyond3d.com/articles/2006/06/understanding-strict-aliasing.html
+namespace duckdb_apache { namespace thrift {
 template <typename To, typename From>
 static inline To bitwise_cast(From from) {
-  static_assert(sizeof(From) == sizeof(To), "sizeof(From) == sizeof(To)");
+	static_assert(sizeof(From) == sizeof(To), "sizeof(From) == sizeof(To)");
 
-  // BAD!!!  These are all broken with -O2.
-  //return *reinterpret_cast<To*>(&from);  // BAD!!!
-  //return *static_cast<To*>(static_cast<void*>(&from));  // BAD!!!
-  //return *(To*)(void*)&from;  // BAD!!!
+	// BAD!!!  These are all broken with -O2.
+	// return *reinterpret_cast<To*>(&from);  // BAD!!!
+	// return *static_cast<To*>(static_cast<void*>(&from));  // BAD!!!
+	// return *(To*)(void*)&from;  // BAD!!!
 
-  // Super clean and paritally blessed by section 3.9 of the standard.
-  //unsigned char c[sizeof(from)];
-  //memcpy(c, &from, sizeof(from));
-  //To to;
-  //memcpy(&to, c, sizeof(c));
-  //return to;
+	// Super clean and paritally blessed by section 3.9 of the standard.
+	// unsigned char c[sizeof(from)];
+	// memcpy(c, &from, sizeof(from));
+	// To to;
+	// memcpy(&to, c, sizeof(c));
+	// return to;
 
-  // Slightly more questionable.
-  // Same code emitted by GCC.
-  //To to;
-  //memcpy(&to, &from, sizeof(from));
-  //return to;
+	// Slightly more questionable.
+	// Same code emitted by GCC.
+	// To to;
+	// memcpy(&to, &from, sizeof(from));
+	// return to;
 
-  // Technically undefined, but almost universally supported,
-  // and the most efficient implementation.
-  union {
-    From f;
-    To t;
-  } u;
-  u.f = from;
-  return u.t;
+	// Technically undefined, but almost universally supported,
+	// and the most efficient implementation.
+	union {
+		From f;
+		To t;
+	} u;
+	u.f = from;
+	return u.t;
 }
+}} // namespace duckdb_apache::thrift
 
 
 #ifdef HAVE_SYS_PARAM_H
@@ -1983,7 +1985,7 @@ uint32_t skip(Protocol_& prot, TType type) {
 
 }}} // duckdb_apache::thrift::protocol
 
-#endif // #define _THRIFT_PROTOCOL_TPROTOCOL_H_ 1
+#endif // #define _DUCKDB_THRIFT_PROTOCOL_TPROTOCOL_H_ 1
 
 
 // LICENSE_CHANGE_END
@@ -2001,7 +2003,7 @@ public:
 }
 } // duckdb_apache::thrift
 
-#endif // #ifndef _THRIFT_TBASE_H_
+#endif // #ifndef _DUCKDB_THRIFT_TBASE_H_
 
 
 // LICENSE_CHANGE_END
@@ -4651,8 +4653,8 @@ std::ostream& operator<<(std::ostream& out, const FileCryptoMetaData& obj);
  * under the License.
  */
 
-#ifndef _THRIFT_PROTOCOL_TCOMPACTPROTOCOL_H_
-#define _THRIFT_PROTOCOL_TCOMPACTPROTOCOL_H_ 1
+#ifndef _DUCKDB_THRIFT_PROTOCOL_TCOMPACTPROTOCOL_H_
+#define _DUCKDB_THRIFT_PROTOCOL_TCOMPACTPROTOCOL_H_ 1
 
 
 
@@ -4679,8 +4681,8 @@ std::ostream& operator<<(std::ostream& out, const FileCryptoMetaData& obj);
  * under the License.
  */
 
-#ifndef _THRIFT_PROTOCOL_TVIRTUALPROTOCOL_H_
-#define _THRIFT_PROTOCOL_TVIRTUALPROTOCOL_H_ 1
+#ifndef _DUCKDB_THRIFT_PROTOCOL_TVIRTUALPROTOCOL_H_
+#define _DUCKDB_THRIFT_PROTOCOL_TVIRTUALPROTOCOL_H_ 1
 
 
 
@@ -5172,7 +5174,7 @@ protected:
 }
 } // duckdb_apache::thrift::protocol
 
-#endif // #define _THRIFT_PROTOCOL_TVIRTUALPROTOCOL_H_ 1
+#endif // #define _DUCKDB_THRIFT_PROTOCOL_TVIRTUALPROTOCOL_H_ 1
 
 
 // LICENSE_CHANGE_END
@@ -5441,8 +5443,8 @@ typedef TCompactProtocolFactoryT<TTransport> TCompactProtocolFactory;
  * specific language governing permissions and limitations
  * under the License.
  */
-#ifndef _THRIFT_PROTOCOL_TCOMPACTPROTOCOL_TCC_
-#define _THRIFT_PROTOCOL_TCOMPACTPROTOCOL_TCC_ 1
+#ifndef _DUCKDB_THRIFT_PROTOCOL_TCOMPACTPROTOCOL_TCC_
+#define _DUCKDB_THRIFT_PROTOCOL_TCOMPACTPROTOCOL_TCC_ 1
 
 #include <limits>
 
@@ -6248,7 +6250,7 @@ TType TCompactProtocolT<Transport_>::getTType(int8_t type) {
 
 }}} // duckdb_apache::thrift::protocol
 
-#endif // _THRIFT_PROTOCOL_TCOMPACTPROTOCOL_TCC_
+#endif // _DUCKDB_THRIFT_PROTOCOL_TCOMPACTPROTOCOL_TCC_
 
 
 // LICENSE_CHANGE_END
@@ -6284,8 +6286,8 @@ TType TCompactProtocolT<Transport_>::getTType(int8_t type) {
  * under the License.
  */
 
-#ifndef _THRIFT_TRANSPORT_TBUFFERTRANSPORTS_H_
-#define _THRIFT_TRANSPORT_TBUFFERTRANSPORTS_H_ 1
+#ifndef _DUCKDB_THRIFT_TRANSPORT_TBUFFERTRANSPORTS_H_
+#define _DUCKDB_THRIFT_TRANSPORT_TBUFFERTRANSPORTS_H_ 1
 
 #include <cstdlib>
 #include <cstddef>
@@ -6319,8 +6321,8 @@ TType TCompactProtocolT<Transport_>::getTType(int8_t type) {
  * under the License.
  */
 
-#ifndef _THRIFT_TRANSPORT_TVIRTUALTRANSPORT_H_
-#define _THRIFT_TRANSPORT_TVIRTUALTRANSPORT_H_ 1
+#ifndef _DUCKDB_THRIFT_TRANSPORT_TVIRTUALTRANSPORT_H_
+#define _DUCKDB_THRIFT_TRANSPORT_TVIRTUALTRANSPORT_H_ 1
 
 
 
@@ -6439,7 +6441,7 @@ protected:
 }
 } // duckdb_apache::thrift::transport
 
-#endif // #ifndef _THRIFT_TRANSPORT_TVIRTUALTRANSPORT_H_
+#endif // #ifndef _DUCKDB_THRIFT_TRANSPORT_TVIRTUALTRANSPORT_H_
 
 
 // LICENSE_CHANGE_END
@@ -6902,7 +6904,7 @@ protected:
 }
 } // duckdb_apache::thrift::transport
 
-#endif // #ifndef _THRIFT_TRANSPORT_TBUFFERTRANSPORTS_H_
+#endif // #ifndef _DUCKDB_THRIFT_TRANSPORT_TBUFFERTRANSPORTS_H_
 
 
 // LICENSE_CHANGE_END

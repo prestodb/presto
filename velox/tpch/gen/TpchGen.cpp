@@ -370,7 +370,7 @@ RowVectorPtr genTpchOrders(
   auto shipPriorityVector = children[7]->asFlatVector<int32_t>();
   auto commentVector = children[8]->asFlatVector<StringView>();
 
-  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  DBGenIterator dbgenIt(scaleFactor);
   dbgenIt.initOrder(offset);
   order_t order;
 
@@ -428,7 +428,7 @@ RowVectorPtr genTpchLineItem(
   auto shipModeVector = children[14]->asFlatVector<StringView>();
   auto commentVector = children[15]->asFlatVector<StringView>();
 
-  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  DBGenIterator dbgenIt(scaleFactor);
   dbgenIt.initOrder(ordersOffset);
   order_t order;
 
@@ -508,7 +508,7 @@ RowVectorPtr genTpchPart(
   auto retailPriceVector = children[7]->asFlatVector<double>();
   auto commentVector = children[8]->asFlatVector<StringView>();
 
-  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  DBGenIterator dbgenIt(scaleFactor);
   dbgenIt.initPart(offset);
   part_t part;
 
@@ -550,7 +550,7 @@ RowVectorPtr genTpchSupplier(
   auto acctbalVector = children[5]->asFlatVector<double>();
   auto commentVector = children[6]->asFlatVector<StringView>();
 
-  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  DBGenIterator dbgenIt(scaleFactor);
   dbgenIt.initSupplier(offset);
   supplier_t supp;
 
@@ -592,7 +592,7 @@ RowVectorPtr genTpchPartSupp(
   auto supplyCostVector = children[3]->asFlatVector<double>();
   auto commentVector = children[4]->asFlatVector<StringView>();
 
-  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  DBGenIterator dbgenIt(scaleFactor);
   part_t part;
 
   // The iteration logic is a bit more complicated as partsupp records are
@@ -655,7 +655,7 @@ RowVectorPtr genTpchCustomer(
   auto mktSegmentVector = children[6]->asFlatVector<StringView>();
   auto commentVector = children[7]->asFlatVector<StringView>();
 
-  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  DBGenIterator dbgenIt(scaleFactor);
   dbgenIt.initCustomer(offset);
   customer_t cust;
 
@@ -698,7 +698,7 @@ RowVectorPtr genTpchNation(
   auto regionKeyVector = children[2]->asFlatVector<int64_t>();
   auto commentVector = children[3]->asFlatVector<StringView>();
 
-  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  DBGenIterator dbgenIt(scaleFactor);
   dbgenIt.initNation(offset);
   code_t code;
 
@@ -731,7 +731,7 @@ RowVectorPtr genTpchRegion(
   auto nameVector = children[1]->asFlatVector<StringView>();
   auto commentVector = children[2]->asFlatVector<StringView>();
 
-  auto dbgenIt = DBGenIterator::create(scaleFactor);
+  DBGenIterator dbgenIt(scaleFactor);
   dbgenIt.initRegion(offset);
   code_t code;
 

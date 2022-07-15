@@ -1,963 +1,10 @@
-// See https://raw.githubusercontent.com/cwida/duckdb/master/LICENSE for licensing information
+// See https://raw.githubusercontent.com/duckdb/duckdb/master/LICENSE for licensing information
 
 #include "duckdb.hpp"
 #include "duckdb-internal.hpp"
 #ifndef DUCKDB_AMALGAMATION
 #error header mismatch
 #endif
-
-
-
-
-namespace duckdb {
-
-bool ClientContextFileOpener::TryGetCurrentSetting(const string &key, Value &result) {
-	return context.TryGetCurrentSetting(key, result);
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-
-
-
-
-namespace duckdb {
-
-ClientData::ClientData(ClientContext &context) : catalog_search_path(make_unique<CatalogSearchPath>(context)) {
-	profiler = make_shared<QueryProfiler>(context);
-	query_profiler_history = make_unique<QueryProfilerHistory>();
-	temporary_objects = make_unique<SchemaCatalogEntry>(&Catalog::GetCatalog(context), TEMP_SCHEMA, true);
-	random_engine = make_unique<RandomEngine>();
-	file_opener = make_unique<ClientContextFileOpener>(context);
-}
-ClientData::~ClientData() {
-}
-
-ClientData &ClientData::Get(ClientContext &context) {
-	return *context.client_data;
-}
-
-RandomEngine &RandomEngine::Get(ClientContext &context) {
-	return *ClientData::Get(context).random_engine;
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-namespace duckdb {
-
-#define DUCKDB_GLOBAL(_PARAM)                                                                                          \
-	{ _PARAM::Name, _PARAM::Description, _PARAM::InputType, _PARAM::SetGlobal, nullptr, _PARAM::GetSetting }
-#define DUCKDB_GLOBAL_ALIAS(_ALIAS, _PARAM)                                                                            \
-	{ _ALIAS, _PARAM::Description, _PARAM::InputType, _PARAM::SetGlobal, nullptr, _PARAM::GetSetting }
-
-#define DUCKDB_LOCAL(_PARAM)                                                                                           \
-	{ _PARAM::Name, _PARAM::Description, _PARAM::InputType, nullptr, _PARAM::SetLocal, _PARAM::GetSetting }
-#define DUCKDB_LOCAL_ALIAS(_ALIAS, _PARAM)                                                                             \
-	{ _ALIAS, _PARAM::Description, _PARAM::InputType, nullptr, _PARAM::SetLocal, _PARAM::GetSetting }
-
-#define DUCKDB_GLOBAL_LOCAL(_PARAM)                                                                                    \
-	{ _PARAM::Name, _PARAM::Description, _PARAM::InputType, _PARAM::SetGlobal, _PARAM::SetLocal, _PARAM::GetSetting }
-#define DUCKDB_GLOBAL_LOCAL_ALIAS(_ALIAS, _PARAM)                                                                      \
-	{ _ALIAS, _PARAM::Description, _PARAM::InputType, _PARAM::SetGlobal, _PARAM::SetLocal, _PARAM::GetSetting }
-#define FINAL_SETTING                                                                                                  \
-	{ nullptr, nullptr, LogicalTypeId::INVALID, nullptr, nullptr, nullptr }
-
-static ConfigurationOption internal_options[] = {DUCKDB_GLOBAL(AccessModeSetting),
-                                                 DUCKDB_GLOBAL(CheckpointThresholdSetting),
-                                                 DUCKDB_GLOBAL(DebugCheckpointAbort),
-                                                 DUCKDB_LOCAL(DebugForceExternal),
-                                                 DUCKDB_LOCAL(DebugForceNoCrossProduct),
-                                                 DUCKDB_GLOBAL(DebugManyFreeListBlocks),
-                                                 DUCKDB_GLOBAL(DebugWindowMode),
-                                                 DUCKDB_GLOBAL_LOCAL(DefaultCollationSetting),
-                                                 DUCKDB_GLOBAL(DefaultOrderSetting),
-                                                 DUCKDB_GLOBAL(DefaultNullOrderSetting),
-                                                 DUCKDB_GLOBAL(DisabledOptimizersSetting),
-                                                 DUCKDB_GLOBAL(EnableExternalAccessSetting),
-                                                 DUCKDB_GLOBAL(EnableObjectCacheSetting),
-                                                 DUCKDB_LOCAL(EnableProfilingSetting),
-                                                 DUCKDB_LOCAL(EnableProgressBarSetting),
-                                                 DUCKDB_LOCAL(ExplainOutputSetting),
-                                                 DUCKDB_GLOBAL(ExternalThreadsSetting),
-                                                 DUCKDB_LOCAL(FileSearchPathSetting),
-                                                 DUCKDB_GLOBAL(ForceCompressionSetting),
-                                                 DUCKDB_LOCAL(LogQueryPathSetting),
-                                                 DUCKDB_LOCAL(MaximumExpressionDepthSetting),
-                                                 DUCKDB_GLOBAL(MaximumMemorySetting),
-                                                 DUCKDB_GLOBAL_ALIAS("memory_limit", MaximumMemorySetting),
-                                                 DUCKDB_GLOBAL_ALIAS("null_order", DefaultNullOrderSetting),
-                                                 DUCKDB_LOCAL(PerfectHashThresholdSetting),
-                                                 DUCKDB_LOCAL(PreserveIdentifierCase),
-                                                 DUCKDB_GLOBAL(PreserveInsertionOrder),
-                                                 DUCKDB_LOCAL(ProfilerHistorySize),
-                                                 DUCKDB_LOCAL(ProfileOutputSetting),
-                                                 DUCKDB_LOCAL(ProfilingModeSetting),
-                                                 DUCKDB_LOCAL_ALIAS("profiling_output", ProfileOutputSetting),
-                                                 DUCKDB_LOCAL(ProgressBarTimeSetting),
-                                                 DUCKDB_LOCAL(SchemaSetting),
-                                                 DUCKDB_LOCAL(SearchPathSetting),
-                                                 DUCKDB_GLOBAL(TempDirectorySetting),
-                                                 DUCKDB_GLOBAL(ThreadsSetting),
-                                                 DUCKDB_GLOBAL_ALIAS("wal_autocheckpoint", CheckpointThresholdSetting),
-                                                 DUCKDB_GLOBAL_ALIAS("worker_threads", ThreadsSetting),
-                                                 FINAL_SETTING};
-
-vector<ConfigurationOption> DBConfig::GetOptions() {
-	vector<ConfigurationOption> options;
-	for (idx_t index = 0; internal_options[index].name; index++) {
-		options.push_back(internal_options[index]);
-	}
-	return options;
-}
-
-idx_t DBConfig::GetOptionCount() {
-	idx_t count = 0;
-	for (idx_t index = 0; internal_options[index].name; index++) {
-		count++;
-	}
-	return count;
-}
-
-ConfigurationOption *DBConfig::GetOptionByIndex(idx_t target_index) {
-	for (idx_t index = 0; internal_options[index].name; index++) {
-		if (index == target_index) {
-			return internal_options + index;
-		}
-	}
-	return nullptr;
-}
-
-ConfigurationOption *DBConfig::GetOptionByName(const string &name) {
-	auto lname = StringUtil::Lower(name);
-	for (idx_t index = 0; internal_options[index].name; index++) {
-		D_ASSERT(StringUtil::Lower(internal_options[index].name) == string(internal_options[index].name));
-		if (internal_options[index].name == lname) {
-			return internal_options + index;
-		}
-	}
-	return nullptr;
-}
-
-void DBConfig::SetOption(const ConfigurationOption &option, const Value &value) {
-	if (!option.set_global) {
-		throw InternalException("Could not set option \"%s\" as a global option", option.name);
-	}
-	Value input = value.CastAs(option.parameter_type);
-	option.set_global(nullptr, *this, input);
-}
-
-void DBConfig::AddExtensionOption(string name, string description, LogicalType parameter,
-                                  set_option_callback_t function) {
-	extension_parameters.insert(make_pair(move(name), ExtensionOption(move(description), move(parameter), function)));
-}
-
-idx_t DBConfig::ParseMemoryLimit(const string &arg) {
-	if (arg[0] == '-' || arg == "null" || arg == "none") {
-		return DConstants::INVALID_INDEX;
-	}
-	// split based on the number/non-number
-	idx_t idx = 0;
-	while (StringUtil::CharacterIsSpace(arg[idx])) {
-		idx++;
-	}
-	idx_t num_start = idx;
-	while ((arg[idx] >= '0' && arg[idx] <= '9') || arg[idx] == '.' || arg[idx] == 'e' || arg[idx] == 'E' ||
-	       arg[idx] == '-') {
-		idx++;
-	}
-	if (idx == num_start) {
-		throw ParserException("Memory limit must have a number (e.g. SET memory_limit=1GB");
-	}
-	string number = arg.substr(num_start, idx - num_start);
-
-	// try to parse the number
-	double limit = Cast::Operation<string_t, double>(string_t(number));
-
-	// now parse the memory limit unit (e.g. bytes, gb, etc)
-	while (StringUtil::CharacterIsSpace(arg[idx])) {
-		idx++;
-	}
-	idx_t start = idx;
-	while (idx < arg.size() && !StringUtil::CharacterIsSpace(arg[idx])) {
-		idx++;
-	}
-	if (limit < 0) {
-		// limit < 0, set limit to infinite
-		return (idx_t)-1;
-	}
-	string unit = StringUtil::Lower(arg.substr(start, idx - start));
-	idx_t multiplier;
-	if (unit == "byte" || unit == "bytes" || unit == "b") {
-		multiplier = 1;
-	} else if (unit == "kilobyte" || unit == "kilobytes" || unit == "kb" || unit == "k") {
-		multiplier = 1000LL;
-	} else if (unit == "megabyte" || unit == "megabytes" || unit == "mb" || unit == "m") {
-		multiplier = 1000LL * 1000LL;
-	} else if (unit == "gigabyte" || unit == "gigabytes" || unit == "gb" || unit == "g") {
-		multiplier = 1000LL * 1000LL * 1000LL;
-	} else if (unit == "terabyte" || unit == "terabytes" || unit == "tb" || unit == "t") {
-		multiplier = 1000LL * 1000LL * 1000LL * 1000LL;
-	} else {
-		throw ParserException("Unknown unit for memory_limit: %s (expected: b, mb, gb or tb)", unit);
-	}
-	return (idx_t)multiplier * limit;
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-namespace duckdb {
-
-Connection::Connection(DatabaseInstance &database) : context(make_shared<ClientContext>(database.shared_from_this())) {
-	ConnectionManager::Get(database).AddConnection(*context);
-#ifdef DEBUG
-	EnableProfiling();
-#endif
-}
-
-Connection::Connection(DuckDB &database) : Connection(*database.instance) {
-}
-
-Connection::~Connection() {
-	ConnectionManager::Get(*context->db).RemoveConnection(*context);
-}
-
-string Connection::GetProfilingInformation(ProfilerPrintFormat format) {
-	auto &profiler = QueryProfiler::Get(*context);
-	if (format == ProfilerPrintFormat::JSON) {
-		return profiler.ToJSON();
-	} else {
-		return profiler.ToString();
-	}
-}
-
-void Connection::Interrupt() {
-	context->Interrupt();
-}
-
-void Connection::EnableProfiling() {
-	context->EnableProfiling();
-}
-
-void Connection::DisableProfiling() {
-	context->DisableProfiling();
-}
-
-void Connection::EnableQueryVerification() {
-	ClientConfig::GetConfig(*context).query_verification_enabled = true;
-}
-
-void Connection::DisableQueryVerification() {
-	ClientConfig::GetConfig(*context).query_verification_enabled = false;
-}
-
-void Connection::ForceParallelism() {
-	ClientConfig::GetConfig(*context).verify_parallelism = true;
-}
-
-unique_ptr<QueryResult> Connection::SendQuery(const string &query) {
-	return context->Query(query, true);
-}
-
-unique_ptr<MaterializedQueryResult> Connection::Query(const string &query) {
-	auto result = context->Query(query, false);
-	D_ASSERT(result->type == QueryResultType::MATERIALIZED_RESULT);
-	return unique_ptr_cast<QueryResult, MaterializedQueryResult>(move(result));
-}
-
-unique_ptr<MaterializedQueryResult> Connection::Query(unique_ptr<SQLStatement> statement) {
-	auto result = context->Query(move(statement), false);
-	D_ASSERT(result->type == QueryResultType::MATERIALIZED_RESULT);
-	return unique_ptr_cast<QueryResult, MaterializedQueryResult>(move(result));
-}
-
-unique_ptr<PendingQueryResult> Connection::PendingQuery(const string &query, bool allow_stream_result) {
-	return context->PendingQuery(query, allow_stream_result);
-}
-
-unique_ptr<PendingQueryResult> Connection::PendingQuery(unique_ptr<SQLStatement> statement, bool allow_stream_result) {
-	return context->PendingQuery(move(statement), allow_stream_result);
-}
-
-unique_ptr<PreparedStatement> Connection::Prepare(const string &query) {
-	return context->Prepare(query);
-}
-
-unique_ptr<PreparedStatement> Connection::Prepare(unique_ptr<SQLStatement> statement) {
-	return context->Prepare(move(statement));
-}
-
-unique_ptr<QueryResult> Connection::QueryParamsRecursive(const string &query, vector<Value> &values) {
-	auto statement = Prepare(query);
-	if (!statement->success) {
-		return make_unique<MaterializedQueryResult>(statement->error);
-	}
-	return statement->Execute(values, false);
-}
-
-unique_ptr<TableDescription> Connection::TableInfo(const string &table_name) {
-	return TableInfo(DEFAULT_SCHEMA, table_name);
-}
-
-unique_ptr<TableDescription> Connection::TableInfo(const string &schema_name, const string &table_name) {
-	return context->TableInfo(schema_name, table_name);
-}
-
-vector<unique_ptr<SQLStatement>> Connection::ExtractStatements(const string &query) {
-	return context->ParseStatements(query);
-}
-
-unique_ptr<LogicalOperator> Connection::ExtractPlan(const string &query) {
-	return context->ExtractPlan(query);
-}
-
-void Connection::Append(TableDescription &description, DataChunk &chunk) {
-	ChunkCollection collection;
-	collection.Append(chunk);
-	Append(description, collection);
-}
-
-void Connection::Append(TableDescription &description, ChunkCollection &collection) {
-	context->Append(description, collection);
-}
-
-shared_ptr<Relation> Connection::Table(const string &table_name) {
-	return Table(DEFAULT_SCHEMA, table_name);
-}
-
-shared_ptr<Relation> Connection::Table(const string &schema_name, const string &table_name) {
-	auto table_info = TableInfo(schema_name, table_name);
-	if (!table_info) {
-		throw Exception("Table does not exist!");
-	}
-	return make_shared<TableRelation>(context, move(table_info));
-}
-
-shared_ptr<Relation> Connection::View(const string &tname) {
-	return View(DEFAULT_SCHEMA, tname);
-}
-
-shared_ptr<Relation> Connection::View(const string &schema_name, const string &table_name) {
-	return make_shared<ViewRelation>(context, schema_name, table_name);
-}
-
-shared_ptr<Relation> Connection::TableFunction(const string &fname) {
-	vector<Value> values;
-	named_parameter_map_t named_parameters;
-	return TableFunction(fname, values, named_parameters);
-}
-
-shared_ptr<Relation> Connection::TableFunction(const string &fname, const vector<Value> &values,
-                                               const named_parameter_map_t &named_parameters) {
-	return make_shared<TableFunctionRelation>(context, fname, values, named_parameters);
-}
-
-shared_ptr<Relation> Connection::TableFunction(const string &fname, const vector<Value> &values) {
-	return make_shared<TableFunctionRelation>(context, fname, values);
-}
-
-shared_ptr<Relation> Connection::Values(const vector<vector<Value>> &values) {
-	vector<string> column_names;
-	return Values(values, column_names);
-}
-
-shared_ptr<Relation> Connection::Values(const vector<vector<Value>> &values, const vector<string> &column_names,
-                                        const string &alias) {
-	return make_shared<ValueRelation>(context, values, column_names, alias);
-}
-
-shared_ptr<Relation> Connection::Values(const string &values) {
-	vector<string> column_names;
-	return Values(values, column_names);
-}
-
-shared_ptr<Relation> Connection::Values(const string &values, const vector<string> &column_names, const string &alias) {
-	return make_shared<ValueRelation>(context, values, column_names, alias);
-}
-
-shared_ptr<Relation> Connection::ReadCSV(const string &csv_file) {
-	BufferedCSVReaderOptions options;
-	options.file_path = csv_file;
-	options.auto_detect = true;
-	BufferedCSVReader reader(*context, options);
-	vector<ColumnDefinition> column_list;
-	for (idx_t i = 0; i < reader.sql_types.size(); i++) {
-		column_list.emplace_back(reader.col_names[i], reader.sql_types[i]);
-	}
-	return make_shared<ReadCSVRelation>(context, csv_file, move(column_list), true);
-}
-
-shared_ptr<Relation> Connection::ReadCSV(const string &csv_file, const vector<string> &columns) {
-	// parse columns
-	vector<ColumnDefinition> column_list;
-	for (auto &column : columns) {
-		auto col_list = Parser::ParseColumnList(column, context->GetParserOptions());
-		if (col_list.size() != 1) {
-			throw ParserException("Expected a single column definition");
-		}
-		column_list.push_back(move(col_list[0]));
-	}
-	return make_shared<ReadCSVRelation>(context, csv_file, move(column_list));
-}
-
-unordered_set<string> Connection::GetTableNames(const string &query) {
-	return context->GetTableNames(query);
-}
-
-shared_ptr<Relation> Connection::RelationFromQuery(const string &query, const string &alias, const string &error) {
-	return RelationFromQuery(QueryRelation::ParseStatement(*context, query, error), alias);
-}
-
-shared_ptr<Relation> Connection::RelationFromQuery(unique_ptr<SelectStatement> select_stmt, const string &alias) {
-	return make_shared<QueryRelation>(context, move(select_stmt), alias);
-}
-
-void Connection::BeginTransaction() {
-	auto result = Query("BEGIN TRANSACTION");
-	if (!result->success) {
-		throw Exception(result->error);
-	}
-}
-
-void Connection::Commit() {
-	auto result = Query("COMMIT");
-	if (!result->success) {
-		throw Exception(result->error);
-	}
-}
-
-void Connection::Rollback() {
-	auto result = Query("ROLLBACK");
-	if (!result->success) {
-		throw Exception(result->error);
-	}
-}
-
-void Connection::SetAutoCommit(bool auto_commit) {
-	context->transaction.SetAutoCommit(auto_commit);
-}
-
-bool Connection::IsAutoCommit() {
-	return context->transaction.IsAutoCommit();
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-
-
-
-
-
-
-
-#ifndef DUCKDB_NO_THREADS
-
-#endif
-
-namespace duckdb {
-
-DBConfig::DBConfig() {
-	compression_functions = make_unique<CompressionFunctionSet>();
-}
-
-DBConfig::~DBConfig() {
-}
-
-DatabaseInstance::DatabaseInstance() {
-}
-
-DatabaseInstance::~DatabaseInstance() {
-	if (Exception::UncaughtException()) {
-		return;
-	}
-
-	// shutting down: attempt to checkpoint the database
-	// but only if we are not cleaning up as part of an exception unwind
-	try {
-		auto &storage = StorageManager::GetStorageManager(*this);
-		if (!storage.InMemory()) {
-			auto &config = storage.db.config;
-			if (!config.checkpoint_on_shutdown) {
-				return;
-			}
-			storage.CreateCheckpoint(true);
-		}
-	} catch (...) {
-	}
-}
-
-BufferManager &BufferManager::GetBufferManager(DatabaseInstance &db) {
-	return *db.GetStorageManager().buffer_manager;
-}
-
-BlockManager &BlockManager::GetBlockManager(DatabaseInstance &db) {
-	return *db.GetStorageManager().block_manager;
-}
-
-BlockManager &BlockManager::GetBlockManager(ClientContext &context) {
-	return BlockManager::GetBlockManager(DatabaseInstance::GetDatabase(context));
-}
-
-DatabaseInstance &DatabaseInstance::GetDatabase(ClientContext &context) {
-	return *context.db;
-}
-
-StorageManager &StorageManager::GetStorageManager(DatabaseInstance &db) {
-	return db.GetStorageManager();
-}
-
-Catalog &Catalog::GetCatalog(DatabaseInstance &db) {
-	return db.GetCatalog();
-}
-
-FileSystem &FileSystem::GetFileSystem(DatabaseInstance &db) {
-	return db.GetFileSystem();
-}
-
-DBConfig &DBConfig::GetConfig(DatabaseInstance &db) {
-	return db.config;
-}
-
-ClientConfig &ClientConfig::GetConfig(ClientContext &context) {
-	return context.config;
-}
-
-TransactionManager &TransactionManager::Get(ClientContext &context) {
-	return TransactionManager::Get(DatabaseInstance::GetDatabase(context));
-}
-
-TransactionManager &TransactionManager::Get(DatabaseInstance &db) {
-	return db.GetTransactionManager();
-}
-
-ConnectionManager &ConnectionManager::Get(DatabaseInstance &db) {
-	return db.GetConnectionManager();
-}
-
-ConnectionManager &ConnectionManager::Get(ClientContext &context) {
-	return ConnectionManager::Get(DatabaseInstance::GetDatabase(context));
-}
-
-void DatabaseInstance::Initialize(const char *path, DBConfig *new_config) {
-	if (new_config) {
-		// user-supplied configuration
-		Configure(*new_config);
-	} else {
-		// default configuration
-		DBConfig config;
-		Configure(config);
-	}
-	if (config.temporary_directory.empty() && path) {
-		// no directory specified: use default temp path
-		config.temporary_directory = string(path) + ".tmp";
-
-		// special treatment for in-memory mode
-		if (strcmp(path, ":memory:") == 0) {
-			config.temporary_directory = ".tmp";
-		}
-	}
-	if (new_config && !new_config->use_temporary_directory) {
-		// temporary directories explicitly disabled
-		config.temporary_directory = string();
-	}
-
-	storage =
-	    make_unique<StorageManager>(*this, path ? string(path) : string(), config.access_mode == AccessMode::READ_ONLY);
-	catalog = make_unique<Catalog>(*this);
-	transaction_manager = make_unique<TransactionManager>(*this);
-	scheduler = make_unique<TaskScheduler>(*this);
-	object_cache = make_unique<ObjectCache>();
-	connection_manager = make_unique<ConnectionManager>();
-
-	// initialize the database
-	storage->Initialize();
-
-	// only increase thread count after storage init because we get races on catalog otherwise
-	scheduler->SetThreads(config.maximum_threads);
-}
-
-DuckDB::DuckDB(const char *path, DBConfig *new_config) : instance(make_shared<DatabaseInstance>()) {
-	instance->Initialize(path, new_config);
-	if (instance->config.load_extensions) {
-		ExtensionHelper::LoadAllExtensions(*this);
-	}
-}
-
-DuckDB::DuckDB(const string &path, DBConfig *config) : DuckDB(path.c_str(), config) {
-}
-
-DuckDB::DuckDB(DatabaseInstance &instance_p) : instance(instance_p.shared_from_this()) {
-}
-
-DuckDB::~DuckDB() {
-}
-
-StorageManager &DatabaseInstance::GetStorageManager() {
-	return *storage;
-}
-
-Catalog &DatabaseInstance::GetCatalog() {
-	return *catalog;
-}
-
-TransactionManager &DatabaseInstance::GetTransactionManager() {
-	return *transaction_manager;
-}
-
-TaskScheduler &DatabaseInstance::GetScheduler() {
-	return *scheduler;
-}
-
-ObjectCache &DatabaseInstance::GetObjectCache() {
-	return *object_cache;
-}
-
-FileSystem &DatabaseInstance::GetFileSystem() {
-	return *config.file_system;
-}
-
-ConnectionManager &DatabaseInstance::GetConnectionManager() {
-	return *connection_manager;
-}
-
-FileSystem &DuckDB::GetFileSystem() {
-	return instance->GetFileSystem();
-}
-
-Allocator &Allocator::Get(ClientContext &context) {
-	return Allocator::Get(*context.db);
-}
-
-Allocator &Allocator::Get(DatabaseInstance &db) {
-	return db.config.allocator;
-}
-
-void DatabaseInstance::Configure(DBConfig &new_config) {
-	config.access_mode = AccessMode::READ_WRITE;
-	if (new_config.access_mode != AccessMode::UNDEFINED) {
-		config.access_mode = new_config.access_mode;
-	}
-	if (new_config.file_system) {
-		config.file_system = move(new_config.file_system);
-	} else {
-		config.file_system = make_unique<VirtualFileSystem>();
-	}
-	config.maximum_memory = new_config.maximum_memory;
-	if (config.maximum_memory == (idx_t)-1) {
-		auto memory = FileSystem::GetAvailableMemory();
-		if (memory != DConstants::INVALID_INDEX) {
-			config.maximum_memory = memory * 8 / 10;
-		}
-	}
-	if (new_config.maximum_threads == (idx_t)-1) {
-#ifndef DUCKDB_NO_THREADS
-		config.maximum_threads = std::thread::hardware_concurrency();
-#else
-		config.maximum_threads = 1;
-#endif
-	} else {
-		config.maximum_threads = new_config.maximum_threads;
-	}
-	config.external_threads = new_config.external_threads;
-	config.load_extensions = new_config.load_extensions;
-	config.force_compression = new_config.force_compression;
-	config.allocator = move(new_config.allocator);
-	config.checkpoint_wal_size = new_config.checkpoint_wal_size;
-	config.use_direct_io = new_config.use_direct_io;
-	config.temporary_directory = new_config.temporary_directory;
-	config.collation = new_config.collation;
-	config.default_order_type = new_config.default_order_type;
-	config.default_null_order = new_config.default_null_order;
-	config.enable_external_access = new_config.enable_external_access;
-	config.replacement_scans = move(new_config.replacement_scans);
-	config.initialize_default_database = new_config.initialize_default_database;
-	config.disabled_optimizers = move(new_config.disabled_optimizers);
-}
-
-DBConfig &DBConfig::GetConfig(ClientContext &context) {
-	return context.db->config;
-}
-
-idx_t DatabaseInstance::NumberOfThreads() {
-	return scheduler->NumberOfThreads();
-}
-
-const unordered_set<std::string> &DatabaseInstance::LoadedExtensions() {
-	return loaded_extensions;
-}
-
-idx_t DuckDB::NumberOfThreads() {
-	return instance->NumberOfThreads();
-}
-
-bool DuckDB::ExtensionIsLoaded(const std::string &name) {
-	return instance->loaded_extensions.find(name) != instance->loaded_extensions.end();
-}
-void DuckDB::SetExtensionLoaded(const std::string &name) {
-	instance->loaded_extensions.insert(name);
-}
-
-string ClientConfig::ExtractTimezoneFromConfig(ClientConfig &config) {
-	if (config.set_variables.find("TimeZone") == config.set_variables.end()) {
-		return "UTC";
-	} else {
-		return config.set_variables["TimeZone"].GetValue<std::string>();
-	}
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-
-#if defined(BUILD_ICU_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#define ICU_STATICALLY_LOADED true
-#include "icu-extension.hpp"
-#else
-#define ICU_STATICALLY_LOADED false
-#endif
-
-#if defined(BUILD_PARQUET_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#define PARQUET_STATICALLY_LOADED true
-#include "parquet-extension.hpp"
-#else
-#define PARQUET_STATICALLY_LOADED false
-#endif
-
-#if defined(BUILD_TPCH_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#define TPCH_STATICALLY_LOADED true
-#include "tpch-extension.hpp"
-#else
-#define TPCH_STATICALLY_LOADED false
-#endif
-
-#if defined(BUILD_TPCDS_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#define TPCDS_STATICALLY_LOADED true
-#include "tpcds-extension.hpp"
-#else
-#define TPCDS_STATICALLY_LOADED false
-#endif
-
-#if defined(BUILD_SUBSTRAIT_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#define SUBSTRAIT_STATICALLY_LOADED true
-#include "substrait-extension.hpp"
-#else
-#define SUBSTRAIT_STATICALLY_LOADED false
-#endif
-
-#if defined(BUILD_FTS_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#define FTS_STATICALLY_LOADED true
-#include "fts-extension.hpp"
-#else
-#define FTS_STATICALLY_LOADED false
-#endif
-
-#if defined(BUILD_HTTPFS_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#define HTTPFS_STATICALLY_LOADED true
-#include "httpfs-extension.hpp"
-#else
-#define HTTPFS_STATICALLY_LOADED false
-#endif
-
-#if defined(BUILD_VISUALIZER_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#include "visualizer-extension.hpp"
-#endif
-
-#if defined(BUILD_JSON_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#define JSON_STATICALLY_LOADED true
-#include "json-extension.hpp"
-#else
-#define JSON_STATICALLY_LOADED false
-#endif
-
-#if defined(BUILD_EXCEL_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#include "excel-extension.hpp"
-#endif
-
-#if defined(BUILD_SQLSMITH_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-#include "sqlsmith-extension.hpp"
-#endif
-
-namespace duckdb {
-
-//===--------------------------------------------------------------------===//
-// Default Extensions
-//===--------------------------------------------------------------------===//
-static DefaultExtension internal_extensions[] = {
-    {"icu", "Adds support for time zones and collations using the ICU library", ICU_STATICALLY_LOADED},
-    {"parquet", "Adds support for reading and writing parquet files", PARQUET_STATICALLY_LOADED},
-    {"tpch", "Adds TPC-H data generation and query support", TPCH_STATICALLY_LOADED},
-    {"tpcds", "Adds TPC-DS data generation and query support", TPCDS_STATICALLY_LOADED},
-    {"substrait", "Adds support for the Substrait integration", SUBSTRAIT_STATICALLY_LOADED},
-    {"fts", "Adds support for Full-Text Search Indexes", FTS_STATICALLY_LOADED},
-    {"httpfs", "Adds support for reading and writing files over a HTTP(S) connection", HTTPFS_STATICALLY_LOADED},
-    {"json", "Adds support for JSON operations", JSON_STATICALLY_LOADED},
-    {"sqlite_scanner", "Adds support for reading SQLite database files", false},
-    {"postgres_scanner", "Adds support for reading from a Postgres database", false},
-    {nullptr, nullptr, false}};
-
-idx_t ExtensionHelper::DefaultExtensionCount() {
-	idx_t index;
-	for (index = 0; internal_extensions[index].name != nullptr; index++) {
-	}
-	return index;
-}
-
-DefaultExtension ExtensionHelper::GetDefaultExtension(idx_t index) {
-	D_ASSERT(index < DefaultExtensionCount());
-	return internal_extensions[index];
-}
-
-//===--------------------------------------------------------------------===//
-// Load Statically Compiled Extension
-//===--------------------------------------------------------------------===//
-void ExtensionHelper::LoadAllExtensions(DuckDB &db) {
-	unordered_set<string> extensions {"parquet",   "icu",        "tpch", "tpcds", "fts",     "httpfs",
-	                                  "substrait", "visualizer", "json", "excel", "sqlsmith"};
-	for (auto &ext : extensions) {
-		LoadExtensionInternal(db, ext, true);
-	}
-}
-
-ExtensionLoadResult ExtensionHelper::LoadExtension(DuckDB &db, const std::string &extension) {
-	return LoadExtensionInternal(db, extension, false);
-}
-
-ExtensionLoadResult ExtensionHelper::LoadExtensionInternal(DuckDB &db, const std::string &extension,
-                                                           bool initial_load) {
-#ifdef DUCKDB_TEST_REMOTE_INSTALL
-	if (!initial_load && StringUtil::Contains(DUCKDB_TEST_REMOTE_INSTALL, extension)) {
-		Connection con(db);
-		auto result = con.Query("INSTALL " + extension);
-		if (!result->success) {
-			result->Print();
-			return ExtensionLoadResult::EXTENSION_UNKNOWN;
-		}
-		result = con.Query("LOAD " + extension);
-		if (!result->success) {
-			result->Print();
-			return ExtensionLoadResult::EXTENSION_UNKNOWN;
-		}
-		return ExtensionLoadResult::LOADED_EXTENSION;
-	}
-#endif
-	if (extension == "parquet") {
-#if PARQUET_STATICALLY_LOADED
-		db.LoadExtension<ParquetExtension>();
-#else
-		// parquet extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "icu") {
-#if ICU_STATICALLY_LOADED
-		db.LoadExtension<ICUExtension>();
-#else
-		// icu extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "tpch") {
-#if TPCH_STATICALLY_LOADED
-		db.LoadExtension<TPCHExtension>();
-#else
-		// icu extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "substrait") {
-#if SUBSTRAIT_STATICALLY_LOADED
-
-		db.LoadExtension<SubstraitExtension>();
-#else
-		// substrait extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "tpcds") {
-#if TPCDS_STATICALLY_LOADED
-		db.LoadExtension<TPCDSExtension>();
-#else
-		// icu extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "fts") {
-#if FTS_STATICALLY_LOADED
-		db.LoadExtension<FTSExtension>();
-#else
-		// fts extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "httpfs") {
-#if HTTPFS_STATICALLY_LOADED
-		db.LoadExtension<HTTPFsExtension>();
-#else
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "visualizer") {
-#if defined(BUILD_VISUALIZER_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-		db.LoadExtension<VisualizerExtension>();
-#else
-		// visualizer extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "json") {
-#if JSON_STATICALLY_LOADED
-		db.LoadExtension<JSONExtension>();
-#else
-		// json extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "excel") {
-#if defined(BUILD_EXCEL_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-		db.LoadExtension<EXCELExtension>();
-#else
-		// excel extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else if (extension == "sqlsmith") {
-#if defined(BUILD_SQLSMITH_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
-		db.LoadExtension<SQLSmithExtension>();
-#else
-		// excel extension required but not build: skip this test
-		return ExtensionLoadResult::NOT_LOADED;
-#endif
-	} else {
-		// unknown extension
-		return ExtensionLoadResult::EXTENSION_UNKNOWN;
-	}
-	return ExtensionLoadResult::LOADED_EXTENSION;
-}
-
-} // namespace duckdb
 
 
 
@@ -1185,13 +232,13 @@ namespace duckdb {
 
 MaterializedQueryResult::MaterializedQueryResult(StatementType statement_type, StatementProperties properties,
                                                  vector<LogicalType> types, vector<string> names,
-                                                 const shared_ptr<ClientContext> &context)
+                                                 const shared_ptr<ClientContext> &context_p)
     : QueryResult(QueryResultType::MATERIALIZED_RESULT, statement_type, properties, move(types), move(names)),
-      context(context) {
+      collection(Allocator::DefaultAllocator()), context(context_p) {
 }
 
 MaterializedQueryResult::MaterializedQueryResult(string error)
-    : QueryResult(QueryResultType::MATERIALIZED_RESULT, move(error)) {
+    : QueryResult(QueryResultType::MATERIALIZED_RESULT, move(error)), collection(Allocator::DefaultAllocator()) {
 }
 
 Value MaterializedQueryResult::GetValue(idx_t column, idx_t index) {
@@ -1449,7 +496,7 @@ bool QueryProfiler::IsDetailedEnabled() const {
 }
 
 ProfilerPrintFormat QueryProfiler::GetPrintFormat() const {
-	return is_explain_analyze ? ProfilerPrintFormat::NONE : ClientConfig::GetConfig(context).profiler_print_format;
+	return ClientConfig::GetConfig(context).profiler_print_format;
 }
 
 string QueryProfiler::GetSaveLocation() const {
@@ -1537,20 +584,14 @@ void QueryProfiler::EndQuery() {
 		Finalize(*root);
 	}
 	this->running = false;
-	auto automatic_print_format = GetPrintFormat();
-	// print or output the query profiling after termination, if this is enabled
-	if (automatic_print_format != ProfilerPrintFormat::NONE) {
-		// check if this query should be output based on the operator types
-		string query_info;
-		if (automatic_print_format == ProfilerPrintFormat::JSON) {
-			query_info = ToJSON();
-		} else if (automatic_print_format == ProfilerPrintFormat::QUERY_TREE) {
-			query_info = ToString();
-		} else if (automatic_print_format == ProfilerPrintFormat::QUERY_TREE_OPTIMIZER) {
-			query_info = ToString(true);
-		}
+	// print or output the query profiling after termination
+	// EXPLAIN ANALYSE should not be outputted by the profiler
+	if (IsEnabled() && !is_explain_analyze) {
+		string query_info = ToString();
 		auto save_location = GetSaveLocation();
-		if (save_location.empty()) {
+		if (!ClientConfig::GetConfig(context).emit_profiler_output) {
+			// disable output
+		} else if (save_location.empty()) {
 			Printer::Print(query_info);
 			Printer::Print("\n");
 		} else {
@@ -1558,6 +599,19 @@ void QueryProfiler::EndQuery() {
 		}
 	}
 	this->is_explain_analyze = false;
+}
+string QueryProfiler::ToString() const {
+	const auto format = GetPrintFormat();
+	switch (format) {
+	case ProfilerPrintFormat::QUERY_TREE:
+		return QueryTreeToString();
+	case ProfilerPrintFormat::JSON:
+		return ToJSON();
+	case ProfilerPrintFormat::QUERY_TREE_OPTIMIZER:
+		return QueryTreeToString(true);
+	default:
+		throw InternalException("Unknown ProfilerPrintFormat \"%s\"", format);
+	}
 }
 
 void QueryProfiler::StartPhase(string new_phase) {
@@ -1750,13 +804,13 @@ static string RenderTiming(double timing) {
 	return timing_s + "s";
 }
 
-string QueryProfiler::ToString(bool print_optimizer_output) const {
+string QueryProfiler::QueryTreeToString(bool print_optimizer_output) const {
 	std::stringstream str;
-	ToStream(str, print_optimizer_output);
+	QueryTreeToStream(str, print_optimizer_output);
 	return str.str();
 }
 
-void QueryProfiler::ToStream(std::ostream &ss, bool print_optimizer_output) const {
+void QueryProfiler::QueryTreeToStream(std::ostream &ss, bool print_optimizer_output) const {
 	if (!IsEnabled()) {
 		ss << "Query profiling is disabled. Call "
 		      "Connection::EnableProfiling() to enable profiling!";
@@ -2007,7 +1061,7 @@ void QueryProfiler::Render(const QueryProfiler::TreeNode &node, std::ostream &ss
 }
 
 void QueryProfiler::Print() {
-	Printer::Print(ToString());
+	Printer::Print(QueryTreeToString());
 }
 
 vector<QueryProfiler::PhaseTimingItem> QueryProfiler::GetOrderedPhaseTimings() const {
@@ -3221,6 +2275,7 @@ string ReadCSVRelation::ToString(idx_t depth) {
 
 
 
+
 namespace duckdb {
 
 SetOpRelation::SetOpRelation(shared_ptr<Relation> left_p, shared_ptr<Relation> right_p, SetOperationType setop_type_p)
@@ -3235,6 +2290,9 @@ SetOpRelation::SetOpRelation(shared_ptr<Relation> left_p, shared_ptr<Relation> r
 
 unique_ptr<QueryNode> SetOpRelation::GetQueryNode() {
 	auto result = make_unique<SetOperationNode>();
+	if (setop_type == SetOperationType::EXCEPT || setop_type == SetOperationType::INTERSECT) {
+		result->modifiers.push_back(make_unique<DistinctModifier>());
+	}
 	result->left = left->GetQueryNode();
 	result->right = right->GetQueryNode();
 	result->setop_type = setop_type;
@@ -4290,6 +3348,7 @@ void EnableProfilingSetting::SetLocal(ClientContext &context, const Value &input
 		    "Unrecognized print format %s, supported formats: [json, query_tree, query_tree_optimizer]", parameter);
 	}
 	config.enable_profiler = true;
+	config.emit_profiler_output = true;
 }
 
 Value EnableProfilingSetting::GetSetting(ClientContext &context) {
@@ -4298,8 +3357,6 @@ Value EnableProfilingSetting::GetSetting(ClientContext &context) {
 		return Value();
 	}
 	switch (config.profiler_print_format) {
-	case ProfilerPrintFormat::NONE:
-		return Value("none");
 	case ProfilerPrintFormat::JSON:
 		return Value("json");
 	case ProfilerPrintFormat::QUERY_TREE:
@@ -4523,9 +3580,11 @@ void ProfilingModeSetting::SetLocal(ClientContext &context, const Value &input) 
 	if (parameter == "standard") {
 		config.enable_profiler = true;
 		config.enable_detailed_profiling = false;
+		config.emit_profiler_output = true;
 	} else if (parameter == "detailed") {
 		config.enable_profiler = true;
 		config.enable_detailed_profiling = true;
+		config.emit_profiler_output = true;
 	} else {
 		throw ParserException("Unrecognized profiling mode \"%s\", supported formats: [standard, detailed]", parameter);
 	}
@@ -7073,9 +6132,9 @@ unique_ptr<Expression> InClauseRewriter::VisitReplace(BoundOperatorExpression &e
 	// generate a mark join that replaces this IN expression
 	// first generate a ChunkCollection from the set of expressions
 	vector<LogicalType> types = {in_type};
-	auto collection = make_unique<ChunkCollection>();
+	auto collection = make_unique<ChunkCollection>(context);
 	DataChunk chunk;
-	chunk.Initialize(types);
+	chunk.Initialize(context, types);
 	for (idx_t i = 1; i < expr.children.size(); i++) {
 		// resolve this expression to a constant
 		auto value = ExpressionExecutor::EvaluateScalar(*expr.children[i]);
@@ -8371,7 +7430,7 @@ unique_ptr<LogicalOperator> Optimizer::Optimize(unique_ptr<LogicalOperator> plan
 	});
 
 	RunOptimizer(OptimizerType::IN_CLAUSE, [&]() {
-		InClauseRewriter rewriter(*this);
+		InClauseRewriter rewriter(context, *this);
 		plan = rewriter.Rewrite(move(plan));
 	});
 
@@ -10017,7 +9076,7 @@ unique_ptr<Expression> DatePartSimplificationRule::Apply(LogicalOperator &op, ve
 	if (!function) {
 		throw BinderException(error);
 	}
-	return move(function);
+	return function;
 }
 
 } // namespace duckdb
@@ -13402,9 +12461,9 @@ PipelineExecutor::PipelineExecutor(ClientContext &context_p, Pipeline &pipeline_
 		auto prev_operator = i == 0 ? pipeline.source : pipeline.operators[i - 1];
 		auto current_operator = pipeline.operators[i];
 		auto chunk = make_unique<DataChunk>();
-		chunk->Initialize(prev_operator->GetTypes());
+		chunk->Initialize(Allocator::Get(context.client), prev_operator->GetTypes());
 		intermediate_chunks.push_back(move(chunk));
-		intermediate_states.push_back(current_operator->GetOperatorState(context.client));
+		intermediate_states.push_back(current_operator->GetOperatorState(context));
 		if (can_cache_in_pipeline && current_operator->RequiresCache()) {
 			auto &cache_types = current_operator->GetTypes();
 			bool can_cache = true;
@@ -13418,7 +12477,7 @@ PipelineExecutor::PipelineExecutor(ClientContext &context_p, Pipeline &pipeline_
 				continue;
 			}
 			cached_chunks[i] = make_unique<DataChunk>();
-			cached_chunks[i]->Initialize(current_operator->GetTypes());
+			cached_chunks[i]->Initialize(Allocator::Get(context.client), current_operator->GetTypes());
 		}
 		if (current_operator->IsSink() && current_operator->sink_state->state == SinkFinalizeType::NO_OUTPUT_POSSIBLE) {
 			// one of the operators has already figured out no output is possible
@@ -13566,7 +12625,7 @@ void PipelineExecutor::CacheChunk(DataChunk &current_chunk, idx_t operator_idx) 
 			if (chunk_cache.size() >= (STANDARD_VECTOR_SIZE - CACHE_THRESHOLD)) {
 				// chunk cache full: return it
 				current_chunk.Move(chunk_cache);
-				chunk_cache.Initialize(pipeline.operators[operator_idx]->GetTypes());
+				chunk_cache.Initialize(Allocator::Get(context.client), pipeline.operators[operator_idx]->GetTypes());
 			} else {
 				// chunk cache not full: probe again
 				current_chunk.Reset();
@@ -13727,7 +12786,7 @@ void PipelineExecutor::FetchFromSource(DataChunk &result) {
 
 void PipelineExecutor::InitializeChunk(DataChunk &chunk) {
 	PhysicalOperator *last_op = pipeline.operators.empty() ? pipeline.source : pipeline.operators.back();
-	chunk.Initialize(last_op->GetTypes());
+	chunk.Initialize(Allocator::DefaultAllocator(), last_op->GetTypes());
 }
 
 void PipelineExecutor::StartOperator(PhysicalOperator *op) {
@@ -16598,12 +15657,14 @@ void ParsedExpressionIterator::EnumerateQueryNodeChildren(
 		EnumerateQueryNodeModifiers(node, callback);
 	}
 
-	for (auto &kv : node.cte_map) {
+	for (auto &kv : node.cte_map.map) {
 		EnumerateQueryNodeChildren(*kv.second->query->node, callback);
 	}
 }
 
 } // namespace duckdb
+
+
 
 
 
@@ -16631,6 +15692,22 @@ void Parser::ParseQuery(const string &query) {
 		parser.Parse(query);
 
 		if (!parser.success) {
+			if (options.extensions) {
+				for (auto &ext : *options.extensions) {
+					D_ASSERT(ext.parse_function);
+					auto result = ext.parse_function(ext.parser_info.get(), query);
+					if (result.type == ParserExtensionResultType::PARSE_SUCCESSFUL) {
+						auto statement = make_unique<ExtensionStatement>(ext, move(result.parse_data));
+						statement->stmt_length = query.size();
+						statement->stmt_location = 0;
+						statements.push_back(move(statement));
+						return;
+					}
+					if (result.type == ParserExtensionResultType::DISPLAY_EXTENSION_ERROR) {
+						throw ParserException(result.error);
+					}
+				}
+			}
 			throw ParserException(QueryErrorContext::Format(query, parser.error_message, parser.error_location - 1));
 		}
 
@@ -16814,6 +15891,1222 @@ vector<ColumnDefinition> Parser::ParseColumnList(const string &column_list, Pars
 	}
 	auto &info = ((CreateTableInfo &)*create.info);
 	return move(info.columns);
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+namespace duckdb {
+
+string QueryErrorContext::Format(const string &query, const string &error_message, int error_loc) {
+	if (error_loc < 0 || size_t(error_loc) >= query.size()) {
+		// no location in query provided
+		return error_message;
+	}
+	idx_t error_location = idx_t(error_loc);
+	// count the line numbers until the error location
+	// and set the start position as the first character of that line
+	idx_t start_pos = 0;
+	idx_t line_number = 1;
+	for (idx_t i = 0; i < error_location; i++) {
+		if (StringUtil::CharacterIsNewline(query[i])) {
+			line_number++;
+			start_pos = i + 1;
+		}
+	}
+	// now find either the next newline token after the query, or find the end of string
+	// this is the initial end position
+	idx_t end_pos = query.size();
+	for (idx_t i = error_location; i < query.size(); i++) {
+		if (StringUtil::CharacterIsNewline(query[i])) {
+			end_pos = i;
+			break;
+		}
+	}
+	// now start scanning from the start pos
+	// we want to figure out the start and end pos of what we are going to render
+	// we want to render at most 80 characters in total, with the error_location located in the middle
+	const char *buf = query.c_str() + start_pos;
+	idx_t len = end_pos - start_pos;
+	vector<idx_t> render_widths;
+	vector<idx_t> positions;
+	if (Utf8Proc::IsValid(buf, len)) {
+		// for unicode awareness, we traverse the graphemes of the current line and keep track of their render widths
+		// and of their position in the string
+		for (idx_t cpos = 0; cpos < len;) {
+			auto char_render_width = Utf8Proc::RenderWidth(buf, len, cpos);
+			positions.push_back(cpos);
+			render_widths.push_back(char_render_width);
+			cpos = Utf8Proc::NextGraphemeCluster(buf, len, cpos);
+		}
+	} else { // LCOV_EXCL_START
+		// invalid utf-8, we can't do much at this point
+		// we just assume every character is a character, and every character has a render width of 1
+		for (idx_t cpos = 0; cpos < len; cpos++) {
+			positions.push_back(cpos);
+			render_widths.push_back(1);
+		}
+	} // LCOV_EXCL_STOP
+	// now we want to find the (unicode aware) start and end position
+	idx_t epos = 0;
+	// start by finding the error location inside the array
+	for (idx_t i = 0; i < positions.size(); i++) {
+		if (positions[i] >= (error_location - start_pos)) {
+			epos = i;
+			break;
+		}
+	}
+	bool truncate_beginning = false;
+	bool truncate_end = false;
+	idx_t spos = 0;
+	// now we iterate backwards from the error location
+	// we show max 40 render width before the error location
+	idx_t current_render_width = 0;
+	for (idx_t i = epos; i > 0; i--) {
+		current_render_width += render_widths[i];
+		if (current_render_width >= 40) {
+			truncate_beginning = true;
+			start_pos = positions[i];
+			spos = i;
+			break;
+		}
+	}
+	// now do the same, but going forward
+	current_render_width = 0;
+	for (idx_t i = epos; i < positions.size(); i++) {
+		current_render_width += render_widths[i];
+		if (current_render_width >= 40) {
+			truncate_end = true;
+			end_pos = positions[i];
+			break;
+		}
+	}
+	string line_indicator = "LINE " + to_string(line_number) + ": ";
+	string begin_trunc = truncate_beginning ? "..." : "";
+	string end_trunc = truncate_end ? "..." : "";
+
+	// get the render width of the error indicator (i.e. how many spaces we need to insert before the ^)
+	idx_t error_render_width = 0;
+	for (idx_t i = spos; i < epos; i++) {
+		error_render_width += render_widths[i];
+	}
+	error_render_width += line_indicator.size() + begin_trunc.size();
+
+	// now first print the error message plus the current line (or a subset of the line)
+	string result = error_message;
+	result += "\n" + line_indicator + begin_trunc + query.substr(start_pos, end_pos - start_pos) + end_trunc;
+	// print an arrow pointing at the error location
+	result += "\n" + string(error_render_width, ' ') + "^";
+	return result;
+}
+
+string QueryErrorContext::FormatErrorRecursive(const string &msg, vector<ExceptionFormatValue> &values) {
+	string error_message = values.empty() ? msg : ExceptionFormatValue::Format(msg, values);
+	if (!statement || query_location >= statement->query.size()) {
+		// no statement provided or query location out of range
+		return error_message;
+	}
+	return Format(statement->query, error_message, query_location);
+}
+
+} // namespace duckdb
+
+
+
+namespace duckdb {
+
+string RecursiveCTENode::ToString() const {
+	string result;
+	result += "(" + left->ToString() + ")";
+	result += " UNION ";
+	if (union_all) {
+		result += " ALL ";
+	}
+	result += "(" + right->ToString() + ")";
+	return result;
+}
+
+bool RecursiveCTENode::Equals(const QueryNode *other_p) const {
+	if (!QueryNode::Equals(other_p)) {
+		return false;
+	}
+	if (this == other_p) {
+		return true;
+	}
+	auto other = (RecursiveCTENode *)other_p;
+
+	if (other->union_all != union_all) {
+		return false;
+	}
+	if (!left->Equals(other->left.get())) {
+		return false;
+	}
+	if (!right->Equals(other->right.get())) {
+		return false;
+	}
+	return true;
+}
+
+unique_ptr<QueryNode> RecursiveCTENode::Copy() const {
+	auto result = make_unique<RecursiveCTENode>();
+	result->ctename = ctename;
+	result->union_all = union_all;
+	result->left = left->Copy();
+	result->right = right->Copy();
+	result->aliases = aliases;
+	this->CopyProperties(*result);
+	return move(result);
+}
+
+void RecursiveCTENode::Serialize(FieldWriter &writer) const {
+	writer.WriteString(ctename);
+	writer.WriteField<bool>(union_all);
+	writer.WriteSerializable(*left);
+	writer.WriteSerializable(*right);
+	writer.WriteList<string>(aliases);
+}
+
+unique_ptr<QueryNode> RecursiveCTENode::Deserialize(FieldReader &reader) {
+	auto result = make_unique<RecursiveCTENode>();
+	result->ctename = reader.ReadRequired<string>();
+	result->union_all = reader.ReadRequired<bool>();
+	result->left = reader.ReadRequiredSerializable<QueryNode>();
+	result->right = reader.ReadRequiredSerializable<QueryNode>();
+	result->aliases = reader.ReadRequiredList<string>();
+	return move(result);
+}
+
+} // namespace duckdb
+
+
+
+
+
+namespace duckdb {
+
+SelectNode::SelectNode()
+    : QueryNode(QueryNodeType::SELECT_NODE), aggregate_handling(AggregateHandling::STANDARD_HANDLING) {
+}
+
+string SelectNode::ToString() const {
+	string result;
+	result = cte_map.ToString();
+	result += "SELECT ";
+
+	// search for a distinct modifier
+	for (idx_t modifier_idx = 0; modifier_idx < modifiers.size(); modifier_idx++) {
+		if (modifiers[modifier_idx]->type == ResultModifierType::DISTINCT_MODIFIER) {
+			auto &distinct_modifier = (DistinctModifier &)*modifiers[modifier_idx];
+			result += "DISTINCT ";
+			if (!distinct_modifier.distinct_on_targets.empty()) {
+				result += "ON (";
+				for (idx_t k = 0; k < distinct_modifier.distinct_on_targets.size(); k++) {
+					if (k > 0) {
+						result += ", ";
+					}
+					result += distinct_modifier.distinct_on_targets[k]->ToString();
+				}
+				result += ") ";
+			}
+		}
+	}
+	for (idx_t i = 0; i < select_list.size(); i++) {
+		if (i > 0) {
+			result += ", ";
+		}
+		result += select_list[i]->ToString();
+		if (!select_list[i]->alias.empty()) {
+			result += " AS " + KeywordHelper::WriteOptionallyQuoted(select_list[i]->alias);
+		}
+	}
+	if (from_table && from_table->type != TableReferenceType::EMPTY) {
+		result += " FROM " + from_table->ToString();
+	}
+	if (where_clause) {
+		result += " WHERE " + where_clause->ToString();
+	}
+	if (!groups.grouping_sets.empty()) {
+		result += " GROUP BY ";
+		// if we are dealing with multiple grouping sets, we have to add a few additional brackets
+		bool grouping_sets = groups.grouping_sets.size() > 1;
+		if (grouping_sets) {
+			result += "GROUPING SETS (";
+		}
+		for (idx_t i = 0; i < groups.grouping_sets.size(); i++) {
+			auto &grouping_set = groups.grouping_sets[i];
+			if (i > 0) {
+				result += ",";
+			}
+			if (grouping_set.empty()) {
+				result += "()";
+				continue;
+			}
+			if (grouping_sets) {
+				result += "(";
+			}
+			bool first = true;
+			for (auto &grp : grouping_set) {
+				if (!first) {
+					result += ", ";
+				}
+				result += groups.group_expressions[grp]->ToString();
+				first = false;
+			}
+			if (grouping_sets) {
+				result += ")";
+			}
+		}
+		if (grouping_sets) {
+			result += ")";
+		}
+	} else if (aggregate_handling == AggregateHandling::FORCE_AGGREGATES) {
+		result += " GROUP BY ALL";
+	}
+	if (having) {
+		result += " HAVING " + having->ToString();
+	}
+	if (qualify) {
+		result += " QUALIFY " + qualify->ToString();
+	}
+	if (sample) {
+		result += " USING SAMPLE ";
+		result += sample->sample_size.ToString();
+		if (sample->is_percentage) {
+			result += "%";
+		}
+		result += " (" + SampleMethodToString(sample->method);
+		if (sample->seed >= 0) {
+			result += ", " + std::to_string(sample->seed);
+		}
+		result += ")";
+	}
+	return result + ResultModifiersToString();
+}
+
+bool SelectNode::Equals(const QueryNode *other_p) const {
+	if (!QueryNode::Equals(other_p)) {
+		return false;
+	}
+	if (this == other_p) {
+		return true;
+	}
+	auto other = (SelectNode *)other_p;
+
+	// SELECT
+	if (!ExpressionUtil::ListEquals(select_list, other->select_list)) {
+		return false;
+	}
+	// FROM
+	if (from_table) {
+		// we have a FROM clause, compare to the other one
+		if (!from_table->Equals(other->from_table.get())) {
+			return false;
+		}
+	} else if (other->from_table) {
+		// we don't have a FROM clause, if the other statement has one they are
+		// not equal
+		return false;
+	}
+	// WHERE
+	if (!BaseExpression::Equals(where_clause.get(), other->where_clause.get())) {
+		return false;
+	}
+	// GROUP BY
+	if (!ExpressionUtil::ListEquals(groups.group_expressions, other->groups.group_expressions)) {
+		return false;
+	}
+	if (groups.grouping_sets != other->groups.grouping_sets) {
+		return false;
+	}
+	if (!SampleOptions::Equals(sample.get(), other->sample.get())) {
+		return false;
+	}
+	// HAVING
+	if (!BaseExpression::Equals(having.get(), other->having.get())) {
+		return false;
+	}
+	// QUALIFY
+	if (!BaseExpression::Equals(qualify.get(), other->qualify.get())) {
+		return false;
+	}
+	return true;
+}
+
+unique_ptr<QueryNode> SelectNode::Copy() const {
+	auto result = make_unique<SelectNode>();
+	for (auto &child : select_list) {
+		result->select_list.push_back(child->Copy());
+	}
+	result->from_table = from_table ? from_table->Copy() : nullptr;
+	result->where_clause = where_clause ? where_clause->Copy() : nullptr;
+	// groups
+	for (auto &group : groups.group_expressions) {
+		result->groups.group_expressions.push_back(group->Copy());
+	}
+	result->groups.grouping_sets = groups.grouping_sets;
+	result->aggregate_handling = aggregate_handling;
+	result->having = having ? having->Copy() : nullptr;
+	result->qualify = qualify ? qualify->Copy() : nullptr;
+	result->sample = sample ? sample->Copy() : nullptr;
+	this->CopyProperties(*result);
+	return move(result);
+}
+
+void SelectNode::Serialize(FieldWriter &writer) const {
+	writer.WriteSerializableList(select_list);
+	writer.WriteOptional(from_table);
+	writer.WriteOptional(where_clause);
+	writer.WriteSerializableList(groups.group_expressions);
+	writer.WriteField<uint32_t>(groups.grouping_sets.size());
+	auto &serializer = writer.GetSerializer();
+	for (auto &grouping_set : groups.grouping_sets) {
+		serializer.Write<idx_t>(grouping_set.size());
+		for (auto &idx : grouping_set) {
+			serializer.Write<idx_t>(idx);
+		}
+	}
+	writer.WriteField<AggregateHandling>(aggregate_handling);
+	writer.WriteOptional(having);
+	writer.WriteOptional(sample);
+	writer.WriteOptional(qualify);
+}
+
+unique_ptr<QueryNode> SelectNode::Deserialize(FieldReader &reader) {
+	auto result = make_unique<SelectNode>();
+	result->select_list = reader.ReadRequiredSerializableList<ParsedExpression>();
+	result->from_table = reader.ReadOptional<TableRef>(nullptr);
+	result->where_clause = reader.ReadOptional<ParsedExpression>(nullptr);
+	result->groups.group_expressions = reader.ReadRequiredSerializableList<ParsedExpression>();
+
+	auto grouping_set_count = reader.ReadRequired<uint32_t>();
+	auto &source = reader.GetSource();
+	for (idx_t set_idx = 0; set_idx < grouping_set_count; set_idx++) {
+		auto set_entries = source.Read<idx_t>();
+		GroupingSet grouping_set;
+		for (idx_t i = 0; i < set_entries; i++) {
+			grouping_set.insert(source.Read<idx_t>());
+		}
+		result->groups.grouping_sets.push_back(grouping_set);
+	}
+	result->aggregate_handling = reader.ReadRequired<AggregateHandling>();
+	result->having = reader.ReadOptional<ParsedExpression>(nullptr);
+	result->sample = reader.ReadOptional<SampleOptions>(nullptr);
+	result->qualify = reader.ReadOptional<ParsedExpression>(nullptr);
+	return move(result);
+}
+
+} // namespace duckdb
+
+
+
+namespace duckdb {
+
+string SetOperationNode::ToString() const {
+	string result;
+	result = cte_map.ToString();
+	result += "(" + left->ToString() + ") ";
+	bool is_distinct = false;
+	for (idx_t modifier_idx = 0; modifier_idx < modifiers.size(); modifier_idx++) {
+		if (modifiers[modifier_idx]->type == ResultModifierType::DISTINCT_MODIFIER) {
+			is_distinct = true;
+			break;
+		}
+	}
+
+	switch (setop_type) {
+	case SetOperationType::UNION:
+		result += is_distinct ? "UNION" : "UNION ALL";
+		break;
+	case SetOperationType::EXCEPT:
+		D_ASSERT(is_distinct);
+		result += "EXCEPT";
+		break;
+	case SetOperationType::INTERSECT:
+		D_ASSERT(is_distinct);
+		result += "INTERSECT";
+		break;
+	default:
+		throw InternalException("Unsupported set operation type");
+	}
+	result += " (" + right->ToString() + ")";
+	return result + ResultModifiersToString();
+}
+
+bool SetOperationNode::Equals(const QueryNode *other_p) const {
+	if (!QueryNode::Equals(other_p)) {
+		return false;
+	}
+	if (this == other_p) {
+		return true;
+	}
+	auto other = (SetOperationNode *)other_p;
+	if (setop_type != other->setop_type) {
+		return false;
+	}
+	if (!left->Equals(other->left.get())) {
+		return false;
+	}
+	if (!right->Equals(other->right.get())) {
+		return false;
+	}
+	return true;
+}
+
+unique_ptr<QueryNode> SetOperationNode::Copy() const {
+	auto result = make_unique<SetOperationNode>();
+	result->setop_type = setop_type;
+	result->left = left->Copy();
+	result->right = right->Copy();
+	this->CopyProperties(*result);
+	return move(result);
+}
+
+void SetOperationNode::Serialize(FieldWriter &writer) const {
+	writer.WriteField<SetOperationType>(setop_type);
+	writer.WriteSerializable(*left);
+	writer.WriteSerializable(*right);
+}
+
+unique_ptr<QueryNode> SetOperationNode::Deserialize(FieldReader &reader) {
+	auto result = make_unique<SetOperationNode>();
+	result->setop_type = reader.ReadRequired<SetOperationType>();
+	result->left = reader.ReadRequiredSerializable<QueryNode>();
+	result->right = reader.ReadRequiredSerializable<QueryNode>();
+	return move(result);
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+
+namespace duckdb {
+
+CommonTableExpressionMap::CommonTableExpressionMap() {
+}
+
+CommonTableExpressionMap CommonTableExpressionMap::Copy() const {
+	CommonTableExpressionMap res;
+	for (auto &kv : this->map) {
+		auto kv_info = make_unique<CommonTableExpressionInfo>();
+		for (auto &al : kv.second->aliases) {
+			kv_info->aliases.push_back(al);
+		}
+		kv_info->query = unique_ptr_cast<SQLStatement, SelectStatement>(kv.second->query->Copy());
+		res.map[kv.first] = move(kv_info);
+	}
+	return res;
+}
+
+string CommonTableExpressionMap::ToString() const {
+	if (map.empty()) {
+		return string();
+	}
+	// check if there are any recursive CTEs
+	bool has_recursive = false;
+	for (auto &kv : map) {
+		if (kv.second->query->node->type == QueryNodeType::RECURSIVE_CTE_NODE) {
+			has_recursive = true;
+			break;
+		}
+	}
+	string result = "WITH ";
+	if (has_recursive) {
+		result += "RECURSIVE ";
+	}
+	bool first_cte = true;
+	for (auto &kv : map) {
+		if (!first_cte) {
+			result += ", ";
+		}
+		auto &cte = *kv.second;
+		result += KeywordHelper::WriteOptionallyQuoted(kv.first);
+		if (!cte.aliases.empty()) {
+			result += " (";
+			for (idx_t k = 0; k < cte.aliases.size(); k++) {
+				if (k > 0) {
+					result += ", ";
+				}
+				result += KeywordHelper::WriteOptionallyQuoted(cte.aliases[k]);
+			}
+			result += ")";
+		}
+		result += " AS (";
+		result += cte.query->ToString();
+		result += ")";
+		first_cte = false;
+	}
+	return result;
+}
+
+string QueryNode::ResultModifiersToString() const {
+	string result;
+	for (idx_t modifier_idx = 0; modifier_idx < modifiers.size(); modifier_idx++) {
+		auto &modifier = *modifiers[modifier_idx];
+		if (modifier.type == ResultModifierType::ORDER_MODIFIER) {
+			auto &order_modifier = (OrderModifier &)modifier;
+			result += " ORDER BY ";
+			for (idx_t k = 0; k < order_modifier.orders.size(); k++) {
+				if (k > 0) {
+					result += ", ";
+				}
+				result += order_modifier.orders[k].ToString();
+			}
+		} else if (modifier.type == ResultModifierType::LIMIT_MODIFIER) {
+			auto &limit_modifier = (LimitModifier &)modifier;
+			if (limit_modifier.limit) {
+				result += " LIMIT " + limit_modifier.limit->ToString();
+			}
+			if (limit_modifier.offset) {
+				result += " OFFSET " + limit_modifier.offset->ToString();
+			}
+		} else if (modifier.type == ResultModifierType::LIMIT_PERCENT_MODIFIER) {
+			auto &limit_p_modifier = (LimitPercentModifier &)modifier;
+			if (limit_p_modifier.limit) {
+				result += " LIMIT " + limit_p_modifier.limit->ToString() + " %";
+			}
+			if (limit_p_modifier.offset) {
+				result += " OFFSET " + limit_p_modifier.offset->ToString();
+			}
+		}
+	}
+	return result;
+}
+
+bool QueryNode::Equals(const QueryNode *other) const {
+	if (!other) {
+		return false;
+	}
+	if (this == other) {
+		return true;
+	}
+	if (other->type != this->type) {
+		return false;
+	}
+	if (modifiers.size() != other->modifiers.size()) {
+		return false;
+	}
+	for (idx_t i = 0; i < modifiers.size(); i++) {
+		if (!modifiers[i]->Equals(other->modifiers[i].get())) {
+			return false;
+		}
+	}
+	// WITH clauses (CTEs)
+	if (cte_map.map.size() != other->cte_map.map.size()) {
+		return false;
+	}
+	for (auto &entry : cte_map.map) {
+		auto other_entry = other->cte_map.map.find(entry.first);
+		if (other_entry == other->cte_map.map.end()) {
+			return false;
+		}
+		if (entry.second->aliases != other_entry->second->aliases) {
+			return false;
+		}
+		if (!entry.second->query->Equals(other_entry->second->query.get())) {
+			return false;
+		}
+	}
+	return other->type == type;
+}
+
+void QueryNode::CopyProperties(QueryNode &other) const {
+	for (auto &modifier : modifiers) {
+		other.modifiers.push_back(modifier->Copy());
+	}
+	for (auto &kv : cte_map.map) {
+		auto kv_info = make_unique<CommonTableExpressionInfo>();
+		for (auto &al : kv.second->aliases) {
+			kv_info->aliases.push_back(al);
+		}
+		kv_info->query = unique_ptr_cast<SQLStatement, SelectStatement>(kv.second->query->Copy());
+		other.cte_map.map[kv.first] = move(kv_info);
+	}
+}
+
+void QueryNode::Serialize(Serializer &main_serializer) const {
+	FieldWriter writer(main_serializer);
+	writer.WriteField<QueryNodeType>(type);
+	writer.WriteSerializableList(modifiers);
+	// cte_map
+	writer.WriteField<uint32_t>((uint32_t)cte_map.map.size());
+	auto &serializer = writer.GetSerializer();
+	for (auto &cte : cte_map.map) {
+		serializer.WriteString(cte.first);
+		serializer.WriteStringVector(cte.second->aliases);
+		cte.second->query->Serialize(serializer);
+	}
+	Serialize(writer);
+	writer.Finalize();
+}
+
+unique_ptr<QueryNode> QueryNode::Deserialize(Deserializer &main_source) {
+	FieldReader reader(main_source);
+
+	auto type = reader.ReadRequired<QueryNodeType>();
+	auto modifiers = reader.ReadRequiredSerializableList<ResultModifier>();
+	// cte_map
+	auto cte_count = reader.ReadRequired<uint32_t>();
+	auto &source = reader.GetSource();
+	unordered_map<string, unique_ptr<CommonTableExpressionInfo>> new_map;
+	for (idx_t i = 0; i < cte_count; i++) {
+		auto name = source.Read<string>();
+		auto info = make_unique<CommonTableExpressionInfo>();
+		source.ReadStringVector(info->aliases);
+		info->query = SelectStatement::Deserialize(source);
+		new_map[name] = move(info);
+	}
+	unique_ptr<QueryNode> result;
+	switch (type) {
+	case QueryNodeType::SELECT_NODE:
+		result = SelectNode::Deserialize(reader);
+		break;
+	case QueryNodeType::SET_OPERATION_NODE:
+		result = SetOperationNode::Deserialize(reader);
+		break;
+	case QueryNodeType::RECURSIVE_CTE_NODE:
+		result = RecursiveCTENode::Deserialize(reader);
+		break;
+	default:
+		throw SerializationException("Could not deserialize Query Node: unknown type!");
+	}
+	result->modifiers = move(modifiers);
+	result->cte_map.map = move(new_map);
+	reader.Finalize();
+	return result;
+}
+
+} // namespace duckdb
+
+
+
+
+namespace duckdb {
+
+bool ResultModifier::Equals(const ResultModifier *other) const {
+	if (!other) {
+		return false;
+	}
+	return type == other->type;
+}
+
+void ResultModifier::Serialize(Serializer &serializer) const {
+	FieldWriter writer(serializer);
+	writer.WriteField<ResultModifierType>(type);
+	Serialize(writer);
+	writer.Finalize();
+}
+
+unique_ptr<ResultModifier> ResultModifier::Deserialize(Deserializer &source) {
+	FieldReader reader(source);
+	auto type = reader.ReadRequired<ResultModifierType>();
+
+	unique_ptr<ResultModifier> result;
+	switch (type) {
+	case ResultModifierType::LIMIT_MODIFIER:
+		result = LimitModifier::Deserialize(reader);
+		break;
+	case ResultModifierType::ORDER_MODIFIER:
+		result = OrderModifier::Deserialize(reader);
+		break;
+	case ResultModifierType::DISTINCT_MODIFIER:
+		result = DistinctModifier::Deserialize(reader);
+		break;
+	case ResultModifierType::LIMIT_PERCENT_MODIFIER:
+		result = LimitPercentModifier::Deserialize(reader);
+		break;
+	default:
+		throw InternalException("Unrecognized ResultModifierType for Deserialization");
+	}
+	reader.Finalize();
+	return result;
+}
+
+bool LimitModifier::Equals(const ResultModifier *other_p) const {
+	if (!ResultModifier::Equals(other_p)) {
+		return false;
+	}
+	auto &other = (LimitModifier &)*other_p;
+	if (!BaseExpression::Equals(limit.get(), other.limit.get())) {
+		return false;
+	}
+	if (!BaseExpression::Equals(offset.get(), other.offset.get())) {
+		return false;
+	}
+	return true;
+}
+
+unique_ptr<ResultModifier> LimitModifier::Copy() const {
+	auto copy = make_unique<LimitModifier>();
+	if (limit) {
+		copy->limit = limit->Copy();
+	}
+	if (offset) {
+		copy->offset = offset->Copy();
+	}
+	return move(copy);
+}
+
+void LimitModifier::Serialize(FieldWriter &writer) const {
+	writer.WriteOptional(limit);
+	writer.WriteOptional(offset);
+}
+
+unique_ptr<ResultModifier> LimitModifier::Deserialize(FieldReader &reader) {
+	auto mod = make_unique<LimitModifier>();
+	mod->limit = reader.ReadOptional<ParsedExpression>(nullptr);
+	mod->offset = reader.ReadOptional<ParsedExpression>(nullptr);
+	return move(mod);
+}
+
+bool DistinctModifier::Equals(const ResultModifier *other_p) const {
+	if (!ResultModifier::Equals(other_p)) {
+		return false;
+	}
+	auto &other = (DistinctModifier &)*other_p;
+	if (!ExpressionUtil::ListEquals(distinct_on_targets, other.distinct_on_targets)) {
+		return false;
+	}
+	return true;
+}
+
+unique_ptr<ResultModifier> DistinctModifier::Copy() const {
+	auto copy = make_unique<DistinctModifier>();
+	for (auto &expr : distinct_on_targets) {
+		copy->distinct_on_targets.push_back(expr->Copy());
+	}
+	return move(copy);
+}
+
+void DistinctModifier::Serialize(FieldWriter &writer) const {
+	writer.WriteSerializableList(distinct_on_targets);
+}
+
+unique_ptr<ResultModifier> DistinctModifier::Deserialize(FieldReader &reader) {
+	auto mod = make_unique<DistinctModifier>();
+	mod->distinct_on_targets = reader.ReadRequiredSerializableList<ParsedExpression>();
+	return move(mod);
+}
+
+bool OrderModifier::Equals(const ResultModifier *other_p) const {
+	if (!ResultModifier::Equals(other_p)) {
+		return false;
+	}
+	auto &other = (OrderModifier &)*other_p;
+	if (orders.size() != other.orders.size()) {
+		return false;
+	}
+	for (idx_t i = 0; i < orders.size(); i++) {
+		if (orders[i].type != other.orders[i].type) {
+			return false;
+		}
+		if (!BaseExpression::Equals(orders[i].expression.get(), other.orders[i].expression.get())) {
+			return false;
+		}
+	}
+	return true;
+}
+
+unique_ptr<ResultModifier> OrderModifier::Copy() const {
+	auto copy = make_unique<OrderModifier>();
+	for (auto &order : orders) {
+		copy->orders.emplace_back(order.type, order.null_order, order.expression->Copy());
+	}
+	return move(copy);
+}
+
+string OrderByNode::ToString() const {
+	auto str = expression->ToString();
+	switch (type) {
+	case OrderType::ASCENDING:
+		str += " ASC";
+		break;
+	case OrderType::DESCENDING:
+		str += " DESC";
+		break;
+	default:
+		break;
+	}
+
+	switch (null_order) {
+	case OrderByNullType::NULLS_FIRST:
+		str += " NULLS FIRST";
+		break;
+	case OrderByNullType::NULLS_LAST:
+		str += " NULLS LAST";
+		break;
+	default:
+		break;
+	}
+	return str;
+}
+
+void OrderByNode::Serialize(Serializer &serializer) const {
+	FieldWriter writer(serializer);
+	writer.WriteField<OrderType>(type);
+	writer.WriteField<OrderByNullType>(null_order);
+	writer.WriteSerializable(*expression);
+	writer.Finalize();
+}
+
+OrderByNode OrderByNode::Deserialize(Deserializer &source) {
+	FieldReader reader(source);
+	auto type = reader.ReadRequired<OrderType>();
+	auto null_order = reader.ReadRequired<OrderByNullType>();
+	auto expression = reader.ReadRequiredSerializable<ParsedExpression>();
+	reader.Finalize();
+	return OrderByNode(type, null_order, move(expression));
+}
+
+void OrderModifier::Serialize(FieldWriter &writer) const {
+	writer.WriteRegularSerializableList(orders);
+}
+
+unique_ptr<ResultModifier> OrderModifier::Deserialize(FieldReader &reader) {
+	auto mod = make_unique<OrderModifier>();
+	mod->orders = reader.ReadRequiredSerializableList<OrderByNode, OrderByNode>();
+	return move(mod);
+}
+
+bool LimitPercentModifier::Equals(const ResultModifier *other_p) const {
+	if (!ResultModifier::Equals(other_p)) {
+		return false;
+	}
+	auto &other = (LimitPercentModifier &)*other_p;
+	if (!BaseExpression::Equals(limit.get(), other.limit.get())) {
+		return false;
+	}
+	if (!BaseExpression::Equals(offset.get(), other.offset.get())) {
+		return false;
+	}
+	return true;
+}
+
+unique_ptr<ResultModifier> LimitPercentModifier::Copy() const {
+	auto copy = make_unique<LimitPercentModifier>();
+	if (limit) {
+		copy->limit = limit->Copy();
+	}
+	if (offset) {
+		copy->offset = offset->Copy();
+	}
+	return move(copy);
+}
+
+void LimitPercentModifier::Serialize(FieldWriter &writer) const {
+	writer.WriteOptional(limit);
+	writer.WriteOptional(offset);
+}
+
+unique_ptr<ResultModifier> LimitPercentModifier::Deserialize(FieldReader &reader) {
+	auto mod = make_unique<LimitPercentModifier>();
+	mod->limit = reader.ReadOptional<ParsedExpression>(nullptr);
+	mod->offset = reader.ReadOptional<ParsedExpression>(nullptr);
+	return move(mod);
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+AlterStatement::AlterStatement() : SQLStatement(StatementType::ALTER_STATEMENT) {
+}
+
+AlterStatement::AlterStatement(const AlterStatement &other) : SQLStatement(other), info(other.info->Copy()) {
+}
+
+unique_ptr<SQLStatement> AlterStatement::Copy() const {
+	return unique_ptr<AlterStatement>(new AlterStatement(*this));
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+CallStatement::CallStatement() : SQLStatement(StatementType::CALL_STATEMENT) {
+}
+
+CallStatement::CallStatement(const CallStatement &other) : SQLStatement(other), function(other.function->Copy()) {
+}
+
+unique_ptr<SQLStatement> CallStatement::Copy() const {
+	return unique_ptr<CallStatement>(new CallStatement(*this));
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+CopyStatement::CopyStatement() : SQLStatement(StatementType::COPY_STATEMENT), info(make_unique<CopyInfo>()) {
+}
+
+CopyStatement::CopyStatement(const CopyStatement &other) : SQLStatement(other), info(other.info->Copy()) {
+	if (other.select_statement) {
+		select_statement = other.select_statement->Copy();
+	}
+}
+
+unique_ptr<SQLStatement> CopyStatement::Copy() const {
+	return unique_ptr<CopyStatement>(new CopyStatement(*this));
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+CreateStatement::CreateStatement() : SQLStatement(StatementType::CREATE_STATEMENT) {
+}
+
+CreateStatement::CreateStatement(const CreateStatement &other) : SQLStatement(other), info(other.info->Copy()) {
+}
+
+unique_ptr<SQLStatement> CreateStatement::Copy() const {
+	return unique_ptr<CreateStatement>(new CreateStatement(*this));
+}
+
+} // namespace duckdb
+
+
+
+namespace duckdb {
+
+DeleteStatement::DeleteStatement() : SQLStatement(StatementType::DELETE_STATEMENT) {
+}
+
+DeleteStatement::DeleteStatement(const DeleteStatement &other) : SQLStatement(other), table(other.table->Copy()) {
+	if (other.condition) {
+		condition = other.condition->Copy();
+	}
+	for (const auto &using_clause : other.using_clauses) {
+		using_clauses.push_back(using_clause->Copy());
+	}
+	cte_map = other.cte_map.Copy();
+}
+
+string DeleteStatement::ToString() const {
+	string result;
+	result = cte_map.ToString();
+	result += "DELETE FROM ";
+	result += table->ToString();
+	if (!using_clauses.empty()) {
+		result += " USING ";
+		for (idx_t i = 0; i < using_clauses.size(); i++) {
+			if (i > 0) {
+				result += ", ";
+			}
+			result += using_clauses[i]->ToString();
+		}
+	}
+	if (condition) {
+		result += " WHERE " + condition->ToString();
+	}
+
+	if (!returning_list.empty()) {
+		result += " RETURNING ";
+		for (idx_t i = 0; i < returning_list.size(); i++) {
+			if (i > 0) {
+				result += ", ";
+			}
+			result += returning_list[i]->ToString();
+		}
+	}
+	return result;
+}
+
+unique_ptr<SQLStatement> DeleteStatement::Copy() const {
+	return unique_ptr<DeleteStatement>(new DeleteStatement(*this));
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+DropStatement::DropStatement() : SQLStatement(StatementType::DROP_STATEMENT), info(make_unique<DropInfo>()) {
+}
+
+DropStatement::DropStatement(const DropStatement &other) : SQLStatement(other), info(other.info->Copy()) {
+}
+
+unique_ptr<SQLStatement> DropStatement::Copy() const {
+	return unique_ptr<DropStatement>(new DropStatement(*this));
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+ExecuteStatement::ExecuteStatement() : SQLStatement(StatementType::EXECUTE_STATEMENT) {
+}
+
+ExecuteStatement::ExecuteStatement(const ExecuteStatement &other) : SQLStatement(other), name(other.name) {
+	for (const auto &value : other.values) {
+		values.push_back(value->Copy());
+	}
+}
+
+unique_ptr<SQLStatement> ExecuteStatement::Copy() const {
+	return unique_ptr<ExecuteStatement>(new ExecuteStatement(*this));
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+ExplainStatement::ExplainStatement(unique_ptr<SQLStatement> stmt, ExplainType explain_type)
+    : SQLStatement(StatementType::EXPLAIN_STATEMENT), stmt(move(stmt)), explain_type(explain_type) {
+}
+
+ExplainStatement::ExplainStatement(const ExplainStatement &other)
+    : SQLStatement(other), stmt(other.stmt->Copy()), explain_type(other.explain_type) {
+}
+
+unique_ptr<SQLStatement> ExplainStatement::Copy() const {
+	return unique_ptr<ExplainStatement>(new ExplainStatement(*this));
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+ExportStatement::ExportStatement(unique_ptr<CopyInfo> info)
+    : SQLStatement(StatementType::EXPORT_STATEMENT), info(move(info)) {
+}
+
+ExportStatement::ExportStatement(const ExportStatement &other) : SQLStatement(other), info(other.info->Copy()) {
+}
+
+unique_ptr<SQLStatement> ExportStatement::Copy() const {
+	return unique_ptr<ExportStatement>(new ExportStatement(*this));
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+ExtensionStatement::ExtensionStatement(ParserExtension extension_p, unique_ptr<ParserExtensionParseData> parse_data_p)
+    : SQLStatement(StatementType::EXTENSION_STATEMENT), extension(move(extension_p)), parse_data(move(parse_data_p)) {
+}
+
+unique_ptr<SQLStatement> ExtensionStatement::Copy() const {
+	return make_unique<ExtensionStatement>(extension, parse_data->Copy());
+}
+
+} // namespace duckdb
+
+
+
+
+namespace duckdb {
+
+InsertStatement::InsertStatement() : SQLStatement(StatementType::INSERT_STATEMENT), schema(DEFAULT_SCHEMA) {
+}
+
+InsertStatement::InsertStatement(const InsertStatement &other)
+    : SQLStatement(other),
+      select_statement(unique_ptr_cast<SQLStatement, SelectStatement>(other.select_statement->Copy())),
+      columns(other.columns), table(other.table), schema(other.schema) {
+	cte_map = other.cte_map.Copy();
+}
+
+string InsertStatement::ToString() const {
+	string result;
+	result = cte_map.ToString();
+	result += "INSERT INTO ";
+	if (!schema.empty()) {
+		result += KeywordHelper::WriteOptionallyQuoted(schema) + ".";
+	}
+	result += KeywordHelper::WriteOptionallyQuoted(table);
+	if (!columns.empty()) {
+		result += " (";
+		for (idx_t i = 0; i < columns.size(); i++) {
+			if (i > 0) {
+				result += ", ";
+			}
+			result += KeywordHelper::WriteOptionallyQuoted(columns[i]);
+		}
+		result += " )";
+	}
+	result += " ";
+	auto values_list = GetValuesList();
+	if (values_list) {
+		values_list->alias = string();
+		result += values_list->ToString();
+	} else {
+		result += select_statement->ToString();
+	}
+	if (!returning_list.empty()) {
+		result += " RETURNING ";
+		for (idx_t i = 0; i < returning_list.size(); i++) {
+			if (i > 0) {
+				result += ", ";
+			}
+			result += returning_list[i]->ToString();
+		}
+	}
+	return result;
+}
+
+unique_ptr<SQLStatement> InsertStatement::Copy() const {
+	return unique_ptr<InsertStatement>(new InsertStatement(*this));
+}
+
+ExpressionListRef *InsertStatement::GetValuesList() const {
+	if (select_statement->node->type != QueryNodeType::SELECT_NODE) {
+		return nullptr;
+	}
+	auto &node = (SelectNode &)*select_statement->node;
+	if (node.where_clause || node.qualify || node.having) {
+		return nullptr;
+	}
+	if (!node.cte_map.map.empty()) {
+		return nullptr;
+	}
+	if (!node.groups.grouping_sets.empty()) {
+		return nullptr;
+	}
+	if (node.aggregate_handling != AggregateHandling::STANDARD_HANDLING) {
+		return nullptr;
+	}
+	if (node.select_list.size() != 1 || node.select_list[0]->type != ExpressionType::STAR) {
+		return nullptr;
+	}
+	if (!node.from_table || node.from_table->type != TableReferenceType::EXPRESSION_LIST) {
+		return nullptr;
+	}
+	return (ExpressionListRef *)node.from_table.get();
+}
+
+} // namespace duckdb
+
+
+namespace duckdb {
+
+LoadStatement::LoadStatement() : SQLStatement(StatementType::LOAD_STATEMENT) {
+}
+
+LoadStatement::LoadStatement(const LoadStatement &other) : SQLStatement(other), info(other.info->Copy()) {
+}
+
+unique_ptr<SQLStatement> LoadStatement::Copy() const {
+	return unique_ptr<LoadStatement>(new LoadStatement(*this));
 }
 
 } // namespace duckdb

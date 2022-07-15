@@ -1,754 +1,10 @@
-// See https://raw.githubusercontent.com/cwida/duckdb/master/LICENSE for licensing information
+// See https://raw.githubusercontent.com/duckdb/duckdb/master/LICENSE for licensing information
 
 #include "duckdb.hpp"
 #include "duckdb-internal.hpp"
 #ifndef DUCKDB_AMALGAMATION
 #error header mismatch
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-namespace duckdb {
-
-DataChunk::DataChunk() : count(0), capacity(STANDARD_VECTOR_SIZE) {
-}
-
-DataChunk::~DataChunk() {
-}
-
-void DataChunk::InitializeEmpty(const vector<LogicalType> &types) {
-	capacity = STANDARD_VECTOR_SIZE;
-	D_ASSERT(data.empty());   // can only be initialized once
-	D_ASSERT(!types.empty()); // empty chunk not allowed
-	for (idx_t i = 0; i < types.size(); i++) {
-		data.emplace_back(Vector(types[i], nullptr));
-	}
-}
-
-void DataChunk::Initialize(const vector<LogicalType> &types) {
-	D_ASSERT(data.empty());   // can only be initialized once
-	D_ASSERT(!types.empty()); // empty chunk not allowed
-	capacity = STANDARD_VECTOR_SIZE;
-	for (idx_t i = 0; i < types.size(); i++) {
-		VectorCache cache(types[i]);
-		data.emplace_back(cache);
-		vector_caches.push_back(move(cache));
-	}
-}
-
-void DataChunk::Reset() {
-	if (data.empty()) {
-		return;
-	}
-	if (vector_caches.size() != data.size()) {
-		throw InternalException("VectorCache and column count mismatch in DataChunk::Reset");
-	}
-	for (idx_t i = 0; i < ColumnCount(); i++) {
-		data[i].ResetFromCache(vector_caches[i]);
-	}
-	capacity = STANDARD_VECTOR_SIZE;
-	SetCardinality(0);
-}
-
-void DataChunk::Destroy() {
-	data.clear();
-	vector_caches.clear();
-	capacity = 0;
-	SetCardinality(0);
-}
-
-Value DataChunk::GetValue(idx_t col_idx, idx_t index) const {
-	D_ASSERT(index < size());
-	return data[col_idx].GetValue(index);
-}
-
-void DataChunk::SetValue(idx_t col_idx, idx_t index, const Value &val) {
-	data[col_idx].SetValue(index, val);
-}
-
-void DataChunk::Reference(DataChunk &chunk) {
-	D_ASSERT(chunk.ColumnCount() <= ColumnCount());
-	SetCardinality(chunk);
-	SetCapacity(chunk);
-	for (idx_t i = 0; i < chunk.ColumnCount(); i++) {
-		data[i].Reference(chunk.data[i]);
-	}
-}
-
-void DataChunk::Move(DataChunk &chunk) {
-	SetCardinality(chunk);
-	SetCapacity(chunk);
-	data = move(chunk.data);
-	vector_caches = move(chunk.vector_caches);
-
-	chunk.Destroy();
-}
-
-void DataChunk::Copy(DataChunk &other, idx_t offset) const {
-	D_ASSERT(ColumnCount() == other.ColumnCount());
-	D_ASSERT(other.size() == 0);
-
-	for (idx_t i = 0; i < ColumnCount(); i++) {
-		D_ASSERT(other.data[i].GetVectorType() == VectorType::FLAT_VECTOR);
-		VectorOperations::Copy(data[i], other.data[i], size(), offset, 0);
-	}
-	other.SetCardinality(size() - offset);
-}
-
-void DataChunk::Copy(DataChunk &other, const SelectionVector &sel, const idx_t source_count, const idx_t offset) const {
-	D_ASSERT(ColumnCount() == other.ColumnCount());
-	D_ASSERT(other.size() == 0);
-	D_ASSERT((offset + source_count) <= size());
-
-	for (idx_t i = 0; i < ColumnCount(); i++) {
-		D_ASSERT(other.data[i].GetVectorType() == VectorType::FLAT_VECTOR);
-		VectorOperations::Copy(data[i], other.data[i], sel, source_count, offset, 0);
-	}
-	other.SetCardinality(source_count - offset);
-}
-
-void DataChunk::Split(DataChunk &other, idx_t split_idx) {
-	D_ASSERT(other.size() == 0);
-	D_ASSERT(other.data.empty());
-	D_ASSERT(split_idx < data.size());
-	const idx_t num_cols = data.size();
-	for (idx_t col_idx = split_idx; col_idx < num_cols; col_idx++) {
-		other.data.push_back(move(data[col_idx]));
-		other.vector_caches.push_back(move(vector_caches[col_idx]));
-	}
-	for (idx_t col_idx = split_idx; col_idx < num_cols; col_idx++) {
-		data.pop_back();
-		vector_caches.pop_back();
-	}
-	other.SetCardinality(*this);
-	other.SetCapacity(*this);
-}
-
-void DataChunk::Fuse(DataChunk &other) {
-	D_ASSERT(other.size() == size());
-	const idx_t num_cols = other.data.size();
-	for (idx_t col_idx = 0; col_idx < num_cols; ++col_idx) {
-		data.emplace_back(move(other.data[col_idx]));
-		vector_caches.emplace_back(move(other.vector_caches[col_idx]));
-	}
-	other.Destroy();
-}
-
-void DataChunk::Append(const DataChunk &other, bool resize, SelectionVector *sel, idx_t sel_count) {
-	idx_t new_size = sel ? size() + sel_count : size() + other.size();
-	if (other.size() == 0) {
-		return;
-	}
-	if (ColumnCount() != other.ColumnCount()) {
-		throw InternalException("Column counts of appending chunk doesn't match!");
-	}
-	if (new_size > capacity) {
-		if (resize) {
-			for (idx_t i = 0; i < ColumnCount(); i++) {
-				data[i].Resize(size(), new_size);
-			}
-			capacity = new_size;
-		} else {
-			throw InternalException("Can't append chunk to other chunk without resizing");
-		}
-	}
-	for (idx_t i = 0; i < ColumnCount(); i++) {
-		D_ASSERT(data[i].GetVectorType() == VectorType::FLAT_VECTOR);
-		if (sel) {
-			VectorOperations::Copy(other.data[i], data[i], *sel, sel_count, 0, size());
-		} else {
-			VectorOperations::Copy(other.data[i], data[i], other.size(), 0, size());
-		}
-	}
-	SetCardinality(new_size);
-}
-
-void DataChunk::Normalify() {
-	for (idx_t i = 0; i < ColumnCount(); i++) {
-		data[i].Normalify(size());
-	}
-}
-
-vector<LogicalType> DataChunk::GetTypes() {
-	vector<LogicalType> types;
-	for (idx_t i = 0; i < ColumnCount(); i++) {
-		types.push_back(data[i].GetType());
-	}
-	return types;
-}
-
-string DataChunk::ToString() const {
-	string retval = "Chunk - [" + to_string(ColumnCount()) + " Columns]\n";
-	for (idx_t i = 0; i < ColumnCount(); i++) {
-		retval += "- " + data[i].ToString(size()) + "\n";
-	}
-	return retval;
-}
-
-void DataChunk::Serialize(Serializer &serializer) {
-	// write the count
-	serializer.Write<sel_t>(size());
-	serializer.Write<idx_t>(ColumnCount());
-	for (idx_t col_idx = 0; col_idx < ColumnCount(); col_idx++) {
-		// write the types
-		data[col_idx].GetType().Serialize(serializer);
-	}
-	// write the data
-	for (idx_t col_idx = 0; col_idx < ColumnCount(); col_idx++) {
-		data[col_idx].Serialize(size(), serializer);
-	}
-}
-
-void DataChunk::Deserialize(Deserializer &source) {
-	auto rows = source.Read<sel_t>();
-	idx_t column_count = source.Read<idx_t>();
-
-	vector<LogicalType> types;
-	for (idx_t i = 0; i < column_count; i++) {
-		types.push_back(LogicalType::Deserialize(source));
-	}
-	Initialize(types);
-	// now load the column data
-	SetCardinality(rows);
-	for (idx_t i = 0; i < column_count; i++) {
-		data[i].Deserialize(rows, source);
-	}
-	Verify();
-}
-
-void DataChunk::Slice(const SelectionVector &sel_vector, idx_t count_p) {
-	this->count = count_p;
-	SelCache merge_cache;
-	for (idx_t c = 0; c < ColumnCount(); c++) {
-		data[c].Slice(sel_vector, count_p, merge_cache);
-	}
-}
-
-void DataChunk::Slice(DataChunk &other, const SelectionVector &sel, idx_t count_p, idx_t col_offset) {
-	D_ASSERT(other.ColumnCount() <= col_offset + ColumnCount());
-	this->count = count_p;
-	SelCache merge_cache;
-	for (idx_t c = 0; c < other.ColumnCount(); c++) {
-		if (other.data[c].GetVectorType() == VectorType::DICTIONARY_VECTOR) {
-			// already a dictionary! merge the dictionaries
-			data[col_offset + c].Reference(other.data[c]);
-			data[col_offset + c].Slice(sel, count_p, merge_cache);
-		} else {
-			data[col_offset + c].Slice(other.data[c], sel, count_p);
-		}
-	}
-}
-
-unique_ptr<VectorData[]> DataChunk::Orrify() {
-	auto orrified_data = unique_ptr<VectorData[]>(new VectorData[ColumnCount()]);
-	for (idx_t col_idx = 0; col_idx < ColumnCount(); col_idx++) {
-		data[col_idx].Orrify(size(), orrified_data[col_idx]);
-	}
-	return orrified_data;
-}
-
-void DataChunk::Hash(Vector &result) {
-	D_ASSERT(result.GetType().id() == LogicalType::HASH);
-	VectorOperations::Hash(data[0], result, size());
-	for (idx_t i = 1; i < ColumnCount(); i++) {
-		VectorOperations::CombineHash(result, data[i], size());
-	}
-}
-
-void DataChunk::Verify() {
-#ifdef DEBUG
-	D_ASSERT(size() <= capacity);
-	// verify that all vectors in this chunk have the chunk selection vector
-	for (idx_t i = 0; i < ColumnCount(); i++) {
-		data[i].Verify(size());
-	}
-#endif
-}
-
-void DataChunk::Print() {
-	Printer::Print(ToString());
-}
-
-struct DuckDBArrowArrayChildHolder {
-	ArrowArray array;
-	//! need max three pointers for strings
-	duckdb::array<const void *, 3> buffers = {{nullptr, nullptr, nullptr}};
-	unique_ptr<Vector> vector;
-	unique_ptr<data_t[]> offsets;
-	unique_ptr<data_t[]> data;
-	//! Children of nested structures
-	::duckdb::vector<DuckDBArrowArrayChildHolder> children;
-	::duckdb::vector<ArrowArray *> children_ptrs;
-};
-
-struct DuckDBArrowArrayHolder {
-	vector<DuckDBArrowArrayChildHolder> children = {};
-	vector<ArrowArray *> children_ptrs = {};
-	array<const void *, 1> buffers = {{nullptr}};
-	vector<shared_ptr<ArrowArrayWrapper>> arrow_original_array;
-};
-
-static void ReleaseDuckDBArrowArray(ArrowArray *array) {
-	if (!array || !array->release) {
-		return;
-	}
-	array->release = nullptr;
-	auto holder = static_cast<DuckDBArrowArrayHolder *>(array->private_data);
-	delete holder;
-}
-
-void InitializeChild(DuckDBArrowArrayChildHolder &child_holder, idx_t size) {
-	auto &child = child_holder.array;
-	child.private_data = nullptr;
-	child.release = ReleaseDuckDBArrowArray;
-	child.n_children = 0;
-	child.null_count = 0;
-	child.offset = 0;
-	child.dictionary = nullptr;
-	child.buffers = child_holder.buffers.data();
-
-	child.length = size;
-}
-
-void SetChildValidityMask(Vector &vector, ArrowArray &child) {
-	D_ASSERT(vector.GetVectorType() == VectorType::FLAT_VECTOR);
-	auto &mask = FlatVector::Validity(vector);
-	if (!mask.AllValid()) {
-		//! any bits are set: might have nulls
-		child.null_count = -1;
-	} else {
-		//! no bits are set; we know there are no nulls
-		child.null_count = 0;
-	}
-	child.buffers[0] = (void *)mask.GetData();
-}
-
-void SetArrowChild(DuckDBArrowArrayChildHolder &child_holder, const LogicalType &type, Vector &data, idx_t size);
-
-void SetList(DuckDBArrowArrayChildHolder &child_holder, const LogicalType &type, Vector &data, idx_t size) {
-	auto &child = child_holder.array;
-	child_holder.vector = make_unique<Vector>(data);
-
-	//! Lists have two buffers
-	child.n_buffers = 2;
-	//! Second Buffer is the list offsets
-	child_holder.offsets = unique_ptr<data_t[]>(new data_t[sizeof(uint32_t) * (size + 1)]);
-	child.buffers[1] = child_holder.offsets.get();
-	auto offset_ptr = (uint32_t *)child.buffers[1];
-	auto list_data = FlatVector::GetData<list_entry_t>(data);
-	auto list_mask = FlatVector::Validity(data);
-	idx_t offset = 0;
-	offset_ptr[0] = 0;
-	for (idx_t i = 0; i < size; i++) {
-		auto &le = list_data[i];
-
-		if (list_mask.RowIsValid(i)) {
-			offset += le.length;
-		}
-
-		offset_ptr[i + 1] = offset;
-	}
-	auto list_size = ListVector::GetListSize(data);
-	child_holder.children.resize(1);
-	InitializeChild(child_holder.children[0], list_size);
-	child.n_children = 1;
-	child_holder.children_ptrs.push_back(&child_holder.children[0].array);
-	child.children = &child_holder.children_ptrs[0];
-	auto &child_vector = ListVector::GetEntry(data);
-	auto &child_type = ListType::GetChildType(type);
-	SetArrowChild(child_holder.children[0], child_type, child_vector, list_size);
-	SetChildValidityMask(child_vector, child_holder.children[0].array);
-}
-
-void SetStruct(DuckDBArrowArrayChildHolder &child_holder, const LogicalType &type, Vector &data, idx_t size) {
-	auto &child = child_holder.array;
-	child_holder.vector = make_unique<Vector>(data);
-
-	//! Structs only have validity buffers
-	child.n_buffers = 1;
-	auto &children = StructVector::GetEntries(*child_holder.vector);
-	child.n_children = children.size();
-	child_holder.children.resize(child.n_children);
-	for (auto &struct_child : child_holder.children) {
-		InitializeChild(struct_child, size);
-		child_holder.children_ptrs.push_back(&struct_child.array);
-	}
-	child.children = &child_holder.children_ptrs[0];
-	for (idx_t child_idx = 0; child_idx < child_holder.children.size(); child_idx++) {
-		SetArrowChild(child_holder.children[child_idx], StructType::GetChildType(type, child_idx), *children[child_idx],
-		              size);
-		SetChildValidityMask(*children[child_idx], child_holder.children[child_idx].array);
-	}
-}
-
-void SetStructMap(DuckDBArrowArrayChildHolder &child_holder, const LogicalType &type, Vector &data, idx_t size) {
-	auto &child = child_holder.array;
-	child_holder.vector = make_unique<Vector>(data);
-
-	//! Structs only have validity buffers
-	child.n_buffers = 1;
-	auto &children = StructVector::GetEntries(*child_holder.vector);
-	child.n_children = children.size();
-	child_holder.children.resize(child.n_children);
-	auto list_size = ListVector::GetListSize(*children[0]);
-	child.length = list_size;
-	for (auto &struct_child : child_holder.children) {
-		InitializeChild(struct_child, list_size);
-		child_holder.children_ptrs.push_back(&struct_child.array);
-	}
-	child.children = &child_holder.children_ptrs[0];
-	auto &child_types = StructType::GetChildTypes(type);
-	for (idx_t child_idx = 0; child_idx < child_holder.children.size(); child_idx++) {
-		auto &list_vector_child = ListVector::GetEntry(*children[child_idx]);
-		if (child_idx == 0) {
-			VectorData list_data;
-			children[child_idx]->Orrify(size, list_data);
-			auto list_child_validity = FlatVector::Validity(list_vector_child);
-			if (!list_child_validity.AllValid()) {
-				//! Get the offsets to check from the selection vector
-				auto list_offsets = FlatVector::GetData<list_entry_t>(*children[child_idx]);
-				for (idx_t list_idx = 0; list_idx < size; list_idx++) {
-					auto offset = list_offsets[list_data.sel->get_index(list_idx)];
-					if (!list_child_validity.CheckAllValid(offset.length + offset.offset, offset.offset)) {
-						throw std::runtime_error("Arrow doesnt accept NULL keys on Maps");
-					}
-				}
-			}
-		} else {
-			SetChildValidityMask(list_vector_child, child_holder.children[child_idx].array);
-		}
-		SetArrowChild(child_holder.children[child_idx], ListType::GetChildType(child_types[child_idx].second),
-		              list_vector_child, list_size);
-	}
-}
-
-struct ArrowUUIDConversion {
-	using internal_type_t = hugeint_t;
-
-	static unique_ptr<Vector> InitializeVector(Vector &data, idx_t size) {
-		return make_unique<Vector>(LogicalType::VARCHAR, size);
-	}
-
-	static idx_t GetStringLength(hugeint_t value) {
-		return UUID::STRING_SIZE;
-	}
-
-	static string_t ConvertValue(Vector &tgt_vec, string_t *tgt_ptr, internal_type_t *src_ptr, idx_t row) {
-		auto str_value = UUID::ToString(src_ptr[row]);
-		// Have to store this string
-		tgt_ptr[row] = StringVector::AddStringOrBlob(tgt_vec, str_value);
-		return tgt_ptr[row];
-	}
-};
-
-struct ArrowVarcharConversion {
-	using internal_type_t = string_t;
-
-	static unique_ptr<Vector> InitializeVector(Vector &data, idx_t size) {
-		return make_unique<Vector>(data);
-	}
-	static idx_t GetStringLength(string_t value) {
-		return value.GetSize();
-	}
-
-	static string_t ConvertValue(Vector &tgt_vec, string_t *tgt_ptr, internal_type_t *src_ptr, idx_t row) {
-		return src_ptr[row];
-	}
-};
-
-template <class CONVERT, class VECTOR_TYPE>
-void SetVarchar(DuckDBArrowArrayChildHolder &child_holder, const LogicalType &type, Vector &data, idx_t size) {
-	auto &child = child_holder.array;
-	child_holder.vector = CONVERT::InitializeVector(data, size);
-	auto target_data_ptr = FlatVector::GetData<string_t>(data);
-	child.n_buffers = 3;
-	child_holder.offsets = unique_ptr<data_t[]>(new data_t[sizeof(uint32_t) * (size + 1)]);
-	child.buffers[1] = child_holder.offsets.get();
-	D_ASSERT(child.buffers[1]);
-	//! step 1: figure out total string length:
-	idx_t total_string_length = 0;
-	auto source_ptr = FlatVector::GetData<VECTOR_TYPE>(data);
-	auto &mask = FlatVector::Validity(data);
-	for (idx_t row_idx = 0; row_idx < size; row_idx++) {
-		if (!mask.RowIsValid(row_idx)) {
-			continue;
-		}
-		total_string_length += CONVERT::GetStringLength(source_ptr[row_idx]);
-	}
-	//! step 2: allocate this much
-	child_holder.data = unique_ptr<data_t[]>(new data_t[total_string_length]);
-	child.buffers[2] = child_holder.data.get();
-	D_ASSERT(child.buffers[2]);
-	//! step 3: assign buffers
-	idx_t current_heap_offset = 0;
-	auto target_ptr = (uint32_t *)child.buffers[1];
-
-	for (idx_t row_idx = 0; row_idx < size; row_idx++) {
-		target_ptr[row_idx] = current_heap_offset;
-		if (!mask.RowIsValid(row_idx)) {
-			continue;
-		}
-		string_t str = CONVERT::ConvertValue(*child_holder.vector, target_data_ptr, source_ptr, row_idx);
-		memcpy((void *)((uint8_t *)child.buffers[2] + current_heap_offset), str.GetDataUnsafe(), str.GetSize());
-		current_heap_offset += str.GetSize();
-	}
-	target_ptr[size] = current_heap_offset; //! need to terminate last string!
-}
-
-void SetArrowChild(DuckDBArrowArrayChildHolder &child_holder, const LogicalType &type, Vector &data, idx_t size) {
-	auto &child = child_holder.array;
-	switch (type.id()) {
-	case LogicalTypeId::BOOLEAN: {
-		//! Gotta bitpack these booleans
-		child_holder.vector = make_unique<Vector>(data);
-		child.n_buffers = 2;
-		idx_t num_bytes = (size + 8 - 1) / 8;
-		child_holder.data = unique_ptr<data_t[]>(new data_t[sizeof(uint8_t) * num_bytes]);
-		child.buffers[1] = child_holder.data.get();
-		auto source_ptr = FlatVector::GetData<uint8_t>(*child_holder.vector);
-		auto target_ptr = (uint8_t *)child.buffers[1];
-		idx_t target_pos = 0;
-		idx_t cur_bit = 0;
-		for (idx_t row_idx = 0; row_idx < size; row_idx++) {
-			if (cur_bit == 8) {
-				target_pos++;
-				cur_bit = 0;
-			}
-			if (source_ptr[row_idx] == 0) {
-				//! We set the bit to 0
-				target_ptr[target_pos] &= ~(1 << cur_bit);
-			} else {
-				//! We set the bit to 1
-				target_ptr[target_pos] |= 1 << cur_bit;
-			}
-			cur_bit++;
-		}
-		break;
-	}
-	case LogicalTypeId::TINYINT:
-	case LogicalTypeId::SMALLINT:
-	case LogicalTypeId::INTEGER:
-	case LogicalTypeId::BIGINT:
-	case LogicalTypeId::UTINYINT:
-	case LogicalTypeId::USMALLINT:
-	case LogicalTypeId::UINTEGER:
-	case LogicalTypeId::UBIGINT:
-	case LogicalTypeId::FLOAT:
-	case LogicalTypeId::DOUBLE:
-	case LogicalTypeId::HUGEINT:
-	case LogicalTypeId::DATE:
-	case LogicalTypeId::TIMESTAMP:
-	case LogicalTypeId::TIMESTAMP_MS:
-	case LogicalTypeId::TIMESTAMP_NS:
-	case LogicalTypeId::TIMESTAMP_SEC:
-	case LogicalTypeId::TIME:
-	case LogicalTypeId::TIMESTAMP_TZ:
-	case LogicalTypeId::TIME_TZ:
-		child_holder.vector = make_unique<Vector>(data);
-		child.n_buffers = 2;
-		child.buffers[1] = (void *)FlatVector::GetData(*child_holder.vector);
-		break;
-	case LogicalTypeId::SQLNULL:
-		child.n_buffers = 1;
-		break;
-	case LogicalTypeId::DECIMAL: {
-		child.n_buffers = 2;
-		child_holder.vector = make_unique<Vector>(data);
-
-		//! We have to convert to INT128
-		switch (type.InternalType()) {
-
-		case PhysicalType::INT16: {
-			child_holder.data = unique_ptr<data_t[]>(new data_t[sizeof(hugeint_t) * (size)]);
-			child.buffers[1] = child_holder.data.get();
-			auto source_ptr = FlatVector::GetData<int16_t>(*child_holder.vector);
-			auto target_ptr = (hugeint_t *)child.buffers[1];
-			for (idx_t row_idx = 0; row_idx < size; row_idx++) {
-				target_ptr[row_idx] = source_ptr[row_idx];
-			}
-			break;
-		}
-		case PhysicalType::INT32: {
-			child_holder.data = unique_ptr<data_t[]>(new data_t[sizeof(hugeint_t) * (size)]);
-			child.buffers[1] = child_holder.data.get();
-			auto source_ptr = FlatVector::GetData<int32_t>(*child_holder.vector);
-			auto target_ptr = (hugeint_t *)child.buffers[1];
-			for (idx_t row_idx = 0; row_idx < size; row_idx++) {
-				target_ptr[row_idx] = source_ptr[row_idx];
-			}
-			break;
-		}
-		case PhysicalType::INT64: {
-			child_holder.data = unique_ptr<data_t[]>(new data_t[sizeof(hugeint_t) * (size)]);
-			child.buffers[1] = child_holder.data.get();
-			auto source_ptr = FlatVector::GetData<int64_t>(*child_holder.vector);
-			auto target_ptr = (hugeint_t *)child.buffers[1];
-			for (idx_t row_idx = 0; row_idx < size; row_idx++) {
-				target_ptr[row_idx] = source_ptr[row_idx];
-			}
-			break;
-		}
-		case PhysicalType::INT128: {
-			child.buffers[1] = (void *)FlatVector::GetData(*child_holder.vector);
-			break;
-		}
-		default:
-			throw std::runtime_error("Unsupported physical type for Decimal" + TypeIdToString(type.InternalType()));
-		}
-		break;
-	}
-	case LogicalTypeId::BLOB:
-	case LogicalTypeId::JSON:
-	case LogicalTypeId::VARCHAR: {
-		SetVarchar<ArrowVarcharConversion, string_t>(child_holder, type, data, size);
-		break;
-	}
-	case LogicalTypeId::UUID: {
-		SetVarchar<ArrowUUIDConversion, hugeint_t>(child_holder, type, data, size);
-		break;
-	}
-	case LogicalTypeId::LIST: {
-		SetList(child_holder, type, data, size);
-		break;
-	}
-	case LogicalTypeId::STRUCT: {
-		SetStruct(child_holder, type, data, size);
-		break;
-	}
-	case LogicalTypeId::MAP: {
-		child_holder.vector = make_unique<Vector>(data);
-
-		auto &map_mask = FlatVector::Validity(*child_holder.vector);
-		child.n_buffers = 2;
-		//! Maps have one child
-		child.n_children = 1;
-		child_holder.children.resize(1);
-		InitializeChild(child_holder.children[0], size);
-		child_holder.children_ptrs.push_back(&child_holder.children[0].array);
-		//! Second Buffer is the offsets
-		child_holder.offsets = unique_ptr<data_t[]>(new data_t[sizeof(uint32_t) * (size + 1)]);
-		child.buffers[1] = child_holder.offsets.get();
-		auto &struct_children = StructVector::GetEntries(data);
-		auto offset_ptr = (uint32_t *)child.buffers[1];
-		auto list_data = FlatVector::GetData<list_entry_t>(*struct_children[0]);
-		idx_t offset = 0;
-		offset_ptr[0] = 0;
-		for (idx_t i = 0; i < size; i++) {
-			auto &le = list_data[i];
-			if (map_mask.RowIsValid(i)) {
-				offset += le.length;
-			}
-			offset_ptr[i + 1] = offset;
-		}
-		child.children = &child_holder.children_ptrs[0];
-		//! We need to set up a struct
-		auto struct_type = LogicalType::STRUCT(StructType::GetChildTypes(type));
-
-		SetStructMap(child_holder.children[0], struct_type, *child_holder.vector, size);
-		break;
-	}
-	case LogicalTypeId::INTERVAL: {
-		//! convert interval from month/days/ucs to milliseconds
-		child_holder.vector = make_unique<Vector>(data);
-		child.n_buffers = 2;
-		child_holder.data = unique_ptr<data_t[]>(new data_t[sizeof(int64_t) * (size)]);
-		child.buffers[1] = child_holder.data.get();
-		auto source_ptr = FlatVector::GetData<interval_t>(*child_holder.vector);
-		auto target_ptr = (int64_t *)child.buffers[1];
-		for (idx_t row_idx = 0; row_idx < size; row_idx++) {
-			target_ptr[row_idx] = Interval::GetMilli(source_ptr[row_idx]);
-		}
-		break;
-	}
-	case LogicalTypeId::ENUM: {
-		// We need to initialize our dictionary
-		child_holder.children.resize(1);
-		idx_t dict_size = EnumType::GetSize(type);
-		InitializeChild(child_holder.children[0], dict_size);
-		Vector dictionary(EnumType::GetValuesInsertOrder(type));
-		SetArrowChild(child_holder.children[0], dictionary.GetType(), dictionary, dict_size);
-		child_holder.children_ptrs.push_back(&child_holder.children[0].array);
-
-		// now we set the data
-		child.dictionary = child_holder.children_ptrs[0];
-		child_holder.vector = make_unique<Vector>(data);
-		child.n_buffers = 2;
-		child.buffers[1] = (void *)FlatVector::GetData(*child_holder.vector);
-
-		break;
-	}
-	default:
-		throw std::runtime_error("Unsupported type " + type.ToString());
-	}
-}
-
-void DataChunk::ToArrowArray(ArrowArray *out_array) {
-	Normalify();
-	D_ASSERT(out_array);
-
-	// Allocate as unique_ptr first to cleanup properly on error
-	auto root_holder = make_unique<DuckDBArrowArrayHolder>();
-
-	// Allocate the children
-	root_holder->children.resize(ColumnCount());
-	root_holder->children_ptrs.resize(ColumnCount(), nullptr);
-	for (size_t i = 0; i < ColumnCount(); ++i) {
-		root_holder->children_ptrs[i] = &root_holder->children[i].array;
-	}
-	out_array->children = root_holder->children_ptrs.data();
-	out_array->n_children = ColumnCount();
-
-	// Configure root array
-	out_array->length = size();
-	out_array->n_children = ColumnCount();
-	out_array->n_buffers = 1;
-	out_array->buffers = root_holder->buffers.data(); // there is no actual buffer there since we don't have NULLs
-	out_array->offset = 0;
-	out_array->null_count = 0; // needs to be 0
-	out_array->dictionary = nullptr;
-
-	//! Configure child arrays
-	for (idx_t col_idx = 0; col_idx < ColumnCount(); col_idx++) {
-		auto &child_holder = root_holder->children[col_idx];
-		InitializeChild(child_holder, size());
-		auto &vector = child_holder.vector;
-		auto &child = child_holder.array;
-		auto vec_buffer = data[col_idx].GetBuffer();
-		if (vec_buffer->GetAuxiliaryData() &&
-		    vec_buffer->GetAuxiliaryDataType() == VectorAuxiliaryDataType::ARROW_AUXILIARY) {
-			auto arrow_aux_data = (ArrowAuxiliaryData *)vec_buffer->GetAuxiliaryData();
-			root_holder->arrow_original_array.push_back(arrow_aux_data->arrow_array);
-		}
-		//! We could, in theory, output other types of vectors here, currently only FLAT Vectors
-		SetArrowChild(child_holder, GetTypes()[col_idx], data[col_idx], size());
-		SetChildValidityMask(*vector, child);
-		out_array->children[col_idx] = &child;
-	}
-
-	// Release ownership to caller
-	out_array->private_data = root_holder.release();
-	out_array->release = ReleaseDuckDBArrowArray;
-}
-
-} // namespace duckdb
 
 
 
@@ -3047,9 +2303,9 @@ idx_t RowDataCollection::AppendToBlock(RowDataBlock &block, BufferHandle &handle
 	return append_count;
 }
 
-vector<unique_ptr<BufferHandle>> RowDataCollection::Build(idx_t added_count, data_ptr_t key_locations[],
-                                                          idx_t entry_sizes[], const SelectionVector *sel) {
-	vector<unique_ptr<BufferHandle>> handles;
+vector<BufferHandle> RowDataCollection::Build(idx_t added_count, data_ptr_t key_locations[], idx_t entry_sizes[],
+                                              const SelectionVector *sel) {
+	vector<BufferHandle> handles;
 	vector<BlockAppendEntry> append_entries;
 
 	// first allocate space of where to serialize the keys and payload columns
@@ -3065,7 +2321,7 @@ vector<unique_ptr<BufferHandle>> RowDataCollection::Build(idx_t added_count, dat
 				// last block has space: pin the buffer of this block
 				auto handle = buffer_manager.Pin(last_block.block);
 				// now append to the block
-				idx_t append_count = AppendToBlock(last_block, *handle, append_entries, remaining, entry_sizes);
+				idx_t append_count = AppendToBlock(last_block, handle, append_entries, remaining, entry_sizes);
 				remaining -= append_count;
 				handles.push_back(move(handle));
 			}
@@ -3078,7 +2334,7 @@ vector<unique_ptr<BufferHandle>> RowDataCollection::Build(idx_t added_count, dat
 			// offset the entry sizes array if we have added entries already
 			idx_t *offset_entry_sizes = entry_sizes ? entry_sizes + added_count - remaining : nullptr;
 
-			idx_t append_count = AppendToBlock(new_block, *handle, append_entries, remaining, offset_entry_sizes);
+			idx_t append_count = AppendToBlock(new_block, handle, append_entries, remaining, offset_entry_sizes);
 			D_ASSERT(new_block.count > 0);
 			remaining -= append_count;
 
@@ -3149,19 +2405,6 @@ void RowDataCollection::Merge(RowDataCollection &other) {
 
 
 namespace duckdb {
-
-vector<AggregateObject> AggregateObject::CreateAggregateObjects(const vector<BoundAggregateExpression *> &bindings) {
-	vector<AggregateObject> aggregates;
-	for (auto &binding : bindings) {
-		auto payload_size = binding->function.state_size();
-#ifndef DUCKDB_ALLOW_UNDEFINED
-		payload_size = AlignValue(payload_size);
-#endif
-		aggregates.emplace_back(binding->function, binding->bind_info.get(), binding->children.size(), payload_size,
-		                        binding->distinct, binding->return_type.InternalType(), binding->filter.get());
-	}
-	return aggregates;
-}
 
 RowLayout::RowLayout()
     : flag_width(0), data_width(0), aggr_width(0), row_width(0), all_constant(true), heap_pointer_offset(0) {
@@ -3296,9 +2539,15 @@ buffer_ptr<SelectionData> SelectionVector::Slice(const SelectionVector &sel, idx
 
 namespace duckdb {
 
-#define MINIMUM_HEAP_SIZE 4096
+StringHeap::StringHeap() : allocator(Allocator::DefaultAllocator()) {
+}
 
-StringHeap::StringHeap() : tail(nullptr) {
+void StringHeap::Destroy() {
+	allocator.Destroy();
+}
+
+void StringHeap::Move(StringHeap &other) {
+	other.allocator.Move(allocator);
 }
 
 string_t StringHeap::AddString(const char *data, idx_t len) {
@@ -3326,19 +2575,13 @@ string_t StringHeap::AddBlob(const char *data, idx_t len) {
 	return insert_string;
 }
 
+string_t StringHeap::AddBlob(const string_t &data) {
+	return AddBlob(data.GetDataUnsafe(), data.GetSize());
+}
+
 string_t StringHeap::EmptyString(idx_t len) {
 	D_ASSERT(len >= string_t::INLINE_LENGTH);
-	if (!chunk || chunk->current_position + len >= chunk->maximum_size) {
-		// have to make a new entry
-		auto new_chunk = make_unique<StringChunk>(MaxValue<idx_t>(len, MINIMUM_HEAP_SIZE));
-		new_chunk->prev = move(chunk);
-		chunk = move(new_chunk);
-		if (!tail) {
-			tail = chunk.get();
-		}
-	}
-	auto insert_pos = chunk->data.get() + chunk->current_position;
-	chunk->current_position += len;
+	auto insert_pos = (const char *)allocator.Allocate(len);
 	return string_t(insert_pos, len);
 }
 
@@ -7246,7 +6489,7 @@ string_t StringVector::EmptyString(Vector &vector, idx_t len) {
 	return string_buffer.EmptyString(len);
 }
 
-void StringVector::AddHandle(Vector &vector, unique_ptr<BufferHandle> handle) {
+void StringVector::AddHandle(Vector &vector, BufferHandle handle) {
 	D_ASSERT(vector.GetType().InternalType() == PhysicalType::VARCHAR);
 	if (!vector.auxiliary) {
 		vector.auxiliary = make_buffer<VectorStringBuffer>();
@@ -7588,7 +6831,7 @@ void VectorListBuffer::PushBack(const Value &insert) {
 VectorListBuffer::~VectorListBuffer() {
 }
 
-ManagedVectorBuffer::ManagedVectorBuffer(unique_ptr<BufferHandle> handle)
+ManagedVectorBuffer::ManagedVectorBuffer(BufferHandle handle)
     : VectorBuffer(VectorBufferType::MANAGED_BUFFER), handle(move(handle)) {
 }
 
@@ -7599,20 +6842,21 @@ ManagedVectorBuffer::~ManagedVectorBuffer() {
 
 
 
+
 namespace duckdb {
 
 class VectorCacheBuffer : public VectorBuffer {
 public:
-	explicit VectorCacheBuffer(const LogicalType &type_p)
+	explicit VectorCacheBuffer(Allocator &allocator, const LogicalType &type_p)
 	    : VectorBuffer(VectorBufferType::OPAQUE_BUFFER), type(type_p) {
 		auto internal_type = type.InternalType();
 		switch (internal_type) {
 		case PhysicalType::LIST: {
 			// memory for the list offsets
-			owned_data = unique_ptr<data_t[]>(new data_t[STANDARD_VECTOR_SIZE * GetTypeIdSize(internal_type)]);
+			owned_data = allocator.Allocate(STANDARD_VECTOR_SIZE * GetTypeIdSize(internal_type));
 			// child data of the list
 			auto &child_type = ListType::GetChildType(type);
-			child_caches.push_back(make_buffer<VectorCacheBuffer>(child_type));
+			child_caches.push_back(make_buffer<VectorCacheBuffer>(allocator, child_type));
 			auto child_vector = make_unique<Vector>(child_type, false, false);
 			auxiliary = make_unique<VectorListBuffer>(move(child_vector));
 			break;
@@ -7620,14 +6864,14 @@ public:
 		case PhysicalType::STRUCT: {
 			auto &child_types = StructType::GetChildTypes(type);
 			for (auto &child_type : child_types) {
-				child_caches.push_back(make_buffer<VectorCacheBuffer>(child_type.second));
+				child_caches.push_back(make_buffer<VectorCacheBuffer>(allocator, child_type.second));
 			}
 			auto struct_buffer = make_unique<VectorStructBuffer>(type);
 			auxiliary = move(struct_buffer);
 			break;
 		}
 		default:
-			owned_data = unique_ptr<data_t[]>(new data_t[STANDARD_VECTOR_SIZE * GetTypeIdSize(internal_type)]);
+			owned_data = allocator.Allocate(STANDARD_VECTOR_SIZE * GetTypeIdSize(internal_type));
 			break;
 		}
 	}
@@ -7640,7 +6884,7 @@ public:
 		result.validity.Reset();
 		switch (internal_type) {
 		case PhysicalType::LIST: {
-			result.data = owned_data.get();
+			result.data = owned_data->get();
 			// reinitialize the VectorListBuffer
 			AssignSharedPointer(result.auxiliary, auxiliary);
 			// propagate through child
@@ -7668,7 +6912,7 @@ public:
 		}
 		default:
 			// regular type: no aux data and reset data to cached data
-			result.data = owned_data.get();
+			result.data = owned_data->get();
 			result.auxiliary.reset();
 			break;
 		}
@@ -7682,15 +6926,15 @@ private:
 	//! The type of the vector cache
 	LogicalType type;
 	//! Owned data
-	unique_ptr<data_t[]> owned_data;
+	unique_ptr<AllocatedData> owned_data;
 	//! Child caches (if any). Used for nested types.
 	vector<buffer_ptr<VectorBuffer>> child_caches;
 	//! Aux data for the vector (if any)
 	buffer_ptr<VectorBuffer> auxiliary;
 };
 
-VectorCache::VectorCache(const LogicalType &type_p) {
-	buffer = make_unique<VectorCacheBuffer>(type_p);
+VectorCache::VectorCache(Allocator &allocator, const LogicalType &type_p) {
+	buffer = make_unique<VectorCacheBuffer>(allocator, type_p);
 }
 
 void VectorCache::ResetFromCache(Vector &result) const {
@@ -12908,26 +12152,29 @@ namespace duckdb {
 
 using ValidityBytes = RowLayout::ValidityBytes;
 
-GroupedAggregateHashTable::GroupedAggregateHashTable(BufferManager &buffer_manager, vector<LogicalType> group_types,
-                                                     vector<LogicalType> payload_types,
+GroupedAggregateHashTable::GroupedAggregateHashTable(Allocator &allocator, BufferManager &buffer_manager,
+                                                     vector<LogicalType> group_types, vector<LogicalType> payload_types,
                                                      const vector<BoundAggregateExpression *> &bindings,
                                                      HtEntryType entry_type)
-    : GroupedAggregateHashTable(buffer_manager, move(group_types), move(payload_types),
+    : GroupedAggregateHashTable(allocator, buffer_manager, move(group_types), move(payload_types),
                                 AggregateObject::CreateAggregateObjects(bindings), entry_type) {
 }
 
-GroupedAggregateHashTable::GroupedAggregateHashTable(BufferManager &buffer_manager, vector<LogicalType> group_types)
-    : GroupedAggregateHashTable(buffer_manager, move(group_types), {}, vector<AggregateObject>()) {
+GroupedAggregateHashTable::GroupedAggregateHashTable(Allocator &allocator, BufferManager &buffer_manager,
+                                                     vector<LogicalType> group_types)
+    : GroupedAggregateHashTable(allocator, buffer_manager, move(group_types), {}, vector<AggregateObject>()) {
 }
 
-GroupedAggregateHashTable::GroupedAggregateHashTable(BufferManager &buffer_manager, vector<LogicalType> group_types_p,
+GroupedAggregateHashTable::GroupedAggregateHashTable(Allocator &allocator, BufferManager &buffer_manager,
+                                                     vector<LogicalType> group_types_p,
                                                      vector<LogicalType> payload_types_p,
                                                      vector<AggregateObject> aggregate_objects_p,
                                                      HtEntryType entry_type)
-    : BaseAggregateHashTable(buffer_manager, move(payload_types_p)), entry_type(entry_type), capacity(0), entries(0),
-      payload_page_offset(0), is_finalized(false), ht_offsets(LogicalTypeId::BIGINT),
-      hash_salts(LogicalTypeId::SMALLINT), group_compare_vector(STANDARD_VECTOR_SIZE),
-      no_match_vector(STANDARD_VECTOR_SIZE), empty_vector(STANDARD_VECTOR_SIZE) {
+    : BaseAggregateHashTable(allocator, aggregate_objects_p, buffer_manager, move(payload_types_p)),
+      entry_type(entry_type), capacity(0), entries(0), payload_page_offset(0), is_finalized(false),
+      ht_offsets(LogicalTypeId::BIGINT), hash_salts(LogicalTypeId::SMALLINT),
+      group_compare_vector(STANDARD_VECTOR_SIZE), no_match_vector(STANDARD_VECTOR_SIZE),
+      empty_vector(STANDARD_VECTOR_SIZE) {
 
 	// Append hash column to the end and initialise the row layout
 	group_types_p.emplace_back(LogicalType::HASH);
@@ -12941,7 +12188,7 @@ GroupedAggregateHashTable::GroupedAggregateHashTable(BufferManager &buffer_manag
 	D_ASSERT(tuple_size <= Storage::BLOCK_SIZE);
 	tuples_per_block = Storage::BLOCK_SIZE / tuple_size;
 	hashes_hdl = buffer_manager.Allocate(Storage::BLOCK_SIZE);
-	hashes_hdl_ptr = hashes_hdl->Ptr();
+	hashes_hdl_ptr = hashes_hdl.Ptr();
 
 	switch (entry_type) {
 	case HtEntryType::HT_WIDTH_64: {
@@ -12972,7 +12219,8 @@ GroupedAggregateHashTable::GroupedAggregateHashTable(BufferManager &buffer_manag
 			for (idx_t child_idx = 0; child_idx < aggr.child_count; child_idx++) {
 				distinct_group_types.push_back(payload_types[payload_idx + child_idx]);
 			}
-			distinct_hashes[i] = make_unique<GroupedAggregateHashTable>(buffer_manager, distinct_group_types);
+			distinct_hashes[i] =
+			    make_unique<GroupedAggregateHashTable>(allocator, buffer_manager, distinct_group_types);
 		}
 		payload_idx += aggr.child_count;
 	}
@@ -13009,7 +12257,7 @@ void GroupedAggregateHashTable::PayloadApply(FUNC fun) {
 void GroupedAggregateHashTable::NewBlock() {
 	auto pin = buffer_manager.Allocate(Storage::BLOCK_SIZE);
 	payload_hds.push_back(move(pin));
-	payload_hds_ptrs.push_back(payload_hds.back()->Ptr());
+	payload_hds_ptrs.push_back(payload_hds.back().Ptr());
 	payload_page_offset = 0;
 }
 
@@ -13109,7 +12357,7 @@ void GroupedAggregateHashTable::Resize(idx_t size) {
 	auto byte_size = size * sizeof(ENTRY);
 	if (byte_size > (idx_t)Storage::BLOCK_SIZE) {
 		hashes_hdl = buffer_manager.Allocate(byte_size);
-		hashes_hdl_ptr = hashes_hdl->Ptr();
+		hashes_hdl_ptr = hashes_hdl.Ptr();
 	}
 	memset(hashes_hdl_ptr, 0, byte_size);
 	hashes_end_ptr = hashes_hdl_ptr + byte_size;
@@ -13179,7 +12427,7 @@ idx_t GroupedAggregateHashTable::AddChunk(DataChunk &groups, Vector &group_hashe
 				probe_types.push_back(payload_types[payload_idx + i]);
 			}
 			DataChunk probe_chunk;
-			probe_chunk.Initialize(probe_types);
+			probe_chunk.Initialize(Allocator::DefaultAllocator(), probe_types);
 			for (idx_t group_idx = 0; group_idx < groups.ColumnCount(); group_idx++) {
 				probe_chunk.data[group_idx].Reference(groups.data[group_idx]);
 			}
@@ -13198,7 +12446,7 @@ idx_t GroupedAggregateHashTable::AddChunk(DataChunk &groups, Vector &group_hashe
 				// now fix up the payload and addresses accordingly by creating
 				// a selection vector
 				DataChunk distinct_payload;
-				distinct_payload.Initialize(payload.GetTypes());
+				distinct_payload.Initialize(Allocator::DefaultAllocator(), payload.GetTypes());
 				distinct_payload.Slice(payload, new_groups, new_group_count);
 				distinct_payload.Verify();
 
@@ -13207,14 +12455,16 @@ idx_t GroupedAggregateHashTable::AddChunk(DataChunk &groups, Vector &group_hashe
 
 				if (aggr.filter) {
 					distinct_addresses.Normalify(new_group_count);
-					RowOperations::UpdateFilteredStates(aggr, distinct_addresses, distinct_payload, payload_idx);
+					RowOperations::UpdateFilteredStates(filter_set.GetFilterData(aggr_idx), aggr, distinct_addresses,
+					                                    distinct_payload, payload_idx);
 				} else {
 					RowOperations::UpdateStates(aggr, distinct_addresses, distinct_payload, payload_idx,
 					                            new_group_count);
 				}
 			}
 		} else if (aggr.filter) {
-			RowOperations::UpdateFilteredStates(aggr, addresses, payload, payload_idx);
+			RowOperations::UpdateFilteredStates(filter_set.GetFilterData(aggr_idx), aggr, addresses, payload,
+			                                    payload_idx);
 		} else {
 			RowOperations::UpdateStates(aggr, addresses, payload, payload_idx, payload.size());
 		}
@@ -13411,31 +12661,40 @@ idx_t GroupedAggregateHashTable::FindOrCreateGroups(DataChunk &groups, Vector &a
 	return FindOrCreateGroups(groups, hashes, addresses_out, new_groups_out);
 }
 
-void GroupedAggregateHashTable::FlushMove(Vector &source_addresses, Vector &source_hashes, idx_t count) {
+struct FlushMoveState {
+	FlushMoveState(Allocator &allocator, RowLayout &layout)
+	    : new_groups(STANDARD_VECTOR_SIZE), group_addresses(LogicalType::POINTER),
+	      new_groups_sel(STANDARD_VECTOR_SIZE) {
+		vector<LogicalType> group_types(layout.GetTypes().begin(), layout.GetTypes().end() - 1);
+		groups.Initialize(allocator, group_types);
+	}
+
+	DataChunk groups;
+	SelectionVector new_groups;
+	Vector group_addresses;
+	SelectionVector new_groups_sel;
+};
+
+void GroupedAggregateHashTable::FlushMove(FlushMoveState &state, Vector &source_addresses, Vector &source_hashes,
+                                          idx_t count) {
 	D_ASSERT(source_addresses.GetType() == LogicalType::POINTER);
 	D_ASSERT(source_hashes.GetType() == LogicalType::HASH);
 
-	DataChunk groups;
-	groups.Initialize(vector<LogicalType>(layout.GetTypes().begin(), layout.GetTypes().end() - 1));
-	groups.SetCardinality(count);
-	for (idx_t i = 0; i < groups.ColumnCount(); i++) {
-		auto &column = groups.data[i];
+	state.groups.Reset();
+	state.groups.SetCardinality(count);
+	for (idx_t i = 0; i < state.groups.ColumnCount(); i++) {
+		auto &column = state.groups.data[i];
 		const auto col_offset = layout.GetOffsets()[i];
 		RowOperations::Gather(source_addresses, *FlatVector::IncrementalSelectionVector(), column,
 		                      *FlatVector::IncrementalSelectionVector(), count, col_offset, i);
 	}
 
-	SelectionVector new_groups(STANDARD_VECTOR_SIZE);
-	Vector group_addresses(LogicalType::POINTER);
-	SelectionVector new_groups_sel(STANDARD_VECTOR_SIZE);
+	FindOrCreateGroups(state.groups, source_hashes, state.group_addresses, state.new_groups_sel);
 
-	FindOrCreateGroups(groups, source_hashes, group_addresses, new_groups_sel);
-
-	RowOperations::CombineStates(layout, source_addresses, group_addresses, count);
+	RowOperations::CombineStates(layout, source_addresses, state.group_addresses, count);
 }
 
 void GroupedAggregateHashTable::Combine(GroupedAggregateHashTable &other) {
-
 	D_ASSERT(!is_finalized);
 
 	D_ASSERT(other.layout.GetAggrWidth() == layout.GetAggrWidth());
@@ -13455,6 +12714,7 @@ void GroupedAggregateHashTable::Combine(GroupedAggregateHashTable &other) {
 
 	idx_t group_idx = 0;
 
+	FlushMoveState state(allocator, layout);
 	other.PayloadApply([&](idx_t page_nr, idx_t page_offset, data_ptr_t ptr) {
 		auto hash = Load<hash_t>(ptr + hash_offset);
 
@@ -13462,11 +12722,11 @@ void GroupedAggregateHashTable::Combine(GroupedAggregateHashTable &other) {
 		addresses_ptr[group_idx] = ptr;
 		group_idx++;
 		if (group_idx == STANDARD_VECTOR_SIZE) {
-			FlushMove(addresses, hashes, group_idx);
+			FlushMove(state, addresses, hashes, group_idx);
 			group_idx = 0;
 		}
 	});
-	FlushMove(addresses, hashes, group_idx);
+	FlushMove(state, addresses, hashes, group_idx);
 	string_heap->Merge(*other.string_heap);
 	Verify();
 }
@@ -13488,6 +12748,7 @@ void GroupedAggregateHashTable::Partition(vector<GroupedAggregateHashTable *> &p
 	D_ASSERT(partition_hts.size() > 1);
 	vector<PartitionInfo> partition_info(partition_hts.size());
 
+	FlushMoveState state(allocator, layout);
 	PayloadApply([&](idx_t page_nr, idx_t page_offset, data_ptr_t ptr) {
 		auto hash = Load<hash_t>(ptr + hash_offset);
 
@@ -13501,7 +12762,7 @@ void GroupedAggregateHashTable::Partition(vector<GroupedAggregateHashTable *> &p
 		info.group_count++;
 		if (info.group_count == STANDARD_VECTOR_SIZE) {
 			D_ASSERT(partition_hts[partition]);
-			partition_hts[partition]->FlushMove(info.addresses, info.hashes, info.group_count);
+			partition_hts[partition]->FlushMove(state, info.addresses, info.hashes, info.group_count);
 			info.group_count = 0;
 		}
 	});
@@ -13510,7 +12771,7 @@ void GroupedAggregateHashTable::Partition(vector<GroupedAggregateHashTable *> &p
 	idx_t total_count = 0;
 	for (auto &partition_entry : partition_hts) {
 		auto &info = partition_info[info_idx++];
-		partition_entry->FlushMove(info.addresses, info.hashes, info.group_count);
+		partition_entry->FlushMove(state, info.addresses, info.hashes, info.group_count);
 
 		partition_entry->string_heap->Merge(*string_heap);
 		partition_entry->Verify();
@@ -13565,7 +12826,7 @@ void GroupedAggregateHashTable::Finalize() {
 	}
 
 	// early release hashes, not needed for partition/scan
-	hashes_hdl.reset();
+	hashes_hdl.Destroy();
 	is_finalized = true;
 }
 
@@ -13575,8 +12836,10 @@ void GroupedAggregateHashTable::Finalize() {
 
 namespace duckdb {
 
-BaseAggregateHashTable::BaseAggregateHashTable(BufferManager &buffer_manager, vector<LogicalType> payload_types_p)
-    : buffer_manager(buffer_manager), payload_types(move(payload_types_p)) {
+BaseAggregateHashTable::BaseAggregateHashTable(Allocator &allocator, const vector<AggregateObject> &aggregates,
+                                               BufferManager &buffer_manager, vector<LogicalType> payload_types_p)
+    : allocator(allocator), buffer_manager(buffer_manager), payload_types(move(payload_types_p)) {
+	filter_set.Initialize(allocator, aggregates, payload_types);
 }
 
 } // namespace duckdb
@@ -14797,19 +14060,22 @@ void ExpressionExecutor::Execute(const BoundReferenceExpression &expr, Expressio
 
 namespace duckdb {
 
-ExpressionExecutor::ExpressionExecutor() {
+ExpressionExecutor::ExpressionExecutor(Allocator &allocator) : allocator(allocator) {
 }
 
-ExpressionExecutor::ExpressionExecutor(const Expression *expression) : ExpressionExecutor() {
+ExpressionExecutor::ExpressionExecutor(Allocator &allocator, const Expression *expression)
+    : ExpressionExecutor(allocator) {
 	D_ASSERT(expression);
 	AddExpression(*expression);
 }
 
-ExpressionExecutor::ExpressionExecutor(const Expression &expression) : ExpressionExecutor() {
+ExpressionExecutor::ExpressionExecutor(Allocator &allocator, const Expression &expression)
+    : ExpressionExecutor(allocator) {
 	AddExpression(expression);
 }
 
-ExpressionExecutor::ExpressionExecutor(const vector<unique_ptr<Expression>> &exprs) : ExpressionExecutor() {
+ExpressionExecutor::ExpressionExecutor(Allocator &allocator, const vector<unique_ptr<Expression>> &exprs)
+    : ExpressionExecutor(allocator) {
 	D_ASSERT(exprs.size() > 0);
 	for (auto &expr : exprs) {
 		AddExpression(*expr);
@@ -14824,8 +14090,8 @@ void ExpressionExecutor::AddExpression(const Expression &expr) {
 }
 
 void ExpressionExecutor::Initialize(const Expression &expression, ExpressionExecutorState &state) {
-	state.root_state = InitializeState(expression, state);
 	state.executor = this;
+	state.root_state = InitializeState(expression, state);
 }
 
 void ExpressionExecutor::Execute(DataChunk *input, DataChunk &result) {
@@ -14871,7 +14137,7 @@ Value ExpressionExecutor::EvaluateScalar(const Expression &expr) {
 	D_ASSERT(expr.IsFoldable());
 	D_ASSERT(expr.IsScalar());
 	// use an ExpressionExecutor to execute the expression
-	ExpressionExecutor executor(expr);
+	ExpressionExecutor executor(Allocator::DefaultAllocator(), expr);
 
 	Vector result(expr.return_type);
 	executor.ExecuteExpression(result);
@@ -15075,7 +14341,7 @@ void ExpressionState::AddChild(Expression *expr) {
 
 void ExpressionState::Finalize() {
 	if (!types.empty()) {
-		intermediate_chunk.Initialize(types);
+		intermediate_chunk.Initialize(root.executor->allocator, types);
 	}
 }
 ExpressionState::ExpressionState(const Expression &expr, ExpressionExecutorState &root)
@@ -15101,7 +14367,6 @@ ART::ART(const vector<column_t> &column_ids, const vector<unique_ptr<Expression>
          IndexConstraintType constraint_type)
     : Index(IndexType::ART, column_ids, unbound_expressions, constraint_type) {
 	tree = nullptr;
-	expression_result.Initialize(logical_types);
 	is_little_endian = Radix::IsLittleEndian();
 	for (idx_t i = 0; i < types.size(); i++) {
 		switch (types[i]) {
@@ -15343,7 +14608,7 @@ bool ART::Insert(IndexLock &lock, DataChunk &input, Vector &row_ids) {
 
 bool ART::Append(IndexLock &lock, DataChunk &appended_data, Vector &row_identifiers) {
 	DataChunk expression_result;
-	expression_result.Initialize(logical_types);
+	expression_result.Initialize(Allocator::DefaultAllocator(), logical_types);
 
 	// first resolve the expressions for the index
 	ExecuteExpressions(appended_data, expression_result);
@@ -15445,7 +14710,7 @@ bool ART::Insert(unique_ptr<Node> &node, unique_ptr<Key> value, unsigned depth, 
 //===--------------------------------------------------------------------===//
 void ART::Delete(IndexLock &state, DataChunk &input, Vector &row_ids) {
 	DataChunk expression_result;
-	expression_result.Initialize(logical_types);
+	expression_result.Initialize(Allocator::DefaultAllocator(), logical_types);
 
 	// first resolve the expressions
 	ExecuteExpressions(input, expression_result);
@@ -15946,7 +15211,7 @@ void ART::VerifyExistence(DataChunk &chunk, VerifyExistenceType verify_type, str
 	}
 
 	DataChunk expression_result;
-	expression_result.Initialize(logical_types);
+	expression_result.Initialize(Allocator::DefaultAllocator(), logical_types);
 
 	// unique index, check
 	lock_guard<mutex> l(lock);
@@ -16711,7 +15976,7 @@ void JoinHashTable::ApplyBitmask(Vector &hashes, const SelectionVector &sel, idx
 
 	auto hash_data = (hash_t *)hdata.data;
 	auto result_data = FlatVector::GetData<data_ptr_t *>(pointers);
-	auto main_ht = (data_ptr_t *)hash_map->node->buffer;
+	auto main_ht = (data_ptr_t *)hash_map.Ptr();
 	for (idx_t i = 0; i < count; i++) {
 		auto rindex = sel.get_index(i);
 		auto hindex = hdata.sel->get_index(rindex);
@@ -16871,7 +16136,7 @@ void JoinHashTable::InsertHashes(Vector &hashes, idx_t count, data_ptr_t key_loc
 	hashes.Normalify(count);
 
 	D_ASSERT(hashes.GetVectorType() == VectorType::FLAT_VECTOR);
-	auto pointers = (data_ptr_t *)hash_map->node->buffer;
+	auto pointers = (data_ptr_t *)hash_map.Ptr();
 	auto indices = FlatVector::GetData<hash_t>(hashes);
 	for (idx_t i = 0; i < count; i++) {
 		auto index = indices[i];
@@ -16894,7 +16159,7 @@ void JoinHashTable::Finalize() {
 
 	// allocate the HT and initialize it with all-zero entries
 	hash_map = buffer_manager.Allocate(capacity * sizeof(data_ptr_t));
-	memset(hash_map->node->buffer, 0, capacity * sizeof(data_ptr_t));
+	memset(hash_map.Ptr(), 0, capacity * sizeof(data_ptr_t));
 
 	Vector hashes(LogicalType::HASH);
 	auto hash_data = FlatVector::GetData<hash_t>(hashes);
@@ -16905,7 +16170,7 @@ void JoinHashTable::Finalize() {
 	// FIXME: if we cannot keep everything pinned in memory, we could switch to an out-of-memory merge join or so
 	for (auto &block : block_collection->blocks) {
 		auto handle = buffer_manager.Pin(block.block);
-		data_ptr_t dataptr = handle->node->buffer;
+		data_ptr_t dataptr = handle.Ptr();
 		idx_t entry = 0;
 		while (entry < block.count) {
 			// fetch the next vector of entries from the blocks
@@ -17364,7 +16629,7 @@ void JoinHashTable::ScanFullOuter(DataChunk &result, JoinHTScanState &state) {
 		for (; state.block_position < block_collection->blocks.size(); state.block_position++, state.position = 0) {
 			auto &block = block_collection->blocks[state.block_position];
 			auto &handle = pinned_handles[state.block_position];
-			auto baseptr = handle->node->buffer;
+			auto baseptr = handle.Ptr();
 			for (; state.position < block.count; state.position++) {
 				auto tuple_base = baseptr + state.position * entry_size;
 				auto found_match = Load<bool>(tuple_base + tuple_size);
@@ -17409,7 +16674,7 @@ idx_t JoinHashTable::FillWithHTOffsets(data_ptr_t *key_locations, JoinHTScanStat
 	while (state.block_position < block_collection->blocks.size()) {
 		auto &block = block_collection->blocks[state.block_position];
 		auto handle = buffer_manager.Pin(block.block);
-		auto base_ptr = handle->node->buffer;
+		auto base_ptr = handle.Ptr();
 		// go through all the tuples within this block
 		while (state.position < block.count) {
 			auto tuple_base = base_ptr + state.position * entry_size;
@@ -17422,4 +16687,669 @@ idx_t JoinHashTable::FillWithHTOffsets(data_ptr_t *key_locations, JoinHTScanStat
 	}
 	return key_count;
 }
+} // namespace duckdb
+
+
+
+namespace duckdb {
+
+template <class OP>
+struct ComparisonOperationWrapper {
+	template <class T>
+	static inline bool Operation(T left, T right, bool left_is_null, bool right_is_null) {
+		if (left_is_null || right_is_null) {
+			return false;
+		}
+		return OP::Operation(left, right);
+	}
+};
+
+struct InitialNestedLoopJoin {
+	template <class T, class OP>
+	static idx_t Operation(Vector &left, Vector &right, idx_t left_size, idx_t right_size, idx_t &lpos, idx_t &rpos,
+	                       SelectionVector &lvector, SelectionVector &rvector, idx_t current_match_count) {
+		// initialize phase of nested loop join
+		// fill lvector and rvector with matches from the base vectors
+		VectorData left_data, right_data;
+		left.Orrify(left_size, left_data);
+		right.Orrify(right_size, right_data);
+
+		auto ldata = (T *)left_data.data;
+		auto rdata = (T *)right_data.data;
+		idx_t result_count = 0;
+		for (; rpos < right_size; rpos++) {
+			idx_t right_position = right_data.sel->get_index(rpos);
+			bool right_is_valid = right_data.validity.RowIsValid(right_position);
+			for (; lpos < left_size; lpos++) {
+				if (result_count == STANDARD_VECTOR_SIZE) {
+					// out of space!
+					return result_count;
+				}
+				idx_t left_position = left_data.sel->get_index(lpos);
+				bool left_is_valid = left_data.validity.RowIsValid(left_position);
+				if (OP::Operation(ldata[left_position], rdata[right_position], !left_is_valid, !right_is_valid)) {
+					// emit tuple
+					lvector.set_index(result_count, lpos);
+					rvector.set_index(result_count, rpos);
+					result_count++;
+				}
+			}
+			lpos = 0;
+		}
+		return result_count;
+	}
+};
+
+struct RefineNestedLoopJoin {
+	template <class T, class OP>
+	static idx_t Operation(Vector &left, Vector &right, idx_t left_size, idx_t right_size, idx_t &lpos, idx_t &rpos,
+	                       SelectionVector &lvector, SelectionVector &rvector, idx_t current_match_count) {
+		VectorData left_data, right_data;
+		left.Orrify(left_size, left_data);
+		right.Orrify(right_size, right_data);
+
+		// refine phase of the nested loop join
+		// refine lvector and rvector based on matches of subsequent conditions (in case there are multiple conditions
+		// in the join)
+		D_ASSERT(current_match_count > 0);
+		auto ldata = (T *)left_data.data;
+		auto rdata = (T *)right_data.data;
+		idx_t result_count = 0;
+		for (idx_t i = 0; i < current_match_count; i++) {
+			auto lidx = lvector.get_index(i);
+			auto ridx = rvector.get_index(i);
+			auto left_idx = left_data.sel->get_index(lidx);
+			auto right_idx = right_data.sel->get_index(ridx);
+			bool left_is_valid = left_data.validity.RowIsValid(left_idx);
+			bool right_is_valid = right_data.validity.RowIsValid(right_idx);
+			if (OP::Operation(ldata[left_idx], rdata[right_idx], !left_is_valid, !right_is_valid)) {
+				lvector.set_index(result_count, lidx);
+				rvector.set_index(result_count, ridx);
+				result_count++;
+			}
+		}
+		return result_count;
+	}
+};
+
+template <class NLTYPE, class OP>
+static idx_t NestedLoopJoinTypeSwitch(Vector &left, Vector &right, idx_t left_size, idx_t right_size, idx_t &lpos,
+                                      idx_t &rpos, SelectionVector &lvector, SelectionVector &rvector,
+                                      idx_t current_match_count) {
+	switch (left.GetType().InternalType()) {
+	case PhysicalType::BOOL:
+	case PhysicalType::INT8:
+		return NLTYPE::template Operation<int8_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector, rvector,
+		                                              current_match_count);
+	case PhysicalType::INT16:
+		return NLTYPE::template Operation<int16_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector, rvector,
+		                                               current_match_count);
+	case PhysicalType::INT32:
+		return NLTYPE::template Operation<int32_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector, rvector,
+		                                               current_match_count);
+	case PhysicalType::INT64:
+		return NLTYPE::template Operation<int64_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector, rvector,
+		                                               current_match_count);
+	case PhysicalType::UINT8:
+		return NLTYPE::template Operation<uint8_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector, rvector,
+		                                               current_match_count);
+	case PhysicalType::UINT16:
+		return NLTYPE::template Operation<uint16_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector,
+		                                                rvector, current_match_count);
+	case PhysicalType::UINT32:
+		return NLTYPE::template Operation<uint32_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector,
+		                                                rvector, current_match_count);
+	case PhysicalType::UINT64:
+		return NLTYPE::template Operation<uint64_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector,
+		                                                rvector, current_match_count);
+	case PhysicalType::INT128:
+		return NLTYPE::template Operation<hugeint_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector,
+		                                                 rvector, current_match_count);
+	case PhysicalType::FLOAT:
+		return NLTYPE::template Operation<float, OP>(left, right, left_size, right_size, lpos, rpos, lvector, rvector,
+		                                             current_match_count);
+	case PhysicalType::DOUBLE:
+		return NLTYPE::template Operation<double, OP>(left, right, left_size, right_size, lpos, rpos, lvector, rvector,
+		                                              current_match_count);
+	case PhysicalType::INTERVAL:
+		return NLTYPE::template Operation<interval_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector,
+		                                                  rvector, current_match_count);
+	case PhysicalType::VARCHAR:
+		return NLTYPE::template Operation<string_t, OP>(left, right, left_size, right_size, lpos, rpos, lvector,
+		                                                rvector, current_match_count);
+	default:
+		throw InternalException("Unimplemented type for join!");
+	}
+}
+
+template <class NLTYPE>
+idx_t NestedLoopJoinComparisonSwitch(Vector &left, Vector &right, idx_t left_size, idx_t right_size, idx_t &lpos,
+                                     idx_t &rpos, SelectionVector &lvector, SelectionVector &rvector,
+                                     idx_t current_match_count, ExpressionType comparison_type) {
+	D_ASSERT(left.GetType() == right.GetType());
+	switch (comparison_type) {
+	case ExpressionType::COMPARE_EQUAL:
+		return NestedLoopJoinTypeSwitch<NLTYPE, ComparisonOperationWrapper<duckdb::Equals>>(
+		    left, right, left_size, right_size, lpos, rpos, lvector, rvector, current_match_count);
+	case ExpressionType::COMPARE_NOTEQUAL:
+		return NestedLoopJoinTypeSwitch<NLTYPE, ComparisonOperationWrapper<duckdb::NotEquals>>(
+		    left, right, left_size, right_size, lpos, rpos, lvector, rvector, current_match_count);
+	case ExpressionType::COMPARE_LESSTHAN:
+		return NestedLoopJoinTypeSwitch<NLTYPE, ComparisonOperationWrapper<duckdb::LessThan>>(
+		    left, right, left_size, right_size, lpos, rpos, lvector, rvector, current_match_count);
+	case ExpressionType::COMPARE_GREATERTHAN:
+		return NestedLoopJoinTypeSwitch<NLTYPE, ComparisonOperationWrapper<duckdb::GreaterThan>>(
+		    left, right, left_size, right_size, lpos, rpos, lvector, rvector, current_match_count);
+	case ExpressionType::COMPARE_LESSTHANOREQUALTO:
+		return NestedLoopJoinTypeSwitch<NLTYPE, ComparisonOperationWrapper<duckdb::LessThanEquals>>(
+		    left, right, left_size, right_size, lpos, rpos, lvector, rvector, current_match_count);
+	case ExpressionType::COMPARE_GREATERTHANOREQUALTO:
+		return NestedLoopJoinTypeSwitch<NLTYPE, ComparisonOperationWrapper<duckdb::GreaterThanEquals>>(
+		    left, right, left_size, right_size, lpos, rpos, lvector, rvector, current_match_count);
+	case ExpressionType::COMPARE_DISTINCT_FROM:
+		return NestedLoopJoinTypeSwitch<NLTYPE, duckdb::DistinctFrom>(left, right, left_size, right_size, lpos, rpos,
+		                                                              lvector, rvector, current_match_count);
+	default:
+		throw NotImplementedException("Unimplemented comparison type for join!");
+	}
+}
+
+idx_t NestedLoopJoinInner::Perform(idx_t &lpos, idx_t &rpos, DataChunk &left_conditions, DataChunk &right_conditions,
+                                   SelectionVector &lvector, SelectionVector &rvector,
+                                   const vector<JoinCondition> &conditions) {
+	D_ASSERT(left_conditions.ColumnCount() == right_conditions.ColumnCount());
+	if (lpos >= left_conditions.size() || rpos >= right_conditions.size()) {
+		return 0;
+	}
+	// for the first condition, lvector and rvector are not set yet
+	// we initialize them using the InitialNestedLoopJoin
+	idx_t match_count = NestedLoopJoinComparisonSwitch<InitialNestedLoopJoin>(
+	    left_conditions.data[0], right_conditions.data[0], left_conditions.size(), right_conditions.size(), lpos, rpos,
+	    lvector, rvector, 0, conditions[0].comparison);
+	// now resolve the rest of the conditions
+	for (idx_t i = 1; i < conditions.size(); i++) {
+		// check if we have run out of tuples to compare
+		if (match_count == 0) {
+			return 0;
+		}
+		// if not, get the vectors to compare
+		Vector &l = left_conditions.data[i];
+		Vector &r = right_conditions.data[i];
+		// then we refine the currently obtained results using the RefineNestedLoopJoin
+		match_count = NestedLoopJoinComparisonSwitch<RefineNestedLoopJoin>(
+		    l, r, left_conditions.size(), right_conditions.size(), lpos, rpos, lvector, rvector, match_count,
+		    conditions[i].comparison);
+	}
+	return match_count;
+}
+
+} // namespace duckdb
+
+
+
+
+namespace duckdb {
+
+template <class T, class OP>
+static void TemplatedMarkJoin(Vector &left, Vector &right, idx_t lcount, idx_t rcount, bool found_match[]) {
+	VectorData left_data, right_data;
+	left.Orrify(lcount, left_data);
+	right.Orrify(rcount, right_data);
+
+	auto ldata = (T *)left_data.data;
+	auto rdata = (T *)right_data.data;
+	for (idx_t i = 0; i < lcount; i++) {
+		if (found_match[i]) {
+			continue;
+		}
+		auto lidx = left_data.sel->get_index(i);
+		if (!left_data.validity.RowIsValid(lidx)) {
+			continue;
+		}
+		for (idx_t j = 0; j < rcount; j++) {
+			auto ridx = right_data.sel->get_index(j);
+			if (!right_data.validity.RowIsValid(ridx)) {
+				continue;
+			}
+			if (OP::Operation(ldata[lidx], rdata[ridx])) {
+				found_match[i] = true;
+				break;
+			}
+		}
+	}
+}
+
+template <class OP>
+static void MarkJoinSwitch(Vector &left, Vector &right, idx_t lcount, idx_t rcount, bool found_match[]) {
+	switch (left.GetType().InternalType()) {
+	case PhysicalType::BOOL:
+	case PhysicalType::INT8:
+		return TemplatedMarkJoin<int8_t, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::INT16:
+		return TemplatedMarkJoin<int16_t, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::INT32:
+		return TemplatedMarkJoin<int32_t, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::INT64:
+		return TemplatedMarkJoin<int64_t, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::INT128:
+		return TemplatedMarkJoin<hugeint_t, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::UINT8:
+		return TemplatedMarkJoin<uint8_t, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::UINT16:
+		return TemplatedMarkJoin<uint16_t, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::UINT32:
+		return TemplatedMarkJoin<uint32_t, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::UINT64:
+		return TemplatedMarkJoin<uint64_t, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::FLOAT:
+		return TemplatedMarkJoin<float, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::DOUBLE:
+		return TemplatedMarkJoin<double, OP>(left, right, lcount, rcount, found_match);
+	case PhysicalType::VARCHAR:
+		return TemplatedMarkJoin<string_t, OP>(left, right, lcount, rcount, found_match);
+	default:
+		throw NotImplementedException("Unimplemented type for mark join!");
+	}
+}
+
+static void MarkJoinComparisonSwitch(Vector &left, Vector &right, idx_t lcount, idx_t rcount, bool found_match[],
+                                     ExpressionType comparison_type) {
+	D_ASSERT(left.GetType() == right.GetType());
+	switch (comparison_type) {
+	case ExpressionType::COMPARE_EQUAL:
+		return MarkJoinSwitch<duckdb::Equals>(left, right, lcount, rcount, found_match);
+	case ExpressionType::COMPARE_NOTEQUAL:
+		return MarkJoinSwitch<duckdb::NotEquals>(left, right, lcount, rcount, found_match);
+	case ExpressionType::COMPARE_LESSTHAN:
+		return MarkJoinSwitch<duckdb::LessThan>(left, right, lcount, rcount, found_match);
+	case ExpressionType::COMPARE_GREATERTHAN:
+		return MarkJoinSwitch<duckdb::GreaterThan>(left, right, lcount, rcount, found_match);
+	case ExpressionType::COMPARE_LESSTHANOREQUALTO:
+		return MarkJoinSwitch<duckdb::LessThanEquals>(left, right, lcount, rcount, found_match);
+	case ExpressionType::COMPARE_GREATERTHANOREQUALTO:
+		return MarkJoinSwitch<duckdb::GreaterThanEquals>(left, right, lcount, rcount, found_match);
+	default:
+		throw NotImplementedException("Unimplemented comparison type for join!");
+	}
+}
+
+void NestedLoopJoinMark::Perform(DataChunk &left, ChunkCollection &right, bool found_match[],
+                                 const vector<JoinCondition> &conditions) {
+	// initialize a new temporary selection vector for the left chunk
+	// loop over all chunks in the RHS
+	for (idx_t chunk_idx = 0; chunk_idx < right.ChunkCount(); chunk_idx++) {
+		DataChunk &right_chunk = right.GetChunk(chunk_idx);
+		for (idx_t i = 0; i < conditions.size(); i++) {
+			MarkJoinComparisonSwitch(left.data[i], right_chunk.data[i], left.size(), right_chunk.size(), found_match,
+			                         conditions[i].comparison);
+		}
+	}
+}
+
+} // namespace duckdb
+
+
+
+namespace duckdb {
+
+AggregateObject::AggregateObject(AggregateFunction function, FunctionData *bind_data, idx_t child_count,
+                                 idx_t payload_size, bool distinct, PhysicalType return_type, Expression *filter)
+    : function(move(function)), bind_data(bind_data), child_count(child_count), payload_size(payload_size),
+      distinct(distinct), return_type(return_type), filter(filter) {
+}
+
+AggregateObject::AggregateObject(BoundAggregateExpression *aggr)
+    : AggregateObject(aggr->function, aggr->bind_info.get(), aggr->children.size(),
+                      AlignValue(aggr->function.state_size()), aggr->distinct, aggr->return_type.InternalType(),
+                      aggr->filter.get()) {
+}
+
+vector<AggregateObject> AggregateObject::CreateAggregateObjects(const vector<BoundAggregateExpression *> &bindings) {
+	vector<AggregateObject> aggregates;
+	aggregates.reserve(aggregates.size());
+	for (auto &binding : bindings) {
+		aggregates.emplace_back(binding);
+	}
+	return aggregates;
+}
+
+AggregateFilterData::AggregateFilterData(Allocator &allocator, Expression &filter_expr,
+                                         const vector<LogicalType> &payload_types)
+    : filter_executor(allocator, &filter_expr), true_sel(STANDARD_VECTOR_SIZE) {
+	if (payload_types.empty()) {
+		return;
+	}
+	filtered_payload.Initialize(allocator, payload_types);
+}
+
+idx_t AggregateFilterData::ApplyFilter(DataChunk &payload) {
+	filtered_payload.Reset();
+
+	auto count = filter_executor.SelectExpression(payload, true_sel);
+	filtered_payload.Slice(payload, true_sel, count);
+	return count;
+}
+
+AggregateFilterDataSet::AggregateFilterDataSet() {
+}
+
+void AggregateFilterDataSet::Initialize(Allocator &allocator, const vector<AggregateObject> &aggregates,
+                                        const vector<LogicalType> &payload_types) {
+	bool has_filters = false;
+	for (auto &aggregate : aggregates) {
+		if (aggregate.filter) {
+			has_filters = true;
+			break;
+		}
+	}
+	if (!has_filters) {
+		// no filters: nothing to do
+		return;
+	}
+	filter_data.resize(aggregates.size());
+	for (idx_t aggr_idx = 0; aggr_idx < aggregates.size(); aggr_idx++) {
+		auto &aggr = aggregates[aggr_idx];
+		if (aggr.filter) {
+			filter_data[aggr_idx] = make_unique<AggregateFilterData>(allocator, *aggr.filter, payload_types);
+		}
+	}
+}
+
+AggregateFilterData &AggregateFilterDataSet::GetFilterData(idx_t aggr_idx) {
+	D_ASSERT(aggr_idx < filter_data.size());
+	D_ASSERT(filter_data[aggr_idx]);
+	return *filter_data[aggr_idx];
+}
+} // namespace duckdb
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+namespace duckdb {
+
+PhysicalHashAggregate::PhysicalHashAggregate(ClientContext &context, vector<LogicalType> types,
+                                             vector<unique_ptr<Expression>> expressions, idx_t estimated_cardinality,
+                                             PhysicalOperatorType type)
+    : PhysicalHashAggregate(context, move(types), move(expressions), {}, estimated_cardinality, type) {
+}
+
+PhysicalHashAggregate::PhysicalHashAggregate(ClientContext &context, vector<LogicalType> types,
+                                             vector<unique_ptr<Expression>> expressions,
+                                             vector<unique_ptr<Expression>> groups_p, idx_t estimated_cardinality,
+                                             PhysicalOperatorType type)
+    : PhysicalHashAggregate(context, move(types), move(expressions), move(groups_p), {}, {}, estimated_cardinality,
+                            type) {
+}
+
+PhysicalHashAggregate::PhysicalHashAggregate(ClientContext &context, vector<LogicalType> types,
+                                             vector<unique_ptr<Expression>> expressions,
+                                             vector<unique_ptr<Expression>> groups_p,
+                                             vector<GroupingSet> grouping_sets_p,
+                                             vector<vector<idx_t>> grouping_functions_p, idx_t estimated_cardinality,
+                                             PhysicalOperatorType type)
+    : PhysicalOperator(type, move(types), estimated_cardinality), groups(move(groups_p)),
+      grouping_sets(move(grouping_sets_p)), grouping_functions(move(grouping_functions_p)), any_distinct(false) {
+	// get a list of all aggregates to be computed
+	for (auto &expr : groups) {
+		group_types.push_back(expr->return_type);
+	}
+	if (grouping_sets.empty()) {
+		GroupingSet set;
+		for (idx_t i = 0; i < group_types.size(); i++) {
+			set.insert(i);
+		}
+		grouping_sets.push_back(move(set));
+	}
+	vector<LogicalType> payload_types_filters;
+	for (auto &expr : expressions) {
+		D_ASSERT(expr->expression_class == ExpressionClass::BOUND_AGGREGATE);
+		D_ASSERT(expr->IsAggregate());
+		auto &aggr = (BoundAggregateExpression &)*expr;
+		bindings.push_back(&aggr);
+
+		if (aggr.distinct) {
+			any_distinct = true;
+		}
+
+		aggregate_return_types.push_back(aggr.return_type);
+		for (auto &child : aggr.children) {
+			payload_types.push_back(child->return_type);
+		}
+		if (aggr.filter) {
+			payload_types_filters.push_back(aggr.filter->return_type);
+		}
+		if (!aggr.function.combine) {
+			throw InternalException("Aggregate function %s is missing a combine method", aggr.function.name);
+		}
+		aggregates.push_back(move(expr));
+	}
+
+	for (const auto &pay_filters : payload_types_filters) {
+		payload_types.push_back(pay_filters);
+	}
+
+	// filter_indexes must be pre-built, not lazily instantiated in parallel...
+	idx_t aggregate_input_idx = 0;
+	for (auto &aggregate : aggregates) {
+		auto &aggr = (BoundAggregateExpression &)*aggregate;
+		aggregate_input_idx += aggr.children.size();
+	}
+	for (auto &aggregate : aggregates) {
+		auto &aggr = (BoundAggregateExpression &)*aggregate;
+		if (aggr.filter) {
+			auto &bound_ref_expr = (BoundReferenceExpression &)*aggr.filter;
+			auto it = filter_indexes.find(aggr.filter.get());
+			if (it == filter_indexes.end()) {
+				filter_indexes[aggr.filter.get()] = bound_ref_expr.index;
+				bound_ref_expr.index = aggregate_input_idx++;
+			} else {
+				++aggregate_input_idx;
+			}
+		}
+	}
+
+	for (auto &grouping_set : grouping_sets) {
+		radix_tables.emplace_back(grouping_set, *this);
+	}
+}
+
+//===--------------------------------------------------------------------===//
+// Sink
+//===--------------------------------------------------------------------===//
+class HashAggregateGlobalState : public GlobalSinkState {
+public:
+	HashAggregateGlobalState(const PhysicalHashAggregate &op, ClientContext &context) {
+		radix_states.reserve(op.radix_tables.size());
+		for (auto &rt : op.radix_tables) {
+			radix_states.push_back(rt.GetGlobalSinkState(context));
+		}
+	}
+
+	vector<unique_ptr<GlobalSinkState>> radix_states;
+};
+
+class HashAggregateLocalState : public LocalSinkState {
+public:
+	HashAggregateLocalState(const PhysicalHashAggregate &op, ExecutionContext &context) {
+		if (!op.payload_types.empty()) {
+			aggregate_input_chunk.InitializeEmpty(op.payload_types);
+		}
+
+		radix_states.reserve(op.radix_tables.size());
+		for (auto &rt : op.radix_tables) {
+			radix_states.push_back(rt.GetLocalSinkState(context));
+		}
+	}
+
+	DataChunk aggregate_input_chunk;
+
+	vector<unique_ptr<LocalSinkState>> radix_states;
+};
+
+void PhysicalHashAggregate::SetMultiScan(GlobalSinkState &state) {
+	auto &gstate = (HashAggregateGlobalState &)state;
+	for (auto &radix_state : gstate.radix_states) {
+		RadixPartitionedHashTable::SetMultiScan(*radix_state);
+	}
+}
+
+unique_ptr<GlobalSinkState> PhysicalHashAggregate::GetGlobalSinkState(ClientContext &context) const {
+	return make_unique<HashAggregateGlobalState>(*this, context);
+}
+
+unique_ptr<LocalSinkState> PhysicalHashAggregate::GetLocalSinkState(ExecutionContext &context) const {
+	return make_unique<HashAggregateLocalState>(*this, context);
+}
+
+SinkResultType PhysicalHashAggregate::Sink(ExecutionContext &context, GlobalSinkState &state, LocalSinkState &lstate,
+                                           DataChunk &input) const {
+	auto &llstate = (HashAggregateLocalState &)lstate;
+	auto &gstate = (HashAggregateGlobalState &)state;
+
+	DataChunk &aggregate_input_chunk = llstate.aggregate_input_chunk;
+
+	idx_t aggregate_input_idx = 0;
+	for (auto &aggregate : aggregates) {
+		auto &aggr = (BoundAggregateExpression &)*aggregate;
+		for (auto &child_expr : aggr.children) {
+			D_ASSERT(child_expr->type == ExpressionType::BOUND_REF);
+			auto &bound_ref_expr = (BoundReferenceExpression &)*child_expr;
+			D_ASSERT(bound_ref_expr.index < input.data.size());
+			aggregate_input_chunk.data[aggregate_input_idx++].Reference(input.data[bound_ref_expr.index]);
+		}
+	}
+	for (auto &aggregate : aggregates) {
+		auto &aggr = (BoundAggregateExpression &)*aggregate;
+		if (aggr.filter) {
+			auto it = filter_indexes.find(aggr.filter.get());
+			D_ASSERT(it != filter_indexes.end());
+			D_ASSERT(it->second < input.data.size());
+			aggregate_input_chunk.data[aggregate_input_idx++].Reference(input.data[it->second]);
+		}
+	}
+
+	aggregate_input_chunk.SetCardinality(input.size());
+	aggregate_input_chunk.Verify();
+
+	for (idx_t i = 0; i < radix_tables.size(); i++) {
+		radix_tables[i].Sink(context, *gstate.radix_states[i], *llstate.radix_states[i], input, aggregate_input_chunk);
+	}
+
+	return SinkResultType::NEED_MORE_INPUT;
+}
+
+void PhysicalHashAggregate::Combine(ExecutionContext &context, GlobalSinkState &state, LocalSinkState &lstate) const {
+	auto &gstate = (HashAggregateGlobalState &)state;
+	auto &llstate = (HashAggregateLocalState &)lstate;
+
+	for (idx_t i = 0; i < radix_tables.size(); i++) {
+		radix_tables[i].Combine(context, *gstate.radix_states[i], *llstate.radix_states[i]);
+	}
+}
+
+class HashAggregateFinalizeEvent : public Event {
+public:
+	HashAggregateFinalizeEvent(const PhysicalHashAggregate &op_p, HashAggregateGlobalState &gstate_p,
+	                           Pipeline *pipeline_p)
+	    : Event(pipeline_p->executor), op(op_p), gstate(gstate_p), pipeline(pipeline_p) {
+	}
+
+	const PhysicalHashAggregate &op;
+	HashAggregateGlobalState &gstate;
+	Pipeline *pipeline;
+
+public:
+	void Schedule() override {
+		vector<unique_ptr<Task>> tasks;
+		for (idx_t i = 0; i < op.radix_tables.size(); i++) {
+			op.radix_tables[i].ScheduleTasks(pipeline->executor, shared_from_this(), *gstate.radix_states[i], tasks);
+		}
+		D_ASSERT(!tasks.empty());
+		SetTasks(move(tasks));
+	}
+};
+
+SinkFinalizeType PhysicalHashAggregate::Finalize(Pipeline &pipeline, Event &event, ClientContext &context,
+                                                 GlobalSinkState &gstate_p) const {
+	auto &gstate = (HashAggregateGlobalState &)gstate_p;
+	bool any_partitioned = false;
+	for (idx_t i = 0; i < gstate.radix_states.size(); i++) {
+		bool is_partitioned = radix_tables[i].Finalize(context, *gstate.radix_states[i]);
+		if (is_partitioned) {
+			any_partitioned = true;
+		}
+	}
+	if (any_partitioned) {
+		auto new_event = make_shared<HashAggregateFinalizeEvent>(*this, gstate, &pipeline);
+		event.InsertEvent(move(new_event));
+	}
+	return SinkFinalizeType::READY;
+}
+
+//===--------------------------------------------------------------------===//
+// Source
+//===--------------------------------------------------------------------===//
+class PhysicalHashAggregateState : public GlobalSourceState {
+public:
+	explicit PhysicalHashAggregateState(ClientContext &context, const PhysicalHashAggregate &op) : scan_index(0) {
+		for (auto &rt : op.radix_tables) {
+			radix_states.push_back(rt.GetGlobalSourceState(context));
+		}
+	}
+
+	idx_t scan_index;
+
+	vector<unique_ptr<GlobalSourceState>> radix_states;
+};
+
+unique_ptr<GlobalSourceState> PhysicalHashAggregate::GetGlobalSourceState(ClientContext &context) const {
+	return make_unique<PhysicalHashAggregateState>(context, *this);
+}
+
+void PhysicalHashAggregate::GetData(ExecutionContext &context, DataChunk &chunk, GlobalSourceState &gstate_p,
+                                    LocalSourceState &lstate) const {
+	auto &gstate = (HashAggregateGlobalState &)*sink_state;
+	auto &state = (PhysicalHashAggregateState &)gstate_p;
+	while (state.scan_index < state.radix_states.size()) {
+		radix_tables[state.scan_index].GetData(context, chunk, *gstate.radix_states[state.scan_index],
+		                                       *state.radix_states[state.scan_index]);
+		if (chunk.size() != 0) {
+			return;
+		}
+
+		state.scan_index++;
+	}
+}
+
+string PhysicalHashAggregate::ParamsToString() const {
+	string result;
+	for (idx_t i = 0; i < groups.size(); i++) {
+		if (i > 0) {
+			result += "\n";
+		}
+		result += groups[i]->GetName();
+	}
+	for (idx_t i = 0; i < aggregates.size(); i++) {
+		auto &aggregate = (BoundAggregateExpression &)*aggregates[i];
+		if (i > 0 || !groups.empty()) {
+			result += "\n";
+		}
+		result += aggregates[i]->GetName();
+		if (aggregate.filter) {
+			result += " Filter: " + aggregate.filter->GetName();
+		}
+	}
+	return result;
+}
+
 } // namespace duckdb

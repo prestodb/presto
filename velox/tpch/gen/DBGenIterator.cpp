@@ -24,125 +24,96 @@ namespace facebook::velox::tpch {
 
 namespace {
 
-// DBGenLease is a singleton that controls access to the DBGEN C functions. It
-// handles initialization and cleanup of dbgen gunk structures, and set/unset of
-// global variables used by DBGEN.
+// DBGenBackend is a singleton that controls access to the DBGEN C functions,
+// and ensures that the required structures are properly initialized and
+// destructed.
 //
 // Only acquire instances of this class using folly::Singleton.
-class DBGenLease {
+class DBGenBackend {
  public:
-  DBGenLease() {
+  DBGenBackend() {
     // load_dists()/cleanup_dists() need to be called to ensure the global
-    // variables required by dbgen are populated.
-    load_dists(10 * 1024 * 1024); // 10 MB buffer size for text generation.
+    // structures required by dbgen are populated.
+    DBGenContext dbgenCtx;
+    load_dists(
+        10 * 1024 * 1024, &dbgenCtx); // 10 MB buffer size for text generation.
   }
-  ~DBGenLease() {
+  ~DBGenBackend() {
     cleanup_dists();
   }
-
-  // Get a lease, or a permission to safely call internal dbgen functions.
-  std::unique_lock<std::mutex> getLease(size_t scaleFactor) {
-    auto lock = std::unique_lock<std::mutex>{mutex_};
-
-    // DBGEN takes the scale factor through this global variable.
-    scale = scaleFactor;
-
-    // This is tricky: dbgen code initializes seeds using hard-coded literals in
-    // the C codebase, which are updated every time a record is generated. In
-    // order to make these functions reproducible, before we make the first
-    // invocation we need to make a copy (a backup) of the initial state of
-    // these seeds. For subsequent leases, we restore that backed up state to
-    // ensure results are reproducible.
-    if (firstCall_) {
-      // Store the initial random seed.
-      memcpy(seedBackup_, seed_, sizeof(seed_t) * MAX_STREAM + 1);
-      firstCall_ = false;
-    } else {
-      // Restore random seeds from backup.
-      memcpy(seed_, seedBackup_, sizeof(seed_t) * MAX_STREAM + 1);
-    }
-    return lock;
-  }
-
- private:
-  std::mutex mutex_;
-
-  seed_t* seed_{DBGenGlobals::Seed};
-  seed_t seedBackup_[MAX_STREAM + 1];
-  bool firstCall_{true};
 };
 
 // Make the object above a singleton.
-static folly::Singleton<DBGenLease> DBGenLeaseSingleton;
+static folly::Singleton<DBGenBackend> DBGenBackendSingleton;
 
 } // namespace
 
-DBGenIterator DBGenIterator::create(size_t scaleFactor) {
-  auto dbGenLease = DBGenLeaseSingleton.try_get();
-  VELOX_CHECK_NOT_NULL(dbGenLease);
-  return DBGenIterator(dbGenLease->getLease(scaleFactor));
+DBGenIterator::DBGenIterator(size_t scaleFactor) {
+  auto dbgenBackend = DBGenBackendSingleton.try_get();
+  VELOX_CHECK_NOT_NULL(dbgenBackend, "Unable to initialize dbgen's dbgunk.");
+  dbgenCtx_.scale_factor = scaleFactor;
 }
 
 void DBGenIterator::initNation(size_t offset) {
-  sd_nation(NATION, offset);
+  sd_nation(NATION, offset, &dbgenCtx_);
 }
 
 void DBGenIterator::initRegion(size_t offset) {
-  sd_region(REGION, offset);
+  sd_region(REGION, offset, &dbgenCtx_);
 }
 
 void DBGenIterator::initOrder(size_t offset) {
-  sd_order(ORDER, offset);
-  sd_line(LINE, offset);
+  sd_order(ORDER, offset, &dbgenCtx_);
+  sd_line(LINE, offset, &dbgenCtx_);
 }
 
 void DBGenIterator::initSupplier(size_t offset) {
-  sd_supp(SUPP, offset);
+  sd_supp(SUPP, offset, &dbgenCtx_);
 }
 
 void DBGenIterator::initPart(size_t offset) {
-  sd_part(PART, offset);
-  sd_psupp(PSUPP, offset);
+  sd_part(PART, offset, &dbgenCtx_);
+  sd_psupp(PSUPP, offset, &dbgenCtx_);
 }
 
 void DBGenIterator::initCustomer(size_t offset) {
-  sd_cust(CUST, offset);
+  sd_cust(CUST, offset, &dbgenCtx_);
 }
 
 void DBGenIterator::genNation(size_t index, code_t& code) {
-  row_start(NATION);
-  mk_nation(index, &code);
-  row_stop_h(NATION);
+  row_start(NATION, &dbgenCtx_);
+  mk_nation(index, &code, &dbgenCtx_);
+  row_stop_h(NATION, &dbgenCtx_);
 }
 
 void DBGenIterator::genRegion(size_t index, code_t& code) {
-  row_start(REGION);
-  mk_region(index, &code);
-  row_stop_h(REGION);
+  row_start(REGION, &dbgenCtx_);
+  mk_region(index, &code, &dbgenCtx_);
+  row_stop_h(REGION, &dbgenCtx_);
 }
 
 void DBGenIterator::genOrder(size_t index, order_t& order) {
-  row_start(ORDER);
-  mk_order(index, &order, /*update-num=*/0);
-  row_stop_h(ORDER);
+  row_start(ORDER, &dbgenCtx_);
+  mk_order(index, &order, &dbgenCtx_, /*update-num=*/0);
+  row_stop_h(ORDER, &dbgenCtx_);
 }
 
 void DBGenIterator::genSupplier(size_t index, supplier_t& supplier) {
-  row_start(SUPP);
-  mk_supp(index, &supplier);
-  row_stop_h(SUPP);
+  row_start(SUPP, &dbgenCtx_);
+  mk_supp(index, &supplier, &dbgenCtx_);
+  row_stop_h(SUPP, &dbgenCtx_);
 }
 
 void DBGenIterator::genPart(size_t index, part_t& part) {
-  row_start(PART);
-  mk_part(index, &part);
-  row_stop_h(PART);
+  row_start(PART, &dbgenCtx_);
+  mk_part(index, &part, &dbgenCtx_);
+  row_stop_h(PART, &dbgenCtx_);
 }
 
 void DBGenIterator::genCustomer(size_t index, customer_t& customer) {
-  row_start(CUST);
-  mk_cust(index, &customer);
-  row_stop_h(CUST);
+  row_start(CUST, &dbgenCtx_);
+  mk_cust(index, &customer, &dbgenCtx_);
+  row_stop_h(CUST, &dbgenCtx_);
 }
 
 } // namespace facebook::velox::tpch

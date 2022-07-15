@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/duckdb/functions/DuckFunctions.h"
 #include <boost/algorithm/string.hpp>
 #include "velox/duckdb/conversion/DuckConversion.h"
+#include "velox/duckdb/memory/Allocator.h"
 #include "velox/external/duckdb/duckdb.hpp"
 #include "velox/functions/Registerer.h"
 #include "velox/vector/DecodedVector.h"
@@ -425,7 +427,9 @@ class DuckDBFunction : public exec::VectorFunction {
     for (auto& arg : args) {
       inputTypes.push_back(fromVeloxType(arg->typeKind()));
     }
-    auto state = initializeState(move(inputTypes));
+
+    duckdb::VeloxPoolAllocator duckDBAllocator(*context->pool());
+    auto state = initializeState(move(inputTypes), duckDBAllocator);
     assert(state->functionIndex < set_.size());
     auto& function = set_[state->functionIndex];
     idx_t nrow = rows.size();
@@ -573,7 +577,8 @@ class DuckDBFunction : public exec::VectorFunction {
 
  private:
   std::unique_ptr<DuckDBFunctionData> initializeState(
-      std::vector<LogicalType> inputTypes) const {
+      std::vector<LogicalType> inputTypes,
+      duckdb::VeloxPoolAllocator& duckDBAllocator) const {
     assert(set_.size() > 0);
     auto result = std::make_unique<DuckDBFunctionData>();
     result->inputTypes = move(inputTypes);
@@ -600,10 +605,11 @@ class DuckDBFunction : public exec::VectorFunction {
       }
     }
     // initialize the base chunks
+
     result->input = std::make_unique<DataChunk>();
     result->castChunk = std::make_unique<DataChunk>();
-    result->input->Initialize(expectedTypes);
-    result->castChunk->Initialize(result->inputTypes);
+    result->input->Initialize(duckDBAllocator, expectedTypes);
+    result->castChunk->Initialize(duckDBAllocator, result->inputTypes);
     return result;
   }
 };

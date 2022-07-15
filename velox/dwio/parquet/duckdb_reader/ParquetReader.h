@@ -17,9 +17,9 @@
 #pragma once
 
 #include "velox/common/base/Macros.h"
+#include "velox/duckdb/memory/Allocator.h"
 #include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/ReaderFactory.h"
-#include "velox/dwio/parquet/duckdb_reader/duckdb/Allocator.h"
 #include "velox/dwio/parquet/duckdb_reader/duckdb/InputStreamFileSystem.h"
 VELOX_SUPPRESS_DEPRECATION_WARNING
 #include "velox/external/duckdb/parquet-amalgamation.hpp"
@@ -75,7 +75,6 @@ class ParquetReader : public dwio::common::Reader {
       const dwio::common::RowReaderOptions& options = {}) const override;
 
  private:
-  duckdb::VeloxPoolAllocator allocator_;
   std::unique_ptr<duckdb::InputStreamFileSystem> fileSystem_;
   std::shared_ptr<::duckdb::ParquetReader> reader_;
   memory::MemoryPool& pool_;

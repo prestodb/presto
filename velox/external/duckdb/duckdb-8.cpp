@@ -1,664 +1,10 @@
-// See https://raw.githubusercontent.com/cwida/duckdb/master/LICENSE for licensing information
+// See https://raw.githubusercontent.com/duckdb/duckdb/master/LICENSE for licensing information
 
 #include "duckdb.hpp"
 #include "duckdb-internal.hpp"
 #ifndef DUCKDB_AMALGAMATION
 #error header mismatch
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-namespace duckdb {
-
-PragmaHandler::PragmaHandler(ClientContext &context) : context(context) {
-}
-
-void PragmaHandler::HandlePragmaStatementsInternal(vector<unique_ptr<SQLStatement>> &statements) {
-	vector<unique_ptr<SQLStatement>> new_statements;
-	for (idx_t i = 0; i < statements.size(); i++) {
-		if (statements[i]->type == StatementType::PRAGMA_STATEMENT) {
-			// PRAGMA statement: check if we need to replace it by a new set of statements
-			PragmaHandler handler(context);
-			auto new_query = handler.HandlePragma(statements[i].get()); //*((PragmaStatement &)*statements[i]).info
-			if (!new_query.empty()) {
-				// this PRAGMA statement gets replaced by a new query string
-				// push the new query string through the parser again and add it to the transformer
-				Parser parser(context.GetParserOptions());
-				parser.ParseQuery(new_query);
-				// insert the new statements and remove the old statement
-				// FIXME: off by one here maybe?
-				for (idx_t j = 0; j < parser.statements.size(); j++) {
-					new_statements.push_back(move(parser.statements[j]));
-				}
-				continue;
-			}
-		}
-		new_statements.push_back(move(statements[i]));
-	}
-	statements = move(new_statements);
-}
-
-void PragmaHandler::HandlePragmaStatements(ClientContextLock &lock, vector<unique_ptr<SQLStatement>> &statements) {
-	// first check if there are any pragma statements
-	bool found_pragma = false;
-	for (idx_t i = 0; i < statements.size(); i++) {
-		if (statements[i]->type == StatementType::PRAGMA_STATEMENT) {
-			found_pragma = true;
-			break;
-		}
-	}
-	if (!found_pragma) {
-		// no pragmas: skip this step
-		return;
-	}
-	context.RunFunctionInTransactionInternal(lock, [&]() { HandlePragmaStatementsInternal(statements); });
-}
-
-string PragmaHandler::HandlePragma(SQLStatement *statement) { // PragmaInfo &info
-	auto info = *((PragmaStatement &)*statement).info;
-	auto entry =
-	    Catalog::GetCatalog(context).GetEntry<PragmaFunctionCatalogEntry>(context, DEFAULT_SCHEMA, info.name, false);
-	string error;
-	idx_t bound_idx = Function::BindFunction(entry->name, entry->functions, info, error);
-	if (bound_idx == DConstants::INVALID_INDEX) {
-		throw BinderException(error);
-	}
-	auto &bound_function = entry->functions[bound_idx];
-	if (bound_function.query) {
-		QueryErrorContext error_context(statement, statement->stmt_location);
-		Binder::BindNamedParameters(bound_function.named_parameters, info.named_parameters, error_context,
-		                            bound_function.name);
-		FunctionParameters parameters {info.parameters, info.named_parameters};
-		return bound_function.query(context, parameters);
-	}
-	return string();
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-
-
-
-
-
-
-
-namespace duckdb {
-
-FlattenDependentJoins::FlattenDependentJoins(Binder &binder, const vector<CorrelatedColumnInfo> &correlated,
-                                             bool any_join)
-    : binder(binder), correlated_columns(correlated), any_join(any_join) {
-	for (idx_t i = 0; i < correlated_columns.size(); i++) {
-		auto &col = correlated_columns[i];
-		correlated_map[col.binding] = i;
-		delim_types.push_back(col.type);
-	}
-}
-
-bool FlattenDependentJoins::DetectCorrelatedExpressions(LogicalOperator *op) {
-	D_ASSERT(op);
-	// check if this entry has correlated expressions
-	HasCorrelatedExpressions visitor(correlated_columns);
-	visitor.VisitOperator(*op);
-	bool has_correlation = visitor.has_correlated_expressions;
-	// now visit the children of this entry and check if they have correlated expressions
-	for (auto &child : op->children) {
-		// we OR the property with its children such that has_correlation is true if either
-		// (1) this node has a correlated expression or
-		// (2) one of its children has a correlated expression
-		if (DetectCorrelatedExpressions(child.get())) {
-			has_correlation = true;
-		}
-	}
-	// set the entry in the map
-	has_correlated_expressions[op] = has_correlation;
-	return has_correlation;
-}
-
-unique_ptr<LogicalOperator> FlattenDependentJoins::PushDownDependentJoin(unique_ptr<LogicalOperator> plan) {
-	bool propagate_null_values = true;
-	auto result = PushDownDependentJoinInternal(move(plan), propagate_null_values);
-	if (!replacement_map.empty()) {
-		// check if we have to replace any COUNT aggregates into "CASE WHEN X IS NULL THEN 0 ELSE COUNT END"
-		RewriteCountAggregates aggr(replacement_map);
-		aggr.VisitOperator(*result);
-	}
-	return result;
-}
-
-bool SubqueryDependentFilter(Expression *expr) {
-	if (expr->expression_class == ExpressionClass::BOUND_CONJUNCTION &&
-	    expr->GetExpressionType() == ExpressionType::CONJUNCTION_AND) {
-		auto bound_conjuction = (BoundConjunctionExpression *)expr;
-		for (auto &child : bound_conjuction->children) {
-			if (SubqueryDependentFilter(child.get())) {
-				return true;
-			}
-		}
-	}
-	if (expr->expression_class == ExpressionClass::BOUND_SUBQUERY) {
-		return true;
-	}
-	return false;
-}
-unique_ptr<LogicalOperator> FlattenDependentJoins::PushDownDependentJoinInternal(unique_ptr<LogicalOperator> plan,
-                                                                                 bool &parent_propagate_null_values) {
-	// first check if the logical operator has correlated expressions
-	auto entry = has_correlated_expressions.find(plan.get());
-	D_ASSERT(entry != has_correlated_expressions.end());
-	if (!entry->second) {
-		// we reached a node without correlated expressions
-		// we can eliminate the dependent join now and create a simple cross product
-		auto cross_product = make_unique<LogicalCrossProduct>();
-		// now create the duplicate eliminated scan for this node
-		auto delim_index = binder.GenerateTableIndex();
-		this->base_binding = ColumnBinding(delim_index, 0);
-		auto delim_scan = make_unique<LogicalDelimGet>(delim_index, delim_types);
-		cross_product->children.push_back(move(delim_scan));
-		cross_product->children.push_back(move(plan));
-		return move(cross_product);
-	}
-	switch (plan->type) {
-	case LogicalOperatorType::LOGICAL_UNNEST:
-	case LogicalOperatorType::LOGICAL_FILTER: {
-		// filter
-		// first we flatten the dependent join in the child of the filter
-		for (auto &expr : plan->expressions) {
-			any_join |= SubqueryDependentFilter(expr.get());
-		}
-		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-
-		// then we replace any correlated expressions with the corresponding entry in the correlated_map
-		RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
-		rewriter.VisitOperator(*plan);
-		return plan;
-	}
-	case LogicalOperatorType::LOGICAL_PROJECTION: {
-		// projection
-		// first we flatten the dependent join in the child of the projection
-		for (auto &expr : plan->expressions) {
-			parent_propagate_null_values &= expr->PropagatesNullValues();
-		}
-		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-
-		// then we replace any correlated expressions with the corresponding entry in the correlated_map
-		RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
-		rewriter.VisitOperator(*plan);
-		// now we add all the columns of the delim_scan to the projection list
-		auto proj = (LogicalProjection *)plan.get();
-		for (idx_t i = 0; i < correlated_columns.size(); i++) {
-			auto colref = make_unique<BoundColumnRefExpression>(
-			    correlated_columns[i].type, ColumnBinding(base_binding.table_index, base_binding.column_index + i));
-			plan->expressions.push_back(move(colref));
-		}
-
-		base_binding.table_index = proj->table_index;
-		this->delim_offset = base_binding.column_index = plan->expressions.size() - correlated_columns.size();
-		this->data_offset = 0;
-		return plan;
-	}
-	case LogicalOperatorType::LOGICAL_AGGREGATE_AND_GROUP_BY: {
-		auto &aggr = (LogicalAggregate &)*plan;
-		// aggregate and group by
-		// first we flatten the dependent join in the child of the projection
-		for (auto &expr : plan->expressions) {
-			parent_propagate_null_values &= expr->PropagatesNullValues();
-		}
-		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-		// then we replace any correlated expressions with the corresponding entry in the correlated_map
-		RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
-		rewriter.VisitOperator(*plan);
-		// now we add all the columns of the delim_scan to the grouping operators AND the projection list
-		for (idx_t i = 0; i < correlated_columns.size(); i++) {
-			auto colref = make_unique<BoundColumnRefExpression>(
-			    correlated_columns[i].type, ColumnBinding(base_binding.table_index, base_binding.column_index + i));
-			for (auto &set : aggr.grouping_sets) {
-				set.insert(aggr.groups.size());
-			}
-			aggr.groups.push_back(move(colref));
-		}
-		if (aggr.groups.size() == correlated_columns.size()) {
-			// we have to perform a LEFT OUTER JOIN between the result of this aggregate and the delim scan
-			// FIXME: this does not always have to be a LEFT OUTER JOIN, depending on whether aggr.expressions return
-			// NULL or a value
-			unique_ptr<LogicalComparisonJoin> join = make_unique<LogicalComparisonJoin>(JoinType::INNER);
-			for (auto &aggr_exp : aggr.expressions) {
-				auto b_aggr_exp = (BoundAggregateExpression *)aggr_exp.get();
-				if (!b_aggr_exp->PropagatesNullValues() || any_join || !parent_propagate_null_values) {
-					join = make_unique<LogicalComparisonJoin>(JoinType::LEFT);
-					break;
-				}
-			}
-			auto left_index = binder.GenerateTableIndex();
-			auto delim_scan = make_unique<LogicalDelimGet>(left_index, delim_types);
-			join->children.push_back(move(delim_scan));
-			join->children.push_back(move(plan));
-			for (idx_t i = 0; i < correlated_columns.size(); i++) {
-				JoinCondition cond;
-				cond.left =
-				    make_unique<BoundColumnRefExpression>(correlated_columns[i].type, ColumnBinding(left_index, i));
-				cond.right = make_unique<BoundColumnRefExpression>(
-				    correlated_columns[i].type,
-				    ColumnBinding(aggr.group_index, (aggr.groups.size() - correlated_columns.size()) + i));
-				cond.comparison = ExpressionType::COMPARE_NOT_DISTINCT_FROM;
-				join->conditions.push_back(move(cond));
-			}
-			// for any COUNT aggregate we replace references to the column with: CASE WHEN COUNT(*) IS NULL THEN 0
-			// ELSE COUNT(*) END
-			for (idx_t i = 0; i < aggr.expressions.size(); i++) {
-				D_ASSERT(aggr.expressions[i]->GetExpressionClass() == ExpressionClass::BOUND_AGGREGATE);
-				auto bound = (BoundAggregateExpression *)&*aggr.expressions[i];
-				vector<LogicalType> arguments;
-				if (bound->function == CountFun::GetFunction() || bound->function == CountStarFun::GetFunction()) {
-					// have to replace this ColumnBinding with the CASE expression
-					replacement_map[ColumnBinding(aggr.aggregate_index, i)] = i;
-				}
-			}
-			// now we update the delim_index
-
-			base_binding.table_index = left_index;
-			this->delim_offset = base_binding.column_index = 0;
-			this->data_offset = 0;
-			return move(join);
-		} else {
-			// update the delim_index
-			base_binding.table_index = aggr.group_index;
-			this->delim_offset = base_binding.column_index = aggr.groups.size() - correlated_columns.size();
-			this->data_offset = aggr.groups.size();
-			return plan;
-		}
-	}
-	case LogicalOperatorType::LOGICAL_CROSS_PRODUCT: {
-		// cross product
-		// push into both sides of the plan
-		bool left_has_correlation = has_correlated_expressions.find(plan->children[0].get())->second;
-		bool right_has_correlation = has_correlated_expressions.find(plan->children[1].get())->second;
-		if (!right_has_correlation) {
-			// only left has correlation: push into left
-			plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-			return plan;
-		}
-		if (!left_has_correlation) {
-			// only right has correlation: push into right
-			plan->children[1] = PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
-			return plan;
-		}
-		// both sides have correlation
-		// turn into an inner join
-		auto join = make_unique<LogicalComparisonJoin>(JoinType::INNER);
-		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-		auto left_binding = this->base_binding;
-		plan->children[1] = PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
-		// add the correlated columns to the join conditions
-		for (idx_t i = 0; i < correlated_columns.size(); i++) {
-			JoinCondition cond;
-			cond.left = make_unique<BoundColumnRefExpression>(
-			    correlated_columns[i].type, ColumnBinding(left_binding.table_index, left_binding.column_index + i));
-			cond.right = make_unique<BoundColumnRefExpression>(
-			    correlated_columns[i].type, ColumnBinding(base_binding.table_index, base_binding.column_index + i));
-			cond.comparison = ExpressionType::COMPARE_NOT_DISTINCT_FROM;
-			join->conditions.push_back(move(cond));
-		}
-		join->children.push_back(move(plan->children[0]));
-		join->children.push_back(move(plan->children[1]));
-		return move(join);
-	}
-	case LogicalOperatorType::LOGICAL_ANY_JOIN:
-	case LogicalOperatorType::LOGICAL_COMPARISON_JOIN: {
-		auto &join = (LogicalJoin &)*plan;
-		D_ASSERT(plan->children.size() == 2);
-		// check the correlated expressions in the children of the join
-		bool left_has_correlation = has_correlated_expressions.find(plan->children[0].get())->second;
-		bool right_has_correlation = has_correlated_expressions.find(plan->children[1].get())->second;
-
-		if (join.join_type == JoinType::INNER) {
-			// inner join
-			if (!right_has_correlation) {
-				// only left has correlation: push into left
-				plan->children[0] =
-				    PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-				return plan;
-			}
-			if (!left_has_correlation) {
-				// only right has correlation: push into right
-				plan->children[1] =
-				    PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
-				return plan;
-			}
-		} else if (join.join_type == JoinType::LEFT) {
-			// left outer join
-			if (!right_has_correlation) {
-				// only left has correlation: push into left
-				plan->children[0] =
-				    PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-				return plan;
-			}
-		} else if (join.join_type == JoinType::RIGHT) {
-			// left outer join
-			if (!left_has_correlation) {
-				// only right has correlation: push into right
-				plan->children[1] =
-				    PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
-				return plan;
-			}
-		} else if (join.join_type == JoinType::MARK) {
-			if (right_has_correlation) {
-				throw Exception("MARK join with correlation in RHS not supported");
-			}
-			// push the child into the LHS
-			plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-			// rewrite expressions in the join conditions
-			RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
-			rewriter.VisitOperator(*plan);
-			return plan;
-		} else {
-			throw Exception("Unsupported join type for flattening correlated subquery");
-		}
-		// both sides have correlation
-		// push into both sides
-		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-		auto left_binding = this->base_binding;
-		plan->children[1] = PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
-		auto right_binding = this->base_binding;
-		// NOTE: for OUTER JOINS it matters what the BASE BINDING is after the join
-		// for the LEFT OUTER JOIN, we want the LEFT side to be the base binding after we push
-		// because the RIGHT binding might contain NULL values
-		if (join.join_type == JoinType::LEFT) {
-			this->base_binding = left_binding;
-		} else if (join.join_type == JoinType::RIGHT) {
-			this->base_binding = right_binding;
-		}
-		// add the correlated columns to the join conditions
-		for (idx_t i = 0; i < correlated_columns.size(); i++) {
-			auto left = make_unique<BoundColumnRefExpression>(
-			    correlated_columns[i].type, ColumnBinding(left_binding.table_index, left_binding.column_index + i));
-			auto right = make_unique<BoundColumnRefExpression>(
-			    correlated_columns[i].type, ColumnBinding(right_binding.table_index, right_binding.column_index + i));
-
-			if (join.type == LogicalOperatorType::LOGICAL_COMPARISON_JOIN) {
-				JoinCondition cond;
-				cond.left = move(left);
-				cond.right = move(right);
-				cond.comparison = ExpressionType::COMPARE_NOT_DISTINCT_FROM;
-
-				auto &comparison_join = (LogicalComparisonJoin &)join;
-				comparison_join.conditions.push_back(move(cond));
-			} else {
-				auto &any_join = (LogicalAnyJoin &)join;
-				auto comparison = make_unique<BoundComparisonExpression>(ExpressionType::COMPARE_NOT_DISTINCT_FROM,
-				                                                         move(left), move(right));
-				auto conjunction = make_unique<BoundConjunctionExpression>(ExpressionType::CONJUNCTION_AND,
-				                                                           move(comparison), move(any_join.condition));
-				any_join.condition = move(conjunction);
-			}
-		}
-		// then we replace any correlated expressions with the corresponding entry in the correlated_map
-		RewriteCorrelatedExpressions rewriter(right_binding, correlated_map);
-		rewriter.VisitOperator(*plan);
-		return plan;
-	}
-	case LogicalOperatorType::LOGICAL_LIMIT: {
-		auto &limit = (LogicalLimit &)*plan;
-		if (limit.offset_val > 0) {
-			throw ParserException("OFFSET not supported in correlated subquery");
-		}
-		if (limit.limit) {
-			throw ParserException("Non-constant limit not supported in correlated subquery");
-		}
-		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-		if (limit.limit_val == 0) {
-			// limit = 0 means we return zero columns here
-			return plan;
-		} else {
-			// limit > 0 does nothing
-			return move(plan->children[0]);
-		}
-	}
-	case LogicalOperatorType::LOGICAL_LIMIT_PERCENT: {
-		throw ParserException("Limit percent operator not supported in correlated subquery");
-	}
-	case LogicalOperatorType::LOGICAL_WINDOW: {
-		auto &window = (LogicalWindow &)*plan;
-		// push into children
-		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-		// add the correlated columns to the PARTITION BY clauses in the Window
-		for (auto &expr : window.expressions) {
-			D_ASSERT(expr->GetExpressionClass() == ExpressionClass::BOUND_WINDOW);
-			auto &w = (BoundWindowExpression &)*expr;
-			for (idx_t i = 0; i < correlated_columns.size(); i++) {
-				w.partitions.push_back(make_unique<BoundColumnRefExpression>(
-				    correlated_columns[i].type,
-				    ColumnBinding(base_binding.table_index, base_binding.column_index + i)));
-			}
-		}
-		return plan;
-	}
-	case LogicalOperatorType::LOGICAL_EXCEPT:
-	case LogicalOperatorType::LOGICAL_INTERSECT:
-	case LogicalOperatorType::LOGICAL_UNION: {
-		auto &setop = (LogicalSetOperation &)*plan;
-		// set operator, push into both children
-		plan->children[0] = PushDownDependentJoin(move(plan->children[0]));
-		plan->children[1] = PushDownDependentJoin(move(plan->children[1]));
-		// we have to refer to the setop index now
-		base_binding.table_index = setop.table_index;
-		base_binding.column_index = setop.column_count;
-		setop.column_count += correlated_columns.size();
-		return plan;
-	}
-	case LogicalOperatorType::LOGICAL_DISTINCT:
-		plan->children[0] = PushDownDependentJoin(move(plan->children[0]));
-		return plan;
-	case LogicalOperatorType::LOGICAL_EXPRESSION_GET: {
-		// expression get
-		// first we flatten the dependent join in the child
-		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
-		// then we replace any correlated expressions with the corresponding entry in the correlated_map
-		RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
-		rewriter.VisitOperator(*plan);
-		// now we add all the correlated columns to each of the expressions of the expression scan
-		auto expr_get = (LogicalExpressionGet *)plan.get();
-		for (idx_t i = 0; i < correlated_columns.size(); i++) {
-			for (auto &expr_list : expr_get->expressions) {
-				auto colref = make_unique<BoundColumnRefExpression>(
-				    correlated_columns[i].type, ColumnBinding(base_binding.table_index, base_binding.column_index + i));
-				expr_list.push_back(move(colref));
-			}
-			expr_get->expr_types.push_back(correlated_columns[i].type);
-		}
-
-		base_binding.table_index = expr_get->table_index;
-		this->delim_offset = base_binding.column_index = expr_get->expr_types.size() - correlated_columns.size();
-		this->data_offset = 0;
-		return plan;
-	}
-	case LogicalOperatorType::LOGICAL_ORDER_BY:
-		throw ParserException("ORDER BY not supported in correlated subquery");
-	default:
-		throw InternalException("Logical operator type \"%s\" for dependent join", LogicalOperatorToString(plan->type));
-	}
-}
-
-} // namespace duckdb
-
-
-
-
-
-#include <algorithm>
-
-namespace duckdb {
-
-HasCorrelatedExpressions::HasCorrelatedExpressions(const vector<CorrelatedColumnInfo> &correlated)
-    : has_correlated_expressions(false), correlated_columns(correlated) {
-}
-
-void HasCorrelatedExpressions::VisitOperator(LogicalOperator &op) {
-	//! The HasCorrelatedExpressions does not recursively visit logical operators, it only visits the current one
-	VisitOperatorExpressions(op);
-}
-
-unique_ptr<Expression> HasCorrelatedExpressions::VisitReplace(BoundColumnRefExpression &expr,
-                                                              unique_ptr<Expression> *expr_ptr) {
-	if (expr.depth == 0) {
-		return nullptr;
-	}
-	// correlated column reference
-	D_ASSERT(expr.depth == 1);
-	has_correlated_expressions = true;
-	return nullptr;
-}
-
-unique_ptr<Expression> HasCorrelatedExpressions::VisitReplace(BoundSubqueryExpression &expr,
-                                                              unique_ptr<Expression> *expr_ptr) {
-	if (!expr.IsCorrelated()) {
-		return nullptr;
-	}
-	// check if the subquery contains any of the correlated expressions that we are concerned about in this node
-	for (idx_t i = 0; i < correlated_columns.size(); i++) {
-		if (std::find(expr.binder->correlated_columns.begin(), expr.binder->correlated_columns.end(),
-		              correlated_columns[i]) != expr.binder->correlated_columns.end()) {
-			has_correlated_expressions = true;
-			break;
-		}
-	}
-	return nullptr;
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-
-
-
-namespace duckdb {
-
-RewriteCorrelatedExpressions::RewriteCorrelatedExpressions(ColumnBinding base_binding,
-                                                           column_binding_map_t<idx_t> &correlated_map)
-    : base_binding(base_binding), correlated_map(correlated_map) {
-}
-
-void RewriteCorrelatedExpressions::VisitOperator(LogicalOperator &op) {
-	VisitOperatorExpressions(op);
-}
-
-unique_ptr<Expression> RewriteCorrelatedExpressions::VisitReplace(BoundColumnRefExpression &expr,
-                                                                  unique_ptr<Expression> *expr_ptr) {
-	if (expr.depth == 0) {
-		return nullptr;
-	}
-	// correlated column reference
-	// replace with the entry referring to the duplicate eliminated scan
-	// if this assertion occurs it generally means the correlated expressions were not propagated correctly
-	// through different binders
-	D_ASSERT(expr.depth == 1);
-	auto entry = correlated_map.find(expr.binding);
-	D_ASSERT(entry != correlated_map.end());
-
-	expr.binding = ColumnBinding(base_binding.table_index, base_binding.column_index + entry->second);
-	expr.depth = 0;
-	return nullptr;
-}
-
-unique_ptr<Expression> RewriteCorrelatedExpressions::VisitReplace(BoundSubqueryExpression &expr,
-                                                                  unique_ptr<Expression> *expr_ptr) {
-	if (!expr.IsCorrelated()) {
-		return nullptr;
-	}
-	// subquery detected within this subquery
-	// recursively rewrite it using the RewriteCorrelatedRecursive class
-	RewriteCorrelatedRecursive rewrite(expr, base_binding, correlated_map);
-	rewrite.RewriteCorrelatedSubquery(expr);
-	return nullptr;
-}
-
-RewriteCorrelatedExpressions::RewriteCorrelatedRecursive::RewriteCorrelatedRecursive(
-    BoundSubqueryExpression &parent, ColumnBinding base_binding, column_binding_map_t<idx_t> &correlated_map)
-    : parent(parent), base_binding(base_binding), correlated_map(correlated_map) {
-}
-
-void RewriteCorrelatedExpressions::RewriteCorrelatedRecursive::RewriteCorrelatedSubquery(
-    BoundSubqueryExpression &expr) {
-	// rewrite the binding in the correlated list of the subquery)
-	for (auto &corr : expr.binder->correlated_columns) {
-		auto entry = correlated_map.find(corr.binding);
-		if (entry != correlated_map.end()) {
-			corr.binding = ColumnBinding(base_binding.table_index, base_binding.column_index + entry->second);
-		}
-	}
-	// now rewrite any correlated BoundColumnRef expressions inside the subquery
-	ExpressionIterator::EnumerateQueryNodeChildren(*expr.subquery,
-	                                               [&](Expression &child) { RewriteCorrelatedExpressions(child); });
-}
-
-void RewriteCorrelatedExpressions::RewriteCorrelatedRecursive::RewriteCorrelatedExpressions(Expression &child) {
-	if (child.type == ExpressionType::BOUND_COLUMN_REF) {
-		// bound column reference
-		auto &bound_colref = (BoundColumnRefExpression &)child;
-		if (bound_colref.depth == 0) {
-			// not a correlated column, ignore
-			return;
-		}
-		// correlated column
-		// check the correlated map
-		auto entry = correlated_map.find(bound_colref.binding);
-		if (entry != correlated_map.end()) {
-			// we found the column in the correlated map!
-			// update the binding and reduce the depth by 1
-			bound_colref.binding = ColumnBinding(base_binding.table_index, base_binding.column_index + entry->second);
-			bound_colref.depth--;
-		}
-	} else if (child.type == ExpressionType::SUBQUERY) {
-		// we encountered another subquery: rewrite recursively
-		D_ASSERT(child.GetExpressionClass() == ExpressionClass::BOUND_SUBQUERY);
-		auto &bound_subquery = (BoundSubqueryExpression &)child;
-		RewriteCorrelatedRecursive rewrite(bound_subquery, base_binding, correlated_map);
-		rewrite.RewriteCorrelatedSubquery(bound_subquery);
-	}
-}
-
-RewriteCountAggregates::RewriteCountAggregates(column_binding_map_t<idx_t> &replacement_map)
-    : replacement_map(replacement_map) {
-}
-
-unique_ptr<Expression> RewriteCountAggregates::VisitReplace(BoundColumnRefExpression &expr,
-                                                            unique_ptr<Expression> *expr_ptr) {
-	auto entry = replacement_map.find(expr.binding);
-	if (entry != replacement_map.end()) {
-		// reference to a COUNT(*) aggregate
-		// replace this with CASE WHEN COUNT(*) IS NULL THEN 0 ELSE COUNT(*) END
-		auto is_null = make_unique<BoundOperatorExpression>(ExpressionType::OPERATOR_IS_NULL, LogicalType::BOOLEAN);
-		is_null->children.push_back(expr.Copy());
-		auto check = move(is_null);
-		auto result_if_true = make_unique<BoundConstantExpression>(Value::Numeric(expr.return_type, 0));
-		auto result_if_false = move(*expr_ptr);
-		return make_unique<BoundCaseExpression>(move(check), move(result_if_true), move(result_if_false));
-	}
-	return nullptr;
-}
-
-} // namespace duckdb
 
 
 
@@ -900,6 +246,81 @@ void TableFilterSet::PushFilter(idx_t column_index, unique_ptr<TableFilter> filt
 
 namespace duckdb {
 
+ArenaChunk::ArenaChunk(Allocator &allocator, idx_t size) : current_position(0), maximum_size(size), prev(nullptr) {
+	D_ASSERT(size > 0);
+	data = allocator.Allocate(size);
+}
+ArenaChunk::~ArenaChunk() {
+	if (next) {
+		auto current_next = move(next);
+		while (current_next) {
+			current_next = move(current_next->next);
+		}
+	}
+}
+
+ArenaAllocator::ArenaAllocator(Allocator &allocator, idx_t initial_capacity) : allocator(allocator) {
+	head = nullptr;
+	tail = nullptr;
+	current_capacity = initial_capacity;
+}
+
+ArenaAllocator::~ArenaAllocator() {
+}
+
+data_ptr_t ArenaAllocator::Allocate(idx_t len) {
+	D_ASSERT(!head || head->current_position <= head->maximum_size);
+	if (!head || head->current_position + len > head->maximum_size) {
+		do {
+			current_capacity *= 2;
+		} while (current_capacity < len);
+		auto new_chunk = make_unique<ArenaChunk>(allocator, current_capacity);
+		if (head) {
+			head->prev = new_chunk.get();
+			new_chunk->next = move(head);
+		} else {
+			tail = new_chunk.get();
+		}
+		head = move(new_chunk);
+	}
+	D_ASSERT(head->current_position + len <= head->maximum_size);
+	auto result = head->data->get() + head->current_position;
+	head->current_position += len;
+	return result;
+}
+
+void ArenaAllocator::Destroy() {
+	head = nullptr;
+	tail = nullptr;
+	current_capacity = ARENA_ALLOCATOR_INITIAL_CAPACITY;
+}
+
+void ArenaAllocator::Move(ArenaAllocator &other) {
+	D_ASSERT(!other.head);
+	other.tail = tail;
+	other.head = move(head);
+	other.current_capacity = current_capacity;
+	Destroy();
+}
+
+ArenaChunk *ArenaAllocator::GetHead() {
+	return head.get();
+}
+
+ArenaChunk *ArenaAllocator::GetTail() {
+	return tail;
+}
+
+bool ArenaAllocator::IsEmpty() {
+	return head == nullptr;
+}
+
+} // namespace duckdb
+
+
+
+namespace duckdb {
+
 Block::Block(Allocator &allocator, block_id_t id)
     : FileBuffer(allocator, FileBufferType::BLOCK, Storage::BLOCK_ALLOC_SIZE), id(id) {
 }
@@ -915,16 +336,59 @@ Block::Block(FileBuffer &source, block_id_t id) : FileBuffer(source, FileBufferT
 
 namespace duckdb {
 
+BufferHandle::BufferHandle() : handle(nullptr), node(nullptr) {
+}
+
 BufferHandle::BufferHandle(shared_ptr<BlockHandle> handle, FileBuffer *node) : handle(move(handle)), node(node) {
 }
 
+BufferHandle::BufferHandle(BufferHandle &&other) noexcept {
+	std::swap(node, other.node);
+	std::swap(handle, other.handle);
+}
+
+BufferHandle &BufferHandle::operator=(BufferHandle &&other) noexcept {
+	std::swap(node, other.node);
+	std::swap(handle, other.handle);
+	return *this;
+}
+
 BufferHandle::~BufferHandle() {
-	auto &buffer_manager = BufferManager::GetBufferManager(handle->db);
-	buffer_manager.Unpin(handle);
+	Destroy();
+}
+
+bool BufferHandle::IsValid() const {
+	return node != nullptr;
+}
+
+data_ptr_t BufferHandle::Ptr() const {
+	D_ASSERT(IsValid());
+	return node->buffer;
 }
 
 data_ptr_t BufferHandle::Ptr() {
+	D_ASSERT(IsValid());
 	return node->buffer;
+}
+
+block_id_t BufferHandle::GetBlockId() const {
+	D_ASSERT(handle);
+	return handle->BlockId();
+}
+
+void BufferHandle::Destroy() {
+	if (!handle) {
+		return;
+	}
+	auto &buffer_manager = BufferManager::GetBufferManager(handle->db);
+	buffer_manager.Unpin(handle);
+	handle.reset();
+	node = nullptr;
+}
+
+FileBuffer &BufferHandle::GetFileBuffer() {
+	D_ASSERT(node);
+	return *node;
 }
 
 } // namespace duckdb
@@ -942,6 +406,12 @@ ManagedBuffer::ManagedBuffer(DatabaseInstance &db, idx_t size, bool can_destroy,
 	D_ASSERT(size >= Storage::BLOCK_SIZE);
 }
 
+ManagedBuffer::ManagedBuffer(DatabaseInstance &db, FileBuffer &source, bool can_destroy, block_id_t id)
+    : FileBuffer(source, FileBufferType::MANAGED_BUFFER), db(db), can_destroy(can_destroy), id(id) {
+	D_ASSERT(id >= MAXIMUM_BLOCK);
+	D_ASSERT(size >= Storage::BLOCK_SIZE);
+}
+
 } // namespace duckdb
 
 
@@ -950,7 +420,15 @@ ManagedBuffer::ManagedBuffer(DatabaseInstance &db, idx_t size, bool can_destroy,
 
 
 
+
 namespace duckdb {
+
+struct BufferAllocatorData : PrivateAllocatorData {
+	explicit BufferAllocatorData(BufferManager &manager) : manager(manager) {
+	}
+
+	BufferManager &manager;
+};
 
 BlockHandle::BlockHandle(DatabaseInstance &db, block_id_t block_id_p)
     : db(db), readers(0), block_id(block_id_p), buffer(nullptr), eviction_timestamp(0), can_destroy(false) {
@@ -979,35 +457,73 @@ BlockHandle::~BlockHandle() {
 	buffer_manager.UnregisterBlock(block_id, can_destroy);
 }
 
-unique_ptr<BufferHandle> BlockHandle::Load(shared_ptr<BlockHandle> &handle) {
+unique_ptr<Block> AllocateBlock(Allocator &allocator, unique_ptr<FileBuffer> reusable_buffer, block_id_t block_id) {
+	if (reusable_buffer) {
+		// re-usable buffer: re-use it
+		if (reusable_buffer->type == FileBufferType::BLOCK) {
+			// we can reuse the buffer entirely
+			auto &block = (Block &)*reusable_buffer;
+			block.id = block_id;
+			return unique_ptr_cast<FileBuffer, Block>(move(reusable_buffer));
+		}
+		auto block = make_unique<Block>(*reusable_buffer, block_id);
+		reusable_buffer.reset();
+		return block;
+	} else {
+		// no re-usable buffer: allocate a new block
+		return make_unique<Block>(allocator, block_id);
+	}
+}
+
+unique_ptr<ManagedBuffer> AllocateManagedBuffer(DatabaseInstance &db, unique_ptr<FileBuffer> reusable_buffer,
+                                                idx_t size, bool can_destroy, block_id_t id) {
+	if (reusable_buffer) {
+		// re-usable buffer: re-use it
+		if (reusable_buffer->type == FileBufferType::MANAGED_BUFFER) {
+			// we can reuse the buffer entirely
+			auto &managed = (ManagedBuffer &)*reusable_buffer;
+			managed.id = id;
+			managed.can_destroy = can_destroy;
+			return unique_ptr_cast<FileBuffer, ManagedBuffer>(move(reusable_buffer));
+		}
+		auto buffer = make_unique<ManagedBuffer>(db, *reusable_buffer, can_destroy, id);
+		reusable_buffer.reset();
+		return buffer;
+	} else {
+		// no re-usable buffer: allocate a new buffer
+		return make_unique<ManagedBuffer>(db, size, can_destroy, id);
+	}
+}
+
+BufferHandle BlockHandle::Load(shared_ptr<BlockHandle> &handle, unique_ptr<FileBuffer> reusable_buffer) {
 	if (handle->state == BlockState::BLOCK_LOADED) {
 		// already loaded
 		D_ASSERT(handle->buffer);
-		return make_unique<BufferHandle>(handle, handle->buffer.get());
+		return BufferHandle(handle, handle->buffer.get());
 	}
 
 	auto &buffer_manager = BufferManager::GetBufferManager(handle->db);
 	auto &block_manager = BlockManager::GetBlockManager(handle->db);
 	if (handle->block_id < MAXIMUM_BLOCK) {
-		auto block = make_unique<Block>(Allocator::Get(handle->db), handle->block_id);
+		auto block = AllocateBlock(Allocator::Get(handle->db), move(reusable_buffer), handle->block_id);
 		block_manager.Read(*block);
 		handle->buffer = move(block);
 	} else {
 		if (handle->can_destroy) {
-			return nullptr;
+			return BufferHandle();
 		} else {
-			handle->buffer = buffer_manager.ReadTemporaryBuffer(handle->block_id);
+			handle->buffer = buffer_manager.ReadTemporaryBuffer(handle->block_id, move(reusable_buffer));
 		}
 	}
 	handle->state = BlockState::BLOCK_LOADED;
-	return make_unique<BufferHandle>(handle, handle->buffer.get());
+	return BufferHandle(handle, handle->buffer.get());
 }
 
-void BlockHandle::Unload() {
+unique_ptr<FileBuffer> BlockHandle::UnloadAndTakeBlock() {
 	auto &buffer_manager = BufferManager::GetBufferManager(db);
 	if (state == BlockState::BLOCK_UNLOADED) {
 		// already unloaded: nothing to do
-		return;
+		return nullptr;
 	}
 	D_ASSERT(CanUnload());
 	D_ASSERT(memory_usage >= Storage::BLOCK_ALLOC_SIZE);
@@ -1016,9 +532,14 @@ void BlockHandle::Unload() {
 		// temporary block that cannot be destroyed: write to temporary file
 		buffer_manager.WriteTemporaryBuffer((ManagedBuffer &)*buffer);
 	}
-	buffer.reset();
 	buffer_manager.current_memory -= memory_usage;
 	state = BlockState::BLOCK_UNLOADED;
+	return move(buffer);
+}
+
+void BlockHandle::Unload() {
+	auto block = UnloadAndTakeBlock();
+	block.reset();
 }
 
 bool BlockHandle::CanUnload() {
@@ -1041,6 +562,8 @@ bool BlockHandle::CanUnload() {
 }
 
 struct BufferEvictionNode {
+	BufferEvictionNode() {
+	}
 	BufferEvictionNode(weak_ptr<BlockHandle> handle_p, idx_t timestamp_p)
 	    : handle(move(handle_p)), timestamp(timestamp_p) {
 		D_ASSERT(!handle.expired());
@@ -1072,30 +595,25 @@ struct BufferEvictionNode {
 	}
 };
 
-typedef duckdb_moodycamel::ConcurrentQueue<unique_ptr<BufferEvictionNode>> eviction_queue_t;
+typedef duckdb_moodycamel::ConcurrentQueue<BufferEvictionNode> eviction_queue_t;
 
 struct EvictionQueue {
 	eviction_queue_t q;
 };
 
+class TemporaryFileManager;
+
 class TemporaryDirectoryHandle {
 public:
-	TemporaryDirectoryHandle(DatabaseInstance &db, string path_p) : db(db), temp_directory(move(path_p)) {
-		auto &fs = FileSystem::GetFileSystem(db);
-		if (!temp_directory.empty()) {
-			fs.CreateDirectory(temp_directory);
-		}
-	}
-	~TemporaryDirectoryHandle() {
-		auto &fs = FileSystem::GetFileSystem(db);
-		if (!temp_directory.empty()) {
-			fs.RemoveDirectory(temp_directory);
-		}
-	}
+	TemporaryDirectoryHandle(DatabaseInstance &db, string path_p);
+	~TemporaryDirectoryHandle();
+
+	TemporaryFileManager &GetTempFile();
 
 private:
 	DatabaseInstance &db;
 	string temp_directory;
+	unique_ptr<TemporaryFileManager> temp_file;
 };
 
 void BufferManager::SetTemporaryDirectory(string new_dir) {
@@ -1107,7 +625,9 @@ void BufferManager::SetTemporaryDirectory(string new_dir) {
 
 BufferManager::BufferManager(DatabaseInstance &db, string tmp, idx_t maximum_memory)
     : db(db), current_memory(0), maximum_memory(maximum_memory), temp_directory(move(tmp)),
-      queue(make_unique<EvictionQueue>()), temporary_id(MAXIMUM_BLOCK) {
+      queue(make_unique<EvictionQueue>()), temporary_id(MAXIMUM_BLOCK),
+      buffer_allocator(BufferAllocatorAllocate, BufferAllocatorFree, BufferAllocatorRealloc,
+                       make_unique<BufferAllocatorData>(*this)) {
 }
 
 BufferManager::~BufferManager() {
@@ -1145,19 +665,15 @@ shared_ptr<BlockHandle> BufferManager::ConvertToPersistent(BlockManager &block_m
 	D_ASSERT(new_block->state == BlockState::BLOCK_UNLOADED);
 	D_ASSERT(new_block->readers == 0);
 
-#ifdef DEBUG
-	lock_guard<mutex> b_lock(blocks_lock);
-#endif
-
 	// move the data from the old block into data for the new block
 	new_block->state = BlockState::BLOCK_LOADED;
 	new_block->buffer = make_unique<Block>(*old_block->buffer, block_id);
 
 	// clear the old buffer and unload it
-	old_handle.reset();
 	old_block->buffer.reset();
 	old_block->state = BlockState::BLOCK_UNLOADED;
 	old_block->memory_usage = 0;
+	old_handle.Destroy();
 	old_block.reset();
 
 	// persist the new block to disk
@@ -1171,19 +687,19 @@ shared_ptr<BlockHandle> BufferManager::ConvertToPersistent(BlockManager &block_m
 shared_ptr<BlockHandle> BufferManager::RegisterMemory(idx_t block_size, bool can_destroy) {
 	auto alloc_size = block_size + Storage::BLOCK_HEADER_SIZE;
 	// first evict blocks until we have enough memory to store this buffer
-	if (!EvictBlocks(alloc_size, maximum_memory)) {
+	unique_ptr<FileBuffer> reusable_buffer;
+	if (!EvictBlocks(alloc_size, maximum_memory, &reusable_buffer)) {
 		throw OutOfMemoryException("could not allocate block of %lld bytes%s", alloc_size, InMemoryWarning());
 	}
 
-	// allocate the buffer
 	auto temp_id = ++temporary_id;
-	auto buffer = make_unique<ManagedBuffer>(db, block_size, can_destroy, temp_id);
+	auto buffer = AllocateManagedBuffer(db, move(reusable_buffer), block_size, can_destroy, temp_id);
 
 	// create a new block pointer for this block
 	return make_shared<BlockHandle>(db, temp_id, move(buffer), can_destroy, block_size);
 }
 
-unique_ptr<BufferHandle> BufferManager::Allocate(idx_t block_size) {
+BufferHandle BufferManager::Allocate(idx_t block_size) {
 	auto block = RegisterMemory(block_size, true);
 	return Pin(block);
 }
@@ -1212,7 +728,7 @@ void BufferManager::ReAllocate(shared_ptr<BlockHandle> &handle, idx_t block_size
 	handle->memory_usage = alloc_size;
 }
 
-unique_ptr<BufferHandle> BufferManager::Pin(shared_ptr<BlockHandle> &handle) {
+BufferHandle BufferManager::Pin(shared_ptr<BlockHandle> &handle) {
 	idx_t required_memory;
 	{
 		// lock the block
@@ -1226,7 +742,8 @@ unique_ptr<BufferHandle> BufferManager::Pin(shared_ptr<BlockHandle> &handle) {
 		required_memory = handle->memory_usage;
 	}
 	// evict blocks until we have space for the current block
-	if (!EvictBlocks(required_memory, maximum_memory)) {
+	unique_ptr<FileBuffer> reusable_buffer;
+	if (!EvictBlocks(required_memory, maximum_memory, &reusable_buffer)) {
 		throw OutOfMemoryException("failed to pin block of size %lld%s", required_memory, InMemoryWarning());
 	}
 	// lock the handle again and repeat the check (in case anybody loaded in the mean time)
@@ -1241,14 +758,14 @@ unique_ptr<BufferHandle> BufferManager::Pin(shared_ptr<BlockHandle> &handle) {
 	// now we can actually load the current block
 	D_ASSERT(handle->readers == 0);
 	handle->readers = 1;
-	return handle->Load(handle);
+	return handle->Load(handle, move(reusable_buffer));
 }
 
 void BufferManager::AddToEvictionQueue(shared_ptr<BlockHandle> &handle) {
 	D_ASSERT(handle->readers == 0);
 	handle->eviction_timestamp++;
 	PurgeQueue();
-	queue->q.enqueue(make_unique<BufferEvictionNode>(weak_ptr<BlockHandle>(handle), handle->eviction_timestamp));
+	queue->q.enqueue(BufferEvictionNode(weak_ptr<BlockHandle>(handle), handle->eviction_timestamp));
 }
 
 void BufferManager::Unpin(shared_ptr<BlockHandle> &handle) {
@@ -1260,10 +777,10 @@ void BufferManager::Unpin(shared_ptr<BlockHandle> &handle) {
 	}
 }
 
-bool BufferManager::EvictBlocks(idx_t extra_memory, idx_t memory_limit) {
+bool BufferManager::EvictBlocks(idx_t extra_memory, idx_t memory_limit, unique_ptr<FileBuffer> *buffer) {
 	PurgeQueue();
 
-	unique_ptr<BufferEvictionNode> node;
+	BufferEvictionNode node;
 	current_memory += extra_memory;
 	while (current_memory > memory_limit) {
 		// get a block to unpin from the queue
@@ -1272,30 +789,36 @@ bool BufferManager::EvictBlocks(idx_t extra_memory, idx_t memory_limit) {
 			return false;
 		}
 		// get a reference to the underlying block pointer
-		auto handle = node->TryGetBlockHandle();
+		auto handle = node.TryGetBlockHandle();
 		if (!handle) {
 			continue;
 		}
 		// we might be able to free this block: grab the mutex and check if we can free it
 		lock_guard<mutex> lock(handle->lock);
-		if (!node->CanUnload(*handle)) {
+		if (!node.CanUnload(*handle)) {
 			// something changed in the mean-time, bail out
 			continue;
 		}
 		// hooray, we can unload the block
-		// release the memory and mark the block as unloaded
-		handle->Unload();
+		if (buffer && handle->buffer->AllocSize() == extra_memory) {
+			// we can actually re-use the memory directly!
+			*buffer = handle->UnloadAndTakeBlock();
+			return true;
+		} else {
+			// release the memory and mark the block as unloaded
+			handle->Unload();
+		}
 	}
 	return true;
 }
 
 void BufferManager::PurgeQueue() {
-	unique_ptr<BufferEvictionNode> node;
+	BufferEvictionNode node;
 	while (true) {
 		if (!queue->q.try_dequeue(node)) {
 			break;
 		}
-		auto handle = node->TryGetBlockHandle();
+		auto handle = node.TryGetBlockHandle();
 		if (!handle) {
 			continue;
 		} else {
@@ -1339,6 +862,323 @@ void BufferManager::SetLimit(idx_t limit) {
 	}
 }
 
+//===--------------------------------------------------------------------===//
+// Temporary File Management
+//===--------------------------------------------------------------------===//
+unique_ptr<ManagedBuffer> ReadTemporaryBufferInternal(DatabaseInstance &db, FileHandle &handle, idx_t position,
+                                                      idx_t size, block_id_t id,
+                                                      unique_ptr<FileBuffer> reusable_buffer) {
+	auto buffer = AllocateManagedBuffer(db, move(reusable_buffer), size, false, id);
+	buffer->Read(handle, position);
+	return buffer;
+}
+
+struct TemporaryFileIndex {
+	explicit TemporaryFileIndex(idx_t file_index = DConstants::INVALID_INDEX,
+	                            idx_t block_index = DConstants::INVALID_INDEX)
+	    : file_index(file_index), block_index(block_index) {
+	}
+
+	idx_t file_index;
+	idx_t block_index;
+
+public:
+	bool IsValid() {
+		return block_index != DConstants::INVALID_INDEX;
+	}
+};
+
+struct BlockIndexManager {
+	BlockIndexManager() : max_index(0) {
+	}
+
+public:
+	//! Obtains a new block index from the index manager
+	idx_t GetNewBlockIndex() {
+		auto index = GetNewBlockIndexInternal();
+		indexes_in_use.insert(index);
+		return index;
+	}
+
+	//! Removes an index from the block manager
+	//! Returns true if the max_index has been altered
+	bool RemoveIndex(idx_t index) {
+		// remove this block from the set of blocks
+		indexes_in_use.erase(index);
+		free_indexes.insert(index);
+		// check if we can truncate the file
+
+		// get the max_index in use right now
+		auto max_index_in_use = indexes_in_use.empty() ? 0 : *indexes_in_use.rbegin();
+		if (max_index_in_use < max_index) {
+			// max index in use is lower than the max_index
+			// reduce the max_index
+			max_index = max_index_in_use + 1;
+			// we can remove any free_indexes that are larger than the current max_index
+			while (!free_indexes.empty()) {
+				auto max_entry = *free_indexes.rbegin();
+				if (max_entry < max_index) {
+					break;
+				}
+				free_indexes.erase(max_entry);
+			}
+			return true;
+		}
+		return false;
+	}
+
+	idx_t GetMaxIndex() {
+		return max_index;
+	}
+
+	bool HasFreeBlocks() {
+		return !free_indexes.empty();
+	}
+
+private:
+	idx_t GetNewBlockIndexInternal() {
+		if (free_indexes.empty()) {
+			return max_index++;
+		}
+		auto entry = free_indexes.begin();
+		auto index = *entry;
+		free_indexes.erase(entry);
+		return index;
+	}
+
+	idx_t max_index;
+	set<idx_t> free_indexes;
+	set<idx_t> indexes_in_use;
+};
+
+class TemporaryFileHandle {
+	constexpr static idx_t MAX_ALLOWED_INDEX = 4000;
+
+public:
+	TemporaryFileHandle(DatabaseInstance &db, const string &temp_directory, idx_t index)
+	    : db(db), file_index(index), path(FileSystem::GetFileSystem(db).JoinPath(
+	                                     temp_directory, "duckdb_temp_storage-" + to_string(index) + ".tmp")) {
+	}
+
+public:
+	struct TemporaryFileLock {
+		explicit TemporaryFileLock(mutex &mutex) : lock(mutex) {
+		}
+
+		lock_guard<mutex> lock;
+	};
+
+public:
+	TemporaryFileIndex TryGetBlockIndex() {
+		TemporaryFileLock lock(file_lock);
+		if (index_manager.GetMaxIndex() >= MAX_ALLOWED_INDEX && index_manager.HasFreeBlocks()) {
+			// file is at capacity
+			return TemporaryFileIndex();
+		}
+		// open the file handle if it does not yet exist
+		CreateFileIfNotExists(lock);
+		// fetch a new block index to write to
+		auto block_index = index_manager.GetNewBlockIndex();
+		return TemporaryFileIndex(file_index, block_index);
+	}
+
+	void WriteTemporaryFile(ManagedBuffer &buffer, TemporaryFileIndex index) {
+		D_ASSERT(buffer.size == Storage::BLOCK_SIZE);
+		buffer.Write(*handle, GetPositionInFile(index.block_index));
+	}
+
+	unique_ptr<FileBuffer> ReadTemporaryBuffer(block_id_t id, idx_t block_index,
+	                                           unique_ptr<FileBuffer> reusable_buffer) {
+		auto buffer = ReadTemporaryBufferInternal(db, *handle, GetPositionInFile(block_index), Storage::BLOCK_SIZE, id,
+		                                          move(reusable_buffer));
+		{
+			// remove the block (and potentially truncate the temp file)
+			TemporaryFileLock lock(file_lock);
+			D_ASSERT(handle);
+			RemoveTempBlockIndex(lock, block_index);
+		}
+		return move(buffer);
+	}
+
+	bool DeleteIfEmpty() {
+		TemporaryFileLock lock(file_lock);
+		if (index_manager.GetMaxIndex() > 0) {
+			// there are still blocks in this file
+			return false;
+		}
+		// the file is empty: delete it
+		handle.reset();
+		auto &fs = FileSystem::GetFileSystem(db);
+		fs.RemoveFile(path);
+		return true;
+	}
+
+private:
+	void CreateFileIfNotExists(TemporaryFileLock &) {
+		if (handle) {
+			return;
+		}
+		auto &fs = FileSystem::GetFileSystem(db);
+		handle = fs.OpenFile(path, FileFlags::FILE_FLAGS_READ | FileFlags::FILE_FLAGS_WRITE |
+		                               FileFlags::FILE_FLAGS_FILE_CREATE);
+	}
+
+	void RemoveTempBlockIndex(TemporaryFileLock &, idx_t index) {
+		// remove the block index from the index manager
+		if (index_manager.RemoveIndex(index)) {
+			// the max_index that is currently in use has decreased
+			// as a result we can truncate the file
+			auto max_index = index_manager.GetMaxIndex();
+			auto &fs = FileSystem::GetFileSystem(db);
+			fs.Truncate(*handle, GetPositionInFile(max_index + 1));
+		}
+	}
+
+	idx_t GetPositionInFile(idx_t index) {
+		return index * Storage::BLOCK_ALLOC_SIZE;
+	}
+
+private:
+	DatabaseInstance &db;
+	unique_ptr<FileHandle> handle;
+	idx_t file_index;
+	string path;
+	mutex file_lock;
+	BlockIndexManager index_manager;
+};
+
+class TemporaryFileManager {
+public:
+	TemporaryFileManager(DatabaseInstance &db, const string &temp_directory_p)
+	    : db(db), temp_directory(temp_directory_p) {
+	}
+
+public:
+	struct TemporaryManagerLock {
+		explicit TemporaryManagerLock(mutex &mutex) : lock(mutex) {
+		}
+
+		lock_guard<mutex> lock;
+	};
+
+	void WriteTemporaryBuffer(ManagedBuffer &buffer) {
+		D_ASSERT(buffer.size == Storage::BLOCK_SIZE);
+		TemporaryFileIndex index;
+		TemporaryFileHandle *handle = nullptr;
+
+		{
+			TemporaryManagerLock lock(manager_lock);
+			// first check if we can write to an open existing file
+			for (auto &entry : files) {
+				auto &temp_file = entry.second;
+				index = temp_file->TryGetBlockIndex();
+				if (index.IsValid()) {
+					handle = entry.second.get();
+					break;
+				}
+			}
+			if (!handle) {
+				// no existing handle to write to; we need to create & open a new file
+				auto new_file_index = index_manager.GetNewBlockIndex();
+				auto new_file = make_unique<TemporaryFileHandle>(db, temp_directory, new_file_index);
+				handle = new_file.get();
+				files[new_file_index] = move(new_file);
+
+				index = handle->TryGetBlockIndex();
+			}
+			D_ASSERT(used_blocks.find(buffer.id) == used_blocks.end());
+			used_blocks[buffer.id] = index;
+		}
+		D_ASSERT(handle);
+		D_ASSERT(index.IsValid());
+		handle->WriteTemporaryFile(buffer, index);
+	}
+
+	bool HasTemporaryBuffer(block_id_t block_id) {
+		lock_guard<mutex> lock(manager_lock);
+		return used_blocks.find(block_id) != used_blocks.end();
+	}
+
+	unique_ptr<FileBuffer> ReadTemporaryBuffer(block_id_t id, unique_ptr<FileBuffer> reusable_buffer) {
+		TemporaryFileIndex index;
+		TemporaryFileHandle *handle;
+		{
+			TemporaryManagerLock lock(manager_lock);
+			index = GetTempBlockIndex(lock, id);
+			handle = GetFileHandle(lock, index.file_index);
+		}
+		auto buffer = handle->ReadTemporaryBuffer(id, index.block_index, move(reusable_buffer));
+		{
+			// remove the block (and potentially erase the temp file)
+			TemporaryManagerLock lock(manager_lock);
+			EraseUsedBlock(lock, id, handle, index.file_index);
+		}
+		return buffer;
+	}
+
+	void DeleteTemporaryBuffer(block_id_t id) {
+		TemporaryManagerLock lock(manager_lock);
+		auto index = GetTempBlockIndex(lock, id);
+		auto handle = GetFileHandle(lock, index.file_index);
+		EraseUsedBlock(lock, id, handle, index.file_index);
+	}
+
+private:
+	void EraseUsedBlock(TemporaryManagerLock &lock, block_id_t id, TemporaryFileHandle *handle, idx_t file_index) {
+		used_blocks.erase(id);
+		if (handle->DeleteIfEmpty()) {
+			EraseFileHandle(lock, file_index);
+		}
+	}
+
+	TemporaryFileHandle *GetFileHandle(TemporaryManagerLock &, idx_t index) {
+		return files[index].get();
+	}
+
+	TemporaryFileIndex GetTempBlockIndex(TemporaryManagerLock &, block_id_t id) {
+		D_ASSERT(used_blocks.find(id) != used_blocks.end());
+		return used_blocks[id];
+	}
+
+	void EraseFileHandle(TemporaryManagerLock &, idx_t file_index) {
+		files.erase(file_index);
+		index_manager.RemoveIndex(file_index);
+	}
+
+private:
+	DatabaseInstance &db;
+	mutex manager_lock;
+	//! The temporary directory
+	string temp_directory;
+	//! The set of active temporary file handles
+	unordered_map<idx_t, unique_ptr<TemporaryFileHandle>> files;
+	//! map of block_id -> temporary file position
+	unordered_map<block_id_t, TemporaryFileIndex> used_blocks;
+	//! Manager of in-use temporary file indexes
+	BlockIndexManager index_manager;
+};
+
+TemporaryDirectoryHandle::TemporaryDirectoryHandle(DatabaseInstance &db, string path_p)
+    : db(db), temp_directory(move(path_p)), temp_file(make_unique<TemporaryFileManager>(db, temp_directory)) {
+	auto &fs = FileSystem::GetFileSystem(db);
+	if (!temp_directory.empty()) {
+		fs.CreateDirectory(temp_directory);
+	}
+}
+TemporaryDirectoryHandle::~TemporaryDirectoryHandle() {
+	// first release any temporary files
+	temp_file.reset();
+	// then delete the temporary file directory
+	auto &fs = FileSystem::GetFileSystem(db);
+	if (!temp_directory.empty()) {
+		fs.RemoveDirectory(temp_directory);
+	}
+}
+
+TemporaryFileManager &TemporaryDirectoryHandle::GetTempFile() {
+	return *temp_file;
+}
+
 string BufferManager::GetTemporaryPath(block_id_t id) {
 	auto &fs = FileSystem::GetFileSystem(db);
 	return fs.JoinPath(temp_directory, to_string(id) + ".block");
@@ -1359,8 +1199,12 @@ void BufferManager::RequireTemporaryDirectory() {
 
 void BufferManager::WriteTemporaryBuffer(ManagedBuffer &buffer) {
 	RequireTemporaryDirectory();
+	if (buffer.size == Storage::BLOCK_SIZE) {
+		temp_directory_handle->GetTempFile().WriteTemporaryBuffer(buffer);
+		return;
+	}
 
-	D_ASSERT(buffer.size >= Storage::BLOCK_SIZE);
+	D_ASSERT(buffer.size > Storage::BLOCK_SIZE);
 	// get the path to write to
 	auto path = GetTemporaryPath(buffer.id);
 	// create the file and write the size followed by the buffer contents
@@ -1370,9 +1214,12 @@ void BufferManager::WriteTemporaryBuffer(ManagedBuffer &buffer) {
 	buffer.Write(*handle, sizeof(idx_t));
 }
 
-unique_ptr<FileBuffer> BufferManager::ReadTemporaryBuffer(block_id_t id) {
+unique_ptr<FileBuffer> BufferManager::ReadTemporaryBuffer(block_id_t id, unique_ptr<FileBuffer> reusable_buffer) {
 	D_ASSERT(!temp_directory.empty());
 	D_ASSERT(temp_directory_handle.get());
+	if (temp_directory_handle->GetTempFile().HasTemporaryBuffer(id)) {
+		return temp_directory_handle->GetTempFile().ReadTemporaryBuffer(id, move(reusable_buffer));
+	}
 	idx_t block_size;
 	// open the temporary file and read the size
 	auto path = GetTemporaryPath(id);
@@ -1381,8 +1228,7 @@ unique_ptr<FileBuffer> BufferManager::ReadTemporaryBuffer(block_id_t id) {
 	handle->Read(&block_size, sizeof(idx_t), 0);
 
 	// now allocate a buffer of this size and read the data into that buffer
-	auto buffer = make_unique<ManagedBuffer>(db, block_size, false, id);
-	buffer->Read(*handle, sizeof(idx_t));
+	auto buffer = ReadTemporaryBufferInternal(db, *handle, sizeof(idx_t), block_size, id, move(reusable_buffer));
 
 	handle.reset();
 	DeleteTemporaryFile(id);
@@ -1390,7 +1236,20 @@ unique_ptr<FileBuffer> BufferManager::ReadTemporaryBuffer(block_id_t id) {
 }
 
 void BufferManager::DeleteTemporaryFile(block_id_t id) {
-	if (temp_directory.empty() || !temp_directory_handle) {
+	if (temp_directory.empty()) {
+		// no temporary directory specified: nothing to delete
+		return;
+	}
+	{
+		lock_guard<mutex> temp_handle_guard(temp_handle_lock);
+		if (!temp_directory_handle) {
+			// temporary directory was not initialized yet: nothing to delete
+			return;
+		}
+	}
+	// check if we should delete the file from the shared pool of files, or from the general file system
+	if (temp_directory_handle->GetTempFile().HasTemporaryBuffer(id)) {
+		temp_directory_handle->GetTempFile().DeleteTemporaryBuffer(id);
 		return;
 	}
 	auto &fs = FileSystem::GetFileSystem(db);
@@ -1408,6 +1267,40 @@ string BufferManager::InMemoryWarning() {
 	       "\nUnused blocks cannot be offloaded to disk."
 	       "\n\nLaunch the database with a persistent storage back-end"
 	       "\nOr set PRAGMA temp_directory='/path/to/tmp.tmp'";
+}
+
+//===--------------------------------------------------------------------===//
+// Buffer Allocator
+//===--------------------------------------------------------------------===//
+data_ptr_t BufferManager::BufferAllocatorAllocate(PrivateAllocatorData *private_data, idx_t size) {
+	auto &data = (BufferAllocatorData &)*private_data;
+	if (!data.manager.EvictBlocks(size, data.manager.maximum_memory)) {
+		throw OutOfMemoryException("failed to allocate data of size %lld%s", size, data.manager.InMemoryWarning());
+	}
+	return Allocator::Get(data.manager.db).AllocateData(size);
+}
+
+void BufferManager::BufferAllocatorFree(PrivateAllocatorData *private_data, data_ptr_t pointer, idx_t size) {
+	auto &data = (BufferAllocatorData &)*private_data;
+	data.manager.current_memory -= size;
+	return Allocator::Get(data.manager.db).FreeData(pointer, size);
+}
+
+data_ptr_t BufferManager::BufferAllocatorRealloc(PrivateAllocatorData *private_data, data_ptr_t pointer, idx_t old_size,
+                                                 idx_t size) {
+	auto &data = (BufferAllocatorData &)*private_data;
+	data.manager.current_memory -= old_size;
+	data.manager.current_memory += size;
+	return Allocator::Get(data.manager.db).ReallocateData(pointer, old_size, size);
+}
+
+Allocator &BufferAllocator::Get(ClientContext &context) {
+	auto &manager = BufferManager::GetBufferManager(context);
+	return manager.GetBufferAllocator();
+}
+
+Allocator &BufferManager::GetBufferAllocator() {
+	return buffer_allocator;
 }
 
 } // namespace duckdb
@@ -1499,14 +1392,14 @@ WriteOverflowStringsToDisk::WriteOverflowStringsToDisk(DatabaseInstance &db)
 WriteOverflowStringsToDisk::~WriteOverflowStringsToDisk() {
 	auto &block_manager = BlockManager::GetBlockManager(db);
 	if (offset > 0) {
-		block_manager.Write(*handle->node, block_id);
+		block_manager.Write(handle.GetFileBuffer(), block_id);
 	}
 }
 
 void WriteOverflowStringsToDisk::WriteString(string_t string, block_id_t &result_block, int32_t &result_offset) {
 	auto &buffer_manager = BufferManager::GetBufferManager(db);
 	auto &block_manager = BlockManager::GetBlockManager(db);
-	if (!handle) {
+	if (!handle.IsValid()) {
 		handle = buffer_manager.Allocate(Storage::BLOCK_SIZE);
 	}
 	// first write the length of the string
@@ -1526,8 +1419,9 @@ void WriteOverflowStringsToDisk::WriteString(string_t string, block_id_t &result
 	string_t compressed_string((const char *)compressed_buf.get(), compressed_size);
 
 	// store sizes
-	Store<uint32_t>(compressed_size, handle->node->buffer + offset);
-	Store<uint32_t>(uncompressed_size, handle->node->buffer + offset + sizeof(uint32_t));
+	auto data_ptr = handle.Ptr();
+	Store<uint32_t>(compressed_size, data_ptr + offset);
+	Store<uint32_t>(uncompressed_size, data_ptr + offset + sizeof(uint32_t));
 
 	// now write the remainder of the string
 	offset += 2 * sizeof(uint32_t);
@@ -1536,7 +1430,7 @@ void WriteOverflowStringsToDisk::WriteString(string_t string, block_id_t &result
 	while (remaining > 0) {
 		uint32_t to_write = MinValue<uint32_t>(remaining, STRING_SPACE - offset);
 		if (to_write > 0) {
-			memcpy(handle->node->buffer + offset, strptr, to_write);
+			memcpy(data_ptr + offset, strptr, to_write);
 
 			remaining -= to_write;
 			offset += to_write;
@@ -1546,7 +1440,7 @@ void WriteOverflowStringsToDisk::WriteString(string_t string, block_id_t &result
 			// there is still remaining stuff to write
 			// first get the new block id and write it to the end of the previous block
 			auto new_block_id = block_manager.GetFreeBlockId();
-			Store<block_id_t>(new_block_id, handle->node->buffer + offset);
+			Store<block_id_t>(new_block_id, data_ptr + offset);
 			// now write the current block to disk and allocate a new block
 			AllocateNewBlock(new_block_id);
 		}
@@ -1557,7 +1451,7 @@ void WriteOverflowStringsToDisk::AllocateNewBlock(block_id_t new_block_id) {
 	auto &block_manager = BlockManager::GetBlockManager(db);
 	if (block_id != INVALID_BLOCK) {
 		// there is an old block, write it first
-		block_manager.Write(*handle->node, block_id);
+		block_manager.Write(handle.GetFileBuffer(), block_id);
 	}
 	offset = 0;
 	block_id = new_block_id;
@@ -2121,7 +2015,7 @@ public:
 	ColumnDataCheckpointer &checkpointer;
 	CompressionFunction *function;
 	unique_ptr<ColumnSegment> current_segment;
-	unique_ptr<BufferHandle> handle;
+	BufferHandle handle;
 
 	// Ptr to next free spot in segment;
 	data_ptr_t data_ptr;
@@ -2168,9 +2062,8 @@ public:
 		auto &buffer_manager = BufferManager::GetBufferManager(db);
 		handle = buffer_manager.Pin(current_segment->block);
 
-		data_ptr = handle->Ptr() + current_segment->GetBlockOffset() + BitpackingPrimitives::BITPACKING_HEADER_SIZE;
-		width_ptr =
-		    handle->Ptr() + current_segment->GetBlockOffset() + Storage::BLOCK_SIZE - sizeof(bitpacking_width_t);
+		data_ptr = handle.Ptr() + current_segment->GetBlockOffset() + BitpackingPrimitives::BITPACKING_HEADER_SIZE;
+		width_ptr = handle.Ptr() + current_segment->GetBlockOffset() + Storage::BLOCK_SIZE - sizeof(bitpacking_width_t);
 	}
 
 	void Append(VectorData &vdata, idx_t count) {
@@ -2196,16 +2089,17 @@ public:
 
 	void FlushSegment() {
 		auto &state = checkpointer.GetCheckpointState();
+		auto dataptr = handle.Ptr();
 
 		// Compact the segment by moving the widths next to the data.
-		idx_t minimal_widths_offset = AlignValue(data_ptr - handle->node->buffer);
-		idx_t widths_size = handle->node->buffer + Storage::BLOCK_SIZE - width_ptr - 1;
+		idx_t minimal_widths_offset = AlignValue(data_ptr - dataptr);
+		idx_t widths_size = dataptr + Storage::BLOCK_SIZE - width_ptr - 1;
 		idx_t total_segment_size = minimal_widths_offset + widths_size;
-		memmove(handle->node->buffer + minimal_widths_offset, width_ptr + 1, widths_size);
+		memmove(dataptr + minimal_widths_offset, width_ptr + 1, widths_size);
 
 		// Store the offset of the first width (which is at the highest address).
-		Store<idx_t>(minimal_widths_offset + widths_size - 1, handle->node->buffer);
-		handle.reset();
+		Store<idx_t>(minimal_widths_offset + widths_size - 1, dataptr);
+		handle.Destroy();
 
 		state.FlushSegment(move(current_segment), total_segment_size);
 	}
@@ -2246,19 +2140,18 @@ public:
 	explicit BitpackingScanState(ColumnSegment &segment) {
 		auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
 		handle = buffer_manager.Pin(segment.block);
-
-		current_width_group_ptr =
-		    handle->node->buffer + segment.GetBlockOffset() + BitpackingPrimitives::BITPACKING_HEADER_SIZE;
+		auto dataptr = handle.Ptr();
+		current_width_group_ptr = dataptr + segment.GetBlockOffset() + BitpackingPrimitives::BITPACKING_HEADER_SIZE;
 
 		// load offset to bitpacking widths pointer
-		auto bitpacking_widths_offset = Load<idx_t>(handle->node->buffer + segment.GetBlockOffset());
-		bitpacking_width_ptr = handle->node->buffer + segment.GetBlockOffset() + bitpacking_widths_offset;
+		auto bitpacking_widths_offset = Load<idx_t>(dataptr + segment.GetBlockOffset());
+		bitpacking_width_ptr = dataptr + segment.GetBlockOffset() + bitpacking_widths_offset;
 
 		// load the bitwidth of the first vector
 		LoadCurrentBitWidth();
 	}
 
-	unique_ptr<BufferHandle> handle;
+	BufferHandle handle;
 
 	void (*decompress_function)(data_ptr_t, data_ptr_t, bitpacking_width_t, bool skip_sign_extension);
 	T decompression_buffer[BitpackingPrimitives::BITPACKING_ALGORITHM_GROUP_SIZE];
@@ -2270,8 +2163,7 @@ public:
 
 public:
 	void LoadCurrentBitWidth() {
-		D_ASSERT(bitpacking_width_ptr > handle->node->buffer &&
-		         bitpacking_width_ptr < handle->node->buffer + Storage::BLOCK_SIZE);
+		D_ASSERT(bitpacking_width_ptr > handle.Ptr() && bitpacking_width_ptr < handle.Ptr() + Storage::BLOCK_SIZE);
 		current_width = Load<bitpacking_width_t>(bitpacking_width_ptr);
 		LoadDecompressFunction();
 	}
@@ -2481,13 +2373,25 @@ bool BitpackingFun::TypeIsSupported(PhysicalType type) {
 
 
 
+
 namespace duckdb {
 
 struct StringHash {
-	std::size_t operator()(const string &k) const {
-		return Hash(k.c_str(), k.size());
+	std::size_t operator()(const string_t &k) const {
+		return Hash(k);
 	}
 };
+
+struct StringEquality {
+	bool operator()(const string_t &a, const string_t &b) const {
+		return Equals::Operation(a, b);
+	}
+};
+
+template <typename T>
+using string_map_t = unordered_map<string_t, T, StringHash, StringEquality>;
+
+using string_set_t = unordered_set<string_t, StringHash, StringEquality>;
 
 // Abstract class for keeping compression state either for compression or size analysis
 class DictionaryCompressionState : public CompressionState {
@@ -2610,6 +2514,28 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 		CreateEmptySegment(checkpointer.GetRowGroup().start);
 	}
 
+	ColumnDataCheckpointer &checkpointer;
+	CompressionFunction *function;
+
+	// State regarding current segment
+	unique_ptr<ColumnSegment> current_segment;
+	BufferHandle current_handle;
+	StringDictionaryContainer current_dictionary;
+	data_ptr_t current_end_ptr;
+
+	// Buffers and map for current segment
+	StringHeap heap;
+	string_map_t<uint32_t> current_string_map;
+	std::vector<uint32_t> index_buffer;
+	std::vector<uint32_t> selection_buffer;
+
+	bitpacking_width_t current_width = 0;
+	bitpacking_width_t next_width = 0;
+
+	// Result of latest LookupString call
+	uint32_t latest_lookup_result;
+
+public:
 	void CreateEmptySegment(idx_t row_start) {
 		auto &db = checkpointer.GetDatabase();
 		auto &type = checkpointer.GetType();
@@ -2630,29 +2556,9 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 		// Reset the pointers into the current segment
 		auto &buffer_manager = BufferManager::GetBufferManager(current_segment->db);
 		current_handle = buffer_manager.Pin(current_segment->block);
-		current_dictionary = DictionaryCompressionStorage::GetDictionary(*current_segment, *current_handle);
-		current_end_ptr = current_handle->node->buffer + current_dictionary.end;
+		current_dictionary = DictionaryCompressionStorage::GetDictionary(*current_segment, current_handle);
+		current_end_ptr = current_handle.Ptr() + current_dictionary.end;
 	}
-
-	ColumnDataCheckpointer &checkpointer;
-	CompressionFunction *function;
-
-	// State regarding current segment
-	unique_ptr<ColumnSegment> current_segment;
-	unique_ptr<BufferHandle> current_handle;
-	StringDictionaryContainer current_dictionary;
-	data_ptr_t current_end_ptr;
-
-	// Buffers and map for current segment
-	std::unordered_map<string, uint32_t, StringHash> current_string_map;
-	std::vector<uint32_t> index_buffer;
-	std::vector<uint32_t> selection_buffer;
-
-	bitpacking_width_t current_width = 0;
-	bitpacking_width_t next_width = 0;
-
-	// Result of latest LookupString call
-	uint32_t latest_lookup_result;
 
 	void Verify() override {
 		current_dictionary.Verify();
@@ -2664,7 +2570,7 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 	}
 
 	bool LookupString(string_t str) override {
-		auto search = current_string_map.find(str.GetString());
+		auto search = current_string_map.find(str);
 		auto has_result = search != current_string_map.end();
 
 		if (has_result) {
@@ -2686,8 +2592,12 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 		// Update buffers and map
 		index_buffer.push_back(current_dictionary.size);
 		selection_buffer.push_back(index_buffer.size() - 1);
-		current_string_map.insert({str.GetString(), index_buffer.size() - 1});
-		DictionaryCompressionStorage::SetDictionary(*current_segment, *current_handle, current_dictionary);
+		if (str.IsInlined()) {
+			current_string_map.insert({str, index_buffer.size() - 1});
+		} else {
+			current_string_map.insert({heap.AddBlob(str), index_buffer.size() - 1});
+		}
+		DictionaryCompressionStorage::SetDictionary(*current_segment, current_handle, current_dictionary);
 
 		current_width = next_width;
 		current_segment->count++;
@@ -2740,7 +2650,7 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 		                  index_buffer_size + current_dictionary.size;
 
 		// calculate ptr and offsets
-		auto base_ptr = handle->node->buffer;
+		auto base_ptr = handle.Ptr();
 		auto header_ptr = (dictionary_compression_header_t *)base_ptr;
 		auto compressed_selection_buffer_offset = DictionaryCompressionStorage::DICTIONARY_HEADER_SIZE;
 		auto index_buffer_offset = compressed_selection_buffer_offset + compressed_selection_buffer_size;
@@ -2777,7 +2687,7 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 		current_dictionary.end -= move_amount;
 		D_ASSERT(current_dictionary.end == total_size);
 		// write the new dictionary (with the updated "end")
-		DictionaryCompressionStorage::SetDictionary(*current_segment, *handle, current_dictionary);
+		DictionaryCompressionStorage::SetDictionary(*current_segment, handle, current_dictionary);
 		return total_size;
 	}
 };
@@ -2785,8 +2695,8 @@ struct DictionaryCompressionCompressState : public DictionaryCompressionState {
 //===--------------------------------------------------------------------===//
 // Analyze
 //===--------------------------------------------------------------------===//
-struct DictionaryCompressionAnalyzeState : public AnalyzeState, DictionaryCompressionState {
-	DictionaryCompressionAnalyzeState()
+struct DictionaryAnalyzeState : public DictionaryCompressionState {
+	DictionaryAnalyzeState()
 	    : segment_count(0), current_tuple_count(0), current_unique_count(0), current_dict_size(0), current_width(0),
 	      next_width(0) {
 	}
@@ -2795,19 +2705,24 @@ struct DictionaryCompressionAnalyzeState : public AnalyzeState, DictionaryCompre
 	idx_t current_tuple_count;
 	idx_t current_unique_count;
 	size_t current_dict_size;
-	std::unordered_set<string, StringHash> current_set;
+	StringHeap heap;
+	string_set_t current_set;
 	bitpacking_width_t current_width;
 	bitpacking_width_t next_width;
 
 	bool LookupString(string_t str) override {
-		return current_set.count(str.GetString());
+		return current_set.count(str);
 	}
 
 	void AddNewString(string_t str) override {
 		current_tuple_count++;
 		current_unique_count++;
 		current_dict_size += str.GetSize();
-		current_set.insert(str.GetString());
+		if (str.IsInlined()) {
+			current_set.insert(str);
+		} else {
+			current_set.insert(heap.AddBlob(str));
+		}
 		current_width = next_width;
 	}
 
@@ -2841,17 +2756,25 @@ struct DictionaryCompressionAnalyzeState : public AnalyzeState, DictionaryCompre
 	void Verify() override {};
 };
 
+struct DictionaryCompressionAnalyzeState : public AnalyzeState {
+	DictionaryCompressionAnalyzeState() : analyze_state(make_unique<DictionaryAnalyzeState>()) {
+	}
+
+	unique_ptr<DictionaryAnalyzeState> analyze_state;
+};
+
 unique_ptr<AnalyzeState> DictionaryCompressionStorage::StringInitAnalyze(ColumnData &col_data, PhysicalType type) {
 	return make_unique<DictionaryCompressionAnalyzeState>();
 }
 
 bool DictionaryCompressionStorage::StringAnalyze(AnalyzeState &state_p, Vector &input, idx_t count) {
 	auto &state = (DictionaryCompressionAnalyzeState &)state_p;
-	return state.UpdateState(input, count);
+	return state.analyze_state->UpdateState(input, count);
 }
 
 idx_t DictionaryCompressionStorage::StringFinalAnalyze(AnalyzeState &state_p) {
-	auto &state = (DictionaryCompressionAnalyzeState &)state_p;
+	auto &analyze_state = (DictionaryCompressionAnalyzeState &)state_p;
+	auto &state = *analyze_state.analyze_state;
 
 	auto width = BitpackingPrimitives::MinimumBitWidth(state.current_unique_count + 1);
 	auto req_space =
@@ -2882,7 +2805,7 @@ void DictionaryCompressionStorage::FinalizeCompress(CompressionState &state_p) {
 // Scan
 //===--------------------------------------------------------------------===//
 struct CompressedStringScanState : public StringScanState {
-	unique_ptr<BufferHandle> handle;
+	BufferHandle handle;
 	buffer_ptr<Vector> dictionary;
 	bitpacking_width_t current_width;
 	buffer_ptr<SelectionVector> sel_vec;
@@ -2894,10 +2817,10 @@ unique_ptr<SegmentScanState> DictionaryCompressionStorage::StringInitScan(Column
 	auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
 	state->handle = buffer_manager.Pin(segment.block);
 
-	auto baseptr = state->handle->node->buffer + segment.GetBlockOffset();
+	auto baseptr = state->handle.Ptr() + segment.GetBlockOffset();
 
 	// Load header values
-	auto dict = DictionaryCompressionStorage::GetDictionary(segment, *(state->handle));
+	auto dict = DictionaryCompressionStorage::GetDictionary(segment, state->handle);
 	auto header_ptr = (dictionary_compression_header_t *)baseptr;
 	auto index_buffer_offset = Load<uint32_t>((data_ptr_t)&header_ptr->index_buffer_offset);
 	auto index_buffer_count = Load<uint32_t>((data_ptr_t)&header_ptr->index_buffer_count);
@@ -2927,8 +2850,8 @@ void DictionaryCompressionStorage::StringScanPartial(ColumnSegment &segment, Col
 	auto &scan_state = (CompressedStringScanState &)*state.scan_state;
 	auto start = segment.GetRelativeIndex(state.row_index);
 
-	auto baseptr = scan_state.handle->node->buffer + segment.GetBlockOffset();
-	auto dict = DictionaryCompressionStorage::GetDictionary(segment, *scan_state.handle);
+	auto baseptr = scan_state.handle.Ptr() + segment.GetBlockOffset();
+	auto dict = DictionaryCompressionStorage::GetDictionary(segment, scan_state.handle);
 
 	auto header_ptr = (dictionary_compression_header_t *)baseptr;
 	auto index_buffer_offset = Load<uint32_t>((data_ptr_t)&header_ptr->index_buffer_offset);
@@ -3002,24 +2925,11 @@ void DictionaryCompressionStorage::StringFetchRow(ColumnSegment &segment, Column
                                                   Vector &result, idx_t result_idx) {
 	// fetch a single row from the string segment
 	// first pin the main buffer if it is not already pinned
-	auto primary_id = segment.block->BlockId();
+	auto &handle = state.GetOrInsertHandle(segment);
 
-	BufferHandle *handle_ptr;
-	auto entry = state.handles.find(primary_id);
-	if (entry == state.handles.end()) {
-		// not pinned yet: pin it
-		auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
-		auto handle = buffer_manager.Pin(segment.block);
-		handle_ptr = handle.get();
-		state.handles[primary_id] = move(handle);
-	} else {
-		// already pinned: use the pinned handle
-		handle_ptr = entry->second.get();
-	}
-
-	auto baseptr = handle_ptr->node->buffer + segment.GetBlockOffset();
+	auto baseptr = handle.Ptr() + segment.GetBlockOffset();
 	auto header_ptr = (dictionary_compression_header_t *)baseptr;
-	auto dict = DictionaryCompressionStorage::GetDictionary(segment, *handle_ptr);
+	auto dict = DictionaryCompressionStorage::GetDictionary(segment, handle);
 	auto index_buffer_offset = Load<uint32_t>((data_ptr_t)&header_ptr->index_buffer_offset);
 	auto width = (bitpacking_width_t)(Load<uint32_t>((data_ptr_t)&header_ptr->bitpacking_width));
 	auto index_buffer_ptr = (uint32_t *)(baseptr + index_buffer_offset);
@@ -3062,7 +2972,7 @@ idx_t DictionaryCompressionStorage::RequiredSpace(idx_t current_count, idx_t ind
 }
 
 StringDictionaryContainer DictionaryCompressionStorage::GetDictionary(ColumnSegment &segment, BufferHandle &handle) {
-	auto header_ptr = (dictionary_compression_header_t *)(handle.node->buffer + segment.GetBlockOffset());
+	auto header_ptr = (dictionary_compression_header_t *)(handle.Ptr() + segment.GetBlockOffset());
 	StringDictionaryContainer container;
 	container.size = Load<uint32_t>((data_ptr_t)&header_ptr->dict_size);
 	container.end = Load<uint32_t>((data_ptr_t)&header_ptr->dict_end);
@@ -3071,7 +2981,7 @@ StringDictionaryContainer DictionaryCompressionStorage::GetDictionary(ColumnSegm
 
 void DictionaryCompressionStorage::SetDictionary(ColumnSegment &segment, BufferHandle &handle,
                                                  StringDictionaryContainer container) {
-	auto header_ptr = (dictionary_compression_header_t *)(handle.node->buffer + segment.GetBlockOffset());
+	auto header_ptr = (dictionary_compression_header_t *)(handle.Ptr() + segment.GetBlockOffset());
 	Store<uint32_t>(container.size, (data_ptr_t)&header_ptr->dict_size);
 	Store<uint32_t>(container.end, (data_ptr_t)&header_ptr->dict_end);
 }
@@ -3224,7 +3134,7 @@ void UncompressedFunctions::FinalizeCompress(CompressionState &state_p) {
 // Scan
 //===--------------------------------------------------------------------===//
 struct FixedSizeScanState : public SegmentScanState {
-	unique_ptr<BufferHandle> handle;
+	BufferHandle handle;
 };
 
 unique_ptr<SegmentScanState> FixedSizeInitScan(ColumnSegment &segment) {
@@ -3243,7 +3153,7 @@ void FixedSizeScanPartial(ColumnSegment &segment, ColumnScanState &state, idx_t 
 	auto &scan_state = (FixedSizeScanState &)*state.scan_state;
 	auto start = segment.GetRelativeIndex(state.row_index);
 
-	auto data = scan_state.handle->node->buffer + segment.GetBlockOffset();
+	auto data = scan_state.handle.Ptr() + segment.GetBlockOffset();
 	auto source_data = data + start * sizeof(T);
 
 	// copy the data from the base table
@@ -3256,7 +3166,7 @@ void FixedSizeScan(ColumnSegment &segment, ColumnScanState &state, idx_t scan_co
 	auto &scan_state = (FixedSizeScanState &)*state.scan_state;
 	auto start = segment.GetRelativeIndex(state.row_index);
 
-	auto data = scan_state.handle->node->buffer + segment.GetBlockOffset();
+	auto data = scan_state.handle.Ptr() + segment.GetBlockOffset();
 	auto source_data = data + start * sizeof(T);
 
 	result.SetVectorType(VectorType::FLAT_VECTOR);
@@ -3279,7 +3189,7 @@ void FixedSizeFetchRow(ColumnSegment &segment, ColumnFetchState &state, row_t ro
 	auto handle = buffer_manager.Pin(segment.block);
 
 	// first fetch the data from the base table
-	auto data_ptr = handle->node->buffer + segment.GetBlockOffset() + row_id * sizeof(T);
+	auto data_ptr = handle.Ptr() + segment.GetBlockOffset() + row_id * sizeof(T);
 
 	memcpy(FlatVector::GetData(result) + result_idx * sizeof(T), data_ptr, sizeof(T));
 }
@@ -3334,7 +3244,7 @@ idx_t FixedSizeAppend(ColumnSegment &segment, SegmentStatistics &stats, VectorDa
 	auto handle = buffer_manager.Pin(segment.block);
 	D_ASSERT(segment.GetBlockOffset() == 0);
 
-	auto target_ptr = handle->node->buffer;
+	auto target_ptr = handle.Ptr();
 	idx_t max_tuple_count = Storage::BLOCK_SIZE / sizeof(T);
 	idx_t copy_count = MinValue<idx_t>(count, max_tuple_count - segment.count);
 
@@ -3721,7 +3631,7 @@ struct RLECompressState : public CompressionState {
 
 	void WriteValue(T value, rle_count_t count, bool is_null) {
 		// write the RLE entry
-		auto handle_ptr = handle->Ptr() + RLEConstants::RLE_HEADER_SIZE;
+		auto handle_ptr = handle.Ptr() + RLEConstants::RLE_HEADER_SIZE;
 		auto data_pointer = (T *)handle_ptr;
 		auto index_pointer = (rle_count_t *)(handle_ptr + max_rle_count * sizeof(T));
 		data_pointer[entry_count] = value;
@@ -3750,10 +3660,11 @@ struct RLECompressState : public CompressionState {
 		idx_t original_rle_offset = RLEConstants::RLE_HEADER_SIZE + max_rle_count * sizeof(T);
 		idx_t minimal_rle_offset = AlignValue(RLEConstants::RLE_HEADER_SIZE + sizeof(T) * entry_count);
 		idx_t total_segment_size = minimal_rle_offset + counts_size;
-		memmove(handle->node->buffer + minimal_rle_offset, handle->node->buffer + original_rle_offset, counts_size);
+		auto data_ptr = handle.Ptr();
+		memmove(data_ptr + minimal_rle_offset, data_ptr + original_rle_offset, counts_size);
 		// store the final RLE offset within the segment
-		Store<uint64_t>(minimal_rle_offset, handle->node->buffer);
-		handle.reset();
+		Store<uint64_t>(minimal_rle_offset, data_ptr);
+		handle.Destroy();
 
 		auto &state = checkpointer.GetCheckpointState();
 		state.FlushSegment(move(current_segment), total_segment_size);
@@ -3769,7 +3680,7 @@ struct RLECompressState : public CompressionState {
 	ColumnDataCheckpointer &checkpointer;
 	CompressionFunction *function;
 	unique_ptr<ColumnSegment> current_segment;
-	unique_ptr<BufferHandle> handle;
+	BufferHandle handle;
 
 	RLEState<T> state;
 	idx_t entry_count = 0;
@@ -3806,12 +3717,12 @@ struct RLEScanState : public SegmentScanState {
 		handle = buffer_manager.Pin(segment.block);
 		entry_pos = 0;
 		position_in_entry = 0;
-		rle_count_offset = Load<uint64_t>(handle->node->buffer + segment.GetBlockOffset());
+		rle_count_offset = Load<uint64_t>(handle.Ptr() + segment.GetBlockOffset());
 		D_ASSERT(rle_count_offset <= Storage::BLOCK_SIZE);
 	}
 
 	void Skip(ColumnSegment &segment, idx_t skip_count) {
-		auto data = handle->node->buffer + segment.GetBlockOffset();
+		auto data = handle.Ptr() + segment.GetBlockOffset();
 		auto index_pointer = (rle_count_t *)(data + rle_count_offset);
 
 		for (idx_t i = 0; i < skip_count; i++) {
@@ -3826,7 +3737,7 @@ struct RLEScanState : public SegmentScanState {
 		}
 	}
 
-	unique_ptr<BufferHandle> handle;
+	BufferHandle handle;
 	uint32_t rle_offset;
 	idx_t entry_pos;
 	idx_t position_in_entry;
@@ -3853,7 +3764,7 @@ void RLEScanPartial(ColumnSegment &segment, ColumnScanState &state, idx_t scan_c
                     idx_t result_offset) {
 	auto &scan_state = (RLEScanState<T> &)*state.scan_state;
 
-	auto data = scan_state.handle->node->buffer + segment.GetBlockOffset();
+	auto data = scan_state.handle.Ptr() + segment.GetBlockOffset();
 	auto data_pointer = (T *)(data + RLEConstants::RLE_HEADER_SIZE);
 	auto index_pointer = (rle_count_t *)(data + scan_state.rle_count_offset);
 
@@ -3886,7 +3797,7 @@ void RLEFetchRow(ColumnSegment &segment, ColumnFetchState &state, row_t row_id, 
 	RLEScanState<T> scan_state(segment);
 	scan_state.Skip(segment, row_id);
 
-	auto data = scan_state.handle->node->buffer + segment.GetBlockOffset();
+	auto data = scan_state.handle.Ptr() + segment.GetBlockOffset();
 	auto data_pointer = (T *)(data + RLEConstants::RLE_HEADER_SIZE);
 	auto result_data = FlatVector::GetData<T>(result);
 	result_data[result_idx] = data_pointer[scan_state.entry_pos];
@@ -3953,6 +3864,7 @@ bool RLEFun::TypeIsSupported(PhysicalType type) {
 }
 
 } // namespace duckdb
+
 
 
 
@@ -4029,8 +3941,8 @@ void UncompressedStringStorage::StringScanPartial(ColumnSegment &segment, Column
 	auto &scan_state = (StringScanState &)*state.scan_state;
 	auto start = segment.GetRelativeIndex(state.row_index);
 
-	auto baseptr = scan_state.handle->node->buffer + segment.GetBlockOffset();
-	auto dict = GetDictionary(segment, *scan_state.handle);
+	auto baseptr = scan_state.handle.Ptr() + segment.GetBlockOffset();
+	auto dict = GetDictionary(segment, scan_state.handle);
 	auto base_data = (int32_t *)(baseptr + DICTIONARY_HEADER_SIZE);
 	auto result_data = FlatVector::GetData<string_t>(result);
 
@@ -4053,26 +3965,30 @@ void UncompressedStringStorage::StringScan(ColumnSegment &segment, ColumnScanSta
 //===--------------------------------------------------------------------===//
 // Fetch
 //===--------------------------------------------------------------------===//
+BufferHandle &ColumnFetchState::GetOrInsertHandle(ColumnSegment &segment) {
+	auto primary_id = segment.block->BlockId();
+
+	auto entry = handles.find(primary_id);
+	if (entry == handles.end()) {
+		// not pinned yet: pin it
+		auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
+		auto handle = buffer_manager.Pin(segment.block);
+		auto entry = handles.insert(make_pair(primary_id, move(handle)));
+		return entry.first->second;
+	} else {
+		// already pinned: use the pinned handle
+		return entry->second;
+	}
+}
+
 void UncompressedStringStorage::StringFetchRow(ColumnSegment &segment, ColumnFetchState &state, row_t row_id,
                                                Vector &result, idx_t result_idx) {
 	// fetch a single row from the string segment
 	// first pin the main buffer if it is not already pinned
-	auto primary_id = segment.block->BlockId();
+	auto &handle = state.GetOrInsertHandle(segment);
 
-	BufferHandle *handle_ptr;
-	auto entry = state.handles.find(primary_id);
-	if (entry == state.handles.end()) {
-		// not pinned yet: pin it
-		auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
-		auto handle = buffer_manager.Pin(segment.block);
-		handle_ptr = handle.get();
-		state.handles[primary_id] = move(handle);
-	} else {
-		// already pinned: use the pinned handle
-		handle_ptr = entry->second.get();
-	}
-	auto baseptr = handle_ptr->node->buffer + segment.GetBlockOffset();
-	auto dict = GetDictionary(segment, *handle_ptr);
+	auto baseptr = handle.Ptr() + segment.GetBlockOffset();
+	auto dict = GetDictionary(segment, handle);
 	auto base_data = (int32_t *)(baseptr + DICTIONARY_HEADER_SIZE);
 	auto result_data = FlatVector::GetData<string_t>(result);
 
@@ -4098,7 +4014,7 @@ unique_ptr<CompressedSegmentState> UncompressedStringStorage::StringInitSegment(
 		StringDictionaryContainer dictionary;
 		dictionary.size = 0;
 		dictionary.end = Storage::BLOCK_SIZE;
-		SetDictionary(segment, *handle, dictionary);
+		SetDictionary(segment, handle, dictionary);
 	}
 	return make_unique<UncompressedStringSegmentState>();
 }
@@ -4106,7 +4022,7 @@ unique_ptr<CompressedSegmentState> UncompressedStringStorage::StringInitSegment(
 idx_t UncompressedStringStorage::FinalizeAppend(ColumnSegment &segment, SegmentStatistics &stats) {
 	auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
 	auto handle = buffer_manager.Pin(segment.block);
-	auto dict = GetDictionary(segment, *handle);
+	auto dict = GetDictionary(segment, handle);
 	D_ASSERT(dict.end == Storage::BLOCK_SIZE);
 	// compute the total size required to store this segment
 	auto offset_size = DICTIONARY_HEADER_SIZE + segment.count * sizeof(int32_t);
@@ -4118,11 +4034,12 @@ idx_t UncompressedStringStorage::FinalizeAppend(ColumnSegment &segment, SegmentS
 	// the block has space left: figure out how much space we can save
 	auto move_amount = Storage::BLOCK_SIZE - total_size;
 	// move the dictionary so it lines up exactly with the offsets
-	memmove(handle->node->buffer + offset_size, handle->node->buffer + dict.end - dict.size, dict.size);
+	auto dataptr = handle.Ptr();
+	memmove(dataptr + offset_size, dataptr + dict.end - dict.size, dict.size);
 	dict.end -= move_amount;
 	D_ASSERT(dict.end == total_size);
 	// write the new dictionary (with the updated "end")
-	SetDictionary(segment, *handle, dict);
+	SetDictionary(segment, handle, dict);
 	return total_size;
 }
 
@@ -4146,13 +4063,13 @@ CompressionFunction StringUncompressed::GetFunction(PhysicalType data_type) {
 //===--------------------------------------------------------------------===//
 void UncompressedStringStorage::SetDictionary(ColumnSegment &segment, BufferHandle &handle,
                                               StringDictionaryContainer container) {
-	auto startptr = handle.node->buffer + segment.GetBlockOffset();
+	auto startptr = handle.Ptr() + segment.GetBlockOffset();
 	Store<uint32_t>(container.size, startptr);
 	Store<uint32_t>(container.end, startptr + sizeof(uint32_t));
 }
 
 StringDictionaryContainer UncompressedStringStorage::GetDictionary(ColumnSegment &segment, BufferHandle &handle) {
-	auto startptr = handle.node->buffer + segment.GetBlockOffset();
+	auto startptr = handle.Ptr() + segment.GetBlockOffset();
 	StringDictionaryContainer container;
 	container.size = Load<uint32_t>(startptr);
 	container.end = Load<uint32_t>(startptr + sizeof(uint32_t));
@@ -4183,7 +4100,7 @@ void UncompressedStringStorage::WriteStringMemory(ColumnSegment &segment, string
                                                   int32_t &result_offset) {
 	uint32_t total_length = string.GetSize() + sizeof(uint32_t);
 	shared_ptr<BlockHandle> block;
-	unique_ptr<BufferHandle> handle;
+	BufferHandle handle;
 
 	auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
 	auto &state = (UncompressedStringSegmentState &)*segment.GetSegmentState();
@@ -4211,7 +4128,7 @@ void UncompressedStringStorage::WriteStringMemory(ColumnSegment &segment, string
 	result_offset = state.head->offset;
 
 	// copy the string and the length there
-	auto ptr = handle->node->buffer + state.head->offset;
+	auto ptr = handle.Ptr() + state.head->offset;
 	Store<uint32_t>(string.GetSize(), ptr);
 	ptr += sizeof(uint32_t);
 	memcpy(ptr, string.GetDataUnsafe(), string.GetSize());
@@ -4232,8 +4149,8 @@ string_t UncompressedStringStorage::ReadOverflowString(ColumnSegment &segment, V
 		auto handle = buffer_manager.Pin(block_handle);
 
 		// read header
-		uint32_t compressed_size = Load<uint32_t>(handle->node->buffer + offset);
-		uint32_t uncompressed_size = Load<uint32_t>(handle->node->buffer + offset + sizeof(uint32_t));
+		uint32_t compressed_size = Load<uint32_t>(handle.Ptr() + offset);
+		uint32_t uncompressed_size = Load<uint32_t>(handle.Ptr() + offset + sizeof(uint32_t));
 		uint32_t remaining = compressed_size;
 		offset += 2 * sizeof(uint32_t);
 
@@ -4242,7 +4159,7 @@ string_t UncompressedStringStorage::ReadOverflowString(ColumnSegment &segment, V
 
 		// If string is in single block we decompress straight from it, else we copy first
 		if (remaining <= Storage::BLOCK_SIZE - sizeof(block_id_t) - offset) {
-			decompression_ptr = handle->node->buffer + offset;
+			decompression_ptr = handle.Ptr() + offset;
 		} else {
 			decompression_buffer = std::unique_ptr<data_t[]>(new data_t[compressed_size]);
 			auto target_ptr = decompression_buffer.get();
@@ -4250,14 +4167,14 @@ string_t UncompressedStringStorage::ReadOverflowString(ColumnSegment &segment, V
 			// now append the string to the single buffer
 			while (remaining > 0) {
 				idx_t to_write = MinValue<idx_t>(remaining, Storage::BLOCK_SIZE - sizeof(block_id_t) - offset);
-				memcpy(target_ptr, handle->node->buffer + offset, to_write);
+				memcpy(target_ptr, handle.Ptr() + offset, to_write);
 
 				remaining -= to_write;
 				offset += to_write;
 				target_ptr += to_write;
 				if (remaining > 0) {
 					// read the next block
-					block_id_t next_block = Load<block_id_t>(handle->node->buffer + offset);
+					block_id_t next_block = Load<block_id_t>(handle.Ptr() + offset);
 					block_handle = buffer_manager.RegisterBlock(next_block);
 					handle = buffer_manager.Pin(block_handle);
 					offset = 0;
@@ -4269,12 +4186,12 @@ string_t UncompressedStringStorage::ReadOverflowString(ColumnSegment &segment, V
 		// overflow strings on disk are gzipped, decompress here
 		auto decompressed_target_handle =
 		    buffer_manager.Allocate(MaxValue<idx_t>(Storage::BLOCK_SIZE, uncompressed_size));
-		auto decompressed_target_ptr = decompressed_target_handle->node->buffer;
+		auto decompressed_target_ptr = decompressed_target_handle.Ptr();
 		MiniZStream s;
 		s.Decompress((const char *)decompression_ptr, compressed_size, (char *)decompressed_target_ptr,
 		             uncompressed_size);
 
-		auto final_buffer = decompressed_target_handle->node->buffer;
+		auto final_buffer = decompressed_target_handle.Ptr();
 		StringVector::AddHandle(result, move(decompressed_target_handle));
 		return ReadString(final_buffer, 0, uncompressed_size);
 	} else {
@@ -4283,7 +4200,7 @@ string_t UncompressedStringStorage::ReadOverflowString(ColumnSegment &segment, V
 		auto entry = state.overflow_blocks.find(block);
 		D_ASSERT(entry != state.overflow_blocks.end());
 		auto handle = buffer_manager.Pin(entry->second->block);
-		auto final_buffer = handle->node->buffer;
+		auto final_buffer = handle.Ptr();
 		StringVector::AddHandle(result, move(handle));
 		return ReadStringWithLength(final_buffer, offset);
 	}
@@ -4595,7 +4512,7 @@ idx_t ValidityFinalAnalyze(AnalyzeState &state_p) {
 // Scan
 //===--------------------------------------------------------------------===//
 struct ValidityScanState : public SegmentScanState {
-	unique_ptr<BufferHandle> handle;
+	BufferHandle handle;
 };
 
 unique_ptr<SegmentScanState> ValidityInitScan(ColumnSegment &segment) {
@@ -4616,7 +4533,7 @@ void ValidityScanPartial(ColumnSegment &segment, ColumnScanState &state, idx_t s
 	auto &scan_state = (ValidityScanState &)*state.scan_state;
 
 	auto &result_mask = FlatVector::Validity(result);
-	auto buffer_ptr = scan_state.handle->node->buffer + segment.GetBlockOffset();
+	auto buffer_ptr = scan_state.handle.Ptr() + segment.GetBlockOffset();
 	auto input_data = (validity_t *)buffer_ptr;
 
 #ifdef DEBUG
@@ -4741,7 +4658,7 @@ void ValidityScan(ColumnSegment &segment, ColumnScanState &state, idx_t scan_cou
 		// note: this is only an optimization which avoids having to do messy bitshifting in the common case
 		// it is not required for correctness
 		auto &result_mask = FlatVector::Validity(result);
-		auto buffer_ptr = scan_state.handle->node->buffer + segment.GetBlockOffset();
+		auto buffer_ptr = scan_state.handle.Ptr() + segment.GetBlockOffset();
 		auto input_data = (validity_t *)buffer_ptr;
 		auto result_data = (validity_t *)result_mask.GetData();
 		idx_t start_offset = start / ValidityMask::BITS_PER_VALUE;
@@ -4770,7 +4687,7 @@ void ValidityFetchRow(ColumnSegment &segment, ColumnFetchState &state, row_t row
 	D_ASSERT(row_id >= 0 && row_id < row_t(segment.count));
 	auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
 	auto handle = buffer_manager.Pin(segment.block);
-	auto dataptr = handle->node->buffer + segment.GetBlockOffset();
+	auto dataptr = handle.Ptr() + segment.GetBlockOffset();
 	ValidityMask mask((validity_t *)dataptr);
 	auto &result_mask = FlatVector::Validity(result);
 	if (!mask.RowIsValidUnsafe(row_id)) {
@@ -4785,7 +4702,7 @@ unique_ptr<CompressedSegmentState> ValidityInitSegment(ColumnSegment &segment, b
 	auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
 	if (block_id == INVALID_BLOCK) {
 		auto handle = buffer_manager.Pin(segment.block);
-		memset(handle->node->buffer, 0xFF, Storage::BLOCK_SIZE);
+		memset(handle.Ptr(), 0xFF, Storage::BLOCK_SIZE);
 	}
 	return nullptr;
 }
@@ -4805,7 +4722,7 @@ idx_t ValidityAppend(ColumnSegment &segment, SegmentStatistics &stats, VectorDat
 	auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
 	auto handle = buffer_manager.Pin(segment.block);
 
-	ValidityMask mask((validity_t *)handle->node->buffer);
+	ValidityMask mask((validity_t *)handle.Ptr());
 	for (idx_t i = 0; i < append_count; i++) {
 		auto idx = data.sel->get_index(offset + i);
 		if (!data.validity.RowIsValidUnsafe(idx)) {
@@ -4834,7 +4751,7 @@ void ValidityRevertAppend(ColumnSegment &segment, idx_t start_row) {
 		idx_t byte_pos = start_bit / 8;
 		idx_t bit_start = byte_pos * 8;
 		idx_t bit_end = (byte_pos + 1) * 8;
-		ValidityMask mask((validity_t *)handle->node->buffer + byte_pos);
+		ValidityMask mask((validity_t *)handle.Ptr() + byte_pos);
 		for (idx_t i = start_bit; i < bit_end; i++) {
 			mask.SetValid(i - bit_start);
 		}
@@ -4843,7 +4760,7 @@ void ValidityRevertAppend(ColumnSegment &segment, idx_t start_row) {
 		revert_start = start_bit / 8;
 	}
 	// for the rest, we just memset
-	memset(handle->node->buffer + revert_start, 0xFF, Storage::BLOCK_SIZE - revert_start);
+	memset(handle.Ptr() + revert_start, 0xFF, Storage::BLOCK_SIZE - revert_start);
 }
 
 //===--------------------------------------------------------------------===//
@@ -4949,7 +4866,7 @@ DataTable::DataTable(ClientContext &context, DataTable &parent, ColumnDefinition
 
 	auto &transaction = Transaction::GetTransaction(context);
 
-	ExpressionExecutor executor;
+	ExpressionExecutor executor(Allocator::Get(context));
 	DataChunk dummy_chunk;
 	Vector result(new_column_type);
 	if (!default_value) {
@@ -5074,10 +4991,11 @@ DataTable::DataTable(ClientContext &context, DataTable &parent, idx_t changed_id
 			scan_types.push_back(parent.column_definitions[bound_columns[i]].Type());
 		}
 	}
+	auto &allocator = Allocator::Get(context);
 	DataChunk scan_chunk;
-	scan_chunk.Initialize(scan_types);
+	scan_chunk.Initialize(allocator, scan_types);
 
-	ExpressionExecutor executor;
+	ExpressionExecutor executor(allocator);
 	executor.AddExpression(cast_expr);
 
 	TableScanState scan_state;
@@ -5303,7 +5221,7 @@ static void VerifyGeneratedExpressionSuccess(TableCatalogEntry &table, DataChunk
                                              column_t index) {
 	auto &col = table.columns[index];
 	D_ASSERT(col.Generated());
-	ExpressionExecutor executor(expr);
+	ExpressionExecutor executor(Allocator::DefaultAllocator(), expr);
 	Vector result(col.Type());
 	try {
 		executor.ExecuteExpression(chunk, result);
@@ -5313,7 +5231,7 @@ static void VerifyGeneratedExpressionSuccess(TableCatalogEntry &table, DataChunk
 }
 
 static void VerifyCheckConstraint(TableCatalogEntry &table, Expression &expr, DataChunk &chunk) {
-	ExpressionExecutor executor(expr);
+	ExpressionExecutor executor(Allocator::DefaultAllocator(), expr);
 	Vector result(LogicalType::INTEGER);
 	try {
 		executor.ExecuteExpression(chunk, result);
@@ -5583,7 +5501,7 @@ void DataTable::Append(Transaction &transaction, DataChunk &chunk, TableAppendSt
 			// merge the stats
 			lock_guard<mutex> stats_guard(stats_lock);
 			for (idx_t i = 0; i < column_definitions.size(); i++) {
-				column_stats[i]->stats->Merge(*current_row_group->GetStatistics(i));
+				current_row_group->MergeIntoStatistics(i, *column_stats[i]->stats);
 			}
 		}
 		state.remaining_append_count -= append_count;
@@ -5632,7 +5550,7 @@ void DataTable::ScanTableSegment(idx_t row_start, idx_t count, const std::functi
 		types.push_back(col.Type());
 	}
 	DataChunk chunk;
-	chunk.Initialize(types);
+	chunk.Initialize(Allocator::Get(db), types);
 
 	CreateIndexScanState state;
 
@@ -5665,6 +5583,9 @@ void DataTable::ScanTableSegment(idx_t row_start, idx_t count, const std::functi
 }
 
 void DataTable::WriteToLog(WriteAheadLog &log, idx_t row_start, idx_t count) {
+	if (log.skip_writing) {
+		return;
+	}
 	log.WriteSetTable(info->schema, info->table);
 	ScanTableSegment(row_start, count, [&](DataChunk &chunk) { log.WriteInsert(chunk); });
 }
@@ -5828,7 +5749,7 @@ void DataTable::RemoveFromIndexes(Vector &row_identifiers, idx_t count) {
 		state.column_ids.push_back(i);
 	}
 	DataChunk result;
-	result.Initialize(types);
+	result.Initialize(Allocator::Get(db), types);
 
 	row_group->InitializeScanWithOffset(state.row_group_scan_state, row_group_vector_idx);
 	row_group->ScanCommitted(state.row_group_scan_state, result,
@@ -5889,7 +5810,7 @@ idx_t DataTable::Delete(TableCatalogEntry &table, ClientContext &context, Vector
 			col_ids.push_back(column_definitions[i].StorageOid());
 			types.emplace_back(column_definitions[i].Type());
 		}
-		verify_chunk.Initialize(types);
+		verify_chunk.Initialize(Allocator::Get(context), types);
 		Fetch(transaction, verify_chunk, col_ids, row_identifiers, count, fetch_state);
 	}
 	VerifyDeleteConstraints(table, context, verify_chunk);
@@ -6126,8 +6047,10 @@ bool DataTable::ScanCreateIndex(CreateIndexScanState &state, DataChunk &result, 
 }
 
 void DataTable::AddIndex(unique_ptr<Index> index, const vector<unique_ptr<Expression>> &expressions) {
+	auto &allocator = Allocator::Get(db);
+
 	DataChunk result;
-	result.Initialize(index->logical_types);
+	result.Initialize(allocator, index->logical_types);
 
 	DataChunk intermediate;
 	vector<LogicalType> intermediate_types;
@@ -6138,7 +6061,7 @@ void DataTable::AddIndex(unique_ptr<Index> index, const vector<unique_ptr<Expres
 		intermediate_types.push_back(col.Type());
 	}
 	intermediate_types.emplace_back(LogicalType::ROW_TYPE);
-	intermediate.Initialize(intermediate_types);
+	intermediate.Initialize(allocator, intermediate_types);
 
 	// initialize an index scan
 	CreateIndexScanState state;
@@ -6152,7 +6075,7 @@ void DataTable::AddIndex(unique_ptr<Index> index, const vector<unique_ptr<Expres
 	{
 		IndexLock lock;
 		index->InitializeLock(lock);
-		ExpressionExecutor executor(expressions);
+		ExpressionExecutor executor(allocator, expressions);
 		while (true) {
 			intermediate.Reset();
 			// scan a new chunk from the table to index
@@ -6268,7 +6191,8 @@ namespace duckdb {
 
 Index::Index(IndexType type, const vector<column_t> &column_ids_p,
              const vector<unique_ptr<Expression>> &unbound_expressions, IndexConstraintType constraint_type_p)
-    : type(type), column_ids(column_ids_p), constraint_type(constraint_type_p) {
+    : type(type), column_ids(column_ids_p), constraint_type(constraint_type_p),
+      executor(Allocator::DefaultAllocator()) {
 	for (auto &expr : unbound_expressions) {
 		types.push_back(expr->return_type.InternalType());
 		logical_types.push_back(expr->return_type);
@@ -6337,7 +6261,8 @@ bool Index::IndexIsUpdated(const vector<column_t> &column_ids) const {
 
 namespace duckdb {
 
-LocalTableStorage::LocalTableStorage(DataTable &table) : table(table), active_scans(0) {
+LocalTableStorage::LocalTableStorage(DataTable &table)
+    : table(table), allocator(Allocator::Get(table.db)), collection(allocator), active_scans(0) {
 	Clear();
 }
 
@@ -6690,7 +6615,7 @@ bool LocalStorage::ScanTableStorage(DataTable &table, LocalTableStorage &storage
 	}
 
 	DataChunk chunk;
-	chunk.Initialize(table.GetTypes());
+	chunk.Initialize(storage.allocator, table.GetTypes());
 
 	// initialize the scan
 	LocalScanState state;
@@ -6773,7 +6698,8 @@ void LocalStorage::AddColumn(DataTable *old_dt, DataTable *new_dt, ColumnDefinit
 
 	// now add the new column filled with the default value to all chunks
 	const auto &new_column_type = new_column.Type();
-	ExpressionExecutor executor;
+	auto &allocator = Allocator::DefaultAllocator();
+	ExpressionExecutor executor(allocator);
 	DataChunk dummy_chunk;
 	if (default_value) {
 		executor.AddExpression(*default_value);
@@ -6839,8 +6765,7 @@ vector<unique_ptr<Index>> &LocalStorage::GetIndexes(DataTable *table) {
 
 namespace duckdb {
 
-MetaBlockReader::MetaBlockReader(DatabaseInstance &db, block_id_t block_id)
-    : db(db), handle(nullptr), offset(0), next_block(-1) {
+MetaBlockReader::MetaBlockReader(DatabaseInstance &db, block_id_t block_id) : db(db), offset(0), next_block(-1) {
 	ReadNewBlock(block_id);
 }
 
@@ -6848,12 +6773,12 @@ MetaBlockReader::~MetaBlockReader() {
 }
 
 void MetaBlockReader::ReadData(data_ptr_t buffer, idx_t read_size) {
-	while (offset + read_size > handle->node->size) {
+	while (offset + read_size > handle.GetFileBuffer().size) {
 		// cannot read entire entry from block
 		// first read what we can from this block
-		idx_t to_read = handle->node->size - offset;
+		idx_t to_read = handle.GetFileBuffer().size - offset;
 		if (to_read > 0) {
-			memcpy(buffer, handle->node->buffer + offset, to_read);
+			memcpy(buffer, handle.Ptr() + offset, to_read);
 			read_size -= to_read;
 			buffer += to_read;
 		}
@@ -6861,7 +6786,7 @@ void MetaBlockReader::ReadData(data_ptr_t buffer, idx_t read_size) {
 		ReadNewBlock(next_block);
 	}
 	// we have enough left in this block to read from the buffer
-	memcpy(buffer, handle->node->buffer + offset, read_size);
+	memcpy(buffer, handle.Ptr() + offset, read_size);
 	offset += read_size;
 }
 
@@ -6873,7 +6798,7 @@ void MetaBlockReader::ReadNewBlock(block_id_t id) {
 	block = buffer_manager.RegisterBlock(id);
 	handle = buffer_manager.Pin(block);
 
-	next_block = Load<block_id_t>(handle->node->buffer);
+	next_block = Load<block_id_t>(handle.Ptr());
 	D_ASSERT(next_block >= -1);
 	offset = sizeof(block_id_t);
 }
@@ -8512,14 +8437,14 @@ void StorageManager::Initialize() {
 	if (in_memory && read_only) {
 		throw CatalogException("Cannot launch in-memory database in read-only mode!");
 	}
+	auto &config = DBConfig::GetConfig(db);
+	auto &catalog = Catalog::GetCatalog(db);
+	buffer_manager = make_unique<BufferManager>(db, config.temporary_directory, config.maximum_memory);
 
 	// first initialize the base system catalogs
 	// these are never written to the WAL
 	Connection con(db);
 	con.BeginTransaction();
-
-	auto &config = DBConfig::GetConfig(db);
-	auto &catalog = Catalog::GetCatalog(*con.context);
 
 	// create the default schema
 	CreateSchemaInfo info;
@@ -8541,7 +8466,6 @@ void StorageManager::Initialize() {
 		LoadDatabase();
 	} else {
 		block_manager = make_unique<InMemoryBlockManager>();
-		buffer_manager = make_unique<BufferManager>(db, config.temporary_directory, config.maximum_memory);
 	}
 }
 
@@ -8563,13 +8487,11 @@ void StorageManager::LoadDatabase() {
 		}
 		// initialize the block manager while creating a new db file
 		block_manager = make_unique<SingleFileBlockManager>(db, path, read_only, true, config.use_direct_io);
-		buffer_manager = make_unique<BufferManager>(db, config.temporary_directory, config.maximum_memory);
 	} else {
 		// initialize the block manager while loading the current db file
 		auto sf_bm = make_unique<SingleFileBlockManager>(db, path, read_only, false, config.use_direct_io);
 		auto sf = sf_bm.get();
 		block_manager = move(sf_bm);
-		buffer_manager = make_unique<BufferManager>(db, config.temporary_directory, config.maximum_memory);
 		sf->LoadFreeList();
 
 		//! Load from storage
@@ -8892,6 +8814,11 @@ ColumnCheckpointState::ColumnCheckpointState(RowGroup &row_group, ColumnData &co
 ColumnCheckpointState::~ColumnCheckpointState() {
 }
 
+unique_ptr<BaseStatistics> ColumnCheckpointState::GetStatistics() {
+	D_ASSERT(global_stats);
+	return move(global_stats);
+}
+
 void ColumnCheckpointState::FlushSegment(unique_ptr<ColumnSegment> segment, idx_t segment_size) {
 	D_ASSERT(segment_size <= Storage::BLOCK_SIZE);
 	auto tuple_count = segment->count.load();
@@ -8967,7 +8894,7 @@ void ColumnCheckpointState::FlushSegment(unique_ptr<ColumnSegment> segment, idx_
 			// pin the new block
 			auto new_handle = buffer_manager.Pin(partial_block->block);
 			// memcpy the contents of the old block to the new block
-			memcpy(new_handle->Ptr() + offset_in_block, old_handle->Ptr(), segment_size);
+			memcpy(new_handle.Ptr() + offset_in_block, old_handle.Ptr(), segment_size);
 		} else {
 			// convert the segment into a persistent segment that points to this block
 			segment->ConvertToPersistent(block_id);
@@ -9686,7 +9613,6 @@ void ColumnDataCheckpointer::WriteToDisk() {
 	    [&](Vector &scan_vector, idx_t count) { best_function->compress(*compress_state, scan_vector, count); });
 	best_function->compress_finalize(*compress_state);
 
-	// now we actually write the data to disk
 	owned_segment.reset();
 }
 
@@ -11200,14 +11126,22 @@ unique_ptr<BaseStatistics> RowGroup::GetStatistics(idx_t column_idx) {
 	return stats[column_idx]->statistics->Copy();
 }
 
-void RowGroup::MergeStatistics(idx_t column_idx, BaseStatistics &other) {
+void RowGroup::MergeStatistics(idx_t column_idx, const BaseStatistics &other) {
 	D_ASSERT(column_idx < stats.size());
 
 	lock_guard<mutex> slock(stats_lock);
 	stats[column_idx]->statistics->Merge(other);
 }
 
+void RowGroup::MergeIntoStatistics(idx_t column_idx, BaseStatistics &other) {
+	D_ASSERT(column_idx < stats.size());
+
+	lock_guard<mutex> slock(stats_lock);
+	other.Merge(*stats[column_idx]->statistics);
+}
+
 RowGroupPointer RowGroup::Checkpoint(TableDataWriter &writer, vector<unique_ptr<BaseStatistics>> &global_stats) {
+	RowGroupPointer row_group_pointer;
 	vector<unique_ptr<ColumnCheckpointState>> states;
 	states.reserve(columns.size());
 
@@ -11222,12 +11156,12 @@ RowGroupPointer RowGroup::Checkpoint(TableDataWriter &writer, vector<unique_ptr<
 		D_ASSERT(stats);
 
 		global_stats[column_idx]->Merge(*stats);
+		row_group_pointer.statistics.push_back(move(stats));
 		states.push_back(move(checkpoint_state));
 	}
 
 	// construct the row group pointer and write the column meta data to disk
 	D_ASSERT(states.size() == columns.size());
-	RowGroupPointer row_group_pointer;
 	row_group_pointer.row_start = start;
 	row_group_pointer.tuple_count = count;
 	for (auto &state : states) {
@@ -11237,7 +11171,6 @@ RowGroupPointer RowGroup::Checkpoint(TableDataWriter &writer, vector<unique_ptr<
 
 		// store the stats and the data pointers in the row group pointers
 		row_group_pointer.data_pointers.push_back(pointer);
-		row_group_pointer.statistics.push_back(state->GetStatistics());
 
 		// now flush the actual column data to disk
 		state->FlushToDisk();
@@ -11669,9 +11602,9 @@ struct StandardColumnCheckpointState : public ColumnCheckpointState {
 
 public:
 	unique_ptr<BaseStatistics> GetStatistics() override {
-		auto stats = global_stats->Copy();
-		stats->validity_stats = validity_state->GetStatistics();
-		return stats;
+		D_ASSERT(global_stats);
+		global_stats->validity_stats = validity_state->GetStatistics();
+		return move(global_stats);
 	}
 
 	void FlushToDisk() override {
@@ -14268,7 +14201,7 @@ void CommitState::WriteDelete(DeleteInfo *info) {
 	if (!delete_chunk) {
 		delete_chunk = make_unique<DataChunk>();
 		vector<LogicalType> delete_types = {LogicalType::ROW_TYPE};
-		delete_chunk->Initialize(delete_types);
+		delete_chunk->Initialize(Allocator::DefaultAllocator(), delete_types);
 	}
 	auto rows = FlatVector::GetData<row_t>(delete_chunk->data[0]);
 	for (idx_t i = 0; i < info->count; i++) {
@@ -14296,7 +14229,7 @@ void CommitState::WriteUpdate(UpdateInfo *info) {
 	update_types.emplace_back(LogicalType::ROW_TYPE);
 
 	update_chunk = make_unique<DataChunk>();
-	update_chunk->Initialize(update_types);
+	update_chunk->Initialize(Allocator::DefaultAllocator(), update_types);
 
 	// fetch the updated values from the base segment
 	info->segment->FetchCommitted(info->vector_index, update_chunk->data[0]);
@@ -14492,6 +14425,13 @@ void RollbackState::RollbackEntry(UndoFlags type, data_ptr_t data) {
 #include <cstring>
 
 namespace duckdb {
+
+Transaction::Transaction(weak_ptr<ClientContext> context_p, transaction_t start_time, transaction_t transaction_id,
+                         timestamp_t start_timestamp, idx_t catalog_version)
+    : context(move(context_p)), start_time(start_time), transaction_id(transaction_id), commit_id(0),
+      highest_active_query(0), active_query(MAXIMUM_QUERY_ID), start_timestamp(start_timestamp),
+      catalog_version(catalog_version), storage(*this), is_invalidated(false), undo_buffer(context.lock()) {
+}
 
 Transaction &Transaction::GetTransaction(ClientContext &context) {
 	return context.ActiveTransaction();
@@ -15033,64 +14973,30 @@ void TransactionManager::RemoveTransaction(Transaction *transaction) noexcept {
 #include <unordered_map>
 
 namespace duckdb {
-constexpr uint32_t DEFAULT_UNDO_CHUNK_SIZE = 4096 * 3;
 constexpr uint32_t UNDO_ENTRY_HEADER_SIZE = sizeof(UndoFlags) + sizeof(uint32_t);
 
-static idx_t AlignLength(idx_t len) {
-	return (len + 7) / 8 * 8;
-}
-
-UndoBuffer::UndoBuffer() {
-	head = make_unique<UndoChunk>(0);
-	tail = head.get();
-}
-
-UndoChunk::UndoChunk(idx_t size) : current_position(0), maximum_size(size), prev(nullptr) {
-	if (size > 0) {
-		data = unique_ptr<data_t[]>(new data_t[maximum_size]);
-	}
-}
-UndoChunk::~UndoChunk() {
-	if (next) {
-		auto current_next = move(next);
-		while (current_next) {
-			current_next = move(current_next->next);
-		}
-	}
-}
-
-data_ptr_t UndoChunk::WriteEntry(UndoFlags type, uint32_t len) {
-	len = AlignLength(len);
-	D_ASSERT(sizeof(UndoFlags) + sizeof(len) == 8);
-	Store<UndoFlags>(type, data.get() + current_position);
-	current_position += sizeof(UndoFlags);
-	Store<uint32_t>(len, data.get() + current_position);
-	current_position += sizeof(uint32_t);
-
-	data_ptr_t result = data.get() + current_position;
-	current_position += len;
-	return result;
+UndoBuffer::UndoBuffer(const shared_ptr<ClientContext> &context) : allocator(BufferAllocator::Get(*context)) {
+	D_ASSERT(context);
 }
 
 data_ptr_t UndoBuffer::CreateEntry(UndoFlags type, idx_t len) {
 	D_ASSERT(len <= NumericLimits<uint32_t>::Maximum());
-	idx_t needed_space = AlignLength(len + UNDO_ENTRY_HEADER_SIZE);
-	if (head->current_position + needed_space >= head->maximum_size) {
-		auto new_chunk =
-		    make_unique<UndoChunk>(needed_space > DEFAULT_UNDO_CHUNK_SIZE ? needed_space : DEFAULT_UNDO_CHUNK_SIZE);
-		head->prev = new_chunk.get();
-		new_chunk->next = move(head);
-		head = move(new_chunk);
-	}
-	return head->WriteEntry(type, len);
+	len = AlignValue(len);
+	idx_t needed_space = len + UNDO_ENTRY_HEADER_SIZE;
+	auto data = allocator.Allocate(needed_space);
+	Store<UndoFlags>(type, data);
+	data += sizeof(UndoFlags);
+	Store<uint32_t>(len, data);
+	data += sizeof(uint32_t);
+	return data;
 }
 
 template <class T>
 void UndoBuffer::IterateEntries(UndoBuffer::IteratorState &state, T &&callback) {
 	// iterate in insertion order: start with the tail
-	state.current = tail;
+	state.current = allocator.GetTail();
 	while (state.current) {
-		state.start = state.current->data.get();
+		state.start = state.current->data->get();
 		state.end = state.start + state.current->current_position;
 		while (state.start < state.end) {
 			UndoFlags type = Load<UndoFlags>(state.start);
@@ -15108,9 +15014,9 @@ void UndoBuffer::IterateEntries(UndoBuffer::IteratorState &state, T &&callback) 
 template <class T>
 void UndoBuffer::IterateEntries(UndoBuffer::IteratorState &state, UndoBuffer::IteratorState &end_state, T &&callback) {
 	// iterate in insertion order: start with the tail
-	state.current = tail;
+	state.current = allocator.GetTail();
 	while (state.current) {
-		state.start = state.current->data.get();
+		state.start = state.current->data->get();
 		state.end =
 		    state.current == end_state.current ? end_state.start : state.start + state.current->current_position;
 		while (state.start < state.end) {
@@ -15132,9 +15038,9 @@ void UndoBuffer::IterateEntries(UndoBuffer::IteratorState &state, UndoBuffer::It
 template <class T>
 void UndoBuffer::ReverseIterateEntries(T &&callback) {
 	// iterate in reverse insertion order: start with the head
-	auto current = head.get();
+	auto current = allocator.GetHead();
 	while (current) {
-		data_ptr_t start = current->data.get();
+		data_ptr_t start = current->data->get();
 		data_ptr_t end = start + current->current_position;
 		// create a vector with all nodes in this chunk
 		vector<pair<UndoFlags, data_ptr_t>> nodes;
@@ -15155,12 +15061,12 @@ void UndoBuffer::ReverseIterateEntries(T &&callback) {
 }
 
 bool UndoBuffer::ChangesMade() {
-	return head->maximum_size > 0;
+	return !allocator.IsEmpty();
 }
 
 idx_t UndoBuffer::EstimatedSize() {
 	idx_t estimated_size = 0;
-	auto node = head.get();
+	auto node = allocator.GetHead();
 	while (node) {
 		estimated_size += node->current_position;
 		node = node->next.get();

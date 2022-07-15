@@ -1,622 +1,10 @@
-// See https://raw.githubusercontent.com/cwida/duckdb/master/LICENSE for licensing information
+// See https://raw.githubusercontent.com/duckdb/duckdb/master/LICENSE for licensing information
 
 #include "duckdb.hpp"
 #include "duckdb-internal.hpp"
 #ifndef DUCKDB_AMALGAMATION
 #error header mismatch
 #endif
-
-
-
-
-
-
-namespace duckdb {
-
-template <class T>
-struct BitState {
-	bool is_set;
-	T value;
-};
-
-template <class OP>
-static AggregateFunction GetBitfieldUnaryAggregate(LogicalType type) {
-	switch (type.id()) {
-	case LogicalTypeId::TINYINT:
-		return AggregateFunction::UnaryAggregate<BitState<uint8_t>, int8_t, int8_t, OP>(type, type);
-	case LogicalTypeId::SMALLINT:
-		return AggregateFunction::UnaryAggregate<BitState<uint16_t>, int16_t, int16_t, OP>(type, type);
-	case LogicalTypeId::INTEGER:
-		return AggregateFunction::UnaryAggregate<BitState<uint32_t>, int32_t, int32_t, OP>(type, type);
-	case LogicalTypeId::BIGINT:
-		return AggregateFunction::UnaryAggregate<BitState<uint64_t>, int64_t, int64_t, OP>(type, type);
-	case LogicalTypeId::HUGEINT:
-		return AggregateFunction::UnaryAggregate<BitState<hugeint_t>, hugeint_t, hugeint_t, OP>(type, type);
-	case LogicalTypeId::UTINYINT:
-		return AggregateFunction::UnaryAggregate<BitState<uint8_t>, uint8_t, uint8_t, OP>(type, type);
-	case LogicalTypeId::USMALLINT:
-		return AggregateFunction::UnaryAggregate<BitState<uint16_t>, uint16_t, uint16_t, OP>(type, type);
-	case LogicalTypeId::UINTEGER:
-		return AggregateFunction::UnaryAggregate<BitState<uint32_t>, uint32_t, uint32_t, OP>(type, type);
-	case LogicalTypeId::UBIGINT:
-		return AggregateFunction::UnaryAggregate<BitState<uint64_t>, uint64_t, uint64_t, OP>(type, type);
-	default:
-		throw InternalException("Unimplemented bitfield type for unary aggregate");
-	}
-}
-
-struct BitAndOperation {
-	template <class STATE>
-	static void Initialize(STATE *state) {
-		//  If there are no matching rows, BIT_AND() returns a null value.
-		state->is_set = false;
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void Operation(STATE *state, AggregateInputData &, INPUT_TYPE *input, ValidityMask &mask, idx_t idx) {
-		if (!state->is_set) {
-			state->is_set = true;
-			state->value = input[idx];
-		} else {
-			state->value &= input[idx];
-		}
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void ConstantOperation(STATE *state, AggregateInputData &aggr_input_data, INPUT_TYPE *input,
-	                              ValidityMask &mask, idx_t count) {
-		//  count is irrelevant
-		Operation<INPUT_TYPE, STATE, OP>(state, aggr_input_data, input, mask, 0);
-	}
-
-	template <class T, class STATE>
-	static void Finalize(Vector &result, AggregateInputData &, STATE *state, T *target, ValidityMask &mask, idx_t idx) {
-		if (!state->is_set) {
-			mask.SetInvalid(idx);
-		} else {
-			target[idx] = state->value;
-		}
-	}
-
-	template <class STATE, class OP>
-	static void Combine(const STATE &source, STATE *target, AggregateInputData &) {
-		if (!source.is_set) {
-			// source is NULL, nothing to do.
-			return;
-		}
-		if (!target->is_set) {
-			// target is NULL, use source value directly.
-			*target = source;
-		} else {
-			target->value &= source.value;
-		}
-	}
-
-	static bool IgnoreNull() {
-		return true;
-	}
-};
-
-void BitAndFun::RegisterFunction(BuiltinFunctions &set) {
-	AggregateFunctionSet bit_and("bit_and");
-	for (auto &type : LogicalType::Integral()) {
-		bit_and.AddFunction(GetBitfieldUnaryAggregate<BitAndOperation>(type));
-	}
-	set.AddFunction(bit_and);
-}
-
-struct BitOrOperation {
-	template <class STATE>
-	static void Initialize(STATE *state) {
-		//  If there are no matching rows, BIT_OR() returns a null value.
-		state->is_set = false;
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void Operation(STATE *state, AggregateInputData &, INPUT_TYPE *input, ValidityMask &mask, idx_t idx) {
-		if (!state->is_set) {
-			state->is_set = true;
-			state->value = input[idx];
-		} else {
-			state->value |= input[idx];
-		}
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void ConstantOperation(STATE *state, AggregateInputData &aggr_input_data, INPUT_TYPE *input,
-	                              ValidityMask &mask, idx_t count) {
-		//  count is irrelevant
-		Operation<INPUT_TYPE, STATE, OP>(state, aggr_input_data, input, mask, 0);
-	}
-
-	template <class T, class STATE>
-	static void Finalize(Vector &result, AggregateInputData &, STATE *state, T *target, ValidityMask &mask, idx_t idx) {
-		if (!state->is_set) {
-			mask.SetInvalid(idx);
-		} else {
-			target[idx] = state->value;
-		}
-	}
-
-	template <class STATE, class OP>
-	static void Combine(const STATE &source, STATE *target, AggregateInputData &) {
-		if (!source.is_set) {
-			// source is NULL, nothing to do.
-			return;
-		}
-		if (!target->is_set) {
-			// target is NULL, use source value directly.
-			*target = source;
-		} else {
-			target->value |= source.value;
-		}
-	}
-
-	static bool IgnoreNull() {
-		return true;
-	}
-};
-
-void BitOrFun::RegisterFunction(BuiltinFunctions &set) {
-	AggregateFunctionSet bit_or("bit_or");
-	for (auto &type : LogicalType::Integral()) {
-		bit_or.AddFunction(GetBitfieldUnaryAggregate<BitOrOperation>(type));
-	}
-	set.AddFunction(bit_or);
-}
-
-struct BitXorOperation {
-	template <class STATE>
-	static void Initialize(STATE *state) {
-		//  If there are no matching rows, BIT_XOR() returns a null value.
-		state->is_set = false;
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void Operation(STATE *state, AggregateInputData &, INPUT_TYPE *input, ValidityMask &mask, idx_t idx) {
-		if (!state->is_set) {
-			state->is_set = true;
-			state->value = input[idx];
-		} else {
-			state->value ^= input[idx];
-		}
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void ConstantOperation(STATE *state, AggregateInputData &aggr_input_data, INPUT_TYPE *input,
-	                              ValidityMask &mask, idx_t count) {
-		//  count is irrelevant
-		Operation<INPUT_TYPE, STATE, OP>(state, aggr_input_data, input, mask, 0);
-	}
-
-	template <class T, class STATE>
-	static void Finalize(Vector &result, AggregateInputData &, STATE *state, T *target, ValidityMask &mask, idx_t idx) {
-		if (!state->is_set) {
-			mask.SetInvalid(idx);
-		} else {
-			target[idx] = state->value;
-		}
-	}
-
-	template <class STATE, class OP>
-	static void Combine(const STATE &source, STATE *target, AggregateInputData &) {
-		if (!source.is_set) {
-			// source is NULL, nothing to do.
-			return;
-		}
-		if (!target->is_set) {
-			// target is NULL, use source value directly.
-			*target = source;
-		} else {
-			target->value ^= source.value;
-		}
-	}
-
-	static bool IgnoreNull() {
-		return true;
-	}
-};
-
-void BitXorFun::RegisterFunction(BuiltinFunctions &set) {
-	AggregateFunctionSet bit_xor("bit_xor");
-	for (auto &type : LogicalType::Integral()) {
-		bit_xor.AddFunction(GetBitfieldUnaryAggregate<BitXorOperation>(type));
-	}
-	set.AddFunction(bit_xor);
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-namespace duckdb {
-
-struct BoolState {
-	bool empty;
-	bool val;
-};
-
-struct BoolAndFunFunction {
-	template <class STATE>
-	static void Initialize(STATE *state) {
-		state->val = true;
-		state->empty = true;
-	}
-
-	template <class STATE, class OP>
-	static void Combine(const STATE &source, STATE *target, AggregateInputData &) {
-		target->val = target->val && source.val;
-		target->empty = target->empty && source.empty;
-	}
-
-	template <class T, class STATE>
-	static void Finalize(Vector &result, AggregateInputData &, STATE *state, T *target, ValidityMask &mask, idx_t idx) {
-		if (state->empty) {
-			mask.SetInvalid(idx);
-			return;
-		}
-		target[idx] = state->val;
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void Operation(STATE *state, AggregateInputData &, INPUT_TYPE *input, ValidityMask &mask, idx_t idx) {
-		state->empty = false;
-		state->val = input[idx] && state->val;
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void ConstantOperation(STATE *state, AggregateInputData &aggr_input_data, INPUT_TYPE *input,
-	                              ValidityMask &mask, idx_t count) {
-		for (idx_t i = 0; i < count; i++) {
-			Operation<INPUT_TYPE, STATE, OP>(state, aggr_input_data, input, mask, 0);
-		}
-	}
-	static bool IgnoreNull() {
-		return true;
-	}
-};
-
-struct BoolOrFunFunction {
-	template <class STATE>
-	static void Initialize(STATE *state) {
-		state->val = false;
-		state->empty = true;
-	}
-
-	template <class STATE, class OP>
-	static void Combine(const STATE &source, STATE *target, AggregateInputData &) {
-		target->val = target->val || source.val;
-		target->empty = target->empty && source.empty;
-	}
-
-	template <class T, class STATE>
-	static void Finalize(Vector &result, AggregateInputData &, STATE *state, T *target, ValidityMask &mask, idx_t idx) {
-		if (state->empty) {
-			mask.SetInvalid(idx);
-			return;
-		}
-		target[idx] = state->val;
-	}
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void Operation(STATE *state, AggregateInputData &, INPUT_TYPE *input, ValidityMask &mask, idx_t idx) {
-		state->empty = false;
-		state->val = input[idx] || state->val;
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void ConstantOperation(STATE *state, AggregateInputData &aggr_input_data, INPUT_TYPE *input,
-	                              ValidityMask &mask, idx_t count) {
-		for (idx_t i = 0; i < count; i++) {
-			Operation<INPUT_TYPE, STATE, OP>(state, aggr_input_data, input, mask, 0);
-		}
-	}
-
-	static bool IgnoreNull() {
-		return true;
-	}
-};
-
-AggregateFunction BoolOrFun::GetFunction() {
-	auto fun = AggregateFunction::UnaryAggregate<BoolState, bool, bool, BoolOrFunFunction>(
-	    LogicalType(LogicalTypeId::BOOLEAN), LogicalType::BOOLEAN);
-	fun.name = "bool_or";
-	return fun;
-}
-
-AggregateFunction BoolAndFun::GetFunction() {
-	auto fun = AggregateFunction::UnaryAggregate<BoolState, bool, bool, BoolAndFunFunction>(
-	    LogicalType(LogicalTypeId::BOOLEAN), LogicalType::BOOLEAN);
-	fun.name = "bool_and";
-	return fun;
-}
-
-void BoolOrFun::RegisterFunction(BuiltinFunctions &set) {
-	AggregateFunction bool_or_function = BoolOrFun::GetFunction();
-	AggregateFunctionSet bool_or("bool_or");
-	bool_or.AddFunction(bool_or_function);
-	set.AddFunction(bool_or);
-}
-
-void BoolAndFun::RegisterFunction(BuiltinFunctions &set) {
-	AggregateFunction bool_and_function = BoolAndFun::GetFunction();
-	AggregateFunctionSet bool_and("bool_and");
-	bool_and.AddFunction(bool_and_function);
-	set.AddFunction(bool_and);
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-namespace duckdb {
-
-struct BaseCountFunction {
-	template <class STATE>
-	static void Initialize(STATE *state) {
-		*state = 0;
-	}
-
-	template <class STATE, class OP>
-	static void Combine(const STATE &source, STATE *target, AggregateInputData &) {
-		*target += source;
-	}
-
-	template <class T, class STATE>
-	static void Finalize(Vector &result, AggregateInputData &, STATE *state, T *target, ValidityMask &mask, idx_t idx) {
-		target[idx] = *state;
-	}
-};
-
-struct CountStarFunction : public BaseCountFunction {
-	template <class STATE, class OP>
-	static void Operation(STATE *state, AggregateInputData &, idx_t idx) {
-		*state += 1;
-	}
-
-	template <class STATE, class OP>
-	static void ConstantOperation(STATE *state, AggregateInputData &, idx_t count) {
-		*state += count;
-	}
-};
-
-struct CountFunction : public BaseCountFunction {
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void Operation(STATE *state, AggregateInputData &, INPUT_TYPE *input, ValidityMask &mask, idx_t idx) {
-		*state += 1;
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void ConstantOperation(STATE *state, AggregateInputData &, INPUT_TYPE *input, ValidityMask &mask,
-	                              idx_t count) {
-		*state += count;
-	}
-
-	static bool IgnoreNull() {
-		return true;
-	}
-};
-
-AggregateFunction CountFun::GetFunction() {
-	auto fun = AggregateFunction::UnaryAggregate<int64_t, int64_t, int64_t, CountFunction>(
-	    LogicalType(LogicalTypeId::ANY), LogicalType::BIGINT);
-	fun.name = "count";
-	return fun;
-}
-
-AggregateFunction CountStarFun::GetFunction() {
-	auto fun = AggregateFunction::NullaryAggregate<int64_t, int64_t, CountStarFunction>(LogicalType::BIGINT);
-	fun.name = "count_star";
-	return fun;
-}
-
-unique_ptr<BaseStatistics> CountPropagateStats(ClientContext &context, BoundAggregateExpression &expr,
-                                               FunctionData *bind_data, vector<unique_ptr<BaseStatistics>> &child_stats,
-                                               NodeStatistics *node_stats) {
-	if (!expr.distinct && child_stats[0] && !child_stats[0]->CanHaveNull()) {
-		// count on a column without null values: use count star
-		expr.function = CountStarFun::GetFunction();
-		expr.function.name = "count_star";
-		expr.children.clear();
-	}
-	return nullptr;
-}
-
-void CountFun::RegisterFunction(BuiltinFunctions &set) {
-	AggregateFunction count_function = CountFun::GetFunction();
-	count_function.statistics = CountPropagateStats;
-	AggregateFunctionSet count("count");
-	count.AddFunction(count_function);
-	// the count function can also be called without arguments
-	count_function.arguments.clear();
-	count_function.statistics = nullptr;
-	count.AddFunction(count_function);
-	set.AddFunction(count);
-}
-
-void CountStarFun::RegisterFunction(BuiltinFunctions &set) {
-	AggregateFunctionSet count("count_star");
-	count.AddFunction(CountStarFun::GetFunction());
-	set.AddFunction(count);
-}
-
-} // namespace duckdb
-
-
-
-
-
-#include <unordered_map>
-
-namespace duckdb {
-
-template <class T>
-struct EntropyState {
-	using DistinctMap = unordered_map<T, idx_t>;
-
-	idx_t count;
-	DistinctMap *distinct;
-
-	EntropyState &operator=(const EntropyState &other) = delete;
-
-	EntropyState &Assign(const EntropyState &other) {
-		D_ASSERT(!distinct);
-		distinct = new DistinctMap(*other.distinct);
-		count = other.count;
-		return *this;
-	}
-};
-
-struct EntropyFunctionBase {
-	template <class STATE>
-	static void Initialize(STATE *state) {
-		state->distinct = nullptr;
-		state->count = 0;
-	}
-
-	template <class STATE, class OP>
-	static void Combine(const STATE &source, STATE *target, AggregateInputData &) {
-		if (!source.distinct) {
-			return;
-		}
-		if (!target->distinct) {
-			target->Assign(source);
-			return;
-		}
-		for (auto &val : *source.distinct) {
-			auto value = val.first;
-			(*target->distinct)[value] += val.second;
-		}
-		target->count += source.count;
-	}
-
-	template <class T, class STATE>
-	static void Finalize(Vector &result, AggregateInputData &, STATE *state, T *target, ValidityMask &mask, idx_t idx) {
-		double count = state->count;
-		if (state->distinct) {
-			double entropy = 0;
-			for (auto &val : *state->distinct) {
-				entropy += (val.second / count) * log2(count / val.second);
-			}
-			target[idx] = entropy;
-		} else {
-			target[idx] = 0;
-		}
-	}
-
-	static bool IgnoreNull() {
-		return true;
-	}
-	template <class STATE>
-	static void Destroy(STATE *state) {
-		if (state->distinct) {
-			delete state->distinct;
-		}
-	}
-};
-
-struct EntropyFunction : EntropyFunctionBase {
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void Operation(STATE *state, AggregateInputData &, INPUT_TYPE *input, ValidityMask &mask, idx_t idx) {
-		if (!state->distinct) {
-			state->distinct = new unordered_map<INPUT_TYPE, idx_t>();
-		}
-		(*state->distinct)[input[idx]]++;
-		state->count++;
-	}
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void ConstantOperation(STATE *state, AggregateInputData &aggr_input_data, INPUT_TYPE *input,
-	                              ValidityMask &mask, idx_t count) {
-		for (idx_t i = 0; i < count; i++) {
-			Operation<INPUT_TYPE, STATE, OP>(state, aggr_input_data, input, mask, 0);
-		}
-	}
-};
-
-struct EntropyFunctionString : EntropyFunctionBase {
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void Operation(STATE *state, AggregateInputData &, INPUT_TYPE *input, ValidityMask &mask, idx_t idx) {
-		if (!state->distinct) {
-			state->distinct = new unordered_map<string, idx_t>();
-		}
-		auto value = input[idx].GetString();
-		(*state->distinct)[value]++;
-		state->count++;
-	}
-
-	template <class INPUT_TYPE, class STATE, class OP>
-	static void ConstantOperation(STATE *state, AggregateInputData &aggr_input_data, INPUT_TYPE *input,
-	                              ValidityMask &mask, idx_t count) {
-		for (idx_t i = 0; i < count; i++) {
-			Operation<INPUT_TYPE, STATE, OP>(state, aggr_input_data, input, mask, 0);
-		}
-	}
-};
-
-template <typename INPUT_TYPE, typename RESULT_TYPE>
-AggregateFunction GetEntropyFunction(const LogicalType &input_type, const LogicalType &result_type) {
-	return AggregateFunction::UnaryAggregateDestructor<EntropyState<INPUT_TYPE>, INPUT_TYPE, RESULT_TYPE,
-	                                                   EntropyFunction>(input_type, result_type);
-}
-
-AggregateFunction GetEntropyFunction(PhysicalType type) {
-	switch (type) {
-	case PhysicalType::UINT16:
-		return AggregateFunction::UnaryAggregateDestructor<EntropyState<uint16_t>, uint16_t, double, EntropyFunction>(
-		    LogicalType::USMALLINT, LogicalType::DOUBLE);
-	case PhysicalType::UINT32:
-		return AggregateFunction::UnaryAggregateDestructor<EntropyState<uint32_t>, uint32_t, double, EntropyFunction>(
-		    LogicalType::UINTEGER, LogicalType::DOUBLE);
-	case PhysicalType::UINT64:
-		return AggregateFunction::UnaryAggregateDestructor<EntropyState<uint64_t>, uint64_t, double, EntropyFunction>(
-		    LogicalType::UBIGINT, LogicalType::DOUBLE);
-	case PhysicalType::INT16:
-		return AggregateFunction::UnaryAggregateDestructor<EntropyState<int16_t>, int16_t, double, EntropyFunction>(
-		    LogicalType::SMALLINT, LogicalType::DOUBLE);
-	case PhysicalType::INT32:
-		return AggregateFunction::UnaryAggregateDestructor<EntropyState<int32_t>, int32_t, double, EntropyFunction>(
-		    LogicalType::INTEGER, LogicalType::DOUBLE);
-	case PhysicalType::INT64:
-		return AggregateFunction::UnaryAggregateDestructor<EntropyState<int64_t>, int64_t, double, EntropyFunction>(
-		    LogicalType::BIGINT, LogicalType::DOUBLE);
-	case PhysicalType::FLOAT:
-		return AggregateFunction::UnaryAggregateDestructor<EntropyState<float>, float, double, EntropyFunction>(
-		    LogicalType::FLOAT, LogicalType::DOUBLE);
-	case PhysicalType::DOUBLE:
-		return AggregateFunction::UnaryAggregateDestructor<EntropyState<double>, double, double, EntropyFunction>(
-		    LogicalType::DOUBLE, LogicalType::DOUBLE);
-	case PhysicalType::VARCHAR:
-		return AggregateFunction::UnaryAggregateDestructor<EntropyState<string>, string_t, double,
-		                                                   EntropyFunctionString>(LogicalType::VARCHAR,
-		                                                                          LogicalType::DOUBLE);
-
-	default:
-		throw InternalException("Unimplemented approximate_count aggregate");
-	}
-}
-
-void EntropyFun::RegisterFunction(BuiltinFunctions &set) {
-	AggregateFunctionSet entropy("entropy");
-	entropy.AddFunction(GetEntropyFunction(PhysicalType::UINT16));
-	entropy.AddFunction(GetEntropyFunction(PhysicalType::UINT32));
-	entropy.AddFunction(GetEntropyFunction(PhysicalType::UINT64));
-	entropy.AddFunction(GetEntropyFunction(PhysicalType::FLOAT));
-	entropy.AddFunction(GetEntropyFunction(PhysicalType::INT16));
-	entropy.AddFunction(GetEntropyFunction(PhysicalType::INT32));
-	entropy.AddFunction(GetEntropyFunction(PhysicalType::INT64));
-	entropy.AddFunction(GetEntropyFunction(PhysicalType::DOUBLE));
-	entropy.AddFunction(GetEntropyFunction(PhysicalType::VARCHAR));
-	entropy.AddFunction(GetEntropyFunction<int64_t, double>(LogicalType::TIMESTAMP, LogicalType::DOUBLE));
-	entropy.AddFunction(GetEntropyFunction<int64_t, double>(LogicalType::TIMESTAMP_TZ, LogicalType::DOUBLE));
-	set.AddFunction(entropy);
-}
-
-} // namespace duckdb
 
 
 
@@ -5469,7 +4857,8 @@ struct SortedAggregateBindData : public FunctionData {
 };
 
 struct SortedAggregateState {
-	SortedAggregateState() : nsel(0) {
+	SortedAggregateState()
+	    : arguments(Allocator::DefaultAllocator()), ordering(Allocator::DefaultAllocator()), nsel(0) {
 	}
 
 	ChunkCollection arguments;
@@ -6488,21 +5877,19 @@ void BaseScalarFunction::CastToFunctionArguments(vector<unique_ptr<Expression>> 
 	}
 }
 
-unique_ptr<BoundFunctionExpression> ScalarFunction::BindScalarFunction(ClientContext &context, const string &schema,
-                                                                       const string &name,
-                                                                       vector<unique_ptr<Expression>> children,
-                                                                       string &error, bool is_operator) {
+unique_ptr<Expression> ScalarFunction::BindScalarFunction(ClientContext &context, const string &schema,
+                                                          const string &name, vector<unique_ptr<Expression>> children,
+                                                          string &error, bool is_operator, Binder *binder) {
 	// bind the function
 	auto function = Catalog::GetCatalog(context).GetEntry(context, CatalogType::SCALAR_FUNCTION_ENTRY, schema, name);
 	D_ASSERT(function && function->type == CatalogType::SCALAR_FUNCTION_ENTRY);
 	return ScalarFunction::BindScalarFunction(context, (ScalarFunctionCatalogEntry &)*function, move(children), error,
-	                                          is_operator);
+	                                          is_operator, binder);
 }
 
-unique_ptr<BoundFunctionExpression> ScalarFunction::BindScalarFunction(ClientContext &context,
-                                                                       ScalarFunctionCatalogEntry &func,
-                                                                       vector<unique_ptr<Expression>> children,
-                                                                       string &error, bool is_operator) {
+unique_ptr<Expression> ScalarFunction::BindScalarFunction(ClientContext &context, ScalarFunctionCatalogEntry &func,
+                                                          vector<unique_ptr<Expression>> children, string &error,
+                                                          bool is_operator, Binder *binder) {
 	// bind the function
 	bool cast_parameters;
 	idx_t best_function = Function::BindFunction(func.name, func.functions, children, error, cast_parameters);
@@ -6512,6 +5899,18 @@ unique_ptr<BoundFunctionExpression> ScalarFunction::BindScalarFunction(ClientCon
 
 	// found a matching function!
 	auto &bound_function = func.functions[best_function];
+
+	if (bound_function.null_handling == FunctionNullHandling::NULL_IN_NULL_OUT) {
+		for (auto &child : children) {
+			if (child->return_type == LogicalTypeId::SQLNULL) {
+				if (binder) {
+					binder->RemoveParameters(children);
+				}
+				return make_unique<BoundConstantExpression>(Value(LogicalType::SQLNULL));
+			}
+		}
+	}
+
 	return ScalarFunction::BindScalarFunction(context, bound_function, move(children), is_operator, cast_parameters);
 }
 
@@ -6634,6 +6033,18 @@ void MacroFunction::CopyProperties(MacroFunction &other) {
 	}
 }
 
+string MacroFunction::ToSQL(const string &schema, const string &name) {
+	vector<string> param_strings;
+	for (auto &param : parameters) {
+		param_strings.push_back(param->ToString());
+	}
+	for (auto &named_param : default_parameters) {
+		param_strings.push_back(StringUtil::Format("%s := %s", named_param.first, named_param.second->ToString()));
+	}
+
+	return StringUtil::Format("CREATE MACRO %s.%s(%s) AS ", schema, name, StringUtil::Join(param_strings, ", "));
+}
+
 } // namespace duckdb
 
 
@@ -6653,8 +6064,8 @@ namespace duckdb {
 
 static void PragmaEnableProfilingStatement(ClientContext &context, const FunctionParameters &parameters) {
 	auto &config = ClientConfig::GetConfig(context);
-	config.profiler_print_format = ProfilerPrintFormat::QUERY_TREE;
 	config.enable_profiler = true;
+	config.emit_profiler_output = true;
 }
 
 void RegisterEnableProfiling(BuiltinFunctions &set) {
@@ -6668,7 +6079,6 @@ void RegisterEnableProfiling(BuiltinFunctions &set) {
 static void PragmaDisableProfiling(ClientContext &context, const FunctionParameters &parameters) {
 	auto &config = ClientConfig::GetConfig(context);
 	config.enable_profiler = false;
-	config.profiler_print_format = ProfilerPrintFormat::NONE;
 }
 
 static void PragmaEnableProgressBar(ClientContext &context, const FunctionParameters &parameters) {
@@ -10457,11 +9867,6 @@ void MakeDateFun::RegisterFunction(BuiltinFunctions &set) {
 
 
 
-
-
-
-
-
 #include <cctype>
 
 namespace duckdb {
@@ -11756,8 +11161,10 @@ static void StrpTimeFunction(DataChunk &args, ExpressionState &state, Vector &re
 void StrpTimeFun::RegisterFunction(BuiltinFunctions &set) {
 	ScalarFunctionSet strptime("strptime");
 
-	strptime.AddFunction(ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, LogicalType::TIMESTAMP,
-	                                    StrpTimeFunction, false, false, StrpTimeBindFunction));
+	auto fun = ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, LogicalType::TIMESTAMP, StrpTimeFunction,
+	                          false, false, StrpTimeBindFunction);
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	strptime.AddFunction(fun);
 
 	set.AddFunction(strptime);
 }
@@ -12021,9 +11428,11 @@ void EnumRange::RegisterFunction(BuiltinFunctions &set) {
 }
 
 void EnumRangeBoundary::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(ScalarFunction("enum_range_boundary", {LogicalType::ANY, LogicalType::ANY},
-	                               LogicalType::LIST(LogicalType::VARCHAR), EnumRangeBoundaryFunction, false,
-	                               BindEnumRangeBoundaryFunction));
+	auto fun = ScalarFunction("enum_range_boundary", {LogicalType::ANY, LogicalType::ANY},
+	                          LogicalType::LIST(LogicalType::VARCHAR), EnumRangeBoundaryFunction, false,
+	                          BindEnumRangeBoundaryFunction);
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	set.AddFunction(fun);
 }
 
 } // namespace duckdb
@@ -12200,8 +11609,10 @@ unique_ptr<FunctionData> CurrentSettingBind(ClientContext &context, ScalarFuncti
 }
 
 void CurrentSettingFun::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(ScalarFunction("current_setting", {LogicalType::VARCHAR}, LogicalType::ANY, CurrentSettingFunction,
-	                               false, CurrentSettingBind));
+	auto fun = ScalarFunction("current_setting", {LogicalType::VARCHAR}, LogicalType::ANY, CurrentSettingFunction,
+	                          false, CurrentSettingBind);
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	set.AddFunction(fun);
 }
 
 } // namespace duckdb
@@ -12319,22 +11730,24 @@ static void LeastGreatestFunction(DataChunk &args, ExpressionState &state, Vecto
 template <typename T, class OP>
 ScalarFunction GetLeastGreatestFunction(const LogicalType &type) {
 	return ScalarFunction({type}, type, LeastGreatestFunction<T, OP>, true, false, nullptr, nullptr, nullptr, nullptr,
-	                      type);
+	                      type, FunctionNullHandling::SPECIAL_HANDLING);
 }
 
 template <class OP>
 static void RegisterLeastGreatest(BuiltinFunctions &set, const string &fun_name) {
 	ScalarFunctionSet fun_set(fun_name);
 	fun_set.AddFunction(ScalarFunction({LogicalType::BIGINT}, LogicalType::BIGINT, LeastGreatestFunction<int64_t, OP>,
-	                                   true, false, nullptr, nullptr, nullptr, nullptr, LogicalType::BIGINT));
+	                                   true, false, nullptr, nullptr, nullptr, nullptr, LogicalType::BIGINT,
+	                                   FunctionNullHandling::SPECIAL_HANDLING));
 	fun_set.AddFunction(ScalarFunction({LogicalType::HUGEINT}, LogicalType::HUGEINT,
 	                                   LeastGreatestFunction<hugeint_t, OP>, true, false, nullptr, nullptr, nullptr,
-	                                   nullptr, LogicalType::HUGEINT));
+	                                   nullptr, LogicalType::HUGEINT, FunctionNullHandling::SPECIAL_HANDLING));
 	fun_set.AddFunction(ScalarFunction({LogicalType::DOUBLE}, LogicalType::DOUBLE, LeastGreatestFunction<double, OP>,
-	                                   true, false, nullptr, nullptr, nullptr, nullptr, LogicalType::DOUBLE));
+	                                   true, false, nullptr, nullptr, nullptr, nullptr, LogicalType::DOUBLE,
+	                                   FunctionNullHandling::SPECIAL_HANDLING));
 	fun_set.AddFunction(ScalarFunction({LogicalType::VARCHAR}, LogicalType::VARCHAR,
 	                                   LeastGreatestFunction<string_t, OP, true>, true, false, nullptr, nullptr,
-	                                   nullptr, nullptr, LogicalType::VARCHAR));
+	                                   nullptr, nullptr, LogicalType::VARCHAR, FunctionNullHandling::SPECIAL_HANDLING));
 
 	fun_set.AddFunction(GetLeastGreatestFunction<timestamp_t, OP>(LogicalType::TIMESTAMP));
 	fun_set.AddFunction(GetLeastGreatestFunction<time_t, OP>(LogicalType::TIME));
@@ -12624,6 +12037,7 @@ static unique_ptr<FunctionData> ArraySliceBind(ClientContext &context, ScalarFun
 		bound_function.arguments[1] = LogicalType::INTEGER;
 		bound_function.arguments[2] = LogicalType::INTEGER;
 		break;
+	case LogicalTypeId::SQLNULL:
 	case LogicalTypeId::UNKNOWN:
 		bound_function.arguments[0] = LogicalTypeId::UNKNOWN;
 		bound_function.return_type = LogicalType::SQLNULL;
@@ -12640,6 +12054,7 @@ void ArraySliceFun::RegisterFunction(BuiltinFunctions &set) {
 	ScalarFunction fun({LogicalType::ANY, LogicalType::BIGINT, LogicalType::BIGINT}, LogicalType::ANY,
 	                   ArraySliceFunction, false, false, ArraySliceBind);
 	fun.varargs = LogicalType::ANY;
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 	set.AddFunction({"array_slice", "list_slice"}, fun);
 }
 
@@ -12815,17 +12230,7 @@ static unique_ptr<FunctionData> ListContainsOrPositionBind(ClientContext &contex
 
 	const auto &list = arguments[0]->return_type; // change to list
 	const auto &value = arguments[1]->return_type;
-	if (list.id() == LogicalTypeId::SQLNULL && value.id() == LogicalTypeId::SQLNULL) {
-		bound_function.arguments[0] = LogicalType::SQLNULL;
-		bound_function.arguments[1] = LogicalType::SQLNULL;
-		bound_function.return_type = LogicalType::SQLNULL;
-	} else if (list.id() == LogicalTypeId::SQLNULL || value.id() == LogicalTypeId::SQLNULL) {
-		// In case either the list or the value is NULL, return NULL
-		// Similar to behaviour of prestoDB
-		bound_function.arguments[0] = list;
-		bound_function.arguments[1] = value;
-		bound_function.return_type = LogicalTypeId::SQLNULL;
-	} else if (list.id() == LogicalTypeId::UNKNOWN) {
+	if (list.id() == LogicalTypeId::UNKNOWN) {
 		bound_function.return_type = RETURN_TYPE;
 		if (value.id() != LogicalTypeId::UNKNOWN) {
 			// only list is a parameter, cast it to a list of value type
@@ -12977,10 +12382,6 @@ static unique_ptr<FunctionData> ListFlattenBind(ClientContext &context, ScalarFu
 
 	auto &input_type = arguments[0]->return_type;
 	bound_function.arguments[0] = input_type;
-	if (input_type.id() == LogicalTypeId::SQLNULL) {
-		bound_function.return_type = LogicalType(LogicalTypeId::SQLNULL);
-		return make_unique<VariableReturnBindData>(bound_function.return_type);
-	}
 	if (input_type.id() == LogicalTypeId::UNKNOWN) {
 		bound_function.arguments[0] = LogicalType(LogicalTypeId::UNKNOWN);
 		bound_function.return_type = LogicalType(LogicalTypeId::SQLNULL);
@@ -13385,7 +12786,6 @@ static unique_ptr<FunctionData> ListAggregatesBindFunction(ClientContext &contex
 template <bool IS_AGGR = false>
 static unique_ptr<FunctionData> ListAggregatesBind(ClientContext &context, ScalarFunction &bound_function,
                                                    vector<unique_ptr<Expression>> &arguments) {
-
 	if (arguments[0]->return_type.id() == LogicalTypeId::SQLNULL) {
 		bound_function.arguments[0] = LogicalType::SQLNULL;
 		bound_function.return_type = LogicalType::SQLNULL;
@@ -13472,8 +12872,10 @@ static unique_ptr<FunctionData> ListUniqueBind(ClientContext &context, ScalarFun
 }
 
 ScalarFunction ListAggregateFun::GetFunction() {
-	return ScalarFunction({LogicalType::LIST(LogicalType::ANY), LogicalType::VARCHAR}, LogicalType::ANY,
-	                      ListAggregateFunction, false, false, ListAggregateBind);
+	auto result = ScalarFunction({LogicalType::LIST(LogicalType::ANY), LogicalType::VARCHAR}, LogicalType::ANY,
+	                             ListAggregateFunction, false, false, ListAggregateBind);
+	result.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	return result;
 }
 
 ScalarFunction ListDistinctFun::GetFunction() {
@@ -13580,9 +12982,7 @@ static unique_ptr<FunctionData> ListConcatBind(ClientContext &context, ScalarFun
 
 	auto &lhs = arguments[0]->return_type;
 	auto &rhs = arguments[1]->return_type;
-	if (lhs.id() == LogicalTypeId::SQLNULL && rhs.id() == LogicalTypeId::SQLNULL) {
-		bound_function.return_type = LogicalType::SQLNULL;
-	} else if (lhs.id() == LogicalTypeId::SQLNULL || rhs.id() == LogicalTypeId::SQLNULL) {
+	if (lhs.id() == LogicalTypeId::SQLNULL || rhs.id() == LogicalTypeId::SQLNULL) {
 		// we mimic postgres behaviour: list_concat(NULL, my_list) = my_list
 		bound_function.arguments[0] = lhs;
 		bound_function.arguments[1] = rhs;
@@ -13623,9 +13023,11 @@ static unique_ptr<BaseStatistics> ListConcatStats(ClientContext &context, Functi
 
 ScalarFunction ListConcatFun::GetFunction() {
 	// the arguments and return types are actually set in the binder function
-	return ScalarFunction({LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)},
-	                      LogicalType::LIST(LogicalType::ANY), ListConcatFunction, false, false, ListConcatBind,
-	                      nullptr, ListConcatStats);
+	auto fun = ScalarFunction({LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)},
+	                          LogicalType::LIST(LogicalType::ANY), ListConcatFunction, false, false, ListConcatBind,
+	                          nullptr, ListConcatStats);
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	return fun;
 }
 
 void ListConcatFun::RegisterFunction(BuiltinFunctions &set) {
@@ -13833,14 +13235,9 @@ static void ListExtractFunction(DataChunk &args, ExpressionState &state, Vector 
 static unique_ptr<FunctionData> ListExtractBind(ClientContext &context, ScalarFunction &bound_function,
                                                 vector<unique_ptr<Expression>> &arguments) {
 	D_ASSERT(bound_function.arguments.size() == 2);
-	if (arguments[0]->return_type.id() == LogicalTypeId::SQLNULL) {
-		bound_function.arguments[0] = LogicalType::SQLNULL;
-		bound_function.return_type = LogicalType::SQLNULL;
-	} else {
-		D_ASSERT(LogicalTypeId::LIST == arguments[0]->return_type.id());
-		// list extract returns the child type of the list as return type
-		bound_function.return_type = ListType::GetChildType(arguments[0]->return_type);
-	}
+	D_ASSERT(LogicalTypeId::LIST == arguments[0]->return_type.id());
+	// list extract returns the child type of the list as return type
+	bound_function.return_type = ListType::GetChildType(arguments[0]->return_type);
 	return make_unique<VariableReturnBindData>(bound_function.return_type);
 }
 
@@ -13983,7 +13380,6 @@ void SinkDataChunk(Vector *child_vector, SelectionVector &sel, idx_t offset_list
 }
 
 static void ListSortFunction(DataChunk &args, ExpressionState &state, Vector &result) {
-
 	D_ASSERT(args.ColumnCount() >= 1 && args.ColumnCount() <= 3);
 	auto count = args.size();
 	Vector &lists = args.data[0];
@@ -14090,7 +13486,7 @@ static void ListSortFunction(DataChunk &args, ExpressionState &state, Vector &re
 		PayloadScanner scanner(*global_sort_state.sorted_blocks[0]->payload_data, global_sort_state);
 		for (;;) {
 			DataChunk result_chunk;
-			result_chunk.Initialize(info.payload_types);
+			result_chunk.Initialize(Allocator::DefaultAllocator(), info.payload_types);
 			result_chunk.SetCardinality(0);
 			scanner.Scan(result_chunk);
 			if (result_chunk.size() == 0) {
@@ -14119,13 +13515,6 @@ static void ListSortFunction(DataChunk &args, ExpressionState &state, Vector &re
 static unique_ptr<FunctionData> ListSortBind(ClientContext &context, ScalarFunction &bound_function,
                                              vector<unique_ptr<Expression>> &arguments, OrderType &order,
                                              OrderByNullType &null_order) {
-
-	if (arguments[0]->return_type.id() == LogicalTypeId::SQLNULL) {
-		bound_function.arguments[0] = LogicalType::SQLNULL;
-		bound_function.return_type = LogicalType::SQLNULL;
-		return make_unique<VariableReturnBindData>(bound_function.return_type);
-	}
-
 	bound_function.arguments[0] = arguments[0]->return_type;
 	bound_function.return_type = arguments[0]->return_type;
 	auto child_type = ListType::GetChildType(arguments[0]->return_type);
@@ -14327,6 +13716,7 @@ void ListValueFun::RegisterFunction(BuiltinFunctions &set) {
 	ScalarFunction fun("list_value", {}, LogicalTypeId::LIST, ListValueFunction, false, ListValueBind, nullptr,
 	                   ListValueStats);
 	fun.varargs = LogicalType::ANY;
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 	set.AddFunction(fun);
 	fun.name = "list_pack";
 	set.AddFunction(fun);
@@ -14647,6 +14037,7 @@ void CardinalityFun::RegisterFunction(BuiltinFunctions &set) {
 	ScalarFunction fun("cardinality", {LogicalType::ANY}, LogicalType::UBIGINT, CardinalityFunction, false,
 	                   CardinalityBind);
 	fun.varargs = LogicalType::ANY;
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 	set.AddFunction(fun);
 }
 
@@ -14805,6 +14196,7 @@ void MapFun::RegisterFunction(BuiltinFunctions &set) {
 	//! the arguments and return types are actually set in the binder function
 	ScalarFunction fun("map", {}, LogicalTypeId::MAP, MapFunction, false, MapBind);
 	fun.varargs = LogicalType::ANY;
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 	set.AddFunction(fun);
 }
 
@@ -14881,6 +14273,7 @@ void MapExtractFun::RegisterFunction(BuiltinFunctions &set) {
 	ScalarFunction fun("map_extract", {LogicalType::ANY, LogicalType::ANY}, LogicalType::ANY, MapExtractFunction, false,
 	                   MapExtractBind);
 	fun.varargs = LogicalType::ANY;
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 	set.AddFunction(fun);
 	fun.name = "element_at";
 	set.AddFunction(fun);
@@ -16451,6 +15844,885 @@ dtime_t AddTimeOperator::Operation(dtime_t left, interval_t right) {
 template <>
 dtime_t AddTimeOperator::Operation(interval_t left, dtime_t right) {
 	return AddTimeOperator::Operation<dtime_t, interval_t, dtime_t>(right, left);
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include <limits>
+
+namespace duckdb {
+
+template <class OP>
+static scalar_function_t GetScalarIntegerFunction(PhysicalType type) {
+	scalar_function_t function;
+	switch (type) {
+	case PhysicalType::INT8:
+		function = &ScalarFunction::BinaryFunction<int8_t, int8_t, int8_t, OP>;
+		break;
+	case PhysicalType::INT16:
+		function = &ScalarFunction::BinaryFunction<int16_t, int16_t, int16_t, OP>;
+		break;
+	case PhysicalType::INT32:
+		function = &ScalarFunction::BinaryFunction<int32_t, int32_t, int32_t, OP>;
+		break;
+	case PhysicalType::INT64:
+		function = &ScalarFunction::BinaryFunction<int64_t, int64_t, int64_t, OP>;
+		break;
+	case PhysicalType::UINT8:
+		function = &ScalarFunction::BinaryFunction<uint8_t, uint8_t, uint8_t, OP>;
+		break;
+	case PhysicalType::UINT16:
+		function = &ScalarFunction::BinaryFunction<uint16_t, uint16_t, uint16_t, OP>;
+		break;
+	case PhysicalType::UINT32:
+		function = &ScalarFunction::BinaryFunction<uint32_t, uint32_t, uint32_t, OP>;
+		break;
+	case PhysicalType::UINT64:
+		function = &ScalarFunction::BinaryFunction<uint64_t, uint64_t, uint64_t, OP>;
+		break;
+	default:
+		throw NotImplementedException("Unimplemented type for GetScalarBinaryFunction");
+	}
+	return function;
+}
+
+template <class OP>
+static scalar_function_t GetScalarBinaryFunction(PhysicalType type) {
+	scalar_function_t function;
+	switch (type) {
+	case PhysicalType::INT128:
+		function = &ScalarFunction::BinaryFunction<hugeint_t, hugeint_t, hugeint_t, OP>;
+		break;
+	case PhysicalType::FLOAT:
+		function = &ScalarFunction::BinaryFunction<float, float, float, OP>;
+		break;
+	case PhysicalType::DOUBLE:
+		function = &ScalarFunction::BinaryFunction<double, double, double, OP>;
+		break;
+	default:
+		function = GetScalarIntegerFunction<OP>(type);
+		break;
+	}
+	return function;
+}
+
+//===--------------------------------------------------------------------===//
+// + [add]
+//===--------------------------------------------------------------------===//
+struct AddPropagateStatistics {
+	template <class T, class OP>
+	static bool Operation(LogicalType type, NumericStatistics &lstats, NumericStatistics &rstats, Value &new_min,
+	                      Value &new_max) {
+		T min, max;
+		// new min is min+min
+		if (!OP::Operation(lstats.min.GetValueUnsafe<T>(), rstats.min.GetValueUnsafe<T>(), min)) {
+			return true;
+		}
+		// new max is max+max
+		if (!OP::Operation(lstats.max.GetValueUnsafe<T>(), rstats.max.GetValueUnsafe<T>(), max)) {
+			return true;
+		}
+		new_min = Value::Numeric(type, min);
+		new_max = Value::Numeric(type, max);
+		return false;
+	}
+};
+
+struct SubtractPropagateStatistics {
+	template <class T, class OP>
+	static bool Operation(LogicalType type, NumericStatistics &lstats, NumericStatistics &rstats, Value &new_min,
+	                      Value &new_max) {
+		T min, max;
+		if (!OP::Operation(lstats.min.GetValueUnsafe<T>(), rstats.max.GetValueUnsafe<T>(), min)) {
+			return true;
+		}
+		if (!OP::Operation(lstats.max.GetValueUnsafe<T>(), rstats.min.GetValueUnsafe<T>(), max)) {
+			return true;
+		}
+		new_min = Value::Numeric(type, min);
+		new_max = Value::Numeric(type, max);
+		return false;
+	}
+};
+
+template <class OP, class PROPAGATE, class BASEOP>
+static unique_ptr<BaseStatistics> PropagateNumericStats(ClientContext &context, FunctionStatisticsInput &input) {
+	auto &child_stats = input.child_stats;
+	auto &expr = input.expr;
+	D_ASSERT(child_stats.size() == 2);
+	// can only propagate stats if the children have stats
+	if (!child_stats[0] || !child_stats[1]) {
+		return nullptr;
+	}
+	auto &lstats = (NumericStatistics &)*child_stats[0];
+	auto &rstats = (NumericStatistics &)*child_stats[1];
+	Value new_min, new_max;
+	bool potential_overflow = true;
+	if (!lstats.min.IsNull() && !lstats.max.IsNull() && !rstats.min.IsNull() && !rstats.max.IsNull()) {
+		switch (expr.return_type.InternalType()) {
+		case PhysicalType::INT8:
+			potential_overflow =
+			    PROPAGATE::template Operation<int8_t, OP>(expr.return_type, lstats, rstats, new_min, new_max);
+			break;
+		case PhysicalType::INT16:
+			potential_overflow =
+			    PROPAGATE::template Operation<int16_t, OP>(expr.return_type, lstats, rstats, new_min, new_max);
+			break;
+		case PhysicalType::INT32:
+			potential_overflow =
+			    PROPAGATE::template Operation<int32_t, OP>(expr.return_type, lstats, rstats, new_min, new_max);
+			break;
+		case PhysicalType::INT64:
+			potential_overflow =
+			    PROPAGATE::template Operation<int64_t, OP>(expr.return_type, lstats, rstats, new_min, new_max);
+			break;
+		default:
+			return nullptr;
+		}
+	}
+	if (potential_overflow) {
+		new_min = Value(expr.return_type);
+		new_max = Value(expr.return_type);
+	} else {
+		// no potential overflow: replace with non-overflowing operator
+		expr.function.function = GetScalarIntegerFunction<BASEOP>(expr.return_type.InternalType());
+	}
+	auto stats =
+	    make_unique<NumericStatistics>(expr.return_type, move(new_min), move(new_max), StatisticsType::LOCAL_STATS);
+	stats->validity_stats = ValidityStatistics::Combine(lstats.validity_stats, rstats.validity_stats);
+	return move(stats);
+}
+
+template <class OP, class OPOVERFLOWCHECK, bool IS_SUBTRACT = false>
+unique_ptr<FunctionData> BindDecimalAddSubtract(ClientContext &context, ScalarFunction &bound_function,
+                                                vector<unique_ptr<Expression>> &arguments) {
+	// get the max width and scale of the input arguments
+	uint8_t max_width = 0, max_scale = 0, max_width_over_scale = 0;
+	for (idx_t i = 0; i < arguments.size(); i++) {
+		if (arguments[i]->return_type.id() == LogicalTypeId::UNKNOWN) {
+			continue;
+		}
+		uint8_t width, scale;
+		auto can_convert = arguments[i]->return_type.GetDecimalProperties(width, scale);
+		if (!can_convert) {
+			throw InternalException("Could not convert type %s to a decimal.", arguments[i]->return_type.ToString());
+		}
+		max_width = MaxValue<uint8_t>(width, max_width);
+		max_scale = MaxValue<uint8_t>(scale, max_scale);
+		max_width_over_scale = MaxValue<uint8_t>(width - scale, max_width_over_scale);
+	}
+	D_ASSERT(max_width > 0);
+	// for addition/subtraction, we add 1 to the width to ensure we don't overflow
+	bool check_overflow = false;
+	auto required_width = MaxValue<uint8_t>(max_scale + max_width_over_scale, max_width) + 1;
+	if (required_width > Decimal::MAX_WIDTH_INT64 && max_width <= Decimal::MAX_WIDTH_INT64) {
+		// we don't automatically promote past the hugeint boundary to avoid the large hugeint performance penalty
+		check_overflow = true;
+		required_width = Decimal::MAX_WIDTH_INT64;
+	}
+	if (required_width > Decimal::MAX_WIDTH_DECIMAL) {
+		// target width does not fit in decimal at all: truncate the scale and perform overflow detection
+		check_overflow = true;
+		required_width = Decimal::MAX_WIDTH_DECIMAL;
+	}
+	// arithmetic between two decimal arguments: check the types of the input arguments
+	LogicalType result_type = LogicalType::DECIMAL(required_width, max_scale);
+	// we cast all input types to the specified type
+	for (idx_t i = 0; i < arguments.size(); i++) {
+		// first check if the cast is necessary
+		// if the argument has a matching scale and internal type as the output type, no casting is necessary
+		auto &argument_type = arguments[i]->return_type;
+		uint8_t width, scale;
+		argument_type.GetDecimalProperties(width, scale);
+		if (scale == DecimalType::GetScale(result_type) && argument_type.InternalType() == result_type.InternalType()) {
+			bound_function.arguments[i] = argument_type;
+		} else {
+			bound_function.arguments[i] = result_type;
+		}
+	}
+	bound_function.return_type = result_type;
+	// now select the physical function to execute
+	if (check_overflow) {
+		bound_function.function = GetScalarBinaryFunction<OPOVERFLOWCHECK>(result_type.InternalType());
+	} else {
+		bound_function.function = GetScalarBinaryFunction<OP>(result_type.InternalType());
+	}
+	if (result_type.InternalType() != PhysicalType::INT128) {
+		if (IS_SUBTRACT) {
+			bound_function.statistics =
+			    PropagateNumericStats<TryDecimalSubtract, SubtractPropagateStatistics, SubtractOperator>;
+		} else {
+			bound_function.statistics = PropagateNumericStats<TryDecimalAdd, AddPropagateStatistics, AddOperator>;
+		}
+	}
+	return nullptr;
+}
+
+unique_ptr<FunctionData> NopDecimalBind(ClientContext &context, ScalarFunction &bound_function,
+                                        vector<unique_ptr<Expression>> &arguments) {
+	bound_function.return_type = arguments[0]->return_type;
+	bound_function.arguments[0] = arguments[0]->return_type;
+	return nullptr;
+}
+
+ScalarFunction AddFun::GetFunction(const LogicalType &type) {
+	D_ASSERT(type.IsNumeric());
+	if (type.id() == LogicalTypeId::DECIMAL) {
+		return ScalarFunction("+", {type}, type, ScalarFunction::NopFunction, false, NopDecimalBind);
+	} else {
+		return ScalarFunction("+", {type}, type, ScalarFunction::NopFunction);
+	}
+}
+
+ScalarFunction AddFun::GetFunction(const LogicalType &left_type, const LogicalType &right_type) {
+	if (left_type.IsNumeric() && left_type.id() == right_type.id()) {
+		if (left_type.id() == LogicalTypeId::DECIMAL) {
+			return ScalarFunction("+", {left_type, right_type}, left_type, nullptr, false,
+			                      BindDecimalAddSubtract<AddOperator, DecimalAddOverflowCheck>);
+		} else if (left_type.IsIntegral() && left_type.id() != LogicalTypeId::HUGEINT) {
+			return ScalarFunction("+", {left_type, right_type}, left_type,
+			                      GetScalarIntegerFunction<AddOperatorOverflowCheck>(left_type.InternalType()), false,
+			                      nullptr, nullptr,
+			                      PropagateNumericStats<TryAddOperator, AddPropagateStatistics, AddOperator>);
+		} else {
+			return ScalarFunction("+", {left_type, right_type}, left_type,
+			                      GetScalarBinaryFunction<AddOperator>(left_type.InternalType()));
+		}
+	}
+
+	switch (left_type.id()) {
+	case LogicalTypeId::DATE:
+		if (right_type.id() == LogicalTypeId::INTEGER) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::DATE,
+			                      ScalarFunction::BinaryFunction<date_t, int32_t, date_t, AddOperator>);
+		} else if (right_type.id() == LogicalTypeId::INTERVAL) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::DATE,
+			                      ScalarFunction::BinaryFunction<date_t, interval_t, date_t, AddOperator>);
+		} else if (right_type.id() == LogicalTypeId::TIME) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIMESTAMP,
+			                      ScalarFunction::BinaryFunction<date_t, dtime_t, timestamp_t, AddOperator>);
+		}
+		break;
+	case LogicalTypeId::INTEGER:
+		if (right_type.id() == LogicalTypeId::DATE) {
+			return ScalarFunction("+", {left_type, right_type}, right_type,
+			                      ScalarFunction::BinaryFunction<int32_t, date_t, date_t, AddOperator>);
+		}
+		break;
+	case LogicalTypeId::INTERVAL:
+		if (right_type.id() == LogicalTypeId::INTERVAL) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::INTERVAL,
+			                      ScalarFunction::BinaryFunction<interval_t, interval_t, interval_t, AddOperator>);
+		} else if (right_type.id() == LogicalTypeId::DATE) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::DATE,
+			                      ScalarFunction::BinaryFunction<interval_t, date_t, date_t, AddOperator>);
+		} else if (right_type.id() == LogicalTypeId::TIME) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIME,
+			                      ScalarFunction::BinaryFunction<interval_t, dtime_t, dtime_t, AddTimeOperator>);
+		} else if (right_type.id() == LogicalTypeId::TIMESTAMP) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIMESTAMP,
+			                      ScalarFunction::BinaryFunction<interval_t, timestamp_t, timestamp_t, AddOperator>);
+		}
+		break;
+	case LogicalTypeId::TIME:
+		if (right_type.id() == LogicalTypeId::INTERVAL) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIME,
+			                      ScalarFunction::BinaryFunction<dtime_t, interval_t, dtime_t, AddTimeOperator>);
+		} else if (right_type.id() == LogicalTypeId::DATE) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIMESTAMP,
+			                      ScalarFunction::BinaryFunction<dtime_t, date_t, timestamp_t, AddOperator>);
+		}
+		break;
+	case LogicalTypeId::TIMESTAMP:
+		if (right_type.id() == LogicalTypeId::INTERVAL) {
+			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIMESTAMP,
+			                      ScalarFunction::BinaryFunction<timestamp_t, interval_t, timestamp_t, AddOperator>);
+		}
+		break;
+	default:
+		break;
+	}
+	// LCOV_EXCL_START
+	throw NotImplementedException("AddFun for types %s, %s", LogicalTypeIdToString(left_type.id()),
+	                              LogicalTypeIdToString(right_type.id()));
+	// LCOV_EXCL_STOP
+}
+
+void AddFun::RegisterFunction(BuiltinFunctions &set) {
+	ScalarFunctionSet functions("+");
+	for (auto &type : LogicalType::Numeric()) {
+		// unary add function is a nop, but only exists for numeric types
+		functions.AddFunction(GetFunction(type));
+		// binary add function adds two numbers together
+		functions.AddFunction(GetFunction(type, type));
+	}
+	// we can add integers to dates
+	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::INTEGER));
+	functions.AddFunction(GetFunction(LogicalType::INTEGER, LogicalType::DATE));
+	// we can add intervals together
+	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::INTERVAL));
+	// we can add intervals to dates/times/timestamps
+	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::INTERVAL));
+	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::DATE));
+
+	functions.AddFunction(GetFunction(LogicalType::TIME, LogicalType::INTERVAL));
+	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::TIME));
+
+	functions.AddFunction(GetFunction(LogicalType::TIMESTAMP, LogicalType::INTERVAL));
+	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::TIMESTAMP));
+
+	// we can add times to dates
+	functions.AddFunction(GetFunction(LogicalType::TIME, LogicalType::DATE));
+	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::TIME));
+
+	// we can add lists together
+	functions.AddFunction(ListConcatFun::GetFunction());
+
+	set.AddFunction(functions);
+
+	functions.name = "add";
+	set.AddFunction(functions);
+}
+
+//===--------------------------------------------------------------------===//
+// - [subtract]
+//===--------------------------------------------------------------------===//
+struct NegateOperator {
+	template <class T>
+	static bool CanNegate(T input) {
+		using Limits = std::numeric_limits<T>;
+		return !(Limits::is_integer && Limits::is_signed && Limits::lowest() == input);
+	}
+
+	template <class TA, class TR>
+	static inline TR Operation(TA input) {
+		auto cast = (TR)input;
+		if (!CanNegate<TR>(cast)) {
+			throw OutOfRangeException("Overflow in negation of integer!");
+		}
+		return -cast;
+	}
+};
+
+template <>
+bool NegateOperator::CanNegate(float input) {
+	return Value::FloatIsFinite(input);
+}
+
+template <>
+bool NegateOperator::CanNegate(double input) {
+	return Value::DoubleIsFinite(input);
+}
+
+template <>
+interval_t NegateOperator::Operation(interval_t input) {
+	interval_t result;
+	result.months = NegateOperator::Operation<int32_t, int32_t>(input.months);
+	result.days = NegateOperator::Operation<int32_t, int32_t>(input.days);
+	result.micros = NegateOperator::Operation<int64_t, int64_t>(input.micros);
+	return result;
+}
+
+unique_ptr<FunctionData> DecimalNegateBind(ClientContext &context, ScalarFunction &bound_function,
+                                           vector<unique_ptr<Expression>> &arguments) {
+	auto &decimal_type = arguments[0]->return_type;
+	auto width = DecimalType::GetWidth(decimal_type);
+	if (width <= Decimal::MAX_WIDTH_INT16) {
+		bound_function.function = ScalarFunction::GetScalarUnaryFunction<NegateOperator>(LogicalTypeId::SMALLINT);
+	} else if (width <= Decimal::MAX_WIDTH_INT32) {
+		bound_function.function = ScalarFunction::GetScalarUnaryFunction<NegateOperator>(LogicalTypeId::INTEGER);
+	} else if (width <= Decimal::MAX_WIDTH_INT64) {
+		bound_function.function = ScalarFunction::GetScalarUnaryFunction<NegateOperator>(LogicalTypeId::BIGINT);
+	} else {
+		D_ASSERT(width <= Decimal::MAX_WIDTH_INT128);
+		bound_function.function = ScalarFunction::GetScalarUnaryFunction<NegateOperator>(LogicalTypeId::HUGEINT);
+	}
+	decimal_type.Verify();
+	bound_function.arguments[0] = decimal_type;
+	bound_function.return_type = decimal_type;
+	return nullptr;
+}
+
+struct NegatePropagateStatistics {
+	template <class T>
+	static bool Operation(LogicalType type, NumericStatistics &istats, Value &new_min, Value &new_max) {
+		auto max_value = istats.max.GetValueUnsafe<T>();
+		auto min_value = istats.min.GetValueUnsafe<T>();
+		if (!NegateOperator::CanNegate<T>(min_value) || !NegateOperator::CanNegate<T>(max_value)) {
+			return true;
+		}
+		// new min is -max
+		new_min = Value::Numeric(type, NegateOperator::Operation<T, T>(max_value));
+		// new max is -min
+		new_max = Value::Numeric(type, NegateOperator::Operation<T, T>(min_value));
+		return false;
+	}
+};
+
+static unique_ptr<BaseStatistics> NegateBindStatistics(ClientContext &context, FunctionStatisticsInput &input) {
+	auto &child_stats = input.child_stats;
+	auto &expr = input.expr;
+	D_ASSERT(child_stats.size() == 1);
+	// can only propagate stats if the children have stats
+	if (!child_stats[0]) {
+		return nullptr;
+	}
+	auto &istats = (NumericStatistics &)*child_stats[0];
+	Value new_min, new_max;
+	bool potential_overflow = true;
+	if (!istats.min.IsNull() && !istats.max.IsNull()) {
+		switch (expr.return_type.InternalType()) {
+		case PhysicalType::INT8:
+			potential_overflow =
+			    NegatePropagateStatistics::Operation<int8_t>(expr.return_type, istats, new_min, new_max);
+			break;
+		case PhysicalType::INT16:
+			potential_overflow =
+			    NegatePropagateStatistics::Operation<int16_t>(expr.return_type, istats, new_min, new_max);
+			break;
+		case PhysicalType::INT32:
+			potential_overflow =
+			    NegatePropagateStatistics::Operation<int32_t>(expr.return_type, istats, new_min, new_max);
+			break;
+		case PhysicalType::INT64:
+			potential_overflow =
+			    NegatePropagateStatistics::Operation<int64_t>(expr.return_type, istats, new_min, new_max);
+			break;
+		default:
+			return nullptr;
+		}
+	}
+	if (potential_overflow) {
+		new_min = Value(expr.return_type);
+		new_max = Value(expr.return_type);
+	}
+	auto stats =
+	    make_unique<NumericStatistics>(expr.return_type, move(new_min), move(new_max), StatisticsType::LOCAL_STATS);
+	if (istats.validity_stats) {
+		stats->validity_stats = istats.validity_stats->Copy();
+	}
+	return move(stats);
+}
+
+ScalarFunction SubtractFun::GetFunction(const LogicalType &type) {
+	if (type.id() == LogicalTypeId::INTERVAL) {
+		return ScalarFunction("-", {type}, type, ScalarFunction::UnaryFunction<interval_t, interval_t, NegateOperator>);
+	} else if (type.id() == LogicalTypeId::DECIMAL) {
+		return ScalarFunction("-", {type}, type, nullptr, false, DecimalNegateBind, nullptr, NegateBindStatistics);
+	} else {
+		D_ASSERT(type.IsNumeric());
+		return ScalarFunction("-", {type}, type, ScalarFunction::GetScalarUnaryFunction<NegateOperator>(type), false,
+		                      nullptr, nullptr, NegateBindStatistics);
+	}
+}
+
+ScalarFunction SubtractFun::GetFunction(const LogicalType &left_type, const LogicalType &right_type) {
+	if (left_type.IsNumeric() && left_type.id() == right_type.id()) {
+		if (left_type.id() == LogicalTypeId::DECIMAL) {
+			return ScalarFunction("-", {left_type, right_type}, left_type, nullptr, false,
+			                      BindDecimalAddSubtract<SubtractOperator, DecimalSubtractOverflowCheck, true>);
+		} else if (left_type.IsIntegral() && left_type.id() != LogicalTypeId::HUGEINT) {
+			return ScalarFunction(
+			    "-", {left_type, right_type}, left_type,
+			    GetScalarIntegerFunction<SubtractOperatorOverflowCheck>(left_type.InternalType()), false, nullptr,
+			    nullptr, PropagateNumericStats<TrySubtractOperator, SubtractPropagateStatistics, SubtractOperator>);
+		} else {
+			return ScalarFunction("-", {left_type, right_type}, left_type,
+			                      GetScalarBinaryFunction<SubtractOperator>(left_type.InternalType()));
+		}
+	}
+
+	switch (left_type.id()) {
+	case LogicalTypeId::DATE:
+		if (right_type.id() == LogicalTypeId::DATE) {
+			return ScalarFunction("-", {left_type, right_type}, LogicalType::BIGINT,
+			                      ScalarFunction::BinaryFunction<date_t, date_t, int64_t, SubtractOperator>);
+		} else if (right_type.id() == LogicalTypeId::INTEGER) {
+			return ScalarFunction("-", {left_type, right_type}, LogicalType::DATE,
+			                      ScalarFunction::BinaryFunction<date_t, int32_t, date_t, SubtractOperator>);
+		} else if (right_type.id() == LogicalTypeId::INTERVAL) {
+			return ScalarFunction("-", {left_type, right_type}, LogicalType::DATE,
+			                      ScalarFunction::BinaryFunction<date_t, interval_t, date_t, SubtractOperator>);
+		}
+		break;
+	case LogicalTypeId::TIMESTAMP:
+		if (right_type.id() == LogicalTypeId::TIMESTAMP) {
+			return ScalarFunction(
+			    "-", {left_type, right_type}, LogicalType::INTERVAL,
+			    ScalarFunction::BinaryFunction<timestamp_t, timestamp_t, interval_t, SubtractOperator>);
+		} else if (right_type.id() == LogicalTypeId::INTERVAL) {
+			return ScalarFunction(
+			    "-", {left_type, right_type}, LogicalType::TIMESTAMP,
+			    ScalarFunction::BinaryFunction<timestamp_t, interval_t, timestamp_t, SubtractOperator>);
+		}
+		break;
+	case LogicalTypeId::INTERVAL:
+		if (right_type.id() == LogicalTypeId::INTERVAL) {
+			return ScalarFunction("-", {left_type, right_type}, LogicalType::INTERVAL,
+			                      ScalarFunction::BinaryFunction<interval_t, interval_t, interval_t, SubtractOperator>);
+		}
+		break;
+	case LogicalTypeId::TIME:
+		if (right_type.id() == LogicalTypeId::INTERVAL) {
+			return ScalarFunction("-", {left_type, right_type}, LogicalType::TIME,
+			                      ScalarFunction::BinaryFunction<dtime_t, interval_t, dtime_t, SubtractTimeOperator>);
+		}
+		break;
+	default:
+		break;
+	}
+	// LCOV_EXCL_START
+	throw NotImplementedException("SubtractFun for types %s, %s", LogicalTypeIdToString(left_type.id()),
+	                              LogicalTypeIdToString(right_type.id()));
+	// LCOV_EXCL_STOP
+}
+
+void SubtractFun::RegisterFunction(BuiltinFunctions &set) {
+	ScalarFunctionSet functions("-");
+	for (auto &type : LogicalType::Numeric()) {
+		// unary subtract function, negates the input (i.e. multiplies by -1)
+		functions.AddFunction(GetFunction(type));
+		// binary subtract function "a - b", subtracts b from a
+		functions.AddFunction(GetFunction(type, type));
+	}
+	// we can subtract dates from each other
+	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::DATE));
+	// we can subtract integers from dates
+	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::INTEGER));
+	// we can subtract timestamps from each other
+	functions.AddFunction(GetFunction(LogicalType::TIMESTAMP, LogicalType::TIMESTAMP));
+	// we can subtract intervals from each other
+	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::INTERVAL));
+	// we can subtract intervals from dates/times/timestamps, but not the other way around
+	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::INTERVAL));
+	functions.AddFunction(GetFunction(LogicalType::TIME, LogicalType::INTERVAL));
+	functions.AddFunction(GetFunction(LogicalType::TIMESTAMP, LogicalType::INTERVAL));
+	// we can negate intervals
+	functions.AddFunction(GetFunction(LogicalType::INTERVAL));
+	set.AddFunction(functions);
+
+	functions.name = "subtract";
+	set.AddFunction(functions);
+}
+
+//===--------------------------------------------------------------------===//
+// * [multiply]
+//===--------------------------------------------------------------------===//
+struct MultiplyPropagateStatistics {
+	template <class T, class OP>
+	static bool Operation(LogicalType type, NumericStatistics &lstats, NumericStatistics &rstats, Value &new_min,
+	                      Value &new_max) {
+		// statistics propagation on the multiplication is slightly less straightforward because of negative numbers
+		// the new min/max depend on the signs of the input types
+		// if both are positive the result is [lmin * rmin][lmax * rmax]
+		// if lmin/lmax are negative the result is [lmin * rmax][lmax * rmin]
+		// etc
+		// rather than doing all this switcheroo we just multiply all combinations of lmin/lmax with rmin/rmax
+		// and check what the minimum/maximum value is
+		T lvals[] {lstats.min.GetValueUnsafe<T>(), lstats.max.GetValueUnsafe<T>()};
+		T rvals[] {rstats.min.GetValueUnsafe<T>(), rstats.max.GetValueUnsafe<T>()};
+		T min = NumericLimits<T>::Maximum();
+		T max = NumericLimits<T>::Minimum();
+		// multiplications
+		for (idx_t l = 0; l < 2; l++) {
+			for (idx_t r = 0; r < 2; r++) {
+				T result;
+				if (!OP::Operation(lvals[l], rvals[r], result)) {
+					// potential overflow
+					return true;
+				}
+				if (result < min) {
+					min = result;
+				}
+				if (result > max) {
+					max = result;
+				}
+			}
+		}
+		new_min = Value::Numeric(type, min);
+		new_max = Value::Numeric(type, max);
+		return false;
+	}
+};
+
+unique_ptr<FunctionData> BindDecimalMultiply(ClientContext &context, ScalarFunction &bound_function,
+                                             vector<unique_ptr<Expression>> &arguments) {
+	uint8_t result_width = 0, result_scale = 0;
+	uint8_t max_width = 0;
+	for (idx_t i = 0; i < arguments.size(); i++) {
+		if (arguments[i]->return_type.id() == LogicalTypeId::UNKNOWN) {
+			continue;
+		}
+		uint8_t width, scale;
+		auto can_convert = arguments[i]->return_type.GetDecimalProperties(width, scale);
+		if (!can_convert) {
+			throw InternalException("Could not convert type %s to a decimal?", arguments[i]->return_type.ToString());
+		}
+		if (width > max_width) {
+			max_width = width;
+		}
+		result_width += width;
+		result_scale += scale;
+	}
+	D_ASSERT(max_width > 0);
+	if (result_scale > Decimal::MAX_WIDTH_DECIMAL) {
+		throw OutOfRangeException(
+		    "Needed scale %d to accurately represent the multiplication result, but this is out of range of the "
+		    "DECIMAL type. Max scale is %d; could not perform an accurate multiplication. Either add a cast to DOUBLE, "
+		    "or add an explicit cast to a decimal with a lower scale.",
+		    result_scale, Decimal::MAX_WIDTH_DECIMAL);
+	}
+	bool check_overflow = false;
+	if (result_width > Decimal::MAX_WIDTH_INT64 && max_width <= Decimal::MAX_WIDTH_INT64 &&
+	    result_scale < Decimal::MAX_WIDTH_INT64) {
+		check_overflow = true;
+		result_width = Decimal::MAX_WIDTH_INT64;
+	}
+	if (result_width > Decimal::MAX_WIDTH_DECIMAL) {
+		check_overflow = true;
+		result_width = Decimal::MAX_WIDTH_DECIMAL;
+	}
+	LogicalType result_type = LogicalType::DECIMAL(result_width, result_scale);
+	// since our scale is the summation of our input scales, we do not need to cast to the result scale
+	// however, we might need to cast to the correct internal type
+	for (idx_t i = 0; i < arguments.size(); i++) {
+		auto &argument_type = arguments[i]->return_type;
+		if (argument_type.InternalType() == result_type.InternalType()) {
+			bound_function.arguments[i] = argument_type;
+		} else {
+			uint8_t width, scale;
+			if (!argument_type.GetDecimalProperties(width, scale)) {
+				scale = 0;
+			}
+
+			bound_function.arguments[i] = LogicalType::DECIMAL(result_width, scale);
+		}
+	}
+	result_type.Verify();
+	bound_function.return_type = result_type;
+	// now select the physical function to execute
+	if (check_overflow) {
+		bound_function.function = GetScalarBinaryFunction<DecimalMultiplyOverflowCheck>(result_type.InternalType());
+	} else {
+		bound_function.function = GetScalarBinaryFunction<MultiplyOperator>(result_type.InternalType());
+	}
+	if (result_type.InternalType() != PhysicalType::INT128) {
+		bound_function.statistics =
+		    PropagateNumericStats<TryDecimalMultiply, MultiplyPropagateStatistics, MultiplyOperator>;
+	}
+	return nullptr;
+}
+
+void MultiplyFun::RegisterFunction(BuiltinFunctions &set) {
+	ScalarFunctionSet functions("*");
+	for (auto &type : LogicalType::Numeric()) {
+		if (type.id() == LogicalTypeId::DECIMAL) {
+			functions.AddFunction(ScalarFunction({type, type}, type, nullptr, true, false, BindDecimalMultiply));
+		} else if (TypeIsIntegral(type.InternalType()) && type.id() != LogicalTypeId::HUGEINT) {
+			functions.AddFunction(ScalarFunction(
+			    {type, type}, type, GetScalarIntegerFunction<MultiplyOperatorOverflowCheck>(type.InternalType()), true,
+			    false, nullptr, nullptr,
+			    PropagateNumericStats<TryMultiplyOperator, MultiplyPropagateStatistics, MultiplyOperator>));
+		} else {
+			functions.AddFunction(ScalarFunction({type, type}, type,
+			                                     GetScalarBinaryFunction<MultiplyOperator>(type.InternalType()), true));
+		}
+	}
+	functions.AddFunction(
+	    ScalarFunction({LogicalType::INTERVAL, LogicalType::BIGINT}, LogicalType::INTERVAL,
+	                   ScalarFunction::BinaryFunction<interval_t, int64_t, interval_t, MultiplyOperator>, true));
+	functions.AddFunction(
+	    ScalarFunction({LogicalType::BIGINT, LogicalType::INTERVAL}, LogicalType::INTERVAL,
+	                   ScalarFunction::BinaryFunction<int64_t, interval_t, interval_t, MultiplyOperator>, true));
+	set.AddFunction(functions);
+
+	functions.name = "multiply";
+	set.AddFunction(functions);
+}
+
+//===--------------------------------------------------------------------===//
+// / [divide]
+//===--------------------------------------------------------------------===//
+template <>
+float DivideOperator::Operation(float left, float right) {
+	auto result = left / right;
+	if (!Value::FloatIsFinite(result)) {
+		throw OutOfRangeException("Overflow in division of float!");
+	}
+	return result;
+}
+
+template <>
+double DivideOperator::Operation(double left, double right) {
+	auto result = left / right;
+	if (!Value::DoubleIsFinite(result)) {
+		throw OutOfRangeException("Overflow in division of double!");
+	}
+	return result;
+}
+
+template <>
+hugeint_t DivideOperator::Operation(hugeint_t left, hugeint_t right) {
+	if (right.lower == 0 && right.upper == 0) {
+		throw InternalException("Hugeint division by zero!");
+	}
+	return left / right;
+}
+
+template <>
+interval_t DivideOperator::Operation(interval_t left, int64_t right) {
+	left.days /= right;
+	left.months /= right;
+	left.micros /= right;
+	return left;
+}
+
+struct BinaryZeroIsNullWrapper {
+	template <class FUNC, class OP, class LEFT_TYPE, class RIGHT_TYPE, class RESULT_TYPE>
+	static inline RESULT_TYPE Operation(FUNC fun, LEFT_TYPE left, RIGHT_TYPE right, ValidityMask &mask, idx_t idx) {
+		if (right == 0) {
+			mask.SetInvalid(idx);
+			return left;
+		} else {
+			return OP::template Operation<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE>(left, right);
+		}
+	}
+
+	static bool AddsNulls() {
+		return true;
+	}
+};
+
+struct BinaryZeroIsNullHugeintWrapper {
+	template <class FUNC, class OP, class LEFT_TYPE, class RIGHT_TYPE, class RESULT_TYPE>
+	static inline RESULT_TYPE Operation(FUNC fun, LEFT_TYPE left, RIGHT_TYPE right, ValidityMask &mask, idx_t idx) {
+		if (right.upper == 0 && right.lower == 0) {
+			mask.SetInvalid(idx);
+			return left;
+		} else {
+			return OP::template Operation<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE>(left, right);
+		}
+	}
+
+	static bool AddsNulls() {
+		return true;
+	}
+};
+
+template <class TA, class TB, class TC, class OP, class ZWRAPPER = BinaryZeroIsNullWrapper>
+static void BinaryScalarFunctionIgnoreZero(DataChunk &input, ExpressionState &state, Vector &result) {
+	BinaryExecutor::Execute<TA, TB, TC, OP, ZWRAPPER>(input.data[0], input.data[1], result, input.size());
+}
+
+template <class OP>
+static scalar_function_t GetBinaryFunctionIgnoreZero(const LogicalType &type) {
+	switch (type.id()) {
+	case LogicalTypeId::TINYINT:
+		return BinaryScalarFunctionIgnoreZero<int8_t, int8_t, int8_t, OP>;
+	case LogicalTypeId::SMALLINT:
+		return BinaryScalarFunctionIgnoreZero<int16_t, int16_t, int16_t, OP>;
+	case LogicalTypeId::INTEGER:
+		return BinaryScalarFunctionIgnoreZero<int32_t, int32_t, int32_t, OP>;
+	case LogicalTypeId::BIGINT:
+		return BinaryScalarFunctionIgnoreZero<int64_t, int64_t, int64_t, OP>;
+	case LogicalTypeId::UTINYINT:
+		return BinaryScalarFunctionIgnoreZero<uint8_t, uint8_t, uint8_t, OP>;
+	case LogicalTypeId::USMALLINT:
+		return BinaryScalarFunctionIgnoreZero<uint16_t, uint16_t, uint16_t, OP>;
+	case LogicalTypeId::UINTEGER:
+		return BinaryScalarFunctionIgnoreZero<uint32_t, uint32_t, uint32_t, OP>;
+	case LogicalTypeId::UBIGINT:
+		return BinaryScalarFunctionIgnoreZero<uint64_t, uint64_t, uint64_t, OP>;
+	case LogicalTypeId::HUGEINT:
+		return BinaryScalarFunctionIgnoreZero<hugeint_t, hugeint_t, hugeint_t, OP, BinaryZeroIsNullHugeintWrapper>;
+	case LogicalTypeId::FLOAT:
+		return BinaryScalarFunctionIgnoreZero<float, float, float, OP>;
+	case LogicalTypeId::DOUBLE:
+		return BinaryScalarFunctionIgnoreZero<double, double, double, OP>;
+	default:
+		throw NotImplementedException("Unimplemented type for GetScalarUnaryFunction");
+	}
+}
+
+void DivideFun::RegisterFunction(BuiltinFunctions &set) {
+	ScalarFunctionSet functions("/");
+	for (auto &type : LogicalType::Numeric()) {
+		if (type.id() == LogicalTypeId::DECIMAL) {
+			continue;
+		} else {
+			functions.AddFunction(
+			    ScalarFunction({type, type}, type, GetBinaryFunctionIgnoreZero<DivideOperator>(type)));
+		}
+	}
+	functions.AddFunction(
+	    ScalarFunction({LogicalType::INTERVAL, LogicalType::BIGINT}, LogicalType::INTERVAL,
+	                   BinaryScalarFunctionIgnoreZero<interval_t, int64_t, interval_t, DivideOperator>));
+
+	set.AddFunction(functions);
+
+	functions.name = "divide";
+	set.AddFunction(functions);
+}
+
+//===--------------------------------------------------------------------===//
+// % [modulo]
+//===--------------------------------------------------------------------===//
+template <>
+float ModuloOperator::Operation(float left, float right) {
+	D_ASSERT(right != 0);
+	auto result = std::fmod(left, right);
+	if (!Value::FloatIsFinite(result)) {
+		throw OutOfRangeException("Overflow in modulo of float!");
+	}
+	return result;
+}
+
+template <>
+double ModuloOperator::Operation(double left, double right) {
+	D_ASSERT(right != 0);
+	auto result = std::fmod(left, right);
+	if (!Value::DoubleIsFinite(result)) {
+		throw OutOfRangeException("Overflow in modulo of double!");
+	}
+	return result;
+}
+
+template <>
+hugeint_t ModuloOperator::Operation(hugeint_t left, hugeint_t right) {
+	if (right.lower == 0 && right.upper == 0) {
+		throw InternalException("Hugeint division by zero!");
+	}
+	return left % right;
+}
+
+void ModFun::RegisterFunction(BuiltinFunctions &set) {
+	ScalarFunctionSet functions("%");
+	for (auto &type : LogicalType::Numeric()) {
+		if (type.id() == LogicalTypeId::DECIMAL) {
+			continue;
+		} else {
+			functions.AddFunction(
+			    ScalarFunction({type, type}, type, GetBinaryFunctionIgnoreZero<ModuloOperator>(type)));
+		}
+	}
+	set.AddFunction(functions);
+	functions.name = "mod";
+	set.AddFunction(functions);
 }
 
 } // namespace duckdb

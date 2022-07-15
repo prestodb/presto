@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/parquet/duckdb_reader/duckdb/Allocator.h"
+#include "velox/duckdb/memory/Allocator.h"
 
 namespace facebook::velox::duckdb {
 
@@ -39,15 +39,18 @@ void veloxPoolFree(
 ::duckdb::data_ptr_t veloxPoolReallocate(
     ::duckdb::PrivateAllocatorData* privateData,
     ::duckdb::data_ptr_t pointer,
+    ::duckdb::idx_t oldSize,
     ::duckdb::idx_t size) {
   auto veloxPrivateData = dynamic_cast<PrivateVeloxAllocatorData*>(privateData);
   VELOX_CHECK(veloxPrivateData);
-  // We don't have an old size to pass to reallocate. Here we pass
-  // 0 because it's not used by allocator. Alternatively, we would
-  // have to track sizes of all allocated segments in the private
-  // data.
   return static_cast<::duckdb::data_ptr_t>(
-      veloxPrivateData->pool.reallocate(pointer, 0, size));
+      veloxPrivateData->pool.reallocate(pointer, oldSize, size));
+}
+
+VeloxPoolAllocator& getDefaultAllocator() {
+  static VeloxPoolAllocator allocator{
+      memory::getProcessDefaultMemoryManager().getRoot()};
+  return allocator;
 }
 
 } // namespace facebook::velox::duckdb

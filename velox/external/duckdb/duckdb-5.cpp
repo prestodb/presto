@@ -1,889 +1,10 @@
-// See https://raw.githubusercontent.com/cwida/duckdb/master/LICENSE for licensing information
+// See https://raw.githubusercontent.com/duckdb/duckdb/master/LICENSE for licensing information
 
 #include "duckdb.hpp"
 #include "duckdb-internal.hpp"
 #ifndef DUCKDB_AMALGAMATION
 #error header mismatch
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#include <limits>
-
-namespace duckdb {
-
-template <class OP>
-static scalar_function_t GetScalarIntegerFunction(PhysicalType type) {
-	scalar_function_t function;
-	switch (type) {
-	case PhysicalType::INT8:
-		function = &ScalarFunction::BinaryFunction<int8_t, int8_t, int8_t, OP>;
-		break;
-	case PhysicalType::INT16:
-		function = &ScalarFunction::BinaryFunction<int16_t, int16_t, int16_t, OP>;
-		break;
-	case PhysicalType::INT32:
-		function = &ScalarFunction::BinaryFunction<int32_t, int32_t, int32_t, OP>;
-		break;
-	case PhysicalType::INT64:
-		function = &ScalarFunction::BinaryFunction<int64_t, int64_t, int64_t, OP>;
-		break;
-	case PhysicalType::UINT8:
-		function = &ScalarFunction::BinaryFunction<uint8_t, uint8_t, uint8_t, OP>;
-		break;
-	case PhysicalType::UINT16:
-		function = &ScalarFunction::BinaryFunction<uint16_t, uint16_t, uint16_t, OP>;
-		break;
-	case PhysicalType::UINT32:
-		function = &ScalarFunction::BinaryFunction<uint32_t, uint32_t, uint32_t, OP>;
-		break;
-	case PhysicalType::UINT64:
-		function = &ScalarFunction::BinaryFunction<uint64_t, uint64_t, uint64_t, OP>;
-		break;
-	default:
-		throw NotImplementedException("Unimplemented type for GetScalarBinaryFunction");
-	}
-	return function;
-}
-
-template <class OP>
-static scalar_function_t GetScalarBinaryFunction(PhysicalType type) {
-	scalar_function_t function;
-	switch (type) {
-	case PhysicalType::INT128:
-		function = &ScalarFunction::BinaryFunction<hugeint_t, hugeint_t, hugeint_t, OP>;
-		break;
-	case PhysicalType::FLOAT:
-		function = &ScalarFunction::BinaryFunction<float, float, float, OP>;
-		break;
-	case PhysicalType::DOUBLE:
-		function = &ScalarFunction::BinaryFunction<double, double, double, OP>;
-		break;
-	default:
-		function = GetScalarIntegerFunction<OP>(type);
-		break;
-	}
-	return function;
-}
-
-//===--------------------------------------------------------------------===//
-// + [add]
-//===--------------------------------------------------------------------===//
-struct AddPropagateStatistics {
-	template <class T, class OP>
-	static bool Operation(LogicalType type, NumericStatistics &lstats, NumericStatistics &rstats, Value &new_min,
-	                      Value &new_max) {
-		T min, max;
-		// new min is min+min
-		if (!OP::Operation(lstats.min.GetValueUnsafe<T>(), rstats.min.GetValueUnsafe<T>(), min)) {
-			return true;
-		}
-		// new max is max+max
-		if (!OP::Operation(lstats.max.GetValueUnsafe<T>(), rstats.max.GetValueUnsafe<T>(), max)) {
-			return true;
-		}
-		new_min = Value::Numeric(type, min);
-		new_max = Value::Numeric(type, max);
-		return false;
-	}
-};
-
-struct SubtractPropagateStatistics {
-	template <class T, class OP>
-	static bool Operation(LogicalType type, NumericStatistics &lstats, NumericStatistics &rstats, Value &new_min,
-	                      Value &new_max) {
-		T min, max;
-		if (!OP::Operation(lstats.min.GetValueUnsafe<T>(), rstats.max.GetValueUnsafe<T>(), min)) {
-			return true;
-		}
-		if (!OP::Operation(lstats.max.GetValueUnsafe<T>(), rstats.min.GetValueUnsafe<T>(), max)) {
-			return true;
-		}
-		new_min = Value::Numeric(type, min);
-		new_max = Value::Numeric(type, max);
-		return false;
-	}
-};
-
-template <class OP, class PROPAGATE, class BASEOP>
-static unique_ptr<BaseStatistics> PropagateNumericStats(ClientContext &context, FunctionStatisticsInput &input) {
-	auto &child_stats = input.child_stats;
-	auto &expr = input.expr;
-	D_ASSERT(child_stats.size() == 2);
-	// can only propagate stats if the children have stats
-	if (!child_stats[0] || !child_stats[1]) {
-		return nullptr;
-	}
-	auto &lstats = (NumericStatistics &)*child_stats[0];
-	auto &rstats = (NumericStatistics &)*child_stats[1];
-	Value new_min, new_max;
-	bool potential_overflow = true;
-	if (!lstats.min.IsNull() && !lstats.max.IsNull() && !rstats.min.IsNull() && !rstats.max.IsNull()) {
-		switch (expr.return_type.InternalType()) {
-		case PhysicalType::INT8:
-			potential_overflow =
-			    PROPAGATE::template Operation<int8_t, OP>(expr.return_type, lstats, rstats, new_min, new_max);
-			break;
-		case PhysicalType::INT16:
-			potential_overflow =
-			    PROPAGATE::template Operation<int16_t, OP>(expr.return_type, lstats, rstats, new_min, new_max);
-			break;
-		case PhysicalType::INT32:
-			potential_overflow =
-			    PROPAGATE::template Operation<int32_t, OP>(expr.return_type, lstats, rstats, new_min, new_max);
-			break;
-		case PhysicalType::INT64:
-			potential_overflow =
-			    PROPAGATE::template Operation<int64_t, OP>(expr.return_type, lstats, rstats, new_min, new_max);
-			break;
-		default:
-			return nullptr;
-		}
-	}
-	if (potential_overflow) {
-		new_min = Value(expr.return_type);
-		new_max = Value(expr.return_type);
-	} else {
-		// no potential overflow: replace with non-overflowing operator
-		expr.function.function = GetScalarIntegerFunction<BASEOP>(expr.return_type.InternalType());
-	}
-	auto stats =
-	    make_unique<NumericStatistics>(expr.return_type, move(new_min), move(new_max), StatisticsType::LOCAL_STATS);
-	stats->validity_stats = ValidityStatistics::Combine(lstats.validity_stats, rstats.validity_stats);
-	return move(stats);
-}
-
-template <class OP, class OPOVERFLOWCHECK, bool IS_SUBTRACT = false>
-unique_ptr<FunctionData> BindDecimalAddSubtract(ClientContext &context, ScalarFunction &bound_function,
-                                                vector<unique_ptr<Expression>> &arguments) {
-	// get the max width and scale of the input arguments
-	uint8_t max_width = 0, max_scale = 0, max_width_over_scale = 0;
-	for (idx_t i = 0; i < arguments.size(); i++) {
-		if (arguments[i]->return_type.id() == LogicalTypeId::UNKNOWN) {
-			continue;
-		}
-		uint8_t width, scale;
-		auto can_convert = arguments[i]->return_type.GetDecimalProperties(width, scale);
-		if (!can_convert) {
-			throw InternalException("Could not convert type %s to a decimal.", arguments[i]->return_type.ToString());
-		}
-		max_width = MaxValue<uint8_t>(width, max_width);
-		max_scale = MaxValue<uint8_t>(scale, max_scale);
-		max_width_over_scale = MaxValue<uint8_t>(width - scale, max_width_over_scale);
-	}
-	D_ASSERT(max_width > 0);
-	// for addition/subtraction, we add 1 to the width to ensure we don't overflow
-	bool check_overflow = false;
-	auto required_width = MaxValue<uint8_t>(max_scale + max_width_over_scale, max_width) + 1;
-	if (required_width > Decimal::MAX_WIDTH_INT64 && max_width <= Decimal::MAX_WIDTH_INT64) {
-		// we don't automatically promote past the hugeint boundary to avoid the large hugeint performance penalty
-		check_overflow = true;
-		required_width = Decimal::MAX_WIDTH_INT64;
-	}
-	if (required_width > Decimal::MAX_WIDTH_DECIMAL) {
-		// target width does not fit in decimal at all: truncate the scale and perform overflow detection
-		check_overflow = true;
-		required_width = Decimal::MAX_WIDTH_DECIMAL;
-	}
-	// arithmetic between two decimal arguments: check the types of the input arguments
-	LogicalType result_type = LogicalType::DECIMAL(required_width, max_scale);
-	// we cast all input types to the specified type
-	for (idx_t i = 0; i < arguments.size(); i++) {
-		// first check if the cast is necessary
-		// if the argument has a matching scale and internal type as the output type, no casting is necessary
-		auto &argument_type = arguments[i]->return_type;
-		uint8_t width, scale;
-		argument_type.GetDecimalProperties(width, scale);
-		if (scale == DecimalType::GetScale(result_type) && argument_type.InternalType() == result_type.InternalType()) {
-			bound_function.arguments[i] = argument_type;
-		} else {
-			bound_function.arguments[i] = result_type;
-		}
-	}
-	bound_function.return_type = result_type;
-	// now select the physical function to execute
-	if (check_overflow) {
-		bound_function.function = GetScalarBinaryFunction<OPOVERFLOWCHECK>(result_type.InternalType());
-	} else {
-		bound_function.function = GetScalarBinaryFunction<OP>(result_type.InternalType());
-	}
-	if (result_type.InternalType() != PhysicalType::INT128) {
-		if (IS_SUBTRACT) {
-			bound_function.statistics =
-			    PropagateNumericStats<TryDecimalSubtract, SubtractPropagateStatistics, SubtractOperator>;
-		} else {
-			bound_function.statistics = PropagateNumericStats<TryDecimalAdd, AddPropagateStatistics, AddOperator>;
-		}
-	}
-	return nullptr;
-}
-
-unique_ptr<FunctionData> NopDecimalBind(ClientContext &context, ScalarFunction &bound_function,
-                                        vector<unique_ptr<Expression>> &arguments) {
-	bound_function.return_type = arguments[0]->return_type;
-	bound_function.arguments[0] = arguments[0]->return_type;
-	return nullptr;
-}
-
-ScalarFunction AddFun::GetFunction(const LogicalType &type) {
-	D_ASSERT(type.IsNumeric());
-	if (type.id() == LogicalTypeId::DECIMAL) {
-		return ScalarFunction("+", {type}, type, ScalarFunction::NopFunction, false, NopDecimalBind);
-	} else {
-		return ScalarFunction("+", {type}, type, ScalarFunction::NopFunction);
-	}
-}
-
-ScalarFunction AddFun::GetFunction(const LogicalType &left_type, const LogicalType &right_type) {
-	if (left_type.IsNumeric() && left_type.id() == right_type.id()) {
-		if (left_type.id() == LogicalTypeId::DECIMAL) {
-			return ScalarFunction("+", {left_type, right_type}, left_type, nullptr, false,
-			                      BindDecimalAddSubtract<AddOperator, DecimalAddOverflowCheck>);
-		} else if (left_type.IsIntegral() && left_type.id() != LogicalTypeId::HUGEINT) {
-			return ScalarFunction("+", {left_type, right_type}, left_type,
-			                      GetScalarIntegerFunction<AddOperatorOverflowCheck>(left_type.InternalType()), false,
-			                      nullptr, nullptr,
-			                      PropagateNumericStats<TryAddOperator, AddPropagateStatistics, AddOperator>);
-		} else {
-			return ScalarFunction("+", {left_type, right_type}, left_type,
-			                      GetScalarBinaryFunction<AddOperator>(left_type.InternalType()));
-		}
-	}
-
-	switch (left_type.id()) {
-	case LogicalTypeId::DATE:
-		if (right_type.id() == LogicalTypeId::INTEGER) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::DATE,
-			                      ScalarFunction::BinaryFunction<date_t, int32_t, date_t, AddOperator>);
-		} else if (right_type.id() == LogicalTypeId::INTERVAL) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::DATE,
-			                      ScalarFunction::BinaryFunction<date_t, interval_t, date_t, AddOperator>);
-		} else if (right_type.id() == LogicalTypeId::TIME) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIMESTAMP,
-			                      ScalarFunction::BinaryFunction<date_t, dtime_t, timestamp_t, AddOperator>);
-		}
-		break;
-	case LogicalTypeId::INTEGER:
-		if (right_type.id() == LogicalTypeId::DATE) {
-			return ScalarFunction("+", {left_type, right_type}, right_type,
-			                      ScalarFunction::BinaryFunction<int32_t, date_t, date_t, AddOperator>);
-		}
-		break;
-	case LogicalTypeId::INTERVAL:
-		if (right_type.id() == LogicalTypeId::INTERVAL) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::INTERVAL,
-			                      ScalarFunction::BinaryFunction<interval_t, interval_t, interval_t, AddOperator>);
-		} else if (right_type.id() == LogicalTypeId::DATE) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::DATE,
-			                      ScalarFunction::BinaryFunction<interval_t, date_t, date_t, AddOperator>);
-		} else if (right_type.id() == LogicalTypeId::TIME) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIME,
-			                      ScalarFunction::BinaryFunction<interval_t, dtime_t, dtime_t, AddTimeOperator>);
-		} else if (right_type.id() == LogicalTypeId::TIMESTAMP) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIMESTAMP,
-			                      ScalarFunction::BinaryFunction<interval_t, timestamp_t, timestamp_t, AddOperator>);
-		}
-		break;
-	case LogicalTypeId::TIME:
-		if (right_type.id() == LogicalTypeId::INTERVAL) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIME,
-			                      ScalarFunction::BinaryFunction<dtime_t, interval_t, dtime_t, AddTimeOperator>);
-		} else if (right_type.id() == LogicalTypeId::DATE) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIMESTAMP,
-			                      ScalarFunction::BinaryFunction<dtime_t, date_t, timestamp_t, AddOperator>);
-		}
-		break;
-	case LogicalTypeId::TIMESTAMP:
-		if (right_type.id() == LogicalTypeId::INTERVAL) {
-			return ScalarFunction("+", {left_type, right_type}, LogicalType::TIMESTAMP,
-			                      ScalarFunction::BinaryFunction<timestamp_t, interval_t, timestamp_t, AddOperator>);
-		}
-		break;
-	default:
-		break;
-	}
-	// LCOV_EXCL_START
-	throw NotImplementedException("AddFun for types %s, %s", LogicalTypeIdToString(left_type.id()),
-	                              LogicalTypeIdToString(right_type.id()));
-	// LCOV_EXCL_STOP
-}
-
-void AddFun::RegisterFunction(BuiltinFunctions &set) {
-	ScalarFunctionSet functions("+");
-	for (auto &type : LogicalType::Numeric()) {
-		// unary add function is a nop, but only exists for numeric types
-		functions.AddFunction(GetFunction(type));
-		// binary add function adds two numbers together
-		functions.AddFunction(GetFunction(type, type));
-	}
-	// we can add integers to dates
-	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::INTEGER));
-	functions.AddFunction(GetFunction(LogicalType::INTEGER, LogicalType::DATE));
-	// we can add intervals together
-	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::INTERVAL));
-	// we can add intervals to dates/times/timestamps
-	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::INTERVAL));
-	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::DATE));
-
-	functions.AddFunction(GetFunction(LogicalType::TIME, LogicalType::INTERVAL));
-	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::TIME));
-
-	functions.AddFunction(GetFunction(LogicalType::TIMESTAMP, LogicalType::INTERVAL));
-	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::TIMESTAMP));
-
-	// we can add times to dates
-	functions.AddFunction(GetFunction(LogicalType::TIME, LogicalType::DATE));
-	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::TIME));
-
-	// we can add lists together
-	functions.AddFunction(ListConcatFun::GetFunction());
-
-	set.AddFunction(functions);
-
-	functions.name = "add";
-	set.AddFunction(functions);
-}
-
-//===--------------------------------------------------------------------===//
-// - [subtract]
-//===--------------------------------------------------------------------===//
-struct NegateOperator {
-	template <class T>
-	static bool CanNegate(T input) {
-		using Limits = std::numeric_limits<T>;
-		return !(Limits::is_integer && Limits::is_signed && Limits::lowest() == input);
-	}
-
-	template <class TA, class TR>
-	static inline TR Operation(TA input) {
-		auto cast = (TR)input;
-		if (!CanNegate<TR>(cast)) {
-			throw OutOfRangeException("Overflow in negation of integer!");
-		}
-		return -cast;
-	}
-};
-
-template <>
-bool NegateOperator::CanNegate(float input) {
-	return Value::FloatIsFinite(input);
-}
-
-template <>
-bool NegateOperator::CanNegate(double input) {
-	return Value::DoubleIsFinite(input);
-}
-
-template <>
-interval_t NegateOperator::Operation(interval_t input) {
-	interval_t result;
-	result.months = NegateOperator::Operation<int32_t, int32_t>(input.months);
-	result.days = NegateOperator::Operation<int32_t, int32_t>(input.days);
-	result.micros = NegateOperator::Operation<int64_t, int64_t>(input.micros);
-	return result;
-}
-
-unique_ptr<FunctionData> DecimalNegateBind(ClientContext &context, ScalarFunction &bound_function,
-                                           vector<unique_ptr<Expression>> &arguments) {
-	auto &decimal_type = arguments[0]->return_type;
-	auto width = DecimalType::GetWidth(decimal_type);
-	if (width <= Decimal::MAX_WIDTH_INT16) {
-		bound_function.function = ScalarFunction::GetScalarUnaryFunction<NegateOperator>(LogicalTypeId::SMALLINT);
-	} else if (width <= Decimal::MAX_WIDTH_INT32) {
-		bound_function.function = ScalarFunction::GetScalarUnaryFunction<NegateOperator>(LogicalTypeId::INTEGER);
-	} else if (width <= Decimal::MAX_WIDTH_INT64) {
-		bound_function.function = ScalarFunction::GetScalarUnaryFunction<NegateOperator>(LogicalTypeId::BIGINT);
-	} else {
-		D_ASSERT(width <= Decimal::MAX_WIDTH_INT128);
-		bound_function.function = ScalarFunction::GetScalarUnaryFunction<NegateOperator>(LogicalTypeId::HUGEINT);
-	}
-	decimal_type.Verify();
-	bound_function.arguments[0] = decimal_type;
-	bound_function.return_type = decimal_type;
-	return nullptr;
-}
-
-struct NegatePropagateStatistics {
-	template <class T>
-	static bool Operation(LogicalType type, NumericStatistics &istats, Value &new_min, Value &new_max) {
-		auto max_value = istats.max.GetValueUnsafe<T>();
-		auto min_value = istats.min.GetValueUnsafe<T>();
-		if (!NegateOperator::CanNegate<T>(min_value) || !NegateOperator::CanNegate<T>(max_value)) {
-			return true;
-		}
-		// new min is -max
-		new_min = Value::Numeric(type, NegateOperator::Operation<T, T>(max_value));
-		// new max is -min
-		new_max = Value::Numeric(type, NegateOperator::Operation<T, T>(min_value));
-		return false;
-	}
-};
-
-static unique_ptr<BaseStatistics> NegateBindStatistics(ClientContext &context, FunctionStatisticsInput &input) {
-	auto &child_stats = input.child_stats;
-	auto &expr = input.expr;
-	D_ASSERT(child_stats.size() == 1);
-	// can only propagate stats if the children have stats
-	if (!child_stats[0]) {
-		return nullptr;
-	}
-	auto &istats = (NumericStatistics &)*child_stats[0];
-	Value new_min, new_max;
-	bool potential_overflow = true;
-	if (!istats.min.IsNull() && !istats.max.IsNull()) {
-		switch (expr.return_type.InternalType()) {
-		case PhysicalType::INT8:
-			potential_overflow =
-			    NegatePropagateStatistics::Operation<int8_t>(expr.return_type, istats, new_min, new_max);
-			break;
-		case PhysicalType::INT16:
-			potential_overflow =
-			    NegatePropagateStatistics::Operation<int16_t>(expr.return_type, istats, new_min, new_max);
-			break;
-		case PhysicalType::INT32:
-			potential_overflow =
-			    NegatePropagateStatistics::Operation<int32_t>(expr.return_type, istats, new_min, new_max);
-			break;
-		case PhysicalType::INT64:
-			potential_overflow =
-			    NegatePropagateStatistics::Operation<int64_t>(expr.return_type, istats, new_min, new_max);
-			break;
-		default:
-			return nullptr;
-		}
-	}
-	if (potential_overflow) {
-		new_min = Value(expr.return_type);
-		new_max = Value(expr.return_type);
-	}
-	auto stats =
-	    make_unique<NumericStatistics>(expr.return_type, move(new_min), move(new_max), StatisticsType::LOCAL_STATS);
-	if (istats.validity_stats) {
-		stats->validity_stats = istats.validity_stats->Copy();
-	}
-	return move(stats);
-}
-
-ScalarFunction SubtractFun::GetFunction(const LogicalType &type) {
-	if (type.id() == LogicalTypeId::INTERVAL) {
-		return ScalarFunction("-", {type}, type, ScalarFunction::UnaryFunction<interval_t, interval_t, NegateOperator>);
-	} else if (type.id() == LogicalTypeId::DECIMAL) {
-		return ScalarFunction("-", {type}, type, nullptr, false, DecimalNegateBind, nullptr, NegateBindStatistics);
-	} else {
-		D_ASSERT(type.IsNumeric());
-		return ScalarFunction("-", {type}, type, ScalarFunction::GetScalarUnaryFunction<NegateOperator>(type), false,
-		                      nullptr, nullptr, NegateBindStatistics);
-	}
-}
-
-ScalarFunction SubtractFun::GetFunction(const LogicalType &left_type, const LogicalType &right_type) {
-	if (left_type.IsNumeric() && left_type.id() == right_type.id()) {
-		if (left_type.id() == LogicalTypeId::DECIMAL) {
-			return ScalarFunction("-", {left_type, right_type}, left_type, nullptr, false,
-			                      BindDecimalAddSubtract<SubtractOperator, DecimalSubtractOverflowCheck, true>);
-		} else if (left_type.IsIntegral() && left_type.id() != LogicalTypeId::HUGEINT) {
-			return ScalarFunction(
-			    "-", {left_type, right_type}, left_type,
-			    GetScalarIntegerFunction<SubtractOperatorOverflowCheck>(left_type.InternalType()), false, nullptr,
-			    nullptr, PropagateNumericStats<TrySubtractOperator, SubtractPropagateStatistics, SubtractOperator>);
-		} else {
-			return ScalarFunction("-", {left_type, right_type}, left_type,
-			                      GetScalarBinaryFunction<SubtractOperator>(left_type.InternalType()));
-		}
-	}
-
-	switch (left_type.id()) {
-	case LogicalTypeId::DATE:
-		if (right_type.id() == LogicalTypeId::DATE) {
-			return ScalarFunction("-", {left_type, right_type}, LogicalType::BIGINT,
-			                      ScalarFunction::BinaryFunction<date_t, date_t, int64_t, SubtractOperator>);
-		} else if (right_type.id() == LogicalTypeId::INTEGER) {
-			return ScalarFunction("-", {left_type, right_type}, LogicalType::DATE,
-			                      ScalarFunction::BinaryFunction<date_t, int32_t, date_t, SubtractOperator>);
-		} else if (right_type.id() == LogicalTypeId::INTERVAL) {
-			return ScalarFunction("-", {left_type, right_type}, LogicalType::DATE,
-			                      ScalarFunction::BinaryFunction<date_t, interval_t, date_t, SubtractOperator>);
-		}
-		break;
-	case LogicalTypeId::TIMESTAMP:
-		if (right_type.id() == LogicalTypeId::TIMESTAMP) {
-			return ScalarFunction(
-			    "-", {left_type, right_type}, LogicalType::INTERVAL,
-			    ScalarFunction::BinaryFunction<timestamp_t, timestamp_t, interval_t, SubtractOperator>);
-		} else if (right_type.id() == LogicalTypeId::INTERVAL) {
-			return ScalarFunction(
-			    "-", {left_type, right_type}, LogicalType::TIMESTAMP,
-			    ScalarFunction::BinaryFunction<timestamp_t, interval_t, timestamp_t, SubtractOperator>);
-		}
-		break;
-	case LogicalTypeId::INTERVAL:
-		if (right_type.id() == LogicalTypeId::INTERVAL) {
-			return ScalarFunction("-", {left_type, right_type}, LogicalType::INTERVAL,
-			                      ScalarFunction::BinaryFunction<interval_t, interval_t, interval_t, SubtractOperator>);
-		}
-		break;
-	case LogicalTypeId::TIME:
-		if (right_type.id() == LogicalTypeId::INTERVAL) {
-			return ScalarFunction("-", {left_type, right_type}, LogicalType::TIME,
-			                      ScalarFunction::BinaryFunction<dtime_t, interval_t, dtime_t, SubtractTimeOperator>);
-		}
-		break;
-	default:
-		break;
-	}
-	// LCOV_EXCL_START
-	throw NotImplementedException("SubtractFun for types %s, %s", LogicalTypeIdToString(left_type.id()),
-	                              LogicalTypeIdToString(right_type.id()));
-	// LCOV_EXCL_STOP
-}
-
-void SubtractFun::RegisterFunction(BuiltinFunctions &set) {
-	ScalarFunctionSet functions("-");
-	for (auto &type : LogicalType::Numeric()) {
-		// unary subtract function, negates the input (i.e. multiplies by -1)
-		functions.AddFunction(GetFunction(type));
-		// binary subtract function "a - b", subtracts b from a
-		functions.AddFunction(GetFunction(type, type));
-	}
-	// we can subtract dates from each other
-	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::DATE));
-	// we can subtract integers from dates
-	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::INTEGER));
-	// we can subtract timestamps from each other
-	functions.AddFunction(GetFunction(LogicalType::TIMESTAMP, LogicalType::TIMESTAMP));
-	// we can subtract intervals from each other
-	functions.AddFunction(GetFunction(LogicalType::INTERVAL, LogicalType::INTERVAL));
-	// we can subtract intervals from dates/times/timestamps, but not the other way around
-	functions.AddFunction(GetFunction(LogicalType::DATE, LogicalType::INTERVAL));
-	functions.AddFunction(GetFunction(LogicalType::TIME, LogicalType::INTERVAL));
-	functions.AddFunction(GetFunction(LogicalType::TIMESTAMP, LogicalType::INTERVAL));
-	// we can negate intervals
-	functions.AddFunction(GetFunction(LogicalType::INTERVAL));
-	set.AddFunction(functions);
-
-	functions.name = "subtract";
-	set.AddFunction(functions);
-}
-
-//===--------------------------------------------------------------------===//
-// * [multiply]
-//===--------------------------------------------------------------------===//
-struct MultiplyPropagateStatistics {
-	template <class T, class OP>
-	static bool Operation(LogicalType type, NumericStatistics &lstats, NumericStatistics &rstats, Value &new_min,
-	                      Value &new_max) {
-		// statistics propagation on the multiplication is slightly less straightforward because of negative numbers
-		// the new min/max depend on the signs of the input types
-		// if both are positive the result is [lmin * rmin][lmax * rmax]
-		// if lmin/lmax are negative the result is [lmin * rmax][lmax * rmin]
-		// etc
-		// rather than doing all this switcheroo we just multiply all combinations of lmin/lmax with rmin/rmax
-		// and check what the minimum/maximum value is
-		T lvals[] {lstats.min.GetValueUnsafe<T>(), lstats.max.GetValueUnsafe<T>()};
-		T rvals[] {rstats.min.GetValueUnsafe<T>(), rstats.max.GetValueUnsafe<T>()};
-		T min = NumericLimits<T>::Maximum();
-		T max = NumericLimits<T>::Minimum();
-		// multiplications
-		for (idx_t l = 0; l < 2; l++) {
-			for (idx_t r = 0; r < 2; r++) {
-				T result;
-				if (!OP::Operation(lvals[l], rvals[r], result)) {
-					// potential overflow
-					return true;
-				}
-				if (result < min) {
-					min = result;
-				}
-				if (result > max) {
-					max = result;
-				}
-			}
-		}
-		new_min = Value::Numeric(type, min);
-		new_max = Value::Numeric(type, max);
-		return false;
-	}
-};
-
-unique_ptr<FunctionData> BindDecimalMultiply(ClientContext &context, ScalarFunction &bound_function,
-                                             vector<unique_ptr<Expression>> &arguments) {
-	uint8_t result_width = 0, result_scale = 0;
-	uint8_t max_width = 0;
-	for (idx_t i = 0; i < arguments.size(); i++) {
-		if (arguments[i]->return_type.id() == LogicalTypeId::UNKNOWN) {
-			continue;
-		}
-		uint8_t width, scale;
-		auto can_convert = arguments[i]->return_type.GetDecimalProperties(width, scale);
-		if (!can_convert) {
-			throw InternalException("Could not convert type %s to a decimal?", arguments[i]->return_type.ToString());
-		}
-		if (width > max_width) {
-			max_width = width;
-		}
-		result_width += width;
-		result_scale += scale;
-	}
-	D_ASSERT(max_width > 0);
-	if (result_scale > Decimal::MAX_WIDTH_DECIMAL) {
-		throw OutOfRangeException(
-		    "Needed scale %d to accurately represent the multiplication result, but this is out of range of the "
-		    "DECIMAL type. Max scale is %d; could not perform an accurate multiplication. Either add a cast to DOUBLE, "
-		    "or add an explicit cast to a decimal with a lower scale.",
-		    result_scale, Decimal::MAX_WIDTH_DECIMAL);
-	}
-	bool check_overflow = false;
-	if (result_width > Decimal::MAX_WIDTH_INT64 && max_width <= Decimal::MAX_WIDTH_INT64 &&
-	    result_scale < Decimal::MAX_WIDTH_INT64) {
-		check_overflow = true;
-		result_width = Decimal::MAX_WIDTH_INT64;
-	}
-	if (result_width > Decimal::MAX_WIDTH_DECIMAL) {
-		check_overflow = true;
-		result_width = Decimal::MAX_WIDTH_DECIMAL;
-	}
-	LogicalType result_type = LogicalType::DECIMAL(result_width, result_scale);
-	// since our scale is the summation of our input scales, we do not need to cast to the result scale
-	// however, we might need to cast to the correct internal type
-	for (idx_t i = 0; i < arguments.size(); i++) {
-		auto &argument_type = arguments[i]->return_type;
-		if (argument_type.InternalType() == result_type.InternalType()) {
-			bound_function.arguments[i] = argument_type;
-		} else {
-			uint8_t width, scale;
-			if (!argument_type.GetDecimalProperties(width, scale)) {
-				scale = 0;
-			}
-
-			bound_function.arguments[i] = LogicalType::DECIMAL(result_width, scale);
-		}
-	}
-	result_type.Verify();
-	bound_function.return_type = result_type;
-	// now select the physical function to execute
-	if (check_overflow) {
-		bound_function.function = GetScalarBinaryFunction<DecimalMultiplyOverflowCheck>(result_type.InternalType());
-	} else {
-		bound_function.function = GetScalarBinaryFunction<MultiplyOperator>(result_type.InternalType());
-	}
-	if (result_type.InternalType() != PhysicalType::INT128) {
-		bound_function.statistics =
-		    PropagateNumericStats<TryDecimalMultiply, MultiplyPropagateStatistics, MultiplyOperator>;
-	}
-	return nullptr;
-}
-
-void MultiplyFun::RegisterFunction(BuiltinFunctions &set) {
-	ScalarFunctionSet functions("*");
-	for (auto &type : LogicalType::Numeric()) {
-		if (type.id() == LogicalTypeId::DECIMAL) {
-			functions.AddFunction(ScalarFunction({type, type}, type, nullptr, true, false, BindDecimalMultiply));
-		} else if (TypeIsIntegral(type.InternalType()) && type.id() != LogicalTypeId::HUGEINT) {
-			functions.AddFunction(ScalarFunction(
-			    {type, type}, type, GetScalarIntegerFunction<MultiplyOperatorOverflowCheck>(type.InternalType()), true,
-			    false, nullptr, nullptr,
-			    PropagateNumericStats<TryMultiplyOperator, MultiplyPropagateStatistics, MultiplyOperator>));
-		} else {
-			functions.AddFunction(ScalarFunction({type, type}, type,
-			                                     GetScalarBinaryFunction<MultiplyOperator>(type.InternalType()), true));
-		}
-	}
-	functions.AddFunction(
-	    ScalarFunction({LogicalType::INTERVAL, LogicalType::BIGINT}, LogicalType::INTERVAL,
-	                   ScalarFunction::BinaryFunction<interval_t, int64_t, interval_t, MultiplyOperator>, true));
-	functions.AddFunction(
-	    ScalarFunction({LogicalType::BIGINT, LogicalType::INTERVAL}, LogicalType::INTERVAL,
-	                   ScalarFunction::BinaryFunction<int64_t, interval_t, interval_t, MultiplyOperator>, true));
-	set.AddFunction(functions);
-
-	functions.name = "multiply";
-	set.AddFunction(functions);
-}
-
-//===--------------------------------------------------------------------===//
-// / [divide]
-//===--------------------------------------------------------------------===//
-template <>
-float DivideOperator::Operation(float left, float right) {
-	auto result = left / right;
-	if (!Value::FloatIsFinite(result)) {
-		throw OutOfRangeException("Overflow in division of float!");
-	}
-	return result;
-}
-
-template <>
-double DivideOperator::Operation(double left, double right) {
-	auto result = left / right;
-	if (!Value::DoubleIsFinite(result)) {
-		throw OutOfRangeException("Overflow in division of double!");
-	}
-	return result;
-}
-
-template <>
-hugeint_t DivideOperator::Operation(hugeint_t left, hugeint_t right) {
-	if (right.lower == 0 && right.upper == 0) {
-		throw InternalException("Hugeint division by zero!");
-	}
-	return left / right;
-}
-
-template <>
-interval_t DivideOperator::Operation(interval_t left, int64_t right) {
-	left.days /= right;
-	left.months /= right;
-	left.micros /= right;
-	return left;
-}
-
-struct BinaryZeroIsNullWrapper {
-	template <class FUNC, class OP, class LEFT_TYPE, class RIGHT_TYPE, class RESULT_TYPE>
-	static inline RESULT_TYPE Operation(FUNC fun, LEFT_TYPE left, RIGHT_TYPE right, ValidityMask &mask, idx_t idx) {
-		if (right == 0) {
-			mask.SetInvalid(idx);
-			return left;
-		} else {
-			return OP::template Operation<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE>(left, right);
-		}
-	}
-
-	static bool AddsNulls() {
-		return true;
-	}
-};
-
-struct BinaryZeroIsNullHugeintWrapper {
-	template <class FUNC, class OP, class LEFT_TYPE, class RIGHT_TYPE, class RESULT_TYPE>
-	static inline RESULT_TYPE Operation(FUNC fun, LEFT_TYPE left, RIGHT_TYPE right, ValidityMask &mask, idx_t idx) {
-		if (right.upper == 0 && right.lower == 0) {
-			mask.SetInvalid(idx);
-			return left;
-		} else {
-			return OP::template Operation<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE>(left, right);
-		}
-	}
-
-	static bool AddsNulls() {
-		return true;
-	}
-};
-
-template <class TA, class TB, class TC, class OP, class ZWRAPPER = BinaryZeroIsNullWrapper>
-static void BinaryScalarFunctionIgnoreZero(DataChunk &input, ExpressionState &state, Vector &result) {
-	BinaryExecutor::Execute<TA, TB, TC, OP, ZWRAPPER>(input.data[0], input.data[1], result, input.size());
-}
-
-template <class OP>
-static scalar_function_t GetBinaryFunctionIgnoreZero(const LogicalType &type) {
-	switch (type.id()) {
-	case LogicalTypeId::TINYINT:
-		return BinaryScalarFunctionIgnoreZero<int8_t, int8_t, int8_t, OP>;
-	case LogicalTypeId::SMALLINT:
-		return BinaryScalarFunctionIgnoreZero<int16_t, int16_t, int16_t, OP>;
-	case LogicalTypeId::INTEGER:
-		return BinaryScalarFunctionIgnoreZero<int32_t, int32_t, int32_t, OP>;
-	case LogicalTypeId::BIGINT:
-		return BinaryScalarFunctionIgnoreZero<int64_t, int64_t, int64_t, OP>;
-	case LogicalTypeId::UTINYINT:
-		return BinaryScalarFunctionIgnoreZero<uint8_t, uint8_t, uint8_t, OP>;
-	case LogicalTypeId::USMALLINT:
-		return BinaryScalarFunctionIgnoreZero<uint16_t, uint16_t, uint16_t, OP>;
-	case LogicalTypeId::UINTEGER:
-		return BinaryScalarFunctionIgnoreZero<uint32_t, uint32_t, uint32_t, OP>;
-	case LogicalTypeId::UBIGINT:
-		return BinaryScalarFunctionIgnoreZero<uint64_t, uint64_t, uint64_t, OP>;
-	case LogicalTypeId::HUGEINT:
-		return BinaryScalarFunctionIgnoreZero<hugeint_t, hugeint_t, hugeint_t, OP, BinaryZeroIsNullHugeintWrapper>;
-	case LogicalTypeId::FLOAT:
-		return BinaryScalarFunctionIgnoreZero<float, float, float, OP>;
-	case LogicalTypeId::DOUBLE:
-		return BinaryScalarFunctionIgnoreZero<double, double, double, OP>;
-	default:
-		throw NotImplementedException("Unimplemented type for GetScalarUnaryFunction");
-	}
-}
-
-void DivideFun::RegisterFunction(BuiltinFunctions &set) {
-	ScalarFunctionSet functions("/");
-	for (auto &type : LogicalType::Numeric()) {
-		if (type.id() == LogicalTypeId::DECIMAL) {
-			continue;
-		} else {
-			functions.AddFunction(
-			    ScalarFunction({type, type}, type, GetBinaryFunctionIgnoreZero<DivideOperator>(type)));
-		}
-	}
-	functions.AddFunction(
-	    ScalarFunction({LogicalType::INTERVAL, LogicalType::BIGINT}, LogicalType::INTERVAL,
-	                   BinaryScalarFunctionIgnoreZero<interval_t, int64_t, interval_t, DivideOperator>));
-
-	set.AddFunction(functions);
-
-	functions.name = "divide";
-	set.AddFunction(functions);
-}
-
-//===--------------------------------------------------------------------===//
-// % [modulo]
-//===--------------------------------------------------------------------===//
-template <>
-float ModuloOperator::Operation(float left, float right) {
-	D_ASSERT(right != 0);
-	auto result = std::fmod(left, right);
-	if (!Value::FloatIsFinite(result)) {
-		throw OutOfRangeException("Overflow in modulo of float!");
-	}
-	return result;
-}
-
-template <>
-double ModuloOperator::Operation(double left, double right) {
-	D_ASSERT(right != 0);
-	auto result = std::fmod(left, right);
-	if (!Value::DoubleIsFinite(result)) {
-		throw OutOfRangeException("Overflow in modulo of double!");
-	}
-	return result;
-}
-
-template <>
-hugeint_t ModuloOperator::Operation(hugeint_t left, hugeint_t right) {
-	if (right.lower == 0 && right.upper == 0) {
-		throw InternalException("Hugeint division by zero!");
-	}
-	return left % right;
-}
-
-void ModFun::RegisterFunction(BuiltinFunctions &set) {
-	ScalarFunctionSet functions("%");
-	for (auto &type : LogicalType::Numeric()) {
-		if (type.id() == LogicalTypeId::DECIMAL) {
-			continue;
-		} else {
-			functions.AddFunction(
-			    ScalarFunction({type, type}, type, GetBinaryFunctionIgnoreZero<ModuloOperator>(type)));
-		}
-	}
-	set.AddFunction(functions);
-	functions.name = "mod";
-	set.AddFunction(functions);
-}
-
-} // namespace duckdb
 
 
 
@@ -2003,7 +1124,6 @@ void CHR::RegisterFunction(BuiltinFunctions &set) {
 
 
 
-
 #include <string.h>
 
 namespace duckdb {
@@ -2244,6 +1364,7 @@ void ConcatFun::RegisterFunction(BuiltinFunctions &set) {
 	// concat_ws(',', '', '') = ","
 	ScalarFunction concat = ScalarFunction("concat", {LogicalType::VARCHAR}, LogicalType::VARCHAR, ConcatFunction);
 	concat.varargs = LogicalType::VARCHAR;
+	concat.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 	set.AddFunction(concat);
 
 	ScalarFunctionSet concat_op("||");
@@ -2251,11 +1372,15 @@ void ConcatFun::RegisterFunction(BuiltinFunctions &set) {
 	    ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, LogicalType::VARCHAR, ConcatOperator));
 	concat_op.AddFunction(ScalarFunction({LogicalType::BLOB, LogicalType::BLOB}, LogicalType::BLOB, ConcatOperator));
 	concat_op.AddFunction(ListConcatFun::GetFunction());
+	for (auto &fun : concat_op.functions) {
+		fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	}
 	set.AddFunction(concat_op);
 
 	ScalarFunction concat_ws = ScalarFunction("concat_ws", {LogicalType::VARCHAR, LogicalType::VARCHAR},
 	                                          LogicalType::VARCHAR, ConcatWSFunction);
 	concat_ws.varargs = LogicalType::VARCHAR;
+	concat_ws.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 	set.AddFunction(concat_ws);
 }
 
@@ -4258,19 +3383,22 @@ void RegexpFun::RegisterFunction(BuiltinFunctions &set) {
 	ScalarFunctionSet regexp_full_match("regexp_full_match");
 	regexp_full_match.AddFunction(ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, LogicalType::BOOLEAN,
 	                                             RegexpMatchesFunction<RegexFullMatch>, false, false, RegexpMatchesBind,
-	                                             nullptr, nullptr, RegexInitLocalState));
+	                                             nullptr, nullptr, RegexInitLocalState, LogicalType::INVALID,
+	                                             FunctionNullHandling::SPECIAL_HANDLING));
 	regexp_full_match.AddFunction(ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
 	                                             LogicalType::BOOLEAN, RegexpMatchesFunction<RegexFullMatch>, false,
-	                                             false, RegexpMatchesBind, nullptr, nullptr, RegexInitLocalState));
+	                                             false, RegexpMatchesBind, nullptr, nullptr, RegexInitLocalState,
+	                                             LogicalType::INVALID, FunctionNullHandling::SPECIAL_HANDLING));
 
 	ScalarFunctionSet regexp_partial_match("regexp_matches");
 	regexp_partial_match.AddFunction(ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, LogicalType::BOOLEAN,
 	                                                RegexpMatchesFunction<RegexPartialMatch>, false, false,
-	                                                RegexpMatchesBind, nullptr, nullptr, RegexInitLocalState));
-	regexp_partial_match.AddFunction(ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
-	                                                LogicalType::BOOLEAN, RegexpMatchesFunction<RegexPartialMatch>,
-	                                                false, false, RegexpMatchesBind, nullptr, nullptr,
-	                                                RegexInitLocalState));
+	                                                RegexpMatchesBind, nullptr, nullptr, RegexInitLocalState,
+	                                                LogicalType::INVALID, FunctionNullHandling::SPECIAL_HANDLING));
+	regexp_partial_match.AddFunction(
+	    ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR}, LogicalType::BOOLEAN,
+	                   RegexpMatchesFunction<RegexPartialMatch>, false, false, RegexpMatchesBind, nullptr, nullptr,
+	                   RegexInitLocalState, LogicalType::INVALID, FunctionNullHandling::SPECIAL_HANDLING));
 
 	ScalarFunctionSet regexp_replace("regexp_replace");
 	regexp_replace.AddFunction(ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
@@ -4283,10 +3411,12 @@ void RegexpFun::RegisterFunction(BuiltinFunctions &set) {
 	ScalarFunctionSet regexp_extract("regexp_extract");
 	regexp_extract.AddFunction(ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, LogicalType::VARCHAR,
 	                                          RegexExtractFunction, false, false, RegexExtractBind, nullptr, nullptr,
-	                                          RegexExtractInitLocalState));
+	                                          RegexExtractInitLocalState, LogicalType::INVALID,
+	                                          FunctionNullHandling::SPECIAL_HANDLING));
 	regexp_extract.AddFunction(ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::INTEGER},
 	                                          LogicalType::VARCHAR, RegexExtractFunction, false, false,
-	                                          RegexExtractBind, nullptr, nullptr, RegexExtractInitLocalState));
+	                                          RegexExtractBind, nullptr, nullptr, RegexExtractInitLocalState,
+	                                          LogicalType::INVALID, FunctionNullHandling::SPECIAL_HANDLING));
 
 	set.AddFunction(regexp_full_match);
 	set.AddFunction(regexp_partial_match);
@@ -4481,8 +3611,6 @@ void ReverseFun::RegisterFunction(BuiltinFunctions &set) {
 }
 
 } // namespace duckdb
-
-
 
 
 
@@ -4734,12 +3862,15 @@ static void StringSplitRegexFunction(DataChunk &args, ExpressionState &state, Ve
 void StringSplitFun::RegisterFunction(BuiltinFunctions &set) {
 	auto varchar_list_type = LogicalType::LIST(LogicalType::VARCHAR);
 
-	set.AddFunction(
-	    {"string_split", "str_split", "string_to_array", "split"},
-	    ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, varchar_list_type, StringSplitFunction));
-	set.AddFunction(
-	    {"string_split_regex", "str_split_regex", "regexp_split_to_array"},
-	    ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, varchar_list_type, StringSplitRegexFunction));
+	auto regular_fun =
+	    ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, varchar_list_type, StringSplitFunction);
+	regular_fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	set.AddFunction({"string_split", "str_split", "string_to_array", "split"}, regular_fun);
+
+	auto regex_fun =
+	    ScalarFunction({LogicalType::VARCHAR, LogicalType::VARCHAR}, varchar_list_type, StringSplitRegexFunction);
+	regex_fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	set.AddFunction({"string_split_regex", "str_split_regex", "regexp_split_to_array"}, regex_fun);
 }
 
 } // namespace duckdb
@@ -5278,12 +4409,6 @@ static void StructExtractFunction(DataChunk &args, ExpressionState &state, Vecto
 static unique_ptr<FunctionData> StructExtractBind(ClientContext &context, ScalarFunction &bound_function,
                                                   vector<unique_ptr<Expression>> &arguments) {
 	D_ASSERT(bound_function.arguments.size() == 2);
-	if (arguments[0]->return_type.id() == LogicalTypeId::SQLNULL ||
-	    arguments[1]->return_type.id() == LogicalTypeId::SQLNULL) {
-		bound_function.return_type = LogicalType::SQLNULL;
-		bound_function.arguments[0] = LogicalType::SQLNULL;
-		return make_unique<StructExtractBindData>("", 0, LogicalType::SQLNULL);
-	}
 	D_ASSERT(LogicalTypeId::STRUCT == arguments[0]->return_type.id());
 	auto &struct_children = StructType::GetChildTypes(arguments[0]->return_type);
 	if (struct_children.empty()) {
@@ -5541,6 +4666,7 @@ void StructPackFun::RegisterFunction(BuiltinFunctions &set) {
 	ScalarFunction fun("struct_pack", {}, LogicalTypeId::STRUCT, StructPackFunction, false, StructPackBind, nullptr,
 	                   StructPackStats);
 	fun.varargs = LogicalType::ANY;
+	fun.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 	set.AddFunction(fun);
 	fun.name = "row";
 	set.AddFunction(fun);
@@ -5839,14 +4965,19 @@ ExportAggregateFunction::Bind(unique_ptr<BoundAggregateExpression> child_aggrega
 }
 
 ScalarFunction ExportAggregateFunction::GetFinalize() {
-	return ScalarFunction("finalize", {LogicalTypeId::AGGREGATE_STATE}, LogicalTypeId::INVALID, AggregateStateFinalize,
-	                      false, BindAggregateState, nullptr, nullptr, InitFinalizeState);
+	auto result =
+	    ScalarFunction("finalize", {LogicalTypeId::AGGREGATE_STATE}, LogicalTypeId::INVALID, AggregateStateFinalize,
+	                   false, BindAggregateState, nullptr, nullptr, InitFinalizeState);
+	result.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	return result;
 }
 
 ScalarFunction ExportAggregateFunction::GetCombine() {
-	return ScalarFunction("combine", {LogicalTypeId::AGGREGATE_STATE, LogicalTypeId::ANY},
-	                      LogicalTypeId::AGGREGATE_STATE, AggregateStateCombine, false, BindAggregateState, nullptr,
-	                      nullptr, InitCombineState);
+	auto result =
+	    ScalarFunction("combine", {LogicalTypeId::AGGREGATE_STATE, LogicalTypeId::ANY}, LogicalTypeId::AGGREGATE_STATE,
+	                   AggregateStateCombine, false, BindAggregateState, nullptr, nullptr, InitCombineState);
+	result.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	return result;
 }
 
 } // namespace duckdb
@@ -5966,19 +5097,21 @@ FunctionLocalState::~FunctionLocalState() {
 ScalarFunction::ScalarFunction(string name, vector<LogicalType> arguments, LogicalType return_type,
                                scalar_function_t function, bool has_side_effects, bind_scalar_function_t bind,
                                dependency_function_t dependency, function_statistics_t statistics,
-                               init_local_state_t init_local_state, LogicalType varargs, bool propagate_null_values)
+                               init_local_state_t init_local_state, LogicalType varargs, bool propagate_null_values,
+                               FunctionNullHandling null_handling)
     : BaseScalarFunction(move(name), move(arguments), move(return_type), has_side_effects, move(varargs),
                          propagate_null_values),
       function(move(function)), bind(bind), init_local_state(init_local_state), dependency(dependency),
-      statistics(statistics) {
+      statistics(statistics), null_handling(null_handling) {
 }
 
 ScalarFunction::ScalarFunction(vector<LogicalType> arguments, LogicalType return_type, scalar_function_t function,
                                bool propagate_null_values, bool has_side_effects, bind_scalar_function_t bind,
                                dependency_function_t dependency, function_statistics_t statistics,
-                               init_local_state_t init_local_state, LogicalType varargs)
+                               init_local_state_t init_local_state, LogicalType varargs,
+                               FunctionNullHandling null_handling)
     : ScalarFunction(string(), move(arguments), move(return_type), move(function), has_side_effects, bind, dependency,
-                     statistics, init_local_state, move(varargs), propagate_null_values) {
+                     statistics, init_local_state, move(varargs), propagate_null_values, null_handling) {
 }
 
 bool ScalarFunction::operator==(const ScalarFunction &rhs) const {
@@ -6047,6 +5180,8 @@ void ScalarFunction::NopFunction(DataChunk &input, ExpressionState &state, Vecto
 
 
 
+
+
 namespace duckdb {
 
 ScalarMacroFunction::ScalarMacroFunction(unique_ptr<ParsedExpression> expression)
@@ -6062,6 +5197,26 @@ unique_ptr<MacroFunction> ScalarMacroFunction::Copy() {
 	CopyProperties(*result);
 
 	return move(result);
+}
+
+void RemoveQualificationRecursive(unique_ptr<ParsedExpression> &expr) {
+	if (expr->GetExpressionType() == ExpressionType::COLUMN_REF) {
+		auto &col_ref = (ColumnRefExpression &)*expr;
+		auto &col_names = col_ref.column_names;
+		if (col_names.size() == 2 && col_names[0] == MacroBinding::MACRO_NAME) {
+			col_names.erase(col_names.begin());
+		}
+	} else {
+		ParsedExpressionIterator::EnumerateChildren(
+		    *expr, [](unique_ptr<ParsedExpression> &child) { RemoveQualificationRecursive(child); });
+	}
+}
+
+string ScalarMacroFunction::ToSQL(const string &schema, const string &name) {
+	// In case of nested macro's we need to fix it a bit
+	auto expression_copy = expression->Copy();
+	RemoveQualificationRecursive(expression_copy);
+	return MacroFunction::ToSQL(schema, name) + StringUtil::Format("(%s);", expression_copy->ToString());
 }
 
 } // namespace duckdb
@@ -6344,7 +5499,7 @@ unique_ptr<GlobalTableFunctionState> ArrowTableFunction::ArrowScanInitGlobal(Cli
 	return move(result);
 }
 
-unique_ptr<LocalTableFunctionState> ArrowTableFunction::ArrowScanInitLocal(ClientContext &context,
+unique_ptr<LocalTableFunctionState> ArrowTableFunction::ArrowScanInitLocal(ExecutionContext &context,
                                                                            TableFunctionInitInput &input,
                                                                            GlobalTableFunctionState *global_state_p) {
 	auto &global_state = (ArrowScanGlobalState &)*global_state_p;
@@ -6352,7 +5507,7 @@ unique_ptr<LocalTableFunctionState> ArrowTableFunction::ArrowScanInitLocal(Clien
 	auto result = make_unique<ArrowScanLocalState>(move(current_chunk));
 	result->column_ids = input.column_ids;
 	result->filters = input.filters;
-	if (!ArrowScanParallelStateNext(context, input.bind_data, *result, global_state)) {
+	if (!ArrowScanParallelStateNext(context.client, input.bind_data, *result, global_state)) {
 		return nullptr;
 	}
 	return move(result);
@@ -7540,7 +6695,7 @@ struct GlobalWriteCSVData : public GlobalFunctionData {
 	unique_ptr<FileHandle> handle;
 };
 
-static unique_ptr<LocalFunctionData> WriteCSVInitializeLocal(ClientContext &context, FunctionData &bind_data) {
+static unique_ptr<LocalFunctionData> WriteCSVInitializeLocal(ExecutionContext &context, FunctionData &bind_data) {
 	auto &csv_data = (WriteCSVData &)bind_data;
 	auto local_data = make_unique<LocalReadCSVData>();
 
@@ -7548,7 +6703,7 @@ static unique_ptr<LocalFunctionData> WriteCSVInitializeLocal(ClientContext &cont
 	vector<LogicalType> types;
 	types.resize(csv_data.options.names.size(), LogicalType::VARCHAR);
 
-	local_data->cast_chunk.Initialize(types);
+	local_data->cast_chunk.Initialize(Allocator::Get(context.client), types);
 	return move(local_data);
 }
 
@@ -7576,7 +6731,7 @@ static unique_ptr<GlobalFunctionData> WriteCSVInitializeGlobal(ClientContext &co
 	return move(global_data);
 }
 
-static void WriteCSVSink(ClientContext &context, FunctionData &bind_data, GlobalFunctionData &gstate,
+static void WriteCSVSink(ExecutionContext &context, FunctionData &bind_data, GlobalFunctionData &gstate,
                          LocalFunctionData &lstate, DataChunk &input) {
 	auto &csv_data = (WriteCSVData &)bind_data;
 	auto &options = csv_data.options;
@@ -7643,7 +6798,7 @@ static void WriteCSVSink(ClientContext &context, FunctionData &bind_data, Global
 //===--------------------------------------------------------------------===//
 // Combine
 //===--------------------------------------------------------------------===//
-static void WriteCSVCombine(ClientContext &context, FunctionData &bind_data, GlobalFunctionData &gstate,
+static void WriteCSVCombine(ExecutionContext &context, FunctionData &bind_data, GlobalFunctionData &gstate,
                             LocalFunctionData &lstate) {
 	auto &local_data = (LocalReadCSVData &)lstate;
 	auto &global_state = (GlobalWriteCSVData &)gstate;
@@ -7853,11 +7008,11 @@ static void PragmaDetailedProfilingOutputFunction(ClientContext &context, TableF
 
 	if (!state.initialized) {
 		// create a ChunkCollection
-		auto collection = make_unique<ChunkCollection>();
+		auto collection = make_unique<ChunkCollection>(context);
 
 		// create a chunk
 		DataChunk chunk;
-		chunk.Initialize(data.types);
+		chunk.Initialize(context, data.types);
 
 		// Initialize ids
 		int operator_counter = 1;
@@ -7978,10 +7133,10 @@ static void PragmaLastProfilingOutputFunction(ClientContext &context, TableFunct
 	auto &data = (PragmaLastProfilingOutputData &)*data_p.bind_data;
 	if (!state.initialized) {
 		// create a ChunkCollection
-		auto collection = make_unique<ChunkCollection>();
+		auto collection = make_unique<ChunkCollection>(context);
 
 		DataChunk chunk;
-		chunk.Initialize(data.types);
+		chunk.Initialize(context, data.types);
 		int operator_counter = 1;
 		if (!ClientData::Get(context).query_profiler_history->GetPrevProfilers().empty()) {
 			for (auto op :
@@ -8574,7 +7729,7 @@ static unique_ptr<FunctionData> SummaryFunctionBind(ClientContext &context, Tabl
 	return make_unique<TableFunctionData>();
 }
 
-static OperatorResultType SummaryFunction(ClientContext &context, TableFunctionInput &data_p, DataChunk &input,
+static OperatorResultType SummaryFunction(ExecutionContext &context, TableFunctionInput &data_p, DataChunk &input,
                                           DataChunk &output) {
 	output.SetCardinality(input.size());
 
@@ -11771,7 +10926,7 @@ struct TestVectorFlat {
 		vector<Value> result_values = GenerateValues(info, info.type);
 		for (idx_t cur_row = 0; cur_row < result_values.size(); cur_row += STANDARD_VECTOR_SIZE) {
 			auto result = make_unique<DataChunk>();
-			result->Initialize({info.type});
+			result->Initialize(Allocator::DefaultAllocator(), {info.type});
 			auto cardinality = MinValue<idx_t>(STANDARD_VECTOR_SIZE, result_values.size() - cur_row);
 			for (idx_t i = 0; i < cardinality; i++) {
 				result->data[0].SetValue(i, result_values[cur_row + i]);
@@ -11787,7 +10942,7 @@ struct TestVectorConstant {
 		auto values = TestVectorFlat::GenerateValues(info, info.type);
 		for (idx_t cur_row = 0; cur_row < TestVectorFlat::TEST_VECTOR_CARDINALITY; cur_row += STANDARD_VECTOR_SIZE) {
 			auto result = make_unique<DataChunk>();
-			result->Initialize({info.type});
+			result->Initialize(Allocator::DefaultAllocator(), {info.type});
 			auto cardinality = MinValue<idx_t>(STANDARD_VECTOR_SIZE, TestVectorFlat::TEST_VECTOR_CARDINALITY - cur_row);
 			result->data[0].SetValue(0, values[0]);
 			result->data[0].SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -11852,7 +11007,7 @@ struct TestVectorSequence {
 	static void Generate(TestVectorInfo &info) {
 #if STANDARD_VECTOR_SIZE > 2
 		auto result = make_unique<DataChunk>();
-		result->Initialize({info.type});
+		result->Initialize(Allocator::DefaultAllocator(), {info.type});
 
 		GenerateVector(info, info.type, result->data[0]);
 		result->SetCardinality(3);
@@ -12032,7 +11187,7 @@ struct TableScanGlobalState : public GlobalTableFunctionState {
 	}
 };
 
-static unique_ptr<LocalTableFunctionState> TableScanInitLocal(ClientContext &context, TableFunctionInitInput &input,
+static unique_ptr<LocalTableFunctionState> TableScanInitLocal(ExecutionContext &context, TableFunctionInitInput &input,
                                                               GlobalTableFunctionState *gstate) {
 	auto result = make_unique<TableScanLocalState>();
 	auto &bind_data = (TableScanBindData &)*input.bind_data;
@@ -12042,7 +11197,7 @@ static unique_ptr<LocalTableFunctionState> TableScanInitLocal(ClientContext &con
 		col = storage_idx;
 	}
 	result->scan_state.table_filters = input.filters;
-	TableScanParallelStateNext(context, input.bind_data, result.get(), gstate);
+	TableScanParallelStateNext(context.client, input.bind_data, result.get(), gstate);
 	return move(result);
 }
 
@@ -12387,16 +11542,22 @@ public:
 	}
 };
 
-struct UnnestOperatorData : public GlobalTableFunctionState {
-	UnnestOperatorData() {
+struct UnnestGlobalState : public GlobalTableFunctionState {
+	UnnestGlobalState() {
 	}
 
-	unique_ptr<OperatorState> operator_state;
 	vector<unique_ptr<Expression>> select_list;
 
 	idx_t MaxThreads() const override {
 		return GlobalTableFunctionState::MAX_THREADS;
 	}
+};
+
+struct UnnestLocalState : public LocalTableFunctionState {
+	UnnestLocalState() {
+	}
+
+	unique_ptr<OperatorState> operator_state;
 };
 
 static unique_ptr<FunctionData> UnnestBind(ClientContext &context, TableFunctionBindInput &input,
@@ -12409,10 +11570,18 @@ static unique_ptr<FunctionData> UnnestBind(ClientContext &context, TableFunction
 	return make_unique<UnnestBindData>(input.input_table_types[0]);
 }
 
+static unique_ptr<LocalTableFunctionState> UnnestLocalInit(ExecutionContext &context, TableFunctionInitInput &input,
+                                                           GlobalTableFunctionState *global_state) {
+	auto &gstate = (UnnestGlobalState &)*global_state;
+
+	auto result = make_unique<UnnestLocalState>();
+	result->operator_state = PhysicalUnnest::GetState(context, gstate.select_list);
+	return move(result);
+}
+
 static unique_ptr<GlobalTableFunctionState> UnnestInit(ClientContext &context, TableFunctionInitInput &input) {
 	auto &bind_data = (UnnestBindData &)*input.bind_data;
-	auto result = make_unique<UnnestOperatorData>();
-	result->operator_state = PhysicalUnnest::GetState(context);
+	auto result = make_unique<UnnestGlobalState>();
 	auto ref = make_unique<BoundReferenceExpression>(bind_data.input_type, 0);
 	auto bound_unnest = make_unique<BoundUnnestExpression>(ListType::GetChildType(bind_data.input_type));
 	bound_unnest->child = move(ref);
@@ -12420,14 +11589,15 @@ static unique_ptr<GlobalTableFunctionState> UnnestInit(ClientContext &context, T
 	return move(result);
 }
 
-static OperatorResultType UnnestFunction(ClientContext &context, TableFunctionInput &data_p, DataChunk &input,
+static OperatorResultType UnnestFunction(ExecutionContext &context, TableFunctionInput &data_p, DataChunk &input,
                                          DataChunk &output) {
-	auto &state = (UnnestOperatorData &)*data_p.global_state;
-	return PhysicalUnnest::ExecuteInternal(context, input, output, *state.operator_state, state.select_list, false);
+	auto &state = (UnnestGlobalState &)*data_p.global_state;
+	auto &lstate = (UnnestLocalState &)*data_p.local_state;
+	return PhysicalUnnest::ExecuteInternal(context, input, output, *lstate.operator_state, state.select_list, false);
 }
 
 void UnnestTableFunction::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction unnest_function("unnest", {LogicalTypeId::TABLE}, nullptr, UnnestBind, UnnestInit);
+	TableFunction unnest_function("unnest", {LogicalTypeId::TABLE}, nullptr, UnnestBind, UnnestInit, UnnestLocalInit);
 	unnest_function.in_out_function = UnnestFunction;
 	set.AddFunction(unnest_function);
 }
@@ -12544,7 +11714,11 @@ TableFunction::TableFunction(const vector<LogicalType> &arguments, table_functio
                              table_function_init_local_t init_local)
     : TableFunction(string(), arguments, function, bind, init_global, init_local) {
 }
-TableFunction::TableFunction() : SimpleNamedParameterFunction("", {}) {
+TableFunction::TableFunction()
+    : SimpleNamedParameterFunction("", {}), bind(nullptr), init_global(nullptr), init_local(nullptr), function(nullptr),
+      in_out_function(nullptr), statistics(nullptr), dependency(nullptr), cardinality(nullptr),
+      pushdown_complex_filter(nullptr), to_string(nullptr), table_scan_progress(nullptr), get_batch_index(nullptr),
+      projection_pushdown(false), filter_pushdown(false) {
 }
 
 } // namespace duckdb
@@ -12556,6 +11730,7 @@ TableFunction::TableFunction() : SimpleNamedParameterFunction("", {}) {
 //
 //===----------------------------------------------------------------------===//
 //! The SelectStatement of the view
+
 
 
 
@@ -12574,6 +11749,10 @@ unique_ptr<MacroFunction> TableMacroFunction::Copy() {
 	result->query_node = query_node->Copy();
 	this->CopyProperties(*result);
 	return move(result);
+}
+
+string TableMacroFunction::ToSQL(const string &schema, const string &name) {
+	return MacroFunction::ToSQL(schema, name) + StringUtil::Format("TABLE (%s);", query_node->ToString());
 }
 
 } // namespace duckdb
@@ -12617,10 +11796,11 @@ void UDFWrapper::RegisterAggrFunction(AggregateFunction aggr_function, ClientCon
 
 namespace duckdb {
 
-BaseAppender::BaseAppender() : column(0) {
+BaseAppender::BaseAppender(Allocator &allocator) : allocator(allocator), collection(allocator), column(0) {
 }
 
-BaseAppender::BaseAppender(vector<LogicalType> types_p) : types(move(types_p)), column(0) {
+BaseAppender::BaseAppender(Allocator &allocator, vector<LogicalType> types_p)
+    : allocator(allocator), types(move(types_p)), collection(allocator), column(0) {
 	InitializeChunk();
 }
 
@@ -12640,7 +11820,7 @@ void BaseAppender::Destructor() {
 }
 
 InternalAppender::InternalAppender(ClientContext &context_p, TableCatalogEntry &table_p)
-    : BaseAppender(table_p.GetTypes()), context(context_p), table(table_p) {
+    : BaseAppender(Allocator::DefaultAllocator(), table_p.GetTypes()), context(context_p), table(table_p) {
 }
 
 InternalAppender::~InternalAppender() {
@@ -12648,7 +11828,7 @@ InternalAppender::~InternalAppender() {
 }
 
 Appender::Appender(Connection &con, const string &schema_name, const string &table_name)
-    : BaseAppender(), context(con.context) {
+    : BaseAppender(Allocator::DefaultAllocator()), context(con.context) {
 	description = con.TableInfo(schema_name, table_name);
 	if (!description) {
 		// table could not be found
@@ -12669,7 +11849,7 @@ Appender::~Appender() {
 
 void BaseAppender::InitializeChunk() {
 	chunk = make_unique<DataChunk>();
-	chunk->Initialize(types);
+	chunk->Initialize(allocator, types);
 }
 
 void BaseAppender::BeginRow() {
@@ -13334,7 +12514,7 @@ duckdb_data_chunk duckdb_create_data_chunk(duckdb_logical_type *ctypes, idx_t co
 	}
 
 	auto result = new duckdb::DataChunk();
-	result->Initialize(types);
+	result->Initialize(duckdb::Allocator::DefaultAllocator(), types);
 	return result;
 }
 
@@ -14980,7 +14160,7 @@ unique_ptr<GlobalTableFunctionState> CTableFunctionInit(ClientContext &context, 
 	return move(result);
 }
 
-unique_ptr<LocalTableFunctionState> CTableFunctionLocalInit(ClientContext &context, TableFunctionInitInput &data_p,
+unique_ptr<LocalTableFunctionState> CTableFunctionLocalInit(ExecutionContext &context, TableFunctionInitInput &data_p,
                                                             GlobalTableFunctionState *gstate) {
 	auto &bind_data = (CTableBindData &)*data_p.bind_data;
 	auto result = make_unique<CTableLocalInitData>();
@@ -16423,6 +15603,7 @@ void ClientContext::EnableProfiling() {
 	auto lock = LockContext();
 	auto &config = ClientConfig::GetConfig(*this);
 	config.enable_profiler = true;
+	config.emit_profiler_output = true;
 }
 
 void ClientContext::DisableProfiling() {
@@ -16834,7 +16015,966 @@ ParserOptions ClientContext::GetParserOptions() {
 	ParserOptions options;
 	options.preserve_identifier_case = ClientConfig::GetConfig(*this).preserve_identifier_case;
 	options.max_expression_depth = ClientConfig::GetConfig(*this).max_expression_depth;
+	options.extensions = &DBConfig::GetConfig(*this).parser_extensions;
 	return options;
+}
+
+} // namespace duckdb
+
+
+
+
+namespace duckdb {
+
+bool ClientContextFileOpener::TryGetCurrentSetting(const string &key, Value &result) {
+	return context.TryGetCurrentSetting(key, result);
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+
+
+
+namespace duckdb {
+
+ClientData::ClientData(ClientContext &context) : catalog_search_path(make_unique<CatalogSearchPath>(context)) {
+	profiler = make_shared<QueryProfiler>(context);
+	query_profiler_history = make_unique<QueryProfilerHistory>();
+	temporary_objects = make_unique<SchemaCatalogEntry>(&Catalog::GetCatalog(context), TEMP_SCHEMA, true);
+	random_engine = make_unique<RandomEngine>();
+	file_opener = make_unique<ClientContextFileOpener>(context);
+}
+ClientData::~ClientData() {
+}
+
+ClientData &ClientData::Get(ClientContext &context) {
+	return *context.client_data;
+}
+
+RandomEngine &RandomEngine::Get(ClientContext &context) {
+	return *ClientData::Get(context).random_engine;
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+namespace duckdb {
+
+#define DUCKDB_GLOBAL(_PARAM)                                                                                          \
+	{ _PARAM::Name, _PARAM::Description, _PARAM::InputType, _PARAM::SetGlobal, nullptr, _PARAM::GetSetting }
+#define DUCKDB_GLOBAL_ALIAS(_ALIAS, _PARAM)                                                                            \
+	{ _ALIAS, _PARAM::Description, _PARAM::InputType, _PARAM::SetGlobal, nullptr, _PARAM::GetSetting }
+
+#define DUCKDB_LOCAL(_PARAM)                                                                                           \
+	{ _PARAM::Name, _PARAM::Description, _PARAM::InputType, nullptr, _PARAM::SetLocal, _PARAM::GetSetting }
+#define DUCKDB_LOCAL_ALIAS(_ALIAS, _PARAM)                                                                             \
+	{ _ALIAS, _PARAM::Description, _PARAM::InputType, nullptr, _PARAM::SetLocal, _PARAM::GetSetting }
+
+#define DUCKDB_GLOBAL_LOCAL(_PARAM)                                                                                    \
+	{ _PARAM::Name, _PARAM::Description, _PARAM::InputType, _PARAM::SetGlobal, _PARAM::SetLocal, _PARAM::GetSetting }
+#define DUCKDB_GLOBAL_LOCAL_ALIAS(_ALIAS, _PARAM)                                                                      \
+	{ _ALIAS, _PARAM::Description, _PARAM::InputType, _PARAM::SetGlobal, _PARAM::SetLocal, _PARAM::GetSetting }
+#define FINAL_SETTING                                                                                                  \
+	{ nullptr, nullptr, LogicalTypeId::INVALID, nullptr, nullptr, nullptr }
+
+static ConfigurationOption internal_options[] = {DUCKDB_GLOBAL(AccessModeSetting),
+                                                 DUCKDB_GLOBAL(CheckpointThresholdSetting),
+                                                 DUCKDB_GLOBAL(DebugCheckpointAbort),
+                                                 DUCKDB_LOCAL(DebugForceExternal),
+                                                 DUCKDB_LOCAL(DebugForceNoCrossProduct),
+                                                 DUCKDB_GLOBAL(DebugManyFreeListBlocks),
+                                                 DUCKDB_GLOBAL(DebugWindowMode),
+                                                 DUCKDB_GLOBAL_LOCAL(DefaultCollationSetting),
+                                                 DUCKDB_GLOBAL(DefaultOrderSetting),
+                                                 DUCKDB_GLOBAL(DefaultNullOrderSetting),
+                                                 DUCKDB_GLOBAL(DisabledOptimizersSetting),
+                                                 DUCKDB_GLOBAL(EnableExternalAccessSetting),
+                                                 DUCKDB_GLOBAL(EnableObjectCacheSetting),
+                                                 DUCKDB_LOCAL(EnableProfilingSetting),
+                                                 DUCKDB_LOCAL(EnableProgressBarSetting),
+                                                 DUCKDB_LOCAL(ExplainOutputSetting),
+                                                 DUCKDB_GLOBAL(ExternalThreadsSetting),
+                                                 DUCKDB_LOCAL(FileSearchPathSetting),
+                                                 DUCKDB_GLOBAL(ForceCompressionSetting),
+                                                 DUCKDB_LOCAL(LogQueryPathSetting),
+                                                 DUCKDB_LOCAL(MaximumExpressionDepthSetting),
+                                                 DUCKDB_GLOBAL(MaximumMemorySetting),
+                                                 DUCKDB_GLOBAL_ALIAS("memory_limit", MaximumMemorySetting),
+                                                 DUCKDB_GLOBAL_ALIAS("null_order", DefaultNullOrderSetting),
+                                                 DUCKDB_LOCAL(PerfectHashThresholdSetting),
+                                                 DUCKDB_LOCAL(PreserveIdentifierCase),
+                                                 DUCKDB_GLOBAL(PreserveInsertionOrder),
+                                                 DUCKDB_LOCAL(ProfilerHistorySize),
+                                                 DUCKDB_LOCAL(ProfileOutputSetting),
+                                                 DUCKDB_LOCAL(ProfilingModeSetting),
+                                                 DUCKDB_LOCAL_ALIAS("profiling_output", ProfileOutputSetting),
+                                                 DUCKDB_LOCAL(ProgressBarTimeSetting),
+                                                 DUCKDB_LOCAL(SchemaSetting),
+                                                 DUCKDB_LOCAL(SearchPathSetting),
+                                                 DUCKDB_GLOBAL(TempDirectorySetting),
+                                                 DUCKDB_GLOBAL(ThreadsSetting),
+                                                 DUCKDB_GLOBAL_ALIAS("wal_autocheckpoint", CheckpointThresholdSetting),
+                                                 DUCKDB_GLOBAL_ALIAS("worker_threads", ThreadsSetting),
+                                                 FINAL_SETTING};
+
+vector<ConfigurationOption> DBConfig::GetOptions() {
+	vector<ConfigurationOption> options;
+	for (idx_t index = 0; internal_options[index].name; index++) {
+		options.push_back(internal_options[index]);
+	}
+	return options;
+}
+
+idx_t DBConfig::GetOptionCount() {
+	idx_t count = 0;
+	for (idx_t index = 0; internal_options[index].name; index++) {
+		count++;
+	}
+	return count;
+}
+
+ConfigurationOption *DBConfig::GetOptionByIndex(idx_t target_index) {
+	for (idx_t index = 0; internal_options[index].name; index++) {
+		if (index == target_index) {
+			return internal_options + index;
+		}
+	}
+	return nullptr;
+}
+
+ConfigurationOption *DBConfig::GetOptionByName(const string &name) {
+	auto lname = StringUtil::Lower(name);
+	for (idx_t index = 0; internal_options[index].name; index++) {
+		D_ASSERT(StringUtil::Lower(internal_options[index].name) == string(internal_options[index].name));
+		if (internal_options[index].name == lname) {
+			return internal_options + index;
+		}
+	}
+	return nullptr;
+}
+
+void DBConfig::SetOption(const ConfigurationOption &option, const Value &value) {
+	if (!option.set_global) {
+		throw InternalException("Could not set option \"%s\" as a global option", option.name);
+	}
+	Value input = value.CastAs(option.parameter_type);
+	option.set_global(nullptr, *this, input);
+}
+
+void DBConfig::AddExtensionOption(string name, string description, LogicalType parameter,
+                                  set_option_callback_t function) {
+	extension_parameters.insert(make_pair(move(name), ExtensionOption(move(description), move(parameter), function)));
+}
+
+idx_t DBConfig::ParseMemoryLimit(const string &arg) {
+	if (arg[0] == '-' || arg == "null" || arg == "none") {
+		return DConstants::INVALID_INDEX;
+	}
+	// split based on the number/non-number
+	idx_t idx = 0;
+	while (StringUtil::CharacterIsSpace(arg[idx])) {
+		idx++;
+	}
+	idx_t num_start = idx;
+	while ((arg[idx] >= '0' && arg[idx] <= '9') || arg[idx] == '.' || arg[idx] == 'e' || arg[idx] == 'E' ||
+	       arg[idx] == '-') {
+		idx++;
+	}
+	if (idx == num_start) {
+		throw ParserException("Memory limit must have a number (e.g. SET memory_limit=1GB");
+	}
+	string number = arg.substr(num_start, idx - num_start);
+
+	// try to parse the number
+	double limit = Cast::Operation<string_t, double>(string_t(number));
+
+	// now parse the memory limit unit (e.g. bytes, gb, etc)
+	while (StringUtil::CharacterIsSpace(arg[idx])) {
+		idx++;
+	}
+	idx_t start = idx;
+	while (idx < arg.size() && !StringUtil::CharacterIsSpace(arg[idx])) {
+		idx++;
+	}
+	if (limit < 0) {
+		// limit < 0, set limit to infinite
+		return (idx_t)-1;
+	}
+	string unit = StringUtil::Lower(arg.substr(start, idx - start));
+	idx_t multiplier;
+	if (unit == "byte" || unit == "bytes" || unit == "b") {
+		multiplier = 1;
+	} else if (unit == "kilobyte" || unit == "kilobytes" || unit == "kb" || unit == "k") {
+		multiplier = 1000LL;
+	} else if (unit == "megabyte" || unit == "megabytes" || unit == "mb" || unit == "m") {
+		multiplier = 1000LL * 1000LL;
+	} else if (unit == "gigabyte" || unit == "gigabytes" || unit == "gb" || unit == "g") {
+		multiplier = 1000LL * 1000LL * 1000LL;
+	} else if (unit == "terabyte" || unit == "terabytes" || unit == "tb" || unit == "t") {
+		multiplier = 1000LL * 1000LL * 1000LL * 1000LL;
+	} else {
+		throw ParserException("Unknown unit for memory_limit: %s (expected: b, mb, gb or tb)", unit);
+	}
+	return (idx_t)multiplier * limit;
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+namespace duckdb {
+
+Connection::Connection(DatabaseInstance &database) : context(make_shared<ClientContext>(database.shared_from_this())) {
+	ConnectionManager::Get(database).AddConnection(*context);
+#ifdef DEBUG
+	EnableProfiling();
+	context->config.emit_profiler_output = false;
+#endif
+}
+
+Connection::Connection(DuckDB &database) : Connection(*database.instance) {
+}
+
+Connection::~Connection() {
+	ConnectionManager::Get(*context->db).RemoveConnection(*context);
+}
+
+string Connection::GetProfilingInformation(ProfilerPrintFormat format) {
+	auto &profiler = QueryProfiler::Get(*context);
+	if (format == ProfilerPrintFormat::JSON) {
+		return profiler.ToJSON();
+	} else {
+		return profiler.QueryTreeToString();
+	}
+}
+
+void Connection::Interrupt() {
+	context->Interrupt();
+}
+
+void Connection::EnableProfiling() {
+	context->EnableProfiling();
+}
+
+void Connection::DisableProfiling() {
+	context->DisableProfiling();
+}
+
+void Connection::EnableQueryVerification() {
+	ClientConfig::GetConfig(*context).query_verification_enabled = true;
+}
+
+void Connection::DisableQueryVerification() {
+	ClientConfig::GetConfig(*context).query_verification_enabled = false;
+}
+
+void Connection::ForceParallelism() {
+	ClientConfig::GetConfig(*context).verify_parallelism = true;
+}
+
+unique_ptr<QueryResult> Connection::SendQuery(const string &query) {
+	return context->Query(query, true);
+}
+
+unique_ptr<MaterializedQueryResult> Connection::Query(const string &query) {
+	auto result = context->Query(query, false);
+	D_ASSERT(result->type == QueryResultType::MATERIALIZED_RESULT);
+	return unique_ptr_cast<QueryResult, MaterializedQueryResult>(move(result));
+}
+
+unique_ptr<MaterializedQueryResult> Connection::Query(unique_ptr<SQLStatement> statement) {
+	auto result = context->Query(move(statement), false);
+	D_ASSERT(result->type == QueryResultType::MATERIALIZED_RESULT);
+	return unique_ptr_cast<QueryResult, MaterializedQueryResult>(move(result));
+}
+
+unique_ptr<PendingQueryResult> Connection::PendingQuery(const string &query, bool allow_stream_result) {
+	return context->PendingQuery(query, allow_stream_result);
+}
+
+unique_ptr<PendingQueryResult> Connection::PendingQuery(unique_ptr<SQLStatement> statement, bool allow_stream_result) {
+	return context->PendingQuery(move(statement), allow_stream_result);
+}
+
+unique_ptr<PreparedStatement> Connection::Prepare(const string &query) {
+	return context->Prepare(query);
+}
+
+unique_ptr<PreparedStatement> Connection::Prepare(unique_ptr<SQLStatement> statement) {
+	return context->Prepare(move(statement));
+}
+
+unique_ptr<QueryResult> Connection::QueryParamsRecursive(const string &query, vector<Value> &values) {
+	auto statement = Prepare(query);
+	if (!statement->success) {
+		return make_unique<MaterializedQueryResult>(statement->error);
+	}
+	return statement->Execute(values, false);
+}
+
+unique_ptr<TableDescription> Connection::TableInfo(const string &table_name) {
+	return TableInfo(DEFAULT_SCHEMA, table_name);
+}
+
+unique_ptr<TableDescription> Connection::TableInfo(const string &schema_name, const string &table_name) {
+	return context->TableInfo(schema_name, table_name);
+}
+
+vector<unique_ptr<SQLStatement>> Connection::ExtractStatements(const string &query) {
+	return context->ParseStatements(query);
+}
+
+unique_ptr<LogicalOperator> Connection::ExtractPlan(const string &query) {
+	return context->ExtractPlan(query);
+}
+
+void Connection::Append(TableDescription &description, DataChunk &chunk) {
+	ChunkCollection collection(*context);
+	collection.Append(chunk);
+	Append(description, collection);
+}
+
+void Connection::Append(TableDescription &description, ChunkCollection &collection) {
+	context->Append(description, collection);
+}
+
+shared_ptr<Relation> Connection::Table(const string &table_name) {
+	return Table(DEFAULT_SCHEMA, table_name);
+}
+
+shared_ptr<Relation> Connection::Table(const string &schema_name, const string &table_name) {
+	auto table_info = TableInfo(schema_name, table_name);
+	if (!table_info) {
+		throw Exception("Table does not exist!");
+	}
+	return make_shared<TableRelation>(context, move(table_info));
+}
+
+shared_ptr<Relation> Connection::View(const string &tname) {
+	return View(DEFAULT_SCHEMA, tname);
+}
+
+shared_ptr<Relation> Connection::View(const string &schema_name, const string &table_name) {
+	return make_shared<ViewRelation>(context, schema_name, table_name);
+}
+
+shared_ptr<Relation> Connection::TableFunction(const string &fname) {
+	vector<Value> values;
+	named_parameter_map_t named_parameters;
+	return TableFunction(fname, values, named_parameters);
+}
+
+shared_ptr<Relation> Connection::TableFunction(const string &fname, const vector<Value> &values,
+                                               const named_parameter_map_t &named_parameters) {
+	return make_shared<TableFunctionRelation>(context, fname, values, named_parameters);
+}
+
+shared_ptr<Relation> Connection::TableFunction(const string &fname, const vector<Value> &values) {
+	return make_shared<TableFunctionRelation>(context, fname, values);
+}
+
+shared_ptr<Relation> Connection::Values(const vector<vector<Value>> &values) {
+	vector<string> column_names;
+	return Values(values, column_names);
+}
+
+shared_ptr<Relation> Connection::Values(const vector<vector<Value>> &values, const vector<string> &column_names,
+                                        const string &alias) {
+	return make_shared<ValueRelation>(context, values, column_names, alias);
+}
+
+shared_ptr<Relation> Connection::Values(const string &values) {
+	vector<string> column_names;
+	return Values(values, column_names);
+}
+
+shared_ptr<Relation> Connection::Values(const string &values, const vector<string> &column_names, const string &alias) {
+	return make_shared<ValueRelation>(context, values, column_names, alias);
+}
+
+shared_ptr<Relation> Connection::ReadCSV(const string &csv_file) {
+	BufferedCSVReaderOptions options;
+	options.file_path = csv_file;
+	options.auto_detect = true;
+	BufferedCSVReader reader(*context, options);
+	vector<ColumnDefinition> column_list;
+	for (idx_t i = 0; i < reader.sql_types.size(); i++) {
+		column_list.emplace_back(reader.col_names[i], reader.sql_types[i]);
+	}
+	return make_shared<ReadCSVRelation>(context, csv_file, move(column_list), true);
+}
+
+shared_ptr<Relation> Connection::ReadCSV(const string &csv_file, const vector<string> &columns) {
+	// parse columns
+	vector<ColumnDefinition> column_list;
+	for (auto &column : columns) {
+		auto col_list = Parser::ParseColumnList(column, context->GetParserOptions());
+		if (col_list.size() != 1) {
+			throw ParserException("Expected a single column definition");
+		}
+		column_list.push_back(move(col_list[0]));
+	}
+	return make_shared<ReadCSVRelation>(context, csv_file, move(column_list));
+}
+
+unordered_set<string> Connection::GetTableNames(const string &query) {
+	return context->GetTableNames(query);
+}
+
+shared_ptr<Relation> Connection::RelationFromQuery(const string &query, const string &alias, const string &error) {
+	return RelationFromQuery(QueryRelation::ParseStatement(*context, query, error), alias);
+}
+
+shared_ptr<Relation> Connection::RelationFromQuery(unique_ptr<SelectStatement> select_stmt, const string &alias) {
+	return make_shared<QueryRelation>(context, move(select_stmt), alias);
+}
+
+void Connection::BeginTransaction() {
+	auto result = Query("BEGIN TRANSACTION");
+	if (!result->success) {
+		throw Exception(result->error);
+	}
+}
+
+void Connection::Commit() {
+	auto result = Query("COMMIT");
+	if (!result->success) {
+		throw Exception(result->error);
+	}
+}
+
+void Connection::Rollback() {
+	auto result = Query("ROLLBACK");
+	if (!result->success) {
+		throw Exception(result->error);
+	}
+}
+
+void Connection::SetAutoCommit(bool auto_commit) {
+	context->transaction.SetAutoCommit(auto_commit);
+}
+
+bool Connection::IsAutoCommit() {
+	return context->transaction.IsAutoCommit();
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+
+
+
+
+
+
+#ifndef DUCKDB_NO_THREADS
+
+#endif
+
+namespace duckdb {
+
+DBConfig::DBConfig() {
+	compression_functions = make_unique<CompressionFunctionSet>();
+}
+
+DBConfig::~DBConfig() {
+}
+
+DatabaseInstance::DatabaseInstance() {
+}
+
+DatabaseInstance::~DatabaseInstance() {
+	if (Exception::UncaughtException()) {
+		return;
+	}
+
+	// shutting down: attempt to checkpoint the database
+	// but only if we are not cleaning up as part of an exception unwind
+	try {
+		auto &storage = StorageManager::GetStorageManager(*this);
+		if (!storage.InMemory()) {
+			auto &config = storage.db.config;
+			if (!config.checkpoint_on_shutdown) {
+				return;
+			}
+			storage.CreateCheckpoint(true);
+		}
+	} catch (...) {
+	}
+}
+
+BufferManager &BufferManager::GetBufferManager(DatabaseInstance &db) {
+	return *db.GetStorageManager().buffer_manager;
+}
+
+BlockManager &BlockManager::GetBlockManager(DatabaseInstance &db) {
+	return *db.GetStorageManager().block_manager;
+}
+
+BlockManager &BlockManager::GetBlockManager(ClientContext &context) {
+	return BlockManager::GetBlockManager(DatabaseInstance::GetDatabase(context));
+}
+
+DatabaseInstance &DatabaseInstance::GetDatabase(ClientContext &context) {
+	return *context.db;
+}
+
+StorageManager &StorageManager::GetStorageManager(DatabaseInstance &db) {
+	return db.GetStorageManager();
+}
+
+Catalog &Catalog::GetCatalog(DatabaseInstance &db) {
+	return db.GetCatalog();
+}
+
+FileSystem &FileSystem::GetFileSystem(DatabaseInstance &db) {
+	return db.GetFileSystem();
+}
+
+DBConfig &DBConfig::GetConfig(DatabaseInstance &db) {
+	return db.config;
+}
+
+ClientConfig &ClientConfig::GetConfig(ClientContext &context) {
+	return context.config;
+}
+
+TransactionManager &TransactionManager::Get(ClientContext &context) {
+	return TransactionManager::Get(DatabaseInstance::GetDatabase(context));
+}
+
+TransactionManager &TransactionManager::Get(DatabaseInstance &db) {
+	return db.GetTransactionManager();
+}
+
+ConnectionManager &ConnectionManager::Get(DatabaseInstance &db) {
+	return db.GetConnectionManager();
+}
+
+ConnectionManager &ConnectionManager::Get(ClientContext &context) {
+	return ConnectionManager::Get(DatabaseInstance::GetDatabase(context));
+}
+
+void DatabaseInstance::Initialize(const char *path, DBConfig *new_config) {
+	if (new_config) {
+		// user-supplied configuration
+		Configure(*new_config);
+	} else {
+		// default configuration
+		DBConfig config;
+		Configure(config);
+	}
+	if (config.temporary_directory.empty() && path) {
+		// no directory specified: use default temp path
+		config.temporary_directory = string(path) + ".tmp";
+
+		// special treatment for in-memory mode
+		if (strcmp(path, ":memory:") == 0) {
+			config.temporary_directory = ".tmp";
+		}
+	}
+	if (new_config && !new_config->use_temporary_directory) {
+		// temporary directories explicitly disabled
+		config.temporary_directory = string();
+	}
+
+	storage =
+	    make_unique<StorageManager>(*this, path ? string(path) : string(), config.access_mode == AccessMode::READ_ONLY);
+	catalog = make_unique<Catalog>(*this);
+	transaction_manager = make_unique<TransactionManager>(*this);
+	scheduler = make_unique<TaskScheduler>(*this);
+	object_cache = make_unique<ObjectCache>();
+	connection_manager = make_unique<ConnectionManager>();
+
+	// initialize the database
+	storage->Initialize();
+
+	// only increase thread count after storage init because we get races on catalog otherwise
+	scheduler->SetThreads(config.maximum_threads);
+}
+
+DuckDB::DuckDB(const char *path, DBConfig *new_config) : instance(make_shared<DatabaseInstance>()) {
+	instance->Initialize(path, new_config);
+	if (instance->config.load_extensions) {
+		ExtensionHelper::LoadAllExtensions(*this);
+	}
+}
+
+DuckDB::DuckDB(const string &path, DBConfig *config) : DuckDB(path.c_str(), config) {
+}
+
+DuckDB::DuckDB(DatabaseInstance &instance_p) : instance(instance_p.shared_from_this()) {
+}
+
+DuckDB::~DuckDB() {
+}
+
+StorageManager &DatabaseInstance::GetStorageManager() {
+	return *storage;
+}
+
+Catalog &DatabaseInstance::GetCatalog() {
+	return *catalog;
+}
+
+TransactionManager &DatabaseInstance::GetTransactionManager() {
+	return *transaction_manager;
+}
+
+TaskScheduler &DatabaseInstance::GetScheduler() {
+	return *scheduler;
+}
+
+ObjectCache &DatabaseInstance::GetObjectCache() {
+	return *object_cache;
+}
+
+FileSystem &DatabaseInstance::GetFileSystem() {
+	return *config.file_system;
+}
+
+ConnectionManager &DatabaseInstance::GetConnectionManager() {
+	return *connection_manager;
+}
+
+FileSystem &DuckDB::GetFileSystem() {
+	return instance->GetFileSystem();
+}
+
+Allocator &Allocator::Get(ClientContext &context) {
+	return Allocator::Get(*context.db);
+}
+
+Allocator &Allocator::Get(DatabaseInstance &db) {
+	return *db.config.allocator;
+}
+
+void DatabaseInstance::Configure(DBConfig &new_config) {
+	config.access_mode = AccessMode::READ_WRITE;
+	if (new_config.access_mode != AccessMode::UNDEFINED) {
+		config.access_mode = new_config.access_mode;
+	}
+	if (new_config.file_system) {
+		config.file_system = move(new_config.file_system);
+	} else {
+		config.file_system = make_unique<VirtualFileSystem>();
+	}
+	config.maximum_memory = new_config.maximum_memory;
+	if (config.maximum_memory == (idx_t)-1) {
+		auto memory = FileSystem::GetAvailableMemory();
+		if (memory != DConstants::INVALID_INDEX) {
+			config.maximum_memory = memory * 8 / 10;
+		}
+	}
+	if (new_config.maximum_threads == (idx_t)-1) {
+#ifndef DUCKDB_NO_THREADS
+		config.maximum_threads = std::thread::hardware_concurrency();
+#else
+		config.maximum_threads = 1;
+#endif
+	} else {
+		config.maximum_threads = new_config.maximum_threads;
+	}
+	config.external_threads = new_config.external_threads;
+	config.load_extensions = new_config.load_extensions;
+	config.force_compression = new_config.force_compression;
+	config.allocator = move(new_config.allocator);
+	if (!config.allocator) {
+		config.allocator = make_unique<Allocator>();
+	}
+	config.checkpoint_wal_size = new_config.checkpoint_wal_size;
+	config.use_direct_io = new_config.use_direct_io;
+	config.temporary_directory = new_config.temporary_directory;
+	config.collation = new_config.collation;
+	config.default_order_type = new_config.default_order_type;
+	config.default_null_order = new_config.default_null_order;
+	config.enable_external_access = new_config.enable_external_access;
+	config.replacement_scans = move(new_config.replacement_scans);
+	config.initialize_default_database = new_config.initialize_default_database;
+	config.disabled_optimizers = move(new_config.disabled_optimizers);
+	config.parser_extensions = move(new_config.parser_extensions);
+}
+
+DBConfig &DBConfig::GetConfig(ClientContext &context) {
+	return context.db->config;
+}
+
+idx_t DatabaseInstance::NumberOfThreads() {
+	return scheduler->NumberOfThreads();
+}
+
+const unordered_set<std::string> &DatabaseInstance::LoadedExtensions() {
+	return loaded_extensions;
+}
+
+idx_t DuckDB::NumberOfThreads() {
+	return instance->NumberOfThreads();
+}
+
+bool DuckDB::ExtensionIsLoaded(const std::string &name) {
+	return instance->loaded_extensions.find(name) != instance->loaded_extensions.end();
+}
+void DuckDB::SetExtensionLoaded(const std::string &name) {
+	instance->loaded_extensions.insert(name);
+}
+
+string ClientConfig::ExtractTimezoneFromConfig(ClientConfig &config) {
+	if (config.set_variables.find("TimeZone") == config.set_variables.end()) {
+		return "UTC";
+	} else {
+		return config.set_variables["TimeZone"].GetValue<std::string>();
+	}
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+#if defined(BUILD_ICU_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#define ICU_STATICALLY_LOADED true
+#include "icu-extension.hpp"
+#else
+#define ICU_STATICALLY_LOADED false
+#endif
+
+#if defined(BUILD_PARQUET_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#define PARQUET_STATICALLY_LOADED true
+#include "parquet-extension.hpp"
+#else
+#define PARQUET_STATICALLY_LOADED false
+#endif
+
+#if defined(BUILD_TPCH_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#define TPCH_STATICALLY_LOADED true
+#include "tpch-extension.hpp"
+#else
+#define TPCH_STATICALLY_LOADED false
+#endif
+
+#if defined(BUILD_TPCDS_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#define TPCDS_STATICALLY_LOADED true
+#include "tpcds-extension.hpp"
+#else
+#define TPCDS_STATICALLY_LOADED false
+#endif
+
+#if defined(BUILD_SUBSTRAIT_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#define SUBSTRAIT_STATICALLY_LOADED true
+#include "substrait-extension.hpp"
+#else
+#define SUBSTRAIT_STATICALLY_LOADED false
+#endif
+
+#if defined(BUILD_FTS_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#define FTS_STATICALLY_LOADED true
+#include "fts-extension.hpp"
+#else
+#define FTS_STATICALLY_LOADED false
+#endif
+
+#if defined(BUILD_HTTPFS_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#define HTTPFS_STATICALLY_LOADED true
+#include "httpfs-extension.hpp"
+#else
+#define HTTPFS_STATICALLY_LOADED false
+#endif
+
+#if defined(BUILD_VISUALIZER_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#include "visualizer-extension.hpp"
+#endif
+
+#if defined(BUILD_JSON_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#define JSON_STATICALLY_LOADED true
+#include "json-extension.hpp"
+#else
+#define JSON_STATICALLY_LOADED false
+#endif
+
+#if defined(BUILD_EXCEL_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#include "excel-extension.hpp"
+#endif
+
+#if defined(BUILD_SQLSMITH_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+#include "sqlsmith-extension.hpp"
+#endif
+
+namespace duckdb {
+
+//===--------------------------------------------------------------------===//
+// Default Extensions
+//===--------------------------------------------------------------------===//
+static DefaultExtension internal_extensions[] = {
+    {"icu", "Adds support for time zones and collations using the ICU library", ICU_STATICALLY_LOADED},
+    {"parquet", "Adds support for reading and writing parquet files", PARQUET_STATICALLY_LOADED},
+    {"tpch", "Adds TPC-H data generation and query support", TPCH_STATICALLY_LOADED},
+    {"tpcds", "Adds TPC-DS data generation and query support", TPCDS_STATICALLY_LOADED},
+    {"substrait", "Adds support for the Substrait integration", SUBSTRAIT_STATICALLY_LOADED},
+    {"fts", "Adds support for Full-Text Search Indexes", FTS_STATICALLY_LOADED},
+    {"httpfs", "Adds support for reading and writing files over a HTTP(S) connection", HTTPFS_STATICALLY_LOADED},
+    {"json", "Adds support for JSON operations", JSON_STATICALLY_LOADED},
+    {"sqlite_scanner", "Adds support for reading SQLite database files", false},
+    {"postgres_scanner", "Adds support for reading from a Postgres database", false},
+    {nullptr, nullptr, false}};
+
+idx_t ExtensionHelper::DefaultExtensionCount() {
+	idx_t index;
+	for (index = 0; internal_extensions[index].name != nullptr; index++) {
+	}
+	return index;
+}
+
+DefaultExtension ExtensionHelper::GetDefaultExtension(idx_t index) {
+	D_ASSERT(index < DefaultExtensionCount());
+	return internal_extensions[index];
+}
+
+//===--------------------------------------------------------------------===//
+// Load Statically Compiled Extension
+//===--------------------------------------------------------------------===//
+void ExtensionHelper::LoadAllExtensions(DuckDB &db) {
+	unordered_set<string> extensions {"parquet",   "icu",        "tpch", "tpcds", "fts",     "httpfs",
+	                                  "substrait", "visualizer", "json", "excel", "sqlsmith"};
+	for (auto &ext : extensions) {
+		LoadExtensionInternal(db, ext, true);
+	}
+}
+
+ExtensionLoadResult ExtensionHelper::LoadExtension(DuckDB &db, const std::string &extension) {
+	return LoadExtensionInternal(db, extension, false);
+}
+
+ExtensionLoadResult ExtensionHelper::LoadExtensionInternal(DuckDB &db, const std::string &extension,
+                                                           bool initial_load) {
+#ifdef DUCKDB_TEST_REMOTE_INSTALL
+	if (!initial_load && StringUtil::Contains(DUCKDB_TEST_REMOTE_INSTALL, extension)) {
+		Connection con(db);
+		auto result = con.Query("INSTALL " + extension);
+		if (!result->success) {
+			result->Print();
+			return ExtensionLoadResult::EXTENSION_UNKNOWN;
+		}
+		result = con.Query("LOAD " + extension);
+		if (!result->success) {
+			result->Print();
+			return ExtensionLoadResult::EXTENSION_UNKNOWN;
+		}
+		return ExtensionLoadResult::LOADED_EXTENSION;
+	}
+#endif
+	if (extension == "parquet") {
+#if PARQUET_STATICALLY_LOADED
+		db.LoadExtension<ParquetExtension>();
+#else
+		// parquet extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "icu") {
+#if ICU_STATICALLY_LOADED
+		db.LoadExtension<ICUExtension>();
+#else
+		// icu extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "tpch") {
+#if TPCH_STATICALLY_LOADED
+		db.LoadExtension<TPCHExtension>();
+#else
+		// icu extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "substrait") {
+#if SUBSTRAIT_STATICALLY_LOADED
+
+		db.LoadExtension<SubstraitExtension>();
+#else
+		// substrait extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "tpcds") {
+#if TPCDS_STATICALLY_LOADED
+		db.LoadExtension<TPCDSExtension>();
+#else
+		// icu extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "fts") {
+#if FTS_STATICALLY_LOADED
+		db.LoadExtension<FTSExtension>();
+#else
+		// fts extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "httpfs") {
+#if HTTPFS_STATICALLY_LOADED
+		db.LoadExtension<HTTPFsExtension>();
+#else
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "visualizer") {
+#if defined(BUILD_VISUALIZER_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+		db.LoadExtension<VisualizerExtension>();
+#else
+		// visualizer extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "json") {
+#if JSON_STATICALLY_LOADED
+		db.LoadExtension<JSONExtension>();
+#else
+		// json extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "excel") {
+#if defined(BUILD_EXCEL_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+		db.LoadExtension<EXCELExtension>();
+#else
+		// excel extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else if (extension == "sqlsmith") {
+#if defined(BUILD_SQLSMITH_EXTENSION) && !defined(DISABLE_BUILTIN_EXTENSIONS)
+		db.LoadExtension<SQLSmithExtension>();
+#else
+		// excel extension required but not build: skip this test
+		return ExtensionLoadResult::NOT_LOADED;
+#endif
+	} else {
+		// unknown extension
+		return ExtensionLoadResult::EXTENSION_UNKNOWN;
+	}
+	return ExtensionLoadResult::LOADED_EXTENSION;
 }
 
 } // namespace duckdb

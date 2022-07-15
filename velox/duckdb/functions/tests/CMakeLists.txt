@@ -19,6 +19,7 @@ add_test(velox_duckdb_functions_test velox_duckdb_functions_test)
 target_link_libraries(
   velox_duckdb_functions_test
   velox_duckdb_functions
+  velox_duckdb_allocator
   velox_functions_prestosql
   velox_functions_lib
   velox_functions_test_lib

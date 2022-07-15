@@ -1,1193 +1,10 @@
-// See https://raw.githubusercontent.com/cwida/duckdb/master/LICENSE for licensing information
+// See https://raw.githubusercontent.com/duckdb/duckdb/master/LICENSE for licensing information
 
 #include "duckdb.hpp"
 #include "duckdb-internal.hpp"
 #ifndef DUCKDB_AMALGAMATION
 #error header mismatch
 #endif
-
-
-
-
-
-
-
-namespace duckdb {
-
-string QueryErrorContext::Format(const string &query, const string &error_message, int error_loc) {
-	if (error_loc < 0 || size_t(error_loc) >= query.size()) {
-		// no location in query provided
-		return error_message;
-	}
-	idx_t error_location = idx_t(error_loc);
-	// count the line numbers until the error location
-	// and set the start position as the first character of that line
-	idx_t start_pos = 0;
-	idx_t line_number = 1;
-	for (idx_t i = 0; i < error_location; i++) {
-		if (StringUtil::CharacterIsNewline(query[i])) {
-			line_number++;
-			start_pos = i + 1;
-		}
-	}
-	// now find either the next newline token after the query, or find the end of string
-	// this is the initial end position
-	idx_t end_pos = query.size();
-	for (idx_t i = error_location; i < query.size(); i++) {
-		if (StringUtil::CharacterIsNewline(query[i])) {
-			end_pos = i;
-			break;
-		}
-	}
-	// now start scanning from the start pos
-	// we want to figure out the start and end pos of what we are going to render
-	// we want to render at most 80 characters in total, with the error_location located in the middle
-	const char *buf = query.c_str() + start_pos;
-	idx_t len = end_pos - start_pos;
-	vector<idx_t> render_widths;
-	vector<idx_t> positions;
-	if (Utf8Proc::IsValid(buf, len)) {
-		// for unicode awareness, we traverse the graphemes of the current line and keep track of their render widths
-		// and of their position in the string
-		for (idx_t cpos = 0; cpos < len;) {
-			auto char_render_width = Utf8Proc::RenderWidth(buf, len, cpos);
-			positions.push_back(cpos);
-			render_widths.push_back(char_render_width);
-			cpos = Utf8Proc::NextGraphemeCluster(buf, len, cpos);
-		}
-	} else { // LCOV_EXCL_START
-		// invalid utf-8, we can't do much at this point
-		// we just assume every character is a character, and every character has a render width of 1
-		for (idx_t cpos = 0; cpos < len; cpos++) {
-			positions.push_back(cpos);
-			render_widths.push_back(1);
-		}
-	} // LCOV_EXCL_STOP
-	// now we want to find the (unicode aware) start and end position
-	idx_t epos = 0;
-	// start by finding the error location inside the array
-	for (idx_t i = 0; i < positions.size(); i++) {
-		if (positions[i] >= (error_location - start_pos)) {
-			epos = i;
-			break;
-		}
-	}
-	bool truncate_beginning = false;
-	bool truncate_end = false;
-	idx_t spos = 0;
-	// now we iterate backwards from the error location
-	// we show max 40 render width before the error location
-	idx_t current_render_width = 0;
-	for (idx_t i = epos; i > 0; i--) {
-		current_render_width += render_widths[i];
-		if (current_render_width >= 40) {
-			truncate_beginning = true;
-			start_pos = positions[i];
-			spos = i;
-			break;
-		}
-	}
-	// now do the same, but going forward
-	current_render_width = 0;
-	for (idx_t i = epos; i < positions.size(); i++) {
-		current_render_width += render_widths[i];
-		if (current_render_width >= 40) {
-			truncate_end = true;
-			end_pos = positions[i];
-			break;
-		}
-	}
-	string line_indicator = "LINE " + to_string(line_number) + ": ";
-	string begin_trunc = truncate_beginning ? "..." : "";
-	string end_trunc = truncate_end ? "..." : "";
-
-	// get the render width of the error indicator (i.e. how many spaces we need to insert before the ^)
-	idx_t error_render_width = 0;
-	for (idx_t i = spos; i < epos; i++) {
-		error_render_width += render_widths[i];
-	}
-	error_render_width += line_indicator.size() + begin_trunc.size();
-
-	// now first print the error message plus the current line (or a subset of the line)
-	string result = error_message;
-	result += "\n" + line_indicator + begin_trunc + query.substr(start_pos, end_pos - start_pos) + end_trunc;
-	// print an arrow pointing at the error location
-	result += "\n" + string(error_render_width, ' ') + "^";
-	return result;
-}
-
-string QueryErrorContext::FormatErrorRecursive(const string &msg, vector<ExceptionFormatValue> &values) {
-	string error_message = values.empty() ? msg : ExceptionFormatValue::Format(msg, values);
-	if (!statement || query_location >= statement->query.size()) {
-		// no statement provided or query location out of range
-		return error_message;
-	}
-	return Format(statement->query, error_message, query_location);
-}
-
-} // namespace duckdb
-
-
-
-namespace duckdb {
-
-string RecursiveCTENode::ToString() const {
-	string result;
-	result += "(" + left->ToString() + ")";
-	result += " UNION ";
-	if (union_all) {
-		result += " ALL ";
-	}
-	result += "(" + right->ToString() + ")";
-	return result;
-}
-
-bool RecursiveCTENode::Equals(const QueryNode *other_p) const {
-	if (!QueryNode::Equals(other_p)) {
-		return false;
-	}
-	if (this == other_p) {
-		return true;
-	}
-	auto other = (RecursiveCTENode *)other_p;
-
-	if (other->union_all != union_all) {
-		return false;
-	}
-	if (!left->Equals(other->left.get())) {
-		return false;
-	}
-	if (!right->Equals(other->right.get())) {
-		return false;
-	}
-	return true;
-}
-
-unique_ptr<QueryNode> RecursiveCTENode::Copy() const {
-	auto result = make_unique<RecursiveCTENode>();
-	result->ctename = ctename;
-	result->union_all = union_all;
-	result->left = left->Copy();
-	result->right = right->Copy();
-	result->aliases = aliases;
-	this->CopyProperties(*result);
-	return move(result);
-}
-
-void RecursiveCTENode::Serialize(FieldWriter &writer) const {
-	writer.WriteString(ctename);
-	writer.WriteField<bool>(union_all);
-	writer.WriteSerializable(*left);
-	writer.WriteSerializable(*right);
-	writer.WriteList<string>(aliases);
-}
-
-unique_ptr<QueryNode> RecursiveCTENode::Deserialize(FieldReader &reader) {
-	auto result = make_unique<RecursiveCTENode>();
-	result->ctename = reader.ReadRequired<string>();
-	result->union_all = reader.ReadRequired<bool>();
-	result->left = reader.ReadRequiredSerializable<QueryNode>();
-	result->right = reader.ReadRequiredSerializable<QueryNode>();
-	result->aliases = reader.ReadRequiredList<string>();
-	return move(result);
-}
-
-} // namespace duckdb
-
-
-
-
-
-namespace duckdb {
-
-SelectNode::SelectNode()
-    : QueryNode(QueryNodeType::SELECT_NODE), aggregate_handling(AggregateHandling::STANDARD_HANDLING) {
-}
-
-string SelectNode::ToString() const {
-	string result;
-	result = CTEToString();
-	result += "SELECT ";
-
-	// search for a distinct modifier
-	for (idx_t modifier_idx = 0; modifier_idx < modifiers.size(); modifier_idx++) {
-		if (modifiers[modifier_idx]->type == ResultModifierType::DISTINCT_MODIFIER) {
-			auto &distinct_modifier = (DistinctModifier &)*modifiers[modifier_idx];
-			result += "DISTINCT ";
-			if (!distinct_modifier.distinct_on_targets.empty()) {
-				result += "ON (";
-				for (idx_t k = 0; k < distinct_modifier.distinct_on_targets.size(); k++) {
-					if (k > 0) {
-						result += ", ";
-					}
-					result += distinct_modifier.distinct_on_targets[k]->ToString();
-				}
-				result += ") ";
-			}
-		}
-	}
-	for (idx_t i = 0; i < select_list.size(); i++) {
-		if (i > 0) {
-			result += ", ";
-		}
-		result += select_list[i]->ToString();
-		if (!select_list[i]->alias.empty()) {
-			result += " AS " + KeywordHelper::WriteOptionallyQuoted(select_list[i]->alias);
-		}
-	}
-	if (from_table && from_table->type != TableReferenceType::EMPTY) {
-		result += " FROM " + from_table->ToString();
-	}
-	if (where_clause) {
-		result += " WHERE " + where_clause->ToString();
-	}
-	if (!groups.grouping_sets.empty()) {
-		result += " GROUP BY ";
-		// if we are dealing with multiple grouping sets, we have to add a few additional brackets
-		bool grouping_sets = groups.grouping_sets.size() > 1;
-		if (grouping_sets) {
-			result += "GROUPING SETS (";
-		}
-		for (idx_t i = 0; i < groups.grouping_sets.size(); i++) {
-			auto &grouping_set = groups.grouping_sets[i];
-			if (i > 0) {
-				result += ",";
-			}
-			if (grouping_set.empty()) {
-				result += "()";
-				continue;
-			}
-			if (grouping_sets) {
-				result += "(";
-			}
-			bool first = true;
-			for (auto &grp : grouping_set) {
-				if (!first) {
-					result += ", ";
-				}
-				result += groups.group_expressions[grp]->ToString();
-				first = false;
-			}
-			if (grouping_sets) {
-				result += ")";
-			}
-		}
-		if (grouping_sets) {
-			result += ")";
-		}
-	} else if (aggregate_handling == AggregateHandling::FORCE_AGGREGATES) {
-		result += " GROUP BY ALL";
-	}
-	if (having) {
-		result += " HAVING " + having->ToString();
-	}
-	if (qualify) {
-		result += " QUALIFY " + qualify->ToString();
-	}
-	if (sample) {
-		result += " USING SAMPLE ";
-		result += sample->sample_size.ToString();
-		if (sample->is_percentage) {
-			result += "%";
-		}
-		result += " (" + SampleMethodToString(sample->method);
-		if (sample->seed >= 0) {
-			result += ", " + std::to_string(sample->seed);
-		}
-		result += ")";
-	}
-	return result + ResultModifiersToString();
-}
-
-bool SelectNode::Equals(const QueryNode *other_p) const {
-	if (!QueryNode::Equals(other_p)) {
-		return false;
-	}
-	if (this == other_p) {
-		return true;
-	}
-	auto other = (SelectNode *)other_p;
-
-	// SELECT
-	if (!ExpressionUtil::ListEquals(select_list, other->select_list)) {
-		return false;
-	}
-	// FROM
-	if (from_table) {
-		// we have a FROM clause, compare to the other one
-		if (!from_table->Equals(other->from_table.get())) {
-			return false;
-		}
-	} else if (other->from_table) {
-		// we don't have a FROM clause, if the other statement has one they are
-		// not equal
-		return false;
-	}
-	// WHERE
-	if (!BaseExpression::Equals(where_clause.get(), other->where_clause.get())) {
-		return false;
-	}
-	// GROUP BY
-	if (!ExpressionUtil::ListEquals(groups.group_expressions, other->groups.group_expressions)) {
-		return false;
-	}
-	if (groups.grouping_sets != other->groups.grouping_sets) {
-		return false;
-	}
-	if (!SampleOptions::Equals(sample.get(), other->sample.get())) {
-		return false;
-	}
-	// HAVING
-	if (!BaseExpression::Equals(having.get(), other->having.get())) {
-		return false;
-	}
-	// QUALIFY
-	if (!BaseExpression::Equals(qualify.get(), other->qualify.get())) {
-		return false;
-	}
-	return true;
-}
-
-unique_ptr<QueryNode> SelectNode::Copy() const {
-	auto result = make_unique<SelectNode>();
-	for (auto &child : select_list) {
-		result->select_list.push_back(child->Copy());
-	}
-	result->from_table = from_table ? from_table->Copy() : nullptr;
-	result->where_clause = where_clause ? where_clause->Copy() : nullptr;
-	// groups
-	for (auto &group : groups.group_expressions) {
-		result->groups.group_expressions.push_back(group->Copy());
-	}
-	result->groups.grouping_sets = groups.grouping_sets;
-	result->aggregate_handling = aggregate_handling;
-	result->having = having ? having->Copy() : nullptr;
-	result->qualify = qualify ? qualify->Copy() : nullptr;
-	result->sample = sample ? sample->Copy() : nullptr;
-	this->CopyProperties(*result);
-	return move(result);
-}
-
-void SelectNode::Serialize(FieldWriter &writer) const {
-	writer.WriteSerializableList(select_list);
-	writer.WriteOptional(from_table);
-	writer.WriteOptional(where_clause);
-	writer.WriteSerializableList(groups.group_expressions);
-	writer.WriteField<uint32_t>(groups.grouping_sets.size());
-	auto &serializer = writer.GetSerializer();
-	for (auto &grouping_set : groups.grouping_sets) {
-		serializer.Write<idx_t>(grouping_set.size());
-		for (auto &idx : grouping_set) {
-			serializer.Write<idx_t>(idx);
-		}
-	}
-	writer.WriteField<AggregateHandling>(aggregate_handling);
-	writer.WriteOptional(having);
-	writer.WriteOptional(sample);
-	writer.WriteOptional(qualify);
-}
-
-unique_ptr<QueryNode> SelectNode::Deserialize(FieldReader &reader) {
-	auto result = make_unique<SelectNode>();
-	result->select_list = reader.ReadRequiredSerializableList<ParsedExpression>();
-	result->from_table = reader.ReadOptional<TableRef>(nullptr);
-	result->where_clause = reader.ReadOptional<ParsedExpression>(nullptr);
-	result->groups.group_expressions = reader.ReadRequiredSerializableList<ParsedExpression>();
-
-	auto grouping_set_count = reader.ReadRequired<uint32_t>();
-	auto &source = reader.GetSource();
-	for (idx_t set_idx = 0; set_idx < grouping_set_count; set_idx++) {
-		auto set_entries = source.Read<idx_t>();
-		GroupingSet grouping_set;
-		for (idx_t i = 0; i < set_entries; i++) {
-			grouping_set.insert(source.Read<idx_t>());
-		}
-		result->groups.grouping_sets.push_back(grouping_set);
-	}
-	result->aggregate_handling = reader.ReadRequired<AggregateHandling>();
-	result->having = reader.ReadOptional<ParsedExpression>(nullptr);
-	result->sample = reader.ReadOptional<SampleOptions>(nullptr);
-	result->qualify = reader.ReadOptional<ParsedExpression>(nullptr);
-	return move(result);
-}
-
-} // namespace duckdb
-
-
-
-namespace duckdb {
-
-string SetOperationNode::ToString() const {
-	string result;
-	result = CTEToString();
-	result += "(" + left->ToString() + ") ";
-	bool is_distinct = false;
-	for (idx_t modifier_idx = 0; modifier_idx < modifiers.size(); modifier_idx++) {
-		if (modifiers[modifier_idx]->type == ResultModifierType::DISTINCT_MODIFIER) {
-			is_distinct = true;
-			break;
-		}
-	}
-
-	switch (setop_type) {
-	case SetOperationType::UNION:
-		result += is_distinct ? "UNION" : "UNION ALL";
-		break;
-	case SetOperationType::EXCEPT:
-		D_ASSERT(is_distinct);
-		result += "EXCEPT";
-		break;
-	case SetOperationType::INTERSECT:
-		D_ASSERT(is_distinct);
-		result += "INTERSECT";
-		break;
-	default:
-		throw InternalException("Unsupported set operation type");
-	}
-	result += " (" + right->ToString() + ")";
-	return result + ResultModifiersToString();
-}
-
-bool SetOperationNode::Equals(const QueryNode *other_p) const {
-	if (!QueryNode::Equals(other_p)) {
-		return false;
-	}
-	if (this == other_p) {
-		return true;
-	}
-	auto other = (SetOperationNode *)other_p;
-	if (setop_type != other->setop_type) {
-		return false;
-	}
-	if (!left->Equals(other->left.get())) {
-		return false;
-	}
-	if (!right->Equals(other->right.get())) {
-		return false;
-	}
-	return true;
-}
-
-unique_ptr<QueryNode> SetOperationNode::Copy() const {
-	auto result = make_unique<SetOperationNode>();
-	result->setop_type = setop_type;
-	result->left = left->Copy();
-	result->right = right->Copy();
-	this->CopyProperties(*result);
-	return move(result);
-}
-
-void SetOperationNode::Serialize(FieldWriter &writer) const {
-	writer.WriteField<SetOperationType>(setop_type);
-	writer.WriteSerializable(*left);
-	writer.WriteSerializable(*right);
-}
-
-unique_ptr<QueryNode> SetOperationNode::Deserialize(FieldReader &reader) {
-	auto result = make_unique<SetOperationNode>();
-	result->setop_type = reader.ReadRequired<SetOperationType>();
-	result->left = reader.ReadRequiredSerializable<QueryNode>();
-	result->right = reader.ReadRequiredSerializable<QueryNode>();
-	return move(result);
-}
-
-} // namespace duckdb
-
-
-
-
-
-
-
-
-namespace duckdb {
-
-string QueryNode::CTEToString() const {
-	if (cte_map.empty()) {
-		return string();
-	}
-	// check if there are any recursive CTEs
-	bool has_recursive = false;
-	for (auto &kv : cte_map) {
-		if (kv.second->query->node->type == QueryNodeType::RECURSIVE_CTE_NODE) {
-			has_recursive = true;
-			break;
-		}
-	}
-	string result = "WITH ";
-	if (has_recursive) {
-		result += "RECURSIVE ";
-	}
-	bool first_cte = true;
-	for (auto &kv : cte_map) {
-		if (!first_cte) {
-			result += ", ";
-		}
-		auto &cte = *kv.second;
-		result += KeywordHelper::WriteOptionallyQuoted(kv.first);
-		if (!cte.aliases.empty()) {
-			result += " (";
-			for (idx_t k = 0; k < cte.aliases.size(); k++) {
-				if (k > 0) {
-					result += ", ";
-				}
-				result += KeywordHelper::WriteOptionallyQuoted(cte.aliases[k]);
-			}
-			result += ")";
-		}
-		result += " AS (";
-		result += cte.query->ToString();
-		result += ")";
-		first_cte = false;
-	}
-	return result;
-}
-
-string QueryNode::ResultModifiersToString() const {
-	string result;
-	for (idx_t modifier_idx = 0; modifier_idx < modifiers.size(); modifier_idx++) {
-		auto &modifier = *modifiers[modifier_idx];
-		if (modifier.type == ResultModifierType::ORDER_MODIFIER) {
-			auto &order_modifier = (OrderModifier &)modifier;
-			result += " ORDER BY ";
-			for (idx_t k = 0; k < order_modifier.orders.size(); k++) {
-				if (k > 0) {
-					result += ", ";
-				}
-				result += order_modifier.orders[k].ToString();
-			}
-		} else if (modifier.type == ResultModifierType::LIMIT_MODIFIER) {
-			auto &limit_modifier = (LimitModifier &)modifier;
-			if (limit_modifier.limit) {
-				result += " LIMIT " + limit_modifier.limit->ToString();
-			}
-			if (limit_modifier.offset) {
-				result += " OFFSET " + limit_modifier.offset->ToString();
-			}
-		} else if (modifier.type == ResultModifierType::LIMIT_PERCENT_MODIFIER) {
-			auto &limit_p_modifier = (LimitPercentModifier &)modifier;
-			if (limit_p_modifier.limit) {
-				result += " LIMIT " + limit_p_modifier.limit->ToString() + " %";
-			}
-			if (limit_p_modifier.offset) {
-				result += " OFFSET " + limit_p_modifier.offset->ToString();
-			}
-		}
-	}
-	return result;
-}
-
-bool QueryNode::Equals(const QueryNode *other) const {
-	if (!other) {
-		return false;
-	}
-	if (this == other) {
-		return true;
-	}
-	if (other->type != this->type) {
-		return false;
-	}
-	if (modifiers.size() != other->modifiers.size()) {
-		return false;
-	}
-	for (idx_t i = 0; i < modifiers.size(); i++) {
-		if (!modifiers[i]->Equals(other->modifiers[i].get())) {
-			return false;
-		}
-	}
-	// WITH clauses (CTEs)
-	if (cte_map.size() != other->cte_map.size()) {
-		return false;
-	}
-	for (auto &entry : cte_map) {
-		auto other_entry = other->cte_map.find(entry.first);
-		if (other_entry == other->cte_map.end()) {
-			return false;
-		}
-		if (entry.second->aliases != other_entry->second->aliases) {
-			return false;
-		}
-		if (!entry.second->query->Equals(other_entry->second->query.get())) {
-			return false;
-		}
-	}
-	return other->type == type;
-}
-
-void QueryNode::CopyProperties(QueryNode &other) const {
-	for (auto &modifier : modifiers) {
-		other.modifiers.push_back(modifier->Copy());
-	}
-	for (auto &kv : cte_map) {
-		auto kv_info = make_unique<CommonTableExpressionInfo>();
-		for (auto &al : kv.second->aliases) {
-			kv_info->aliases.push_back(al);
-		}
-		kv_info->query = unique_ptr_cast<SQLStatement, SelectStatement>(kv.second->query->Copy());
-		other.cte_map[kv.first] = move(kv_info);
-	}
-}
-
-void QueryNode::Serialize(Serializer &main_serializer) const {
-	FieldWriter writer(main_serializer);
-	writer.WriteField<QueryNodeType>(type);
-	writer.WriteSerializableList(modifiers);
-	// cte_map
-	writer.WriteField<uint32_t>((uint32_t)cte_map.size());
-	auto &serializer = writer.GetSerializer();
-	for (auto &cte : cte_map) {
-		serializer.WriteString(cte.first);
-		serializer.WriteStringVector(cte.second->aliases);
-		cte.second->query->Serialize(serializer);
-	}
-	Serialize(writer);
-	writer.Finalize();
-}
-
-unique_ptr<QueryNode> QueryNode::Deserialize(Deserializer &main_source) {
-	FieldReader reader(main_source);
-
-	auto type = reader.ReadRequired<QueryNodeType>();
-	auto modifiers = reader.ReadRequiredSerializableList<ResultModifier>();
-	// cte_map
-	auto cte_count = reader.ReadRequired<uint32_t>();
-	auto &source = reader.GetSource();
-	unordered_map<string, unique_ptr<CommonTableExpressionInfo>> cte_map;
-	for (idx_t i = 0; i < cte_count; i++) {
-		auto name = source.Read<string>();
-		auto info = make_unique<CommonTableExpressionInfo>();
-		source.ReadStringVector(info->aliases);
-		info->query = SelectStatement::Deserialize(source);
-		cte_map[name] = move(info);
-	}
-
-	unique_ptr<QueryNode> result;
-	switch (type) {
-	case QueryNodeType::SELECT_NODE:
-		result = SelectNode::Deserialize(reader);
-		break;
-	case QueryNodeType::SET_OPERATION_NODE:
-		result = SetOperationNode::Deserialize(reader);
-		break;
-	case QueryNodeType::RECURSIVE_CTE_NODE:
-		result = RecursiveCTENode::Deserialize(reader);
-		break;
-	default:
-		throw SerializationException("Could not deserialize Query Node: unknown type!");
-	}
-	result->modifiers = move(modifiers);
-	result->cte_map = move(cte_map);
-	reader.Finalize();
-	return result;
-}
-
-} // namespace duckdb
-
-
-
-
-namespace duckdb {
-
-bool ResultModifier::Equals(const ResultModifier *other) const {
-	if (!other) {
-		return false;
-	}
-	return type == other->type;
-}
-
-void ResultModifier::Serialize(Serializer &serializer) const {
-	FieldWriter writer(serializer);
-	writer.WriteField<ResultModifierType>(type);
-	Serialize(writer);
-	writer.Finalize();
-}
-
-unique_ptr<ResultModifier> ResultModifier::Deserialize(Deserializer &source) {
-	FieldReader reader(source);
-	auto type = reader.ReadRequired<ResultModifierType>();
-
-	unique_ptr<ResultModifier> result;
-	switch (type) {
-	case ResultModifierType::LIMIT_MODIFIER:
-		result = LimitModifier::Deserialize(reader);
-		break;
-	case ResultModifierType::ORDER_MODIFIER:
-		result = OrderModifier::Deserialize(reader);
-		break;
-	case ResultModifierType::DISTINCT_MODIFIER:
-		result = DistinctModifier::Deserialize(reader);
-		break;
-	case ResultModifierType::LIMIT_PERCENT_MODIFIER:
-		result = LimitPercentModifier::Deserialize(reader);
-		break;
-	default:
-		throw InternalException("Unrecognized ResultModifierType for Deserialization");
-	}
-	reader.Finalize();
-	return result;
-}
-
-bool LimitModifier::Equals(const ResultModifier *other_p) const {
-	if (!ResultModifier::Equals(other_p)) {
-		return false;
-	}
-	auto &other = (LimitModifier &)*other_p;
-	if (!BaseExpression::Equals(limit.get(), other.limit.get())) {
-		return false;
-	}
-	if (!BaseExpression::Equals(offset.get(), other.offset.get())) {
-		return false;
-	}
-	return true;
-}
-
-unique_ptr<ResultModifier> LimitModifier::Copy() const {
-	auto copy = make_unique<LimitModifier>();
-	if (limit) {
-		copy->limit = limit->Copy();
-	}
-	if (offset) {
-		copy->offset = offset->Copy();
-	}
-	return move(copy);
-}
-
-void LimitModifier::Serialize(FieldWriter &writer) const {
-	writer.WriteOptional(limit);
-	writer.WriteOptional(offset);
-}
-
-unique_ptr<ResultModifier> LimitModifier::Deserialize(FieldReader &reader) {
-	auto mod = make_unique<LimitModifier>();
-	mod->limit = reader.ReadOptional<ParsedExpression>(nullptr);
-	mod->offset = reader.ReadOptional<ParsedExpression>(nullptr);
-	return move(mod);
-}
-
-bool DistinctModifier::Equals(const ResultModifier *other_p) const {
-	if (!ResultModifier::Equals(other_p)) {
-		return false;
-	}
-	auto &other = (DistinctModifier &)*other_p;
-	if (!ExpressionUtil::ListEquals(distinct_on_targets, other.distinct_on_targets)) {
-		return false;
-	}
-	return true;
-}
-
-unique_ptr<ResultModifier> DistinctModifier::Copy() const {
-	auto copy = make_unique<DistinctModifier>();
-	for (auto &expr : distinct_on_targets) {
-		copy->distinct_on_targets.push_back(expr->Copy());
-	}
-	return move(copy);
-}
-
-void DistinctModifier::Serialize(FieldWriter &writer) const {
-	writer.WriteSerializableList(distinct_on_targets);
-}
-
-unique_ptr<ResultModifier> DistinctModifier::Deserialize(FieldReader &reader) {
-	auto mod = make_unique<DistinctModifier>();
-	mod->distinct_on_targets = reader.ReadRequiredSerializableList<ParsedExpression>();
-	return move(mod);
-}
-
-bool OrderModifier::Equals(const ResultModifier *other_p) const {
-	if (!ResultModifier::Equals(other_p)) {
-		return false;
-	}
-	auto &other = (OrderModifier &)*other_p;
-	if (orders.size() != other.orders.size()) {
-		return false;
-	}
-	for (idx_t i = 0; i < orders.size(); i++) {
-		if (orders[i].type != other.orders[i].type) {
-			return false;
-		}
-		if (!BaseExpression::Equals(orders[i].expression.get(), other.orders[i].expression.get())) {
-			return false;
-		}
-	}
-	return true;
-}
-
-unique_ptr<ResultModifier> OrderModifier::Copy() const {
-	auto copy = make_unique<OrderModifier>();
-	for (auto &order : orders) {
-		copy->orders.emplace_back(order.type, order.null_order, order.expression->Copy());
-	}
-	return move(copy);
-}
-
-string OrderByNode::ToString() const {
-	auto str = expression->ToString();
-	switch (type) {
-	case OrderType::ASCENDING:
-		str += " ASC";
-		break;
-	case OrderType::DESCENDING:
-		str += " DESC";
-		break;
-	default:
-		break;
-	}
-
-	switch (null_order) {
-	case OrderByNullType::NULLS_FIRST:
-		str += " NULLS FIRST";
-		break;
-	case OrderByNullType::NULLS_LAST:
-		str += " NULLS LAST";
-		break;
-	default:
-		break;
-	}
-	return str;
-}
-
-void OrderByNode::Serialize(Serializer &serializer) const {
-	FieldWriter writer(serializer);
-	writer.WriteField<OrderType>(type);
-	writer.WriteField<OrderByNullType>(null_order);
-	writer.WriteSerializable(*expression);
-	writer.Finalize();
-}
-
-OrderByNode OrderByNode::Deserialize(Deserializer &source) {
-	FieldReader reader(source);
-	auto type = reader.ReadRequired<OrderType>();
-	auto null_order = reader.ReadRequired<OrderByNullType>();
-	auto expression = reader.ReadRequiredSerializable<ParsedExpression>();
-	reader.Finalize();
-	return OrderByNode(type, null_order, move(expression));
-}
-
-void OrderModifier::Serialize(FieldWriter &writer) const {
-	writer.WriteRegularSerializableList(orders);
-}
-
-unique_ptr<ResultModifier> OrderModifier::Deserialize(FieldReader &reader) {
-	auto mod = make_unique<OrderModifier>();
-	mod->orders = reader.ReadRequiredSerializableList<OrderByNode, OrderByNode>();
-	return move(mod);
-}
-
-bool LimitPercentModifier::Equals(const ResultModifier *other_p) const {
-	if (!ResultModifier::Equals(other_p)) {
-		return false;
-	}
-	auto &other = (LimitPercentModifier &)*other_p;
-	if (!BaseExpression::Equals(limit.get(), other.limit.get())) {
-		return false;
-	}
-	if (!BaseExpression::Equals(offset.get(), other.offset.get())) {
-		return false;
-	}
-	return true;
-}
-
-unique_ptr<ResultModifier> LimitPercentModifier::Copy() const {
-	auto copy = make_unique<LimitPercentModifier>();
-	if (limit) {
-		copy->limit = limit->Copy();
-	}
-	if (offset) {
-		copy->offset = offset->Copy();
-	}
-	return move(copy);
-}
-
-void LimitPercentModifier::Serialize(FieldWriter &writer) const {
-	writer.WriteOptional(limit);
-	writer.WriteOptional(offset);
-}
-
-unique_ptr<ResultModifier> LimitPercentModifier::Deserialize(FieldReader &reader) {
-	auto mod = make_unique<LimitPercentModifier>();
-	mod->limit = reader.ReadOptional<ParsedExpression>(nullptr);
-	mod->offset = reader.ReadOptional<ParsedExpression>(nullptr);
-	return move(mod);
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-AlterStatement::AlterStatement() : SQLStatement(StatementType::ALTER_STATEMENT) {
-}
-
-AlterStatement::AlterStatement(const AlterStatement &other) : SQLStatement(other), info(other.info->Copy()) {
-}
-
-unique_ptr<SQLStatement> AlterStatement::Copy() const {
-	return unique_ptr<AlterStatement>(new AlterStatement(*this));
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-CallStatement::CallStatement() : SQLStatement(StatementType::CALL_STATEMENT) {
-}
-
-CallStatement::CallStatement(const CallStatement &other) : SQLStatement(other), function(other.function->Copy()) {
-}
-
-unique_ptr<SQLStatement> CallStatement::Copy() const {
-	return unique_ptr<CallStatement>(new CallStatement(*this));
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-CopyStatement::CopyStatement() : SQLStatement(StatementType::COPY_STATEMENT), info(make_unique<CopyInfo>()) {
-}
-
-CopyStatement::CopyStatement(const CopyStatement &other) : SQLStatement(other), info(other.info->Copy()) {
-	if (other.select_statement) {
-		select_statement = other.select_statement->Copy();
-	}
-}
-
-unique_ptr<SQLStatement> CopyStatement::Copy() const {
-	return unique_ptr<CopyStatement>(new CopyStatement(*this));
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-CreateStatement::CreateStatement() : SQLStatement(StatementType::CREATE_STATEMENT) {
-}
-
-CreateStatement::CreateStatement(const CreateStatement &other) : SQLStatement(other), info(other.info->Copy()) {
-}
-
-unique_ptr<SQLStatement> CreateStatement::Copy() const {
-	return unique_ptr<CreateStatement>(new CreateStatement(*this));
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-DeleteStatement::DeleteStatement() : SQLStatement(StatementType::DELETE_STATEMENT) {
-}
-
-DeleteStatement::DeleteStatement(const DeleteStatement &other) : SQLStatement(other), table(other.table->Copy()) {
-	if (other.condition) {
-		condition = other.condition->Copy();
-	}
-	for (const auto &using_clause : other.using_clauses) {
-		using_clauses.push_back(using_clause->Copy());
-	}
-}
-
-string DeleteStatement::ToString() const {
-	string result;
-	result += "DELETE FROM ";
-	result += table->ToString();
-	if (!using_clauses.empty()) {
-		result += " USING ";
-		for (idx_t i = 0; i < using_clauses.size(); i++) {
-			if (i > 0) {
-				result += ", ";
-			}
-			result += using_clauses[i]->ToString();
-		}
-	}
-	if (condition) {
-		result += " WHERE " + condition->ToString();
-	}
-
-	if (!returning_list.empty()) {
-		result += " RETURNING ";
-		for (idx_t i = 0; i < returning_list.size(); i++) {
-			if (i > 0) {
-				result += ", ";
-			}
-			result += returning_list[i]->ToString();
-		}
-	}
-	return result;
-}
-
-unique_ptr<SQLStatement> DeleteStatement::Copy() const {
-	return unique_ptr<DeleteStatement>(new DeleteStatement(*this));
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-DropStatement::DropStatement() : SQLStatement(StatementType::DROP_STATEMENT), info(make_unique<DropInfo>()) {
-}
-
-DropStatement::DropStatement(const DropStatement &other) : SQLStatement(other), info(other.info->Copy()) {
-}
-
-unique_ptr<SQLStatement> DropStatement::Copy() const {
-	return unique_ptr<DropStatement>(new DropStatement(*this));
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-ExecuteStatement::ExecuteStatement() : SQLStatement(StatementType::EXECUTE_STATEMENT) {
-}
-
-ExecuteStatement::ExecuteStatement(const ExecuteStatement &other) : SQLStatement(other), name(other.name) {
-	for (const auto &value : other.values) {
-		values.push_back(value->Copy());
-	}
-}
-
-unique_ptr<SQLStatement> ExecuteStatement::Copy() const {
-	return unique_ptr<ExecuteStatement>(new ExecuteStatement(*this));
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-ExplainStatement::ExplainStatement(unique_ptr<SQLStatement> stmt, ExplainType explain_type)
-    : SQLStatement(StatementType::EXPLAIN_STATEMENT), stmt(move(stmt)), explain_type(explain_type) {
-}
-
-ExplainStatement::ExplainStatement(const ExplainStatement &other)
-    : SQLStatement(other), stmt(other.stmt->Copy()), explain_type(other.explain_type) {
-}
-
-unique_ptr<SQLStatement> ExplainStatement::Copy() const {
-	return unique_ptr<ExplainStatement>(new ExplainStatement(*this));
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-ExportStatement::ExportStatement(unique_ptr<CopyInfo> info)
-    : SQLStatement(StatementType::EXPORT_STATEMENT), info(move(info)) {
-}
-
-ExportStatement::ExportStatement(const ExportStatement &other) : SQLStatement(other), info(other.info->Copy()) {
-}
-
-unique_ptr<SQLStatement> ExportStatement::Copy() const {
-	return unique_ptr<ExportStatement>(new ExportStatement(*this));
-}
-
-} // namespace duckdb
-
-
-
-
-namespace duckdb {
-
-InsertStatement::InsertStatement() : SQLStatement(StatementType::INSERT_STATEMENT), schema(DEFAULT_SCHEMA) {
-}
-
-InsertStatement::InsertStatement(const InsertStatement &other)
-    : SQLStatement(other),
-      select_statement(unique_ptr_cast<SQLStatement, SelectStatement>(other.select_statement->Copy())),
-      columns(other.columns), table(other.table), schema(other.schema) {
-}
-
-string InsertStatement::ToString() const {
-	string result;
-	result = "INSERT INTO ";
-	if (!schema.empty()) {
-		result += KeywordHelper::WriteOptionallyQuoted(schema) + ".";
-	}
-	result += KeywordHelper::WriteOptionallyQuoted(table);
-	if (!columns.empty()) {
-		result += " (";
-		for (idx_t i = 0; i < columns.size(); i++) {
-			if (i > 0) {
-				result += ", ";
-			}
-			result += KeywordHelper::WriteOptionallyQuoted(columns[i]);
-		}
-		result += " )";
-	}
-	result += " ";
-	auto values_list = GetValuesList();
-	if (values_list) {
-		values_list->alias = string();
-		result += values_list->ToString();
-	} else {
-		result += select_statement->ToString();
-	}
-	if (!returning_list.empty()) {
-		result += " RETURNING ";
-		for (idx_t i = 0; i < returning_list.size(); i++) {
-			if (i > 0) {
-				result += ", ";
-			}
-			result += returning_list[i]->ToString();
-		}
-	}
-	return result;
-}
-
-unique_ptr<SQLStatement> InsertStatement::Copy() const {
-	return unique_ptr<InsertStatement>(new InsertStatement(*this));
-}
-
-ExpressionListRef *InsertStatement::GetValuesList() const {
-	if (select_statement->node->type != QueryNodeType::SELECT_NODE) {
-		return nullptr;
-	}
-	auto &node = (SelectNode &)*select_statement->node;
-	if (node.where_clause || node.qualify || node.having) {
-		return nullptr;
-	}
-	if (!node.cte_map.empty()) {
-		return nullptr;
-	}
-	if (!node.groups.grouping_sets.empty()) {
-		return nullptr;
-	}
-	if (node.aggregate_handling != AggregateHandling::STANDARD_HANDLING) {
-		return nullptr;
-	}
-	if (node.select_list.size() != 1 || node.select_list[0]->type != ExpressionType::STAR) {
-		return nullptr;
-	}
-	if (!node.from_table || node.from_table->type != TableReferenceType::EXPRESSION_LIST) {
-		return nullptr;
-	}
-	return (ExpressionListRef *)node.from_table.get();
-}
-
-} // namespace duckdb
-
-
-namespace duckdb {
-
-LoadStatement::LoadStatement() : SQLStatement(StatementType::LOAD_STATEMENT) {
-}
-
-LoadStatement::LoadStatement(const LoadStatement &other) : SQLStatement(other), info(other.info->Copy()) {
-}
-
-unique_ptr<SQLStatement> LoadStatement::Copy() const {
-	return unique_ptr<LoadStatement>(new LoadStatement(*this));
-}
-
-} // namespace duckdb
 
 
 namespace duckdb {
@@ -1315,6 +132,7 @@ unique_ptr<SQLStatement> TransactionStatement::Copy() const {
 } // namespace duckdb
 
 
+
 namespace duckdb {
 
 UpdateStatement::UpdateStatement() : SQLStatement(StatementType::UPDATE_STATEMENT) {
@@ -1331,11 +149,13 @@ UpdateStatement::UpdateStatement(const UpdateStatement &other)
 	for (auto &expr : other.expressions) {
 		expressions.emplace_back(expr->Copy());
 	}
+	cte_map = other.cte_map.Copy();
 }
 
 string UpdateStatement::ToString() const {
 	string result;
-	result = "UPDATE ";
+	result = cte_map.ToString();
+	result += "UPDATE ";
 	result += table->ToString();
 	result += " SET ";
 	D_ASSERT(columns.size() == expressions.size());
@@ -3005,7 +1825,7 @@ unique_ptr<ParsedExpression> Transformer::TransformBinaryOperator(const string &
 	}
 }
 
-unique_ptr<ParsedExpression> Transformer::TransformAExpr(duckdb_libpgquery::PGAExpr *root) {
+unique_ptr<ParsedExpression> Transformer::TransformAExprInternal(duckdb_libpgquery::PGAExpr *root) {
 	D_ASSERT(root);
 	auto name = string((reinterpret_cast<duckdb_libpgquery::PGValue *>(root->name->head->data.ptr_value))->val.str);
 
@@ -3153,6 +1973,14 @@ unique_ptr<ParsedExpression> Transformer::TransformAExpr(duckdb_libpgquery::PGAE
 	}
 }
 
+unique_ptr<ParsedExpression> Transformer::TransformAExpr(duckdb_libpgquery::PGAExpr *root) {
+	auto result = TransformAExprInternal(root);
+	if (result) {
+		result->query_location = root->location;
+	}
+	return result;
+}
+
 } // namespace duckdb
 
 
@@ -3225,12 +2053,14 @@ unique_ptr<ParsedExpression> Transformer::TransformSubquery(duckdb_libpgquery::P
 			    string((reinterpret_cast<duckdb_libpgquery::PGValue *>(root->operName->head->data.ptr_value))->val.str);
 			subquery_expr->comparison_type = OperatorToExpressionType(operator_name);
 		}
-		D_ASSERT(subquery_expr->comparison_type == ExpressionType::COMPARE_EQUAL ||
-		         subquery_expr->comparison_type == ExpressionType::COMPARE_NOTEQUAL ||
-		         subquery_expr->comparison_type == ExpressionType::COMPARE_GREATERTHAN ||
-		         subquery_expr->comparison_type == ExpressionType::COMPARE_GREATERTHANOREQUALTO ||
-		         subquery_expr->comparison_type == ExpressionType::COMPARE_LESSTHAN ||
-		         subquery_expr->comparison_type == ExpressionType::COMPARE_LESSTHANOREQUALTO);
+		if (subquery_expr->comparison_type != ExpressionType::COMPARE_EQUAL &&
+		    subquery_expr->comparison_type != ExpressionType::COMPARE_NOTEQUAL &&
+		    subquery_expr->comparison_type != ExpressionType::COMPARE_GREATERTHAN &&
+		    subquery_expr->comparison_type != ExpressionType::COMPARE_GREATERTHANOREQUALTO &&
+		    subquery_expr->comparison_type != ExpressionType::COMPARE_LESSTHAN &&
+		    subquery_expr->comparison_type != ExpressionType::COMPARE_LESSTHANOREQUALTO) {
+			throw ParserException("ANY and ALL operators require one of =,<>,>,<,>=,<= comparisons!");
+		}
 		if (root->subLinkType == duckdb_libpgquery::PG_ALL_SUBLINK) {
 			// ALL sublink is equivalent to NOT(ANY) with inverted comparison
 			// e.g. [= ALL()] is equivalent to [NOT(<> ANY())]
@@ -4100,7 +2930,7 @@ string Transformer::TransformAlias(duckdb_libpgquery::PGAlias *root, vector<stri
 
 namespace duckdb {
 
-void Transformer::TransformCTE(duckdb_libpgquery::PGWithClause *de_with_clause, QueryNode &select) {
+void Transformer::TransformCTE(duckdb_libpgquery::PGWithClause *de_with_clause, CommonTableExpressionMap &cte_map) {
 	// TODO: might need to update in case of future lawsuit
 	D_ASSERT(de_with_clause);
 
@@ -4143,12 +2973,12 @@ void Transformer::TransformCTE(duckdb_libpgquery::PGWithClause *de_with_clause, 
 		D_ASSERT(info->query);
 		auto cte_name = string(cte->ctename);
 
-		auto it = select.cte_map.find(cte_name);
-		if (it != select.cte_map.end()) {
+		auto it = cte_map.map.find(cte_name);
+		if (it != cte_map.map.end()) {
 			// can't have two CTEs with same name
 			throw ParserException("Duplicate CTE name \"%s\"", cte_name);
 		}
-		select.cte_map[cte_name] = move(info);
+		cte_map.map[cte_name] = move(info);
 	}
 }
 
@@ -5486,6 +4316,9 @@ unique_ptr<DeleteStatement> Transformer::TransformDelete(duckdb_libpgquery::PGNo
 	auto stmt = reinterpret_cast<duckdb_libpgquery::PGDeleteStmt *>(node);
 	D_ASSERT(stmt);
 	auto result = make_unique<DeleteStatement>();
+	if (stmt->withClause) {
+		TransformCTE(reinterpret_cast<duckdb_libpgquery::PGWithClause *>(stmt->withClause), result->cte_map);
+	}
 
 	result->condition = TransformExpression(stmt->whereClause);
 	result->table = TransformRangeVar(stmt->relation);
@@ -5662,8 +4495,14 @@ unique_ptr<InsertStatement> Transformer::TransformInsert(duckdb_libpgquery::PGNo
 	if (stmt->onConflictClause && stmt->onConflictClause->action != duckdb_libpgquery::PG_ONCONFLICT_NONE) {
 		throw ParserException("ON CONFLICT IGNORE/UPDATE clauses are not supported");
 	}
+	if (!stmt->selectStmt) {
+		throw ParserException("DEFAULT VALUES clause is not supported!");
+	}
 
 	auto result = make_unique<InsertStatement>();
+	if (stmt->withClause) {
+		TransformCTE(reinterpret_cast<duckdb_libpgquery::PGWithClause *>(stmt->withClause), result->cte_map);
+	}
 
 	// first check if there are any columns specified
 	if (stmt->cols) {
@@ -5973,7 +4812,7 @@ unique_ptr<QueryNode> Transformer::TransformSelectNode(duckdb_libpgquery::PGSele
 		node = make_unique<SelectNode>();
 		auto result = (SelectNode *)node.get();
 		if (stmt->withClause) {
-			TransformCTE(reinterpret_cast<duckdb_libpgquery::PGWithClause *>(stmt->withClause), *node);
+			TransformCTE(reinterpret_cast<duckdb_libpgquery::PGWithClause *>(stmt->withClause), node->cte_map);
 		}
 		if (stmt->windowClause) {
 			for (auto window_ele = stmt->windowClause->head; window_ele != nullptr; window_ele = window_ele->next) {
@@ -6035,7 +4874,7 @@ unique_ptr<QueryNode> Transformer::TransformSelectNode(duckdb_libpgquery::PGSele
 		node = make_unique<SetOperationNode>();
 		auto result = (SetOperationNode *)node.get();
 		if (stmt->withClause) {
-			TransformCTE(reinterpret_cast<duckdb_libpgquery::PGWithClause *>(stmt->withClause), *node);
+			TransformCTE(reinterpret_cast<duckdb_libpgquery::PGWithClause *>(stmt->withClause), node->cte_map);
 		}
 		result->left = TransformSelectNode(stmt->larg);
 		result->right = TransformSelectNode(stmt->rarg);
@@ -6254,6 +5093,9 @@ unique_ptr<UpdateStatement> Transformer::TransformUpdate(duckdb_libpgquery::PGNo
 	D_ASSERT(stmt);
 
 	auto result = make_unique<UpdateStatement>();
+	if (stmt->withClause) {
+		TransformCTE(reinterpret_cast<duckdb_libpgquery::PGWithClause *>(stmt->withClause), result->cte_map);
+	}
 
 	result->table = TransformRangeVar(stmt->relation);
 	if (stmt->fromClause) {
@@ -8021,7 +6863,7 @@ BindResult ExpressionBinder::BindFunction(FunctionExpression &function, ScalarFu
 		children.push_back(move(child.expr));
 	}
 	unique_ptr<Expression> result =
-	    ScalarFunction::BindScalarFunction(context, *func, move(children), error, function.is_operator);
+	    ScalarFunction::BindScalarFunction(context, *func, move(children), error, function.is_operator, &binder);
 	if (!result) {
 		throw BinderException(binder.FormatError(function, error));
 	}
@@ -9819,6 +8661,9 @@ unique_ptr<LogicalOperator> Binder::CreatePlan(BoundSetOperationNode &node) {
 
 
 
+
+
+
 namespace duckdb {
 
 static unique_ptr<Expression> PlanUncorrelatedSubquery(Binder &binder, BoundSubqueryExpression &expr,
@@ -9940,8 +8785,25 @@ static unique_ptr<Expression> PlanUncorrelatedSubquery(Binder &binder, BoundSubq
 }
 
 static unique_ptr<LogicalDelimJoin> CreateDuplicateEliminatedJoin(vector<CorrelatedColumnInfo> &correlated_columns,
-                                                                  JoinType join_type) {
+                                                                  JoinType join_type,
+                                                                  unique_ptr<LogicalOperator> original_plan,
+                                                                  bool perform_delim) {
 	auto delim_join = make_unique<LogicalDelimJoin>(join_type);
+	if (!perform_delim) {
+		// if we are not performing a delim join, we push a row_number() OVER() window operator on the LHS
+		// and perform all duplicate elimination on that row number instead
+		D_ASSERT(correlated_columns[0].type.id() == LogicalTypeId::BIGINT);
+		auto window = make_unique<LogicalWindow>(correlated_columns[0].binding.table_index);
+		auto row_number = make_unique<BoundWindowExpression>(ExpressionType::WINDOW_ROW_NUMBER, LogicalType::BIGINT,
+		                                                     nullptr, nullptr);
+		row_number->start = WindowBoundary::UNBOUNDED_PRECEDING;
+		row_number->end = WindowBoundary::CURRENT_ROW_ROWS;
+		row_number->alias = "delim_index";
+		window->expressions.push_back(move(row_number));
+		window->AddChild(move(original_plan));
+		original_plan = move(window);
+	}
+	delim_join->AddChild(move(original_plan));
 	for (idx_t i = 0; i < correlated_columns.size(); i++) {
 		auto &col = correlated_columns[i];
 		delim_join->duplicate_eliminated_columns.push_back(
@@ -9952,8 +8814,9 @@ static unique_ptr<LogicalDelimJoin> CreateDuplicateEliminatedJoin(vector<Correla
 }
 
 static void CreateDelimJoinConditions(LogicalDelimJoin &delim_join, vector<CorrelatedColumnInfo> &correlated_columns,
-                                      vector<ColumnBinding> bindings, idx_t base_offset) {
-	for (idx_t i = 0; i < correlated_columns.size(); i++) {
+                                      vector<ColumnBinding> bindings, idx_t base_offset, bool perform_delim) {
+	auto col_count = perform_delim ? correlated_columns.size() : 1;
+	for (idx_t i = 0; i < col_count; i++) {
 		auto &col = correlated_columns[i];
 		JoinCondition cond;
 		cond.left = make_unique<BoundColumnRefExpression>(col.name, col.type, col.binding);
@@ -9963,10 +8826,50 @@ static void CreateDelimJoinConditions(LogicalDelimJoin &delim_join, vector<Corre
 	}
 }
 
+static bool PerformDelimOnType(const LogicalType &type) {
+	if (type.InternalType() == PhysicalType::LIST) {
+		return false;
+	}
+	if (type.InternalType() == PhysicalType::STRUCT) {
+		for (auto &entry : StructType::GetChildTypes(type)) {
+			if (!PerformDelimOnType(entry.second)) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+static bool PerformDuplicateElimination(Binder &binder, vector<CorrelatedColumnInfo> &correlated_columns) {
+	if (!ClientConfig::GetConfig(binder.context).enable_optimizer) {
+		// if optimizations are disabled we always do a delim join
+		return true;
+	}
+	bool perform_delim = true;
+	for (auto &col : correlated_columns) {
+		if (!PerformDelimOnType(col.type)) {
+			perform_delim = false;
+			break;
+		}
+	}
+	if (perform_delim) {
+		return true;
+	}
+	auto binding = ColumnBinding(binder.GenerateTableIndex(), 0);
+	auto type = LogicalType::BIGINT;
+	auto name = "delim_index";
+	CorrelatedColumnInfo info(binding, type, name, 0);
+	correlated_columns.insert(correlated_columns.begin(), move(info));
+	return false;
+}
+
 static unique_ptr<Expression> PlanCorrelatedSubquery(Binder &binder, BoundSubqueryExpression &expr,
                                                      unique_ptr<LogicalOperator> &root,
                                                      unique_ptr<LogicalOperator> plan) {
 	auto &correlated_columns = expr.binder->correlated_columns;
+	// FIXME: there should be a way of disabling decorrelation for ANY queries as well, but not for now...
+	bool perform_delim =
+	    expr.subquery_type == SubqueryType::ANY ? true : PerformDuplicateElimination(binder, correlated_columns);
 	D_ASSERT(expr.IsCorrelated());
 	// correlated subquery
 	// for a more in-depth explanation of this code, read the paper "Unnesting Arbitrary Subqueries"
@@ -9983,15 +8886,15 @@ static unique_ptr<Expression> PlanCorrelatedSubquery(Binder &binder, BoundSubque
 		// NULL values are equal in this join because we join on the correlated columns ONLY
 		// and e.g. in the query: SELECT (SELECT 42 FROM integers WHERE i1.i IS NULL LIMIT 1) FROM integers i1;
 		// the input value NULL will generate the value 42, and we need to join NULL on the LHS with NULL on the RHS
-		auto delim_join = CreateDuplicateEliminatedJoin(correlated_columns, JoinType::SINGLE);
-
 		// the left side is the original plan
 		// this is the side that will be duplicate eliminated and pushed into the RHS
-		delim_join->AddChild(move(root));
+		auto delim_join =
+		    CreateDuplicateEliminatedJoin(correlated_columns, JoinType::SINGLE, move(root), perform_delim);
+
 		// the right side initially is a DEPENDENT join between the duplicate eliminated scan and the subquery
 		// HOWEVER: we do not explicitly create the dependent join
 		// instead, we eliminate the dependent join by pushing it down into the right side of the plan
-		FlattenDependentJoins flatten(binder, correlated_columns);
+		FlattenDependentJoins flatten(binder, correlated_columns, perform_delim);
 
 		// first we check which logical operators have correlated expressions in the first place
 		flatten.DetectCorrelatedExpressions(plan.get());
@@ -10004,7 +8907,7 @@ static unique_ptr<Expression> PlanCorrelatedSubquery(Binder &binder, BoundSubque
 		auto plan_columns = dependent_join->GetColumnBindings();
 
 		// now create the join conditions
-		CreateDelimJoinConditions(*delim_join, correlated_columns, plan_columns, flatten.delim_offset);
+		CreateDelimJoinConditions(*delim_join, correlated_columns, plan_columns, flatten.delim_offset, perform_delim);
 		delim_join->AddChild(move(dependent_join));
 		root = move(delim_join);
 		// finally push the BoundColumnRefExpression referring to the data element returned by the join
@@ -10015,12 +8918,10 @@ static unique_ptr<Expression> PlanCorrelatedSubquery(Binder &binder, BoundSubque
 		// correlated EXISTS query
 		// this query is similar to the correlated SCALAR query, except we use a MARK join here
 		idx_t mark_index = binder.GenerateTableIndex();
-		auto delim_join = CreateDuplicateEliminatedJoin(correlated_columns, JoinType::MARK);
+		auto delim_join = CreateDuplicateEliminatedJoin(correlated_columns, JoinType::MARK, move(root), perform_delim);
 		delim_join->mark_index = mark_index;
-		// LHS
-		delim_join->AddChild(move(root));
 		// RHS
-		FlattenDependentJoins flatten(binder, correlated_columns);
+		FlattenDependentJoins flatten(binder, correlated_columns, perform_delim);
 		flatten.DetectCorrelatedExpressions(plan.get());
 		auto dependent_join = flatten.PushDownDependentJoin(move(plan));
 
@@ -10028,7 +8929,7 @@ static unique_ptr<Expression> PlanCorrelatedSubquery(Binder &binder, BoundSubque
 		auto plan_columns = dependent_join->GetColumnBindings();
 
 		// now we create the join conditions between the dependent join and the original table
-		CreateDelimJoinConditions(*delim_join, correlated_columns, plan_columns, flatten.delim_offset);
+		CreateDelimJoinConditions(*delim_join, correlated_columns, plan_columns, flatten.delim_offset, perform_delim);
 		delim_join->AddChild(move(dependent_join));
 		root = move(delim_join);
 		// finally push the BoundColumnRefExpression referring to the marker
@@ -10044,10 +8945,8 @@ static unique_ptr<Expression> PlanCorrelatedSubquery(Binder &binder, BoundSubque
 		// as the MARK join has one extra join condition (the original condition, of the ANY expression, e.g.
 		// [i=ANY(...)])
 		idx_t mark_index = binder.GenerateTableIndex();
-		auto delim_join = CreateDuplicateEliminatedJoin(correlated_columns, JoinType::MARK);
+		auto delim_join = CreateDuplicateEliminatedJoin(correlated_columns, JoinType::MARK, move(root), perform_delim);
 		delim_join->mark_index = mark_index;
-		// LHS
-		delim_join->AddChild(move(root));
 		// RHS
 		FlattenDependentJoins flatten(binder, correlated_columns, true);
 		flatten.DetectCorrelatedExpressions(plan.get());
@@ -10057,7 +8956,7 @@ static unique_ptr<Expression> PlanCorrelatedSubquery(Binder &binder, BoundSubque
 		auto plan_columns = dependent_join->GetColumnBindings();
 
 		// now we create the join conditions between the dependent join and the original table
-		CreateDelimJoinConditions(*delim_join, correlated_columns, plan_columns, flatten.delim_offset);
+		CreateDelimJoinConditions(*delim_join, correlated_columns, plan_columns, flatten.delim_offset, perform_delim);
 		// add the actual condition based on the ANY/ALL predicate
 		JoinCondition compare_cond;
 		compare_cond.left = move(expr.child);
@@ -10081,9 +8980,11 @@ public:
 	void VisitOperator(LogicalOperator &op) override {
 		if (!op.children.empty()) {
 			root = move(op.children[0]);
+			D_ASSERT(root);
 			VisitOperatorExpressions(op);
 			op.children[0] = move(root);
 			for (idx_t i = 0; i < op.children.size(); i++) {
+				D_ASSERT(op.children[i]);
 				VisitOperator(*op.children[i]);
 			}
 		}
@@ -11082,6 +9983,9 @@ BoundStatement Binder::Bind(DeleteStatement &stmt) {
 		properties.read_only = false;
 	}
 
+	// Add CTEs as bindable
+	AddCTEMap(stmt.cte_map);
+
 	// plan any tables from the various using clauses
 	if (!stmt.using_clauses.empty()) {
 		unique_ptr<LogicalOperator> child_operator;
@@ -11433,6 +10337,37 @@ BoundStatement Binder::Bind(ExportStatement &stmt) {
 
 
 
+namespace duckdb {
+
+BoundStatement Binder::Bind(ExtensionStatement &stmt) {
+	BoundStatement result;
+
+	// perform the planning of the function
+	D_ASSERT(stmt.extension.plan_function);
+	auto parse_result = stmt.extension.plan_function(stmt.extension.parser_info.get(), context, move(stmt.parse_data));
+
+	properties.read_only = parse_result.read_only;
+	properties.requires_valid_transaction = parse_result.requires_valid_transaction;
+	properties.return_type = parse_result.return_type;
+
+	// create the plan as a scan of the given table function
+	result.plan = BindTableFunction(parse_result.function, move(parse_result.parameters));
+	D_ASSERT(result.plan->type == LogicalOperatorType::LOGICAL_GET);
+	auto &get = (LogicalGet &)*result.plan;
+	result.names = get.names;
+	result.types = get.returned_types;
+	get.column_ids.clear();
+	for (idx_t i = 0; i < get.returned_types.size(); i++) {
+		get.column_ids.push_back(i);
+	}
+	return result;
+}
+
+} // namespace duckdb
+
+
+
+
 
 
 
@@ -11469,6 +10404,9 @@ BoundStatement Binder::Bind(InsertStatement &stmt) {
 	}
 
 	auto insert = make_unique<LogicalInsert>(table);
+
+	// Add CTEs as bindable
+	AddCTEMap(stmt.cte_map);
 
 	idx_t generated_column_count = 0;
 	vector<idx_t> named_column_map;
@@ -12032,6 +10970,9 @@ BoundStatement Binder::Bind(UpdateStatement &stmt) {
 	}
 	auto &table_binding = (BoundBaseTableRef &)*bound_table;
 	auto table = table_binding.table;
+
+	// Add CTEs as bindable
+	AddCTEMap(stmt.cte_map);
 
 	if (stmt.from_table) {
 		BoundCrossProductRef bound_crossproduct;
@@ -12820,9 +11761,60 @@ bool Binder::BindTableFunctionParameters(TableFunctionCatalogEntry &table_functi
 	return true;
 }
 
+unique_ptr<LogicalOperator>
+Binder::BindTableFunctionInternal(TableFunction &table_function, const string &function_name, vector<Value> parameters,
+                                  named_parameter_map_t named_parameters, vector<LogicalType> input_table_types,
+                                  vector<string> input_table_names, const vector<string> &column_name_alias,
+                                  unique_ptr<ExternalDependency> external_dependency) {
+	auto bind_index = GenerateTableIndex();
+	// perform the binding
+	unique_ptr<FunctionData> bind_data;
+	vector<LogicalType> return_types;
+	vector<string> return_names;
+	if (table_function.bind) {
+		TableFunctionBindInput bind_input(parameters, named_parameters, input_table_types, input_table_names,
+		                                  table_function.function_info.get());
+		bind_data = table_function.bind(context, bind_input, return_types, return_names);
+		if (table_function.name == "pandas_scan" || table_function.name == "arrow_scan") {
+			auto arrow_bind = (PyTableFunctionData *)bind_data.get();
+			arrow_bind->external_dependency = move(external_dependency);
+		}
+	}
+	if (return_types.size() != return_names.size()) {
+		throw InternalException(
+		    "Failed to bind \"%s\": Table function return_types and return_names must be of the same size",
+		    table_function.name);
+	}
+	if (return_types.empty()) {
+		throw InternalException("Failed to bind \"%s\": Table function must return at least one column",
+		                        table_function.name);
+	}
+	// overwrite the names with any supplied aliases
+	for (idx_t i = 0; i < column_name_alias.size() && i < return_names.size(); i++) {
+		return_names[i] = column_name_alias[i];
+	}
+	for (idx_t i = 0; i < return_names.size(); i++) {
+		if (return_names[i].empty()) {
+			return_names[i] = "C" + to_string(i);
+		}
+	}
+	auto get = make_unique<LogicalGet>(bind_index, table_function, move(bind_data), return_types, return_names);
+	// now add the table function to the bind context so its columns can be bound
+	bind_context.AddTableFunction(bind_index, function_name, return_names, return_types, *get);
+	return move(get);
+}
+
+unique_ptr<LogicalOperator> Binder::BindTableFunction(TableFunction &function, vector<Value> parameters) {
+	named_parameter_map_t named_parameters;
+	vector<LogicalType> input_table_types;
+	vector<string> input_table_names;
+	vector<string> column_name_aliases;
+	return BindTableFunctionInternal(function, function.name, move(parameters), move(named_parameters),
+	                                 move(input_table_types), move(input_table_names), column_name_aliases, nullptr);
+}
+
 unique_ptr<BoundTableRef> Binder::Bind(TableFunctionRef &ref) {
 	QueryErrorContext error_context(root_statement, ref.query_location);
-	auto bind_index = GenerateTableIndex();
 
 	D_ASSERT(ref.function->type == ExpressionType::FUNCTION);
 	auto fexpr = (FunctionExpression *)ref.function.get();
@@ -12896,42 +11888,9 @@ unique_ptr<BoundTableRef> Binder::Bind(TableFunctionRef &ref) {
 		input_table_types = subquery->subquery->types;
 		input_table_names = subquery->subquery->names;
 	}
-
-	// perform the binding
-	unique_ptr<FunctionData> bind_data;
-	vector<LogicalType> return_types;
-	vector<string> return_names;
-	if (table_function.bind) {
-		TableFunctionBindInput bind_input(parameters, named_parameters, input_table_types, input_table_names,
-		                                  table_function.function_info.get());
-		bind_data = table_function.bind(context, bind_input, return_types, return_names);
-		if (table_function.name == "pandas_scan" || table_function.name == "arrow_scan") {
-			auto arrow_bind = (PyTableFunctionData *)bind_data.get();
-			arrow_bind->external_dependency = move(ref.external_dependency);
-		}
-	}
-	if (return_types.size() != return_names.size()) {
-		throw InternalException(
-		    "Failed to bind \"%s\": Table function return_types and return_names must be of the same size",
-		    table_function.name);
-	}
-	if (return_types.empty()) {
-		throw InternalException("Failed to bind \"%s\": Table function must return at least one column",
-		                        table_function.name);
-	}
-	// overwrite the names with any supplied aliases
-	for (idx_t i = 0; i < ref.column_name_alias.size() && i < return_names.size(); i++) {
-		return_names[i] = ref.column_name_alias[i];
-	}
-	for (idx_t i = 0; i < return_names.size(); i++) {
-		if (return_names[i].empty()) {
-			return_names[i] = "C" + to_string(i);
-		}
-	}
-	auto get = make_unique<LogicalGet>(bind_index, table_function, move(bind_data), return_types, return_names);
-	// now add the table function to the bind context so its columns can be bound
-	bind_context.AddTableFunction(bind_index, ref.alias.empty() ? fexpr->function_name : ref.alias, return_names,
-	                              return_types, *get);
+	auto get = BindTableFunctionInternal(table_function, ref.alias.empty() ? fexpr->function_name : ref.alias,
+	                                     move(parameters), move(named_parameters), move(input_table_types),
+	                                     move(input_table_names), ref.column_name_alias, move(ref.external_dependency));
 	if (subquery) {
 		get->children.push_back(Binder::CreatePlan(*subquery));
 	}
@@ -13294,9 +12253,9 @@ unique_ptr<LogicalOperator> Binder::CreatePlan(BoundTableFunction &ref) {
 
 
 
+
+
 #include <algorithm>
-
-
 
 namespace duckdb {
 
@@ -13360,17 +12319,23 @@ BoundStatement Binder::Bind(SQLStatement &statement) {
 		return Bind((SetStatement &)statement);
 	case StatementType::LOAD_STATEMENT:
 		return Bind((LoadStatement &)statement);
+	case StatementType::EXTENSION_STATEMENT:
+		return Bind((ExtensionStatement &)statement);
 	default: // LCOV_EXCL_START
 		throw NotImplementedException("Unimplemented statement type \"%s\" for Bind",
 		                              StatementTypeToString(statement.type));
 	} // LCOV_EXCL_STOP
 }
 
-unique_ptr<BoundQueryNode> Binder::BindNode(QueryNode &node) {
-	// first we visit the set of CTEs and add them to the bind context
-	for (auto &cte_it : node.cte_map) {
+void Binder::AddCTEMap(CommonTableExpressionMap &cte_map) {
+	for (auto &cte_it : cte_map.map) {
 		AddCTE(cte_it.first, cte_it.second.get());
 	}
+}
+
+unique_ptr<BoundQueryNode> Binder::BindNode(QueryNode &node) {
+	// first we visit the set of CTEs and add them to the bind context
+	AddCTEMap(node.cte_map);
 	// now we bind the node
 	unique_ptr<BoundQueryNode> result;
 	switch (node.type) {
@@ -13649,6 +12614,22 @@ const unordered_set<string> &Binder::GetTableNames() {
 		return parent->GetTableNames();
 	}
 	return table_names;
+}
+
+void Binder::RemoveParameters(vector<unique_ptr<Expression>> &expressions) {
+	for (auto &expr : expressions) {
+		if (!expr->HasParameter()) {
+			continue;
+		}
+		ExpressionIterator::EnumerateExpression(expr, [&](Expression &child) {
+			for (auto param_it = parameters->begin(); param_it != parameters->end(); param_it++) {
+				if (expr->Equals(*param_it)) {
+					parameters->erase(param_it);
+					break;
+				}
+			}
+		});
+	}
 }
 
 string Binder::FormatError(ParsedExpression &expr_context, const string &message) {
@@ -16170,11 +15151,27 @@ string IsNotNullFilter::ToString(const string &column_name) {
 
 
 
+
 namespace duckdb {
 
 unique_ptr<Expression> JoinCondition::CreateExpression(JoinCondition cond) {
 	auto bound_comparison = make_unique<BoundComparisonExpression>(cond.comparison, move(cond.left), move(cond.right));
 	return move(bound_comparison);
+}
+
+unique_ptr<Expression> JoinCondition::CreateExpression(vector<JoinCondition> conditions) {
+	unique_ptr<Expression> result;
+	for (auto &cond : conditions) {
+		auto expr = CreateExpression(move(cond));
+		if (!result) {
+			result = move(expr);
+		} else {
+			auto conj =
+			    make_unique<BoundConjunctionExpression>(ExpressionType::CONJUNCTION_AND, move(expr), move(result));
+			result = move(conj);
+		}
+	}
+	return result;
 }
 
 JoinSide JoinSide::CombineJoinSide(JoinSide left, JoinSide right) {
@@ -16258,6 +15255,20 @@ JoinSide JoinSide::GetJoinSide(const unordered_set<idx_t> &bindings, unordered_s
 
 
 namespace duckdb {
+
+LogicalOperator::LogicalOperator(LogicalOperatorType type) : type(type) {
+}
+
+LogicalOperator::LogicalOperator(LogicalOperatorType type, vector<unique_ptr<Expression>> expressions)
+    : type(type), expressions(move(expressions)) {
+}
+
+LogicalOperator::~LogicalOperator() {
+}
+
+vector<ColumnBinding> LogicalOperator::GetColumnBindings() {
+	return {ColumnBinding(0, 0)};
+}
 
 string LogicalOperator::GetName() const {
 	return LogicalOperatorToString(type);
@@ -16360,6 +15371,20 @@ void LogicalOperator::Verify() {
 		child->Verify();
 	}
 #endif
+}
+
+void LogicalOperator::AddChild(unique_ptr<LogicalOperator> child) {
+	D_ASSERT(child);
+	children.push_back(move(child));
+}
+
+idx_t LogicalOperator::EstimateCardinality(ClientContext &context) {
+	// simple estimator, just take the max of the children
+	idx_t max_cardinality = 0;
+	for (auto &child : children) {
+		max_cardinality = MaxValue(child->EstimateCardinality(context), max_cardinality);
+	}
+	return max_cardinality;
 }
 
 void LogicalOperator::Print() {
@@ -17260,6 +16285,7 @@ void Planner::CreatePlan(unique_ptr<SQLStatement> statement) {
 	case StatementType::SHOW_STATEMENT:
 	case StatementType::SET_STATEMENT:
 	case StatementType::LOAD_STATEMENT:
+	case StatementType::EXTENSION_STATEMENT:
 		CreatePlan(*statement);
 		break;
 	case StatementType::EXECUTE_STATEMENT:
@@ -17271,6 +16297,686 @@ void Planner::CreatePlan(unique_ptr<SQLStatement> statement) {
 	default:
 		throw NotImplementedException("Cannot plan statement of type %s!", StatementTypeToString(statement->type));
 	}
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+namespace duckdb {
+
+PragmaHandler::PragmaHandler(ClientContext &context) : context(context) {
+}
+
+void PragmaHandler::HandlePragmaStatementsInternal(vector<unique_ptr<SQLStatement>> &statements) {
+	vector<unique_ptr<SQLStatement>> new_statements;
+	for (idx_t i = 0; i < statements.size(); i++) {
+		if (statements[i]->type == StatementType::PRAGMA_STATEMENT) {
+			// PRAGMA statement: check if we need to replace it by a new set of statements
+			PragmaHandler handler(context);
+			auto new_query = handler.HandlePragma(statements[i].get()); //*((PragmaStatement &)*statements[i]).info
+			if (!new_query.empty()) {
+				// this PRAGMA statement gets replaced by a new query string
+				// push the new query string through the parser again and add it to the transformer
+				Parser parser(context.GetParserOptions());
+				parser.ParseQuery(new_query);
+				// insert the new statements and remove the old statement
+				// FIXME: off by one here maybe?
+				for (idx_t j = 0; j < parser.statements.size(); j++) {
+					new_statements.push_back(move(parser.statements[j]));
+				}
+				continue;
+			}
+		}
+		new_statements.push_back(move(statements[i]));
+	}
+	statements = move(new_statements);
+}
+
+void PragmaHandler::HandlePragmaStatements(ClientContextLock &lock, vector<unique_ptr<SQLStatement>> &statements) {
+	// first check if there are any pragma statements
+	bool found_pragma = false;
+	for (idx_t i = 0; i < statements.size(); i++) {
+		if (statements[i]->type == StatementType::PRAGMA_STATEMENT) {
+			found_pragma = true;
+			break;
+		}
+	}
+	if (!found_pragma) {
+		// no pragmas: skip this step
+		return;
+	}
+	context.RunFunctionInTransactionInternal(lock, [&]() { HandlePragmaStatementsInternal(statements); });
+}
+
+string PragmaHandler::HandlePragma(SQLStatement *statement) { // PragmaInfo &info
+	auto info = *((PragmaStatement &)*statement).info;
+	auto entry =
+	    Catalog::GetCatalog(context).GetEntry<PragmaFunctionCatalogEntry>(context, DEFAULT_SCHEMA, info.name, false);
+	string error;
+	idx_t bound_idx = Function::BindFunction(entry->name, entry->functions, info, error);
+	if (bound_idx == DConstants::INVALID_INDEX) {
+		throw BinderException(error);
+	}
+	auto &bound_function = entry->functions[bound_idx];
+	if (bound_function.query) {
+		QueryErrorContext error_context(statement, statement->stmt_location);
+		Binder::BindNamedParameters(bound_function.named_parameters, info.named_parameters, error_context,
+		                            bound_function.name);
+		FunctionParameters parameters {info.parameters, info.named_parameters};
+		return bound_function.query(context, parameters);
+	}
+	return string();
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+
+
+
+
+
+
+namespace duckdb {
+
+FlattenDependentJoins::FlattenDependentJoins(Binder &binder, const vector<CorrelatedColumnInfo> &correlated,
+                                             bool perform_delim, bool any_join)
+    : binder(binder), correlated_columns(correlated), perform_delim(perform_delim), any_join(any_join) {
+	for (idx_t i = 0; i < correlated_columns.size(); i++) {
+		auto &col = correlated_columns[i];
+		correlated_map[col.binding] = i;
+		delim_types.push_back(col.type);
+	}
+}
+
+bool FlattenDependentJoins::DetectCorrelatedExpressions(LogicalOperator *op) {
+	D_ASSERT(op);
+	// check if this entry has correlated expressions
+	HasCorrelatedExpressions visitor(correlated_columns);
+	visitor.VisitOperator(*op);
+	bool has_correlation = visitor.has_correlated_expressions;
+	// now visit the children of this entry and check if they have correlated expressions
+	for (auto &child : op->children) {
+		// we OR the property with its children such that has_correlation is true if either
+		// (1) this node has a correlated expression or
+		// (2) one of its children has a correlated expression
+		if (DetectCorrelatedExpressions(child.get())) {
+			has_correlation = true;
+		}
+	}
+	// set the entry in the map
+	has_correlated_expressions[op] = has_correlation;
+	return has_correlation;
+}
+
+unique_ptr<LogicalOperator> FlattenDependentJoins::PushDownDependentJoin(unique_ptr<LogicalOperator> plan) {
+	bool propagate_null_values = true;
+	auto result = PushDownDependentJoinInternal(move(plan), propagate_null_values);
+	if (!replacement_map.empty()) {
+		// check if we have to replace any COUNT aggregates into "CASE WHEN X IS NULL THEN 0 ELSE COUNT END"
+		RewriteCountAggregates aggr(replacement_map);
+		aggr.VisitOperator(*result);
+	}
+	return result;
+}
+
+bool SubqueryDependentFilter(Expression *expr) {
+	if (expr->expression_class == ExpressionClass::BOUND_CONJUNCTION &&
+	    expr->GetExpressionType() == ExpressionType::CONJUNCTION_AND) {
+		auto bound_conjuction = (BoundConjunctionExpression *)expr;
+		for (auto &child : bound_conjuction->children) {
+			if (SubqueryDependentFilter(child.get())) {
+				return true;
+			}
+		}
+	}
+	if (expr->expression_class == ExpressionClass::BOUND_SUBQUERY) {
+		return true;
+	}
+	return false;
+}
+unique_ptr<LogicalOperator> FlattenDependentJoins::PushDownDependentJoinInternal(unique_ptr<LogicalOperator> plan,
+                                                                                 bool &parent_propagate_null_values) {
+	// first check if the logical operator has correlated expressions
+	auto entry = has_correlated_expressions.find(plan.get());
+	D_ASSERT(entry != has_correlated_expressions.end());
+	if (!entry->second) {
+		// we reached a node without correlated expressions
+		// we can eliminate the dependent join now and create a simple cross product
+		auto cross_product = make_unique<LogicalCrossProduct>();
+		// now create the duplicate eliminated scan for this node
+		auto delim_index = binder.GenerateTableIndex();
+		this->base_binding = ColumnBinding(delim_index, 0);
+		auto delim_scan = make_unique<LogicalDelimGet>(delim_index, delim_types);
+		cross_product->children.push_back(move(delim_scan));
+		cross_product->children.push_back(move(plan));
+		return move(cross_product);
+	}
+	switch (plan->type) {
+	case LogicalOperatorType::LOGICAL_UNNEST:
+	case LogicalOperatorType::LOGICAL_FILTER: {
+		// filter
+		// first we flatten the dependent join in the child of the filter
+		for (auto &expr : plan->expressions) {
+			any_join |= SubqueryDependentFilter(expr.get());
+		}
+		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+
+		// then we replace any correlated expressions with the corresponding entry in the correlated_map
+		RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
+		rewriter.VisitOperator(*plan);
+		return plan;
+	}
+	case LogicalOperatorType::LOGICAL_PROJECTION: {
+		// projection
+		// first we flatten the dependent join in the child of the projection
+		for (auto &expr : plan->expressions) {
+			parent_propagate_null_values &= expr->PropagatesNullValues();
+		}
+		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+
+		// then we replace any correlated expressions with the corresponding entry in the correlated_map
+		RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
+		rewriter.VisitOperator(*plan);
+		// now we add all the columns of the delim_scan to the projection list
+		auto proj = (LogicalProjection *)plan.get();
+		for (idx_t i = 0; i < correlated_columns.size(); i++) {
+			auto &col = correlated_columns[i];
+			auto colref = make_unique<BoundColumnRefExpression>(
+			    col.name, col.type, ColumnBinding(base_binding.table_index, base_binding.column_index + i));
+			plan->expressions.push_back(move(colref));
+		}
+
+		base_binding.table_index = proj->table_index;
+		this->delim_offset = base_binding.column_index = plan->expressions.size() - correlated_columns.size();
+		this->data_offset = 0;
+		return plan;
+	}
+	case LogicalOperatorType::LOGICAL_AGGREGATE_AND_GROUP_BY: {
+		auto &aggr = (LogicalAggregate &)*plan;
+		// aggregate and group by
+		// first we flatten the dependent join in the child of the projection
+		for (auto &expr : plan->expressions) {
+			parent_propagate_null_values &= expr->PropagatesNullValues();
+		}
+		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+		// then we replace any correlated expressions with the corresponding entry in the correlated_map
+		RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
+		rewriter.VisitOperator(*plan);
+		// now we add all the columns of the delim_scan to the grouping operators AND the projection list
+		idx_t delim_table_index;
+		idx_t delim_column_offset;
+		idx_t delim_data_offset;
+		auto new_group_count = perform_delim ? correlated_columns.size() : 1;
+		for (idx_t i = 0; i < new_group_count; i++) {
+			auto &col = correlated_columns[i];
+			auto colref = make_unique<BoundColumnRefExpression>(
+			    col.name, col.type, ColumnBinding(base_binding.table_index, base_binding.column_index + i));
+			for (auto &set : aggr.grouping_sets) {
+				set.insert(aggr.groups.size());
+			}
+			aggr.groups.push_back(move(colref));
+		}
+		if (!perform_delim) {
+			// if we are not performing the duplicate elimination, we have only added the row_id column to the grouping
+			// operators in this case, we push a FIRST aggregate for each of the remaining expressions
+			delim_table_index = aggr.aggregate_index;
+			delim_column_offset = aggr.expressions.size();
+			delim_data_offset = aggr.groups.size();
+			for (idx_t i = 0; i < correlated_columns.size(); i++) {
+				auto &col = correlated_columns[i];
+				auto first_aggregate = FirstFun::GetFunction(col.type);
+				auto colref = make_unique<BoundColumnRefExpression>(
+				    col.name, col.type, ColumnBinding(base_binding.table_index, base_binding.column_index + i));
+				vector<unique_ptr<Expression>> aggr_children;
+				aggr_children.push_back(move(colref));
+				auto first_fun = make_unique<BoundAggregateExpression>(move(first_aggregate), move(aggr_children),
+				                                                       nullptr, nullptr, false);
+				aggr.expressions.push_back(move(first_fun));
+			}
+		} else {
+			delim_table_index = aggr.group_index;
+			delim_column_offset = aggr.groups.size() - correlated_columns.size();
+			delim_data_offset = aggr.groups.size();
+		}
+		if (aggr.groups.size() == new_group_count) {
+			// we have to perform a LEFT OUTER JOIN between the result of this aggregate and the delim scan
+			// FIXME: this does not always have to be a LEFT OUTER JOIN, depending on whether aggr.expressions return
+			// NULL or a value
+			unique_ptr<LogicalComparisonJoin> join = make_unique<LogicalComparisonJoin>(JoinType::INNER);
+			for (auto &aggr_exp : aggr.expressions) {
+				auto b_aggr_exp = (BoundAggregateExpression *)aggr_exp.get();
+				if (!b_aggr_exp->PropagatesNullValues() || any_join || !parent_propagate_null_values) {
+					join = make_unique<LogicalComparisonJoin>(JoinType::LEFT);
+					break;
+				}
+			}
+			auto left_index = binder.GenerateTableIndex();
+			auto delim_scan = make_unique<LogicalDelimGet>(left_index, delim_types);
+			join->children.push_back(move(delim_scan));
+			join->children.push_back(move(plan));
+			for (idx_t i = 0; i < new_group_count; i++) {
+				auto &col = correlated_columns[i];
+				JoinCondition cond;
+				cond.left = make_unique<BoundColumnRefExpression>(col.name, col.type, ColumnBinding(left_index, i));
+				cond.right = make_unique<BoundColumnRefExpression>(
+				    correlated_columns[i].type, ColumnBinding(delim_table_index, delim_column_offset + i));
+				cond.comparison = ExpressionType::COMPARE_NOT_DISTINCT_FROM;
+				join->conditions.push_back(move(cond));
+			}
+			// for any COUNT aggregate we replace references to the column with: CASE WHEN COUNT(*) IS NULL THEN 0
+			// ELSE COUNT(*) END
+			for (idx_t i = 0; i < aggr.expressions.size(); i++) {
+				D_ASSERT(aggr.expressions[i]->GetExpressionClass() == ExpressionClass::BOUND_AGGREGATE);
+				auto bound = (BoundAggregateExpression *)&*aggr.expressions[i];
+				vector<LogicalType> arguments;
+				if (bound->function == CountFun::GetFunction() || bound->function == CountStarFun::GetFunction()) {
+					// have to replace this ColumnBinding with the CASE expression
+					replacement_map[ColumnBinding(aggr.aggregate_index, i)] = i;
+				}
+			}
+			// now we update the delim_index
+			base_binding.table_index = left_index;
+			this->delim_offset = base_binding.column_index = 0;
+			this->data_offset = 0;
+			return move(join);
+		} else {
+			// update the delim_index
+			base_binding.table_index = delim_table_index;
+			this->delim_offset = base_binding.column_index = delim_column_offset;
+			this->data_offset = delim_data_offset;
+			return plan;
+		}
+	}
+	case LogicalOperatorType::LOGICAL_CROSS_PRODUCT: {
+		// cross product
+		// push into both sides of the plan
+		bool left_has_correlation = has_correlated_expressions.find(plan->children[0].get())->second;
+		bool right_has_correlation = has_correlated_expressions.find(plan->children[1].get())->second;
+		if (!right_has_correlation) {
+			// only left has correlation: push into left
+			plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+			return plan;
+		}
+		if (!left_has_correlation) {
+			// only right has correlation: push into right
+			plan->children[1] = PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
+			return plan;
+		}
+		// both sides have correlation
+		// turn into an inner join
+		auto join = make_unique<LogicalComparisonJoin>(JoinType::INNER);
+		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+		auto left_binding = this->base_binding;
+		plan->children[1] = PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
+		// add the correlated columns to the join conditions
+		for (idx_t i = 0; i < correlated_columns.size(); i++) {
+			JoinCondition cond;
+			cond.left = make_unique<BoundColumnRefExpression>(
+			    correlated_columns[i].type, ColumnBinding(left_binding.table_index, left_binding.column_index + i));
+			cond.right = make_unique<BoundColumnRefExpression>(
+			    correlated_columns[i].type, ColumnBinding(base_binding.table_index, base_binding.column_index + i));
+			cond.comparison = ExpressionType::COMPARE_NOT_DISTINCT_FROM;
+			join->conditions.push_back(move(cond));
+		}
+		join->children.push_back(move(plan->children[0]));
+		join->children.push_back(move(plan->children[1]));
+		return move(join);
+	}
+	case LogicalOperatorType::LOGICAL_ANY_JOIN:
+	case LogicalOperatorType::LOGICAL_COMPARISON_JOIN: {
+		auto &join = (LogicalJoin &)*plan;
+		D_ASSERT(plan->children.size() == 2);
+		// check the correlated expressions in the children of the join
+		bool left_has_correlation = has_correlated_expressions.find(plan->children[0].get())->second;
+		bool right_has_correlation = has_correlated_expressions.find(plan->children[1].get())->second;
+
+		if (join.join_type == JoinType::INNER) {
+			// inner join
+			if (!right_has_correlation) {
+				// only left has correlation: push into left
+				plan->children[0] =
+				    PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+				return plan;
+			}
+			if (!left_has_correlation) {
+				// only right has correlation: push into right
+				plan->children[1] =
+				    PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
+				return plan;
+			}
+		} else if (join.join_type == JoinType::LEFT) {
+			// left outer join
+			if (!right_has_correlation) {
+				// only left has correlation: push into left
+				plan->children[0] =
+				    PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+				return plan;
+			}
+		} else if (join.join_type == JoinType::RIGHT) {
+			// left outer join
+			if (!left_has_correlation) {
+				// only right has correlation: push into right
+				plan->children[1] =
+				    PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
+				return plan;
+			}
+		} else if (join.join_type == JoinType::MARK) {
+			if (right_has_correlation) {
+				throw Exception("MARK join with correlation in RHS not supported");
+			}
+			// push the child into the LHS
+			plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+			// rewrite expressions in the join conditions
+			RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
+			rewriter.VisitOperator(*plan);
+			return plan;
+		} else {
+			throw Exception("Unsupported join type for flattening correlated subquery");
+		}
+		// both sides have correlation
+		// push into both sides
+		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+		auto left_binding = this->base_binding;
+		plan->children[1] = PushDownDependentJoinInternal(move(plan->children[1]), parent_propagate_null_values);
+		auto right_binding = this->base_binding;
+		// NOTE: for OUTER JOINS it matters what the BASE BINDING is after the join
+		// for the LEFT OUTER JOIN, we want the LEFT side to be the base binding after we push
+		// because the RIGHT binding might contain NULL values
+		if (join.join_type == JoinType::LEFT) {
+			this->base_binding = left_binding;
+		} else if (join.join_type == JoinType::RIGHT) {
+			this->base_binding = right_binding;
+		}
+		// add the correlated columns to the join conditions
+		for (idx_t i = 0; i < correlated_columns.size(); i++) {
+			auto left = make_unique<BoundColumnRefExpression>(
+			    correlated_columns[i].type, ColumnBinding(left_binding.table_index, left_binding.column_index + i));
+			auto right = make_unique<BoundColumnRefExpression>(
+			    correlated_columns[i].type, ColumnBinding(right_binding.table_index, right_binding.column_index + i));
+
+			if (join.type == LogicalOperatorType::LOGICAL_COMPARISON_JOIN) {
+				JoinCondition cond;
+				cond.left = move(left);
+				cond.right = move(right);
+				cond.comparison = ExpressionType::COMPARE_NOT_DISTINCT_FROM;
+
+				auto &comparison_join = (LogicalComparisonJoin &)join;
+				comparison_join.conditions.push_back(move(cond));
+			} else {
+				auto &any_join = (LogicalAnyJoin &)join;
+				auto comparison = make_unique<BoundComparisonExpression>(ExpressionType::COMPARE_NOT_DISTINCT_FROM,
+				                                                         move(left), move(right));
+				auto conjunction = make_unique<BoundConjunctionExpression>(ExpressionType::CONJUNCTION_AND,
+				                                                           move(comparison), move(any_join.condition));
+				any_join.condition = move(conjunction);
+			}
+		}
+		// then we replace any correlated expressions with the corresponding entry in the correlated_map
+		RewriteCorrelatedExpressions rewriter(right_binding, correlated_map);
+		rewriter.VisitOperator(*plan);
+		return plan;
+	}
+	case LogicalOperatorType::LOGICAL_LIMIT: {
+		auto &limit = (LogicalLimit &)*plan;
+		if (limit.offset_val > 0) {
+			throw ParserException("OFFSET not supported in correlated subquery");
+		}
+		if (limit.limit) {
+			throw ParserException("Non-constant limit not supported in correlated subquery");
+		}
+		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+		if (limit.limit_val == 0) {
+			// limit = 0 means we return zero columns here
+			return plan;
+		} else {
+			// limit > 0 does nothing
+			return move(plan->children[0]);
+		}
+	}
+	case LogicalOperatorType::LOGICAL_LIMIT_PERCENT: {
+		throw ParserException("Limit percent operator not supported in correlated subquery");
+	}
+	case LogicalOperatorType::LOGICAL_WINDOW: {
+		auto &window = (LogicalWindow &)*plan;
+		// push into children
+		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+		// add the correlated columns to the PARTITION BY clauses in the Window
+		for (auto &expr : window.expressions) {
+			D_ASSERT(expr->GetExpressionClass() == ExpressionClass::BOUND_WINDOW);
+			auto &w = (BoundWindowExpression &)*expr;
+			for (idx_t i = 0; i < correlated_columns.size(); i++) {
+				w.partitions.push_back(make_unique<BoundColumnRefExpression>(
+				    correlated_columns[i].type,
+				    ColumnBinding(base_binding.table_index, base_binding.column_index + i)));
+			}
+		}
+		return plan;
+	}
+	case LogicalOperatorType::LOGICAL_EXCEPT:
+	case LogicalOperatorType::LOGICAL_INTERSECT:
+	case LogicalOperatorType::LOGICAL_UNION: {
+		auto &setop = (LogicalSetOperation &)*plan;
+		// set operator, push into both children
+		plan->children[0] = PushDownDependentJoin(move(plan->children[0]));
+		plan->children[1] = PushDownDependentJoin(move(plan->children[1]));
+		// we have to refer to the setop index now
+		base_binding.table_index = setop.table_index;
+		base_binding.column_index = setop.column_count;
+		setop.column_count += correlated_columns.size();
+		return plan;
+	}
+	case LogicalOperatorType::LOGICAL_DISTINCT:
+		plan->children[0] = PushDownDependentJoin(move(plan->children[0]));
+		return plan;
+	case LogicalOperatorType::LOGICAL_EXPRESSION_GET: {
+		// expression get
+		// first we flatten the dependent join in the child
+		plan->children[0] = PushDownDependentJoinInternal(move(plan->children[0]), parent_propagate_null_values);
+		// then we replace any correlated expressions with the corresponding entry in the correlated_map
+		RewriteCorrelatedExpressions rewriter(base_binding, correlated_map);
+		rewriter.VisitOperator(*plan);
+		// now we add all the correlated columns to each of the expressions of the expression scan
+		auto expr_get = (LogicalExpressionGet *)plan.get();
+		for (idx_t i = 0; i < correlated_columns.size(); i++) {
+			for (auto &expr_list : expr_get->expressions) {
+				auto colref = make_unique<BoundColumnRefExpression>(
+				    correlated_columns[i].type, ColumnBinding(base_binding.table_index, base_binding.column_index + i));
+				expr_list.push_back(move(colref));
+			}
+			expr_get->expr_types.push_back(correlated_columns[i].type);
+		}
+
+		base_binding.table_index = expr_get->table_index;
+		this->delim_offset = base_binding.column_index = expr_get->expr_types.size() - correlated_columns.size();
+		this->data_offset = 0;
+		return plan;
+	}
+	case LogicalOperatorType::LOGICAL_ORDER_BY:
+		throw ParserException("ORDER BY not supported in correlated subquery");
+	default:
+		throw InternalException("Logical operator type \"%s\" for dependent join", LogicalOperatorToString(plan->type));
+	}
+}
+
+} // namespace duckdb
+
+
+
+
+
+#include <algorithm>
+
+namespace duckdb {
+
+HasCorrelatedExpressions::HasCorrelatedExpressions(const vector<CorrelatedColumnInfo> &correlated)
+    : has_correlated_expressions(false), correlated_columns(correlated) {
+}
+
+void HasCorrelatedExpressions::VisitOperator(LogicalOperator &op) {
+	//! The HasCorrelatedExpressions does not recursively visit logical operators, it only visits the current one
+	VisitOperatorExpressions(op);
+}
+
+unique_ptr<Expression> HasCorrelatedExpressions::VisitReplace(BoundColumnRefExpression &expr,
+                                                              unique_ptr<Expression> *expr_ptr) {
+	if (expr.depth == 0) {
+		return nullptr;
+	}
+	// correlated column reference
+	D_ASSERT(expr.depth == 1);
+	has_correlated_expressions = true;
+	return nullptr;
+}
+
+unique_ptr<Expression> HasCorrelatedExpressions::VisitReplace(BoundSubqueryExpression &expr,
+                                                              unique_ptr<Expression> *expr_ptr) {
+	if (!expr.IsCorrelated()) {
+		return nullptr;
+	}
+	// check if the subquery contains any of the correlated expressions that we are concerned about in this node
+	for (idx_t i = 0; i < correlated_columns.size(); i++) {
+		if (std::find(expr.binder->correlated_columns.begin(), expr.binder->correlated_columns.end(),
+		              correlated_columns[i]) != expr.binder->correlated_columns.end()) {
+			has_correlated_expressions = true;
+			break;
+		}
+	}
+	return nullptr;
+}
+
+} // namespace duckdb
+
+
+
+
+
+
+
+
+
+namespace duckdb {
+
+RewriteCorrelatedExpressions::RewriteCorrelatedExpressions(ColumnBinding base_binding,
+                                                           column_binding_map_t<idx_t> &correlated_map)
+    : base_binding(base_binding), correlated_map(correlated_map) {
+}
+
+void RewriteCorrelatedExpressions::VisitOperator(LogicalOperator &op) {
+	VisitOperatorExpressions(op);
+}
+
+unique_ptr<Expression> RewriteCorrelatedExpressions::VisitReplace(BoundColumnRefExpression &expr,
+                                                                  unique_ptr<Expression> *expr_ptr) {
+	if (expr.depth == 0) {
+		return nullptr;
+	}
+	// correlated column reference
+	// replace with the entry referring to the duplicate eliminated scan
+	// if this assertion occurs it generally means the correlated expressions were not propagated correctly
+	// through different binders
+	D_ASSERT(expr.depth == 1);
+	auto entry = correlated_map.find(expr.binding);
+	D_ASSERT(entry != correlated_map.end());
+
+	expr.binding = ColumnBinding(base_binding.table_index, base_binding.column_index + entry->second);
+	expr.depth = 0;
+	return nullptr;
+}
+
+unique_ptr<Expression> RewriteCorrelatedExpressions::VisitReplace(BoundSubqueryExpression &expr,
+                                                                  unique_ptr<Expression> *expr_ptr) {
+	if (!expr.IsCorrelated()) {
+		return nullptr;
+	}
+	// subquery detected within this subquery
+	// recursively rewrite it using the RewriteCorrelatedRecursive class
+	RewriteCorrelatedRecursive rewrite(expr, base_binding, correlated_map);
+	rewrite.RewriteCorrelatedSubquery(expr);
+	return nullptr;
+}
+
+RewriteCorrelatedExpressions::RewriteCorrelatedRecursive::RewriteCorrelatedRecursive(
+    BoundSubqueryExpression &parent, ColumnBinding base_binding, column_binding_map_t<idx_t> &correlated_map)
+    : parent(parent), base_binding(base_binding), correlated_map(correlated_map) {
+}
+
+void RewriteCorrelatedExpressions::RewriteCorrelatedRecursive::RewriteCorrelatedSubquery(
+    BoundSubqueryExpression &expr) {
+	// rewrite the binding in the correlated list of the subquery)
+	for (auto &corr : expr.binder->correlated_columns) {
+		auto entry = correlated_map.find(corr.binding);
+		if (entry != correlated_map.end()) {
+			corr.binding = ColumnBinding(base_binding.table_index, base_binding.column_index + entry->second);
+		}
+	}
+	// now rewrite any correlated BoundColumnRef expressions inside the subquery
+	ExpressionIterator::EnumerateQueryNodeChildren(*expr.subquery,
+	                                               [&](Expression &child) { RewriteCorrelatedExpressions(child); });
+}
+
+void RewriteCorrelatedExpressions::RewriteCorrelatedRecursive::RewriteCorrelatedExpressions(Expression &child) {
+	if (child.type == ExpressionType::BOUND_COLUMN_REF) {
+		// bound column reference
+		auto &bound_colref = (BoundColumnRefExpression &)child;
+		if (bound_colref.depth == 0) {
+			// not a correlated column, ignore
+			return;
+		}
+		// correlated column
+		// check the correlated map
+		auto entry = correlated_map.find(bound_colref.binding);
+		if (entry != correlated_map.end()) {
+			// we found the column in the correlated map!
+			// update the binding and reduce the depth by 1
+			bound_colref.binding = ColumnBinding(base_binding.table_index, base_binding.column_index + entry->second);
+			bound_colref.depth--;
+		}
+	} else if (child.type == ExpressionType::SUBQUERY) {
+		// we encountered another subquery: rewrite recursively
+		D_ASSERT(child.GetExpressionClass() == ExpressionClass::BOUND_SUBQUERY);
+		auto &bound_subquery = (BoundSubqueryExpression &)child;
+		RewriteCorrelatedRecursive rewrite(bound_subquery, base_binding, correlated_map);
+		rewrite.RewriteCorrelatedSubquery(bound_subquery);
+	}
+}
+
+RewriteCountAggregates::RewriteCountAggregates(column_binding_map_t<idx_t> &replacement_map)
+    : replacement_map(replacement_map) {
+}
+
+unique_ptr<Expression> RewriteCountAggregates::VisitReplace(BoundColumnRefExpression &expr,
+                                                            unique_ptr<Expression> *expr_ptr) {
+	auto entry = replacement_map.find(expr.binding);
+	if (entry != replacement_map.end()) {
+		// reference to a COUNT(*) aggregate
+		// replace this with CASE WHEN COUNT(*) IS NULL THEN 0 ELSE COUNT(*) END
+		auto is_null = make_unique<BoundOperatorExpression>(ExpressionType::OPERATOR_IS_NULL, LogicalType::BOOLEAN);
+		is_null->children.push_back(expr.Copy());
+		auto check = move(is_null);
+		auto result_if_true = make_unique<BoundConstantExpression>(Value::Numeric(expr.return_type, 0));
+		auto result_if_false = move(*expr_ptr);
+		return make_unique<BoundCaseExpression>(move(check), move(result_if_true), move(result_if_false));
+	}
+	return nullptr;
 }
 
 } // namespace duckdb

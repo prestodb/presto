@@ -41,6 +41,7 @@ void veloxPoolFree(
 ::duckdb::data_ptr_t veloxPoolReallocate(
     ::duckdb::PrivateAllocatorData* privateData,
     ::duckdb::data_ptr_t pointer,
+    ::duckdb::idx_t oldSize,
     ::duckdb::idx_t size);
 
 class VeloxPoolAllocator : public ::duckdb::Allocator {
@@ -52,5 +53,7 @@ class VeloxPoolAllocator : public ::duckdb::Allocator {
             veloxPoolReallocate,
             std::make_unique<PrivateVeloxAllocatorData>(pool)) {}
 };
+
+VeloxPoolAllocator& getDefaultAllocator();
 
 } // namespace facebook::velox::duckdb

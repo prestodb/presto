@@ -259,7 +259,9 @@ ParquetRowReader::ParquetRowReader(
 
 uint64_t ParquetRowReader::next(uint64_t /*size*/, velox::VectorPtr& result) {
   ::duckdb::DataChunk output;
-  output.Initialize(duckdbRowType_);
+  // TODO: We are using the default duckdb allocator which uses Velox's default
+  // memory manager, not the one specified in the ReaderOptions.
+  output.Initialize(duckdb::getDefaultAllocator(), duckdbRowType_);
 
   reader_->Scan(state_, output);
 
@@ -307,11 +309,10 @@ std::optional<size_t> ParquetRowReader::estimatedRowSize() const {
 ParquetReader::ParquetReader(
     std::unique_ptr<dwio::common::InputStream> stream,
     const dwio::common::ReaderOptions& options)
-    : allocator_(options.getMemoryPool()),
-      fileSystem_(
+    : fileSystem_(
           std::make_unique<duckdb::InputStreamFileSystem>(std::move(stream))),
       reader_(std::make_shared<::duckdb::ParquetReader>(
-          allocator_,
+          duckdb::getDefaultAllocator(),
           fileSystem_->OpenFile())),
       pool_(options.getMemoryPool()) {
   auto names = reader_->names;
