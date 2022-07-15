@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <fmt/format.h>
 #include <chrono>
 #include "velox/common/process/ProcessBase.h"
 
@@ -36,6 +37,11 @@ struct CpuWallTiming {
     count = 0;
     wallNanos = 0;
     cpuNanos = 0;
+  }
+
+  std::string toString() const {
+    return fmt::format(
+        "count: {}, wallNanos: {}, cpuNanos: {}", count, wallNanos, cpuNanos);
   }
 };
 

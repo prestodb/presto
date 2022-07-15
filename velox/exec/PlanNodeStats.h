@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <folly/dynamic.h>
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/exec/Operator.h"
 
@@ -113,6 +114,8 @@ struct PlanNodeStats {
 
 std::unordered_map<core::PlanNodeId, PlanNodeStats> toPlanStats(
     const TaskStats& taskStats);
+
+folly::dynamic toPlanStatsJson(const facebook::velox::exec::TaskStats& stats);
 
 /// Returns human-friendly representation of the plan augmented with runtime
 /// statistics. The result has the same plan representation as in

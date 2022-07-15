@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <fmt/format.h>
 #include <limits>
 #include <sstream>
 
@@ -47,5 +48,10 @@ struct RuntimeMetric {
   void printMetric(std::stringstream& stream) const;
 
   void merge(const RuntimeMetric& other);
+
+  std::string toString() const {
+    return fmt::format(
+        "sum:{}, count:{}, min:{}, max:{}", sum, count, min, max);
+  }
 };
 } // namespace facebook::velox
