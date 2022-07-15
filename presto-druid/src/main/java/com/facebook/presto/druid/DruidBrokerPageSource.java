@@ -35,7 +35,7 @@ import io.airlift.slice.Slices;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -146,7 +146,7 @@ public class DruidBrokerPageSource
                             DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
                                     .withChronology(IsoChronology.INSTANCE);
 
-                            ZonedDateTime dateTime = ZonedDateTime
+                            OffsetDateTime dateTime = OffsetDateTime
                                     .parse(value.textValue(), formatter);
                             type.writeLong(blockBuilder, dateTime.toInstant().toEpochMilli());
                         }
