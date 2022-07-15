@@ -165,7 +165,7 @@ public class TestMemoryTracking
             fail("allocation should hit the per-node total memory limit");
         }
         catch (ExceededMemoryLimitException e) {
-            assertEquals(e.getMessage(), format("Query exceeded per-node total memory limit of %1$s [Allocated: %1$s, Delta: 1B, Top Consumers: {test-operator=%1$s}]", queryMaxTotalMemory));
+            assertEquals(e.getMessage(), format("Query exceeded per-node total memory limit of %1$s [Allocated: %1$s, Delta: 1B (test-operator), Top Consumers: {test-operator=%1$s}]", queryMaxTotalMemory));
         }
     }
 
@@ -182,7 +182,7 @@ public class TestMemoryTracking
             fail("allocation should hit the per-node revocable memory limit");
         }
         catch (ExceededMemoryLimitException e) {
-            assertEquals(e.getMessage(), format("Query exceeded per-node revocable memory limit of %1$s [Allocated: %1$s, Delta: 1B]", queryMaxRevocableMemory));
+            assertEquals(e.getMessage(), format("Query exceeded per-node revocable memory limit of %1$s [Allocated: %1$s, Delta: 1B (test-operator)]", queryMaxRevocableMemory));
         }
     }
 
