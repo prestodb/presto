@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
@@ -119,6 +120,7 @@ import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -1391,6 +1393,22 @@ public final class SqlFormatter
         protected Void visitRollback(Rollback node, Integer context)
         {
             builder.append("ROLLBACK");
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateType(CreateType node, Integer context)
+        {
+            builder.append("CREATE TYPE ");
+            builder.append(node.getTypeName());
+            if (!node.getDistinctType().isPresent()) {
+                builder.append(" AS ");
+                List<String> parameterAndTypeList = Streams.zip(node.getParameterNames().stream(), node.getParameterTypes().stream(), (parameter, parameterType) -> (parameter + " " + parameterType))
+                        .collect(Collectors.toList());
+                builder.append(" (")
+                        .append(Joiner.on(", ").join(parameterAndTypeList))
+                        .append(")");
+            }
             return null;
         }
 
