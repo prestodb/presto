@@ -31,11 +31,6 @@ struct TestParam {
   TypeKind valueType;
   // Specify the comparison value type of minmax_by in test.
   TypeKind comparisonType;
-  // Specify the group-by value type of minmax_by in test.
-  //
-  // NOTE: it is unused in case of global by, that is, minmax_by without
-  // group-by clause.
-  TypeKind groupByType = TypeKind::INVALID;
 };
 
 const std::unordered_set<TypeKind> kSupportedTypes = {
@@ -47,70 +42,39 @@ const std::unordered_set<TypeKind> kSupportedTypes = {
     TypeKind::DOUBLE,
     TypeKind::VARCHAR};
 
-#define EXECUTE_TEST_BY_GLOBAL_OR_GROUP(                                \
-    testFunc, valueType, comparisonType, isPartial)                     \
-  do {                                                                  \
-    switch (GetParam().groupByType) {                                   \
-      case TypeKind::TINYINT:                                           \
-        testFunc<valueType, comparisonType, int8_t>(isPartial);         \
-        break;                                                          \
-      case TypeKind::SMALLINT:                                          \
-        testFunc<valueType, comparisonType, int16_t>(isPartial);        \
-        break;                                                          \
-      case TypeKind::INTEGER:                                           \
-        testFunc<valueType, comparisonType, int32_t>(isPartial);        \
-        break;                                                          \
-      case TypeKind::BIGINT:                                            \
-        testFunc<valueType, comparisonType, int64_t>(isPartial);        \
-        break;                                                          \
-      case TypeKind::REAL:                                              \
-        testFunc<valueType, comparisonType, float>(isPartial);          \
-        break;                                                          \
-      case TypeKind::DOUBLE:                                            \
-        testFunc<valueType, comparisonType, double>(isPartial);         \
-        break;                                                          \
-      case TypeKind::VARCHAR:                                           \
-        testFunc<valueType, comparisonType, StringView>(isPartial);     \
-        break;                                                          \
-      case TypeKind::INVALID:                                           \
-        testFunc<valueType, comparisonType, comparisonType>(isPartial); \
-        break;                                                          \
-      default:                                                          \
-        LOG(FATAL) << "Unsupported groupBy type of minmax_by(): "       \
-                   << mapTypeKindToName(GetParam().groupByType);        \
-    }                                                                   \
-  } while (0);
+std::vector<TestParam> getTestParams() {
+  std::vector<TestParam> params;
+  for (TypeKind valueType : kSupportedTypes) {
+    for (TypeKind comparisonType : kSupportedTypes) {
+      params.push_back({valueType, comparisonType});
+    }
+  }
+  return params;
+}
 
 #define EXECUTE_TEST_BY_VALUE_TYPE(testFunc, valueType, isPartial)   \
   do {                                                               \
     switch (GetParam().comparisonType) {                             \
       case TypeKind::TINYINT:                                        \
-        EXECUTE_TEST_BY_GLOBAL_OR_GROUP(                             \
-            testFunc, valueType, int8_t, isPartial);                 \
+        testFunc<valueType, int8_t>(isPartial);                      \
         break;                                                       \
       case TypeKind::SMALLINT:                                       \
-        EXECUTE_TEST_BY_GLOBAL_OR_GROUP(                             \
-            testFunc, valueType, int16_t, isPartial);                \
+        testFunc<valueType, int16_t>(isPartial);                     \
         break;                                                       \
       case TypeKind::INTEGER:                                        \
-        EXECUTE_TEST_BY_GLOBAL_OR_GROUP(                             \
-            testFunc, valueType, int32_t, isPartial);                \
+        testFunc<valueType, int32_t>(isPartial);                     \
         break;                                                       \
       case TypeKind::BIGINT:                                         \
-        EXECUTE_TEST_BY_GLOBAL_OR_GROUP(                             \
-            testFunc, valueType, int64_t, isPartial);                \
+        testFunc<valueType, int64_t>(isPartial);                     \
         break;                                                       \
       case TypeKind::REAL:                                           \
-        EXECUTE_TEST_BY_GLOBAL_OR_GROUP(                             \
-            testFunc, valueType, float, isPartial);                  \
+        testFunc<valueType, float>(isPartial);                       \
         break;                                                       \
       case TypeKind::DOUBLE:                                         \
-        EXECUTE_TEST_BY_GLOBAL_OR_GROUP(                             \
-            testFunc, valueType, double, isPartial);                 \
+        testFunc<valueType, double>(isPartial);                      \
         break;                                                       \
       case TypeKind::VARCHAR:                                        \
-        EXECUTE_TEST_BY_GLOBAL_OR_GROUP(                             \
-            testFunc, valueType, StringView, isPartial);             \
+        testFunc<valueType, StringView>(isPartial);                  \
         break;                                                       \
       default:                                                       \
         LOG(FATAL) << "Unsupported comparison type of minmax_by(): " \
@@ -273,9 +237,9 @@ void MinMaxByAggregationTestBase::SetUp() {
     }
   }
   ASSERT_EQ(dataVectorsByType_.size(), kSupportedTypes.size());
-  rowVectors_ = makeVectors(rowType_, 10, 100);
+  rowVectors_ = makeVectors(rowType_, 5, 10);
   createDuckDbTable(rowVectors_);
-}
+};
 
 class MinMaxByGlobalByAggregationTest
     : public MinMaxByAggregationTestBase,
@@ -303,7 +267,7 @@ class MinMaxByGlobalByAggregationTest
     executeQuery(vectors, aggregate, false, verifyDuckDbSql);
   }
 
-  template <typename T, typename U, typename UNUSED>
+  template <typename T, typename U>
   void minByGlobalByTest(bool isPartial) {
     struct {
       const RowVectorPtr inputRowVector;
@@ -418,7 +382,7 @@ class MinMaxByGlobalByAggregationTest
     }
   }
 
-  template <typename T, typename U, typename UNUSED>
+  template <typename T, typename U>
   void maxByGlobalByTest(bool isPartial) {
     struct {
       const RowVectorPtr inputRowVector;
@@ -566,26 +530,10 @@ TEST_P(MinMaxByGlobalByAggregationTest, randomMaxByGlobalBy) {
       getColumnName(GetParam().comparisonType));
 }
 
-std::vector<TestParam> getGlobalByTestParams() {
-  std::vector<TestParam> params;
-  for (TypeKind valueType : kSupportedTypes) {
-    if (valueType != TypeKind::VARCHAR) {
-      // continue;
-    }
-    for (TypeKind comparisonType : kSupportedTypes) {
-      if (comparisonType != TypeKind::VARCHAR) {
-        // continue;
-      }
-      params.push_back({valueType, comparisonType, TypeKind::INVALID});
-    }
-  }
-  return params;
-}
-
 VELOX_INSTANTIATE_TEST_SUITE_P(
     MinMaxByAggregationTest,
     MinMaxByGlobalByAggregationTest,
-    testing::ValuesIn(getGlobalByTestParams()));
+    testing::ValuesIn(getTestParams()));
 
 class MinMaxByGroupByAggregationTest
     : public MinMaxByAggregationTestBase,
@@ -616,7 +564,7 @@ class MinMaxByGroupByAggregationTest
         vectors, aggregate, false, {groupByColumnName}, verifyDuckDbSql);
   }
 
-  template <typename T, typename U, typename G>
+  template <typename T, typename U>
   void testMinByGroupBy(bool isPartial) {
     struct {
       const RowVectorPtr inputRowVector;
@@ -634,16 +582,16 @@ class MinMaxByGroupByAggregationTest
         {makeRowVector(
              {makeConstant(std::optional<T>(dataAt<T>(0)), 6),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
-              makeConstant(std::optional<G>(dataAt<G>(0)), 6)}),
+              makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<T>(0),
                    dataAt<U>(0))
              : fmt::format(
                    "SELECT * FROM( VALUES ('{}', '{}')) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<T>(0))},
 
         {makeRowVector(
@@ -655,14 +603,15 @@ class MinMaxByGroupByAggregationTest
                    dataAt<T>(3),
                    dataAt<T>(4)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
-              makeConstant(std::optional<G>(dataAt<G>(0)), 6)}),
+              makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<U>(0))
              : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', NULL)) AS t", dataAt<G>(0))},
+                   "SELECT * FROM( VALUES ('{}', NULL)) AS t",
+                   dataAt<int32_t>(0))},
 
         // All null cases.
         {makeRowVector(
@@ -674,27 +623,27 @@ class MinMaxByGroupByAggregationTest
                    dataAt<U>(1),
                    dataAt<U>(2),
                    dataAt<U>(0)}),
-              makeNullableFlatVector<G>(
-                  {dataAt<G>(0),
-                   dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(1),
-                   dataAt<G>(2),
-                   dataAt<G>(2)})}),
+              makeNullableFlatVector<int32_t>(
+                  {dataAt<int32_t>(0),
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(2)})}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => NULL, y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<U>(4),
-                   dataAt<G>(1),
+                   dataAt<int32_t>(1),
                    dataAt<U>(1),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(2),
                    dataAt<U>(0))
              : fmt::format(
                    "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
-                   dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(2))},
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -705,18 +654,18 @@ class MinMaxByGroupByAggregationTest
                    std::nullopt,
                    dataAt<T>(0)}),
               makeNullConstant(GetParam().valueType, 6),
-              makeNullableFlatVector<G>(
-                  {dataAt<G>(0),
-                   dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(1),
-                   dataAt<G>(2),
-                   dataAt<G>(2)})}),
+              makeNullableFlatVector<int32_t>(
+                  {dataAt<int32_t>(0),
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(2)})}),
          fmt::format(
              "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
-             dataAt<G>(0),
-             dataAt<G>(1),
-             dataAt<G>(2))},
+             dataAt<int32_t>(0),
+             dataAt<int32_t>(1),
+             dataAt<int32_t>(2))},
 
         // Regular cases.
         {makeRowVector(
@@ -734,30 +683,30 @@ class MinMaxByGroupByAggregationTest
                    dataAt<U>(1),
                    dataAt<U>(2),
                    dataAt<U>(0)}),
-              makeNullableFlatVector<G>(
-                  {dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(2),
-                   dataAt<G>(2),
-                   dataAt<G>(1),
-                   dataAt<G>(0)})}),
+              makeNullableFlatVector<int32_t>(
+                  {dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(0)})}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => '{}', y => '{}')), ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<T>(0),
                    dataAt<U>(0),
-                   dataAt<G>(1),
+                   dataAt<int32_t>(1),
                    dataAt<U>(2),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(2),
                    dataAt<T>(1),
                    dataAt<U>(1))
              : fmt::format(
                    "SELECT * FROM( VALUES ('{}', '{}'), ('{}', NULL), ('{}', '{}')) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<T>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2),
                    dataAt<T>(1))},
 
         {makeRowVector(
@@ -775,30 +724,30 @@ class MinMaxByGroupByAggregationTest
                    dataAt<U>(1),
                    dataAt<U>(2),
                    dataAt<U>(0)}),
-              makeNullableFlatVector<G>(
-                  {dataAt<G>(0),
-                   dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(1),
-                   dataAt<G>(2),
-                   dataAt<G>(2)})}),
+              makeNullableFlatVector<int32_t>(
+                  {dataAt<int32_t>(0),
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(2)})}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => '{}', y => '{}')), ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<U>(4),
-                   dataAt<G>(1),
+                   dataAt<int32_t>(1),
                    dataAt<T>(1),
                    dataAt<U>(1),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(2),
                    dataAt<T>(0),
                    dataAt<U>(0))
              : fmt::format(
                    "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
-                   dataAt<G>(0),
-                   dataAt<G>(1),
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
                    dataAt<T>(1),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(2),
                    dataAt<T>(0))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(
@@ -812,7 +761,7 @@ class MinMaxByGroupByAggregationTest
     }
   }
 
-  template <typename T, typename U, typename G>
+  template <typename T, typename U>
   void testMaxByGroupBy(bool isPartial) {
     struct {
       const RowVectorPtr inputRowVector;
@@ -830,16 +779,16 @@ class MinMaxByGroupByAggregationTest
         {makeRowVector(
              {makeConstant(std::optional<T>(dataAt<T>(0)), 6),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
-              makeConstant(std::optional<G>(dataAt<G>(0)), 6)}),
+              makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<T>(0),
                    dataAt<U>(0))
              : fmt::format(
                    "SELECT * FROM( VALUES ('{}', '{}')) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<T>(0))},
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -850,14 +799,15 @@ class MinMaxByGroupByAggregationTest
                    dataAt<T>(3),
                    dataAt<T>(4)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
-              makeConstant(std::optional<G>(dataAt<G>(0)), 6)}),
+              makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<U>(0))
              : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', NULL)) AS t", dataAt<G>(0))},
+                   "SELECT * FROM( VALUES ('{}', NULL)) AS t",
+                   dataAt<int32_t>(0))},
 
         // All null cases.
         {makeRowVector(
@@ -869,27 +819,27 @@ class MinMaxByGroupByAggregationTest
                    dataAt<U>(1),
                    dataAt<U>(2),
                    dataAt<U>(0)}),
-              makeNullableFlatVector<G>(
-                  {dataAt<G>(0),
-                   dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(1),
-                   dataAt<G>(2),
-                   dataAt<G>(2)})}),
+              makeNullableFlatVector<int32_t>(
+                  {dataAt<int32_t>(0),
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(2)})}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => NULL, y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<U>(5),
-                   dataAt<G>(1),
+                   dataAt<int32_t>(1),
                    dataAt<U>(1),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(2),
                    dataAt<U>(2))
              : fmt::format(
                    "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
-                   dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(2))},
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -900,18 +850,18 @@ class MinMaxByGroupByAggregationTest
                    std::nullopt,
                    dataAt<T>(0)}),
               makeNullConstant(GetParam().valueType, 6),
-              makeNullableFlatVector<G>(
-                  {dataAt<G>(0),
-                   dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(1),
-                   dataAt<G>(2),
-                   dataAt<G>(2)})}),
+              makeNullableFlatVector<int32_t>(
+                  {dataAt<int32_t>(0),
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(2)})}),
          fmt::format(
              "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
-             dataAt<G>(0),
-             dataAt<G>(1),
-             dataAt<G>(2))},
+             dataAt<int32_t>(0),
+             dataAt<int32_t>(1),
+             dataAt<int32_t>(2))},
 
         // Regular cases.
         {makeRowVector(
@@ -929,30 +879,30 @@ class MinMaxByGroupByAggregationTest
                    dataAt<U>(1),
                    dataAt<U>(2),
                    dataAt<U>(0)}),
-              makeNullableFlatVector<G>(
-                  {dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(2),
-                   dataAt<G>(2),
-                   dataAt<G>(1),
-                   dataAt<G>(0)})}),
+              makeNullableFlatVector<int32_t>(
+                  {dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(0)})}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => '{}', y => '{}')), ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<U>(4),
-                   dataAt<G>(1),
+                   dataAt<int32_t>(1),
                    dataAt<T>(2),
                    dataAt<U>(5),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(2),
                    dataAt<T>(1),
                    dataAt<U>(1))
              : fmt::format(
                    "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
-                   dataAt<G>(0),
-                   dataAt<G>(1),
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
                    dataAt<T>(2),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(2),
                    dataAt<T>(1))},
 
         {makeRowVector(
@@ -970,30 +920,30 @@ class MinMaxByGroupByAggregationTest
                    dataAt<U>(1),
                    dataAt<U>(0),
                    dataAt<U>(2)}),
-              makeNullableFlatVector<G>(
-                  {dataAt<G>(0),
-                   dataAt<G>(0),
-                   dataAt<G>(1),
-                   dataAt<G>(1),
-                   dataAt<G>(2),
-                   dataAt<G>(2)})}),
+              makeNullableFlatVector<int32_t>(
+                  {dataAt<int32_t>(0),
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(1),
+                   dataAt<int32_t>(2),
+                   dataAt<int32_t>(2)})}),
          isPartial
              ? fmt::format(
                    "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => '{}', y => '{}')), ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<G>(0),
+                   dataAt<int32_t>(0),
                    dataAt<U>(5),
-                   dataAt<G>(1),
+                   dataAt<int32_t>(1),
                    dataAt<T>(1),
                    dataAt<U>(1),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(2),
                    dataAt<T>(0),
                    dataAt<U>(2))
              : fmt::format(
                    "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
-                   dataAt<G>(0),
-                   dataAt<G>(1),
+                   dataAt<int32_t>(0),
+                   dataAt<int32_t>(1),
                    dataAt<T>(1),
-                   dataAt<G>(2),
+                   dataAt<int32_t>(2),
                    dataAt<T>(0))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(
@@ -1030,7 +980,7 @@ TEST_P(MinMaxByGroupByAggregationTest, randomMinByGroupBy) {
       kMinBy,
       getColumnName(GetParam().valueType),
       getColumnName(GetParam().comparisonType),
-      getColumnName(GetParam().groupByType));
+      getColumnName(TypeKind::INTEGER));
 }
 
 TEST_P(MinMaxByGroupByAggregationTest, randomMaxByGroupBy) {
@@ -1039,25 +989,13 @@ TEST_P(MinMaxByGroupByAggregationTest, randomMaxByGroupBy) {
       kMaxBy,
       getColumnName(GetParam().valueType),
       getColumnName(GetParam().comparisonType),
-      getColumnName(GetParam().groupByType));
-}
-
-std::vector<TestParam> getGroupByTestParams() {
-  std::vector<TestParam> params;
-  for (TypeKind valueType : kSupportedTypes) {
-    for (TypeKind comparisonType : kSupportedTypes) {
-      for (TypeKind groupType : kSupportedTypes) {
-        params.push_back({valueType, comparisonType, groupType});
-      }
-    }
-  }
-  return params;
+      getColumnName(TypeKind::INTEGER));
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     MinMaxByAggregationTest,
     MinMaxByGroupByAggregationTest,
-    testing::ValuesIn(getGroupByTestParams()));
+    testing::ValuesIn(getTestParams()));
 
 } // namespace
 } // namespace facebook::velox::aggregate::test
