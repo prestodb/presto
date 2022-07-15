@@ -47,6 +47,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.SqlFormatterUtil;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -60,7 +61,6 @@ import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -1695,32 +1695,17 @@ class StatementAnalyzer
             return visitSetOperation(node, scope);
         }
 
-        private boolean isJoinOnConditionReferencesRelatedFields(Expression expression, Scope scope)
+        private boolean isJoinOnConditionReferencesRelatedFields(Expression expression, Scope leftScope, Scope rightScope)
         {
-            if (expression instanceof LogicalBinaryExpression) {
-                LogicalBinaryExpression logicalBinaryExpression = (LogicalBinaryExpression) expression;
-                switch (logicalBinaryExpression.getOperator()) {
-                    case AND:
-                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), scope)
-                                || isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), scope);
-                    case OR:
-                        return isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getLeft(), scope)
-                                && isJoinOnConditionReferencesRelatedFields(logicalBinaryExpression.getRight(), scope);
-                }
-            }
-            if (expression instanceof ComparisonExpression) {
-                ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
-                if (comparisonExpression.getLeft() instanceof Literal || comparisonExpression.getRight() instanceof Literal) {
-                    return false;
-                }
-                return isJoinOnConditionReferencesRelatedFields(comparisonExpression.getLeft(), scope)
-                        != isJoinOnConditionReferencesRelatedFields(comparisonExpression.getRight(), scope);
-            }
-            if (expression instanceof DereferenceExpression || expression instanceof Identifier) {
-                Optional<ResolvedField> resolvedField = scope.tryResolveField(expression);
-                return resolvedField.isPresent();
-            }
-            return false;
+            return ExpressionUtils.extractDisjuncts(expression).stream().allMatch(disjunct -> {
+                List<DereferenceExpression> dereferenceExpressions = extractExpressions(Arrays.asList(disjunct), DereferenceExpression.class);
+                List<Identifier> identifiers = extractExpressions(Arrays.asList(disjunct), Identifier.class);
+                boolean isJoinOnConditionReferencedVariableInLeftScope = dereferenceExpressions.stream().anyMatch(expr -> rightScope.tryResolveField(expr).isPresent()) ||
+                        identifiers.stream().anyMatch(expr -> rightScope.tryResolveField(expr).isPresent());
+                boolean isJoinOnConditionReferencedVariableInRightScope = dereferenceExpressions.stream().anyMatch(expr -> leftScope.tryResolveField(expr).isPresent()) ||
+                        identifiers.stream().anyMatch(expr -> leftScope.tryResolveField(expr).isPresent());
+                return isJoinOnConditionReferencedVariableInLeftScope && isJoinOnConditionReferencedVariableInRightScope;
+            });
         }
 
         @Override
@@ -1764,7 +1749,7 @@ class StatementAnalyzer
                     }
                 }
 
-                verifyJoinOnConditionReferencesRelatedFields(right, expression, node.getRight());
+                verifyJoinOnConditionReferencesRelatedFields(left, right, expression, node.getRight());
                 verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
@@ -1777,9 +1762,9 @@ class StatementAnalyzer
             return output;
         }
 
-        private void verifyJoinOnConditionReferencesRelatedFields(Scope rightScope, Expression expression, Relation rightRelation)
+        private void verifyJoinOnConditionReferencesRelatedFields(Scope leftScope, Scope rightScope, Expression expression, Relation rightRelation)
         {
-            if (!isJoinOnConditionReferencesRelatedFields(expression, rightScope)) {
+            if (!isJoinOnConditionReferencesRelatedFields(expression, leftScope, rightScope)) {
                 Optional<String> tableName = tryGetTableName(rightRelation);
                 String warningMessage = tableName.isPresent() ?
                         createWarningMessage(
