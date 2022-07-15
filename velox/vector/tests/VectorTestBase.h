@@ -305,6 +305,46 @@ class VectorTestBase {
         0);
   }
 
+  template <typename TKey, typename TValue>
+  ArrayVectorPtr makeArrayOfMapVector(
+      const std::vector<std::vector<
+          std::optional<std::vector<std::pair<TKey, std::optional<TValue>>>>>>&
+          data) {
+    vector_size_t size = data.size();
+    BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool());
+    BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool());
+
+    auto rawOffsets = offsets->asMutable<vector_size_t>();
+    auto rawSizes = sizes->asMutable<vector_size_t>();
+
+    // Flatten the outermost std::vector of the input and populate the sizes and
+    // offsets for the top-level array vector.
+    std::vector<
+        std::optional<std::vector<std::pair<TKey, std::optional<TValue>>>>>
+        flattenedData;
+    vector_size_t i = 0;
+    for (const auto& vector : data) {
+      flattenedData.insert(flattenedData.end(), vector.begin(), vector.end());
+      rawSizes[i] = vector.size();
+      rawOffsets[i] = (i == 0) ? 0 : rawOffsets[i - 1] + rawSizes[i - 1];
+      ++i;
+    }
+
+    // Create the underlying map vector.
+    auto baseVector = makeNullableMapVector<TKey, TValue>(flattenedData);
+
+    // Build and return a second-level of array vector on top of baseVector.
+    return std::make_shared<ArrayVector>(
+        pool(),
+        ARRAY(MAP(CppToType<TKey>::create(), CppToType<TValue>::create())),
+        BufferPtr(nullptr),
+        size,
+        offsets,
+        sizes,
+        baseVector,
+        0);
+  }
+
   // Convenience function to create arrayVectors (vector of arrays) based on
   // input values from nested std::vectors. The underlying array elements are
   // nullable.
