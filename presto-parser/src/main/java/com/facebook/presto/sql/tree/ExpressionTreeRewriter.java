@@ -931,6 +931,150 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Expression visitBinaryLiteral(BinaryLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteBinaryLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitBooleanLiteral(BooleanLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteBooleanLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitCharLiteral(CharLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCharLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitDecimalLiteral(DecimalLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteDecimalLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitDoubleLiteral(DoubleLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteDoubleLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitGenericLiteral(GenericLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteGenericLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitIntervalLiteral(IntervalLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteIntervalLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitLongLiteral(LongLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteLongLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitStringLiteral(StringLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteStringLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitTimeLiteral(TimeLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteTimeLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitTimestampLiteral(TimestampLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteTimestampLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
+
+        @Override
+        protected Expression visitNullLiteral(NullLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteNullLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+            return node;
+        }
     }
 
     public static class Context<C>
