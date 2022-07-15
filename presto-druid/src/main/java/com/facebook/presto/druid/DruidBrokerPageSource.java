@@ -31,10 +31,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.joda.time.DateTime;
-import org.joda.time.chrono.ISOChronology;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
+import java.time.format.DateTimeFormatter;
+import java.time.chrono.IsoChronology;
+import java.time.ZonedDateTime;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -144,11 +143,13 @@ public class DruidBrokerPageSource
                             type.writeLong(blockBuilder, floatToRawIntBits(value.floatValue()));
                         }
                         else if (type instanceof TimestampType) {
-                            DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
-                                    .withChronology(ISOChronology.getInstanceUTC())
-                                    .withOffsetParsed();
-                            DateTime dateTime = formatter.parseDateTime(value.textValue());
-                            type.writeLong(blockBuilder, dateTime.getMillis());
+
+                            DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                                    .withChronology(IsoChronology.INSTANCE);
+
+                            ZonedDateTime dateTime = ZonedDateTime
+                                    .parse(value.textValue(), formatter);
+                            type.writeLong(blockBuilder, dateTime.toInstant().toEpochMilli());
                         }
                         else {
                             Slice slice = Slices.utf8Slice(value.textValue());
