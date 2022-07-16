@@ -29,13 +29,15 @@ import org.apache.kudu.client.Partition;
 import org.apache.kudu.client.PartitionSchema;
 import org.apache.kudu.shaded.com.google.common.base.Predicates;
 import org.apache.kudu.shaded.com.google.common.collect.Iterators;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.ISODateTimeFormat;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -392,7 +394,7 @@ public final class KuduTableProperties
         switch (type) {
             case UNIXTIME_MICROS:
                 long millis = bound.getLong(idx) / 1000;
-                return ISODateTimeFormat.dateTime().withZone(DateTimeZone.UTC).print(millis);
+                return DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneId.of("UTC")).format(Instant.ofEpochMilli(millis));
             case STRING:
                 return bound.getString(idx);
             case INT64:
@@ -569,7 +571,7 @@ public final class KuduTableProperties
         else if (obj instanceof String) {
             String s = (String) obj;
             s = s.trim().replace(' ', 'T');
-            long millis = ISODateTimeFormat.dateOptionalTimeParser().withZone(DateTimeZone.UTC).parseMillis(s);
+            long millis = LocalDateTime.from(DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(s)).atZone(ZoneId.of("UTC")).toInstant().toEpochMilli();
             return millis * 1000;
         }
         else {
