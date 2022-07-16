@@ -379,7 +379,7 @@ public class QueryStats
                         shuffledDataSize += operatorStats.getRawInputDataSize().toBytes();
                     }
                     else if (operatorType.equals(TableScanOperator.class.getSimpleName()) || operatorType.equals(ScanFilterAndProjectOperator.class.getSimpleName())) {
-                        rawInputDataSize += operatorStats.getRawInputPositions();
+                        rawInputDataSize += operatorStats.getRawInputDataSize().toBytes();
                         rawInputPositions += operatorStats.getRawInputPositions();
                         processedInputDataSize += stageExecutionStats.getProcessedInputDataSize().toBytes();
                         processedInputPositions += stageExecutionStats.getProcessedInputPositions();
