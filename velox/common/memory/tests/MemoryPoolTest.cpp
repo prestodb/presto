@@ -228,6 +228,28 @@ TEST(MemoryPoolTest, UncapMemory) {
   // caps are supported again.
 }
 
+// Mainly tests how it tracks externally allocated memory.
+TEST(MemoryPoolTest, ReserveTest) {
+  MemoryManager<MemoryAllocator> manager{8 * GB};
+  auto& root = manager.getRoot();
+
+  auto& child = root.addChild("elastic_quota");
+
+  const int64_t kChunkSize{32L * MB};
+
+  child.reserve(kChunkSize);
+  EXPECT_EQ(child.getCurrentBytes(), kChunkSize);
+
+  child.reserve(2 * kChunkSize);
+  EXPECT_EQ(child.getCurrentBytes(), 3 * kChunkSize);
+
+  child.release(1 * kChunkSize);
+  EXPECT_EQ(child.getCurrentBytes(), 2 * kChunkSize);
+
+  child.release(2 * kChunkSize);
+  EXPECT_EQ(child.getCurrentBytes(), 0);
+}
+
 // Mainly tests how it updates the memory usage in MemoryPool.
 TEST(MemoryPoolTest, AllocTest) {
   MemoryManager<MemoryAllocator> manager{8 * GB};

@@ -26,6 +26,7 @@
 #include <fmt/format.h>
 #include <glog/logging.h>
 
+#include <velox/common/base/Exceptions.h>
 #include "folly/CPortability.h"
 #include "folly/Likely.h"
 #include "folly/Random.h"
@@ -134,6 +135,15 @@ class MemoryPool : public AbstractMemoryPool {
   // reference to self would be invalid after this call. This will also drop the
   // entire subtree.
   virtual void removeSelf() = 0;
+
+  // Used to manage existing externally allocated memories without doing a new
+  // allocation.
+  virtual void reserve(int64_t /* bytes */) {
+    VELOX_NYI("reserve() needs to be implemented in derived memory pool.");
+  }
+  virtual void release(int64_t /* bytes */) {
+    VELOX_NYI("release() needs to be implemented in derived memory pool.");
+  }
 };
 
 namespace detail {
@@ -276,6 +286,14 @@ class ScopedMemoryPool final : public MemoryPool {
 
   MemoryPool& getPool() {
     return pool_;
+  }
+
+  void reserve(int64_t bytes) override {
+    pool_.reserve(bytes);
+  }
+
+  void release(int64_t bytes) override {
+    pool_.release(bytes);
   }
 
  private:
@@ -433,6 +451,10 @@ class MemoryPoolImpl : public MemoryPoolBase {
   int64_t getAggregateBytes() const;
   int64_t getSubtreeMaxBytes() const;
 
+  // TODO: consider returning bool instead.
+  void reserve(int64_t size) override;
+  void release(int64_t size) override;
+
  private:
   VELOX_FRIEND_TEST(MemoryPoolTest, Ctor);
 
@@ -482,10 +504,6 @@ class MemoryPoolImpl : public MemoryPoolBase {
   void accessSubtreeMemoryUsage(
       std::function<void(const MemoryUsage&)> visitor) const;
   void updateSubtreeMemoryUsage(std::function<void(MemoryUsage&)> visitor);
-
-  // TODO: consider returning bool instead.
-  void reserve(int64_t size);
-  void release(int64_t size);
 
   MemoryManager<Allocator, ALIGNMENT>& memoryManager_;
 
