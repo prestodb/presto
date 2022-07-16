@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <velox/common/memory/Memory.h>
 #include <memory>
 #include "velox/common/memory/ByteStream.h"
 #include "velox/exec/Operator.h"
@@ -30,7 +31,13 @@ class SerializedPage {
   // Construct from IOBuf chain.
   explicit SerializedPage(std::unique_ptr<folly::IOBuf> iobuf);
 
-  ~SerializedPage() = default;
+  // Construct from IOBuf chain with memory tracked by provided
+  // pool. No copy is made.
+  explicit SerializedPage(
+      std::unique_ptr<folly::IOBuf> iobuf,
+      memory::MemoryPool* pool);
+
+  ~SerializedPage();
 
   // Returns the size of the serialized data in bytes.
   uint64_t size() const {
@@ -62,6 +69,7 @@ class SerializedPage {
 
   // Number of payload bytes in 'iobuf_'.
   const int64_t iobufBytes_;
+  memory::MemoryPool* pool_{nullptr};
 };
 
 // Queue of results retrieved from source. Owned by shared_ptr by
@@ -245,6 +253,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
 
   static std::vector<Factory>& factories();
 
+  void setMemoryPool(memory::MemoryPool* pool);
   // ID of the task producing data
   const std::string taskId_;
   // Destination number of 'this' on producer
@@ -253,6 +262,9 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   std::shared_ptr<ExchangeQueue> queue_;
   bool requestPending_ = false;
   bool atEnd_ = false;
+
+ protected:
+  memory::MemoryPool* pool_{nullptr};
 };
 
 struct RemoteConnectorSplit : public connector::ConnectorSplit {
@@ -279,6 +291,12 @@ class ExchangeClient {
 
   ~ExchangeClient();
 
+  memory::MemoryPool* pool() const {
+    return pool_;
+  }
+
+  void setMemoryPool(memory::MemoryPool* pool);
+
   void addRemoteTaskId(const std::string& taskId);
 
   void noMoreRemoteTasks();
@@ -296,6 +314,7 @@ class ExchangeClient {
   std::shared_ptr<ExchangeQueue> queue_;
   std::unordered_set<std::string> taskIds_;
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
+  memory::MemoryPool* pool_{nullptr};
 };
 
 class Exchange : public SourceOperator {
@@ -312,7 +331,16 @@ class Exchange : public SourceOperator {
             exchangeNode->id(),
             "Exchange"),
         planNodeId_(exchangeNode->id()),
-        exchangeClient_(std::move(exchangeClient)) {}
+        exchangeClient_(std::move(exchangeClient)) {
+    // ExchangeClient is shared among multiple drivers' Exchange operators so we
+    // only need one of the operator to set it up.
+    if (exchangeClient_->pool() == nullptr) {
+      exchangeClient_->setMemoryPool(operatorCtx_->pool());
+    } else if (exchangeClient_->pool() != operatorCtx_->pool()) {
+      LOG(WARNING)
+          << "Passed in pool from Exchange operator is different than current pool in ExchangeClient.";
+    }
+  }
 
   ~Exchange() override {
     close();
