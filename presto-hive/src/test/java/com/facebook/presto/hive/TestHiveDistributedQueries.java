@@ -30,6 +30,7 @@ import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -58,7 +59,13 @@ public class TestHiveDistributedQueries
         assertTrue(eventListener.isPresent());
         assertTrue(eventListener.get() instanceof TestingHiveEventListener, eventListener.get().getClass().getName());
         Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener.get()).getRunningQueries();
-        assertEquals(runningQueryIds, ImmutableSet.of(), format("Query completion events not sent for %d queries", runningQueryIds.size()));
+        assertEquals(
+                runningQueryIds,
+                ImmutableSet.of(),
+                format(
+                        "Query completion events not sent for %d queries: %s",
+                        runningQueryIds.size(),
+                        runningQueryIds.stream().map(QueryId::getId).collect(joining(", "))));
         super.close();
     }
 
