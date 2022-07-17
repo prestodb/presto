@@ -170,13 +170,13 @@ public class RedisLoader
                 return value;
             }
             if (TIME.equals(type)) {
-                return ISO8601_FORMATTER.parse(Instant.ofEpochMilli(parseTimeLiteral(timeZoneKey, (String) value)).toString());
+                return ISO8601_FORMATTER.format(Instant.ofEpochMilli(parseTimeLiteral(timeZoneKey, (String) value)));
             }
             if (TIMESTAMP.equals(type)) {
-                return ISO8601_FORMATTER.parse(Instant.ofEpochMilli(parseTimestampWithoutTimeZone(timeZoneKey, (String) value)).toString());
+                return ISO8601_FORMATTER.format(Instant.ofEpochMilli(parseTimestampWithoutTimeZone(timeZoneKey, (String) value)));
             }
             if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                return ISO8601_FORMATTER.parse(Instant.ofEpochMilli(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value))).toString());
+                return ISO8601_FORMATTER.format(Instant.ofEpochMilli(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value))));
             }
             throw new AssertionError("unhandled type: " + type);
         }
