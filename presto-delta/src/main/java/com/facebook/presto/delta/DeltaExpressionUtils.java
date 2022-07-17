@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.delta;
 
-import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.predicate.*;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -26,17 +24,18 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.data.CloseableIterator;
+import io.delta.standalone.expressions.*;
+import io.delta.standalone.types.*;
 
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.StandardTypes.*;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
+import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_UNSUPPORTED_COLUMN_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -177,6 +176,173 @@ public final class DeltaExpressionUtils
                         return null;
                     }
                     return deltaColumnHandle.getName();
+                });
+    }
+
+    public static Optional<Literal> convertPrestoValueToDeltaLiteral(Object value, String type) {
+        // TODO: check availability of type conversion.
+        switch (type) {
+            case StandardTypes.BIGINT:
+            case StandardTypes.INTEGER:
+            case StandardTypes.SMALLINT:
+            case StandardTypes.TINYINT:
+                return Optional.of(Literal.of((long) value));
+            case StandardTypes.BOOLEAN:
+                return Optional.of(Literal.of((boolean) value));
+            case StandardTypes.DOUBLE:
+                return Optional.of(Literal.of((double) value));
+            case StandardTypes.REAL:
+                return Optional.of(Literal.of((float) value));
+            case StandardTypes.VARCHAR:
+            case StandardTypes.VARBINARY:
+                return Optional.of(Literal.of((String) value));
+            case StandardTypes.TIMESTAMP:
+                return Optional.of(Literal.of((Timestamp) value));
+            case StandardTypes.DATE:
+                return Optional.of(Literal.of((Date) value));
+            default:
+                return Optional.empty();
+        }
+    }
+
+    public static Optional<Expression> convertPrestoExpressionToDelta(TupleDomain<DeltaColumnHandle> predicate)
+    {
+        TupleDomain<Column> regularColumnsPredicate = extractRegularColumnsPredicate(predicate);
+        Optional<Map<Column, Domain>> domainList = regularColumnsPredicate.getDomains();
+
+        if (!domainList.isPresent()) {
+            return Optional.empty(); // Nothing in query predicate
+        }
+        List<Expression> columnPredicates = new ArrayList<>();
+        for (Map.Entry<Column, Domain> columnDomain: domainList.get().entrySet()) {
+            Column column = columnDomain.getKey();
+            Domain domain = columnDomain.getValue();
+
+            if (domain.isNone()) {
+                return Optional.of(Literal.False); // Reject all records
+            } else if (!domain.isAll()) {
+                if (!domain.isNullAllowed()) {
+                    columnPredicates.add(new IsNotNull(column));
+                }
+                if (domain.isOnlyNull()) {
+                    columnPredicates.add(new IsNull(column));
+                    continue;
+                }
+                ValueSet valueSet = domain.getValues();
+                String type = valueSet.getType().getTypeSignature().getBase();
+                if (valueSet.isSingleValue()) {
+                    Optional<Literal> value = convertPrestoValueToDeltaLiteral(valueSet.getSingleValue(), type);
+                    value.ifPresent(literal -> columnPredicates.add(new EqualTo(column, literal)));
+                } else {
+                    if (valueSet instanceof EquatableValueSet) {
+                        DiscreteValues dValues = valueSet.getDiscreteValues();
+                        List<Literal> valueList = new ArrayList<>();
+                        for (Object dValue: dValues.getValues()) {
+                            Optional<Literal> value = convertPrestoValueToDeltaLiteral(dValue, type);
+                            if (value.isPresent()) {
+                                valueList.add(value.get());
+                            }
+                        }
+                        if (valueList.size() > 0) {
+                            Expression inList = new In(column, valueList);
+                            if (!dValues.isWhiteList()) {
+                                inList = new Not(inList);
+                            }
+                            columnPredicates.add(inList);
+                        }
+                    } else if (valueSet instanceof SortedRangeSet) {
+                        Ranges ranges = valueSet.getRanges();
+                        if (ranges.getRangeCount() == 0) {
+                            continue;
+                        }
+                        List<Expression> rangeExprs = new ArrayList<>();
+                        for (Range range: ranges.getOrderedRanges()) {
+                            Expression highBoundExpr = null;
+                            Optional<Object> highValue = range.getHighValue();
+                            if (highValue.isPresent()) {
+                                Optional<Literal> highLiteral = convertPrestoValueToDeltaLiteral(highValue.get(), type);
+                                if (!highLiteral.isPresent()) {
+                                    continue;
+                                }
+                                if (range.isHighInclusive()) {
+                                    highBoundExpr = new LessThanOrEqual(column, highLiteral.get());
+                                } else {
+                                    highBoundExpr = new LessThan(column, highLiteral.get());
+                                }
+                            }
+
+                            Expression lowBoundExpr = null;
+                            Optional<Object> lowValue = range.getLowValue();
+                            if (lowValue.isPresent()) {
+                                Optional<Literal> lowLiteral = convertPrestoValueToDeltaLiteral(lowValue.get(), type);
+                                if (!lowLiteral.isPresent()) {
+                                    continue;
+                                }
+                                if (range.isLowInclusive()) {
+                                    lowBoundExpr = new LessThanOrEqual(column, lowLiteral.get());
+                                } else {
+                                    lowBoundExpr = new LessThan(column, lowLiteral.get());
+                                }
+                            }
+
+                            if (lowBoundExpr != null && highBoundExpr != null) {
+                                rangeExprs.add(new And(lowBoundExpr, highBoundExpr));
+                            } else if (lowBoundExpr != null) {
+                                rangeExprs.add(lowBoundExpr);
+                            } else if (highBoundExpr != null) {
+                                rangeExprs.add(highBoundExpr);
+                            }
+                        }
+                        if (rangeExprs.size() > 0) {
+                            columnPredicates.add(rangeExprs.stream().reduce(Or::new).get());
+                        }
+                    }
+                }
+            }
+        }
+        return columnPredicates.stream().reduce(And::new);
+    }
+
+    static TupleDomain<Column> extractRegularColumnsPredicate(TupleDomain<DeltaColumnHandle> predicate)
+    {
+        return predicate.transform(
+                deltaColumnHandle -> {
+                    if (deltaColumnHandle.getColumnType() != REGULAR) {
+                        // SUBFIELD is not supported in Delta-Standalone-v0.4.0
+                        return null;
+                    }
+                    DataType columnType;
+                    switch (deltaColumnHandle.getDataType().getBase()) {
+                        case StandardTypes.BIGINT:
+                        case StandardTypes.INTEGER:
+                        case StandardTypes.SMALLINT:
+                        case StandardTypes.TINYINT:
+                            columnType = new LongType();
+                            break;
+                        case StandardTypes.BOOLEAN:
+                            columnType = new BooleanType();
+                            break;
+                        case StandardTypes.DOUBLE:
+                            columnType = new DoubleType();
+                            break;
+                        case StandardTypes.REAL:
+                            columnType = new FloatType();
+                            break;
+                        case StandardTypes.VARCHAR:
+                            columnType = new StringType();
+                            break;
+                        case StandardTypes.VARBINARY:
+                            columnType = new BinaryType();
+                        case StandardTypes.TIMESTAMP:
+                            columnType = new TimestampType();
+                            break;
+                        case StandardTypes.DATE:
+                            columnType = new DateType();
+                            break;
+                        default:
+                            return null;
+                    }
+                    return new Column(deltaColumnHandle.getName(), columnType);
                 });
     }
 

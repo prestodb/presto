@@ -24,6 +24,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.data.CloseableIterator;
+import io.delta.standalone.expressions.Expression;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
@@ -33,6 +34,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
@@ -76,8 +78,11 @@ public class DeltaSplitManager
         DeltaSplitSource(ConnectorSession session, DeltaTableLayoutHandle deltaTableHandle)
         {
             this.deltaTable = deltaTableHandle.getTable().getDeltaTable();
+
+            Optional<Expression> expr = DeltaExpressionUtils.convertPrestoExpressionToDelta(deltaTableHandle.getPredicate());
+
             this.fileIterator = DeltaExpressionUtils.iterateWithPartitionPruning(
-                    deltaClient.listFiles(session, deltaTable),
+                    deltaClient.listFiles(session, deltaTable, expr),
                     deltaTableHandle.getPredicate(),
                     typeManager);
             this.maxBatchSize = deltaConfig.getMaxSplitsBatchSize();
