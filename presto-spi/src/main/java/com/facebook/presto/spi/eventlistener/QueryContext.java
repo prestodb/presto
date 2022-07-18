@@ -37,6 +37,7 @@ public class QueryContext
     private final Optional<String> schema;
 
     private final Optional<ResourceGroupId> resourceGroupId;
+    private final Optional<ResourceGroupId> resourceGroupQueuedOn;
 
     private final Map<String, String> sessionProperties;
     private final ResourceEstimates resourceEstimates;
@@ -56,6 +57,7 @@ public class QueryContext
             Optional<String> catalog,
             Optional<String> schema,
             Optional<ResourceGroupId> resourceGroupId,
+            Optional<ResourceGroupId> resourceGroupQueuedOn,
             Map<String, String> sessionProperties,
             ResourceEstimates resourceEstimates,
             String serverAddress,
@@ -72,6 +74,7 @@ public class QueryContext
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
+        this.resourceGroupQueuedOn = requireNonNull(resourceGroupQueuedOn, "resourceGroupQueuedOn is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
@@ -137,6 +140,12 @@ public class QueryContext
     public Optional<ResourceGroupId> getResourceGroupId()
     {
         return resourceGroupId;
+    }
+
+    @JsonProperty
+    public Optional<ResourceGroupId> getResourceGroupQueuedOn()
+    {
+        return resourceGroupQueuedOn;
     }
 
     @JsonProperty

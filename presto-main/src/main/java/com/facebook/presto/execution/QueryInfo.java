@@ -78,6 +78,7 @@ public class QueryInfo
     private final Optional<Output> output;
     private final boolean finalQueryInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
+    private final Optional<ResourceGroupId> resourceGroupQueuedOn;
     private final Optional<QueryType> queryType;
     // failedTasks is only available for final query info because the construction is expensive.
     private final Optional<List<TaskId>> failedTasks;
@@ -117,6 +118,7 @@ public class QueryInfo
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("finalQueryInfo") boolean finalQueryInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
+            @JsonProperty("resourceGroupQueuedOn") Optional<ResourceGroupId> resourceGroupQueuedOn,
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("failedTasks") Optional<List<TaskId>> failedTasks,
             @JsonProperty("runtimeOptimizedStages") Optional<List<StageId>> runtimeOptimizedStages,
@@ -143,6 +145,7 @@ public class QueryInfo
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
         requireNonNull(resourceGroupId, "resourceGroupId is null");
+        requireNonNull(resourceGroupQueuedOn, "resourceGroupQueuedOn is null");
         requireNonNull(warnings, "warnings is null");
         requireNonNull(queryType, "queryType is null");
         requireNonNull(failedTasks, "failedTasks is null");
@@ -183,6 +186,7 @@ public class QueryInfo
             checkArgument(state.isDone(), "finalQueryInfo without a terminal query state: %s", state);
         }
         this.resourceGroupId = resourceGroupId;
+        this.resourceGroupQueuedOn = resourceGroupQueuedOn;
         this.queryType = queryType;
         this.failedTasks = failedTasks;
         this.runtimeOptimizedStages = runtimeOptimizedStages;
@@ -372,6 +376,12 @@ public class QueryInfo
     public Optional<ResourceGroupId> getResourceGroupId()
     {
         return resourceGroupId;
+    }
+
+    @JsonProperty
+    public Optional<ResourceGroupId> getResourceGroupQueuedOn()
+    {
+        return resourceGroupQueuedOn;
     }
 
     @JsonProperty

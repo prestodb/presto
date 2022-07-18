@@ -136,6 +136,7 @@ public class TestBasicQueryInfo
                         Optional.empty(),
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         Optional.of(QueryType.INSERT),
                         Optional.empty(),
                         Optional.empty(),

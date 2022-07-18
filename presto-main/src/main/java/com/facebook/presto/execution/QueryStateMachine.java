@@ -157,6 +157,8 @@ public class QueryStateMachine
 
     private final WarningCollector warningCollector;
 
+    private Optional<ResourceGroupId> resourceGroupQueuedOn;
+
     private QueryStateMachine(
             String query,
             Optional<String> preparedQuery,
@@ -176,6 +178,7 @@ public class QueryStateMachine
         this.queryId = session.getQueryId();
         this.self = requireNonNull(self, "self is null");
         this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
+        this.resourceGroupQueuedOn = Optional.empty();
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.queryStateTimer = new QueryStateTimer(ticker);
@@ -471,6 +474,7 @@ public class QueryStateMachine
                 output.get(),
                 finalInfo,
                 Optional.of(resourceGroup),
+                resourceGroupQueuedOn,
                 queryType,
                 failedTasks,
                 runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages),
@@ -901,6 +905,11 @@ public class QueryStateMachine
         queryStateTimer.endAnalysis();
     }
 
+    public void setResourceGroupQueuedOn(Optional<ResourceGroupId> resourceGroup)
+    {
+        resourceGroupQueuedOn = resourceGroup;
+    }
+
     public DateTime getCreateTime()
     {
         return queryStateTimer.getCreateTime();
@@ -949,7 +958,6 @@ public class QueryStateMachine
         if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
             return;
         }
-
         QueryInfo queryInfo = finalInfo.get();
         Optional<StageInfo> prunedOutputStage = queryInfo.getOutputStage().map(outputStage -> new StageInfo(
                 outputStage.getStageId(),
@@ -990,6 +998,7 @@ public class QueryStateMachine
                 queryInfo.getOutput(),
                 queryInfo.isFinalQueryInfo(),
                 queryInfo.getResourceGroupId(),
+                queryInfo.getResourceGroupQueuedOn(),
                 queryInfo.getQueryType(),
                 queryInfo.getFailedTasks(),
                 queryInfo.getRuntimeOptimizedStages(),
