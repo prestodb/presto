@@ -119,7 +119,7 @@ class SimpleFunctionAdapter : public VectorFunction {
       int32_t POSITION,
       typename... Values,
       typename std::enable_if_t<POSITION<FUNC::num_args, int32_t> = 0> void
-          unpack(
+          unpackInitialize(
               const core::QueryConfig& config,
               const std::vector<VectorPtr>& packed,
               const Values*... values) const {
@@ -129,20 +129,20 @@ class SimpleFunctionAdapter : public VectorFunction {
       auto oneReader = VectorReader<arg_at<POSITION>>(&decodedVector);
       auto oneValue = oneReader[0];
 
-      unpack<POSITION + 1>(config, packed, values..., &oneValue);
+      unpackInitialize<POSITION + 1>(config, packed, values..., &oneValue);
     } else {
       using temp_type = exec_arg_at<POSITION>;
-      unpack<POSITION + 1>(
+      unpackInitialize<POSITION + 1>(
           config, packed, values..., (const temp_type*)nullptr);
     }
   }
 
-  // unpack: base case
+  // unpackInitialize: base case
   template <
       int32_t POSITION,
       typename... Values,
       typename std::enable_if_t<POSITION == FUNC::num_args, int32_t> = 0>
-  void unpack(
+  void unpackInitialize(
       const core::QueryConfig& config,
       const std::vector<VectorPtr>& /*packed*/,
       const Values*... values) const {
@@ -157,7 +157,7 @@ class SimpleFunctionAdapter : public VectorFunction {
       : fn_{std::make_unique<FUNC>(move(returnType))} {
     if constexpr (FUNC::udf_has_initialize) {
       try {
-        unpack<0>(config, constantInputs);
+        unpackInitialize<0>(config, constantInputs);
       } catch (const std::exception& e) {
         initializeException_ = std::current_exception();
       }
