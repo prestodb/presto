@@ -156,4 +156,128 @@ struct ArrayJoinFunction {
   }
 };
 
+/// Function Signature: combinations(array(T), n) -> array(array(T))
+/// Returns n-element combinations of the input array. If the input array has no
+/// duplicates, combinations returns n-element subsets. Order of subgroup is
+/// deterministic but unspecified. Order of elements within a subgroup are
+/// deterministic but unspecified. n must not be greater than 5, and the total
+/// size of subgroups generated must be smaller than 100000.
+template <typename TExecParams, typename T>
+struct CombinationsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+
+  static constexpr int32_t kMaxCombinationSize = 5;
+  static constexpr int64_t kMaxNumberOfCombinations = 100000;
+  /// TODO: Add ability to re-use strings once reuse_strings_from_arg supports
+  /// reusing strings nested within complex types.
+
+  int64_t calculateCombinationCount(
+      int64_t inputArraySize,
+      int64_t combinationSize) {
+    int64_t combinationCount = 1;
+    for (int i = 1;
+         i <= combinationSize && combinationCount <= kMaxNumberOfCombinations;
+         i++, inputArraySize--) {
+      combinationCount = (combinationCount * inputArraySize) / i;
+    }
+    return combinationCount;
+  }
+
+  void resetCombination(std::vector<int>& combination, int to) {
+    std::iota(combination.begin(), combination.begin() + to, 0);
+  }
+
+  std::vector<int> firstCombination(int64_t size) {
+    std::vector<int> combination(size, 0);
+    std::iota(combination.begin(), combination.end(), 0);
+    return combination;
+  }
+
+  bool nextCombination(std::vector<int>& combination, int64_t inputArraySize) {
+    for (int i = 0; i < combination.size() - 1; i++) {
+      if (combination[i] + 1 < combination[i + 1]) {
+        combination[i]++;
+        resetCombination(combination, i);
+        return true;
+      }
+    }
+    if (combination.size() > 0 && combination.back() + 1 < inputArraySize) {
+      combination.back()++;
+      resetCombination(combination, combination.size() - 1);
+      return true;
+    }
+    return false;
+  }
+
+  void appendEntryFromCombination(
+      out_type<velox::Array<velox::Array<T>>>& result,
+      const arg_type<velox::Array<T>>& array,
+      std::vector<int>& combination) {
+    auto& innerArray = result.add_item();
+    for (auto idx : combination) {
+      if (!array[idx].has_value()) {
+        innerArray.add_null();
+        continue;
+      }
+      if constexpr (std::is_same<T, Varchar>::value) {
+        innerArray.add_item().setNoCopy(array[idx].value());
+      } else {
+        innerArray.add_item() = array[idx].value();
+      }
+    }
+  }
+
+  /// Employs an iterative approach of generating combinations. Each
+  /// 'combination' is a set of numbers that represent the indices of the
+  /// elements within the input array. Later, using this, an entry is generated
+  /// in the output array by copying the elements corresponding to those indices
+  /// from the input array.
+  /// The iterative approach is based on the fact that if combinations are
+  /// lexicographically sorted based on their indices in the input array then
+  /// each combination in that sequence is the next lowest lexicographic order
+  /// that can be formed when compared to its previous consecutive combination.
+  // So we start with the first combination (first k elements 0,1,2,...k the
+  // lowest lexicographic order) and on each iteration generate the next lowest
+  // lexicographic order. eg. for (0,1,2,3) combinations of size 3 are
+  // (0, 1, 2), (0, 1, 3), (0, 2, 3), (1, 2, 3)
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<velox::Array<velox::Array<T>>>& result,
+      const arg_type<velox::Array<T>>& array,
+      const int32_t& combinationSize) {
+    auto arraySize = array.size();
+    VELOX_USER_CHECK_GE(
+        combinationSize,
+        0,
+        "combination size must not be negative: {}",
+        combinationSize);
+    VELOX_USER_CHECK_LE(
+        combinationSize,
+        kMaxCombinationSize,
+        "combination size must not exceed {}: {}",
+        kMaxCombinationSize,
+        combinationSize);
+    if (combinationSize > arraySize) {
+      // An empty array should be returned
+      return;
+    }
+    if (combinationSize == 0) {
+      // return a single empty array element within the array.
+      result.add_item();
+      return;
+    }
+    int64_t combinationCount =
+        calculateCombinationCount(arraySize, combinationSize);
+    VELOX_USER_CHECK_LE(
+        combinationCount,
+        kMaxNumberOfCombinations,
+        "combinations exceed max size of {}",
+        kMaxNumberOfCombinations);
+    result.reserve(combinationCount);
+    std::vector<int> currentCombination = firstCombination(combinationSize);
+    do {
+      appendEntryFromCombination(result, array, currentCombination);
+    } while (nextCombination(currentCombination, arraySize));
+  }
+};
+
 } // namespace facebook::velox::functions

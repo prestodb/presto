@@ -203,14 +203,20 @@ class VectorTestBase {
   //   std::vector<std::optional<int64_t>> a {1, 2, 3};
   //   std::vector<std::optional<int64_t>> b {4, 5};
   //   std::vector<std::optional<int64_t>> c {6, 7, 8};
-  //   auto O = [](const std::vector<std::optional<int64_t>>& data) {
-  //     return std::make_optional(data);
-  //   };
-  //   auto arrayVector = makeNestedArrayVector<int64_t>(
-  //      {{O(a), O(b)},
-  //       {O(a), O(c)},
-  //       {O({})},
-  //       {O({std::nullopt})}});
+  //   auto arrayVector = makeNestedArrayVector<int64_t>({
+  //    {
+  //        {a}, {b}
+  //    },
+  //    {
+  //        {a}, {c}
+  //    },
+  //    {
+  //        {{}}
+  //    },
+  //    {
+  //        {{std::nullopt}}
+  //    }
+  //   });
   //
   //   EXPECT_EQ(4, arrayVector->size());
   template <typename T>
