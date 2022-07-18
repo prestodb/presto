@@ -576,7 +576,7 @@ public final class KuduTableProperties
         else if (obj instanceof String) {
             String s = (String) obj;
             s = s.trim().replace(' ', 'T');
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd[[ ]['T']HH:mm:ss[.SSS]['Z'][XXX]]").withZone(ZoneId.of("UTC"));
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd[[ ]['T']HH[:mm][:ss][.SSS]['Z'][XXX]]").withZone(ZoneId.of("UTC"));
             TemporalAccessor temporalAccessor = formatter.parseBest(s, LocalDateTime::from, LocalDate::from);
             long millis = TimeUnit.DAYS.toMillis(temporalAccessor.getLong(EPOCH_DAY)) + (temporalAccessor.toString().contains("T") ? temporalAccessor.getLong(MILLI_OF_DAY) : 0);
             return millis * 1000;
