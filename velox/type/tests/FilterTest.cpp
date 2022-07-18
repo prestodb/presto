@@ -1273,6 +1273,25 @@ TEST(FilterTest, mergeWithBigint) {
   filters.push_back(between(150, 500));
   filters.push_back(between(150, 500, true));
 
+  // Inequality.
+  filters.push_back(notEqual(123));
+  filters.push_back(notEqual(123, true));
+  filters.push_back(notEqual(300));
+  filters.push_back(notEqual(300, true));
+  filters.push_back(notEqual(2));
+  filters.push_back(notEqual(3));
+
+  // Not between.
+  filters.push_back(notBetween(150, 500));
+  filters.push_back(notBetween(150, 500, true));
+  filters.push_back(notBetween(0, 100));
+  filters.push_back(notBetween(0, 100, true));
+  filters.push_back(notBetween(0, 200));
+  filters.push_back(notBetween(400, 600));
+  filters.push_back(notBetween(0, 600));
+  filters.push_back(notBetween(1000, 10'134));
+  filters.push_back(notBetween(200, 300));
+
   // IN-list.
   filters.push_back(in({1, 2, 3, 67'000'000'000, 134}));
   filters.push_back(in({1, 2, 3, 67'000'000'000, 134}, true));
@@ -1382,6 +1401,28 @@ TEST(FilterTest, mergeWithBigintMultiRange) {
   filters.push_back(bigintOr(lessThan(-3), equal(12), between(25, 47)));
   filters.push_back(bigintOr(lessThan(-3), equal(12), between(25, 47), true));
 
+  // not equal
+  filters.push_back(notEqual(20));
+  filters.push_back(notEqual(20, true));
+  filters.push_back(notEqual(12));
+  filters.push_back(notEqual(12, true));
+  filters.push_back(notEqual(-210));
+  filters.push_back(notEqual(-210, true));
+
+  // not between
+  filters.push_back(notBetween(25, 47));
+  filters.push_back(notBetween(25, 47, true));
+  filters.push_back(notBetween(0, 40));
+  filters.push_back(notBetween(30, 40));
+  filters.push_back(notBetween(-20, 40));
+  filters.push_back(notBetween(12, 40));
+  filters.push_back(notBetween(13, 40));
+  filters.push_back(notBetween(20, 50));
+  filters.push_back(notBetween(-10, -1));
+  filters.push_back(notBetween(90, 100));
+  filters.push_back(notBetween(std::numeric_limits<int64_t>::min(), -4));
+  filters.push_back(notBetween(std::numeric_limits<int64_t>::min(), -4, true));
+
   // IN-list using bitmask.
   filters.push_back(in({1, 2, 3, 56}));
   filters.push_back(in({1, 2, 3, 56}, true));
@@ -1389,6 +1430,11 @@ TEST(FilterTest, mergeWithBigintMultiRange) {
   // IN-list using hash table.
   filters.push_back(in({1, 2, 3, 67, 10'134}));
   filters.push_back(in({1, 2, 3, 67, 10'134}, true));
+  filters.push_back(
+      in({std::numeric_limits<int64_t>::min(),
+          0,
+          std::numeric_limits<int64_t>::max()},
+         true));
 
   // NOT IN-list using bitmask.
   filters.push_back(notIn({0, 3, 5, 20, 32, 210}));
