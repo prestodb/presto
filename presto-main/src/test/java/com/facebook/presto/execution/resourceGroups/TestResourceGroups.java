@@ -71,15 +71,18 @@ public class TestResourceGroups
         query1.startWaitingForPrerequisites();
         root.run(query1);
         assertEquals(query1.getState(), RUNNING);
+        assertEquals(query1.getResourceGroupQueuedOn(), root.getId());
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
         query2.startWaitingForPrerequisites();
         root.run(query2);
         assertEquals(query2.getState(), QUEUED);
+        assertEquals(query2.getResourceGroupQueuedOn(), root.getId());
         MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
         query3.startWaitingForPrerequisites();
         root.run(query3);
         assertEquals(query3.getState(), FAILED);
         assertEquals(query3.getThrowable().getMessage(), "Too many queued queries for \"root\"");
+        assertEquals(query3.getResourceGroupQueuedOn(), root.getId());
     }
 
     @Test(timeOut = 10_000)
@@ -142,6 +145,129 @@ public class TestResourceGroups
         assertEquals(query2b.getState(), QUEUED);
     }
 
+    @Test(timeOut = 10_000)
+    public void testAncestorFullFairEligibility()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(2);
+        root.setHardConcurrencyLimit(1);
+        InternalResourceGroup group1 = root.getOrCreateSubGroup("1", true);
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(4);
+        group1.setHardConcurrencyLimit(1);
+        InternalResourceGroup group2 = root.getOrCreateSubGroup("2", true);
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(4);
+        group2.setHardConcurrencyLimit(1);
+        InternalResourceGroup group3 = root.getOrCreateSubGroup("3", true);
+        group3.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group3.setMaxQueuedQueries(4);
+        group3.setHardConcurrencyLimit(1);
+        MockManagedQueryExecution query1a = new MockManagedQueryExecution(0);
+        query1a.startWaitingForPrerequisites();
+        group1.run(query1a);
+        assertEquals(query1a.getState(), RUNNING);
+        assertEquals(query1a.getResourceGroupQueuedOn(), group1.getId());
+        MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
+        query1b.startWaitingForPrerequisites();
+        group1.run(query1b);
+        assertEquals(query1b.getState(), QUEUED);
+        assertEquals(query1b.getResourceGroupQueuedOn(), group1.getId());
+        MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
+        query2a.startWaitingForPrerequisites();
+        group2.run(query2a);
+        assertEquals(query2a.getState(), QUEUED);
+        assertEquals(query2a.getResourceGroupQueuedOn(), group2.getId());
+        MockManagedQueryExecution query2b = new MockManagedQueryExecution(0);
+        query2b.startWaitingForPrerequisites();
+        group2.run(query2b);
+        assertEquals(query2b.getState(), FAILED);
+        assertEquals(query2b.getResourceGroupQueuedOn(), root.getId());
+        MockManagedQueryExecution query3a = new MockManagedQueryExecution(0);
+        query3a.startWaitingForPrerequisites();
+        group3.run(query3a);
+        assertEquals(query3a.getState(), FAILED);
+        assertEquals(query3a.getResourceGroupQueuedOn(), root.getId());
+
+        query1a.complete();
+        root.processQueuedQueries();
+        assertEquals(query1b.getState(), QUEUED);
+        assertEquals(query2a.getState(), RUNNING);
+        assertEquals(query2a.getResourceGroupQueuedOn(), group2.getId());
+
+        query2a.complete();
+        root.processQueuedQueries();
+        assertEquals(query1b.getState(), RUNNING);
+        assertEquals(query1b.getResourceGroupQueuedOn(), group1.getId());
+    }
+
+    @Test(timeOut = 10_000)
+    public void testLeafFullFairEligibility()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(2);
+        InternalResourceGroup group1 = root.getOrCreateSubGroup("1", true);
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(1);
+        group1.setHardConcurrencyLimit(1);
+        InternalResourceGroup group2 = root.getOrCreateSubGroup("2", true);
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(0);
+        group2.setHardConcurrencyLimit(1);
+        InternalResourceGroup group3 = root.getOrCreateSubGroup("3", true);
+        group3.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group3.setMaxQueuedQueries(4);
+        group3.setHardConcurrencyLimit(1);
+        MockManagedQueryExecution query1a = new MockManagedQueryExecution(0);
+        query1a.startWaitingForPrerequisites();
+        group1.run(query1a);
+        assertEquals(query1a.getState(), RUNNING);
+        assertEquals(query1a.getResourceGroupQueuedOn(), group1.getId());
+        MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
+        query1b.startWaitingForPrerequisites();
+        group1.run(query1b);
+        assertEquals(query1b.getState(), QUEUED);
+        assertEquals(query1b.getResourceGroupQueuedOn(), group1.getId());
+        MockManagedQueryExecution query1c = new MockManagedQueryExecution(0);
+        query1c.startWaitingForPrerequisites();
+        group1.run(query1c);
+        assertEquals(query1c.getState(), FAILED);
+        assertEquals(query1c.getResourceGroupQueuedOn(), group1.getId());
+        MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
+        query2a.startWaitingForPrerequisites();
+        group2.run(query2a);
+        assertEquals(query2a.getState(), RUNNING);
+        assertEquals(query2a.getResourceGroupQueuedOn(), group2.getId());
+        MockManagedQueryExecution query2b = new MockManagedQueryExecution(0);
+        query2b.startWaitingForPrerequisites();
+        group2.run(query2b);
+        assertEquals(query2b.getState(), FAILED);
+        assertEquals(query2b.getResourceGroupQueuedOn(), group2.getId());
+        MockManagedQueryExecution query3a = new MockManagedQueryExecution(0);
+        query3a.startWaitingForPrerequisites();
+        group3.run(query3a);
+        assertEquals(query3a.getState(), QUEUED);
+        assertEquals(query3a.getResourceGroupQueuedOn(), group3.getId());
+
+        query1a.complete();
+        root.processQueuedQueries();
+        assertEquals(query1b.getState(), QUEUED);
+        assertEquals(query2a.getState(), RUNNING);
+        assertEquals(query3a.getState(), RUNNING);
+        assertEquals(query3a.getResourceGroupQueuedOn(), group3.getId());
+
+        query2a.complete();
+        root.processQueuedQueries();
+        assertEquals(query1b.getState(), RUNNING);
+        assertEquals(query1b.getResourceGroupQueuedOn(), group1.getId());
+
+        query3a.complete();
+        root.processQueuedQueries();
+    }
+
     @Test
     public void testSetSchedulingPolicy()
     {
@@ -161,18 +287,22 @@ public class TestResourceGroups
         query1a.startWaitingForPrerequisites();
         group1.run(query1a);
         assertEquals(query1a.getState(), RUNNING);
+        assertEquals(query1a.getResourceGroupQueuedOn(), group1.getId());
         MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
         query1b.startWaitingForPrerequisites();
         group1.run(query1b);
         assertEquals(query1b.getState(), QUEUED);
+        assertEquals(query1b.getResourceGroupQueuedOn(), group1.getId());
         MockManagedQueryExecution query1c = new MockManagedQueryExecution(0);
         query1c.startWaitingForPrerequisites();
         group1.run(query1c);
         assertEquals(query1c.getState(), QUEUED);
+        assertEquals(query1c.getResourceGroupQueuedOn(), group1.getId());
         MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
         query2a.startWaitingForPrerequisites();
         group2.run(query2a);
         assertEquals(query2a.getState(), QUEUED);
+        assertEquals(query2a.getResourceGroupQueuedOn(), group2.getId());
 
         assertEquals(root.getInfo().getNumEligibleSubGroups(), 2);
         assertEquals(root.getOrCreateSubGroup("1", true).getQueuedQueries(), 2);
@@ -207,23 +337,28 @@ public class TestResourceGroups
         query1a.startWaitingForPrerequisites();
         group1.run(query1a);
         assertEquals(query1a.getState(), RUNNING);
+        assertEquals(query1a.getResourceGroupQueuedOn(), group1.getId());
         MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
         query1b.startWaitingForPrerequisites();
         group1.run(query1b);
         assertEquals(query1b.getState(), QUEUED);
+        assertEquals(query1b.getResourceGroupQueuedOn(), group1.getId());
         MockManagedQueryExecution query1c = new MockManagedQueryExecution(0);
         query1c.startWaitingForPrerequisites();
         group1.run(query1c);
         assertEquals(query1c.getState(), QUEUED);
+        assertEquals(query1c.getResourceGroupQueuedOn(), group1.getId());
         MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
         query2a.startWaitingForPrerequisites();
         group2.run(query2a);
         assertEquals(query2a.getState(), QUEUED);
+        assertEquals(query2a.getResourceGroupQueuedOn(), group2.getId());
 
         query1a.complete();
         root.processQueuedQueries();
         // 1b and not 2a should have started, as it became queued first and group1 was eligible to run more
         assertEquals(query1b.getState(), RUNNING);
+        assertEquals(query1b.getResourceGroupQueuedOn(), group1.getId());
         assertEquals(query1c.getState(), QUEUED);
         assertEquals(query2a.getState(), QUEUED);
 
@@ -231,6 +366,7 @@ public class TestResourceGroups
         query1b.complete();
         root.processQueuedQueries();
         assertEquals(query2a.getState(), RUNNING);
+        assertEquals(query2a.getResourceGroupQueuedOn(), group2.getId());
         assertEquals(query1c.getState(), QUEUED);
     }
 
@@ -247,19 +383,24 @@ public class TestResourceGroups
         // Process the group to refresh stats
         root.processQueuedQueries();
         assertEquals(query1.getState(), RUNNING);
+        assertEquals(query1.getResourceGroupQueuedOn(), root.getId());
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
         query2.startWaitingForPrerequisites();
         root.run(query2);
         assertEquals(query2.getState(), QUEUED);
+        assertEquals(query2.getResourceGroupQueuedOn(), root.getId());
         MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
         query3.startWaitingForPrerequisites();
         root.run(query3);
         assertEquals(query3.getState(), QUEUED);
+        assertEquals(query3.getResourceGroupQueuedOn(), root.getId());
 
         query1.complete();
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
+        assertEquals(query2.getResourceGroupQueuedOn(), root.getId());
         assertEquals(query3.getState(), RUNNING);
+        assertEquals(query3.getResourceGroupQueuedOn(), root.getId());
     }
 
     @Test
@@ -280,19 +421,24 @@ public class TestResourceGroups
         // Process the group to refresh stats
         root.processQueuedQueries();
         assertEquals(query1.getState(), RUNNING);
+        assertEquals(query1.getResourceGroupQueuedOn(), subgroup.getId());
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
         query2.startWaitingForPrerequisites();
         subgroup.run(query2);
         assertEquals(query2.getState(), QUEUED);
+        assertEquals(query2.getResourceGroupQueuedOn(), subgroup.getId());
         MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
         query3.startWaitingForPrerequisites();
         subgroup.run(query3);
         assertEquals(query3.getState(), QUEUED);
+        assertEquals(query3.getResourceGroupQueuedOn(), subgroup.getId());
 
         query1.complete();
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
+        assertEquals(query2.getResourceGroupQueuedOn(), subgroup.getId());
         assertEquals(query3.getState(), RUNNING);
+        assertEquals(query3.getResourceGroupQueuedOn(), subgroup.getId());
     }
 
     @Test(timeOut = 10_000)
@@ -310,26 +456,32 @@ public class TestResourceGroups
         query1.startWaitingForPrerequisites();
         root.run(query1);
         assertEquals(query1.getState(), RUNNING);
+        assertEquals(query1.getResourceGroupQueuedOn(), root.getId());
 
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
         query2.startWaitingForPrerequisites();
         root.run(query2);
         assertEquals(query2.getState(), RUNNING);
+        assertEquals(query2.getResourceGroupQueuedOn(), root.getId());
 
         MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
         query3.startWaitingForPrerequisites();
         root.run(query3);
         assertEquals(query3.getState(), QUEUED);
+        assertEquals(query3.getResourceGroupQueuedOn(), root.getId());
 
         query1.complete();
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
+        assertEquals(query2.getResourceGroupQueuedOn(), root.getId());
         assertEquals(query3.getState(), QUEUED);
 
         root.generateCpuQuota(2);
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
+        assertEquals(query2.getResourceGroupQueuedOn(), root.getId());
         assertEquals(query3.getState(), RUNNING);
+        assertEquals(query3.getResourceGroupQueuedOn(), root.getId());
     }
 
     @Test(timeOut = 10_000)
@@ -345,10 +497,12 @@ public class TestResourceGroups
         query1.startWaitingForPrerequisites();
         root.run(query1);
         assertEquals(query1.getState(), RUNNING);
+        assertEquals(query1.getResourceGroupQueuedOn(), root.getId());
         MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
         query2.startWaitingForPrerequisites();
         root.run(query2);
         assertEquals(query2.getState(), QUEUED);
+        assertEquals(query2.getResourceGroupQueuedOn(), root.getId());
 
         query1.complete();
         root.processQueuedQueries();
@@ -357,6 +511,7 @@ public class TestResourceGroups
         root.generateCpuQuota(2);
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
+        assertEquals(query2.getResourceGroupQueuedOn(), root.getId());
     }
 
     @Test(timeOut = 10_000)
