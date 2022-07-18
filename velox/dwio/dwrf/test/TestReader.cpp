@@ -1284,7 +1284,9 @@ void testFlatmapAsMapFieldLifeCycle(
   EXPECT_TRUE(rowReader->next(batchSize, result));
   auto childCurr =
       std::dynamic_pointer_cast<MapVector>(result->as<RowVector>()->childAt(0));
-  EXPECT_NE(rawNulls, childCurr->nulls().get());
+  EXPECT_TRUE(
+      (rawNulls != childCurr->nulls().get()) ||
+      (!rawNulls && !childCurr->nulls()));
   EXPECT_NE(rawSizes, childCurr->sizes().get());
   EXPECT_NE(rawOffsets, childCurr->offsets().get());
   EXPECT_NE(keysPtr, childCurr->mapKeys().get());
