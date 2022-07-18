@@ -45,6 +45,7 @@ public class FailedDispatchQuery
     private final Session session;
     private final Executor executor;
     private final DispatchInfo dispatchInfo;
+    private ResourceGroupId resourceGroupQueuedOn;
 
     public FailedDispatchQuery(
             Session session,
@@ -195,4 +196,10 @@ public class FailedDispatchQuery
     @Override
     public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
     { }
+
+    @Override
+    public void setResourceGroupQueuedOn(ResourceGroupId resourceGroup)
+    {
+        resourceGroupQueuedOn = resourceGroup;
+    }
 }
