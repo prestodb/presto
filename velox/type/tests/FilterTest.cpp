@@ -175,6 +175,67 @@ TEST(FilterTest, bigIntRange) {
   EXPECT_TRUE(filter->testInt64Range(-100, 10, true));
 }
 
+TEST(FilterTest, negatedBigintRange) {
+  auto filter = notEqual(1, false);
+  EXPECT_FALSE(filter->testNull());
+  EXPECT_FALSE(filter->testInt64(1));
+
+  EXPECT_TRUE(filter->testInt64(-1));
+  EXPECT_TRUE(filter->testInt64(0));
+  EXPECT_TRUE(filter->testInt64(11));
+
+  EXPECT_FALSE(filter->testInt64Range(1, 1, false));
+  EXPECT_FALSE(filter->testInt64Range(1, 1, true));
+  EXPECT_TRUE(filter->testInt64Range(1, 2, false));
+  EXPECT_TRUE(filter->testInt64Range(8, 9, false));
+
+  EXPECT_EQ(filter->lower(), 1);
+  EXPECT_EQ(filter->upper(), 1);
+
+  auto testInt64 = [&](int64_t x) { return filter->testInt64(x); };
+
+  int64_t n4[] = {0, 1, 26, std::numeric_limits<int64_t>::max()};
+  checkSimd(filter.get(), n4, testInt64);
+  int32_t n8[] = {2, 1, 1000, -1000, 1, 15, 0, 1111};
+  checkSimd(filter.get(), n8, testInt64);
+  int16_t n16[] = {
+      2, 1, 1000, -1000, 1, -5, 0, 1111, 2, 1, 1000, -1000, 1, 1, 0, 1111};
+  checkSimd(filter.get(), n16, testInt64);
+
+  filter = notBetween(-5, 15, false);
+  EXPECT_FALSE(filter->testNull());
+  EXPECT_FALSE(filter->testInt64(-5));
+  EXPECT_FALSE(filter->testInt64(-1));
+  EXPECT_FALSE(filter->testInt64(0));
+  EXPECT_FALSE(filter->testInt64(1));
+  EXPECT_FALSE(filter->testInt64(15));
+
+  EXPECT_TRUE(filter->testInt64(-6));
+  EXPECT_TRUE(filter->testInt64(16));
+  EXPECT_TRUE(filter->testInt64(99));
+
+  EXPECT_FALSE(filter->testInt64Range(-5, 15, false));
+  EXPECT_FALSE(filter->testInt64Range(-5, 15, true));
+  EXPECT_FALSE(filter->testInt64Range(-3, -1, false));
+  EXPECT_FALSE(filter->testInt64Range(-4, 0, false));
+  EXPECT_FALSE(filter->testInt64Range(0, 8, false));
+
+  EXPECT_TRUE(filter->testInt64Range(16, 16, false));
+  EXPECT_TRUE(filter->testInt64Range(15, 16, false));
+  EXPECT_TRUE(filter->testInt64Range(-10, 20, false));
+  EXPECT_TRUE(filter->testInt64Range(-6, 15, false));
+  checkSimd(filter.get(), n4, testInt64);
+  checkSimd(filter.get(), n8, testInt64);
+  checkSimd(filter.get(), n16, testInt64);
+
+  EXPECT_EQ(filter->lower(), -5);
+  EXPECT_EQ(filter->upper(), 15);
+
+  auto filter_with_null = filter->clone(true);
+  EXPECT_TRUE(filter_with_null->testNull());
+  EXPECT_TRUE(filter_with_null->testInt64Range(5, 15, true));
+}
+
 TEST(FilterTest, bigintValuesUsingHashTable) {
   auto filter = createBigintValues({1, 10, 100, 10'000}, false);
   ASSERT_TRUE(dynamic_cast<BigintValuesUsingHashTable*>(filter.get()));

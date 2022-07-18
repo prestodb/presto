@@ -47,6 +47,9 @@ std::string Filter::toString() const {
     case FilterKind::kBigintRange:
       strKind = "BigintRange";
       break;
+    case FilterKind::kNegatedBigintRange:
+      strKind = "NegatedBigintRange";
+      break;
     case FilterKind::kBigintValuesUsingHashTable:
       strKind = "BigintValuesUsingHashTable";
       break;
@@ -1052,6 +1055,11 @@ std::unique_ptr<Filter> BigintRange::mergeWith(const Filter* other) const {
     default:
       VELOX_UNREACHABLE();
   }
+}
+
+std::unique_ptr<Filter> NegatedBigintRange::mergeWith(
+    const Filter* other) const {
+  VELOX_NYI("mergeWith is not yet implemented for NegatedBigintRange");
 }
 
 std::unique_ptr<Filter> BigintValuesUsingHashTable::mergeWith(

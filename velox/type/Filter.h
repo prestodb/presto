@@ -39,6 +39,7 @@ enum class FilterKind {
   kBigintRange,
   kBigintValuesUsingHashTable,
   kBigintValuesUsingBitmask,
+  kNegatedBigintRange,
   kNegatedBigintValuesUsingHashTable,
   kNegatedBigintValuesUsingBitmask,
   kDoubleRange,
@@ -627,6 +628,69 @@ class BigintRange final : public Filter {
   const int16_t lower16_;
   const int16_t upper16_;
   const bool isSingleValue_;
+};
+
+class NegatedBigintRange final : public Filter {
+ public:
+  /// @param lower Lowest value in the rejected range, inclusive.
+  /// @param upper Highest value in the range, inclusive.
+  /// @param nullAllowed Null values are passing the filter if true.
+  NegatedBigintRange(int64_t lower, int64_t upper, bool nullAllowed)
+      : Filter(true, nullAllowed, FilterKind::kNegatedBigintRange),
+        nonNegated_(std::make_unique<BigintRange>(lower, upper, !nullAllowed)) {
+  }
+
+  std::unique_ptr<Filter> clone(
+      std::optional<bool> nullAllowed = std::nullopt) const final {
+    return std::make_unique<NegatedBigintRange>(
+        nonNegated_->lower(),
+        nonNegated_->upper(),
+        nullAllowed.value_or(nullAllowed_));
+  }
+
+  bool testInt64(int64_t value) const final {
+    return !nonNegated_->testInt64(value);
+  }
+
+  xsimd::batch_bool<int64_t> testValues(
+      xsimd::batch<int64_t> values) const final {
+    return ~nonNegated_->testValues(values);
+  }
+
+  xsimd::batch_bool<int32_t> testValues(
+      xsimd::batch<int32_t> values) const final {
+    return ~nonNegated_->testValues(values);
+  }
+
+  xsimd::batch_bool<int16_t> testValues(
+      xsimd::batch<int16_t> values) const final {
+    return ~nonNegated_->testValues(values);
+  }
+
+  bool testInt64Range(int64_t min, int64_t max, bool hasNull) const final {
+    if (hasNull && nullAllowed_) {
+      return true;
+    }
+
+    return !(nonNegated_->lower() <= min && max <= nonNegated_->upper());
+  }
+
+  int64_t lower() const {
+    return nonNegated_->lower();
+  }
+
+  int64_t upper() const {
+    return nonNegated_->upper();
+  }
+
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
+
+  std::string toString() const final {
+    return "Negated" + nonNegated_->toString();
+  }
+
+ private:
+  std::unique_ptr<BigintRange> nonNegated_;
 };
 
 /// IN-list filter for integral data types. Implemented as a hash table. Good

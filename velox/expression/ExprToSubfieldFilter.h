@@ -50,6 +50,18 @@ inline std::unique_ptr<common::BigintRange> greaterThanOrEqual(
       min, std::numeric_limits<int64_t>::max(), nullAllowed);
 }
 
+inline std::unique_ptr<common::NegatedBigintRange> notEqual(
+    int64_t val,
+    bool nullAllowed = false) {
+  return std::make_unique<common::NegatedBigintRange>(val, val, nullAllowed);
+}
+
+inline std::unique_ptr<common::NegatedBigintRange>
+notBetween(int64_t lower, int64_t upper, bool nullAllowed = false) {
+  return std::make_unique<common::NegatedBigintRange>(
+      lower, upper, nullAllowed);
+}
+
 inline std::unique_ptr<common::DoubleRange> lessThanDouble(
     double max,
     bool nullAllowed = false) {
