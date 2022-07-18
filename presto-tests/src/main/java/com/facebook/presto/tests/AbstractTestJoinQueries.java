@@ -90,8 +90,8 @@ public abstract class AbstractTestJoinQueries
         // NOTE: the number of shuffled bytes except the final output should be a multiple of the number of rows in lineitem table in broadcast join case.
         assertEquals(((broadcastJoinQueryInfo.getQueryStats().getShuffledPositions() - expectedOutputRows) % lineitemRows), 0);
         assertTrue((broadcastJoinQueryInfo.getQueryStats().getShuffledPositions() - expectedOutputRows) >= lineitemRows);
-        // Both partitioned join and broadcast join should have the same raw input data size.
-        assertEquals(partitionJoinQueryInfo.getQueryStats().getRawInputDataSize().toBytes(), broadcastJoinQueryInfo.getQueryStats().getRawInputDataSize().toBytes());
+        // Both partitioned join and broadcast join should have the same raw input data set.
+        assertEquals(partitionJoinQueryInfo.getQueryStats().getRawInputPositions(), broadcastJoinQueryInfo.getQueryStats().getRawInputPositions());
         assertNotEquals(partitionJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes(), broadcastJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes());
     }
 
