@@ -19,9 +19,11 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -47,6 +49,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -123,6 +126,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 
 public class TestLogicalPlanner
         extends BasePlanTest
@@ -609,6 +613,23 @@ public class TestLogicalPlanner
                         .where(isInstanceOfAny(ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class))
                         .matches(),
                 "Unexpected node for query: " + sql);
+    }
+
+    @Test
+    public void testSubqueryWithEqualityPredicate()
+    {
+        String sql = "SELECT \"orderkey\" FROM orders WHERE \"orderkey\" = (SELECT \"orderkey\" FROM orders WHERE \"orderkey\" = 3 AND \"custkey\" = 1)";
+        Plan actualPlan = plan(sql);
+        assertEquals(countOfMatchingNodes(actualPlan, EnforceSingleRowNode.class::isInstance), 1);
+        assertNotNull(actualPlan);
+        PlanNode projectNode = actualPlan.getRoot().getSources().get(0);
+        JoinNode joinNode = (JoinNode) projectNode.getSources().get(0);
+        PlanNode enforceSingleRowNode = joinNode.getRight();
+        PlanNode exchangeNode = enforceSingleRowNode.getSources().get(0);
+        ProjectNode subQueryProjectNode = (ProjectNode) exchangeNode.getSources().get(0);
+        assertEquals(subQueryProjectNode.getAssignments().size(), 1);
+        Map.Entry<VariableReferenceExpression, RowExpression> assignmentEntry = subQueryProjectNode.getAssignments().getMap().entrySet().iterator().next();
+        assertEquals(assignmentEntry.getKey().getName(), "orderkey_0");
     }
 
     @Test

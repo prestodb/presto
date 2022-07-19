@@ -587,10 +587,14 @@ public class PruneUnreferencedOutputs
                     builder.put(variable, expression);
                 }
             });
+            Assignments assignments = builder.build();
+            if (assignments.size() == 0) {
+                // Project node should have at least one assignment. avoid pruning if all assignments are removed.
+                return node;
+            }
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-
-            return new ProjectNode(node.getSourceLocation(), node.getId(), source, builder.build(), node.getLocality());
+            return new ProjectNode(node.getSourceLocation(), node.getId(), source, assignments, node.getLocality());
         }
 
         @Override
