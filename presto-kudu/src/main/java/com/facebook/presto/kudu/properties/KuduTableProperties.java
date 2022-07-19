@@ -29,17 +29,16 @@ import org.apache.kudu.client.Partition;
 import org.apache.kudu.client.PartitionSchema;
 import org.apache.kudu.shaded.com.google.common.base.Predicates;
 import org.apache.kudu.shaded.com.google.common.collect.Iterators;
+import org.joda.time.DateTimeZone;
+import org.joda.time.format.ISODateTimeFormat;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -50,7 +49,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -59,8 +57,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.time.temporal.ChronoField.EPOCH_DAY;
-import static java.time.temporal.ChronoField.MILLI_OF_DAY;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -576,9 +572,7 @@ public final class KuduTableProperties
         else if (obj instanceof String) {
             String s = (String) obj;
             s = s.trim().replace(' ', 'T');
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd[[ ]['T']HH[:mm][:ss][.SSS]['Z'][XXX]]").withZone(ZoneId.of("UTC"));
-            TemporalAccessor temporalAccessor = formatter.parseBest(s, LocalDateTime::from, LocalDate::from);
-            long millis = TimeUnit.DAYS.toMillis(temporalAccessor.getLong(EPOCH_DAY)) + (temporalAccessor.toString().contains("T") ? temporalAccessor.getLong(MILLI_OF_DAY) : 0);
+            long millis = ISODateTimeFormat.dateOptionalTimeParser().withZone(DateTimeZone.UTC).parseMillis(s);
             return millis * 1000;
         }
         else {
