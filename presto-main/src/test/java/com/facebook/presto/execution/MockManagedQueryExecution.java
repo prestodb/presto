@@ -248,4 +248,9 @@ public class MockManagedQueryExecution
     {
         queuingReason = reason;
     }
+
+    public Optional<QueuingReason> getQueuingReason()
+    {
+        return queuingReason;
+    }
 }
