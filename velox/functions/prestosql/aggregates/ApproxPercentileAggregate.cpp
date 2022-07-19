@@ -78,7 +78,7 @@ struct KllSketchAccumulator {
     if (!largeCountValues_.empty()) {
       flush();
     }
-    sketch_.compact();
+    sketch_.finish();
   }
 
   const KllSketch<T>& getSketch() {
