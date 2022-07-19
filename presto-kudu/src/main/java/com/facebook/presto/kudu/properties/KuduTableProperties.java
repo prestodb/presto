@@ -36,9 +36,6 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -395,7 +392,7 @@ public final class KuduTableProperties
         switch (type) {
             case UNIXTIME_MICROS:
                 long millis = bound.getLong(idx) / 1000;
-                return DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneId.of("UTC")).format(Instant.ofEpochMilli(millis));
+                return ISODateTimeFormat.dateTime().withZone(DateTimeZone.UTC).print(millis);
             case STRING:
                 return bound.getString(idx);
             case INT64:
