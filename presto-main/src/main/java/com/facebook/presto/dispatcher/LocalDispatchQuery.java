@@ -166,6 +166,7 @@ public class LocalDispatchQuery
             try {
                 queryQueuer.accept(this);
                 stateMachine.setResourceGroupQueuedOn(resourceGroupQueuedOn);
+                stateMachine.setQueuingReason(queuingReason);
             }
             catch (Throwable t) {
                 fail(t);
@@ -210,6 +211,7 @@ public class LocalDispatchQuery
                 }
                 finally {
                     stateMachine.setResourceGroupQueuedOn(resourceGroupQueuedOn);
+                    stateMachine.setQueuingReason(queuingReason);
                     submitted.set(null);
                 }
             }

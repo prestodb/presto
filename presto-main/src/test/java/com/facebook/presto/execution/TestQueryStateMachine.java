@@ -17,6 +17,7 @@ import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.resourceGroups.QueuingReason;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -63,6 +64,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
+import static com.facebook.presto.execution.resourceGroups.QueuingReason.CPU_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -362,6 +364,10 @@ public class TestQueryStateMachine
         ResourceGroupId queuedOn = new ResourceGroupId("test-root");
         stateMachine.setResourceGroupQueuedOn(Optional.of(queuedOn));
         assertEquals(stateMachine.getQueryInfo(Optional.empty()).getResourceGroupQueuedOn(), Optional.of(queuedOn));
+
+        QueuingReason queuingReason = CPU_LIMIT;
+        stateMachine.setQueuingReason(Optional.of(queuingReason));
+        assertEquals(stateMachine.getQueryInfo(Optional.empty()).getQueuingReason(), Optional.of(queuingReason));
 
         mockTicker.increment(25, MILLISECONDS);
         assertTrue(stateMachine.transitionToWaitingForResources());

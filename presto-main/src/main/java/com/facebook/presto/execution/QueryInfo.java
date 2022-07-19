@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.execution.resourceGroups.QueuingReason;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.PrestoWarning;
@@ -79,6 +80,7 @@ public class QueryInfo
     private final boolean finalQueryInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<ResourceGroupId> resourceGroupQueuedOn;
+    private final Optional<QueuingReason> queuingReason;
     private final Optional<QueryType> queryType;
     // failedTasks is only available for final query info because the construction is expensive.
     private final Optional<List<TaskId>> failedTasks;
@@ -119,6 +121,7 @@ public class QueryInfo
             @JsonProperty("finalQueryInfo") boolean finalQueryInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("resourceGroupQueuedOn") Optional<ResourceGroupId> resourceGroupQueuedOn,
+            @JsonProperty("queuingReason") Optional<QueuingReason> queuingReason,
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("failedTasks") Optional<List<TaskId>> failedTasks,
             @JsonProperty("runtimeOptimizedStages") Optional<List<StageId>> runtimeOptimizedStages,
@@ -146,6 +149,7 @@ public class QueryInfo
         requireNonNull(output, "output is null");
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         requireNonNull(resourceGroupQueuedOn, "resourceGroupQueuedOn is null");
+        requireNonNull(queuingReason, "queuingReason is null");
         requireNonNull(warnings, "warnings is null");
         requireNonNull(queryType, "queryType is null");
         requireNonNull(failedTasks, "failedTasks is null");
@@ -187,6 +191,7 @@ public class QueryInfo
         }
         this.resourceGroupId = resourceGroupId;
         this.resourceGroupQueuedOn = resourceGroupQueuedOn;
+        this.queuingReason = queuingReason;
         this.queryType = queryType;
         this.failedTasks = failedTasks;
         this.runtimeOptimizedStages = runtimeOptimizedStages;
@@ -382,6 +387,12 @@ public class QueryInfo
     public Optional<ResourceGroupId> getResourceGroupQueuedOn()
     {
         return resourceGroupQueuedOn;
+    }
+
+    @JsonProperty
+    public Optional<QueuingReason> getQueuingReason()
+    {
+        return queuingReason;
     }
 
     @JsonProperty

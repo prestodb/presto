@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.resourceGroups.QueuingReason;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -157,7 +158,8 @@ public class QueryStateMachine
 
     private final WarningCollector warningCollector;
 
-    private Optional<ResourceGroupId> resourceGroupQueuedOn;
+    private Optional<ResourceGroupId> resourceGroupQueuedOn = Optional.empty();
+    private Optional<QueuingReason> queuingReason = Optional.empty();
 
     private QueryStateMachine(
             String query,
@@ -178,7 +180,6 @@ public class QueryStateMachine
         this.queryId = session.getQueryId();
         this.self = requireNonNull(self, "self is null");
         this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
-        this.resourceGroupQueuedOn = Optional.empty();
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.queryStateTimer = new QueryStateTimer(ticker);
@@ -475,6 +476,7 @@ public class QueryStateMachine
                 finalInfo,
                 Optional.of(resourceGroup),
                 resourceGroupQueuedOn,
+                queuingReason,
                 queryType,
                 failedTasks,
                 runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages),
@@ -910,6 +912,11 @@ public class QueryStateMachine
         resourceGroupQueuedOn = resourceGroup;
     }
 
+    public void setQueuingReason(Optional<QueuingReason> reason)
+    {
+        queuingReason = reason;
+    }
+
     public DateTime getCreateTime()
     {
         return queryStateTimer.getCreateTime();
@@ -999,6 +1006,7 @@ public class QueryStateMachine
                 queryInfo.isFinalQueryInfo(),
                 queryInfo.getResourceGroupId(),
                 queryInfo.getResourceGroupQueuedOn(),
+                queryInfo.getQueuingReason(),
                 queryInfo.getQueryType(),
                 queryInfo.getFailedTasks(),
                 queryInfo.getRuntimeOptimizedStages(),
