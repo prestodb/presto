@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.274-SNAPSHOT</version>
+        <version>0.274</version>
     </parent>
 
     <artifactId>presto-bigquery</artifactId>
