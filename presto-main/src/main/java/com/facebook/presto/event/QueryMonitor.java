@@ -54,6 +54,7 @@ import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
 import com.facebook.presto.spi.eventlistener.StageStatistics;
+import com.facebook.presto.spi.resourceGroups.QueuingReason;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
@@ -124,7 +125,7 @@ public class QueryMonitor
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), Optional.empty()),
+                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), Optional.empty(), Optional.empty()),
                         new QueryMetadata(
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
@@ -139,7 +140,11 @@ public class QueryMonitor
                                 queryInfo.getSession().getTraceToken())));
     }
 
-    public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure, Optional<ResourceGroupId> resourceGroupQueuedOn)
+    public void queryImmediateFailureEvent(
+            BasicQueryInfo queryInfo,
+            ExecutionFailureInfo failure,
+            Optional<ResourceGroupId> resourceGroupQueuedOn,
+            Optional<QueuingReason> queuingReason)
     {
         eventListenerManager.queryCompleted(new QueryCompletedEvent(
                 new QueryMetadata(
@@ -186,7 +191,7 @@ public class QueryMonitor
                         0,
                         true,
                         new RuntimeStats()),
-                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), resourceGroupQueuedOn),
+                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), resourceGroupQueuedOn, queuingReason),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
@@ -214,7 +219,7 @@ public class QueryMonitor
                 new QueryCompletedEvent(
                         createQueryMetadata(queryInfo),
                         createQueryStatistics(queryInfo),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getResourceGroupQueuedOn()),
+                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getResourceGroupQueuedOn(), queryInfo.getQueuingReason()),
                         getQueryIOMetadata(queryInfo),
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
@@ -332,7 +337,11 @@ public class QueryMonitor
                 queryStats.getRuntimeStats());
     }
 
-    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<ResourceGroupId> resourceGroupQueuedOn)
+    private QueryContext createQueryContext(
+            SessionRepresentation session,
+            Optional<ResourceGroupId> resourceGroup,
+            Optional<ResourceGroupId> resourceGroupQueuedOn,
+            Optional<QueuingReason> queuingReason)
     {
         return new QueryContext(
                 session.getUser(),
@@ -346,6 +355,7 @@ public class QueryMonitor
                 session.getSchema(),
                 resourceGroup,
                 resourceGroupQueuedOn,
+                queuingReason,
                 mergeSessionAndCatalogProperties(session),
                 session.getResourceEstimates(),
                 serverAddress,

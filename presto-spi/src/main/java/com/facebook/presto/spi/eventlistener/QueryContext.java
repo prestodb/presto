@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.spi.resourceGroups.QueuingReason;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -38,6 +39,7 @@ public class QueryContext
 
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<ResourceGroupId> resourceGroupQueuedOn;
+    private final Optional<QueuingReason> queuingReason;
 
     private final Map<String, String> sessionProperties;
     private final ResourceEstimates resourceEstimates;
@@ -58,6 +60,7 @@ public class QueryContext
             Optional<String> schema,
             Optional<ResourceGroupId> resourceGroupId,
             Optional<ResourceGroupId> resourceGroupQueuedOn,
+            Optional<QueuingReason> queuingReason,
             Map<String, String> sessionProperties,
             ResourceEstimates resourceEstimates,
             String serverAddress,
@@ -75,6 +78,7 @@ public class QueryContext
         this.schema = requireNonNull(schema, "schema is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.resourceGroupQueuedOn = requireNonNull(resourceGroupQueuedOn, "resourceGroupQueuedOn is null");
+        this.queuingReason = requireNonNull(queuingReason, "queuingReason is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
@@ -146,6 +150,12 @@ public class QueryContext
     public Optional<ResourceGroupId> getResourceGroupQueuedOn()
     {
         return resourceGroupQueuedOn;
+    }
+
+    @JsonProperty
+    public Optional<QueuingReason> getQueuingReason()
+    {
+        return queuingReason;
     }
 
     @JsonProperty

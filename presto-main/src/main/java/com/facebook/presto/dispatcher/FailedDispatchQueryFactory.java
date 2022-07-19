@@ -56,7 +56,7 @@ public class FailedDispatchQueryFactory
         BasicQueryInfo queryInfo = failedDispatchQuery.getBasicQueryInfo();
 
         queryMonitor.queryCreatedEvent(queryInfo);
-        queryMonitor.queryImmediateFailureEvent(queryInfo, failure, Optional.empty());
+        queryMonitor.queryImmediateFailureEvent(queryInfo, failure, Optional.empty(), Optional.empty());
 
         return failedDispatchQuery;
     }

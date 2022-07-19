@@ -706,6 +706,7 @@ public class PrestoSparkQueryExecutionFactory
                 queryState.isDone(),
                 sparkQueueName.map(ResourceGroupId::new),
                 Optional.empty(),
+                Optional.empty(),
                 planAndMore.flatMap(PlanAndMore::getQueryType),
                 Optional.empty(),
                 Optional.empty(),

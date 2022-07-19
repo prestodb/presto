@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.execution.resourceGroups.QueuingReason;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.PrestoWarning;
@@ -23,6 +22,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.QueuingReason;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.transaction.TransactionId;
