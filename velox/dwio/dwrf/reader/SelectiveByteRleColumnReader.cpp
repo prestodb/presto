@@ -19,7 +19,7 @@
 namespace facebook::velox::dwrf {
 
 uint64_t SelectiveByteRleColumnReader::skip(uint64_t numValues) {
-  numValues = ColumnReader::skip(numValues);
+  numValues = SelectiveColumnReader::skip(numValues);
   if (byteRle_) {
     byteRle_->skip(numValues);
   } else {

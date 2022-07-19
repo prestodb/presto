@@ -43,7 +43,6 @@ class DwrfRowReaderShared : public StrideIndexProvider,
   uint64_t strideIndex_;
   std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache_;
   dwio::common::RowReaderOptions options_;
-  std::unique_ptr<ColumnReaderFactory> columnReaderFactory_;
 
   // column selector
   std::shared_ptr<dwio::common::ColumnSelector> columnSelector_;

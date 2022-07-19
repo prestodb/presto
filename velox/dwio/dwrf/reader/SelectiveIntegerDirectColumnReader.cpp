@@ -19,7 +19,7 @@
 namespace facebook::velox::dwrf {
 
 uint64_t SelectiveIntegerDirectColumnReader::skip(uint64_t numValues) {
-  numValues = ColumnReader::skip(numValues);
+  numValues = SelectiveColumnReader::skip(numValues);
   ints->skip(numValues);
   return numValues;
 }

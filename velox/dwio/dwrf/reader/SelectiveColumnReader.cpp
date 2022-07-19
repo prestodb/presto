@@ -33,6 +33,9 @@ namespace facebook::velox::dwrf {
 using dwio::common::TypeWithId;
 using dwio::common::typeutils::CompatChecker;
 
+// Buffer size for reading length stream
+constexpr uint64_t BUFFER_SIZE = 1024;
+
 common::AlwaysTrue& alwaysTrue() {
   static common::AlwaysTrue alwaysTrue;
   return alwaysTrue;
@@ -61,11 +64,21 @@ SelectiveColumnReader::SelectiveColumnReader(
     // TODO: why is data type instead of requested type passed in?
     const TypePtr& type,
     FlatMapContext flatMapContext)
-    : ColumnReader(std::move(requestedType), stripe, std::move(flatMapContext)),
+    : notNullDecoder_{},
+      nodeType_{requestedType},
+      memoryPool_{stripe.getMemoryPool()},
+      flatMapContext_{std::move(flatMapContext)},
       scanSpec_(scanSpec),
       type_{type},
       rowsPerRowGroup_{stripe.rowsPerRowGroup()} {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
+
+  std::unique_ptr<dwio::common::SeekableInputStream> stream =
+      stripe.getStream(encodingKey.forKind(proto::Stream_Kind_PRESENT), false);
+  if (stream) {
+    notNullDecoder_ = createBooleanRleDecoder(std::move(stream), encodingKey);
+  }
+
   // We always initialize indexStream_ because indices are needed as
   // soon as there is a single filter that can trigger row group skips
   // anywhere in the reader tree. This is not known at construct time
@@ -79,7 +92,8 @@ std::vector<uint32_t> SelectiveColumnReader::filterRowGroups(
     uint64_t rowGroupSize,
     const StatsContext& context) const {
   if ((!index_ && !indexStream_) || !scanSpec_->filter()) {
-    return ColumnReader::filterRowGroups(rowGroupSize, context);
+    static const std::vector<uint32_t> kEmpty;
+    return kEmpty;
   }
 
   ensureRowGroupIndex();
@@ -98,13 +112,31 @@ std::vector<uint32_t> SelectiveColumnReader::filterRowGroups(
   return stridesToSkip;
 }
 
+uint64_t SelectiveColumnReader::skip(uint64_t numValues) {
+  if (notNullDecoder_) {
+    // page through the values that we want to skip
+    // and count how many are non-null
+    std::array<char, BUFFER_SIZE> buffer;
+    constexpr auto bitCount = BUFFER_SIZE * 8;
+    uint64_t remaining = numValues;
+    while (remaining > 0) {
+      uint64_t chunkSize = std::min(remaining, bitCount);
+      notNullDecoder_->next(buffer.data(), chunkSize, nullptr);
+      remaining -= chunkSize;
+      numValues -= bits::countNulls(
+          reinterpret_cast<uint64_t*>(buffer.data()), 0, chunkSize);
+    }
+  }
+  return numValues;
+}
+
 void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
   if (offset == readOffset_) {
     return;
   }
   if (readOffset_ < offset) {
     if (readsNullsOnly) {
-      ColumnReader::skip(offset - readOffset_);
+      SelectiveColumnReader::skip(offset - readOffset_);
     } else {
       skip(offset - readOffset_);
     }
@@ -149,8 +181,8 @@ void SelectiveColumnReader::prepareNulls(RowSet rows, bool hasNulls) {
 
 bool SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
   if (rows.size() == numValues_) {
-    // Nulls will only be moved if there is a selection on values. A cast alone
-    // does not move nulls.
+    // Nulls will only be moved if there is a selection on values. A cast
+    // alone does not move nulls.
     return false;
   }
   VELOX_CHECK(
@@ -163,6 +195,38 @@ bool SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
     return true;
   }
   return false;
+}
+
+void SelectiveColumnReader::readNulls(
+    vector_size_t numValues,
+    const uint64_t* incomingNulls,
+    VectorPtr* result,
+    BufferPtr& nulls) {
+  if (!notNullDecoder_ && !incomingNulls) {
+    nulls = nullptr;
+    if (result && *result) {
+      (*result)->resetNulls();
+    }
+    return;
+  }
+  auto numBytes = bits::nbytes(numValues);
+  if (result && *result) {
+    nulls = (*result)->mutableNulls(numValues + (simd::kPadding * 8));
+    detail::resetIfNotWritable(*result, nulls);
+  }
+  if (!nulls || nulls->capacity() < numBytes + simd::kPadding) {
+    nulls =
+        AlignedBuffer::allocate<char>(numBytes + simd::kPadding, &memoryPool_);
+  }
+  nulls->setSize(numBytes);
+  auto* nullsPtr = nulls->asMutable<uint64_t>();
+  if (!notNullDecoder_) {
+    memcpy(nullsPtr, incomingNulls, numBytes);
+    return;
+  }
+  memset(nullsPtr, bits::kNotNullByte, numBytes);
+  notNullDecoder_->next(
+      reinterpret_cast<char*>(nullsPtr), numValues, incomingNulls);
 }
 
 void SelectiveColumnReader::getIntValues(

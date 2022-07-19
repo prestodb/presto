@@ -46,7 +46,7 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
 }
 
 uint64_t SelectiveStringDirectColumnReader::skip(uint64_t numValues) {
-  numValues = ColumnReader::skip(numValues);
+  numValues = SelectiveColumnReader::skip(numValues);
   detail::ensureCapacity<int64_t>(lengths_, numValues, &memoryPool_);
   lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), numValues);
   rawLengths_ = lengths_->as<uint32_t>();

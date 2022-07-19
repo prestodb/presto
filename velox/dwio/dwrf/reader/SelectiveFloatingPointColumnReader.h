@@ -98,7 +98,7 @@ SelectiveFloatingPointColumnReader<TData, TRequested>::
 template <typename TData, typename TRequested>
 uint64_t SelectiveFloatingPointColumnReader<TData, TRequested>::skip(
     uint64_t numValues) {
-  numValues = ColumnReader::skip(numValues);
+  numValues = SelectiveColumnReader::skip(numValues);
   decoder_.skip(numValues);
   return numValues;
 }

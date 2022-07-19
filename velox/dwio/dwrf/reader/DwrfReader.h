@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "SelectiveColumnReader.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/DwrfReaderShared.h"
@@ -25,20 +26,38 @@ namespace facebook::velox::dwrf {
 class DwrfRowReader : public DwrfRowReaderShared {
  protected:
   void resetColumnReaderImpl() override {
-    columnReader_.reset();
+    if (selectiveColumnReader_) {
+      selectiveColumnReader_.reset();
+    } else {
+      columnReader_.reset();
+    }
   }
 
   void createColumnReaderImpl(StripeStreams& stripeStreams) override {
-    columnReader_ = (columnReaderFactory_ ? columnReaderFactory_.get()
-                                          : ColumnReaderFactory::baseFactory())
-                        ->build(
-                            getColumnSelector().getSchemaWithId(),
-                            getReader().getSchemaWithId(),
-                            stripeStreams);
+    auto scanSpec = options_.getScanSpec().get();
+    auto requestedType = getColumnSelector().getSchemaWithId();
+    auto dataType = getReader().getSchemaWithId();
+    auto flatMapContext = FlatMapContext::nonFlatMapContext();
+
+    if (scanSpec) {
+      selectiveColumnReader_ = SelectiveColumnReader::build(
+          requestedType, dataType, stripeStreams, scanSpec, flatMapContext);
+      selectiveColumnReader_->setIsTopLevel();
+    } else {
+      columnReader_ = ColumnReader::build(
+          requestedType, dataType, stripeStreams, flatMapContext);
+    }
+    DWIO_ENSURE(
+        (columnReader_ != nullptr) != (selectiveColumnReader_ != nullptr),
+        "ColumnReader was not created");
   }
 
   void seekImpl() override {
-    columnReader_->skip(currentRowInStripe);
+    if (selectiveColumnReader_) {
+      selectiveColumnReader_->skip(currentRowInStripe);
+    } else {
+      columnReader_->skip(currentRowInStripe);
+    }
   }
 
  public:
@@ -62,10 +81,6 @@ class DwrfRowReader : public DwrfRowReaderShared {
     stats.skippedStrides += skippedStrides_;
   }
 
-  ColumnReader* columnReader() {
-    return columnReader_.get();
-  }
-
   void resetFilterCaches() override;
 
   // Returns the skipped strides for 'stripe'. Used for testing.
@@ -81,6 +96,7 @@ class DwrfRowReader : public DwrfRowReaderShared {
   void checkSkipStrides(const StatsContext& context, uint64_t strideSize);
 
   std::unique_ptr<ColumnReader> columnReader_;
+  std::unique_ptr<SelectiveColumnReader> selectiveColumnReader_;
   std::vector<uint32_t> stridesToSkip_;
   // Record of strides to skip in each visited stripe. Used for diagnostics.
   std::unordered_map<uint32_t, std::vector<uint32_t>> stripeStridesToSkip_;

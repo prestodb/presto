@@ -89,7 +89,7 @@ std::vector<uint32_t> SelectiveStructColumnReader::filterRowGroups(
 }
 
 uint64_t SelectiveStructColumnReader::skip(uint64_t numValues) {
-  auto numNonNulls = ColumnReader::skip(numValues);
+  auto numNonNulls = SelectiveColumnReader::skip(numValues);
   // 'readOffset_' of struct child readers is aligned with
   // 'readOffset_' of the struct. The child readers may have fewer
   // values since there is no value in children where the struct is

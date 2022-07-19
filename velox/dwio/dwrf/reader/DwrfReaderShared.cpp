@@ -88,11 +88,6 @@ DwrfRowReaderShared::DwrfRowReaderShared(
     return exceptionMessageContext;
   };
 
-  if (options_.getScanSpec()) {
-    columnReaderFactory_ =
-        std::make_unique<SelectiveColumnReaderFactory>(options_.getScanSpec());
-  }
-
   CompatChecker::check(
       *getReader().getSchema(), *getType(), true, createExceptionContext);
 }
