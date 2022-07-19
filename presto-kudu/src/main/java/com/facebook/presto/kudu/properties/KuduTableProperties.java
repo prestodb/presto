@@ -399,7 +399,8 @@ public final class KuduTableProperties
         switch (type) {
             case UNIXTIME_MICROS:
                 long millis = bound.getLong(idx) / 1000;
-                return DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneId.of("UTC")).format(Instant.ofEpochMilli(millis));
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneId.of("UTC"));
+                return formatter.format(Instant.ofEpochMilli(millis));
             case STRING:
                 return bound.getString(idx);
             case INT64:
