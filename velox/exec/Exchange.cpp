@@ -180,8 +180,12 @@ std::unique_ptr<ExchangeSource> createLocalExchangeSource(
 
 } // namespace
 
-void ExchangeClient::setMemoryPool(memory::MemoryPool* pool) {
-  pool_ = pool;
+void ExchangeClient::maybeSetMemoryPool(memory::MemoryPool* pool) {
+  // ExchangeClient could be shared by the same exchange operators from
+  // different drivers so we only need to set it on the first operator setup.
+  if (pool_ == nullptr) {
+    pool_ = pool;
+  }
 }
 
 void ExchangeClient::addRemoteTaskId(const std::string& taskId) {

@@ -295,7 +295,7 @@ class ExchangeClient {
     return pool_;
   }
 
-  void setMemoryPool(memory::MemoryPool* pool);
+  void maybeSetMemoryPool(memory::MemoryPool* pool);
 
   void addRemoteTaskId(const std::string& taskId);
 
@@ -332,14 +332,7 @@ class Exchange : public SourceOperator {
             "Exchange"),
         planNodeId_(exchangeNode->id()),
         exchangeClient_(std::move(exchangeClient)) {
-    // ExchangeClient is shared among multiple drivers' Exchange operators so we
-    // only need one of the operator to set it up.
-    if (exchangeClient_->pool() == nullptr) {
-      exchangeClient_->setMemoryPool(operatorCtx_->pool());
-    } else if (exchangeClient_->pool() != operatorCtx_->pool()) {
-      LOG(WARNING)
-          << "Passed in pool from Exchange operator is different than current pool in ExchangeClient.";
-    }
+    exchangeClient_->maybeSetMemoryPool(operatorCtx_->pool());
   }
 
   ~Exchange() override {
