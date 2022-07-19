@@ -104,7 +104,7 @@ public class TestClusterManager
         lifeCycleManager.stop();
     }
 
-    @Test
+    @Test(enabled = false)
     public void testQuery()
             throws Exception
     {
