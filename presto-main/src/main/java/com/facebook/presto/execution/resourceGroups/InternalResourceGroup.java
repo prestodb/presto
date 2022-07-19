@@ -51,6 +51,12 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
+import static com.facebook.presto.execution.resourceGroups.QueuingReason.CONCURRENCY_LIMIT;
+import static com.facebook.presto.execution.resourceGroups.QueuingReason.CPU_LIMIT;
+import static com.facebook.presto.execution.resourceGroups.QueuingReason.MEMORY_LIMIT;
+import static com.facebook.presto.execution.resourceGroups.QueuingReason.QUEUE_FULL;
+import static com.facebook.presto.execution.resourceGroups.QueuingReason.TASK_LIMIT;
+import static com.facebook.presto.execution.resourceGroups.QueuingReason.WAIT_FOR_UPDATE;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
@@ -155,6 +161,8 @@ public class InternalResourceGroup
     private AtomicLong lastRunningQueryStartTime = new AtomicLong(currentTimeMillis());
     @GuardedBy("root")
     private AtomicBoolean isDirty = new AtomicBoolean();
+
+    private Optional<QueuingReason> queuingReason = Optional.empty();
 
     protected InternalResourceGroup(
             Optional<InternalResourceGroup> parent,
@@ -682,6 +690,7 @@ public class InternalResourceGroup
                 canRun &= group.canRunMore();
                 if (!canQueue && !canRun) {
                     query.setResourceGroupQueuedOn(group.getId());
+                    query.setQueuingReason(Optional.of(QUEUE_FULL));
                     query.fail(new QueryQueueFullException(id));
                     return;
                 }
@@ -696,6 +705,7 @@ public class InternalResourceGroup
                 startInBackground(query);
             }
             else {
+                query.setQueuingReason(queuingReason);
                 enqueueQuery(query);
             }
             query.addStateChangeListener(state -> {
@@ -978,14 +988,17 @@ public class InternalResourceGroup
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
             if (cpuUsageMillis >= hardCpuLimitMillis) {
+                queuingReason = Optional.of(CPU_LIMIT);
                 return false;
             }
 
             if (shouldWaitForResourceManagerUpdate()) {
+                queuingReason = Optional.of(WAIT_FOR_UPDATE);
                 return false;
             }
 
             if (((RootInternalResourceGroup) root).isTaskLimitExceeded()) {
+                queuingReason = Optional.of(TASK_LIMIT);
                 return false;
             }
 
@@ -998,7 +1011,16 @@ public class InternalResourceGroup
                 totalRunningQueries += resourceGroupRuntimeInfo.get().getRunningQueries() + resourceGroupRuntimeInfo.get().getDescendantRunningQueries();
             }
 
-            return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes;
+            if (totalRunningQueries >= hardConcurrencyLimit) {
+                queuingReason = Optional.of(CONCURRENCY_LIMIT);
+                return false;
+            }
+
+            if (cachedMemoryUsageBytes > softMemoryLimitBytes) {
+                queuingReason = Optional.of(MEMORY_LIMIT);
+                return false;
+            }
+            return true;
         }
     }
 
