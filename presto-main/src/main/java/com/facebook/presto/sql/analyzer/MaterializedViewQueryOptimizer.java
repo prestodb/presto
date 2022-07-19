@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -38,9 +39,12 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
@@ -721,7 +725,24 @@ public class MaterializedViewQueryOptimizer
 
         private RowExpression convertToRowExpression(Expression expression, Scope scope)
         {
-            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
+            ExpressionAnalysis originalExpressionAnalysis = getExpressionAnalysis(expression, scope);
+
+            // DomainTranslator#fromPredicate needs type information, so do any necessary coercions here
+            Expression coercedMaybe = rewriteExpressionWithCoercions(expression, originalExpressionAnalysis);
+
+            ExpressionAnalysis coercedExpressionAnalysis = getExpressionAnalysis(coercedMaybe, scope);
+
+            return SqlToRowExpressionTranslator.translate(
+                    coercedMaybe,
+                    coercedExpressionAnalysis.getExpressionTypes(),
+                    ImmutableMap.of(),
+                    metadata.getFunctionAndTypeManager(),
+                    session);
+        }
+
+        ExpressionAnalysis getExpressionAnalysis(Expression expression, Scope scope)
+        {
+            return ExpressionAnalyzer.analyzeExpression(
                     session,
                     metadata,
                     accessControl,
@@ -730,12 +751,43 @@ public class MaterializedViewQueryOptimizer
                     new Analysis(null, ImmutableMap.of(), false),
                     expression,
                     WarningCollector.NOOP);
-            return SqlToRowExpressionTranslator.translate(
-                    expression,
-                    expressionAnalysis.getExpressionTypes(),
-                    ImmutableMap.of(),
-                    metadata.getFunctionAndTypeManager(),
-                    session);
+        }
+
+        private Expression rewriteExpressionWithCoercions(Expression expression, ExpressionAnalysis analysis)
+        {
+            return ExpressionTreeRewriter.rewriteWith(new CoercionRewriter(analysis), expression, null);
+        }
+
+        private class CoercionRewriter
+                extends ExpressionRewriter<Void>
+        {
+            private final ExpressionAnalysis analysis;
+
+            CoercionRewriter(ExpressionAnalysis analysis)
+            {
+                this.analysis = analysis;
+            }
+
+            @Override
+            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> expressionRewriter)
+            {
+                Expression rewrittenExpression = expressionRewriter.defaultRewrite(node, context);
+                return coerceIfNecessary(node, rewrittenExpression);
+            }
+
+            private Expression coerceIfNecessary(Expression original, Expression rewritten)
+            {
+                Type coercion = analysis.getCoercion(original);
+                if (coercion != null) {
+                    rewritten = new Cast(
+                            original.getLocation(),
+                            rewritten,
+                            coercion.getTypeSignature().toString(),
+                            false,
+                            analysis.isTypeOnlyCoercion(original));
+                }
+                return rewritten;
+            }
         }
 
         private Scope extractScope(Table table, QuerySpecification node, Expression whereClause)
