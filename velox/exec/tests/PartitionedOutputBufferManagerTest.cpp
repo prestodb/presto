@@ -369,3 +369,19 @@ TEST_F(PartitionedOutputBufferManagerTest, errorInQueue) {
   bool atEnd = false;
   EXPECT_THROW(auto page = queue->dequeue(&atEnd, &future), std::runtime_error);
 }
+
+TEST_F(PartitionedOutputBufferManagerTest, serializedPage) {
+  auto iobuf = folly::IOBuf::create(128);
+  std::string payload = "abcdefghijklmnopq";
+  size_t payloadSize = payload.size();
+  std::memcpy(iobuf->writableData(), payload.data(), payloadSize);
+  iobuf->append(payloadSize);
+
+  EXPECT_EQ(0, pool_->getCurrentBytes());
+  {
+    auto serializedPage =
+        std::make_shared<SerializedPage>(std::move(iobuf), pool_.get());
+    EXPECT_EQ(payloadSize, pool_->getCurrentBytes());
+  }
+  EXPECT_EQ(0, pool_->getCurrentBytes());
+}

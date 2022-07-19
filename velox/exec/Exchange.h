@@ -28,14 +28,13 @@ class SerializedPage {
  public:
   static constexpr int kSerializedPageOwner = -11;
 
-  // Construct from IOBuf chain.
-  explicit SerializedPage(std::unique_ptr<folly::IOBuf> iobuf);
-
-  // Construct from IOBuf chain with memory tracked by provided
-  // pool. No copy is made.
+  // Construct from IOBuf chain. The external memory usage of 'iobuf' will be
+  // tracked if 'pool' is not null.
+  //
+  // TODO: consider to enforce setting memory pool if possible.
   explicit SerializedPage(
       std::unique_ptr<folly::IOBuf> iobuf,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool = nullptr);
 
   ~SerializedPage();
 
