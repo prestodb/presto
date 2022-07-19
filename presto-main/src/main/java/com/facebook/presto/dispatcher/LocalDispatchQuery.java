@@ -22,6 +22,7 @@ import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.resourceGroups.QueuingReason;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
@@ -79,6 +80,7 @@ public class LocalDispatchQuery
     private final WarningCollector warningCollector;
 
     private Optional<ResourceGroupId> resourceGroupQueuedOn = Optional.empty();
+    private Optional<QueuingReason> queuingReason = Optional.empty();
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
@@ -393,5 +395,11 @@ public class LocalDispatchQuery
     public void setResourceGroupQueuedOn(ResourceGroupId resourceGroup)
     {
         resourceGroupQueuedOn = resourceGroup != null ? Optional.of(resourceGroup) : Optional.empty();
+    }
+
+    @Override
+    public void setQueuingReason(Optional<QueuingReason> reason)
+    {
+        queuingReason = reason;
     }
 }

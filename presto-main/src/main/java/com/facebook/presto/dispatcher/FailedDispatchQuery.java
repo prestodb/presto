@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.resourceGroups.QueuingReason;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
@@ -46,6 +47,7 @@ public class FailedDispatchQuery
     private final Executor executor;
     private final DispatchInfo dispatchInfo;
     private ResourceGroupId resourceGroupQueuedOn;
+    private Optional<QueuingReason> queuingReason = Optional.empty();
 
     public FailedDispatchQuery(
             Session session,
@@ -201,5 +203,11 @@ public class FailedDispatchQuery
     public void setResourceGroupQueuedOn(ResourceGroupId resourceGroup)
     {
         resourceGroupQueuedOn = resourceGroup;
+    }
+
+    @Override
+    public void setQueuingReason(Optional<QueuingReason> reason)
+    {
+        queuingReason = reason;
     }
 }

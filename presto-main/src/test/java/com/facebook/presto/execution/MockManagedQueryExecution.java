@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.resourceGroups.QueuingReason;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ErrorCode;
@@ -58,6 +59,7 @@ public class MockManagedQueryExecution
     private Optional<ResourceGroupQueryLimits> resourceGroupQueryLimits = Optional.empty();
     private final ResourceGroupId resourceGroupId;
     private ResourceGroupId resourceGroupQueuedOn;
+    private Optional<QueuingReason> queuingReason = Optional.empty();
 
     public MockManagedQueryExecution(long memoryUsage)
     {
@@ -239,5 +241,11 @@ public class MockManagedQueryExecution
     public ResourceGroupId getResourceGroupQueuedOn()
     {
         return resourceGroupQueuedOn;
+    }
+
+    @Override
+    public void setQueuingReason(Optional<QueuingReason> reason)
+    {
+        queuingReason = reason;
     }
 }

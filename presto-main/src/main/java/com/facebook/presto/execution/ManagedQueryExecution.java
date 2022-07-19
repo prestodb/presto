@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.resourceGroups.QueuingReason;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -50,6 +51,8 @@ public interface ManagedQueryExecution
     BasicQueryInfo getBasicQueryInfo();
 
     void setResourceGroupQueuedOn(ResourceGroupId resourceGroupQueuedOn);
+
+    void setQueuingReason(Optional<QueuingReason> queuingReason);
 
     void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits);
 
