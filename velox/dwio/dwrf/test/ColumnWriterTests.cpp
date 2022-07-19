@@ -715,6 +715,27 @@ wrapInDictionary(const VectorPtr& batch, size_t stride, MemoryPool& pool) {
   return ret;
 }
 
+template <typename T>
+void getUniqueKeys(
+    std::vector<T>& uniqueKeys,
+    const std::vector<VectorPtr>& batches) {
+  std::unordered_set<T> seenKeys;
+
+  for (auto batch : batches) {
+    auto map = std::dynamic_pointer_cast<MapVector>(batch);
+    ASSERT_TRUE(map);
+    auto keys = map->mapKeys();
+    auto flatKeys = std::dynamic_pointer_cast<FlatVector<T>>(keys);
+    ASSERT_TRUE(flatKeys);
+    for (vector_size_t i = 0; i < flatKeys->size(); i++) {
+      ASSERT_TRUE(!flatKeys->isNullAt(i));
+      seenKeys.insert(flatKeys->valueAt(i));
+    }
+  }
+
+  uniqueKeys.insert(uniqueKeys.end(), seenKeys.begin(), seenKeys.end());
+}
+
 template <typename TKEY, typename TVALUE>
 void testMapWriter(
     MemoryPool& pool,
@@ -737,32 +758,18 @@ void testMapWriter(
 
   const auto config = std::make_shared<Config>();
   if (useFlatMap) {
-    // collect keys
-    // iterate for each batch, for each key, if unique add to collection
-    // create TKEY type collection to pass to writer
-    std::unordered_set<TKEY> uniqueKeys;
-    for (auto batch : batches) { // base vector
-      // auto rows = std::dynamic_pointer_cast<RowVector>(batch);
-      // auto map = std::dynamic_pointer_cast<MapVector>(rows->childAt(0));
+    if (isStruct) {
+      std::vector<TKEY> uniqueKeys;
+      ASSERT_NO_FATAL_FAILURE(getUniqueKeys<TKEY>(uniqueKeys, batches));
 
-      // auto keys = map->mapKeys();
-      // auto scalarKeys = std::dynamic_pointer_cast<FlatVector<TKEY>>(keys);
-      // for (int32_t i = 0; i < keys->size(); ++i) {
-      //   // add to collection if unique
-      //   LOG(INFO) << "Key: " << ValueOf<TKEY>::get(keys, i) << std::endl;
-
-      //   auto key = scalarKeys->valueAt(i);
-      //   if (uniqueKeys.find(key) != uniqueKeys.end()) {
-      //     uniqueKeys.insert(key);
-      //   }
-      // }
+      // config->set(Config::MAP_FLAT_STRUCT_COLS,
+      // /* map of column index->vector of keys */);
     }
 
     config->set(Config::FLATTEN_MAP, true);
     config->set(Config::MAP_FLAT_COLS, {writerDataTypeWithId->column});
     config->set(
         Config::MAP_FLAT_DISABLE_DICT_ENCODING, disableDictionaryEncoding);
-    // add configs to define what columns to be interpreted as struct
 
     // if isStruct, convert batches to struct before writing
     // expect that if we pass isStruct true with useFlatMap false, it will fail
