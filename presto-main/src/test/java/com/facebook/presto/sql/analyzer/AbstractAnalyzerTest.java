@@ -159,7 +159,8 @@ public class AbstractAnalyzerTest
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
                         new ColumnMetadata("c", BIGINT),
-                        new ColumnMetadata("d", BIGINT))),
+                        new ColumnMetadata("d", BIGINT),
+                        new ColumnMetadata("e", BIGINT))),
                 false));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
