@@ -242,6 +242,11 @@ class ColumnStats : public AbstractColumnStats {
       }
       return velox::common::createBigintValues(in, true);
     }
+    // sometimes make a negated filter instead (1/4 chance)
+    if (counter_ % 4 == 1 && selectPct < 100.0) {
+      return std::make_unique<velox::common::NegatedBigintRange>(
+          lower, upper, selectPct < 75);
+    }
     return std::make_unique<velox::common::BigintRange>(
         lower, upper, selectPct > 25);
   }

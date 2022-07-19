@@ -132,6 +132,10 @@ void SelectiveIntegerColumnReader::processFilter(
       readHelper<Reader, common::BigintRange, isDense>(
           filter, rows, extractValues);
       break;
+    case common::FilterKind::kNegatedBigintRange:
+      readHelper<Reader, common::NegatedBigintRange, isDense>(
+          filter, rows, extractValues);
+      break;
     case common::FilterKind::kBigintValuesUsingHashTable:
       readHelper<Reader, common::BigintValuesUsingHashTable, isDense>(
           filter, rows, extractValues);

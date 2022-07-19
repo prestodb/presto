@@ -181,6 +181,10 @@ void SelectiveByteRleColumnReader::processFilter(
     case FilterKind::kBigintRange:
       readHelper<common::BigintRange, isDense>(filter, rows, extractValues);
       break;
+    case FilterKind::kNegatedBigintRange:
+      readHelper<common::NegatedBigintRange, isDense>(
+          filter, rows, extractValues);
+      break;
     case FilterKind::kBigintValuesUsingBitmask:
       readHelper<common::BigintValuesUsingBitmask, isDense>(
           filter, rows, extractValues);
