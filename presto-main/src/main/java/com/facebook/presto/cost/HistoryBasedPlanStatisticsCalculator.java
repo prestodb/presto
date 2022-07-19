@@ -20,17 +20,15 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.google.common.collect.ImmutableList;
 
-import java.util.List;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.useExternalPlanStatisticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
+import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonLogicalPlan;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class HistoryBasedPlanStatisticsCalculator
@@ -56,11 +54,7 @@ public class HistoryBasedPlanStatisticsCalculator
 
     private PlanNode removeGroupReferences(PlanNode planNode, Lookup lookup)
     {
-        if (planNode instanceof GroupReference) {
-            return lookup.resolve(planNode);
-        }
-        List<PlanNode> children = planNode.getSources().stream().map(node -> removeGroupReferences(node, lookup)).collect(toImmutableList());
-        return planNode.replaceChildren(children);
+        return resolveGroupReferences(planNode, lookup);
     }
 
     private PlanStatistics getStatistics(PlanNode planNode, Session session, TypeProvider types, Lookup lookup)
