@@ -398,12 +398,14 @@ std::unique_ptr<Filter> createBigintValuesFilter(
     }
     return notNullOrTrue(nullAllowed);
   }
-  // single-value filter aka ==, the != filter is handled below
-  if (values.size() == 1 && !negated) {
+  if (values.size() == 1) {
+    if (negated) {
+      return std::make_unique<NegatedBigintRange>(
+          values.front(), values.front(), nullAllowed);
+    }
     return std::make_unique<BigintRange>(
         values.front(), values.front(), nullAllowed);
   }
-
   int64_t min = values[0];
   int64_t max = values[0];
   for (int i = 1; i < values.size(); ++i) {
@@ -420,29 +422,10 @@ std::unique_ptr<Filter> createBigintValuesFilter(
   if (LIKELY(!overflow)) {
     // all accepted/rejected values form one contiguous block
     if ((uint64_t)range + 1 == values.size()) {
-      if (!negated) {
-        return std::make_unique<BigintRange>(min, max, nullAllowed);
+      if (negated) {
+        return std::make_unique<NegatedBigintRange>(min, max, nullAllowed);
       }
-      std::vector<std::unique_ptr<BigintRange>> ranges;
-      ranges.reserve(2);
-      // add inclusive ranges for above and below the desired range of values
-      if (min != std::numeric_limits<int64_t>::min()) {
-        ranges.emplace_back(std::make_unique<BigintRange>(
-            std::numeric_limits<int64_t>::min(), min - 1, false));
-      }
-      if (max != std::numeric_limits<int64_t>::max()) {
-        ranges.emplace_back(std::make_unique<BigintRange>(
-            max + 1, std::numeric_limits<int64_t>::max(), false));
-      }
-      // all values are rejected
-      if (ranges.size() == 0) {
-        return nullOrFalse(nullAllowed);
-      }
-      // range above or range below does not exist
-      if (ranges.size() == 1) {
-        return std::move(ranges[0]);
-      }
-      return std::make_unique<BigintMultiRange>(std::move(ranges), nullAllowed);
+      return std::make_unique<BigintRange>(min, max, nullAllowed);
     }
 
     if (range < 32 * 64 || range < values.size() * 4 * 64) {

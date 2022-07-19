@@ -503,16 +503,17 @@ TEST(FilterTest, negatedBigintValuesEdgeCases) {
   auto not_null = createNegatedBigintValues({}, false);
   ASSERT_TRUE(dynamic_cast<IsNotNull*>(not_null.get()));
 
-  auto two_ranges = createNegatedBigintValues({1, 2, 3, 4, 5, 6, 7}, false);
-  ASSERT_TRUE(dynamic_cast<BigintMultiRange*>(two_ranges.get()));
-  EXPECT_FALSE(two_ranges->testInt64(1));
-  EXPECT_FALSE(two_ranges->testInt64(3));
-  EXPECT_FALSE(two_ranges->testInt64(7));
-  EXPECT_FALSE(two_ranges->testNull());
-  EXPECT_TRUE(two_ranges->testInt64(0));
-  EXPECT_TRUE(two_ranges->testInt64(8));
-  EXPECT_TRUE(two_ranges->testInt64(std::numeric_limits<int64_t>::min()));
-  EXPECT_TRUE(two_ranges->testInt64(std::numeric_limits<int64_t>::max()));
+  // cases that should trigger creation of a NegatedBigintRange filter
+  auto negated_range = createNegatedBigintValues({1, 2, 3, 4, 5, 6, 7}, false);
+  ASSERT_TRUE(dynamic_cast<NegatedBigintRange*>(negated_range.get()));
+  EXPECT_FALSE(negated_range->testInt64(1));
+  EXPECT_FALSE(negated_range->testInt64(3));
+  EXPECT_FALSE(negated_range->testInt64(7));
+  EXPECT_FALSE(negated_range->testNull());
+  EXPECT_TRUE(negated_range->testInt64(0));
+  EXPECT_TRUE(negated_range->testInt64(8));
+  EXPECT_TRUE(negated_range->testInt64(std::numeric_limits<int64_t>::min()));
+  EXPECT_TRUE(negated_range->testInt64(std::numeric_limits<int64_t>::max()));
 
   std::vector<int64_t> minRangeValues;
   minRangeValues.reserve(10);
@@ -520,7 +521,7 @@ TEST(FilterTest, negatedBigintValuesEdgeCases) {
     minRangeValues.emplace_back(std::numeric_limits<int64_t>::min() + i);
   }
   auto min_range = createNegatedBigintValues(minRangeValues, false);
-  ASSERT_TRUE(dynamic_cast<BigintRange*>(min_range.get()));
+  ASSERT_TRUE(dynamic_cast<NegatedBigintRange*>(min_range.get()));
   EXPECT_FALSE(min_range->testInt64(std::numeric_limits<int64_t>::min()));
   EXPECT_FALSE(min_range->testInt64(std::numeric_limits<int64_t>::min() + 9));
   EXPECT_FALSE(min_range->testNull());
@@ -534,13 +535,23 @@ TEST(FilterTest, negatedBigintValuesEdgeCases) {
     maxRangeValues.emplace_back(std::numeric_limits<int64_t>::max() - i);
   }
   auto max_range = createNegatedBigintValues(maxRangeValues, false);
-  ASSERT_TRUE(dynamic_cast<BigintRange*>(max_range.get()));
+  ASSERT_TRUE(dynamic_cast<NegatedBigintRange*>(max_range.get()));
   EXPECT_FALSE(max_range->testInt64(std::numeric_limits<int64_t>::max()));
   EXPECT_FALSE(max_range->testInt64(std::numeric_limits<int64_t>::max() - 9));
   EXPECT_FALSE(max_range->testNull());
   EXPECT_TRUE(max_range->testInt64(std::numeric_limits<int64_t>::max() - 10));
   EXPECT_TRUE(max_range->testInt64(0));
   EXPECT_TRUE(max_range->testInt64(std::numeric_limits<int64_t>::min()));
+
+  auto not_equal = createNegatedBigintValues({10}, false);
+  ASSERT_TRUE(dynamic_cast<NegatedBigintRange*>(not_equal.get()));
+  EXPECT_FALSE(not_equal->testInt64(10));
+  EXPECT_FALSE(not_equal->testNull());
+  EXPECT_TRUE(not_equal->testInt64(std::numeric_limits<int64_t>::min()));
+  EXPECT_TRUE(not_equal->testInt64(std::numeric_limits<int64_t>::max()));
+  EXPECT_TRUE(not_equal->testInt64(-1));
+  EXPECT_TRUE(not_equal->testInt64(0));
+  EXPECT_TRUE(not_equal->testInt64(1));
 }
 
 TEST(FilterTest, bigintMultiRange) {
