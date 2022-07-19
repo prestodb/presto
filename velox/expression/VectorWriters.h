@@ -291,6 +291,7 @@ struct VectorWriter<Row<T...>> {
 
   void commitNull() {
     rowVector_->setNull(writer_.offset_, true);
+    writer_.finalizeNull();
   }
 
   void commit(bool isSet = true) {

@@ -1503,6 +1503,12 @@ struct isGenericType : public std::false_type {};
 template <typename T>
 struct isGenericType<Generic<T>> : public std::true_type {};
 
+template <typename>
+struct isOpaqueType : public std::false_type {};
+
+template <typename T>
+struct isOpaqueType<std::shared_ptr<T>> : public std::true_type {};
+
 template <typename KEY, typename VALUE>
 struct Map {
   using key_type = KEY;

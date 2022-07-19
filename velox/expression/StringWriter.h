@@ -85,6 +85,8 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
     finalized_ = false;
   }
 
+  void finalizeNull() {}
+
   void setEmpty() {
     static const StringView kEmpty("");
     vector_->setNoCopy(offset_, kEmpty);

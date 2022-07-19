@@ -19,6 +19,10 @@
 #include <optional>
 #include <tuple>
 
+#include <velox/expression/VectorReaders.h>
+#include <velox/vector/ComplexVector.h>
+#include <velox/vector/DecodedVector.h>
+#include <velox/vector/SelectivityVector.h>
 #include "folly/container/F14Map.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
@@ -175,6 +179,36 @@ TEST_F(MapWriterTest, writeThenCommitNull) {
   auto expexctedVector = makeMapVector<int64_t, int64_t>({{}, expected});
   expexctedVector->setNull(0, true);
   assertEqualVectors(result, expexctedVector);
+}
+
+TEST_F(MapWriterTest, writeThenCommitNullNestedInRow) {
+  using test_t = Row<Map<int64_t, int64_t>>;
+  auto result = prepareResult(CppToType<test_t>::create(), 2);
+
+  exec::VectorWriter<test_t> vectorWriter;
+  vectorWriter.init(*result->as<RowVector>());
+  {
+    vectorWriter.setOffset(0);
+    auto& mapWriter = vectorWriter.current().get_writer_at<0>();
+    mapWriter.add_null() = 1;
+    mapWriter.add_null() = 2;
+    mapWriter.add_item() = std::make_tuple(100, 100);
+    vectorWriter.commitNull();
+  }
+
+  {
+    vectorWriter.setOffset(1);
+    auto& mapWriter = vectorWriter.current().get_writer_at<0>();
+    vectorWriter.commit();
+  }
+  vectorWriter.finish();
+  DecodedVector decoded;
+  SelectivityVector rows(2);
+  decoded.decode(*result, rows);
+  exec::VectorReader<test_t> reader(&decoded);
+  auto rowView = reader[1];
+  ASSERT_TRUE(rowView.at<0>().has_value());
+  ASSERT_TRUE(rowView.at<0>().value().size() == 0);
 }
 
 TEST_F(MapWriterTest, addItem) {

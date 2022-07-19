@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#include <velox/expression/VectorReaders.h>
 #include <velox/vector/ComplexVector.h>
+#include <velox/vector/DecodedVector.h>
+#include <velox/vector/SelectivityVector.h>
+#include <cstdint>
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
@@ -134,6 +138,76 @@ TEST_F(GenericWriterTest, array) {
 
   ASSERT_NO_THROW(current.tryCastTo<double>());
   ASSERT_TRUE(current.tryCastTo<double>() == nullptr);
+}
+
+TEST_F(GenericWriterTest, arrayWriteThenCommitNull) {
+  VectorPtr result;
+  SelectivityVector rows(2);
+  BaseVector::ensureWritable(rows, ARRAY(BIGINT()), pool(), &result);
+
+  VectorWriter<Any> writer;
+  writer.init(*result);
+  {
+    writer.setOffset(0);
+
+    auto& current = writer.current().castTo<Array<Any>>();
+
+    current.add_item().castTo<int64_t>() = 1;
+    *current.add_item().tryCastTo<int64_t>() = 1;
+    current.add_item().castTo<int64_t>() = 1;
+
+    writer.commitNull();
+  }
+
+  {
+    writer.setOffset(1);
+    writer.commit(true);
+  }
+
+  writer.finish();
+
+  DecodedVector decoded;
+  decoded.decode(*result.get(), rows);
+  VectorReader<Array<int64_t>> reader(&decoded);
+  ASSERT_EQ(reader.readNullFree(1).size(), 0);
+}
+
+TEST_F(GenericWriterTest, genericWriteThenCommitNull) {
+  VectorPtr result;
+  SelectivityVector rows(2);
+  using test_t = Row<Array<int64_t>>;
+
+  BaseVector::ensureWritable(
+      rows, CppToType<test_t>::create(), pool(), &result);
+
+  VectorWriter<Any> writer;
+  writer.init(*result);
+  {
+    writer.setOffset(0);
+
+    auto& current = writer.current()
+                        .castTo<Row<Any>>()
+                        .get_writer_at<0>()
+                        .castTo<Array<Any>>();
+
+    current.add_item().castTo<int64_t>() = 1;
+    *current.add_item().tryCastTo<int64_t>() = 1;
+    current.add_item().castTo<int64_t>() = 1;
+    writer.commitNull();
+  }
+
+  {
+    writer.setOffset(1);
+    writer.current().castTo<Row<Any>>().get_writer_at<0>();
+    writer.commit(true);
+  }
+
+  writer.finish();
+
+  DecodedVector decoded;
+  decoded.decode(*result.get(), rows);
+  VectorReader<Row<Array<int64_t>>> reader(&decoded);
+  ASSERT_EQ(reader.readNullFree(1).at<0>().size(), 0);
 }
 
 TEST_F(GenericWriterTest, map) {
