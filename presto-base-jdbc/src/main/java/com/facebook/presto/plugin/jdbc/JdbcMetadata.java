@@ -130,11 +130,11 @@ public class JdbcMetadata
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         List<SchemaTableName> tables;
-        if (prefix.getTableName() != null) {
+        if (prefix.getSchemaName() != null && prefix.getTableName() != null) {
             tables = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
         else {
-            tables = listTables(session, Optional.of(prefix.getSchemaName()));
+            tables = listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
         for (SchemaTableName tableName : tables) {
             try {
