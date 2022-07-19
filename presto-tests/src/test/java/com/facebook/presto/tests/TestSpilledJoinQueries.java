@@ -15,6 +15,10 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.QueryRunner;
 
+import java.util.HashMap;
+
+import static com.facebook.presto.SystemSessionProperties.JOIN_SPILL_ENABLED;
+
 public class TestSpilledJoinQueries
         extends AbstractTestJoinQueries
 {
@@ -22,6 +26,9 @@ public class TestSpilledJoinQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TestDistributedSpilledQueries.localCreateQueryRunner();
+        HashMap<String, String> spillProperties = new HashMap<>();
+        spillProperties.put(JOIN_SPILL_ENABLED, "true");
+
+        return TestDistributedSpilledQueries.createDistributedSpillingQueryRunner(spillProperties);
     }
 }

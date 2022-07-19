@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -28,6 +29,7 @@ public class NoChannelGroupByHash
         implements GroupByHash
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(NoChannelGroupByHash.class).instanceSize();
+    private static final Logger logger = Logger.get(NoChannelGroupByHash.class);
 
     private int groupCount;
 
@@ -112,6 +114,7 @@ public class NoChannelGroupByHash
     {
         if (page.getPositionCount() > 0 && groupCount == 0) {
             groupCount = 1;
+            logger.info("Updating groupCount to 1 for page %s", page);
         }
     }
 }

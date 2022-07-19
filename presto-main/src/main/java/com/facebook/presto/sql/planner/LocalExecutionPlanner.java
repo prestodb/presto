@@ -266,6 +266,7 @@ import static com.facebook.presto.SystemSessionProperties.isOrderByAggregationSp
 import static com.facebook.presto.SystemSessionProperties.isOrderBySpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.isTopNSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isWindowSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -1007,7 +1008,9 @@ public class LocalExecutionPlanner
                     node.isPartial(),
                     hashChannel,
                     1000,
-                    joinCompiler);
+                    joinCompiler,
+                    spillerFactory,
+                    isTopNSpillEnabled(session));
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
@@ -1121,7 +1124,9 @@ public class LocalExecutionPlanner
                     source.getTypes(),
                     (int) node.getCount(),
                     sortChannels,
-                    sortOrders);
+                    sortOrders,
+                    spillerFactory,
+                    isTopNSpillEnabled(session));
 
             return new PhysicalOperation(operator, source.getLayout(), context, source);
         }

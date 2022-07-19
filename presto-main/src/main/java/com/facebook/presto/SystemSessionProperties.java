@@ -127,6 +127,7 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
+    public static final String TOPN_SPILL_ENABLED = "topn_spill_enabled";
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
     public static final String DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED = "dedup_based_distinct_aggregation_spill_enabled";
     public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED = "distinct_aggregation_large_block_spill_enabled";
@@ -135,6 +136,7 @@ public final class SystemSessionProperties
     public static final String WINDOW_SPILL_ENABLED = "window_spill_enabled";
     public static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
+    public static final String TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT = "topn_operator_unspill_memory_limit";
     public static final String QUERY_MAX_REVOCABLE_MEMORY_PER_NODE = "query_max_revocable_memory_per_node";
     public static final String TEMP_STORAGE_SPILLER_BUFFER_SIZE = "temp_storage_spiller_buffer_size";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
@@ -662,6 +664,11 @@ public final class SystemSessionProperties
                         featuresConfig.isAggregationSpillEnabled(),
                         false),
                 booleanProperty(
+                        TOPN_SPILL_ENABLED,
+                        "Enable topN spilling if spill_enabled",
+                        featuresConfig.isAggregationSpillEnabled(),
+                        false),
+                booleanProperty(
                         DISTINCT_AGGREGATION_SPILL_ENABLED,
                         "Enable spill for distinct aggregations if spill_enabled and aggregation_spill_enabled",
                         featuresConfig.isDistinctAggregationSpillEnabled(),
@@ -706,6 +713,15 @@ public final class SystemSessionProperties
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                new PropertyMetadata<>(
+                        TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT,
+                        "Experimental: How much memory can should be allocated per topN operator in unspilling process",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getTopNOperatorUnspillMemoryLimit(),
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
@@ -1663,6 +1679,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(AGGREGATION_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
+    public static boolean isTopNSpillEnabled(Session session)
+    {
+        return session.getSystemProperty(TOPN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
+    }
+
     public static boolean isDistinctAggregationSpillEnabled(Session session)
     {
         return session.getSystemProperty(DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class) && isAggregationSpillEnabled(session);
@@ -1699,6 +1720,13 @@ public final class SystemSessionProperties
     }
 
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
+    {
+        DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
+        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        return memoryLimitForMerge;
+    }
+
+    public static DataSize getTopNOperatorUnspillMemoryLimit(Session session)
     {
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
         checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);

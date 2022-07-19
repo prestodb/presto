@@ -121,7 +121,9 @@ public class TestTopNRowNumberOperator
                 false,
                 Optional.empty(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                null,
+                false);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L, 1L)
@@ -169,7 +171,9 @@ public class TestTopNRowNumberOperator
                 partial,
                 Optional.empty(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                null,
+                false);
 
         MaterializedResult expected;
         if (partial) {
@@ -208,7 +212,9 @@ public class TestTopNRowNumberOperator
                 false,
                 Optional.empty(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                null,
+                false);
 
         // get result with yield; pick a relatively small buffer for heaps
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(
