@@ -18,7 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import java.util.concurrent.Future;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_SPILL_FAILURE;
 import static java.lang.String.format;
 
 public class SpillingUtils
@@ -40,7 +40,7 @@ public class SpillingUtils
             throw new PrestoException(prestoException::getErrorCode, prestoException.getMessage(), prestoException);
         }
         catch (RuntimeException runtimeException) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Spilling failed: %s", runtimeException.getMessage()), runtimeException);
+            throw new PrestoException(GENERIC_SPILL_FAILURE, format("Spilling failed: %s", runtimeException.getMessage()), runtimeException);
         }
     }
 }
