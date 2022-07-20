@@ -14,8 +14,8 @@
 
 bison_target(
   TypeCalculationParser TypeCalculation.yy
-  ${CMAKE_CURRENT_BINARY_DIR}/Parser.cpp
-  DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/Parser.h)
+  ${CMAKE_CURRENT_BINARY_DIR}/TypeCalculation.yy.cc
+  DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/TypeCalculation.yy.h)
 
 flex_target(
   TypeCalculationScanner TypeCalculation.ll
@@ -23,7 +23,7 @@ flex_target(
 
 add_flex_bison_dependency(TypeCalculationScanner TypeCalculationParser)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${PROJECT_BINARY_DIR})
 include_directories(${FLEX_INCLUDE_DIRS})
 add_library(velox_type_calculation ${BISON_TypeCalculationParser_OUTPUTS}
                                    ${FLEX_TypeCalculationScanner_OUTPUTS})

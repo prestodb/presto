@@ -1,5 +1,5 @@
 %{
-#include "Parser.h"
+#include "velox/expression/type_calculation/TypeCalculation.yy.h"  // @manual
 #include "velox/expression/type_calculation/Scanner.h"
 #define YY_DECL int facebook::velox::expression::calculate::Scanner::lex(facebook::velox::expression::calculate::Parser::semantic_type *yylval)
 %}
