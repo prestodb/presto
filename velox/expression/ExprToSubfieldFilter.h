@@ -236,6 +236,22 @@ inline std::unique_ptr<common::BytesRange> betweenExclusive(
       min, false, true, max, false, true, nullAllowed);
 }
 
+inline std::unique_ptr<common::NegatedBytesRange> notBetween(
+    const std::string& min,
+    const std::string& max,
+    bool nullAllowed = false) {
+  return std::make_unique<common::NegatedBytesRange>(
+      min, false, false, max, false, false, nullAllowed);
+}
+
+inline std::unique_ptr<common::NegatedBytesRange> notBetweenExclusive(
+    const std::string& min,
+    const std::string& max,
+    bool nullAllowed = false) {
+  return std::make_unique<common::NegatedBytesRange>(
+      min, false, true, max, false, true, nullAllowed);
+}
+
 inline std::unique_ptr<common::BytesRange> lessThanOrEqual(
     const std::string& max,
     bool nullAllowed = false) {

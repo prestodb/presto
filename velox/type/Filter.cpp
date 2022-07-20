@@ -71,6 +71,9 @@ std::string Filter::toString() const {
     case FilterKind::kBytesRange:
       strKind = "BytesRange";
       break;
+    case FilterKind::kNegatedBytesRange:
+      strKind = "NegatedBytesRange";
+      break;
     case FilterKind::kBytesValues:
       strKind = "BytesValues";
       break;
@@ -576,6 +579,32 @@ bool BytesValues::testBytesRange(
   // max < lower_
   if (max.has_value() &&
       compareRanges(max->data(), max->length(), lower_) < 0) {
+    return false;
+  }
+
+  return true;
+}
+
+bool NegatedBytesRange::testBytesRange(
+    std::optional<std::string_view> min,
+    std::optional<std::string_view> max,
+    bool hasNull) const {
+  if (hasNull && nullAllowed_) {
+    return true;
+  }
+
+  if ((!min.has_value() && !isLowerUnbounded()) ||
+      (!max.has_value() && !isUpperUnbounded())) {
+    return true;
+  }
+
+  if (min.has_value() && max.has_value() && min.value() == max.value()) {
+    return testBytes(min->data(), min->length());
+  }
+
+  // if both min and max are within the negated range then reject
+  if (!testBytes(min->data(), min->length()) &&
+      !testBytes(max->data(), max->length())) {
     return false;
   }
 
@@ -1593,6 +1622,11 @@ std::unique_ptr<Filter> BytesRange::mergeWith(const Filter* other) const {
     default:
       VELOX_UNREACHABLE();
   }
+}
+
+std::unique_ptr<Filter> NegatedBytesRange::mergeWith(
+    const Filter* other) const {
+  VELOX_NYI("MergeWith is not yet implemented for a NegatedBytesRange.");
 }
 
 std::unique_ptr<Filter> BytesValues::mergeWith(const Filter* other) const {

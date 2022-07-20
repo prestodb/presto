@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -45,6 +46,7 @@ enum class FilterKind {
   kDoubleRange,
   kFloatRange,
   kBytesRange,
+  kNegatedBytesRange,
   kBytesValues,
   kNegatedBytesValues,
   kBigintMultiRange,
@@ -1361,6 +1363,94 @@ class BytesRange final : public AbstractRange {
   const std::string lower_;
   const std::string upper_;
   const bool singleValue_;
+};
+
+// Negated range filter for strings
+class NegatedBytesRange final : public Filter {
+ public:
+  /// @param lower Lower end of the rejected range.
+  /// @param lowerUnbounded True if lower end is "negative infinity" in which
+  /// case the value of lower is ignored.
+  /// @param lowerExclusive True if open range, e.g. lower value doesn't pass
+  /// the filter.
+  /// @param upper Upper end of the range.
+  /// @param upperUnbounded True if upper end is "positive infinity" in which
+  /// case the value of upper is ignored.
+  /// @param upperExclusive True if open range, e.g. upper value doesn't pass
+  /// the filter.
+  /// @param nullAllowed Null values are passing the filter if true.
+  NegatedBytesRange(
+      const std::string& lower,
+      bool lowerUnbounded,
+      bool lowerExclusive,
+      const std::string& upper,
+      bool upperUnbounded,
+      bool upperExclusive,
+      bool nullAllowed)
+      : Filter(true, nullAllowed, FilterKind::kNegatedBytesRange) {
+    nonNegated_ = std::make_unique<BytesRange>(
+        lower,
+        lowerUnbounded,
+        lowerExclusive,
+        upper,
+        upperUnbounded,
+        upperExclusive,
+        nullAllowed);
+  }
+
+  NegatedBytesRange(const NegatedBytesRange& other, bool nullAllowed)
+      : Filter(true, nullAllowed, other.kind()),
+        nonNegated_(std::make_unique<BytesRange>(*other.nonNegated_)) {}
+
+  std::unique_ptr<Filter> clone(
+      std::optional<bool> nullAllowed = std::nullopt) const final {
+    return std::make_unique<NegatedBytesRange>(
+        *this, nullAllowed.value_or(nullAllowed_));
+  }
+
+  std::string toString() const final {
+    return "Negated" + nonNegated_->toString();
+  }
+
+  bool testBytes(const char* value, int32_t length) const final {
+    return !nonNegated_->testBytes(value, length);
+  }
+
+  bool testBytesRange(
+      std::optional<std::string_view> min,
+      std::optional<std::string_view> max,
+      bool hasNull) const final;
+
+  bool testLength(int length) const final {
+    // a range nearly never covers all values of a particular length,
+    // so at least one value of each length is probably accepted
+    return true;
+  }
+
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
+
+  bool isSingleValue() const {
+    return nonNegated_->isSingleValue();
+  }
+
+  bool isUpperUnbounded() const {
+    return nonNegated_->isUpperUnbounded();
+  }
+
+  bool isLowerUnbounded() const {
+    return nonNegated_->isLowerUnbounded();
+  }
+
+  const std::string& lower() const {
+    return nonNegated_->lower();
+  }
+
+  const std::string& upper() const {
+    return nonNegated_->upper();
+  }
+
+ private:
+  std::unique_ptr<BytesRange> nonNegated_;
 };
 
 /// IN-list filter for string data type.
