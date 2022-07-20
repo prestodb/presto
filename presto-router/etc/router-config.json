@@ -9,5 +9,6 @@
     {
       "targetGroup": "all"
     }
-  ]
+  ],
+  "scheduler": "RANDOM_CHOICE"
 }
