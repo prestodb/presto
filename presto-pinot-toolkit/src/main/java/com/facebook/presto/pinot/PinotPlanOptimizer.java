@@ -164,14 +164,14 @@ public class PinotPlanOptimizer
             PinotQueryGeneratorContext context = pinotQuery.get().getContext();
             TableHandle oldTableHandle = tableScanNode.getTable();
             LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = context.getAssignments(pinotQuery.get().getGeneratedPinotQuery().getFormat() == PinotQueryGenerator.PinotQueryFormat.SQL);
-            boolean isQueryShort = pinotQuery.get().getGeneratedPinotQuery().isQueryShort();
+            boolean forBroker = pinotQuery.get().getGeneratedPinotQuery().forBroker();
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
                     new PinotTableHandle(
                             pinotTableHandle.getConnectorId(),
                             pinotTableHandle.getSchemaName(),
                             pinotTableHandle.getTableName(),
-                            Optional.of(isQueryShort),
+                            Optional.of(forBroker),
                             Optional.of(ImmutableList.copyOf(assignments.values())),
                             Optional.of(pinotQuery.get().getGeneratedPinotQuery())),
                     oldTableHandle.getTransaction(),
@@ -193,7 +193,7 @@ public class PinotPlanOptimizer
             Map<TableScanNode, Void> scanNodes = node.accept(new TableFindingVisitor(), null);
             final TableScanNode tableScanNode = (scanNodes.size() == 1) ? getOnlyPinotTable(scanNodes)
                     .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR,
-                        "Expected to find the pinot table handle for the scan node")) : null;
+                            "Expected to find the pinot table handle for the scan node")) : null;
             Optional<PlanNode> pushedDownPlan = tryCreatingNewScanNode(node, tableScanNode);
             return pushedDownPlan.orElseGet(() -> replaceChildren(
                     node,
