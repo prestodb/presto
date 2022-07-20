@@ -19,7 +19,7 @@
 #include "velox/dwio/common/exception/Exceptions.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
-#include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"
+#include "velox/dwio/dwrf/reader/SelectiveDwrfReader.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/ComplexVector.h"
@@ -135,7 +135,7 @@ class ColumnReaderTestBase {
         scanSpec = scanSpec_.get();
       }
       makeFieldSpecs("", 0, rowType, scanSpec);
-      selectiveColumnReader_ = SelectiveColumnReader::build(
+      selectiveColumnReader_ = SelectiveDwrfReader::build(
           cs.getSchemaWithId(),
           dataTypeWithId,
           streams_,

@@ -168,7 +168,7 @@ void verifyStats(
     for (auto count = 0; count < rowIndex->entry_size(); count++) {
       auto stridStatistics = buildColumnStatisticsFromProto(
           rowIndex->entry(count).statistics(),
-          StatsContext(WriterVersion_CURRENT));
+          dwrf::StatsContext(WriterVersion_CURRENT));
       // TODO, take in a lambda to verify the entire statistics instead of Just
       // the rawSize.
       EXPECT_EQ(nodeSizePerStride.at(nodeId), stridStatistics->getRawSize())

@@ -25,7 +25,7 @@ namespace facebook::velox::dwrf {
 /**
  * StatsContext contains fields required to compute statistics
  */
-struct StatsContext {
+struct StatsContext : public dwio::common::StatsContext {
   const std::string writerName;
   WriterVersion writerVersion;
 
@@ -34,6 +34,8 @@ struct StatsContext {
 
   explicit StatsContext(WriterVersion version)
       : writerName(""), writerVersion{version} {}
+
+  ~StatsContext() override = default;
 };
 
 std::unique_ptr<dwio::common::ColumnStatistics> buildColumnStatisticsFromProto(

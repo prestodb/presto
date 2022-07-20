@@ -37,6 +37,9 @@ std::unique_ptr<DwrfRowReader> DwrfReader::createDwrfRowReader(
 void DwrfRowReader::checkSkipStrides(
     const StatsContext& context,
     uint64_t strideSize) {
+  if (!selectiveColumnReader_) {
+    return;
+  }
   if (currentRowInStripe % strideSize != 0) {
     return;
   }

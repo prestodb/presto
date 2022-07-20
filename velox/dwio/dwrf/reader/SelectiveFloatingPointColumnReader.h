@@ -26,9 +26,8 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
   using ValueType = TRequested;
   SelectiveFloatingPointColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
-      StripeStreams& stripe,
-      common::ScanSpec* scanSpec,
-      FlatMapContext flatMapContext);
+      DwrfParams& params,
+      common::ScanSpec& scanSpec);
 
   // Offers fast path only if data and result widths match.
   bool hasBulkPath() const override {
@@ -36,17 +35,8 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
   }
 
   void seekToRowGroup(uint32_t index) override {
-    ensureRowGroupIndex();
-
-    auto positions = toPositions(index_->entry(index));
-    dwio::common::PositionProvider positionsProvider(positions);
-
-    if (notNullDecoder_) {
-      notNullDecoder_->seekToRowGroup(positionsProvider);
-    }
-
+    auto positionsProvider = formatData_->seekToRowGroup(index);
     decoder_.seekToRowGroup(positionsProvider);
-
     VELOX_CHECK(!positionsProvider.hasNext());
   }
 
@@ -81,24 +71,22 @@ template <typename TData, typename TRequested>
 SelectiveFloatingPointColumnReader<TData, TRequested>::
     SelectiveFloatingPointColumnReader(
         std::shared_ptr<const dwio::common::TypeWithId> requestedType,
-        StripeStreams& stripe,
-        common::ScanSpec* scanSpec,
-        FlatMapContext flatMapContext)
+        DwrfParams& params,
+        common::ScanSpec& scanSpec)
     : SelectiveColumnReader(
           std::move(requestedType),
-          stripe,
+          params,
           scanSpec,
-          CppToType<TData>::create(),
-          std::move(flatMapContext)),
-      decoder_(stripe.getStream(
-          EncodingKey{nodeType_->id, flatMapContext_.sequence}.forKind(
+          CppToType<TData>::create()),
+      decoder_(params.stripeStreams().getStream(
+          EncodingKey{nodeType_->id, params.flatMapContext().sequence}.forKind(
               proto::Stream_Kind_DATA),
           true)) {}
 
 template <typename TData, typename TRequested>
 uint64_t SelectiveFloatingPointColumnReader<TData, TRequested>::skip(
     uint64_t numValues) {
-  numValues = SelectiveColumnReader::skip(numValues);
+  numValues = formatData_->skipNulls(numValues);
   decoder_.skip(numValues);
   return numValues;
 }

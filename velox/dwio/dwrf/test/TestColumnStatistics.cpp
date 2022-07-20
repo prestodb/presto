@@ -27,7 +27,7 @@ using facebook::velox::dwio::type::fbhive::HiveTypeParser;
 
 StatisticsBuilderOptions options{16};
 
-StatsContext context{WriterVersion_CURRENT};
+facebook::velox::dwrf::StatsContext context{WriterVersion_CURRENT};
 template <typename T, typename U>
 std::unique_ptr<T> as(std::unique_ptr<U>&& ptr) {
   auto p = ptr.release();

@@ -19,18 +19,15 @@
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/DwrfReaderShared.h"
-#include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"
+#include "velox/dwio/dwrf/reader/SelectiveDwrfReader.h"
 
 namespace facebook::velox::dwrf {
 
 class DwrfRowReader : public DwrfRowReaderShared {
  protected:
   void resetColumnReaderImpl() override {
-    if (selectiveColumnReader_) {
-      selectiveColumnReader_.reset();
-    } else {
-      columnReader_.reset();
-    }
+    columnReader_.reset();
+    selectiveColumnReader_.reset();
   }
 
   void createColumnReaderImpl(StripeStreams& stripeStreams) override {
@@ -40,7 +37,7 @@ class DwrfRowReader : public DwrfRowReaderShared {
     auto flatMapContext = FlatMapContext::nonFlatMapContext();
 
     if (scanSpec) {
-      selectiveColumnReader_ = SelectiveColumnReader::build(
+      selectiveColumnReader_ = SelectiveDwrfReader::build(
           requestedType, dataType, stripeStreams, scanSpec, flatMapContext);
       selectiveColumnReader_->setIsTopLevel();
     } else {

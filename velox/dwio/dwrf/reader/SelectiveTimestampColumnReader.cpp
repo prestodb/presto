@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/reader/SelectiveTimestampColumnReader.h"
+#include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 
 namespace facebook::velox::dwrf {
@@ -23,16 +24,11 @@ using namespace dwio::common;
 
 SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
     const std::shared_ptr<const TypeWithId>& nodeType,
-    StripeStreams& stripe,
-    common::ScanSpec* scanSpec,
-    FlatMapContext flatMapContext)
-    : SelectiveColumnReader(
-          nodeType,
-          stripe,
-          scanSpec,
-          nodeType->type,
-          std::move(flatMapContext)) {
-  EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
+    DwrfParams& params,
+    common::ScanSpec& scanSpec)
+    : SelectiveColumnReader(nodeType, params, scanSpec, nodeType->type) {
+  EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
+  auto& stripe = params.stripeStreams();
   RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
@@ -56,14 +52,7 @@ uint64_t SelectiveTimestampColumnReader::skip(uint64_t numValues) {
 }
 
 void SelectiveTimestampColumnReader::seekToRowGroup(uint32_t index) {
-  ensureRowGroupIndex();
-
-  auto positions = toPositions(index_->entry(index));
-  PositionProvider positionsProvider(positions);
-  if (notNullDecoder_) {
-    notNullDecoder_->seekToRowGroup(positionsProvider);
-  }
-
+  auto positionsProvider = formatData_->seekToRowGroup(index);
   seconds_->seekToRowGroup(positionsProvider);
   nano_->seekToRowGroup(positionsProvider);
   // Check that all the provided positions have been consumed.
@@ -97,7 +86,8 @@ void SelectiveTimestampColumnReader::readHelper(RowSet rows) {
 
   // Save the seconds into their own buffer before reading nanos into
   // 'values_'
-  detail::ensureCapacity<uint64_t>(secondsValues_, numValues_, &memoryPool_);
+  dwio::common::ensureCapacity<uint64_t>(
+      secondsValues_, numValues_, &memoryPool_);
   secondsValues_->setSize(numValues_ * sizeof(int64_t));
   memcpy(
       secondsValues_->asMutable<char>(),
@@ -142,6 +132,34 @@ void SelectiveTimestampColumnReader::read(
   }
 }
 
+namespace {
+void fillTimestamps(
+    Timestamp* timestamps,
+    const uint64_t* nullsPtr,
+    const int64_t* secondsPtr,
+    const uint64_t* nanosPtr,
+    vector_size_t numValues) {
+  for (vector_size_t i = 0; i < numValues; i++) {
+    if (!nullsPtr || !bits::isBitNull(nullsPtr, i)) {
+      auto nanos = nanosPtr[i];
+      uint64_t zeros = nanos & 0x7;
+      nanos >>= 3;
+      if (zeros != 0) {
+        for (uint64_t j = 0; j <= zeros; ++j) {
+          nanos *= 10;
+        }
+      }
+      auto seconds = secondsPtr[i] + EPOCH_OFFSET;
+      if (seconds < 0 && nanos != 0) {
+        seconds -= 1;
+      }
+      timestamps[i] = Timestamp(seconds, nanos);
+    }
+  }
+}
+
+} // namespace
+
 void SelectiveTimestampColumnReader::getValues(RowSet rows, VectorPtr* result) {
   // We merge the seconds and nanos into 'values_'
   auto tsValues = AlignedBuffer::allocate<Timestamp>(numValues_, &memoryPool_);
@@ -152,7 +170,7 @@ void SelectiveTimestampColumnReader::getValues(RowSet rows, VectorPtr* result) {
       ? (returnReaderNulls_ ? nullsInReadRange_->as<uint64_t>()
                             : rawResultNulls_)
       : nullptr;
-  detail::fillTimestamps(rawTs, rawNulls, secondsData, nanosData, numValues_);
+  fillTimestamps(rawTs, rawNulls, secondsData, nanosData, numValues_);
   values_ = tsValues;
   rawValues_ = values_->asMutable<char>();
   getFlatValues<Timestamp, Timestamp>(rows, result, type_, true);

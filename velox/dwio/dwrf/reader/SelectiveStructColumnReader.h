@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/dwrf/reader/DwrfData.h"
 #include "velox/dwio/dwrf/reader/SelectiveColumnReaderInternal.h"
 
 namespace facebook::velox::dwrf {
@@ -25,9 +26,8 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
   SelectiveStructColumnReader(
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
-      StripeStreams& stripe,
-      common::ScanSpec* scanSpec,
-      FlatMapContext flatMapContext);
+      DwrfParams& params,
+      common::ScanSpec& scanSpec);
 
   void resetFilterCaches() override {
     for (auto& child : children_) {
@@ -36,16 +36,12 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
   }
 
   void seekToRowGroup(uint32_t index) override {
-    if (isTopLevel_ && !notNullDecoder_) {
+    if (isTopLevel_ && !formatData_->hasNulls()) {
       readOffset_ = index * rowsPerRowGroup_;
       return;
     }
-    if (notNullDecoder_) {
-      ensureRowGroupIndex();
-      auto positions = toPositions(index_->entry(index));
-      dwio::common::PositionProvider positionsProvider(positions);
-      notNullDecoder_->seekToRowGroup(positionsProvider);
-    }
+    // There may be a nulls stream but no other streams for the struct.
+    formatData_->seekToRowGroup(index);
     // Set the read offset recursively. Do this before seeking the
     // children because list/map children will reset the offsets for
     // their children.
@@ -64,7 +60,7 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
 
   std::vector<uint32_t> filterRowGroups(
       uint64_t rowGroupSize,
-      const StatsContext& context) const override;
+      const dwio::common::StatsContext& context) const override;
 
   void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
       override;
@@ -107,7 +103,7 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
 
   void setIsTopLevel() override {
     isTopLevel_ = true;
-    if (!notNullDecoder_) {
+    if (!formatData_->hasNulls()) {
       for (auto& child : children_) {
         child->setIsTopLevel();
       }
@@ -135,6 +131,8 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
   // created by 'this' to verify they are still valid at load.
   uint64_t numReads_ = 0;
   vector_size_t lazyVectorReadOffset_;
+
+  const int32_t rowsPerRowGroup_;
 
   // Dense set of rows to read in next().
   raw_vector<vector_size_t> rows_;

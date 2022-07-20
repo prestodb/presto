@@ -15,22 +15,18 @@
  */
 
 #include "velox/dwio/dwrf/reader/SelectiveStringDirectColumnReader.h"
+#include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 
 namespace facebook::velox::dwrf {
 
 SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
-    StripeStreams& stripe,
-    common::ScanSpec* scanSpec,
-    FlatMapContext flatMapContext)
-    : SelectiveColumnReader(
-          nodeType,
-          stripe,
-          scanSpec,
-          nodeType->type,
-          std::move(flatMapContext)) {
-  EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
+    DwrfParams& params,
+    common::ScanSpec& scanSpec)
+    : SelectiveColumnReader(nodeType, params, scanSpec, nodeType->type) {
+  EncodingKey encodingKey{nodeType->id, params.flatMapContext().sequence};
+  auto& stripe = params.stripeStreams();
   RleVersion rleVersion =
       convertRleVersion(stripe.getEncoding(encodingKey).kind());
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
@@ -47,7 +43,7 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
 
 uint64_t SelectiveStringDirectColumnReader::skip(uint64_t numValues) {
   numValues = SelectiveColumnReader::skip(numValues);
-  detail::ensureCapacity<int64_t>(lengths_, numValues, &memoryPool_);
+  dwio::common::ensureCapacity<int64_t>(lengths_, numValues, &memoryPool_);
   lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), numValues);
   rawLengths_ = lengths_->as<uint32_t>();
   for (auto i = 0; i < numValues; ++i) {
@@ -424,7 +420,7 @@ void SelectiveStringDirectColumnReader::read(
   auto end = rows.back() + 1;
   auto numNulls =
       nullsInReadRange_ ? BaseVector::countNulls(nullsInReadRange_, 0, end) : 0;
-  detail::ensureCapacity<int32_t>(lengths_, end - numNulls, &memoryPool_);
+  dwio::common::ensureCapacity<int32_t>(lengths_, end - numNulls, &memoryPool_);
   lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), end - numNulls);
   rawLengths_ = lengths_->as<uint32_t>();
   lengthIndex_ = 0;

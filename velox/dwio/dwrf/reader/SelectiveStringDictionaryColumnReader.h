@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/dwrf/reader/DwrfData.h"
 #include "velox/dwio/dwrf/reader/SelectiveColumnReaderInternal.h"
 
 namespace facebook::velox::dwrf {
@@ -26,24 +27,11 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
 
   SelectiveStringDictionaryColumnReader(
       const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
-      StripeStreams& stripe,
-      common::ScanSpec* scanSpec,
-      FlatMapContext flatMapContext);
+      DwrfParams& params,
+      common::ScanSpec& scanSpec);
 
   void seekToRowGroup(uint32_t index) override {
-    ensureRowGroupIndex();
-
-    auto positions = toPositions(index_->entry(index));
-    dwio::common::PositionProvider positionsProvider(positions);
-
-    if (flatMapContext_.inMapDecoder) {
-      flatMapContext_.inMapDecoder->seekToRowGroup(positionsProvider);
-    }
-
-    if (notNullDecoder_) {
-      notNullDecoder_->seekToRowGroup(positionsProvider);
-    }
-
+    auto positionsProvider = formatData_->as<DwrfData>().seekToRowGroup(index);
     if (strideDictStream_) {
       strideDictStream_->seekToPosition(positionsProvider);
       strideDictLengthDecoder_->seekToRowGroup(positionsProvider);

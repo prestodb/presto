@@ -82,7 +82,7 @@ void SelectiveColumnReader::prepareRead(
   if (nullsInReadRange_ && !nullsInReadRange_->unique()) {
     nullsInReadRange_.reset();
   }
-  readNulls(numRows, incomingNulls, nullptr, nullsInReadRange_);
+  formatData_->readNulls(numRows, incomingNulls, nullsInReadRange_);
   // We check for all nulls and no nulls. We expect both calls to
   // bits::isAllSet to fail early in the common case. We could do a
   // single traversal of null bits counting the bits and then compare
@@ -300,7 +300,7 @@ void SelectiveColumnReader::filterNulls(
     RowSet rows,
     bool isNull,
     bool extractValues) {
-  if (!notNullDecoder_) {
+  if (!formatData_->hasNulls()) {
     if (isNull) {
       // The whole stripe will be empty. We do not update
       // 'readOffset' since nothing is read from either nulls or data.
