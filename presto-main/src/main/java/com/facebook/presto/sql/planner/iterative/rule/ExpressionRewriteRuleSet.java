@@ -306,7 +306,7 @@ public class ExpressionRewriteRuleSet
                 rows.add(newRow.build());
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new ValuesNode(valuesNode.getSourceLocation(), valuesNode.getId(), valuesNode.getOutputVariables(), rows.build()));
+                return Result.ofPlanNode(new ValuesNode(valuesNode.getSourceLocation(), valuesNode.getId(), valuesNode.getOutputVariables(), rows.build(), valuesNode.getValuesNodeLabel()));
             }
             return Result.empty();
         }

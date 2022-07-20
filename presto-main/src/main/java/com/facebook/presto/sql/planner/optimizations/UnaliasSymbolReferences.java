@@ -406,7 +406,8 @@ public class UnaliasSymbolReferences
                     node.getSourceLocation(),
                     node.getId(),
                     canonicalizedOutputVariables,
-                    canonicalizedRows);
+                    canonicalizedRows,
+                    node.getValuesNodeLabel());
         }
 
         @Override
