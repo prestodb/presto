@@ -20,6 +20,8 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
+
 import static com.facebook.presto.sql.planner.plan.Patterns.Limit.count;
 import static com.facebook.presto.sql.planner.plan.Patterns.limit;
 
@@ -38,6 +40,6 @@ public class EvaluateZeroLimit
     @Override
     public Result apply(LimitNode limit, Captures captures, Context context)
     {
-        return Result.ofPlanNode(new ValuesNode(limit.getSourceLocation(), limit.getId(), limit.getOutputVariables(), ImmutableList.of()));
+        return Result.ofPlanNode(new ValuesNode(limit.getSourceLocation(), limit.getId(), limit.getOutputVariables(), ImmutableList.of(), Optional.empty()));
     }
 }

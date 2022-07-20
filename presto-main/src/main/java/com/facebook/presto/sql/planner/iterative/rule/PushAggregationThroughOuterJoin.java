@@ -305,7 +305,8 @@ public class PushAggregationThroughOuterJoin
                 referenceAggregation.getSourceLocation(),
                 idAllocator.getNextId(),
                 nullVariables.build(),
-                ImmutableList.of(nullLiterals.build()));
+                ImmutableList.of(nullLiterals.build()),
+                Optional.empty());
         Map<VariableReferenceExpression, VariableReferenceExpression> sourcesVariableMapping = sourcesVariableMappingBuilder.build();
 
         // For each aggregation function in the reference node, create a corresponding aggregation function

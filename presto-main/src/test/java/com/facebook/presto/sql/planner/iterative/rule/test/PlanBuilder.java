@@ -238,7 +238,7 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
     {
-        return new ValuesNode(Optional.empty(), id, variables, rows);
+        return new ValuesNode(Optional.empty(), id, variables, rows, Optional.empty());
     }
 
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)

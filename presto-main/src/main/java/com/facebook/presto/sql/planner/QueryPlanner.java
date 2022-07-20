@@ -317,7 +317,7 @@ class QueryPlanner
     {
         Scope scope = Scope.create();
         return new RelationPlan(
-                new ValuesNode(Optional.empty(), idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
+                new ValuesNode(Optional.empty(), idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of()), Optional.empty()),
                 scope,
                 ImmutableList.of());
     }
