@@ -57,11 +57,14 @@ import static com.facebook.presto.SystemSessionProperties.EXPLOIT_CONSTRAINTS;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.LEAF_NODE_LIMIT_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.MAX_LEAF_NODES_IN_PLAN;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
+import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -1533,5 +1536,62 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         tableScan("orders")))));
+    }
+
+    @Test
+    public void testLeafNodeInPlanExceedException()
+    {
+        Session enableLeafNodeInPlanExceedException = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(MAX_LEAF_NODES_IN_PLAN, Integer.toString(10))
+                .setSystemProperty(LEAF_NODE_LIMIT_ENABLED, Boolean.toString(true))
+                .build();
+
+        String expectedMessageRegExp = format("Number of leaf nodes in logical plan exceeds threshold %s set in max_leaf_nodes_in_plan",
+                getMaxLeafNodesInPlan(enableLeafNodeInPlanExceedException));
+
+        String joinQuery = "WITH t1 AS " +
+                "(" +
+                "    SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c') ) AS t (id, name) " +
+                "), " +
+                "t2 AS ( " +
+                "    SELECT A.id, B.name FROM t1 A Join t1 B On A.id = B.id " +
+                "), " +
+                "t3 AS ( " +
+                "    SELECT A.id, B.name FROM t2 A Join t2 B On A.id = B.id " +
+                "), " +
+                "t4 AS ( " +
+                "    SELECT A.id, B.name FROM t3 A Join t3 B On A.id = B.id " +
+                "), " +
+                "t5 AS ( " +
+                "    SELECT A.id, B.name FROM t4 A Join t4 B On A.id = B.id " +
+                ") " +
+                "SELECT * FROM t5";
+
+        assertPlanFailedWithException(joinQuery, enableLeafNodeInPlanExceedException, expectedMessageRegExp);
+
+        enableLeafNodeInPlanExceedException = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(MAX_LEAF_NODES_IN_PLAN, Integer.toString(100))
+                .setSystemProperty(LEAF_NODE_LIMIT_ENABLED, Boolean.toString(true))
+                .build();
+
+        String joinQuery2 = "WITH t1 AS " +
+                "(" +
+                "    SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c') ) AS t (id, name) " +
+                "), " +
+                "t2 AS ( " +
+                "    SELECT A.id, B.name FROM t1 A Join t1 B On A.id = B.id " +
+                "), " +
+                "t3 AS ( " +
+                "    SELECT A.id, B.name FROM t2 A Join t2 B On A.id = B.id " +
+                "), " +
+                "t4 AS ( " +
+                "    SELECT A.id, B.name FROM t3 A Join t3 B On A.id = B.id " +
+                "), " +
+                "t5 AS ( " +
+                "    SELECT A.id, B.name FROM t4 A Join t4 B On A.id = B.id " +
+                ") " +
+                "SELECT * FROM t5";
+
+        assertPlanSucceeded(joinQuery2, enableLeafNodeInPlanExceedException);
     }
 }

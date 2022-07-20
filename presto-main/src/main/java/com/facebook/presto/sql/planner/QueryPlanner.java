@@ -115,6 +115,7 @@ class QueryPlanner
     private final Metadata metadata;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
+    private final SqlPlannerContext sqlPlannerContext;
 
     QueryPlanner(
             Analysis analysis,
@@ -122,7 +123,8 @@ class QueryPlanner
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
-            Session session)
+            Session session,
+            SqlPlannerContext sqlPlannerContext)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
@@ -138,6 +140,7 @@ class QueryPlanner
         this.metadata = metadata;
         this.session = session;
         this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session);
+        this.sqlPlannerContext = sqlPlannerContext;
     }
 
     public RelationPlan plan(Query query)
@@ -266,7 +269,7 @@ class QueryPlanner
     private PlanBuilder planQueryBody(Query query)
     {
         RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
-                .process(query.getQueryBody(), null);
+                .process(query.getQueryBody(), sqlPlannerContext);
 
         return planBuilderFor(relationPlan);
     }
@@ -277,7 +280,7 @@ class QueryPlanner
 
         if (node.getFrom().isPresent()) {
             relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
-                    .process(node.getFrom().get(), null);
+                    .process(node.getFrom().get(), sqlPlannerContext);
         }
         else {
             relationPlan = planImplicitTable();
@@ -330,7 +333,7 @@ class QueryPlanner
 
         // rewrite expressions which contain already handled subqueries
         Expression rewrittenBeforeSubqueries = subPlan.rewrite(predicate);
-        subPlan = subqueryPlanner.handleSubqueries(subPlan, rewrittenBeforeSubqueries, node);
+        subPlan = subqueryPlanner.handleSubqueries(subPlan, rewrittenBeforeSubqueries, node, sqlPlannerContext);
         Expression rewrittenAfterSubqueries = subPlan.rewrite(predicate);
 
         return subPlan.withNewRoot(new FilterNode(getSourceLocation(node), idAllocator.getNextId(), subPlan.getRoot(), castToRowExpression(rewrittenAfterSubqueries)));
@@ -872,7 +875,7 @@ class QueryPlanner
     private PlanBuilder handleSubqueries(PlanBuilder subPlan, Node node, Iterable<Expression> inputs)
     {
         for (Expression input : inputs) {
-            subPlan = subqueryPlanner.handleSubqueries(subPlan, subPlan.rewrite(input), node);
+            subPlan = subqueryPlanner.handleSubqueries(subPlan, subPlan.rewrite(input), node, sqlPlannerContext);
         }
         return subPlan;
     }
