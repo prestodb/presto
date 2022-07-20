@@ -25,10 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTimeZone;
 
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
@@ -50,12 +48,11 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_NON_TRANSIENT_ERROR;
+import static com.facebook.presto.plugin.clickhouse.DateTimeUtil.convertZonedDaysToDate;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.TimeUnit.DAYS;
-import static org.joda.time.chrono.ISOChronology.getInstanceUTC;
 
 public class ClickHousePageSink
         implements ConnectorPageSink
@@ -164,9 +161,7 @@ public class ClickHousePageSink
         }
         else if (DATE.equals(type)) {
             // convert to midnight in default time zone
-            long utcMillis = DAYS.toMillis(type.getLong(block, position));
-            long localMillis = getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
-            statement.setDate(parameter, new Date(localMillis));
+            statement.setDate(parameter, convertZonedDaysToDate(type.getLong(block, position)));
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
