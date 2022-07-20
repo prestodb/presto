@@ -53,10 +53,14 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.CREATED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static com.google.common.base.Strings.nullToEmpty;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.fail;
 
 public class BasePlanTest
 {
@@ -238,6 +242,29 @@ public class BasePlanTest
             planValidator.accept(actualPlan);
             return null;
         });
+    }
+
+    protected void assertPlanFailedWithException(String sql, Session session, @Language("RegExp") String expectedExceptionRegex)
+    {
+        try {
+            queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, CREATED, true, WarningCollector.NOOP));
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            if (!nullToEmpty(ex.getMessage()).matches(expectedExceptionRegex)) {
+                fail(format("Expected exception message '%s' to match '%s' for query: %s", ex.getMessage(), expectedExceptionRegex, sql), ex);
+            }
+        }
+    }
+
+    protected void assertPlanSucceeded(String sql, Session session)
+    {
+        try {
+            queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, CREATED, true, WarningCollector.NOOP));
+        }
+        catch (RuntimeException ex) {
+            fail(format("Query %s failed with exception message '%s'", sql, ex.getMessage()), ex);
+        }
     }
 
     protected Plan plan(String sql)

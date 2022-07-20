@@ -123,7 +123,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
-        extends DefaultTraversalVisitor<RelationPlan, Void>
+        extends DefaultTraversalVisitor<RelationPlan, SqlPlannerContext>
 {
     private final Analysis analysis;
     private final PlanVariableAllocator variableAllocator;
@@ -158,7 +158,7 @@ class RelationPlanner
     }
 
     @Override
-    public RelationPlan process(Node node, @Nullable Void context)
+    public RelationPlan process(Node node, @Nullable SqlPlannerContext context)
     {
         // Check if relation planner timeout
         checkInterruption();
@@ -166,13 +166,13 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitTable(Table node, Void context)
+    protected RelationPlan visitTable(Table node, SqlPlannerContext context)
     {
         Query namedQuery = analysis.getNamedQuery(node);
         Scope scope = analysis.getScope(node);
 
         if (namedQuery != null) {
-            RelationPlan subPlan = process(namedQuery, null);
+            RelationPlan subPlan = process(namedQuery, context);
 
             // Add implicit coercions if view query produces types that don't match the declared output types
             // of the view (e.g., if the underlying tables referenced by the view changed)
@@ -193,13 +193,14 @@ class RelationPlanner
 
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
         List<TableConstraint<ColumnHandle>> tableConstraints = metadata.getTableMetadata(session, handle).getMetadata().getTableConstraints();
+        context.incrementLeafNodes(session);
         PlanNode root = new TableScanNode(getSourceLocation(node.getLocation()), idAllocator.getNextId(), handle, outputVariables, columns.build(), tableConstraints, TupleDomain.all(), TupleDomain.all());
 
         return new RelationPlan(root, scope, outputVariables);
     }
 
     @Override
-    protected RelationPlan visitAliasedRelation(AliasedRelation node, Void context)
+    protected RelationPlan visitAliasedRelation(AliasedRelation node, SqlPlannerContext context)
     {
         RelationPlan subPlan = process(node.getRelation(), context);
 
@@ -228,7 +229,7 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitSampledRelation(SampledRelation node, Void context)
+    protected RelationPlan visitSampledRelation(SampledRelation node, SqlPlannerContext context)
     {
         RelationPlan subPlan = process(node.getRelation(), context);
 
@@ -243,7 +244,7 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitJoin(Join node, Void context)
+    protected RelationPlan visitJoin(Join node, SqlPlannerContext context)
     {
         // TODO: translate the RIGHT join into a mirrored LEFT join when we refactor (@martint)
         RelationPlan leftPlan = process(node.getLeft(), context);
@@ -261,7 +262,7 @@ class RelationPlanner
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
                 throw notSupportedException(lateral.get(), "LATERAL on other than the right side of CROSS JOIN");
             }
-            return planLateralJoin(node, leftPlan, lateral.get());
+            return planLateralJoin(node, leftPlan, lateral.get(), context);
         }
 
         RelationPlan rightPlan = process(node.getRight(), context);
@@ -337,8 +338,8 @@ class RelationPlanner
                 }
             }
 
-            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, leftComparisonExpressions, node);
-            rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, rightComparisonExpressions, node);
+            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, leftComparisonExpressions, node, context);
+            rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, rightComparisonExpressions, node, context);
 
             // Add projections for join criteria
             leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, variableAllocator, idAllocator);
@@ -386,7 +387,7 @@ class RelationPlanner
             }
 
             // subqueries can be applied only to one side of join - left side is selected in arbitrary way
-            leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, complexJoinExpressions, node);
+            leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, complexJoinExpressions, node, context);
         }
 
         RelationPlan intermediateRootRelationPlan = new RelationPlan(root, analysis.getScope(node), outputs);
@@ -419,7 +420,7 @@ class RelationPlanner
         if (node.getType() == INNER) {
             // rewrite all the other conditions using output variables from left + right plan node.
             PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root);
-            rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node);
+            rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node, context);
 
             for (Expression expression : complexJoinExpressions) {
                 postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
@@ -606,9 +607,9 @@ class RelationPlanner
         return Optional.empty();
     }
 
-    private RelationPlan planLateralJoin(Join join, RelationPlan leftPlan, Lateral lateral)
+    private RelationPlan planLateralJoin(Join join, RelationPlan leftPlan, Lateral lateral, SqlPlannerContext context)
     {
-        RelationPlan rightPlan = process(lateral.getQuery(), null);
+        RelationPlan rightPlan = process(lateral.getQuery(), context);
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
@@ -671,27 +672,27 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitTableSubquery(TableSubquery node, Void context)
+    protected RelationPlan visitTableSubquery(TableSubquery node, SqlPlannerContext context)
     {
         return process(node.getQuery(), context);
     }
 
     @Override
-    protected RelationPlan visitQuery(Query node, Void context)
+    protected RelationPlan visitQuery(Query node, SqlPlannerContext context)
     {
-        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
+        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context)
                 .plan(node);
     }
 
     @Override
-    protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
+    protected RelationPlan visitQuerySpecification(QuerySpecification node, SqlPlannerContext context)
     {
-        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
+        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context)
                 .plan(node);
     }
 
     @Override
-    protected RelationPlan visitValues(Values node, Void context)
+    protected RelationPlan visitValues(Values node, SqlPlannerContext context)
     {
         Scope scope = analysis.getScope(node);
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
@@ -713,6 +714,7 @@ class RelationPlanner
             rowsBuilder.add(values.build());
         }
 
+        context.incrementLeafNodes(session);
         ValuesNode valuesNode = new ValuesNode(getSourceLocation(node), idAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build(), Optional.empty());
         return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
     }
@@ -739,7 +741,7 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitUnnest(Unnest node, Void context)
+    protected RelationPlan visitUnnest(Unnest node, SqlPlannerContext context)
     {
         Scope scope = analysis.getScope(node);
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
@@ -794,7 +796,7 @@ class RelationPlanner
         return new RelationPlan(unnestNode, scope, unnestedVariables);
     }
 
-    private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
+    private RelationPlan processAndCoerceIfNecessary(Relation node, SqlPlannerContext context)
     {
         Type[] coerceToTypes = analysis.getRelationCoercion(node);
 
@@ -850,11 +852,11 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitUnion(Union node, Void context)
+    protected RelationPlan visitUnion(Union node, SqlPlannerContext context)
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for UNION");
 
-        SetOperationPlan setOperationPlan = process(node);
+        SetOperationPlan setOperationPlan = process(node, context);
 
         PlanNode planNode = new UnionNode(getSourceLocation(node), idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
         if (node.isDistinct().orElse(true)) {
@@ -864,35 +866,35 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitIntersect(Intersect node, Void context)
+    protected RelationPlan visitIntersect(Intersect node, SqlPlannerContext context)
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for INTERSECT");
 
-        SetOperationPlan setOperationPlan = process(node);
+        SetOperationPlan setOperationPlan = process(node, context);
 
         PlanNode planNode = new IntersectNode(getSourceLocation(node), idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
     @Override
-    protected RelationPlan visitExcept(Except node, Void context)
+    protected RelationPlan visitExcept(Except node, SqlPlannerContext context)
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for EXCEPT");
 
-        SetOperationPlan setOperationPlan = process(node);
+        SetOperationPlan setOperationPlan = process(node, context);
 
         PlanNode planNode = new ExceptNode(getSourceLocation(node), idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
-    private SetOperationPlan process(SetOperation node)
+    private SetOperationPlan process(SetOperation node, SqlPlannerContext context)
     {
         List<VariableReferenceExpression> outputs = null;
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
         ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> variableMapping = ImmutableListMultimap.builder();
 
         List<RelationPlan> subPlans = node.getRelations().stream()
-                .map(relation -> processAndCoerceIfNecessary(relation, null))
+                .map(relation -> processAndCoerceIfNecessary(relation, context))
                 .collect(toImmutableList());
 
         for (RelationPlan relationPlan : subPlans) {
