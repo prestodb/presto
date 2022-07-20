@@ -98,8 +98,6 @@ import static com.facebook.presto.sql.MaterializedViewUtils.COUNT;
 import static com.facebook.presto.sql.MaterializedViewUtils.SUM;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -332,7 +330,7 @@ public class MaterializedViewQueryOptimizer
         Optional<String> errorMessage = MaterializedViewRewriteQueryShapeValidator.validate(querySpecification);
 
         if (errorMessage.isPresent()) {
-            log.warn("Rewrite failed for base table %s with error message { %s }. ", baseTable.getName(), errorMessage.get());
+            log.debug("Rewrite failed for base table %s with error message { %s }. ", baseTable.getName(), errorMessage.get());
             return querySpecification;
         }
 
@@ -372,6 +370,7 @@ public class MaterializedViewQueryOptimizer
         private MaterializedViewInfo materializedViewInfo;
         private Optional<Identifier> removablePrefix = Optional.empty();
         private Optional<Set<Expression>> expressionsInGroupBy = Optional.empty();
+        private Optional<String> errorMessage = Optional.empty();
 
         QuerySpecificationRewriter(
                 Table materializedView,
@@ -385,13 +384,21 @@ public class MaterializedViewQueryOptimizer
 
         public QuerySpecification rewrite(QuerySpecification querySpecification)
         {
+            MaterializedViewInformationExtractor materializedViewInformationExtractor = new MaterializedViewInformationExtractor();
+            materializedViewInformationExtractor.process(materializedViewQuery);
+            materializedViewInfo = materializedViewInformationExtractor.getMaterializedViewInfo();
+            if (materializedViewInfo.getErrorMessage().isPresent()) {
+                log.debug("Failed to rewrite query with materialized view with following exception: %s", materializedViewInfo.getErrorMessage().get());
+                return querySpecification;
+            }
             // TODO: Implement ways to handle non-optimizable query without throw/catch. https://github.com/prestodb/presto/issues/16541
             try {
-                MaterializedViewInformationExtractor materializedViewInformationExtractor = new MaterializedViewInformationExtractor();
-                materializedViewInformationExtractor.process(materializedViewQuery);
-                materializedViewInfo = materializedViewInformationExtractor.getMaterializedViewInfo();
-
                 QuerySpecification rewrittenQuerySpecification = (QuerySpecification) process(querySpecification);
+
+                if (errorMessage.isPresent()) {
+                    log.debug("Rewrite optimization failed with: %s", errorMessage.get());
+                    return querySpecification;
+                }
 
                 if (rewrittenQuerySpecification == querySpecification) {
                     return querySpecification;
@@ -412,6 +419,7 @@ public class MaterializedViewQueryOptimizer
                 return querySpecification;
             }
             catch (Exception e) {
+                log.info("Materialized view optimization failed exceptionally with: %s", e.getMessage());
                 return querySpecification;
             }
         }
@@ -439,9 +447,6 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitQuerySpecification(QuerySpecification node, Void context)
         {
-            if (!node.getFrom().isPresent()) {
-                throw new IllegalArgumentException("visitQuerySpecification should not be invoked for an empty FROM clause");
-            }
             Relation relation = node.getFrom().get();
             if (relation instanceof AliasedRelation) {
                 removablePrefix = Optional.of(((AliasedRelation) relation).getAlias());
@@ -462,7 +467,8 @@ public class MaterializedViewQueryOptimizer
                     if (groupByOfMaterializedView.isPresent()) {
                         for (Expression expression : element.getExpressions()) {
                             if (!groupByOfMaterializedView.get().contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression)) {
-                                throw new IllegalStateException(format("Grouping element %s is not present in materialized view groupBy field", element));
+                                setErrorMessage(format("Grouping element %s is not present in materialized view groupBy field", element));
+                                return null;
                             }
                         }
                     }
@@ -470,13 +476,10 @@ public class MaterializedViewQueryOptimizer
                 }
                 expressionsInGroupBy = Optional.of(expressionsInGroupByBuilder.build());
             }
-            // TODO: Add HAVING validation to the validator https://github.com/prestodb/presto/issues/16406
-            if (node.getHaving().isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Having clause is not supported in query optimizer");
-            }
             if (materializedViewInfo.getWhereClause().isPresent()) {
                 if (!node.getWhere().isPresent()) {
-                    throw new IllegalStateException("Query with no where clause is not rewritable by materialized view with where clause");
+                    setErrorMessage("Query with no where clause is not rewritable by materialized view with where clause");
+                    return null;
                 }
                 Scope scope = extractScope(baseTable, node, materializedViewInfo.getWhereClause().get());
 
@@ -499,7 +502,8 @@ public class MaterializedViewQueryOptimizer
                 ExtractionResult<VariableReferenceExpression> result = domainTranslator.fromPredicate(session.toConnectorSession(), disjunctiveNormalForm, BASIC_COLUMN_EXTRACTOR);
 
                 if (!result.getTupleDomain().equals(TupleDomain.none())) {
-                    throw new IllegalStateException("View filter condition does not contain base query's filter condition");
+                    setErrorMessage("View filter condition does not contain base query's filter condition");
+                    return null;
                 }
             }
 
@@ -518,7 +522,8 @@ public class MaterializedViewQueryOptimizer
         protected Node visitSelect(Select node, Void context)
         {
             if (materializedViewInfo.isDistinct() && !node.isDistinct()) {
-                throw new IllegalStateException("Materialized view has distinct and base query does not");
+                setErrorMessage("Materialized view has distinct and base query does not");
+                return null;
             }
             ImmutableList.Builder<SelectItem> rewrittenSelectItems = ImmutableList.builder();
 
@@ -542,7 +547,8 @@ public class MaterializedViewQueryOptimizer
             if (groupByOfMaterializedView.isPresent() &&
                     validateExpressionForGroupBy(groupByOfMaterializedView.get(), expression) &&
                     (!expressionsInGroupBy.isPresent() || !expressionsInGroupBy.get().contains(expression))) {
-                throw new IllegalStateException("Query a column presents in materialized view group by: " + expression.toString());
+                setErrorMessage("Query a column presents in materialized view group by: " + expression.toString());
+                return null;
             }
 
             Expression processedColumn = (Expression) process(expression, context);
@@ -558,7 +564,8 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitAllColumns(AllColumns node, Void context)
         {
-            throw new SemanticException(NOT_SUPPORTED, node, "All columns rewrite is not supported in query optimizer");
+            setErrorMessage("All columns rewrite is not supported in query optimizer");
+            return null;
         }
 
         @Override
@@ -626,7 +633,8 @@ public class MaterializedViewQueryOptimizer
             if (materializedViewInfo.getBaseTable().isPresent() && node.equals(materializedViewInfo.getBaseTable().get())) {
                 return materializedView;
             }
-            throw new IllegalStateException("Mismatching table or non-supporting relation format in base query");
+            setErrorMessage("Mismatching table or non-supporting relation format in base query");
+            return null;
         }
 
         @Override
@@ -664,7 +672,8 @@ public class MaterializedViewQueryOptimizer
             for (SortItem sortItem : node.getSortItems()) {
                 sortItem = removeSortItemPrefix(sortItem, removablePrefix);
                 if (!materializedViewInfo.getBaseToViewColumnMap().containsKey(sortItem.getSortKey())) {
-                    throw new IllegalStateException(format("Sort key %s is not present in materialized view select fields", sortItem.getSortKey()));
+                    setErrorMessage(format("Sort key %s is not present in materialized view select fields", sortItem.getSortKey()));
+                    return null;
                 }
                 rewrittenOrderBy.add((SortItem) process(sortItem, context));
             }
@@ -707,12 +716,9 @@ public class MaterializedViewQueryOptimizer
          */
         private FunctionCall rewriteCountAsSum(FunctionCall node, Expression derivedColumnName)
         {
-            if (!node.getName().equals(COUNT)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Provided function was not COUNT");
-            }
-
             if (node.isDistinct()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "COUNT(DISTINCT) is not supported for materialized view query rewrite optimization");
+                setErrorMessage("COUNT(DISTINCT) is not supported for materialized view query rewrite optimization");
+                return null;
             }
 
             return new FunctionCall(
@@ -792,13 +798,13 @@ public class MaterializedViewQueryOptimizer
             }
         }
 
-        private Scope extractScope(Table table, QuerySpecification node, Expression whereClause)
+        private Scope extractScope(Table table, QuerySpecification querySpecification, Expression whereClause)
         {
             QualifiedObjectName baseTableName = createQualifiedObjectName(session, table, table.getName());
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, baseTableName);
             if (!tableHandle.isPresent()) {
-                throw new SemanticException(MISSING_TABLE, node, "Table does not exist");
+                throw new IllegalStateException(format("Table does not exist for querySpecification: %s", querySpecification));
             }
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
@@ -840,6 +846,11 @@ public class MaterializedViewQueryOptimizer
             }
 
             return metadata.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
+        }
+
+        private void setErrorMessage(String errorMessage)
+        {
+            this.errorMessage = Optional.of(errorMessage);
         }
     }
 }

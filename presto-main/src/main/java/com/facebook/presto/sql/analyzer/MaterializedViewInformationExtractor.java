@@ -36,25 +36,23 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.removeGroupingElementPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSingleColumnPrefix;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 
 public class MaterializedViewInformationExtractor
         extends DefaultTraversalVisitor<Void, Void>
 {
     private final MaterializedViewInfo materializedViewInfo = new MaterializedViewInfo();
-
     @Override
     protected Void visitQuerySpecification(QuerySpecification node, Void context)
     {
         if (node.getLimit().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Limit clause is not supported in query optimizer");
+            materializedViewInfo.rewriteNotPossible("Limit clause is not supported in query optimizer");
         }
         if (node.getHaving().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Having clause is not supported in query optimizer");
+            materializedViewInfo.rewriteNotPossible("Having clause is not supported in query optimizer");
         }
         if (!node.getFrom().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Materialized view with no From clause is not supported in query optimizer");
+            materializedViewInfo.rewriteNotPossible("Materialized view with no From clause is not supported in query optimizer");
         }
         materializedViewInfo.setBaseTable(node.getFrom().get());
         materializedViewInfo.setWhereClause(node.getWhere());
@@ -78,7 +76,8 @@ public class MaterializedViewInformationExtractor
     @Override
     protected Void visitAllColumns(AllColumns node, Void context)
     {
-        throw new SemanticException(NOT_SUPPORTED, node, "All columns materialized view is not supported in query optimizer");
+        materializedViewInfo.rewriteNotPossible("All columns materialized view is not supported in query optimizer");
+        return null;
     }
 
     @Override
@@ -103,13 +102,15 @@ public class MaterializedViewInformationExtractor
         private Optional<Set<Expression>> groupBy = Optional.empty();
         private boolean isDistinct;
         private Optional<Identifier> removablePrefix = Optional.empty();
+        private Optional<String> errorMessage = Optional.empty();
 
         private void addBaseToViewColumn(SingleColumn singleColumn)
         {
             singleColumn = removeSingleColumnPrefix(singleColumn, removablePrefix);
             Expression key = singleColumn.getExpression();
             if (key instanceof FunctionCall && !singleColumn.getAlias().isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, singleColumn, "Derived field in materialized view must have an alias");
+                rewriteNotPossible("Derived field in materialized view must have an alias");
+                return;
             }
             baseToViewColumnMap.put(key, singleColumn.getAlias().orElse(new Identifier(key.toString())));
         }
@@ -130,7 +131,8 @@ public class MaterializedViewInformationExtractor
                 baseTable = ((AliasedRelation) baseTable).getRelation();
             }
             if (!(baseTable instanceof Table)) {
-                throw new SemanticException(NOT_SUPPORTED, baseTable, "Relation other than Table is not supported in query optimizer");
+                rewriteNotPossible("Relation other than Table is not supported in query optimizer");
+                return;
             }
             this.baseTable = Optional.of(baseTable);
             if (!removablePrefix.isPresent()) {
@@ -147,6 +149,11 @@ public class MaterializedViewInformationExtractor
         private void setDistinct(boolean state)
         {
             isDistinct = state;
+        }
+
+        private void rewriteNotPossible(String message)
+        {
+            this.errorMessage = Optional.of(message);
         }
 
         public Optional<Relation> getBaseTable()
@@ -172,6 +179,11 @@ public class MaterializedViewInformationExtractor
         public Optional<Set<Expression>> getGroupBy()
         {
             return groupBy;
+        }
+
+        public Optional<String> getErrorMessage()
+        {
+            return errorMessage;
         }
     }
 }
