@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isEmptyJoinOptimization;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
@@ -82,7 +83,7 @@ public class EliminateEmptyJoins
                 || (leftChildEmpty && joinNode.getType() == JoinNode.Type.LEFT)
                 || (rightChildEmpty && joinNode.getType() == JoinNode.Type.RIGHT)) {
             return Result.ofPlanNode(
-                    new ValuesNode(joinNode.getSourceLocation(), joinNode.getId(), joinNode.getOutputVariables(), Collections.emptyList()));
+                    new ValuesNode(joinNode.getSourceLocation(), joinNode.getId(), joinNode.getOutputVariables(), Collections.emptyList(), Optional.empty()));
         }
 
         /*

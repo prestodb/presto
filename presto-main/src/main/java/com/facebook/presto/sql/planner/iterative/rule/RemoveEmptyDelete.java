@@ -20,6 +20,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.sql.planner.plan.Patterns.Values.rows;
@@ -76,6 +78,7 @@ public class RemoveEmptyDelete
                         node.getSourceLocation(),
                         node.getId(),
                         node.getOutputVariables(),
-                        ImmutableList.of(ImmutableList.of(constant(0L, BIGINT)))));
+                        ImmutableList.of(ImmutableList.of(constant(0L, BIGINT))),
+                        Optional.empty()));
     }
 }
