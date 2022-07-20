@@ -60,8 +60,7 @@ public class PinotSplitManager
         this.pinotPrestoConnection = requireNonNull(pinotPrestoConnection, "pinotPrestoConnection is null");
     }
 
-    protected ConnectorSplitSource generateSplitForBrokerBasedScan(PinotQueryGenerator.GeneratedPinotQuery brokerPinotQuery,
-            List<PinotColumnHandle> expectedColumnHandles)
+    protected ConnectorSplitSource generateSplitForBrokerBasedScan(PinotQueryGenerator.GeneratedPinotQuery brokerPinotQuery, List<PinotColumnHandle> expectedColumnHandles)
     {
         return new FixedSplitSource(singletonList(createBrokerSplit(connectorId, expectedColumnHandles, brokerPinotQuery)));
     }
@@ -145,10 +144,7 @@ public class PinotSplitManager
         private final String connectorId;
         private final ConnectorTableHandle connectorTableHandle;
 
-        public QueryNotAdequatelyPushedDownException(
-                PinotErrorCode errorCode,
-                ConnectorTableHandle connectorTableHandle,
-                String connectorId)
+        public QueryNotAdequatelyPushedDownException(PinotErrorCode errorCode, ConnectorTableHandle connectorTableHandle, String connectorId)
         {
             super(requireNonNull(errorCode, "error code is null"), Optional.empty(), "Query uses unsupported expressions that cannot be pushed into Pinot.");
             this.connectorId = requireNonNull(connectorId, "connector id is null");
@@ -172,7 +168,7 @@ public class PinotSplitManager
         PinotTableLayoutHandle pinotLayoutHandle = (PinotTableLayoutHandle) layout;
         PinotTableHandle pinotTableHandle = pinotLayoutHandle.getTable();
         Supplier<PrestoException> errorSupplier = () -> new QueryNotAdequatelyPushedDownException(PinotErrorCode.PINOT_PUSH_DOWN_QUERY_NOT_PRESENT, pinotTableHandle, connectorId);
-        if (!pinotTableHandle.getIsQueryShort().orElseThrow(errorSupplier)) {
+        if (!pinotTableHandle.getForBroker().orElseThrow(errorSupplier)) {
             if (PinotSessionProperties.isForbidSegmentQueries(session)) {
                 throw errorSupplier.get();
             }

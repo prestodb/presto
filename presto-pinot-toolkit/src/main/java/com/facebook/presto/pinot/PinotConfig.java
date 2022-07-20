@@ -86,6 +86,7 @@ public class PinotConfig
     private boolean allowMultipleAggregations = true;
     private boolean forbidBrokerQueries;
     private boolean forbidSegmentQueries;
+    private boolean attemptBrokerQueries;
 
     // Infer Pinot time fields to Presto Date/Timestamp type
     private boolean inferDateTypeInSchema = true;
@@ -385,6 +386,18 @@ public class PinotConfig
     public PinotConfig setForbidSegmentQueries(boolean forbidSegmentQueries)
     {
         this.forbidSegmentQueries = forbidSegmentQueries;
+        return this;
+    }
+
+    public boolean isAttemptBrokerQueries()
+    {
+        return attemptBrokerQueries;
+    }
+
+    @Config("pinot.attempt-broker-queries")
+    public PinotConfig setAttemptBrokerQueries(boolean attemptBrokerQueries)
+    {
+        this.attemptBrokerQueries = attemptBrokerQueries;
         return this;
     }
 
@@ -770,6 +783,7 @@ public class PinotConfig
 
     /**
      * Randomly select one controller from the property in pinot controller list.
+     *
      * @return one URL string of pinot controller
      */
     public String getControllerUrl()
