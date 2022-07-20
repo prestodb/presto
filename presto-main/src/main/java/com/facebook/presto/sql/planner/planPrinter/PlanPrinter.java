@@ -62,6 +62,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
+import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -484,11 +485,7 @@ public class PlanPrinter
 
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
             if (!node.getDynamicFilters().isEmpty()) {
-                nodeOutput.appendDetails(
-                        "dynamicFilterAssignments = %s",
-                        node.getDynamicFilters().entrySet().stream()
-                                .map(filter -> filter.getValue() + " -> " + filter.getKey())
-                                .collect(Collectors.joining(", ", "{", "}")));
+                nodeOutput.appendDetails(getDynamicFilterAssignments(node));
             }
 
             node.getSortExpressionContext(functionAndTypeManager)
@@ -524,11 +521,7 @@ public class PlanPrinter
                             formatHash(node.getSourceHashVariable(), node.getFilteringSourceHashVariable())));
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
             if (!node.getDynamicFilters().isEmpty()) {
-                nodeOutput.appendDetails(
-                        "dynamicFilterAssignments = %s",
-                        node.getDynamicFilters().entrySet().stream()
-                                .map(filter -> filter.getValue() + " -> " + filter.getKey())
-                                .collect(Collectors.joining(", ", "{", "}")));
+                nodeOutput.appendDetails(getDynamicFilterAssignments(node));
             }
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
@@ -1317,6 +1310,17 @@ public class PlanPrinter
             representation.addNode(nodeOutput);
             return nodeOutput;
         }
+    }
+
+    public static String getDynamicFilterAssignments(AbstractJoinNode node)
+    {
+        if (node.getDynamicFilters().isEmpty()) {
+            return "";
+        }
+        return format("dynamicFilterAssignments = %s",
+                node.getDynamicFilters().entrySet().stream()
+                        .map(filter -> filter.getValue() + " -> " + filter.getKey())
+                        .collect(Collectors.joining(", ", "{", "}")));
     }
 
     private static String castToVarchar(Type type, Object value, FunctionAndTypeManager functionAndTypeManager, Session session)
