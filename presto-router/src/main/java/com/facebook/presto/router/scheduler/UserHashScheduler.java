@@ -18,23 +18,21 @@ import com.facebook.airlift.log.Logger;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 
-public class RandomChoiceScheduler
+public class UserHashScheduler
         implements Scheduler
 {
     private List<URI> candidates;
 
-    private static final Random RANDOM = new Random();
-    private static final Logger log = Logger.get(RandomChoiceScheduler.class);
+    private static final Logger log = Logger.get(UserHashScheduler.class);
 
     @Override
     public Optional<URI> getDestination(String user)
     {
         try {
-            return Optional.of(candidates.get(RANDOM.nextInt(candidates.size())));
+            return Optional.of(candidates.get(user.hashCode() % candidates.size()));
         }
-        catch (IllegalArgumentException e) {
+        catch (ArithmeticException e) {
             log.warn(e, "Error getting destination for user " + user);
             return Optional.empty();
         }
