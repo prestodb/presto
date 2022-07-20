@@ -719,7 +719,7 @@ wrapInDictionary(const VectorPtr& batch, size_t stride, MemoryPool& pool) {
 template <typename T>
 void getUniqueKeys(
     std::vector<T>& uniqueKeys,
-    vector_size_t* numRows,
+    vector_size_t& numRows,
     const std::vector<VectorPtr>& batches) {
   std::unordered_set<T> seenKeys;
   vector_size_t rowCount = 0;
@@ -738,7 +738,15 @@ void getUniqueKeys(
   }
 
   uniqueKeys.insert(uniqueKeys.end(), seenKeys.begin(), seenKeys.end());
-  *numRows = rowCount;
+  numRows = rowCount;
+}
+
+void printStruct(const VectorPtr& rows) {
+  auto rowStruct = std::dynamic_pointer_cast<RowVector>(rows);
+  ASSERT_TRUE(rowStruct);
+  for (int i = 0; i < rowStruct->size(); i++) {
+    LOG(INFO) << i << ": " << rowStruct->toString(i);
+  }
 }
 
 template <typename TKEY, typename TVALUE>
@@ -750,18 +758,47 @@ void fillValues(
   for (int i = 0; i < uniqueKeys.size(); i++) {
     keyColIndex[uniqueKeys[i]] = i; // lookup from key -> column#
   }
-  // how to tell apart rows of a MapVector?
+
+  auto rowStruct = std::dynamic_pointer_cast<RowVector>(rows);
+  ASSERT_TRUE(rowStruct);
+  vector_size_t rowOffset = 0;
   for (auto batch : batches) {
     auto map = std::dynamic_pointer_cast<MapVector>(batch);
     ASSERT_TRUE(map);
+
     auto keys = map->mapKeys();
     auto flatKeys = std::dynamic_pointer_cast<FlatVector<TKEY>>(keys);
     ASSERT_TRUE(flatKeys);
-    for (vector_size_t i = 0; i < flatKeys->size(); i++) {
-      ASSERT_TRUE(!flatKeys->isNullAt(i));
-      // set value in correct row
+    auto values = map->mapValues();
+    auto flatValues = std::dynamic_pointer_cast<FlatVector<TVALUE>>(values);
+    ASSERT_TRUE(flatValues);
+
+    auto offsets = map->offsets()->as<vector_size_t>();
+    auto sizes = map->sizes()->as<vector_size_t>();
+
+    // for each row in current batch
+    for (vector_size_t row = 0; row < map->size(); row++) {
+      // for each key in row (single map)
+      for (vector_size_t index = offsets[row],
+                         endOffset = offsets[row] + sizes[row];
+           index < endOffset;
+           index++) {
+        // set value in correct row
+        ASSERT_FALSE(flatKeys->isNullAt(index));
+        // ASSERT_TRUE(!flatValues->isNullAt(offsets[i] + sizes[j]));
+        auto key = flatKeys->valueAt(index);
+        auto element = std::dynamic_pointer_cast<FlatVector<TVALUE>>(
+            rowStruct->childAt(keyColIndex[key]));
+        ASSERT_TRUE(element);
+        element->set(rowOffset + row, flatValues->valueAt(index));
+      }
     }
+
+    // worry about overflow MapVector total size? use int64?
+    rowOffset += map->size();
   }
+
+  // printStruct(rows);
 }
 
 template <typename TKEY, typename TVALUE>
@@ -790,7 +827,10 @@ void testMapWriter(
       vector_size_t numRows;
       std::vector<TKEY> uniqueKeys;
       ASSERT_NO_FATAL_FAILURE(
-          getUniqueKeys<TKEY>(uniqueKeys, &numRows, batches));
+          getUniqueKeys<TKEY>(uniqueKeys, numRows, batches));
+      // for (int i = 0; i < uniqueKeys.size(); i++) {
+      //   LOG(INFO) << "key " << i << ": " << uniqueKeys[i];
+      // }
 
       std::vector<VectorPtr> childrenVectors(uniqueKeys.size());
       // initialize children of row num size filled with nulls and rowCount
@@ -803,27 +843,8 @@ void testMapWriter(
       fillValues<TKEY, TVALUE>(batches, uniqueKeys, rows); // unable to assert?
       // );
 
-      // // RowVector original construction
-      // std::vector<std::string> names(numRows);
-      // for (vector_size_t i = 0; i < numRows; i++) {
-      //   names[i] = std::to_string(i);
-      // }
-      // auto valueType = dataType->valueType();
-      // auto veloxType = std::make_shared<const RowType>(
-      //     names,
-      //     std::vector<std::shared_ptr<const Type>>(
-      //         uniqueKeys.size(), valueType));
-      // velox::BufferPtr nulls;
-      // std::make_shared<velox::RowVector>(
-      //     pool,
-      //     veloxType,
-      //     nulls,
-      //     numRows,
-      //     std::move(childrenVectors),
-      //     0 /*nullCount*/);
-
       // config->set(Config::MAP_FLAT_STRUCT_COLS,
-      // /* map of column index->vector of keys */);
+      // /* map of column 0->vector of keys */);
     }
 
     config->set(Config::FLATTEN_MAP, true);
