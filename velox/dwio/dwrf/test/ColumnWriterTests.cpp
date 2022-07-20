@@ -32,6 +32,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/DictionaryVector.h"
+#include "velox/vector/tests/VectorMaker.h"
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
@@ -718,8 +719,10 @@ wrapInDictionary(const VectorPtr& batch, size_t stride, MemoryPool& pool) {
 template <typename T>
 void getUniqueKeys(
     std::vector<T>& uniqueKeys,
+    vector_size_t* numRows,
     const std::vector<VectorPtr>& batches) {
   std::unordered_set<T> seenKeys;
+  vector_size_t rowCount = 0;
 
   for (auto batch : batches) {
     auto map = std::dynamic_pointer_cast<MapVector>(batch);
@@ -731,9 +734,34 @@ void getUniqueKeys(
       ASSERT_TRUE(!flatKeys->isNullAt(i));
       seenKeys.insert(flatKeys->valueAt(i));
     }
+    rowCount += map->size();
   }
 
   uniqueKeys.insert(uniqueKeys.end(), seenKeys.begin(), seenKeys.end());
+  *numRows = rowCount;
+}
+
+template <typename TKEY, typename TVALUE>
+void fillValues(
+    const std::vector<VectorPtr>& batches,
+    const std::vector<TKEY>& uniqueKeys,
+    VectorPtr& rows) {
+  std::unordered_map<TKEY, int> keyColIndex;
+  for (int i = 0; i < uniqueKeys.size(); i++) {
+    keyColIndex[uniqueKeys[i]] = i; // lookup from key -> column#
+  }
+  // how to tell apart rows of a MapVector?
+  for (auto batch : batches) {
+    auto map = std::dynamic_pointer_cast<MapVector>(batch);
+    ASSERT_TRUE(map);
+    auto keys = map->mapKeys();
+    auto flatKeys = std::dynamic_pointer_cast<FlatVector<TKEY>>(keys);
+    ASSERT_TRUE(flatKeys);
+    for (vector_size_t i = 0; i < flatKeys->size(); i++) {
+      ASSERT_TRUE(!flatKeys->isNullAt(i));
+      // set value in correct row
+    }
+  }
 }
 
 template <typename TKEY, typename TVALUE>
@@ -759,8 +787,40 @@ void testMapWriter(
   const auto config = std::make_shared<Config>();
   if (useFlatMap) {
     if (isStruct) {
+      vector_size_t numRows;
       std::vector<TKEY> uniqueKeys;
-      ASSERT_NO_FATAL_FAILURE(getUniqueKeys<TKEY>(uniqueKeys, batches));
+      ASSERT_NO_FATAL_FAILURE(
+          getUniqueKeys<TKEY>(uniqueKeys, &numRows, batches));
+
+      std::vector<VectorPtr> childrenVectors(uniqueKeys.size());
+      // initialize children of row num size filled with nulls and rowCount
+      VectorMaker maker{&pool};
+      for (int i = 0; i < uniqueKeys.size(); i++) {
+        childrenVectors[i] = maker.allNullFlatVector<TVALUE>(numRows);
+      }
+      VectorPtr rows = maker.rowVector(childrenVectors);
+      // ASSERT_NO_FATAL_FAILURE(
+      fillValues<TKEY, TVALUE>(batches, uniqueKeys, rows); // unable to assert?
+      // );
+
+      // // RowVector original construction
+      // std::vector<std::string> names(numRows);
+      // for (vector_size_t i = 0; i < numRows; i++) {
+      //   names[i] = std::to_string(i);
+      // }
+      // auto valueType = dataType->valueType();
+      // auto veloxType = std::make_shared<const RowType>(
+      //     names,
+      //     std::vector<std::shared_ptr<const Type>>(
+      //         uniqueKeys.size(), valueType));
+      // velox::BufferPtr nulls;
+      // std::make_shared<velox::RowVector>(
+      //     pool,
+      //     veloxType,
+      //     nulls,
+      //     numRows,
+      //     std::move(childrenVectors),
+      //     0 /*nullCount*/);
 
       // config->set(Config::MAP_FLAT_STRUCT_COLS,
       // /* map of column index->vector of keys */);
