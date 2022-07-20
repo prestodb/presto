@@ -17,6 +17,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.router.RouterConfig;
+import com.facebook.presto.router.scheduler.Scheduler;
+import com.facebook.presto.router.scheduler.SchedulerFactory;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
@@ -35,7 +37,6 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,13 +46,13 @@ import static java.util.stream.Collectors.toMap;
 
 public class ClusterManager
 {
-    private static final Random RANDOM = new Random();
     private static final JsonCodec<RouterSpec> CODEC = new JsonCodecFactory(
             () -> new JsonObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
             .jsonCodec(RouterSpec.class);
 
     private final Map<String, GroupSpec> groups;
     private final List<SelectorRuleSpec> groupSelectors;
+    private final Scheduler scheduler;
 
     @Inject
     public ClusterManager(RouterConfig config)
@@ -85,6 +86,7 @@ public class ClusterManager
 
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
+        this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
     }
 
     public List<URI> getAllClusters()
@@ -102,8 +104,8 @@ public class ClusterManager
         }
 
         checkArgument(groups.containsKey(target.get()));
-        List<URI> candidates = groups.get(target.get()).getMembers();
-        return Optional.ofNullable(candidates.get(RANDOM.nextInt(candidates.size())));
+        scheduler.setCandidates(groups.get(target.get()).getMembers());
+        return scheduler.getDestination(requestInfo.getUser());
     }
 
     private Optional<String> matchGroup(RequestInfo requestInfo)
