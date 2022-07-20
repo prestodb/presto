@@ -611,6 +611,38 @@ bool NegatedBytesRange::testBytesRange(
   return true;
 }
 
+std::unique_ptr<Filter> NegatedBytesRange::toMultiRange() const {
+  std::vector<std::unique_ptr<Filter>> accepted;
+  if (!isLowerUnbounded()) {
+    accepted.push_back(std::make_unique<BytesRange>(
+        "",
+        true,
+        false,
+        lower(),
+        false,
+        !testBytes(lower().data(), lower().length()),
+        false));
+  }
+  if (!isUpperUnbounded()) {
+    accepted.push_back(std::make_unique<BytesRange>(
+        upper(),
+        false,
+        !testBytes(upper().data(), upper().length()),
+        "",
+        true,
+        false,
+        false));
+  }
+
+  if (accepted.size() == 0) {
+    return nullOrFalse(nullAllowed_);
+  }
+  if (accepted.size() == 1) {
+    return accepted[0]->clone(nullAllowed_);
+  }
+  return std::make_unique<MultiRange>(std::move(accepted), nullAllowed_, false);
+}
+
 bool NegatedBytesValues::testBytesRange(
     std::optional<std::string_view> min,
     std::optional<std::string_view> max,
@@ -777,12 +809,13 @@ std::unique_ptr<Filter> MultiRange::mergeWith(const Filter* other) const {
     // 2. MultiRange(nullAllowed=true) AND IS NOT NULL =>
     // MultiRange(nullAllowed=false)
     // 3. MultiRange(nullAllowed=false) AND IS NULL
-    // => ALWAYS FALSE
+    // => ALWAYS FALS
     // 4. MultiRange(nullAllowed=false) AND IS NOT NULL
     // =>MultiRange(nullAllowed=false)
     case FilterKind::kAlwaysTrue:
     case FilterKind::kAlwaysFalse:
     case FilterKind::kIsNull:
+    case FilterKind::kNegatedBytesRange:
       return other->mergeWith(this);
     case FilterKind::kIsNotNull:
       return this->clone(/*nullAllowed=*/false);
@@ -1054,7 +1087,6 @@ std::vector<std::unique_ptr<BigintRange>> negatedValuesToRanges(
   }
   return res;
 }
-
 } // namespace
 
 std::unique_ptr<Filter> BigintRange::mergeWith(const Filter* other) const {
@@ -1557,6 +1589,7 @@ std::unique_ptr<Filter> BytesRange::mergeWith(const Filter* other) const {
       return this->clone(false);
     case FilterKind::kBytesValues:
     case FilterKind::kNegatedBytesValues:
+    case FilterKind::kNegatedBytesRange:
     case FilterKind::kMultiRange:
       return other->mergeWith(this);
     case FilterKind::kBytesRange: {
@@ -1626,7 +1659,25 @@ std::unique_ptr<Filter> BytesRange::mergeWith(const Filter* other) const {
 
 std::unique_ptr<Filter> NegatedBytesRange::mergeWith(
     const Filter* other) const {
-  VELOX_NYI("MergeWith is not yet implemented for a NegatedBytesRange.");
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return this->clone(false);
+    case FilterKind::kBytesValues:
+      return other->mergeWith(this);
+    case FilterKind::kNegatedBytesValues:
+    case FilterKind::kBytesRange:
+    case FilterKind::kNegatedBytesRange:
+    case FilterKind::kMultiRange: {
+      // these cases are likely to end up as a MultiRange anyway
+      return other->mergeWith(toMultiRange().get());
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
 }
 
 std::unique_ptr<Filter> BytesValues::mergeWith(const Filter* other) const {
@@ -1716,11 +1767,29 @@ std::unique_ptr<Filter> BytesValues::mergeWith(const Filter* other) const {
       return std::make_unique<BytesValues>(
           std::move(newValues), bothNullAllowed);
     }
+    case FilterKind::kNegatedBytesRange: {
+      auto otherBytesRange = static_cast<const NegatedBytesRange*>(other);
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
 
+      std::vector<std::string> newValues;
+      newValues.reserve(this->values().size());
+      for (const auto& value : this->values()) {
+        if (otherBytesRange->testBytes(value.data(), value.length())) {
+          newValues.emplace_back(value);
+        }
+      }
+
+      if (newValues.empty()) {
+        return nullOrFalse(bothNullAllowed);
+      }
+
+      return std::make_unique<BytesValues>(
+          std::move(newValues), bothNullAllowed);
+    }
     default:
       VELOX_UNREACHABLE();
   }
-}
+} // namespace facebook::velox::common
 
 std::unique_ptr<Filter> NegatedBytesValues::mergeWith(
     const Filter* other) const {
@@ -1729,6 +1798,7 @@ std::unique_ptr<Filter> NegatedBytesValues::mergeWith(
     case FilterKind::kAlwaysFalse:
     case FilterKind::kIsNull:
     case FilterKind::kBytesValues:
+    case FilterKind::kNegatedBytesRange:
     case FilterKind::kMultiRange:
       return other->mergeWith(this);
     case FilterKind::kIsNotNull:

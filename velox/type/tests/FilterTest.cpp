@@ -20,6 +20,7 @@
 #include <numeric>
 #include <optional>
 
+#include <velox/type/Filter.h>
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/type/Filter.h"
 
@@ -1628,6 +1629,18 @@ TEST(FilterTest, mergeWithBytesRange) {
   filters.push_back(between("<<", ">>", true));
   filters.push_back(between("ABCDE", "abcde"));
   filters.push_back(between("1", "123456", true));
+
+  filters.push_back(notBetween("b", "f"));
+  filters.push_back(notBetween("b", "f", true));
+  filters.push_back(notBetween("a", "d"));
+  filters.push_back(notBetween("a", "d", true));
+  filters.push_back(notBetweenExclusive("b", "f"));
+  filters.push_back(notBetweenExclusive("b", "f", true));
+
+  // test unbounded negatedRange
+  filters.push_back(
+      std::make_unique<facebook::velox::common::NegatedBytesRange>(
+          "", true, false, "l", false, false, false));
 
   filters.push_back(lessThanOrEqual("k"));
   filters.push_back(lessThanOrEqual("k", true));

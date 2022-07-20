@@ -1450,6 +1450,8 @@ class NegatedBytesRange final : public Filter {
   }
 
  private:
+  std::unique_ptr<Filter> toMultiRange() const;
+
   std::unique_ptr<BytesRange> nonNegated_;
 };
 
