@@ -231,7 +231,8 @@ public class LogicalPlanner
                     getSourceLocation(statement),
                     idAllocator.getNextId(),
                     ImmutableList.of(variable),
-                    ImmutableList.of(ImmutableList.of(constant(0L, BIGINT))));
+                    ImmutableList.of(ImmutableList.of(constant(0L, BIGINT))),
+                    Optional.empty());
             return new OutputNode(source.getSourceLocation(), idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(variable));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);

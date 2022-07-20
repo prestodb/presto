@@ -25,6 +25,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
@@ -73,7 +74,8 @@ public class PruneCountAggregationOverScalar
                     parent.getSourceLocation(),
                     parent.getId(),
                     parent.getOutputVariables(),
-                    ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)))));
+                    ImmutableList.of(ImmutableList.of(constant(1L, BIGINT))),
+                    Optional.empty()));
         }
         return Result.empty();
     }

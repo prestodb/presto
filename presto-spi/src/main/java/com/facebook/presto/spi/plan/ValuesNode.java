@@ -37,13 +37,17 @@ public final class ValuesNode
 {
     private final List<VariableReferenceExpression> outputVariables;
     private final List<List<RowExpression>> rows;
+    // valuesNodeLabel is to record the original table information if the ValuesNode is converted from a table scan.
+    // Only used in query plan print, does not affect execution.
+    private final Optional<String> valuesNodeLabel;
 
     @JsonCreator
     public ValuesNode(
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
-            @JsonProperty("rows") List<List<RowExpression>> rows)
+            @JsonProperty("rows") List<List<RowExpression>> rows,
+            @JsonProperty("valuesNodeLabel") Optional<String> valuesNodeLabel)
     {
         super(sourceLocation, id);
         this.outputVariables = immutableListCopyOf(outputVariables);
@@ -54,6 +58,12 @@ public final class ValuesNode
                 throw new IllegalArgumentException(format("Expected row to have %s values, but row has %s values", outputVariables.size(), row.size()));
             }
         }
+        this.valuesNodeLabel = valuesNodeLabel;
+    }
+
+    public Optional<String> getValuesNodeLabel()
+    {
+        return valuesNodeLabel;
     }
 
     @JsonProperty

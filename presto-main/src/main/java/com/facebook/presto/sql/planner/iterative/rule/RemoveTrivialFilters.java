@@ -21,6 +21,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
+
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -47,7 +49,7 @@ public class RemoveTrivialFilters
         }
 
         if (predicate.equals(FALSE_LITERAL)) {
-            return Result.ofPlanNode(new ValuesNode(filterNode.getSourceLocation(), context.getIdAllocator().getNextId(), filterNode.getOutputVariables(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(filterNode.getSourceLocation(), context.getIdAllocator().getNextId(), filterNode.getOutputVariables(), ImmutableList.of(), Optional.empty()));
         }
 
         return Result.empty();
