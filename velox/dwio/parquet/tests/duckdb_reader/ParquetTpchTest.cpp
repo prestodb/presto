@@ -114,15 +114,10 @@ class ParquetTpchTest : public testing::Test {
 
   void assertQuery(
       int queryId,
-      const int expectedPipelineCount,
-      const int expectedFinishedSplits,
       std::optional<std::vector<uint32_t>> sortingKeys = {}) const {
     auto tpchPlan = tpchBuilder_.getQueryPlan(queryId);
     auto duckDbSql = duckDb_->getTpchQuery(queryId);
     auto task = assertQuery(tpchPlan, duckDbSql, sortingKeys);
-    const auto& stats = task->taskStats();
-    ASSERT_EQ(expectedPipelineCount, stats.pipelineStats.size());
-    ASSERT_EQ(expectedFinishedSplits, stats.numFinishedSplits);
   }
 
   static std::shared_ptr<DuckDbQueryRunner> duckDb_;
@@ -169,48 +164,48 @@ std::unordered_map<std::string, std::string> ParquetTpchTest::duckDbParquetWrite
         R"(COPY (SELECT * FROM {}) TO '{}' (FORMAT 'parquet', ROW_GROUP_SIZE {}))")};
 
 TEST_F(ParquetTpchTest, Q1) {
-  assertQuery(1, 2, 10);
+  assertQuery(1);
 }
 
 TEST_F(ParquetTpchTest, Q3) {
   std::vector<uint32_t> sortingKeys{1, 2};
-  assertQuery(3, 4, 30, std::move(sortingKeys));
+  assertQuery(3, std::move(sortingKeys));
 }
 
 TEST_F(ParquetTpchTest, Q5) {
   std::vector<uint32_t> sortingKeys{1};
-  assertQuery(5, 7, 60, std::move(sortingKeys));
+  assertQuery(5, std::move(sortingKeys));
 }
 
 TEST_F(ParquetTpchTest, Q6) {
-  assertQuery(6, 2, 10);
+  assertQuery(6);
 }
 
 TEST_F(ParquetTpchTest, Q10) {
   std::vector<uint32_t> sortingKeys{2};
-  assertQuery(10, 5, 40, std::move(sortingKeys));
+  assertQuery(10, std::move(sortingKeys));
 }
 
 TEST_F(ParquetTpchTest, Q12) {
   std::vector<uint32_t> sortingKeys{0};
-  assertQuery(12, 3, 20, std::move(sortingKeys));
+  assertQuery(12, std::move(sortingKeys));
 }
 
 TEST_F(ParquetTpchTest, Q13) {
   std::vector<uint32_t> sortingKeys{0, 1};
-  assertQuery(13, 3, 20, std::move(sortingKeys));
+  assertQuery(13, std::move(sortingKeys));
 }
 
 TEST_F(ParquetTpchTest, Q14) {
-  assertQuery(14, 3, 20);
+  assertQuery(14);
 }
 
 TEST_F(ParquetTpchTest, Q18) {
-  assertQuery(18, 5, 30);
+  assertQuery(18);
 }
 
 TEST_F(ParquetTpchTest, Q19) {
-  assertQuery(19, 3, 20);
+  assertQuery(19);
 }
 
 int main(int argc, char** argv) {
