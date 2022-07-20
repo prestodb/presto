@@ -32,7 +32,7 @@ public final class PinotTableHandle
     private final String connectorId;
     private final String schemaName;
     private final String tableName;
-    private final Optional<Boolean> isQueryShort;
+    private final Optional<Boolean> forBroker;
     private final Optional<PinotQueryGenerator.GeneratedPinotQuery> pinotQuery;
     private final Optional<List<PinotColumnHandle>> expectedColumnHandles;
 
@@ -49,14 +49,14 @@ public final class PinotTableHandle
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("isQueryShort") Optional<Boolean> isQueryShort,
+            @JsonProperty("forBroker") Optional<Boolean> forBroker,
             @JsonProperty("expectedColumnHandles") Optional<List<PinotColumnHandle>> expectedColumnHandles,
             @JsonProperty("pinotQuery") Optional<PinotQueryGenerator.GeneratedPinotQuery> pinotQuery)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.isQueryShort = requireNonNull(isQueryShort, "safe to execute is null");
+        this.forBroker = requireNonNull(forBroker, "safe to execute is null");
         this.pinotQuery = requireNonNull(pinotQuery, "broker pinotQuery is null");
         this.expectedColumnHandles = requireNonNull(expectedColumnHandles, "expected column handles is null");
     }
@@ -86,9 +86,9 @@ public final class PinotTableHandle
     }
 
     @JsonProperty
-    public Optional<Boolean> getIsQueryShort()
+    public Optional<Boolean> getForBroker()
     {
-        return isQueryShort;
+        return forBroker;
     }
 
     @JsonProperty
@@ -115,7 +115,7 @@ public final class PinotTableHandle
         return Objects.equals(connectorId, that.connectorId) &&
                 Objects.equals(schemaName, that.schemaName) &&
                 Objects.equals(tableName, that.tableName) &&
-                Objects.equals(isQueryShort, that.isQueryShort) &&
+                Objects.equals(forBroker, that.forBroker) &&
                 Objects.equals(expectedColumnHandles, that.expectedColumnHandles) &&
                 Objects.equals(pinotQuery, that.pinotQuery);
     }
@@ -123,7 +123,7 @@ public final class PinotTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName, isQueryShort, expectedColumnHandles, pinotQuery);
+        return Objects.hash(connectorId, schemaName, tableName, forBroker, expectedColumnHandles, pinotQuery);
     }
 
     @Override
@@ -133,7 +133,7 @@ public final class PinotTableHandle
                 .add("connectorId", connectorId)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
-                .add("isQueryShort", isQueryShort)
+                .add("forBroker", forBroker)
                 .add("expectedColumnHandles", expectedColumnHandles)
                 .add("pinotQuery", pinotQuery)
                 .toString();

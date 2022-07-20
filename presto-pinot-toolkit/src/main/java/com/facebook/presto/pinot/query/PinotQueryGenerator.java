@@ -138,8 +138,8 @@ public class PinotQueryGenerator
         try {
             boolean usePinotSqlSyntax = PinotSessionProperties.isUsePinotSqlForBrokerQueries(session);
             PinotQueryGeneratorContext context = requireNonNull(plan.accept(
-                    new PinotQueryPlanVisitor(session),
-                    new PinotQueryGeneratorContext(usePinotSqlSyntax)),
+                            new PinotQueryPlanVisitor(session),
+                            new PinotQueryGeneratorContext(usePinotSqlSyntax)),
                     "Resulting context is null");
             return Optional.of(new PinotQueryGeneratorResult(context.toQuery(pinotConfig, session), context));
         }
@@ -149,7 +149,8 @@ public class PinotQueryGenerator
         }
     }
 
-    public enum PinotQueryFormat {
+    public enum PinotQueryFormat
+    {
         PQL,
         SQL
     }
@@ -162,7 +163,7 @@ public class PinotQueryGenerator
         final List<Integer> expectedColumnIndices;
         final int groupByClauses;
         final boolean haveFilter;
-        final boolean isQueryShort;
+        final boolean forBroker;
 
         @JsonCreator
         public GeneratedPinotQuery(
@@ -172,7 +173,7 @@ public class PinotQueryGenerator
                 @JsonProperty("expectedColumnIndices") List<Integer> expectedColumnIndices,
                 @JsonProperty("groupByClauses") int groupByClauses,
                 @JsonProperty("haveFilter") boolean haveFilter,
-                @JsonProperty("isQueryShort") boolean isQueryShort)
+                @JsonProperty("forBroker") boolean forBroker)
         {
             this.table = table;
             this.query = query;
@@ -181,7 +182,7 @@ public class PinotQueryGenerator
             this.expectedColumnIndices = expectedColumnIndices;
             this.groupByClauses = groupByClauses;
             this.haveFilter = haveFilter;
-            this.isQueryShort = isQueryShort;
+            this.forBroker = forBroker;
         }
 
         @JsonProperty("table")
@@ -220,24 +221,24 @@ public class PinotQueryGenerator
             return haveFilter;
         }
 
-        @JsonProperty("isQueryShort")
-        public boolean isQueryShort()
+        @JsonProperty("forBroker")
+        public boolean forBroker()
         {
-            return isQueryShort;
+            return forBroker;
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                .add("query", query)
-                .add("format", format)
-                .add("table", table)
-                .add("expectedColumnIndices", expectedColumnIndices)
-                .add("groupByClauses", groupByClauses)
-                .add("haveFilter", haveFilter)
-                .add("isQueryShort", isQueryShort)
-                .toString();
+                    .add("query", query)
+                    .add("format", format)
+                    .add("table", table)
+                    .add("expectedColumnIndices", expectedColumnIndices)
+                    .add("groupByClauses", groupByClauses)
+                    .add("haveFilter", haveFilter)
+                    .add("forBroker", forBroker)
+                    .toString();
         }
     }
 
@@ -327,7 +328,7 @@ public class PinotQueryGenerator
         {
             PinotTableHandle tableHandle = (PinotTableHandle) node.getTable().getConnectorHandle();
             checkSupported(!tableHandle.getPinotQuery().isPresent(), "Expect to see no existing pql");
-            checkSupported(!tableHandle.getIsQueryShort().isPresent(), "Expect to see no existing pql");
+            checkSupported(!tableHandle.getForBroker().isPresent(), "Expect to see no existing pql");
             Map<VariableReferenceExpression, Selection> selections = new HashMap<>();
             LinkedHashSet<VariableReferenceExpression> outputs = new LinkedHashSet<>();
             node.getOutputVariables().forEach(outputColumn -> {
