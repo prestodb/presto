@@ -34,6 +34,7 @@ public class PinotSessionProperties
 {
     public static final String CONNECTION_TIMEOUT = "connection_timeout";
     public static final String FORBID_BROKER_QUERIES = "forbid_broker_queries";
+    public static final String ATTEMPT_BROKER_QUERIES = "attempt_broker_queries";
     public static final String IGNORE_EMPTY_RESPONSES = "ignore_empty_responses";
     public static final String RETRY_COUNT = "retry_count";
     public static final String MARK_DATA_FETCH_EXCEPTIONS_AS_RETRIABLE = "mark_data_fetch_exceptions_as_retriable";
@@ -68,6 +69,11 @@ public class PinotSessionProperties
     public static boolean isForbidSegmentQueries(ConnectorSession session)
     {
         return session.getProperty(FORBID_SEGMENT_QUERIES, Boolean.class);
+    }
+
+    public static boolean isAttemptBrokerQueries(ConnectorSession session)
+    {
+        return session.getProperty(ATTEMPT_BROKER_QUERIES, Boolean.class);
     }
 
     public static Duration getConnectionTimeout(ConnectorSession session)
@@ -163,6 +169,11 @@ public class PinotSessionProperties
                         FORBID_SEGMENT_QUERIES,
                         "Forbid segment queries",
                         pinotConfig.isForbidSegmentQueries(),
+                        false),
+                booleanProperty(
+                        ATTEMPT_BROKER_QUERIES,
+                        "Attempt broker queries",
+                        pinotConfig.isAttemptBrokerQueries(),
                         false),
                 booleanProperty(
                         IGNORE_EMPTY_RESPONSES,
