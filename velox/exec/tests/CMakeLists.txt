@@ -53,7 +53,8 @@ add_executable(
   TopNTest.cpp
   TreeOfLosersTest.cpp
   UnnestTest.cpp
-  VectorHasherTest.cpp)
+  VectorHasherTest.cpp
+  WindowFunctionRegistryTest.cpp)
 
 add_test(
   NAME velox_exec_test
