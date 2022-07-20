@@ -25,10 +25,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTimeZone;
 
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -50,6 +48,7 @@ import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIM
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.plugin.clickhouse.DateTimeUtil.convertZonedDaysToDate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -57,9 +56,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.joining;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class QueryBuilder
 {
@@ -179,8 +176,7 @@ public class QueryBuilder
                 statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
             }
             else if (typeAndValue.getType().equals(DATE)) {
-                long millis = DAYS.toMillis((long) typeAndValue.getValue());
-                statement.setDate(i + 1, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+                statement.setDate(i + 1, convertZonedDaysToDate((long) typeAndValue.getValue()));
             }
             else if (typeAndValue.getType().equals(TIME)) {
                 statement.setTime(i + 1, new Time((long) typeAndValue.getValue()));

@@ -114,10 +114,6 @@
             <artifactId>bootstrap</artifactId>
         </dependency>
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
