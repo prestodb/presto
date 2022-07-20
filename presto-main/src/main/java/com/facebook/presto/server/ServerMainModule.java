@@ -699,6 +699,7 @@ public class ServerMainModule
         binder.bind(StandaloneSpillerFactory.class).to(TempStorageStandaloneSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(PartitioningSpillerFactory.class).to(GenericPartitioningSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(SpillerStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(SpillerStats.class).withGeneratedName();
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
