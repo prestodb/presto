@@ -33,6 +33,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
+import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -77,6 +78,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.getDynamicFilterAssignments;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
@@ -489,9 +491,18 @@ public final class GraphvizPrinter
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(JoinNodeUtils.toExpression(clause));
             }
+            String joinCriteria = Joiner.on(" AND ").join(joinExpressions);
+            StringBuilder details = new StringBuilder(joinCriteria);
+            if (!node.getDynamicFilters().isEmpty()) {
+                details.append(", ");
+                details.append(getDynamicFilterAssignments(node));
+            }
 
-            String criteria = Joiner.on(" AND ").join(joinExpressions);
-            printNode(node, node.getType().getJoinLabel(), criteria, NODE_COLORS.get(NodeType.JOIN));
+            String distributionType = node.getDistributionType().isPresent() ? node.getDistributionType().get().toString() : "UNKNOWN";
+            final String joinType = node.isCrossJoin() ? "CrossJoin" : node.getType().getJoinLabel();
+            String label = format("%s[%s]", joinType, distributionType);
+
+            printNode(node, label, details.toString(), NODE_COLORS.get(NodeType.JOIN));
 
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
@@ -502,7 +513,16 @@ public final class GraphvizPrinter
         @Override
         public Void visitSemiJoin(SemiJoinNode node, Void context)
         {
-            printNode(node, "SemiJoin", format("%s = %s", node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable()), NODE_COLORS.get(NodeType.JOIN));
+            String joinExpression = format("%s = %s", node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable());
+            StringBuilder details = new StringBuilder(joinExpression);
+            if (!node.getDynamicFilters().isEmpty()) {
+                details.append(", ");
+                details.append(getDynamicFilterAssignments(node));
+            }
+
+            String label = format("SemiJoin[%s]", node.getDistributionType().isPresent() ? node.getDistributionType().get().toString() : "UNKNOWN");
+
+            printNode(node, label, details.toString(), NODE_COLORS.get(NodeType.JOIN));
 
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
@@ -656,6 +676,29 @@ public final class GraphvizPrinter
         }
 
         @Override
+        public Void visitSemiJoin(SemiJoinNode node, Void context)
+        {
+            return visitBuildAndProbe(node, context, node.getBuild(), node.getProbe());
+        }
+
+        @Override
+        public Void visitJoin(JoinNode node, Void context)
+        {
+            return visitBuildAndProbe(node, context, node.getBuild(), node.getProbe());
+        }
+
+        private Void visitBuildAndProbe(AbstractJoinNode node, Void context, PlanNode build, PlanNode probe)
+        {
+            printEdge(node, build, "Build");
+            build.accept(this, context);
+
+            printEdge(node, probe, "Probe");
+            probe.accept(this, context);
+
+            return null;
+        }
+
+        @Override
         public Void visitPlan(PlanNode node, Void context)
         {
             for (PlanNode child : node.getSources()) {
@@ -680,12 +723,18 @@ public final class GraphvizPrinter
 
         private void printEdge(PlanNode from, PlanNode to)
         {
+            printEdge(from, to, "");
+        }
+
+        private void printEdge(PlanNode from, PlanNode to, String label)
+        {
             String fromId = idGenerator.getNodeId(from);
             String toId = idGenerator.getNodeId(to);
 
             output.append(fromId)
                     .append(" -> ")
                     .append(toId)
+                    .append(label.isEmpty() ? "" : String.format(" [label = \"%s\"]", label))
                     .append(';')
                     .append('\n');
         }
