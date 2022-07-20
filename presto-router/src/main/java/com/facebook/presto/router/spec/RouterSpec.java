@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.router.spec;
 
+import com.facebook.presto.router.scheduler.SchedulerType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -27,14 +28,17 @@ public class RouterSpec
 {
     private final List<GroupSpec> groups;
     private final List<SelectorRuleSpec> selectors;
+    private final SchedulerType schedulerType;
 
     @JsonCreator
     public RouterSpec(
             @JsonProperty("groups") List<GroupSpec> groups,
-            @JsonProperty("selectors") List<SelectorRuleSpec> selectors)
+            @JsonProperty("selectors") List<SelectorRuleSpec> selectors,
+            @JsonProperty("scheduler") SchedulerType schedulerType)
     {
         this.groups = ImmutableList.copyOf(requireNonNull(groups, "groups is null"));
-        this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "groups is null"));
+        this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "selectors is null"));
+        this.schedulerType = requireNonNull(schedulerType, "scheduler is null");
 
         // make sure no duplicate names in group definition
         checkArgument(groups.stream()
@@ -52,5 +56,11 @@ public class RouterSpec
     public List<SelectorRuleSpec> getSelectors()
     {
         return selectors;
+    }
+
+    @JsonProperty
+    public SchedulerType getSchedulerType()
+    {
+        return schedulerType;
     }
 }
