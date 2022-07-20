@@ -49,6 +49,12 @@ public class TestMaterializedViewRewriteQueryShapeValidator
                 "Query shape invalid: HAVING is not supported for materialized view optimizations");
     }
 
+    @Test
+    public void allColumns()
+    {
+        assertFails("SELECT * FROM tbl", "All columns rewrite is not supported in query optimizer");
+    }
+
     private static void assertFails(String baseQuerySql, String expectedErrorMessage)
     {
         QuerySpecification querySpecification = (QuerySpecification) ((Query) SQL_PARSER.createStatement(baseQuerySql)).getQueryBody();

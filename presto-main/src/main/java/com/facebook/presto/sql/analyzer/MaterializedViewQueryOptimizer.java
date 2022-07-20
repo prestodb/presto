@@ -37,7 +37,6 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.AliasedRelation;
-import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
@@ -419,7 +418,7 @@ public class MaterializedViewQueryOptimizer
                 return querySpecification;
             }
             catch (Exception e) {
-                log.info("Materialized view optimization failed exceptionally with: %s", e.getMessage());
+                log.info("Materialized view optimization failed with exception: %s", e.getMessage());
                 return querySpecification;
             }
         }
@@ -559,13 +558,6 @@ public class MaterializedViewQueryOptimizer
                 alias = Optional.of((Identifier) node.getExpression());
             }
             return new SingleColumn(processedColumn, alias);
-        }
-
-        @Override
-        protected Node visitAllColumns(AllColumns node, Void context)
-        {
-            setErrorMessage("All columns rewrite is not supported in query optimizer");
-            return null;
         }
 
         @Override

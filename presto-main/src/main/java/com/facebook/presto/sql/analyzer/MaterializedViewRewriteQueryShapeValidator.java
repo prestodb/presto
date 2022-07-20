@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
@@ -75,8 +76,16 @@ public final class MaterializedViewRewriteQueryShapeValidator
             QualifiedName name = node.getName();
             if (!SUPPORTED_FUNCTION_CALLS.contains(name)) {
                 errorMessage = Optional.of(format("Query shape invalid: %s function is not supported for materialized view optimizations", name));
+                return null;
             }
             return super.visitFunctionCall(node, context);
+        }
+
+        @Override
+        protected Void visitAllColumns(AllColumns node, Void context)
+        {
+            errorMessage = Optional.of("All columns rewrite is not supported in query optimizer");
+            return null;
         }
     }
 }
