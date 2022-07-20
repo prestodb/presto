@@ -388,6 +388,7 @@ add_test(velox_dwrf_column_writer_test velox_dwrf_column_writer_test)
 target_link_libraries(
   velox_dwrf_column_writer_test
   velox_dwrf_test_utils
+  velox_vector_test_lib
   ${VELOX_LINK_LIBS}
   ${FOLLY_WITH_DEPENDENCIES}
   ${FMT}
