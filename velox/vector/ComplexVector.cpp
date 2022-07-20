@@ -239,18 +239,6 @@ void RowVector::copy(
   }
 }
 
-void RowVector::move(vector_size_t source, vector_size_t target) {
-  VELOX_CHECK_LT(source, size());
-  VELOX_CHECK_LT(target, size());
-  if (source != target) {
-    for (auto& child : children_) {
-      if (child) {
-        child->move(source, target);
-      }
-    }
-  }
-}
-
 uint64_t RowVector::hashValueAt(vector_size_t index) const {
   if (isNullAt(index)) {
     return BaseVector::kNullHash;
@@ -495,19 +483,6 @@ void ArrayVector::copy(
   }
 }
 
-void ArrayVector::move(vector_size_t source, vector_size_t target) {
-  VELOX_CHECK_LT(source, size());
-  VELOX_CHECK_LT(target, size());
-  if (source != target) {
-    if (isNullAt(source)) {
-      setNull(target, true);
-    } else {
-      offsets_->asMutable<vector_size_t>()[target] = rawOffsets_[source];
-      sizes_->asMutable<vector_size_t>()[target] = rawSizes_[source];
-    }
-  }
-}
-
 std::string ArrayVector::toString(vector_size_t index) const {
   if (isNullAt(index)) {
     return "null";
@@ -719,19 +694,6 @@ void MapVector::copy(
             sourceMap->offsetAt(wrappedIndex),
             copySize);
       }
-    }
-  }
-}
-
-void MapVector::move(vector_size_t source, vector_size_t target) {
-  VELOX_CHECK_LT(source, size());
-  VELOX_CHECK_LT(target, size());
-  if (source != target) {
-    if (isNullAt(source)) {
-      setNull(target, true);
-    } else {
-      offsets_->asMutable<vector_size_t>()[target] = rawOffsets_[source];
-      sizes_->asMutable<vector_size_t>()[target] = rawSizes_[source];
     }
   }
 }

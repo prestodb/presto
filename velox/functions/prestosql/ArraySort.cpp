@@ -164,9 +164,37 @@ class ArraySortFunction : public exec::VectorFunction {
       exec::EvalCtx* context,
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
+    auto& arg = args[0];
 
+    VectorPtr localResult;
+
+    // Input can be constant or flat.
+    if (arg->isConstantEncoding()) {
+      auto* constantArray = arg->as<ConstantVector<ComplexType>>();
+      const auto& flatArray = constantArray->valueVector();
+      const auto flatIndex = constantArray->index();
+
+      SelectivityVector singleRow(flatIndex + 1, false);
+      singleRow.setValid(flatIndex, true);
+      singleRow.updateBounds();
+
+      localResult = applyFlat(singleRow, flatArray, context);
+      localResult =
+          BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
+    } else {
+      localResult = applyFlat(rows, arg, context);
+    }
+
+    context->moveOrCopyResult(localResult, rows, result);
+  }
+
+ private:
+  VectorPtr applyFlat(
+      const SelectivityVector& rows,
+      const VectorPtr& arg,
+      exec::EvalCtx* context) const {
     // Acquire the array elements vector.
-    auto inputArray = args.front()->as<ArrayVector>();
+    auto inputArray = arg->as<ArrayVector>();
     VectorPtr resultElements;
 
     if (velox::TypeTraits<T>::isPrimitiveType) {
@@ -177,7 +205,7 @@ class ArraySortFunction : public exec::VectorFunction {
       applyComplexType(rows, inputArray, context, &resultElements);
     }
 
-    auto resultArray = std::make_shared<ArrayVector>(
+    return std::make_shared<ArrayVector>(
         context->pool(),
         inputArray->type(),
         inputArray->nulls(),
@@ -186,15 +214,13 @@ class ArraySortFunction : public exec::VectorFunction {
         inputArray->sizes(),
         resultElements,
         inputArray->getNullCount());
-
-    context->moveOrCopyResult(resultArray, rows, result);
   }
 };
 
 // Validate number of parameters and types.
 void validateType(const std::vector<exec::VectorFunctionArg>& inputArgs) {
   VELOX_USER_CHECK_EQ(
-      inputArgs.size(), 1, "array_distinct requires exactly one parameter");
+      inputArgs.size(), 1, "array_sort requires exactly one parameter");
 
   auto arrayType = inputArgs.front().type;
   VELOX_USER_CHECK_EQ(

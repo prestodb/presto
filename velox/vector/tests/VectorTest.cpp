@@ -508,26 +508,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     }
   }
 
-  void testMove(
-      const VectorPtr& vector,
-      vector_size_t source,
-      vector_size_t target) {
-    // Save 'source' row in a temp vector.
-    auto temp = BaseVector::create(vector->type(), 1, pool_.get());
-    temp->copy(vector.get(), 0, source, 1);
-
-    // Confirm that source and target rows are not the same.
-    ASSERT_TRUE(temp->equalValueAt(vector.get(), 0, source));
-    ASSERT_FALSE(temp->equalValueAt(vector.get(), 0, target));
-
-    vector->move(source, target);
-
-    // Verify that source and target rows are now the same and equal the
-    // original source row.
-    ASSERT_TRUE(temp->equalValueAt(vector.get(), 0, source));
-    ASSERT_TRUE(temp->equalValueAt(vector.get(), 0, target));
-  }
-
   void testCopy(VectorPtr source, int level) {
     testCopyEncoded(source);
     if (level == 0) {
@@ -912,8 +892,6 @@ TEST_F(VectorTest, row) {
   auto allNull =
       BaseVector::createNullConstant(baseRow->type(), 50, pool_.get());
   testCopy(allNull, numIterations_);
-
-  testMove(baseRow, 5, 23);
 }
 
 TEST_F(VectorTest, array) {
@@ -924,8 +902,6 @@ TEST_F(VectorTest, array) {
   auto allNull =
       BaseVector::createNullConstant(baseArray->type(), 50, pool_.get());
   testCopy(allNull, numIterations_);
-
-  testMove(baseArray, 5, 23);
 }
 
 TEST_F(VectorTest, fixedSizeArray) {
@@ -937,8 +913,6 @@ TEST_F(VectorTest, fixedSizeArray) {
   auto allNull =
       BaseVector::createNullConstant(baseArray->type(), 50, pool_.get());
   testCopy(allNull, numIterations_);
-
-  testMove(baseArray, 5, 23);
 }
 
 TEST_F(VectorTest, map) {
@@ -949,8 +923,6 @@ TEST_F(VectorTest, map) {
   auto allNull =
       BaseVector::createNullConstant(baseMap->type(), 50, pool_.get());
   testCopy(allNull, numIterations_);
-
-  testMove(baseMap, 5, 23);
 }
 
 TEST_F(VectorTest, unknown) {

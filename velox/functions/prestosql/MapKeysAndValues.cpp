@@ -20,28 +20,44 @@ namespace facebook::velox::functions {
 namespace {
 
 class MapKeyValueFunction : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& outputType,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    auto& arg = args[0];
+
+    VectorPtr localResult;
+
+    // Input can be constant or flat.
+    if (arg->isConstantEncoding()) {
+      auto* constantMap = arg->as<ConstantVector<ComplexType>>();
+      const auto& flatMap = constantMap->valueVector();
+      const auto flatIndex = constantMap->index();
+
+      SelectivityVector singleRow(flatIndex + 1, false);
+      singleRow.setValid(flatIndex, true);
+      singleRow.updateBounds();
+
+      localResult = applyFlat(singleRow, flatMap, context);
+      localResult =
+          BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
+    } else {
+      localResult = applyFlat(rows, arg, context);
+    }
+
+    context->moveOrCopyResult(localResult, rows, result);
+  }
+
  protected:
   explicit MapKeyValueFunction(const std::string& name) : name_(name) {}
 
-  void applyInternal(
+  virtual VectorPtr applyFlat(
       const SelectivityVector& rows,
-      exec::EvalCtx* context,
-      MapVector* mapVector,
-      VectorPtr elements, // mapKeys or mapValues
-      VectorPtr* result) const {
-    auto pool = context->pool();
-    auto arrayVector = std::make_shared<ArrayVector>(
-        pool,
-        ARRAY(elements->type()),
-        mapVector->nulls(),
-        rows.size(),
-        mapVector->offsets(),
-        mapVector->sizes(),
-        elements,
-        mapVector->getNullCount());
-
-    context->moveOrCopyResult(arrayVector, rows, result);
-  }
+      const VectorPtr& arg,
+      exec::EvalCtx* context) const = 0;
 
  private:
   const std::string name_;
@@ -51,15 +67,10 @@ class MapKeysFunction : public MapKeyValueFunction {
  public:
   MapKeysFunction() : MapKeyValueFunction("map_keys") {}
 
-  void apply(
+  VectorPtr applyFlat(
       const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
-    VELOX_CHECK_EQ(args.size(), 1);
-    auto arg = args[0];
-
+      const VectorPtr& arg,
+      exec::EvalCtx* context) const override {
     VELOX_CHECK(
         arg->typeKind() == TypeKind::MAP,
         "Unsupported type for map_keys function {}",
@@ -67,7 +78,15 @@ class MapKeysFunction : public MapKeyValueFunction {
 
     auto mapVector = arg->as<MapVector>();
     auto mapKeys = mapVector->mapKeys();
-    applyInternal(rows, context, mapVector, mapKeys, result);
+    return std::make_shared<ArrayVector>(
+        context->pool(),
+        ARRAY(mapKeys->type()),
+        mapVector->nulls(),
+        rows.size(),
+        mapVector->offsets(),
+        mapVector->sizes(),
+        mapKeys,
+        mapVector->getNullCount());
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -85,23 +104,26 @@ class MapValuesFunction : public MapKeyValueFunction {
  public:
   MapValuesFunction() : MapKeyValueFunction("map_values") {}
 
-  void apply(
+  VectorPtr applyFlat(
       const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
-    VELOX_CHECK_EQ(args.size(), 1);
-    auto arg = args[0];
-
+      const VectorPtr& arg,
+      exec::EvalCtx* context) const override {
     VELOX_CHECK(
         arg->typeKind() == TypeKind::MAP,
-        "Unsupported type for map_values function {}",
+        "Unsupported type for map_keys function {}",
         mapTypeKindToName(arg->typeKind()));
 
     auto mapVector = arg->as<MapVector>();
     auto mapValues = mapVector->mapValues();
-    applyInternal(rows, context, mapVector, mapValues, result);
+    return std::make_shared<ArrayVector>(
+        context->pool(),
+        ARRAY(mapValues->type()),
+        mapVector->nulls(),
+        rows.size(),
+        mapVector->offsets(),
+        mapVector->sizes(),
+        mapValues,
+        mapVector->getNullCount());
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

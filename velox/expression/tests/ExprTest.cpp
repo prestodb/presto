@@ -1172,30 +1172,28 @@ class PlusConstantFunction : public exec::VectorFunction {
       VectorPtr* result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
 
-    auto arg = args[0];
-    VELOX_CHECK_EQ(
-        arg->encoding(), facebook::velox::VectorEncoding::Simple::FLAT);
+    auto& arg = args[0];
 
-    auto rawInput = arg->asFlatVector<int32_t>()->rawValues();
+    // The argument may be flat or constant.
+    VELOX_CHECK(arg->isFlatEncoding() || arg->isConstantEncoding());
 
-    if (!result) {
-      *result = BaseVector::create(INTEGER(), rows.size(), context->pool());
-    } else {
-      BaseVector::ensureWritable(rows, INTEGER(), context->pool(), result);
-    }
+    BaseVector::ensureWritable(rows, INTEGER(), context->pool(), result);
+
     auto flatResult = (*result)->asFlatVector<int32_t>();
     auto rawResult = flatResult->mutableRawValues();
-    uint64_t* rawNulls = nullptr;
-    if (flatResult->mayHaveNulls()) {
-      rawNulls = flatResult->mutableRawNulls();
+
+    flatResult->clearNulls(rows);
+
+    if (arg->isConstantEncoding()) {
+      auto value = arg->as<ConstantVector<int32_t>>()->valueAt(0);
+      rows.applyToSelected(
+          [&](auto row) { rawResult[row] = value + addition_; });
+    } else {
+      auto* rawInput = arg->as<FlatVector<int32_t>>()->rawValues();
+
+      rows.applyToSelected(
+          [&](auto row) { rawResult[row] = rawInput[row] + addition_; });
     }
-    rows.applyToSelected([&](vector_size_t row) {
-      rawResult[row] = rawInput[row] + addition_;
-      if (rawNulls) {
-        bits::clearBit(rawNulls, row);
-      }
-      return true;
-    });
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -2098,7 +2096,7 @@ class TestingSequenceFunction : public exec::VectorFunction {
 };
 
 // Single-argument deterministic functions always receive their argument
-// vector as flat.
+// vector as flat or constant.
 class TestingSingleArgDeterministicFunction : public exec::VectorFunction {
  public:
   void apply(
@@ -2107,9 +2105,10 @@ class TestingSingleArgDeterministicFunction : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::FLAT);
+    auto& arg = args[0];
+    VELOX_CHECK(arg->isFlatEncoding() || arg->isConstantEncoding());
     BaseVector::ensureWritable(rows, outputType, context->pool(), result);
-    (*result)->copy(args[0].get(), rows, nullptr);
+    (*result)->copy(arg.get(), rows, nullptr);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

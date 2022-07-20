@@ -38,14 +38,13 @@ class VectorFunction {
   ///
   /// The rows may or may not be contiguous.
   ///
-  /// Single-argument deterministic functions always receive their argument
-  /// vector as flat. These functions don't need to use DecodedVector to handle
-  /// encodings.
+  /// Single-argument deterministic functions may receive their only argument
+  /// vector as flat or constant, but not dictionary encoded.
   ///
   /// Single-argument functions that specify null-in-null-out behavior, e.g.
-  /// isDefaultNullBehavior returns true, will never see a null row in rows.
-  /// Hence, they can safely assume that args[0] vector is flat and has no nulls
-  /// in specified positions.
+  /// isDefaultNullBehavior returns true, will never see a null row in 'rows'.
+  /// Hence, they can safely assume that args[0] vector is flat or constant and
+  /// has no nulls in specified positions.
   ///
   /// Multi-argument functions that specify null-in-null-out behavior will never
   /// see a null row in any of the arguments. They can safely assume that there

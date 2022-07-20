@@ -376,6 +376,34 @@ TEST_P(ArraySortTest, basic) {
   runTest(GetParam());
 }
 
+TEST_P(ArraySortTest, constant) {
+  if (GetParam() != TypeKind::BIGINT) {
+    GTEST_SKIP() << "Skipping constant test for non-bigint type";
+  }
+
+  vector_size_t size = 1'000;
+  auto data =
+      makeArrayVector<int64_t>({{1, 2, 3, 0}, {4, 5, 4, 5}, {6, 6, 6, 6}});
+
+  auto evaluateConstant = [&](vector_size_t row, const VectorPtr& vector) {
+    return evaluate(
+        "array_sort(c0)",
+        makeRowVector({BaseVector::wrapInConstant(size, row, vector)}));
+  };
+
+  auto result = evaluateConstant(0, data);
+  auto expected = makeConstantArray<int64_t>(size, {0, 1, 2, 3});
+  assertEqualVectors(expected, result);
+
+  result = evaluateConstant(1, data);
+  expected = makeConstantArray<int64_t>(size, {4, 4, 5, 5});
+  assertEqualVectors(expected, result);
+
+  result = evaluateConstant(2, data);
+  expected = makeConstantArray<int64_t>(size, {6, 6, 6, 6});
+  assertEqualVectors(expected, result);
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     ArraySortTest,
     ArraySortTest,

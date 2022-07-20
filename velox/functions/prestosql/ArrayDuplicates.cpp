@@ -44,15 +44,42 @@ namespace {
 template <typename T>
 class ArrayDuplicatesFunction : public exec::VectorFunction {
  public:
-  // Execute function.
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
       const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    // Acquire the array elements vector.
-    auto arrayVector = args[0]->as<ArrayVector>();
+    auto& arg = args[0];
+
+    VectorPtr localResult;
+
+    // Input can be constant or flat.
+    if (arg->isConstantEncoding()) {
+      auto* constantArray = arg->as<ConstantVector<ComplexType>>();
+      const auto& flatArray = constantArray->valueVector();
+      const auto flatIndex = constantArray->index();
+
+      SelectivityVector singleRow(flatIndex + 1, false);
+      singleRow.setValid(flatIndex, true);
+      singleRow.updateBounds();
+
+      localResult = applyFlat(singleRow, flatArray, context);
+      localResult =
+          BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
+    } else {
+      localResult = applyFlat(rows, arg, context);
+    }
+
+    context->moveOrCopyResult(localResult, rows, result);
+  }
+
+ private:
+  VectorPtr applyFlat(
+      const SelectivityVector& rows,
+      const VectorPtr& arg,
+      exec::EvalCtx* context) const {
+    auto arrayVector = arg->as<ArrayVector>();
     VELOX_CHECK(arrayVector);
     auto elementsVector = arrayVector->elements();
 
@@ -119,17 +146,14 @@ class ArrayDuplicatesFunction : public exec::VectorFunction {
     auto newElements =
         BaseVector::transpose(newIndices, std::move(elementsVector));
 
-    // Prepare and return result set.
-    auto resultArray = std::make_shared<ArrayVector>(
+    return std::make_shared<ArrayVector>(
         pool,
-        outputType,
+        arrayVector->type(),
         nullptr,
         numRows,
         std::move(newOffsets),
         std::move(newSizes),
         std::move(newElements));
-
-    context->moveOrCopyResult(resultArray, rows, result);
   }
 };
 

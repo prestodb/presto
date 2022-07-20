@@ -232,6 +232,43 @@ TEST_F(MapKeysTest, partiallyPopulatedSomeNulls) {
   testMapKeysPartiallyPopulated(sizeAt, nullEvery(5));
 }
 
+TEST_F(MapKeysTest, constant) {
+  vector_size_t size = 1'000;
+  auto data = makeMapVector<int64_t, int64_t>({
+      {
+          {0, 0},
+          {1, 10},
+          {2, 20},
+          {3, 30},
+      },
+      {
+          {4, 40},
+          {5, 50},
+      },
+      {
+          {6, 60},
+      },
+  });
+
+  auto evaluateConstant = [&](vector_size_t row, const VectorPtr& vector) {
+    return evaluate(
+        "map_keys(c0)",
+        makeRowVector({BaseVector::wrapInConstant(size, row, vector)}));
+  };
+
+  auto result = evaluateConstant(0, data);
+  auto expected = makeConstantArray<int64_t>(size, {0, 1, 2, 3});
+  test::assertEqualVectors(expected, result);
+
+  result = evaluateConstant(1, data);
+  expected = makeConstantArray<int64_t>(size, {4, 5});
+  test::assertEqualVectors(expected, result);
+
+  result = evaluateConstant(2, data);
+  expected = makeConstantArray<int64_t>(size, {6});
+  test::assertEqualVectors(expected, result);
+}
+
 TEST_F(MapValuesTest, noNulls) {
   auto sizeAt = [](vector_size_t row) { return row % 7; };
   testMapValues(sizeAt, nullptr);
@@ -255,4 +292,41 @@ TEST_F(MapValuesTest, partiallyPopulatedNoNulls) {
 TEST_F(MapValuesTest, partiallyPopulatedSomeNulls) {
   auto sizeAt = [](vector_size_t /* row */) { return 1; };
   testMapValuesPartiallyPopulated(sizeAt, nullEvery(5));
+}
+
+TEST_F(MapValuesTest, constant) {
+  vector_size_t size = 1'000;
+  auto data = makeMapVector<int64_t, int64_t>({
+      {
+          {0, 0},
+          {1, 10},
+          {2, 20},
+          {3, 30},
+      },
+      {
+          {4, 40},
+          {5, 50},
+      },
+      {
+          {6, 60},
+      },
+  });
+
+  auto evaluateConstant = [&](vector_size_t row, const VectorPtr& vector) {
+    return evaluate(
+        "map_values(c0)",
+        makeRowVector({BaseVector::wrapInConstant(size, row, vector)}));
+  };
+
+  auto result = evaluateConstant(0, data);
+  auto expected = makeConstantArray<int64_t>(size, {0, 10, 20, 30});
+  test::assertEqualVectors(expected, result);
+
+  result = evaluateConstant(1, data);
+  expected = makeConstantArray<int64_t>(size, {40, 50});
+  test::assertEqualVectors(expected, result);
+
+  result = evaluateConstant(2, data);
+  expected = makeConstantArray<int64_t>(size, {60});
+  test::assertEqualVectors(expected, result);
 }

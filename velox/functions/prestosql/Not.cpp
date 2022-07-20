@@ -33,18 +33,27 @@ class NotFunction : public exec::VectorFunction {
     VELOX_CHECK_EQ(
         input->type()->kind(), TypeKind::BOOLEAN, "Unsupported input type");
 
-    auto rawInput = input->asFlatVector<bool>()->rawValues<uint64_t>();
+    BufferPtr negated;
 
-    BufferPtr negated =
-        AlignedBuffer::allocate<bool>(rows.end(), context->pool());
-    memcpy(negated->asMutable<uint64_t>(), rawInput, bits::nbytes(rows.end()));
-    bits::negate(
-        reinterpret_cast<char*>(negated->asMutable<uint64_t>()), rows.end());
+    // Input may be constant or flat.
+    if (input->isConstantEncoding()) {
+      bool value = input->as<ConstantVector<bool>>()->valueAt(0);
+      negated =
+          AlignedBuffer::allocate<bool>(rows.size(), context->pool(), !value);
+    } else {
+      negated = AlignedBuffer::allocate<bool>(rows.size(), context->pool());
+      auto rawNegated = negated->asMutable<char>();
+
+      auto rawInput = input->asFlatVector<bool>()->rawValues<uint64_t>();
+
+      memcpy(rawNegated, rawInput, bits::nbytes(rows.end()));
+      bits::negate(rawNegated, rows.end());
+    }
 
     auto localResult = std::make_shared<FlatVector<bool>>(
         context->pool(),
-        BufferPtr(nullptr),
-        rows.end(),
+        nullptr,
+        rows.size(),
         negated,
         std::vector<BufferPtr>{});
 

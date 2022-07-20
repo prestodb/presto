@@ -18,7 +18,18 @@
 using namespace facebook::velox;
 using namespace facebook::velox::functions::test;
 
-class MapEntriesTest : public FunctionBaseTest {};
+class MapEntriesTest : public FunctionBaseTest {
+ protected:
+  /// Create an ARRAY vector of size 1 using specified 'elements' vector.
+  VectorPtr makeSingleRowArrayVector(const VectorPtr& elements) {
+    BufferPtr offsets = allocateOffsets(1, pool());
+    BufferPtr sizes = allocateSizes(1, pool());
+    sizes->asMutable<vector_size_t>()[0] = elements->size();
+
+    return std::make_shared<ArrayVector>(
+        pool(), ARRAY(elements->type()), nullptr, 1, offsets, sizes, elements);
+  }
+};
 
 TEST_F(MapEntriesTest, basic) {
   vector_size_t size = 1'000;
@@ -49,4 +60,60 @@ TEST_F(MapEntriesTest, basic) {
       }
     }
   }
+}
+
+TEST_F(MapEntriesTest, constant) {
+  vector_size_t size = 1'000;
+  auto data = makeMapVector<int64_t, int64_t>({
+      {
+          {0, 0},
+          {1, 10},
+          {2, 20},
+          {3, 30},
+      },
+      {
+          {4, 40},
+          {5, 50},
+      },
+      {
+          {6, 60},
+          {7, 70},
+      },
+  });
+
+  auto evaluateConstant = [&](vector_size_t row, const VectorPtr& vector) {
+    return evaluate(
+        "map_entries(c0)",
+        makeRowVector({BaseVector::wrapInConstant(size, row, vector)}));
+  };
+
+  auto result = evaluateConstant(0, data);
+  auto expected = BaseVector::wrapInConstant(
+      size,
+      0,
+      makeSingleRowArrayVector(makeRowVector({
+          makeFlatVector<int64_t>({0, 1, 2, 3}),
+          makeFlatVector<int64_t>({0, 10, 20, 30}),
+      })));
+  test::assertEqualVectors(expected, result);
+
+  result = evaluateConstant(1, data);
+  expected = BaseVector::wrapInConstant(
+      size,
+      0,
+      makeSingleRowArrayVector(makeRowVector({
+          makeFlatVector<int64_t>({4, 5}),
+          makeFlatVector<int64_t>({40, 50}),
+      })));
+  test::assertEqualVectors(expected, result);
+
+  result = evaluateConstant(2, data);
+  expected = BaseVector::wrapInConstant(
+      size,
+      0,
+      makeSingleRowArrayVector(makeRowVector({
+          makeFlatVector<int64_t>({6, 7}),
+          makeFlatVector<int64_t>({60, 70}),
+      })));
+  test::assertEqualVectors(expected, result);
 }

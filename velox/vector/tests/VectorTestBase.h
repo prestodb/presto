@@ -550,6 +550,13 @@ class VectorTestBase {
     return vectorMaker_.constantRow(rowType, value, size);
   }
 
+  /// Create constant vector of type ARRAY from a std::vector.
+  template <typename T>
+  VectorPtr makeConstantArray(vector_size_t size, const std::vector<T>& data) {
+    return BaseVector::wrapInConstant(
+        size, 0, vectorMaker_.arrayVector<T>({data}));
+  }
+
   VectorPtr makeNullConstant(TypeKind typeKind, vector_size_t size) {
     return BaseVector::createConstant(variant(typeKind), size, pool());
   }

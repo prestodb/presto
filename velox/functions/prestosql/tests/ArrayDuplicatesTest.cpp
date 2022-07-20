@@ -174,3 +174,26 @@ TEST_F(ArrayDuplicatesTest, nonContiguousRows) {
       makeRowVector({c0, c1, c2}));
   assertEqualVectors(expected, result);
 }
+
+TEST_F(ArrayDuplicatesTest, constant) {
+  vector_size_t size = 1'000;
+  auto data = makeArrayVector<int64_t>({{1, 2, 3}, {4, 5, 4, 5}, {6, 6, 6, 6}});
+
+  auto evaluateConstant = [&](vector_size_t row, const VectorPtr& vector) {
+    return evaluate(
+        "array_duplicates(c0)",
+        makeRowVector({BaseVector::wrapInConstant(size, row, vector)}));
+  };
+
+  auto result = evaluateConstant(0, data);
+  auto expected = makeConstantArray<int64_t>(size, {});
+  assertEqualVectors(expected, result);
+
+  result = evaluateConstant(1, data);
+  expected = makeConstantArray<int64_t>(size, {4, 5});
+  assertEqualVectors(expected, result);
+
+  result = evaluateConstant(2, data);
+  expected = makeConstantArray<int64_t>(size, {6});
+  assertEqualVectors(expected, result);
+}

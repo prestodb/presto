@@ -41,8 +41,13 @@ class ArraySort : public exec::VectorFunction {
       VectorPtr* result) const override;
 
  private:
-  bool ascending_;
-  bool nullsFirst_;
+  VectorPtr applyFlat(
+      const SelectivityVector& rows,
+      const VectorPtr& arg,
+      exec::EvalCtx* context) const;
+
+  const bool ascending_;
+  const bool nullsFirst_;
 };
 
 std::shared_ptr<exec::VectorFunction> makeArraySort(

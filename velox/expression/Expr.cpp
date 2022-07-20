@@ -1103,66 +1103,12 @@ void Expr::applyFunction(
   auto isAscii = type()->isVarchar()
       ? computeIsAsciiForResult(vectorFunction_.get(), inputValues_, rows)
       : std::nullopt;
-  applyVectorFunction(rows, context, result);
+
+  vectorFunction_->apply(rows, inputValues_, type(), &context, &result);
+
   if (isAscii.has_value()) {
     result->asUnchecked<SimpleVector<StringView>>()->setIsAscii(
         isAscii.value(), rows);
-  }
-}
-
-void Expr::applyVectorFunction(
-    const SelectivityVector& rows,
-    EvalCtx& context,
-    VectorPtr& result) {
-  // Single-argument deterministic functions expect their input as a flat
-  // vector. Check if input has constant wrapping and remove it.
-  if (deterministic_ && inputValues_.size() == 1 &&
-      inputValues_[0]->isConstantEncoding()) {
-    applySingleConstArgVectorFunction(rows, context, result);
-  } else {
-    vectorFunction_->apply(rows, inputValues_, type(), &context, &result);
-  }
-}
-
-void Expr::applySingleConstArgVectorFunction(
-    const SelectivityVector& rows,
-    EvalCtx& context,
-    VectorPtr& result) {
-  VELOX_CHECK_EQ(rows.countSelected(), 1);
-
-  auto inputValue = inputValues_[0];
-
-  auto resultRow = rows.begin();
-
-  auto inputRow = inputValue->wrappedIndex(resultRow);
-  LocalSelectivityVector rowHolder(context);
-  auto inputRows = singleRow(rowHolder, inputRow);
-
-  // VectorFunction expects flat input. If constant is of complex type, we can
-  // use valueVector(). Otherwise, need to make a new flat vector.
-  std::vector<VectorPtr> args;
-  if (inputValue->isScalar()) {
-    auto flat = BaseVector::create(inputValue->type(), 1, context.pool());
-    flat->copy(inputValue.get(), 0, 0, 1);
-    args = {flat};
-  } else {
-    args = {inputValue->valueVector()};
-  }
-
-  VectorPtr tempResult;
-  vectorFunction_->apply(*inputRows, args, type(), &context, &tempResult);
-
-  if (result && !context.isFinalSelection()) {
-    BaseVector::ensureWritable(rows, type(), context.pool(), &result);
-    result->copy(tempResult.get(), resultRow, inputRow, 1);
-  } else {
-    // TODO Move is available only for flat vectors. Check if tempResult is
-    // not flat and copy if so.
-    if (inputRow < resultRow) {
-      tempResult->resize(resultRow + 1);
-    }
-    tempResult->move(inputRow, resultRow);
-    result = std::move(tempResult);
   }
 }
 

@@ -163,7 +163,35 @@ void ArraySort::apply(
     const TypePtr& /*outputType*/,
     exec::EvalCtx* context,
     VectorPtr* result) const {
-  ArrayVector* inputArray = args[0]->as<ArrayVector>();
+  auto& arg = args[0];
+
+  VectorPtr localResult;
+
+  // Input can be constant or flat.
+  if (arg->isConstantEncoding()) {
+    auto* constantArray = arg->as<ConstantVector<ComplexType>>();
+    const auto& flatArray = constantArray->valueVector();
+    const auto flatIndex = constantArray->index();
+
+    SelectivityVector singleRow(flatIndex + 1, false);
+    singleRow.setValid(flatIndex, true);
+    singleRow.updateBounds();
+
+    localResult = applyFlat(singleRow, flatArray, context);
+    localResult =
+        BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
+  } else {
+    localResult = applyFlat(rows, arg, context);
+  }
+
+  context->moveOrCopyResult(localResult, rows, result);
+}
+
+VectorPtr ArraySort::applyFlat(
+    const SelectivityVector& rows,
+    const VectorPtr& arg,
+    exec::EvalCtx* context) const {
+  ArrayVector* inputArray = arg->as<ArrayVector>();
   VectorPtr resultElements;
 
   auto typeKind = inputArray->elements()->typeKind();
@@ -183,7 +211,7 @@ void ArraySort::apply(
         &resultElements);
   }
 
-  auto resultArray = std::make_shared<ArrayVector>(
+  return std::make_shared<ArrayVector>(
       context->pool(),
       inputArray->type(),
       inputArray->nulls(),
@@ -192,8 +220,6 @@ void ArraySort::apply(
       inputArray->sizes(),
       resultElements,
       inputArray->getNullCount());
-
-  context->moveOrCopyResult(resultArray, rows, result);
 }
 
 // Signature: array_sort(array(T)) -> array(T)

@@ -26,17 +26,26 @@ class ToUtf8Function : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    // Single-argument function, hence, input is flat.
-    auto input = args[0]->asFlatVector<StringView>();
+    VectorPtr localResult;
 
-    auto stringBuffers = input->stringBuffers();
-    auto localResult = std::make_shared<FlatVector<StringView>>(
-        context->pool(),
-        VARBINARY(),
-        input->nulls(),
-        rows.end(),
-        input->values(),
-        std::move(stringBuffers));
+    // Input can be constant or flat.
+    const auto& arg = args[0];
+    if (arg->isConstantEncoding()) {
+      auto value = arg->as<ConstantVector<StringView>>()->valueAt(0);
+      localResult = std::make_shared<ConstantVector<StringView>>(
+          context->pool(), rows.size(), false, VARBINARY(), std::move(value));
+    } else {
+      auto flatInput = arg->asFlatVector<StringView>();
+
+      auto stringBuffers = flatInput->stringBuffers();
+      localResult = std::make_shared<FlatVector<StringView>>(
+          context->pool(),
+          VARBINARY(),
+          nullptr,
+          rows.size(),
+          flatInput->values(),
+          std::move(stringBuffers));
+    }
 
     context->moveOrCopyResult(localResult, rows, result);
   }

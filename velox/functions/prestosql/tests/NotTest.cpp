@@ -23,21 +23,27 @@ class NotTest : public functions::test::FunctionBaseTest {};
 TEST_F(NotTest, noNulls) {
   constexpr vector_size_t size = 1'000;
 
-  // All true.
+  // All true. Flat encoding.
   auto allTrue = makeFlatVector<bool>(size, [](auto /*row*/) { return true; });
   auto result =
       evaluate<SimpleVector<bool>>("not(c0)", makeRowVector({allTrue}));
-  for (int i = 0; i < size; ++i) {
-    EXPECT_FALSE(result->valueAt(i)) << "at " << i;
-  }
+  assertEqualVectors(makeConstant(false, size), result);
 
-  // All false.
+  // All true. Constant encoding.
+  result = evaluate<SimpleVector<bool>>(
+      "not(c0)", makeRowVector({makeConstant(true, size)}));
+  assertEqualVectors(makeConstant(false, size), result);
+
+  // All false. Flat encoding.
   auto allFalse =
       makeFlatVector<bool>(size, [](auto /*row*/) { return false; });
   result = evaluate<SimpleVector<bool>>("not(c0)", makeRowVector({allFalse}));
-  for (int i = 0; i < size; ++i) {
-    EXPECT_TRUE(result->valueAt(i)) << "at " << i;
-  }
+  assertEqualVectors(makeConstant(true, size), result);
+
+  // All false. Constant encoding.
+  result = evaluate<SimpleVector<bool>>(
+      "not(c0)", makeRowVector({makeConstant(false, size)}));
+  assertEqualVectors(makeConstant(true, size), result);
 
   // False in odd positions: True, False, True, False,... .
   auto oddFalse =

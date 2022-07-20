@@ -260,17 +260,6 @@ class Expr {
       EvalCtx& context,
       VectorPtr& result);
 
-  // Calls 'vectorFunction_' on values in 'inputValues_'.
-  void applyVectorFunction(
-      const SelectivityVector& rows,
-      EvalCtx& context,
-      VectorPtr& result);
-
-  void applySingleConstArgVectorFunction(
-      const SelectivityVector& rows,
-      EvalCtx& context,
-      VectorPtr& result);
-
   // Returns true if values in 'distinctFields_' have nulls that are
   // worth skipping. If so, the rows in 'rows' with at least one sure
   // null are deselected in 'nullHolder->get()'.
