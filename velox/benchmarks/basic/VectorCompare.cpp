@@ -42,13 +42,13 @@ class VectorCompareBenchmark : public functions::test::FunctionBenchmarkBase {
     flatVector_ = fuzzer.fuzzFlat(BIGINT());
 
     arrayVector_ =
-        fuzzer.fuzzComplex(std::make_shared<ArrayType>(ArrayType(BIGINT())));
+        fuzzer.fuzzFlat(std::make_shared<ArrayType>(ArrayType(BIGINT())));
 
-    mapVector_ = fuzzer.fuzzComplex(
-        std::make_shared<MapType>(MapType(BIGINT(), BIGINT())));
+    mapVector_ =
+        fuzzer.fuzzFlat(std::make_shared<MapType>(MapType(BIGINT(), BIGINT())));
 
-    rowVector_ = fuzzer.fuzzComplex(
-        vectorMaker_.rowType({BIGINT(), BIGINT(), BIGINT()}));
+    rowVector_ =
+        fuzzer.fuzzFlat(vectorMaker_.rowType({BIGINT(), BIGINT(), BIGINT()}));
   }
 
   size_t run(const VectorPtr& vector) {

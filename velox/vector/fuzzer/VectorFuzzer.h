@@ -96,7 +96,8 @@ class VectorFuzzer {
   // vector (dictionary).
   VectorPtr fuzz(const TypePtr& type);
 
-  // Returns a flat vector with randomized data and nulls.
+  // Returns a flat vector or a complex vector with flat children with
+  // randomized data and nulls.
   VectorPtr fuzzFlat(const TypePtr& type);
 
   // Returns a random constant vector (which could be a null constant).
@@ -105,9 +106,6 @@ class VectorFuzzer {
   // Wraps `vector` using a randomized indices vector, returning a
   // DictionaryVector.
   VectorPtr fuzzDictionary(const VectorPtr& vector);
-
-  // Returns a complex vector with randomized data and nulls.
-  VectorPtr fuzzComplex(const TypePtr& type);
 
   // Returns a "fuzzed" row vector with randomized data and nulls.
   RowVectorPtr fuzzRow(const RowTypePtr& rowType);
@@ -139,16 +137,27 @@ class VectorFuzzer {
   }
 
  private:
-  VectorPtr fuzz(const TypePtr& type, vector_size_t size);
+  VectorPtr
+  fuzz(const TypePtr& type, vector_size_t size, bool flatEncoding = false);
 
   VectorPtr fuzzFlat(const TypePtr& type, vector_size_t size);
 
   VectorPtr fuzzConstant(const TypePtr& type, vector_size_t size);
 
-  VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
+  // Returns a complex vector with randomized data and nulls.  The children and
+  // all other descendant vectors will randomly use constant, dictionary, or
+  // flat encodings if flatEncoding is set to false, otherwise they will all be
+  // flat.
+  VectorPtr fuzzComplex(
+      const TypePtr& type,
+      vector_size_t size,
+      bool flatEncoding = false);
 
-  RowVectorPtr
-  fuzzRow(const RowTypePtr& rowType, vector_size_t size, bool rowHasNulls);
+  RowVectorPtr fuzzRow(
+      const RowTypePtr& rowType,
+      vector_size_t size,
+      bool rowHasNulls,
+      bool flatEncoding = false);
 
   // Generate a random null vector.
   BufferPtr fuzzNulls(vector_size_t size);
