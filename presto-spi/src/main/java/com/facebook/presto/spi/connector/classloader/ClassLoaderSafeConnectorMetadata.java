@@ -520,8 +520,14 @@ public class ClassLoaderSafeConnectorMetadata
     @Override
     public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName)
     {
+        return delegate.getMaterializedViewStatus(session, materializedViewName);
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
+    {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMaterializedViewStatus(session, materializedViewName);
+            return delegate.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
         }
     }
 
