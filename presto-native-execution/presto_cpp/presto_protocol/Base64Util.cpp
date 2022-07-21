@@ -28,6 +28,7 @@ static const char* kByteArray = "BYTE_ARRAY";
 static const char* kVariableWidth = "VARIABLE_WIDTH";
 static const char* kRle = "RLE";
 static const char* kArray = "ARRAY";
+static const char* kInt128Array = "INT128_ARRAY";
 
 struct ByteStream {
   explicit ByteStream(const char* data, int32_t offset = 0)
@@ -102,6 +103,8 @@ velox::VectorPtr readScalarBlock(
     case velox::TypeKind::VARCHAR:
     case velox::TypeKind::DATE:
     case velox::TypeKind::INTERVAL_DAY_TIME:
+    case velox::TypeKind::LONG_DECIMAL:
+    case velox::TypeKind::SHORT_DECIMAL:
       return std::make_shared<velox::FlatVector<U>>(
           pool,
           type,
@@ -213,10 +216,14 @@ velox::VectorPtr readScalarBlock(
     return readVariableWidthBlock(type, stream, pool);
   }
 
+  if (encoding == kInt128Array) {
+    return readScalarBlock<velox::int128_t, T>(type, stream, pool);
+  }
   VELOX_UNREACHABLE();
 }
 
 velox::VectorPtr readRleBlock(
+    const velox::TypePtr& type,
     ByteStream& stream,
     velox::memory::MemoryPool* pool) {
   // read number of rows - must be just one
@@ -236,6 +243,11 @@ velox::VectorPtr readRleBlock(
   auto nulls = readNulls(1, stream, pool);
   if (!nulls || !velox::bits::isBitNull(nulls->as<uint64_t>(), 0)) {
     throw std::runtime_error("Unexpected RLE block. Expected single null.");
+  }
+
+  if (type->kind() == velox::TypeKind::SHORT_DECIMAL ||
+      type->kind() == velox::TypeKind::LONG_DECIMAL) {
+    return velox::BaseVector::createNullConstant(type, positionCount, pool);
   }
 
   velox::TypeKind typeKind;
@@ -306,7 +318,17 @@ velox::VectorPtr readBlockInt(
   }
 
   if (encoding == kRle) {
-    return readRleBlock(stream, pool);
+    return readRleBlock(type, stream, pool);
+  }
+
+  if (type->kind() == velox::TypeKind::SHORT_DECIMAL) {
+    return readScalarBlock<velox::TypeKind::SHORT_DECIMAL>(
+        encoding, type, stream, pool);
+  }
+
+  if (type->kind() == velox::TypeKind::LONG_DECIMAL) {
+    return readScalarBlock<velox::TypeKind::LONG_DECIMAL>(
+        encoding, type, stream, pool);
   }
 
   if (type->kind() == velox::TypeKind::ROW &&

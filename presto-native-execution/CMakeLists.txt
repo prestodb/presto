@@ -149,6 +149,7 @@ set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/proxygen")
 include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR} ${PROXYGEN_INCLUDE_DIR})
 include_directories(.)
 include_directories(velox)
+include_directories(velox/velox/external/xxhash)
 include_directories(${VELOX_ROOT})
 
 add_subdirectory(velox)
