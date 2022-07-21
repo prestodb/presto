@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.pinot.auth.PinotBrokerAuthenticationProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -49,13 +50,15 @@ public class PinotPageSourceProvider
     private final PinotStreamingQueryClient pinotStreamingQueryClient;
     private final PinotClusterInfoFetcher clusterInfoFetcher;
     private final ObjectMapper objectMapper;
+    private final PinotBrokerAuthenticationProvider brokerAuthenticationProvider;
 
     @Inject
     public PinotPageSourceProvider(
             ConnectorId connectorId,
             PinotConfig pinotConfig,
             PinotClusterInfoFetcher clusterInfoFetcher,
-            ObjectMapper objectMapper)
+            ObjectMapper objectMapper,
+            PinotBrokerAuthenticationProvider brokerAuthenticationProvider)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
@@ -68,6 +71,7 @@ public class PinotPageSourceProvider
         this.pinotStreamingQueryClient = new PinotStreamingQueryClient(extractGrpcQueryClientConfig(pinotConfig));
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
         this.objectMapper = requireNonNull(objectMapper, "object mapper is null");
+        this.brokerAuthenticationProvider = requireNonNull(brokerAuthenticationProvider, "broker authentication provider is null");
     }
 
     @Override
@@ -115,7 +119,8 @@ public class PinotPageSourceProvider
                             handles,
                             pinotSplit.getExpectedColumnHandles(),
                             clusterInfoFetcher,
-                            objectMapper);
+                            objectMapper,
+                            brokerAuthenticationProvider);
                     case PQL:
                         return new PinotBrokerPageSourcePql(
                             pinotConfig,
@@ -124,7 +129,8 @@ public class PinotPageSourceProvider
                             handles,
                             pinotSplit.getExpectedColumnHandles(),
                             clusterInfoFetcher,
-                            objectMapper);
+                            objectMapper,
+                            brokerAuthenticationProvider);
                 }
             default:
                 throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
