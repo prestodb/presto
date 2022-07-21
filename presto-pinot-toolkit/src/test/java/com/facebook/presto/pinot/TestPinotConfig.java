@@ -75,7 +75,13 @@ public class TestPinotConfig
                         .setUseStreamingForSegmentQueries(true)
                         .setStreamingServerGrpcMaxInboundMessageBytes(PinotConfig.DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES)
                         .setNonAggregateLimitForBrokerQueries(PinotConfig.DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES)
-                        .setUseDateTrunc(false));
+                        .setUseDateTrunc(false)
+                        .setControllerAuthenticationType("NONE")
+                        .setControllerAuthenticationUser(null)
+                        .setControllerAuthenticationPassword(null)
+                        .setBrokerAuthenticationType("NONE")
+                        .setBrokerAuthenticationUser(null)
+                        .setBrokerAuthenticationPassword(null));
     }
 
     @Test
@@ -127,6 +133,12 @@ public class TestPinotConfig
                 .put("pinot.grpc-tls-key-store-password", "changeit2")
                 .put("pinot.grpc-tls-key-store-path", "/path/to/keystore/file.jks")
                 .put("pinot.grpc-tls-key-store-type", "jks-keystore")
+                .put("pinot.controller-authentication-type", "PASSWORD")
+                .put("pinot.controller-authentication-user", "admin")
+                .put("pinot.controller-authentication-password", "verysecret")
+                .put("pinot.broker-authentication-type", "PASSWORD")
+                .put("pinot.broker-authentication-user", "admin")
+                .put("pinot.broker-authentication-password", "verysecret")
                 .build();
 
         PinotConfig expected = new PinotConfig()
@@ -175,6 +187,12 @@ public class TestPinotConfig
                 .setGrpcTlsKeyStorePath("/path/to/keystore/file.jks")
                 .setGrpcTlsKeyStorePassword("changeit2")
                 .setGrpcTlsKeyStoreType("jks-keystore")
+                .setControllerAuthenticationType("PASSWORD")
+                .setControllerAuthenticationUser("admin")
+                .setControllerAuthenticationPassword("verysecret")
+                .setBrokerAuthenticationType("PASSWORD")
+                .setBrokerAuthenticationUser("admin")
+                .setBrokerAuthenticationPassword("verysecret")
                 .setUseSecureConnection(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
