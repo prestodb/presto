@@ -96,10 +96,9 @@ int32_t SystemConfig::asyncCacheSsdGb() const {
   return opt.hasValue() ? opt.value() : kAsyncCacheSsdGbDefault;
 }
 
-std::string_view SystemConfig::asyncCacheSsdPath() const {
-  auto opt =
-      optionalProperty<std::string_view>(std::string(kAsyncCacheSsdPath));
-  return opt.hasValue() ? opt.value() : kAsyncCacheSsdPathDefault;
+std::string SystemConfig::asyncCacheSsdPath() const {
+  auto opt = optionalProperty<std::string>(std::string(kAsyncCacheSsdPath));
+  return opt.hasValue() ? opt.value() : std::string(kAsyncCacheSsdPathDefault);
 }
 
 bool SystemConfig::enableSerializedPageChecksum() const {
