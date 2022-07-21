@@ -397,7 +397,7 @@ public interface Metadata
     /**
      * Get Materialized view status
      */
-    MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName);
+    MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain);
 
     /**
      * Begin refresh materialized view

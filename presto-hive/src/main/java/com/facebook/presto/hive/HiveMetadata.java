@@ -2404,7 +2404,7 @@ public class HiveMetadata
     }
 
     @Override
-    public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName)
+    public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
         ConnectorMaterializedViewDefinition viewDefinition = getMaterializedView(session, materializedViewName)
@@ -2452,16 +2452,22 @@ public class HiveMetadata
                                     viewToBaseIndirectMappedColumns);
                         }));
 
+        int missingPartitions = 0;
+
         for (MaterializedDataPredicates dataPredicates : partitionsFromBaseTables.values()) {
             if (!dataPredicates.getPredicateDisjuncts().isEmpty()) {
-                if (dataPredicates.getPredicateDisjuncts().stream()
+                missingPartitions += dataPredicates.getPredicateDisjuncts().stream()
+                        .filter(baseQueryDomain::overlaps)
                         .mapToInt(tupleDomain -> tupleDomain.getDomains().isPresent() ? tupleDomain.getDomains().get().size() : 0)
-                        .sum() > HiveSessionProperties.getMaterializedViewMissingPartitionsThreshold(session)) {
-                    return new MaterializedViewStatus(TOO_MANY_PARTITIONS_MISSING, partitionsFromBaseTables);
-                }
-
-                return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, partitionsFromBaseTables);
+                        .sum();
             }
+        }
+
+        if (missingPartitions > HiveSessionProperties.getMaterializedViewMissingPartitionsThreshold(session)) {
+            return new MaterializedViewStatus(TOO_MANY_PARTITIONS_MISSING, partitionsFromBaseTables);
+        }
+        if (missingPartitions != 0) {
+            return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, partitionsFromBaseTables);
         }
 
         return new MaterializedViewStatus(FULLY_MATERIALIZED);

@@ -197,16 +197,34 @@ public class TestMaterializedViewQueryOptimizer
     public void testWithWhereCondition()
     {
         String originalViewSql = format("SELECT a, b, c, d FROM %s", BASE_TABLE_1);
-        String baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = '2000-01-01'", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = '2000-01-01'", VIEW_1);
+        String baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 123", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 123", VIEW_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a as mv_a, b, c, d as mv_d FROM %s", BASE_TABLE_1);
-        baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = '2000-01-01'", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a as a, b FROM %s WHERE mv_a < 10 AND c > 10 or mv_d = '2000-01-01'", VIEW_1);
+        baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 456", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT mv_a as a, b FROM %s WHERE mv_a < 10 AND c > 10 or mv_d = 456", VIEW_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testMismatchingColumnTypes()
+    {
+        // d is registered as bigint- expect optimization to fail
+        String originalViewSql = format("SELECT a, b, c, d FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = '2000-01-01'", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testColumnsNotInTable()
+    {
+        String originalViewSql = format("SELECT  a, b, c, d, not_a_column FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, c, not_a_column FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = not_a_column AND d IN (1, 2, 3) AND NOT (a IS NULL)", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
     @Test
@@ -277,9 +295,9 @@ public class TestMaterializedViewQueryOptimizer
     @Test
     public void testIdentifiersInDifferentNodes()
     {
-        String originalViewSql = format("SELECT a, b, c, d, e FROM %s", BASE_TABLE_1);
-        String baseQuerySql = format("SELECT a, c, e FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = e AND d IN (1, 2, 3) AND NOT (a IS NULL)", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, c, e FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = e AND d IN (1, 2, 3) AND NOT (a IS NULL)", VIEW_1);
+        String originalViewSql = format("SELECT a, b, c, d FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, c FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = 7 AND d IN (1, 2, 3) AND NOT (a IS NULL)", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, c FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = 7 AND d IN (1, 2, 3) AND NOT (a IS NULL)", VIEW_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT a, c FROM %s WHERE x = 4", BASE_TABLE_1);

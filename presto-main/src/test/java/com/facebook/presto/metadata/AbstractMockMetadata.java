@@ -433,7 +433,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName)
+    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         throw new UnsupportedOperationException();
     }

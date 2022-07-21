@@ -1085,7 +1085,7 @@ public class MetadataManager
     }
 
     @Override
-    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName)
+    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         Optional<TableHandle> materializedViewHandle = getTableHandle(session, materializedViewName);
 
@@ -1094,7 +1094,7 @@ public class MetadataManager
 
         return session.getRuntimeStats().profileNanos(
                 GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
-                () -> metadata.getMaterializedViewStatus(session.toConnectorSession(connectorId), toSchemaTableName(materializedViewName)));
+                () -> metadata.getMaterializedViewStatus(session.toConnectorSession(connectorId), toSchemaTableName(materializedViewName), baseQueryDomain));
     }
 
     @Override
