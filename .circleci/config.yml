@@ -80,7 +80,11 @@ jobs:
             git submodule update --init --recursive
       - restore_cache:
           name: "Restore Dependency Cache"
-          key: velox-circleci-macos-deps-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
+          # The version number in the key can be incremented
+          # to manually avoid the case where bad dependencies
+          # are cached, and has no other meaning.
+          # If you update it, be sure to update save_cache too.
+          key: velox-circleci-macos-deps-v1-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
       - run:
           name: "Install dependencies"
           command: |
@@ -93,7 +97,11 @@ jobs:
             fi
       - save_cache:
           name: "Save Dependency Cache"
-          key: velox-circleci-macos-deps-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
+          # The version number in the key can be incremented
+          # to manually avoid the case where bad dependencies
+          # are cached, and has no other meaning.
+          # If you update it, be sure to update restore_cache too.
+          key: velox-circleci-macos-deps-v1-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
           paths:
             - ~/deps
       - run:
