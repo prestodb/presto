@@ -51,7 +51,7 @@ import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
-public class MaterializedViewUtils
+public final class MaterializedViewUtils
 {
     public static final QualifiedName MIN = QualifiedName.of("MIN");
     public static final QualifiedName MAX = QualifiedName.of("MAX");

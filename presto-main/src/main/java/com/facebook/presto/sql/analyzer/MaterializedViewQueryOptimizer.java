@@ -339,21 +339,9 @@ public class MaterializedViewQueryOptimizer
 
         for (QualifiedObjectName materializedViewName : referencedMaterializedViews) {
             QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(metadata, materializedViewName, querySpecification);
-
-            if (rewrittenQuerySpecification == querySpecification) {
-                continue;
-            }
-            if (!isMaterializedViewDataConsistencyEnabled(session)) {
-                session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
+            if (rewrittenQuerySpecification != querySpecification) {
                 return rewrittenQuerySpecification;
             }
-            // TODO: We should be able to leverage this information in the StatementAnalyzer as well.
-            MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, materializedViewName);
-            if (materializedViewStatus.isPartiallyMaterialized() || materializedViewStatus.isFullyMaterialized()) {
-                session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
-                return rewrittenQuerySpecification;
-            }
-            session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, NONE, 1);
         }
         return querySpecification;
     }
@@ -365,7 +353,7 @@ public class MaterializedViewQueryOptimizer
         Table materializedViewTable = new Table(QualifiedName.of(materializedView.getTable()));
         Query materializedViewQuery = (Query) sqlParser.createStatement(materializedView.getOriginalSql(), createParsingOptions(session));
 
-        return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery).rewrite(originalQuerySpecification);
+        return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery, materializedViewName).rewrite(originalQuerySpecification);
     }
 
     private class QuerySpecificationRewriter
@@ -373,6 +361,7 @@ public class MaterializedViewQueryOptimizer
     {
         private final Table materializedView;
         private final Query materializedViewQuery;
+        private final QualifiedObjectName materializedViewName;
 
         private MaterializedViewInfo materializedViewInfo;
         private Optional<Identifier> removablePrefix = Optional.empty();
@@ -380,10 +369,12 @@ public class MaterializedViewQueryOptimizer
 
         QuerySpecificationRewriter(
                 Table materializedView,
-                Query materializedViewQuery)
+                Query materializedViewQuery,
+                QualifiedObjectName materializedViewName)
         {
             this.materializedView = requireNonNull(materializedView, "materialized view is null");
             this.materializedViewQuery = requireNonNull(materializedViewQuery, "materialized view query is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "materialized view name is null");
         }
 
         public QuerySpecification rewrite(QuerySpecification querySpecification)
@@ -393,7 +384,26 @@ public class MaterializedViewQueryOptimizer
                 MaterializedViewInformationExtractor materializedViewInformationExtractor = new MaterializedViewInformationExtractor();
                 materializedViewInformationExtractor.process(materializedViewQuery);
                 materializedViewInfo = materializedViewInformationExtractor.getMaterializedViewInfo();
-                return (QuerySpecification) process(querySpecification);
+
+                QuerySpecification rewrittenQuerySpecification = (QuerySpecification) process(querySpecification);
+
+                if (rewrittenQuerySpecification == querySpecification) {
+                    return querySpecification;
+                }
+
+                if (!isMaterializedViewDataConsistencyEnabled(session)) {
+                    session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
+                    return rewrittenQuerySpecification;
+                }
+
+                // TODO: We should be able to leverage this information in the StatementAnalyzer as well.
+                MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, materializedViewName);
+                if (materializedViewStatus.isPartiallyMaterialized() || materializedViewStatus.isFullyMaterialized()) {
+                    session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
+                    return rewrittenQuerySpecification;
+                }
+                session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, NONE, 1);
+                return querySpecification;
             }
             catch (Exception e) {
                 return querySpecification;
@@ -462,23 +472,7 @@ public class MaterializedViewQueryOptimizer
                 if (!node.getWhere().isPresent()) {
                     throw new IllegalStateException("Query with no where clause is not rewritable by materialized view with where clause");
                 }
-                QualifiedObjectName baseTableName = createQualifiedObjectName(session, baseTable, baseTable.getName());
-
-                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, baseTableName);
-                if (!tableHandle.isPresent()) {
-                    throw new SemanticException(MISSING_TABLE, node, "Table does not exist");
-                }
-
-                ImmutableList.Builder<Field> fields = ImmutableList.builder();
-
-                for (ColumnHandle columnHandle : metadata.getColumnHandles(session, tableHandle.get()).values()) {
-                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
-                    fields.add(Field.newUnqualified(materializedViewInfo.getWhereClause().get().getLocation(), columnMetadata.getName(), columnMetadata.getType()));
-                }
-
-                Scope scope = Scope.builder()
-                        .withRelationType(RelationId.anonymous(), new RelationType(fields.build()))
-                        .build();
+                Scope scope = extractScope(baseTable, node, materializedViewInfo.getWhereClause().get());
 
                 // Given base query's filter condition and materialized view's filter condition, the goal is to check if materialized view's
                 // filters contain Base's filters (Base implies materialized view).
@@ -742,6 +736,27 @@ public class MaterializedViewQueryOptimizer
                     ImmutableMap.of(),
                     metadata.getFunctionAndTypeManager(),
                     session);
+        }
+
+        private Scope extractScope(Table table, QuerySpecification node, Expression whereClause)
+        {
+            QualifiedObjectName baseTableName = createQualifiedObjectName(session, table, table.getName());
+
+            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, baseTableName);
+            if (!tableHandle.isPresent()) {
+                throw new SemanticException(MISSING_TABLE, node, "Table does not exist");
+            }
+
+            ImmutableList.Builder<Field> fields = ImmutableList.builder();
+
+            for (ColumnHandle columnHandle : metadata.getColumnHandles(session, tableHandle.get()).values()) {
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
+                fields.add(Field.newUnqualified(whereClause.getLocation(), columnMetadata.getName(), columnMetadata.getType()));
+            }
+
+            return Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(fields.build()))
+                    .build();
         }
     }
 }
