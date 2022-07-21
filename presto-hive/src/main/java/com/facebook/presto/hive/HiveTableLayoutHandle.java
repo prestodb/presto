@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.TupleDomain.ColumnDomain;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
@@ -36,9 +37,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.predicate.TupleDomain.toLinkedMap;
+import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
+import static com.facebook.presto.hive.HiveMetadata.createPredicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTableLayoutHandle
@@ -254,7 +259,7 @@ public final class HiveTableLayoutHandle
     }
 
     @Override
-    public Object getIdentifier(Optional<ConnectorSplit> split)
+    public Object getIdentifier(Optional<ConnectorSplit> split, PlanCanonicalizationStrategy canonicalizationStrategy)
     {
         TupleDomain<Subfield> domainPredicate = this.domainPredicate;
 
@@ -276,9 +281,41 @@ public final class HiveTableLayoutHandle
         // which is unrelated to identifier purpose, or has already been applied as the boundary of split.
         return ImmutableMap.builder()
                 .put("schemaTableName", schemaTableName)
-                .put("domainPredicate", domainPredicate)
-                .put("remainingPredicate", canonicalizeRowExpression(remainingPredicate))
+                .put("domainPredicate", domainPredicate.canonicalize(false))
+                .put("remainingPredicate", canonicalizeRowExpression(remainingPredicate, false))
+                .put("constraint", getConstraint(canonicalizationStrategy))
+                // TODO: Decide what to do with bucketFilter when canonicalizing
                 .put("bucketFilter", bucketFilter)
                 .build();
+    }
+
+    private TupleDomain<ColumnHandle> getConstraint(PlanCanonicalizationStrategy canonicalizationStrategy)
+    {
+        if (canonicalizationStrategy == PlanCanonicalizationStrategy.DEFAULT) {
+            return TupleDomain.all();
+        }
+        // Canonicalize constraint by removing constants when column is a partition key. This assumes
+        // all partitions are similar, and will have similar statistics like size, cardinality etc.
+        // Constants are only removed from point checks, and not range checks. Example:
+        // `x = 1` is equivalent to `x = 1000`
+        // `x > 1` is NOT equivalent to `x > 1000`
+        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(partitionColumns), partitions);
+        if (pushdownFilterEnabled) {
+            constraint = getDomainPredicate()
+                    .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
+                    .transform(getPredicateColumns()::get)
+                    .transform(ColumnHandle.class::cast)
+                    .intersect(constraint);
+        }
+
+        constraint = withColumnDomains(constraint.getDomains().get().entrySet().stream()
+                .sorted(comparing(entry -> entry.getKey().toString()))
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().canonicalize(isPartitionKey(entry.getKey())))));
+        return constraint;
+    }
+
+    private static boolean isPartitionKey(ColumnHandle columnHandle)
+    {
+        return columnHandle instanceof HiveColumnHandle && ((HiveColumnHandle) columnHandle).isPartitionKey();
     }
 }

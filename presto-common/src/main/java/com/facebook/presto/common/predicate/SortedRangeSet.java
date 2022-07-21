@@ -28,12 +28,16 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * A set containing zero or more Ranges of the same type over a continuous space of possible values.
@@ -327,10 +331,10 @@ public final class SortedRangeSet
     private SortedRangeSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
         if (!(other instanceof SortedRangeSet)) {
-            throw new IllegalStateException(String.format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
+            throw new IllegalStateException(format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
         }
         return (SortedRangeSet) other;
     }
@@ -338,7 +342,7 @@ public final class SortedRangeSet
     private void checkTypeCompatibility(Marker marker)
     {
         if (!getType().equals(marker.getType())) {
-            throw new IllegalStateException(String.format("Marker of %s does not match SortedRangeSet of %s", marker.getType(), getType()));
+            throw new IllegalStateException(format("Marker of %s does not match SortedRangeSet of %s", marker.getType(), getType()));
         }
     }
 
@@ -369,6 +373,28 @@ public final class SortedRangeSet
                 .collect(Collectors.joining(", ")) + "]";
     }
 
+    @Override
+    public ValueSet canonicalize(boolean removeSafeConstants)
+    {
+        if (!removeSafeConstants) {
+            return this;
+        }
+
+        AtomicLong counter = new AtomicLong(0);
+        return new SortedRangeSet(
+                type,
+                lowIndexedRanges.entrySet().stream()
+                        .collect(toMap(
+                                // Since map values contain all range information, we can mark all keys as 0, 1, 2... in ascending order.
+                                entry -> Marker.exactly(BIGINT, counter.incrementAndGet()),
+                                entry -> {
+                                    boolean removeConstants = entry.getValue().getLow().getBound().equals(Marker.Bound.EXACTLY) && entry.getValue().getHigh().getBound().equals(Marker.Bound.EXACTLY);
+                                    return entry.getValue().canonicalize(removeConstants);
+                                },
+                                (e1, e2) -> { throw new IllegalStateException(format("Duplicate key %s", e1)); },
+                                TreeMap::new)));
+    }
+
     static class Builder
     {
         private final Type type;
@@ -387,7 +413,7 @@ public final class SortedRangeSet
         Builder add(Range range)
         {
             if (!type.equals(range.getType())) {
-                throw new IllegalArgumentException(String.format("Range type %s does not match builder type %s", range.getType(), type));
+                throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
             }
 
             ranges.add(range);

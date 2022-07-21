@@ -14,9 +14,12 @@
 package com.facebook.presto.common.predicate;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockJsonSerde;
+import com.facebook.presto.common.type.DistinctType;
+import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.TestingIdType;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
@@ -28,14 +31,34 @@ import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
+import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestEquatableValueSet
 {
+    private final ObjectMapper mapper;
+
+    public TestEquatableValueSet()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+
+        this.mapper = new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+    }
+
     @Test
     public void testEmptySet()
     {
@@ -322,15 +345,6 @@ public class TestEquatableValueSet
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new JsonObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
-
         EquatableValueSet set = EquatableValueSet.all(TestingIdType.ID);
         assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
 
@@ -345,5 +359,59 @@ public class TestEquatableValueSet
 
         set = EquatableValueSet.of(TestingIdType.ID, 1L, 2L).complement();
         assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
+    }
+
+    @Test
+    public void testCanonicalize()
+            throws Exception
+    {
+        assertSameSet(EquatableValueSet.all(type(BIGINT)), EquatableValueSet.all(type(BIGINT)), false);
+        assertSameSet(
+                EquatableValueSet.of(type(BIGINT), 0L, 1L, 3L),
+                EquatableValueSet.of(type(BIGINT), 0L, 1L, 3L),
+                false);
+
+        assertDifferentSet(
+                EquatableValueSet.of(type(BIGINT), 0L, 1L, 3L),
+                EquatableValueSet.of(type(BIGINT), 0L, 1L, 2L),
+                false);
+        assertDifferentSet(EquatableValueSet.all(type(BIGINT)), EquatableValueSet.none(type(BIGINT)), false);
+        assertDifferentSet(EquatableValueSet.all(type(BIGINT)), EquatableValueSet.all(type(VARCHAR)), false);
+
+        assertSameSet(
+                EquatableValueSet.of(type(BIGINT), 0L, 1L, 3L),
+                EquatableValueSet.of(type(BIGINT), 0L, 1L, 2L),
+                true);
+        assertSameSet(EquatableValueSet.all(type(BIGINT)), EquatableValueSet.all(type(BIGINT)), true);
+
+        assertDifferentSet(
+                EquatableValueSet.of(type(BIGINT), 0L, 1L, 3L),
+                EquatableValueSet.of(type(INTEGER), 0L, 1L, 3L),
+                true);
+        assertDifferentSet(EquatableValueSet.all(type(BIGINT)), EquatableValueSet.all(type(BOOLEAN)), true);
+    }
+
+    private Type type(Type type)
+    {
+        return new DistinctType(
+                new DistinctTypeInfo(
+                        QualifiedObjectName.valueOf("test", "x", "abc"),
+                        type.getTypeSignature(),
+                        Optional.empty(),
+                        false),
+                type,
+                name -> { throw new RuntimeException(); });
+    }
+
+    private void assertSameSet(EquatableValueSet set1, EquatableValueSet set2, boolean removeConstants)
+            throws Exception
+    {
+        assertEquals(mapper.writeValueAsString(set1.canonicalize(removeConstants)), mapper.writeValueAsString(set2.canonicalize(removeConstants)));
+    }
+
+    private void assertDifferentSet(EquatableValueSet set1, EquatableValueSet set2, boolean removeConstants)
+            throws Exception
+    {
+        assertNotEquals(mapper.writeValueAsString(set1.canonicalize(removeConstants)), mapper.writeValueAsString(set2.canonicalize(removeConstants)));
     }
 }

@@ -57,7 +57,7 @@ public class HistoryBasedPlanStatisticsCalculator
     private PlanNode removeGroupReferences(PlanNode planNode, Lookup lookup)
     {
         if (planNode instanceof GroupReference) {
-            return lookup.resolve(planNode);
+            return removeGroupReferences(lookup.resolve(planNode), lookup);
         }
         List<PlanNode> children = planNode.getSources().stream().map(node -> removeGroupReferences(node, lookup)).collect(toImmutableList());
         return planNode.replaceChildren(children);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -130,12 +131,12 @@ public class CanonicalTableScanNode
         // we do not serialize this field.
         private final Optional<ConnectorTableLayoutHandle> layoutHandle;
 
-        public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle)
+        public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle, PlanCanonicalizationStrategy strategy)
         {
             return new CanonicalTableHandle(
                     tableHandle.getConnectorId(),
                     tableHandle.getConnectorHandle(),
-                    tableHandle.getLayout().map(layout -> layout.getIdentifier(Optional.empty())),
+                    tableHandle.getLayout().map(layout -> layout.getIdentifier(Optional.empty(), strategy)),
                     tableHandle.getLayout());
         }
 

@@ -276,6 +276,22 @@ public final class Domain
         return Domain.create(simplifiedValueSet, nullAllowed);
     }
 
+    /**
+     * @return A canonicalized Domain with a consistent representation.
+     *
+     * When removeSafeConstants is true, we return a Domain with all point constants removed,
+     * and range constants are kept.
+     * Example:
+     * `x = 1` is equivalent to `x = 1000`
+     * `x >= 1` is NOT equivalent to `x >= 1000`
+     *
+     * All types and bounds information is preserved.
+     */
+    public Domain canonicalize(boolean removeConstants)
+    {
+        return new Domain(values.canonicalize(removeConstants), nullAllowed);
+    }
+
     public String toString(SqlFunctionProperties properties)
     {
         return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(properties) + " ]";
