@@ -193,6 +193,52 @@ class VectorMaker {
     return flatVector;
   }
 
+  /// Create a ShortDecimal FlatVector from unscaled values, type.
+  ///
+  /// Elements are not nullable.
+  ///
+  /// Examples:
+  ///  auto flatVector = shortDecimalFlatVector({1, 2, 3}, DECIMAL(8, 1));
+  template <typename T>
+  FlatVectorPtr<ShortDecimal> shortDecimalFlatVector(
+      const std::vector<T>& unscaledValues,
+      const TypePtr& ptr);
+
+  /// Create a LongDecimal FlatVector from unscaled values, type.
+  ///
+  /// Elements are not nullable.
+  ///
+  /// Examples:
+  ///  auto flatVector = longDecimalFlatVector({1, 2, 3}, DECIMAL(20, 4));
+  template <typename T>
+  FlatVectorPtr<LongDecimal> longDecimalFlatVector(
+      const std::vector<T>& unscaledValues,
+      const TypePtr& ptr);
+
+  /// Create a ShortDecimal FlatVector from values, type.
+  ///
+  /// Elements are nullable.
+  ///
+  /// Examples:
+  ///  auto flatVector = shortDecimalFlatVectorNullable({1, std::nullopt, 3},
+  ///  DECIMAL(8, 1));
+  template <typename T>
+  FlatVectorPtr<ShortDecimal> shortDecimalFlatVectorNullable(
+      const std::vector<std::optional<T>>& data,
+      const TypePtr& ptr);
+
+  /// Create a LongDecimal FlatVector from values, type.
+  ///
+  /// Elements are nullable.
+  ///
+  /// Examples:
+  ///  auto flatVector = longDecimalFlatVectorNullable({1, std::nullopt, 3},
+  ///  DECIMAL(20, 4));
+  template <typename T>
+  FlatVectorPtr<LongDecimal> longDecimalFlatVectorNullable(
+      const std::vector<std::optional<T>>& data,
+      const TypePtr& ptr);
+
   /// Create a BiasVector<T>
   /// creates a BiasVector (vector encoded using bias encoding) based on a flat
   /// input from an std::vector.

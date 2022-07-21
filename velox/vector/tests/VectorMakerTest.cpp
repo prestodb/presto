@@ -203,6 +203,106 @@ TEST_F(VectorMakerTest, nullableFlatVectorBool) {
   }
 }
 
+class DecimalVectorMakerTest {
+ public:
+  template <typename T, typename P>
+  static void verifyStats(
+      const std::shared_ptr<FlatVector<T>>& flatVector,
+      const std::vector<P>& data) {
+    // No VectorMakerStats for DECIMAL flat vectors.
+    EXPECT_FALSE(flatVector->getNullCount().has_value());
+    EXPECT_FALSE(flatVector->isSorted().has_value());
+    EXPECT_FALSE(flatVector->getDistinctValueCount().has_value());
+    EXPECT_FALSE(flatVector->getMin().has_value());
+    EXPECT_FALSE(flatVector->getMax().has_value());
+  }
+
+  template <typename T, typename P>
+  static void verify(
+      const std::shared_ptr<FlatVector<T>>& flatVector,
+      const std::vector<P>& data) {
+    EXPECT_EQ(data.size(), flatVector->size());
+    verifyStats(flatVector, data);
+    for (vector_size_t i = 0; i < data.size(); i++) {
+      EXPECT_FALSE(flatVector->isNullAt(i));
+      EXPECT_EQ(data[i], flatVector->valueAt(i).unscaledValue());
+    }
+  }
+
+  template <typename T, typename P>
+  static void verifyNullable(
+      const std::shared_ptr<FlatVector<T>>& flatVector,
+      const std::vector<std::optional<P>>& data) {
+    EXPECT_EQ(data.size(), flatVector->size());
+    verifyStats(flatVector, data);
+    for (vector_size_t i = 0; i < data.size(); i++) {
+      if (data[i] == std::nullopt) {
+        EXPECT_TRUE(flatVector->isNullAt(i));
+      } else {
+        EXPECT_FALSE(flatVector->isNullAt(i));
+        EXPECT_EQ(data[i].value(), flatVector->valueAt(i).unscaledValue());
+      }
+    }
+  }
+};
+
+TEST_F(VectorMakerTest, flatVectorDecimal) {
+  // int64_t values can be used to build both short and long decimal vectors.
+  {
+    std::vector<int64_t> data = {1000265, 35610, -314159, 7, 0};
+    {
+      auto flatVector = maker_.shortDecimalFlatVector(data, DECIMAL(10, 7));
+      DecimalVectorMakerTest::verify(flatVector, data);
+      EXPECT_FALSE(flatVector->mayHaveNulls());
+    }
+    {
+      auto flatVector = maker_.longDecimalFlatVector(data, DECIMAL(20, 7));
+      DecimalVectorMakerTest::verify(flatVector, data);
+      EXPECT_FALSE(flatVector->mayHaveNulls());
+    }
+  }
+  // int128_t values can be used to build long decimal vectors.
+  {
+    std::vector<int128_t> data = {1000265, 35610, -314159, 7, 0};
+    {
+      auto flatVector = maker_.longDecimalFlatVector(data, DECIMAL(20, 7));
+      DecimalVectorMakerTest::verify(flatVector, data);
+      EXPECT_FALSE(flatVector->mayHaveNulls());
+    }
+  }
+}
+
+TEST_F(VectorMakerTest, nullableFlatVectorDecimal) {
+  // int64_t values can be used to build both short and long decimal vectors.
+  {
+    std::vector<std::optional<int64_t>> data = {
+        1000265, 35610, -314159, 7, std::nullopt};
+    {
+      auto flatVector =
+          maker_.shortDecimalFlatVectorNullable(data, DECIMAL(10, 7));
+      DecimalVectorMakerTest::verifyNullable(flatVector, data);
+      EXPECT_TRUE(flatVector->mayHaveNulls());
+    }
+    {
+      auto flatVector =
+          maker_.longDecimalFlatVectorNullable(data, DECIMAL(20, 7));
+      DecimalVectorMakerTest::verifyNullable(flatVector, data);
+      EXPECT_TRUE(flatVector->mayHaveNulls());
+    }
+  }
+  // int128_t values can be used to build long decimal vectors.
+  {
+    std::vector<std::optional<int128_t>> data = {
+        1000265, 35610, -314159, 7, std::nullopt};
+    {
+      auto flatVector =
+          maker_.longDecimalFlatVectorNullable(data, DECIMAL(20, 7));
+      DecimalVectorMakerTest::verifyNullable(flatVector, data);
+      EXPECT_TRUE(flatVector->mayHaveNulls());
+    }
+  }
+}
+
 TEST_F(VectorMakerTest, arrayVector) {
   std::vector<std::vector<int64_t>> data = {
       {0, 0},
