@@ -203,7 +203,8 @@ std::optional<CallableSignature> processSignature(
     const exec::FunctionSignature& signature) {
   // Don't support functions with parametrized signatures or variable number of
   // arguments yet.
-  if (!signature.typeVariableConstants().empty() || signature.variableArity()) {
+  if (!signature.typeVariableConstants().empty() || signature.variableArity() ||
+      !signature.variables().empty()) {
     LOG(WARNING) << "Skipping unsupported signature: " << functionName
                  << signature.toString();
     return std::nullopt;
