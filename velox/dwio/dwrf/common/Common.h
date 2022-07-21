@@ -68,6 +68,11 @@ enum StreamKind {
   StreamKind_IN_MAP = 11
 };
 
+inline bool isIndexStream(StreamKind kind) {
+  return kind == StreamKind::StreamKind_ROW_INDEX ||
+      kind == StreamKind::StreamKind_BLOOM_FILTER_UTF8;
+}
+
 /**
  * Get the string representation of the StreamKind.
  */

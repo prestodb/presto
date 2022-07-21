@@ -385,9 +385,8 @@ void WriterShared::flushStripe(bool close) {
   auto planner = layoutPlannerFactory_(getStreamList(context), encodingManager);
   planner->plan();
   planner->iterateIndexStreams([&](auto& streamId, auto& content) {
-    DWIO_ENSURE_EQ(
-        streamId.kind(),
-        StreamKind::StreamKind_ROW_INDEX,
+    DWIO_ENSURE(
+        isIndexStream(streamId.kind()),
         "unexpected stream kind ",
         streamId.kind());
     indexLength += content.size();
@@ -398,9 +397,8 @@ void WriterShared::flushStripe(bool close) {
   uint64_t dataLength = 0;
   sink.setMode(WriterSink::Mode::Data);
   planner->iterateDataStreams([&](auto& streamId, auto& content) {
-    DWIO_ENSURE_NE(
-        streamId.kind(),
-        StreamKind::StreamKind_ROW_INDEX,
+    DWIO_ENSURE(
+        !isIndexStream(streamId.kind()),
         "unexpected stream kind ",
         streamId.kind());
     dataLength += content.size();

@@ -53,7 +53,7 @@ void LayoutPlanner::plan() {
   // place index before data
   auto iter =
       std::partition(streams_.begin(), streams_.end(), [](auto& stream) {
-        return stream.first->kind() == StreamKind::StreamKind_ROW_INDEX;
+        return isIndexStream(stream.first->kind());
       });
   indexCount_ = iter - streams_.begin();
 

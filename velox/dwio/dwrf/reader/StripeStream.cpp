@@ -217,7 +217,7 @@ StripeStreamsImpl::getCompressedStream(const DwrfStreamIdentifier& si) const {
   const auto& info = getStreamInfo(si);
 
   std::unique_ptr<dwio::common::SeekableInputStream> streamRead;
-  if (si.kind() == StreamKind::StreamKind_ROW_INDEX) {
+  if (isIndexStream(si.kind())) {
     streamRead = getIndexStreamFromCache(info);
   }
 
@@ -268,7 +268,7 @@ std::unique_ptr<dwio::common::SeekableInputStream> StripeStreamsImpl::getStream(
   }
 
   std::unique_ptr<dwio::common::SeekableInputStream> streamRead;
-  if (si.kind() == StreamKind::StreamKind_ROW_INDEX) {
+  if (isIndexStream(si.kind())) {
     streamRead = getIndexStreamFromCache(info);
   }
 
