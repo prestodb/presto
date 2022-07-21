@@ -159,6 +159,18 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
         inRange, selectPct > 25);
   }
 
+  // sometimes create a negated filter instead
+  if (counter_ % 4 == 1 && selectPct < 100.0) {
+    return std::make_unique<velox::common::NegatedBytesRange>(
+        std::string(lower),
+        false,
+        false,
+        std::string(upper),
+        false,
+        false,
+        selectPct < 75);
+  }
+
   return std::make_unique<velox::common::BytesRange>(
       std::string(lower),
       false,

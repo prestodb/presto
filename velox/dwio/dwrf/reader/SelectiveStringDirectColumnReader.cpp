@@ -397,6 +397,10 @@ void SelectiveStringDirectColumnReader::processFilter(
     case common::FilterKind::kBytesRange:
       readHelper<common::BytesRange, isDense>(filter, rows, extractValues);
       break;
+    case common::FilterKind::kNegatedBytesRange:
+      readHelper<common::NegatedBytesRange, isDense>(
+          filter, rows, extractValues);
+      break;
     case common::FilterKind::kBytesValues:
       readHelper<common::BytesValues, isDense>(filter, rows, extractValues);
       break;
