@@ -129,7 +129,7 @@ class SystemConfig : public ConfigBase {
 
   int32_t asyncCacheSsdGb() const;
 
-  std::string_view asyncCacheSsdPath() const;
+  std::string asyncCacheSsdPath() const;
 
   bool enableSerializedPageChecksum() const;
 

@@ -157,7 +157,8 @@ void PrestoExchangeSource::processDataResponse(
         singleChain->prev()->appendChain(std::move(buf));
       }
     }
-    page = std::make_unique<exec::SerializedPage>(std::move(singleChain));
+    page =
+        std::make_unique<exec::SerializedPage>(std::move(singleChain), pool_);
   }
 
   {

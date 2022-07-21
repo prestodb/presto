@@ -149,6 +149,7 @@ public class HiveExternalWorkerQueryRunner
                                 format("discovery.uri=%s\n" +
                                         "presto.version=testversion\n" +
                                         "http_exec_threads=8\n" +
+                                        "system-memory-gb=4\n" +
                                         "http-server.http.port=%d", discoveryUri, port).getBytes());
                         Files.write(tempDirectoryPath.resolve("node.properties"),
                                 format("node.id=%s\n" +
@@ -170,7 +171,7 @@ public class HiveExternalWorkerQueryRunner
                         }
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
-                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--novelox_exception_stacktrace", "--system_memory_gb=4")
+                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
                                 .directory(tempDirectoryPath.toFile())
                                 .redirectErrorStream(true)
                                 .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))

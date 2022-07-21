@@ -41,36 +41,9 @@
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/serializers/PrestoSerializer.h"
 
-DEFINE_int32(num_io_threads, 30, "Number of IO threads");
-
 #ifdef PRESTO_ENABLE_PARQUET
 #include "velox/dwio/parquet/RegisterParquetReader.h" // @manual
 #endif
-
-DEFINE_int32(
-    shutdown_onset_sec,
-    10,
-    "Seconds between moving to 'shutting down' state"
-    " and starting shutting down.");
-DEFINE_int32(
-    system_memory_gb,
-    40,
-    "System memory available for Presto Server in Gb.");
-
-// If non-0, AsyncDataCache uses this amount of local file system
-// space for backing cached data. This is useful if cached data comes
-// from disaggregated storage that is slower than local SSD.
-DEFINE_int64(async_cache_ssd_gb, 0, "SSD size for async cache");
-
-DEFINE_string(
-    async_cache_ssd_path,
-    "/mnt/flash/async_cache.",
-    "Path prefix for async cache files");
-
-DEFINE_bool(
-    enable_serialized_page_checksum,
-    true,
-    "Enable use of CRC in exchange");
 
 namespace facebook::presto {
 using namespace facebook::velox;

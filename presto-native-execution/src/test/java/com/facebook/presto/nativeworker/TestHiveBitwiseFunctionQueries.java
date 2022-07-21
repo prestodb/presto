@@ -31,8 +31,8 @@ public class TestHiveBitwiseFunctionQueries
         this.assertQueryFails("SELECT nationkey, bit_count(nationkey, 2) FROM nation ORDER BY 1",
                 ".*Number must be representable with the bits specified.*");
         this.assertQueryFails("SELECT nationkey, bit_count(nationkey, 1) FROM nation ORDER BY 1",
-                ".*Bits specified in bit_count must be between 2 and 64, got 1");
+                ".*Bits specified in bit_count must be between 2 and 64, got 1.*");
         this.assertQueryFails("SELECT nationkey, bit_count(nationkey, 65) FROM nation ORDER BY 1",
-                ".*Bits specified in bit_count must be between 2 and 64, got 65");
+                ".*Bits specified in bit_count must be between 2 and 64, got 65.*");
     }
 }
