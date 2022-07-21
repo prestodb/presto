@@ -18,6 +18,9 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.http.client.testing.TestingResponse;
+import com.facebook.presto.pinot.auth.PinotBrokerAuthenticationProvider;
+import com.facebook.presto.pinot.auth.PinotControllerAuthenticationProvider;
+import com.facebook.presto.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.MediaType;
@@ -86,7 +89,7 @@ public class TestPinotClusterInfoFetcher
                 .setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS))
                 .setControllerUrls("localhost:7900")
                 .setUseSecureConnection(useHttps);
-        PinotClusterInfoFetcher pinotClusterInfoFetcher = new PinotClusterInfoFetcher(pinotConfig, new PinotMetrics(), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.ROUTING_TABLES_JSON_CODEC, MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC, MetadataUtil.INSTANCE_JSON_CODEC);
+        PinotClusterInfoFetcher pinotClusterInfoFetcher = new PinotClusterInfoFetcher(pinotConfig, new PinotMetrics(), PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()), PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.ROUTING_TABLES_JSON_CODEC, MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC, MetadataUtil.INSTANCE_JSON_CODEC);
         ImmutableSet<String> brokers = ImmutableSet.copyOf(pinotClusterInfoFetcher.getAllBrokersForTable("dummy"));
         Assert.assertEquals(ImmutableSet.of("dummy-broker-host1-datacenter1:6513", "dummy-broker-host2-datacenter1:6513", "dummy-broker-host3-datacenter1:6513", "dummy-broker-host4-datacenter1:6513"), brokers);
     }
@@ -118,7 +121,7 @@ public class TestPinotClusterInfoFetcher
                 "}");
         });
         PinotConfig pinotConfig = new PinotConfig().setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS)).setControllerUrls("localhost:7900").setUseSecureConnection(useHttps);
-        PinotClusterInfoFetcher pinotClusterInfoFetcher = new PinotClusterInfoFetcher(pinotConfig, new PinotMetrics(), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.ROUTING_TABLES_JSON_CODEC, MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC, MetadataUtil.INSTANCE_JSON_CODEC);
+        PinotClusterInfoFetcher pinotClusterInfoFetcher = new PinotClusterInfoFetcher(pinotConfig, new PinotMetrics(), PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()), PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.ROUTING_TABLES_JSON_CODEC, MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC, MetadataUtil.INSTANCE_JSON_CODEC);
         final PinotClusterInfoFetcher.Instance instance = pinotClusterInfoFetcher.getInstance("Server_192.168.1.19_8098");
         Assert.assertEquals(instance.getInstanceName(), "Server_192.168.1.19_8098");
         Assert.assertEquals(instance.getHostName(), "192.168.1.19");

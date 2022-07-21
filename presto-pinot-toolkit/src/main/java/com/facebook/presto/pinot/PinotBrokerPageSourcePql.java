@@ -16,6 +16,7 @@ package com.facebook.presto.pinot;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.pinot.auth.PinotBrokerAuthenticationProvider;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
 import com.facebook.presto.pinot.query.PinotQueryGenerator.GeneratedPinotQuery;
 import com.facebook.presto.spi.ConnectorSession;
@@ -53,9 +54,10 @@ public class PinotBrokerPageSourcePql
             List<PinotColumnHandle> columnHandles,
             List<PinotColumnHandle> expectedHandles,
             PinotClusterInfoFetcher clusterInfoFetcher,
-            ObjectMapper objectMapper)
+            ObjectMapper objectMapper,
+            PinotBrokerAuthenticationProvider brokerAuthenticationProvider)
     {
-        super(pinotConfig, session, columnHandles, clusterInfoFetcher, objectMapper);
+        super(pinotConfig, session, columnHandles, clusterInfoFetcher, objectMapper, brokerAuthenticationProvider);
         this.expectedHandles = requireNonNull(expectedHandles, "expected handles is null");
         this.brokerPql = requireNonNull(brokerPql, "broker is null");
     }

@@ -47,6 +47,10 @@ public class PinotSessionProperties
     public static final String TOPN_LARGE = "topn_large";
     public static final String LIMIT_LARGE_FOR_SEGMENT = "limit_larger_for_segment";
     public static final String OVERRIDE_DISTINCT_COUNT_FUNCTION = "override_distinct_count_function";
+    public static final String CONTROLLER_AUTHENTICATION_USER = "controller_authentication_user";
+    public static final String CONTROLLER_AUTHENTICATION_PASSWORD = "controller_authentication_password";
+    public static final String BROKER_AUTHENTICATION_USER = "broker_authentication_user";
+    public static final String BROKER_AUTHENTICATION_PASSWORD = "broker_authentication_password";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -126,6 +130,26 @@ public class PinotSessionProperties
         return session.getProperty(OVERRIDE_DISTINCT_COUNT_FUNCTION, String.class);
     }
 
+    public static String getControllerAuthenticationUser(ConnectorSession session)
+    {
+        return session.getProperty(CONTROLLER_AUTHENTICATION_USER, String.class);
+    }
+
+    public static String getControllerAuthenticationPassword(ConnectorSession session)
+    {
+        return session.getProperty(CONTROLLER_AUTHENTICATION_PASSWORD, String.class);
+    }
+
+    public static String getBrokerAuthenticationUser(ConnectorSession session)
+    {
+        return session.getProperty(BROKER_AUTHENTICATION_USER, String.class);
+    }
+
+    public static String getBrokerAuthenticationPassword(ConnectorSession session)
+    {
+        return session.getProperty(BROKER_AUTHENTICATION_PASSWORD, String.class);
+    }
+
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
@@ -174,6 +198,26 @@ public class PinotSessionProperties
                         OVERRIDE_DISTINCT_COUNT_FUNCTION,
                         "Override distinct count function to another function name",
                         pinotConfig.getOverrideDistinctCountFunction(),
+                        false),
+                stringProperty(
+                        CONTROLLER_AUTHENTICATION_USER,
+                        "Controller authentication user",
+                        pinotConfig.getControllerAuthenticationUser(),
+                        false),
+                stringProperty(
+                        CONTROLLER_AUTHENTICATION_PASSWORD,
+                        "Controller authentication password",
+                        pinotConfig.getControllerAuthenticationPassword(),
+                        false),
+                stringProperty(
+                        BROKER_AUTHENTICATION_USER,
+                        "Broker authentication user",
+                        pinotConfig.getBrokerAuthenticationUser(),
+                        false),
+                stringProperty(
+                        BROKER_AUTHENTICATION_PASSWORD,
+                        "Broker authentication password",
+                        pinotConfig.getBrokerAuthenticationPassword(),
                         false),
                 booleanProperty(
                         USE_DATE_TRUNC,
