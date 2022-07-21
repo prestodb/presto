@@ -23,7 +23,7 @@
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/type/Filter.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 // Generalized representation of a set of distinct values for dictionary
 // encodings.
@@ -105,7 +105,7 @@ class SelectiveColumnReader {
   SelectiveColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> requestedType,
       dwio::common::FormatParams& params,
-      common::ScanSpec& scanSpec,
+      velox::common::ScanSpec& scanSpec,
       const TypePtr& type);
 
   virtual ~SelectiveColumnReader() = default;
@@ -243,7 +243,7 @@ class SelectiveColumnReader {
     numValues_ -= count;
   }
 
-  common::ScanSpec* scanSpec() const {
+  velox::common::ScanSpec* scanSpec() const {
     return scanSpec_;
   }
 
@@ -390,7 +390,7 @@ class SelectiveColumnReader {
   // Specification of filters, value extraction, pruning etc. The
   // spec is assigned at construction and the contents may change at
   // run time based on adaptation. Owned by caller.
-  common::ScanSpec* const scanSpec_;
+  velox::common::ScanSpec* const scanSpec_;
   TypePtr type_;
 
   // Row number after last read row, relative to stripe start.
@@ -486,7 +486,7 @@ inline void SelectiveColumnReader::addValue(const folly::StringPiece value) {
   addStringValue(value);
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common
 
 namespace facebook::velox::dwio::common {
 // Template parameter to indicate no hook in fast scan path. This is

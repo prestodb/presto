@@ -35,7 +35,7 @@ void SelectiveByteRleColumnReader::read(
   prepareRead<int8_t>(offset, rows, incomingNulls);
   bool isDense = rows.back() == rows.size() - 1;
   common::Filter* filter =
-      scanSpec_->filter() ? scanSpec_->filter() : &alwaysTrue();
+      scanSpec_->filter() ? scanSpec_->filter() : &dwio::common::alwaysTrue();
   if (scanSpec_->keepValues()) {
     if (scanSpec_->valueHook()) {
       if (isDense) {
@@ -46,15 +46,15 @@ void SelectiveByteRleColumnReader::read(
       return;
     }
     if (isDense) {
-      processFilter<true>(filter, ExtractToReader(this), rows);
+      processFilter<true>(filter, dwio::common::ExtractToReader(this), rows);
     } else {
-      processFilter<false>(filter, ExtractToReader(this), rows);
+      processFilter<false>(filter, dwio::common::ExtractToReader(this), rows);
     }
   } else {
     if (isDense) {
-      processFilter<true>(filter, DropValues(), rows);
+      processFilter<true>(filter, dwio::common::DropValues(), rows);
     } else {
-      processFilter<false>(filter, DropValues(), rows);
+      processFilter<false>(filter, dwio::common::DropValues(), rows);
     }
   }
 }

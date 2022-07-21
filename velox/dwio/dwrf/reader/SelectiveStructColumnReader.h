@@ -16,24 +16,19 @@
 
 #pragma once
 
+#include "velox/dwio/common/SelectiveStructColumnReader.h"
 #include "velox/dwio/dwrf/reader/DwrfData.h"
-#include "velox/dwio/dwrf/reader/SelectiveColumnReaderInternal.h"
 
 namespace facebook::velox::dwrf {
 
-class SelectiveStructColumnReader : public SelectiveColumnReader {
+class SelectiveStructColumnReader
+    : public dwio::common::SelectiveStructColumnReader {
  public:
   SelectiveStructColumnReader(
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       DwrfParams& params,
       common::ScanSpec& scanSpec);
-
-  void resetFilterCaches() override {
-    for (auto& child : children_) {
-      child->resetFilterCaches();
-    }
-  }
 
   void seekToRowGroup(uint32_t index) override {
     if (isTopLevel_ && !formatData_->hasNulls()) {
@@ -51,33 +46,10 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
     }
   }
 
-  uint64_t skip(uint64_t numValues) override;
-
-  void next(
-      uint64_t numValues,
-      VectorPtr& result,
-      const uint64_t* incomingNulls) override;
-
-  std::vector<uint32_t> filterRowGroups(
-      uint64_t rowGroupSize,
-      const dwio::common::StatsContext& context) const override;
-
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override;
-
-  void getValues(RowSet rows, VectorPtr* result) override;
-
-  uint64_t numReads() const {
-    return numReads_;
-  }
-
-  vector_size_t lazyVectorReadOffset() const {
-    return lazyVectorReadOffset_;
-  }
-
   /// Advance field reader to the row group closest to specified offset by
   /// calling seekToRowGroup.
-  void advanceFieldReader(SelectiveColumnReader* reader, vector_size_t offset) {
+  void advanceFieldReader(SelectiveColumnReader* reader, vector_size_t offset)
+      override {
     if (!reader->isTopLevel()) {
       return;
     }
@@ -89,60 +61,8 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
     }
   }
 
-  // Returns the nulls bitmap from reading this. Used in LazyVector loaders.
-  const uint64_t* nulls() const {
-    return nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
-  }
-
-  void setReadOffsetRecursive(vector_size_t readOffset) override {
-    readOffset_ = readOffset;
-    for (auto& child : children_) {
-      child->setReadOffsetRecursive(readOffset);
-    }
-  }
-
-  void setIsTopLevel() override {
-    isTopLevel_ = true;
-    if (!formatData_->hasNulls()) {
-      for (auto& child : children_) {
-        child->setIsTopLevel();
-      }
-    }
-  }
-
-  // Sets 'rows' as the set of rows for which 'this' or its children
-  // may be loaded as LazyVectors. When a struct is loaded as lazy,
-  // its children will be lazy if the struct does not add nulls. The
-  // children will reference the struct reader, whih must have a live
-  // and up-to-date set of rows for which children can be loaded.
-  void setLoadableRows(RowSet rows) {
-    setOutputRows(rows);
-    inputRows_ = outputRows_;
-  }
-
-  const std::string& debugString() const {
-    return debugString_;
-  }
-
  private:
-  const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
-  std::vector<std::unique_ptr<SelectiveColumnReader>> children_;
-  // Sequence number of output batch. Checked against ColumnLoaders
-  // created by 'this' to verify they are still valid at load.
-  uint64_t numReads_ = 0;
-  vector_size_t lazyVectorReadOffset_;
-
   const int32_t rowsPerRowGroup_;
-
-  // Dense set of rows to read in next().
-  raw_vector<vector_size_t> rows_;
-
-  // Context information obtained from ExceptionContext. Stored here
-  // so that LazyVector readers under this can add this to their
-  // ExceptionContext. Allows contextualizing reader errors to split
-  // and query. Set at construction, which takes place on first
-  // use. If no ExceptionContext is in effect, this is "".
-  const std::string debugString_;
 };
 
 } // namespace facebook::velox::dwrf

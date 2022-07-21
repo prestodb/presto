@@ -22,6 +22,7 @@
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/common/ByteRLE.h"
 #include "velox/dwio/dwrf/common/Compression.h"
+#include "velox/dwio/dwrf/common/RLEv1.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/reader/EncodingContext.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
@@ -130,5 +131,15 @@ class DwrfParams : public dwio::common::FormatParams {
   StripeStreams& stripeStreams_;
   FlatMapContext flatMapContext_;
 };
+
+inline RleVersion convertRleVersion(proto::ColumnEncoding_Kind kind) {
+  switch (static_cast<int64_t>(kind)) {
+    case proto::ColumnEncoding_Kind_DIRECT:
+    case proto::ColumnEncoding_Kind_DICTIONARY:
+      return RleVersion_1;
+    default:
+      DWIO_RAISE("Unknown encoding in convertRleVersion");
+  }
+}
 
 } // namespace facebook::velox::dwrf

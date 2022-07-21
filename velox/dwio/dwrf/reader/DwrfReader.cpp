@@ -16,7 +16,6 @@
 
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/common/exception/Exception.h"
-#include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"
 
 namespace facebook::velox::dwrf {
 

@@ -39,6 +39,9 @@ add_library(
   Options.cpp
   ReaderFactory.cpp
   ScanSpec.cpp
+  ColumnLoader.cpp
+  SelectiveColumnReader.cpp
+  SelectiveStructColumnReader.cpp
   SeekableInputStream.cpp
   TypeWithId.cpp)
 

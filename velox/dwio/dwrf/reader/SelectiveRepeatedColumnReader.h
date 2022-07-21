@@ -17,15 +17,16 @@
 #pragma once
 
 #include "velox/dwio/common/BufferUtil.h"
+#include "velox/dwio/common/SelectiveColumnReaderInternal.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/reader/DwrfData.h"
-#include "velox/dwio/dwrf/reader/SelectiveColumnReaderInternal.h"
 
 namespace facebook::velox::dwrf {
 
 // Abstract superclass for list and map readers. Encapsulates common
 // logic for dealing with mapping between enclosing and nested rows.
-class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
+class SelectiveRepeatedColumnReader
+    : public dwio::common::SelectiveColumnReader {
  public:
   bool useBulkPath() const override {
     return false;

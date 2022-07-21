@@ -93,7 +93,7 @@ class DwrfRowReader : public DwrfRowReaderShared {
   void checkSkipStrides(const StatsContext& context, uint64_t strideSize);
 
   std::unique_ptr<ColumnReader> columnReader_;
-  std::unique_ptr<SelectiveColumnReader> selectiveColumnReader_;
+  std::unique_ptr<dwio::common::SelectiveColumnReader> selectiveColumnReader_;
   std::vector<uint32_t> stridesToSkip_;
   // Record of strides to skip in each visited stripe. Used for diagnostics.
   std::unordered_map<uint32_t, std::vector<uint32_t>> stripeStridesToSkip_;

@@ -21,7 +21,6 @@
 #include "velox/dwio/common/exception/Exceptions.h"
 #include "velox/dwio/dwrf/common/Statistics.h"
 #include "velox/dwio/dwrf/reader/DwrfReaderShared.h"
-#include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveDwrfReader.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
 

@@ -16,11 +16,12 @@
 
 #pragma once
 
+#include "velox/dwio/common/SelectiveColumnReaderInternal.h"
 #include "velox/dwio/dwrf/reader/DwrfData.h"
-#include "velox/dwio/dwrf/reader/SelectiveColumnReaderInternal.h"
 
 namespace facebook::velox::dwrf {
-class SelectiveTimestampColumnReader : public SelectiveColumnReader {
+class SelectiveTimestampColumnReader
+    : public dwio::common::SelectiveColumnReader {
  public:
   // The readers produce int64_t, the vector is Timestamps.
   using ValueType = int64_t;

@@ -246,9 +246,11 @@ void SelectiveStringDictionaryColumnReader::read(
     }
   } else {
     if (isDense) {
-      processFilter<true>(scanSpec_->filter(), rows, DropValues());
+      processFilter<true>(
+          scanSpec_->filter(), rows, dwio::common::DropValues());
     } else {
-      processFilter<false>(scanSpec_->filter(), rows, DropValues());
+      processFilter<false>(
+          scanSpec_->filter(), rows, dwio::common::DropValues());
     }
   }
 }

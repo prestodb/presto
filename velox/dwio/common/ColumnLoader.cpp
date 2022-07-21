@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/reader/ColumnLoader.h"
+#include "velox/dwio/common/ColumnLoader.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 // Wraps '*result' in a dictionary to make the contiguous values
 // appear at the indices i 'rows'. Used when loading a LazyVector for
@@ -91,4 +91,4 @@ void ColumnLoader::loadInternal(
   }
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

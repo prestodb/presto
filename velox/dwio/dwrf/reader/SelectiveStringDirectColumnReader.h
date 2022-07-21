@@ -16,12 +16,13 @@
 
 #pragma once
 
+#include "velox/dwio/common/SelectiveColumnReaderInternal.h"
 #include "velox/dwio/dwrf/reader/DwrfData.h"
-#include "velox/dwio/dwrf/reader/SelectiveColumnReaderInternal.h"
 
 namespace facebook::velox::dwrf {
 
-class SelectiveStringDirectColumnReader : public SelectiveColumnReader {
+class SelectiveStringDirectColumnReader
+    : public dwio::common::SelectiveColumnReader {
  public:
   using ValueType = StringView;
   SelectiveStringDirectColumnReader(
