@@ -465,9 +465,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName)
+    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
-        return delegate.getMaterializedViewStatus(session, materializedViewName);
+        return delegate.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
     }
 
     @Override

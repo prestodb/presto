@@ -30,6 +30,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.MaterializedViewUtils;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -81,6 +82,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -352,10 +354,10 @@ public class MaterializedViewQueryOptimizer
 
     private QuerySpecification getRewrittenQuerySpecification(Metadata metadata, QualifiedObjectName materializedViewName, QuerySpecification originalQuerySpecification)
     {
-        ConnectorMaterializedViewDefinition materializedView = metadata.getMaterializedView(session, materializedViewName).orElseThrow(() ->
+        ConnectorMaterializedViewDefinition materializedViewDefinition = metadata.getMaterializedView(session, materializedViewName).orElseThrow(() ->
                 new IllegalStateException("Materialized view definition not present in metadata as expected."));
-        Table materializedViewTable = new Table(QualifiedName.of(materializedView.getTable()));
-        Query materializedViewQuery = (Query) sqlParser.createStatement(materializedView.getOriginalSql(), createParsingOptions(session));
+        Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
+        Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));
 
         return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery, materializedViewName).rewrite(originalQuerySpecification);
     }
@@ -401,7 +403,7 @@ public class MaterializedViewQueryOptimizer
                 }
 
                 // TODO: We should be able to leverage this information in the StatementAnalyzer as well.
-                MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, materializedViewName);
+                MaterializedViewStatus materializedViewStatus = getMaterializedViewStatus(querySpecification);
                 if (materializedViewStatus.isPartiallyMaterialized() || materializedViewStatus.isFullyMaterialized()) {
                     session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
                     return rewrittenQuerySpecification;
@@ -809,6 +811,35 @@ public class MaterializedViewQueryOptimizer
             return Scope.builder()
                     .withRelationType(RelationId.anonymous(), new RelationType(fields.build()))
                     .build();
+        }
+
+        private MaterializedViewStatus getMaterializedViewStatus(QuerySpecification querySpecification)
+        {
+            TupleDomain<String> baseQueryDomain = TupleDomain.all();
+
+            if (querySpecification.getWhere().isPresent() && isMaterializedViewPartitionFilteringEnabled(session)) {
+                Expression baseQueryWhereClause = querySpecification.getWhere().get();
+
+                Relation from = querySpecification.getFrom().orElseThrow(() -> new IllegalStateException("from should be present"));
+
+                Table table;
+                if (from instanceof Table) {
+                    table = (Table) querySpecification.getFrom().get();
+                }
+                else if (from instanceof AliasedRelation && ((AliasedRelation) from).getRelation() instanceof Table) {
+                    table = (Table) ((AliasedRelation) from).getRelation();
+                }
+                else {
+                    throw new IllegalStateException("from should be either a Table or AliasedRelation with table source");
+                }
+
+                Scope filterScope = extractScope(table, querySpecification, baseQueryWhereClause);
+
+                RowExpression rowExpression = convertToRowExpression(baseQueryWhereClause, filterScope);
+                baseQueryDomain = MaterializedViewUtils.getDomainFromFilter(session, domainTranslator, rowExpression);
+            }
+
+            return metadata.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
         }
     }
 }
