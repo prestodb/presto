@@ -112,18 +112,18 @@ fuzzertest: debug
 		--logtostderr=1 \
 		--minloglevel=0
 
-format-fix: 			#: Fix formatting issues in the current branch
-	scripts/check.py format branch --fix
+format-fix: 			#: Fix formatting issues in the main branch
+	scripts/check.py format main --fix
 
-format-check: 			#: Check for formatting issues on the current branch
+format-check: 			#: Check for formatting issues on the main branch
 	clang-format --version
-	scripts/check.py format branch
+	scripts/check.py format main
 
 header-fix:				#: Fix license header issues in the current branch
-	scripts/check.py header branch --fix
+	scripts/check.py header main --fix
 
-header-check:			#: Check for license header issues on the current branch
-	scripts/check.py header branch
+header-check:			#: Check for license header issues on the main branch
+	scripts/check.py header main
 
 circleci-container:			#: Build the linux container for CircleCi
 	$(MAKE) linux-container CONTAINER_NAME=circleci

@@ -173,8 +173,8 @@ def get_commit(files):
     if files == "commit":
         return "HEAD^"
 
-    if files == "branch":
-        return util.run("git merge-base origin/main HEAD")[1]
+    if files == "main" or files == "master":
+        return util.run(f"git merge-base origin/{files} HEAD")[1]
 
     return ""
 
@@ -220,7 +220,8 @@ def add_options(parser):
     tree_parser = add_check_options(files, "tree")
     tree_parser.add_argument("path", default="")
 
-    branch_parser = add_check_options(files, "branch")
+    branch_parser = add_check_options(files, "main")
+    branch_parser = add_check_options(files, "master")
     commit_parser = add_check_options(files, "commit")
 
 
