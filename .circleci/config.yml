@@ -16,6 +16,8 @@ workflows:
     jobs:
       - linux-build
       - linux-parquet-S3-build
+      - format-check
+      - header-check
 
 executors:
   build:
@@ -27,6 +29,9 @@ executors:
       MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
       MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+  check:
+    docker:
+      - image : prestocpp/velox-check:mikesh-20210609
 
 jobs:
   linux-build:
@@ -133,3 +138,33 @@ jobs:
           key: native-exe-linux-adapters-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
           paths:
             - .ccache/
+
+  format-check:
+    executor: check
+    steps:
+      - checkout
+      - run:
+          name: "Update velox"
+          command: |
+            cd presto-native-execution
+            make velox-submodule
+      - run:
+          name: Check formatting
+          command: |
+            cd presto-native-execution
+            make format-check
+
+  header-check:
+    executor: check
+    steps:
+      - checkout
+      - run:
+          name: "Update velox"
+          command: |
+            cd presto-native-execution
+            make velox-submodule
+      - run:
+          name: Check license headers
+          command: |
+            cd presto-native-execution
+            make header-check
