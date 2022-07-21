@@ -398,6 +398,10 @@ class SimpleFunctionAdapter : public VectorFunction {
     return fn_->is_default_null_behavior;
   }
 
+  bool supportsFlatNoNullsFastPath() const override {
+    return !FUNC::can_produce_null_output;
+  }
+
   bool ensureStringEncodingSetAtAllInputs() const override {
     return fn_->has_ascii;
   }

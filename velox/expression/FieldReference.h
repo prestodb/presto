@@ -29,6 +29,7 @@ class FieldReference : public SpecialForm {
             std::move(type),
             std::move(inputs),
             field,
+            true /* supportsFlatNoNullsFastPath */,
             false /* trackCpuUsage */),
         field_(field) {}
 
@@ -36,7 +37,7 @@ class FieldReference : public SpecialForm {
     return field_;
   }
 
-  int32_t index(EvalCtx& context) {
+  int32_t index(const EvalCtx& context) {
     if (index_ != -1) {
       return index_;
     }

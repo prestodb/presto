@@ -31,6 +31,7 @@ class LambdaExpr : public SpecialForm {
             std::move(type),
             std::vector<std::shared_ptr<Expr>>(),
             "lambda",
+            false /* supportsFlatNoNullsFastPath */,
             trackCpuUsage),
         signature_(std::move(signature)),
         capture_(std::move(capture)),

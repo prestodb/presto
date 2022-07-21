@@ -187,7 +187,10 @@ ExprPtr getSpecialForm(
     std::vector<ExprPtr>&& compiledChildren,
     bool trackCpuUsage) {
   if (name == kIf || name == kSwitch) {
-    return std::make_shared<SwitchExpr>(type, std::move(compiledChildren));
+    bool inputsSupportFlatNoNullsFastPath =
+        Expr::allSupportFlatNoNullsFastPath(compiledChildren);
+    return std::make_shared<SwitchExpr>(
+        type, std::move(compiledChildren), inputsSupportFlatNoNullsFastPath);
   }
   if (name == kCast) {
     VELOX_CHECK_EQ(compiledChildren.size(), 1);
@@ -198,19 +201,32 @@ ExprPtr getSpecialForm(
         false /* nullOnFailure */);
   }
   if (name == kAnd) {
+    bool inputsSupportFlatNoNullsFastPath =
+        Expr::allSupportFlatNoNullsFastPath(compiledChildren);
     return std::make_shared<ConjunctExpr>(
-        type, std::move(compiledChildren), true);
+        type,
+        std::move(compiledChildren),
+        true /* isAnd */,
+        inputsSupportFlatNoNullsFastPath);
   }
   if (name == kOr) {
+    bool inputsSupportFlatNoNullsFastPath =
+        Expr::allSupportFlatNoNullsFastPath(compiledChildren);
     return std::make_shared<ConjunctExpr>(
-        type, std::move(compiledChildren), false);
+        type,
+        std::move(compiledChildren),
+        false /* isAnd */,
+        inputsSupportFlatNoNullsFastPath);
   }
   if (name == kTry) {
     VELOX_CHECK_EQ(compiledChildren.size(), 1);
     return std::make_shared<TryExpr>(type, std::move(compiledChildren[0]));
   }
   if (name == kCoalesce) {
-    return std::make_shared<CoalesceExpr>(type, std::move(compiledChildren));
+    bool inputsSupportFlatNoNullsFastPath =
+        Expr::allSupportFlatNoNullsFastPath(compiledChildren);
+    return std::make_shared<CoalesceExpr>(
+        type, std::move(compiledChildren), inputsSupportFlatNoNullsFastPath);
   }
   return nullptr;
 }

@@ -19,6 +19,32 @@
 
 namespace facebook::velox::exec {
 
+namespace {
+bool hasElseClause(const std::vector<ExprPtr>& inputs) {
+  return inputs.size() % 2 == 1;
+}
+} // namespace
+
+SwitchExpr::SwitchExpr(
+    TypePtr type,
+    const std::vector<ExprPtr>& inputs,
+    bool inputsSupportFlatNoNullsFastPath)
+    : SpecialForm(
+          std::move(type),
+          inputs,
+          "switch",
+          hasElseClause(inputs) && inputsSupportFlatNoNullsFastPath,
+          false /* trackCpuUsage */),
+      numCases_{inputs_.size() / 2},
+      hasElseClause_{hasElseClause(inputs_)} {
+  VELOX_CHECK_GT(numCases_, 0);
+
+  for (auto i = 0; i < numCases_; i++) {
+    auto& condition = inputs_[i * 2];
+    VELOX_CHECK_EQ(condition->type()->kind(), TypeKind::BOOLEAN);
+  }
+}
+
 void SwitchExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,

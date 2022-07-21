@@ -91,6 +91,14 @@ class VectorFunction {
     return true;
   }
 
+  /// Returns true if (1) supports evaluation on all constant inputs of size >
+  /// 1; (2) returns flat or constant result when inputs are all flat, all
+  /// constant or a mix of flat and constant; (3) guarantees that if all inputs
+  /// are not null, the result is also not null.
+  virtual bool supportsFlatNoNullsFastPath() const {
+    return false;
+  }
+
   // The evaluation engine will scan and set the string encoding of the
   // specified input arguments when presented if their type is VARCHAR before
   // applying the function

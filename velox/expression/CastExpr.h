@@ -74,6 +74,7 @@ class CastExpr : public SpecialForm {
             type,
             std::vector<ExprPtr>({expr}),
             kCast.data(),
+            false /* supportsFlatNoNullsFastPath */,
             trackCpuUsage),
         nullOnFailure_(nullOnFailure) {
     auto fromType = inputs_[0]->type();

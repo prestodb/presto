@@ -23,14 +23,16 @@ class SpecialForm : public Expr {
  public:
   SpecialForm(
       TypePtr type,
-      std::vector<ExprPtr>&& inputs,
+      std::vector<ExprPtr> inputs,
       const std::string& name,
+      bool supportsFlatNoNullsFastPath,
       bool trackCpuUsage)
       : Expr(
             std::move(type),
             std::move(inputs),
             name,
             true /* specialForm */,
+            supportsFlatNoNullsFastPath,
             trackCpuUsage) {}
 };
 } // namespace facebook::velox::exec

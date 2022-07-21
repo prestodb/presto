@@ -43,6 +43,12 @@ class EvalCtx {
     return row_;
   }
 
+  /// Returns true if all input vectors in 'row' are flat or constant and have
+  /// no nulls.
+  bool inputFlatNoNulls() const {
+    return inputFlatNoNulls_;
+  }
+
   memory::MemoryPool* FOLLY_NONNULL pool() const {
     return execCtx_->pool();
   }
@@ -125,6 +131,10 @@ class EvalCtx {
 
   void swapErrors(ErrorVectorPtr& other) {
     std::swap(errors_, other);
+  }
+
+  bool throwOnError() const {
+    return throwOnError_;
   }
 
   bool* FOLLY_NONNULL mutableThrowOnError() {
@@ -212,6 +222,7 @@ class EvalCtx {
   core::ExecCtx* const FOLLY_NONNULL execCtx_;
   ExprSet* FOLLY_NULLABLE const exprSet_;
   const RowVector* FOLLY_NULLABLE row_;
+  bool inputFlatNoNulls_;
 
   // Corresponds 1:1 to children of 'row_'. Set to an inner vector
   // after removing dictionary/sequence wrappers.

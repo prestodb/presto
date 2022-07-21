@@ -37,21 +37,10 @@ class SwitchExpr : public SpecialForm {
  public:
   /// Inputs are concatenated conditions and results with an optional "else" at
   /// the end, e.g. {condition1, result1, condition2, result2,..else}
-  SwitchExpr(TypePtr type, std::vector<ExprPtr>&& inputs)
-      : SpecialForm(
-            std::move(type),
-            std::move(inputs),
-            "switch",
-            false /* trackCpuUsage */),
-        numCases_{inputs_.size() / 2},
-        hasElseClause_{inputs_.size() % 2 == 1} {
-    VELOX_CHECK_GT(numCases_, 0);
-
-    for (auto i = 0; i < numCases_; i++) {
-      auto& condition = inputs_[i * 2];
-      VELOX_CHECK_EQ(condition->type()->kind(), TypeKind::BOOLEAN);
-    }
-  }
+  SwitchExpr(
+      TypePtr type,
+      const std::vector<ExprPtr>& inputs,
+      bool inputsSupportFlatNoNullsFastPath);
 
   void evalSpecialForm(
       const SelectivityVector& rows,

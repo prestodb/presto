@@ -25,6 +25,7 @@ class ConstantExpr : public SpecialForm {
             std::move(type),
             std::vector<ExprPtr>(),
             "literal",
+            !value.isNull() /* supportsFlatNoNullsFastPath */,
             false /* trackCpuUsage */),
         value_(std::move(value)),
         needToSetIsAscii_{type->isVarchar()} {}
@@ -34,6 +35,7 @@ class ConstantExpr : public SpecialForm {
             value->type(),
             std::vector<ExprPtr>(),
             "literal",
+            !value->isNullAt(0) /* supportsFlatNoNullsFastPath */,
             false /* trackCpuUsage */),
         needToSetIsAscii_{value->type()->isVarchar()} {
     VELOX_CHECK_EQ(value->encoding(), VectorEncoding::Simple::CONSTANT);

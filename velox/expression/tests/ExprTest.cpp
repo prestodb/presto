@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-#include <folly/Benchmark.h>
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 
 #include "velox/common/base/Exceptions.h"
-#include "velox/dwio/common/DataSink.h"
 #include "velox/expression/ConjunctExpr.h"
 #include "velox/expression/ConstantExpr.h"
 #include "velox/functions/Udf.h"
@@ -2557,7 +2555,7 @@ TEST_F(ExprTest, peeledConstant) {
     }
     EXPECT_LE(1, result->valueAt(i).size());
     // Check that the data is readable.
-    folly::doNotOptimizeAway(result->toString(i));
+    EXPECT_NO_THROW(result->toString(i));
   }
 }
 

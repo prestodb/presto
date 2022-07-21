@@ -22,11 +22,16 @@ namespace facebook::velox::exec {
 
 class ConjunctExpr : public SpecialForm {
  public:
-  ConjunctExpr(TypePtr type, std::vector<ExprPtr>&& inputs, bool isAnd)
+  ConjunctExpr(
+      TypePtr type,
+      std::vector<ExprPtr>&& inputs,
+      bool isAnd,
+      bool inputsSupportFlatNoNullsFastPath)
       : SpecialForm(
             std::move(type),
             std::move(inputs),
             isAnd ? "and" : "or",
+            inputsSupportFlatNoNullsFastPath,
             false /* trackCpuUsage */),
         isAnd_(isAnd) {
     selectivity_.resize(inputs_.size());
