@@ -598,7 +598,14 @@ public interface ConnectorMetadata
 
     /**
      * Get the materialized view status to inform the engine how much data has been materialized in the view
+     * @param baseQueryDomain The domain from which to consider missing partitions. For example, a query that
+     * selects a specific date range can consider only partitions from that range when determining view staleness.
      */
+    default MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support getting materialized views status");
+    }
+
     default MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support getting materialized views status");

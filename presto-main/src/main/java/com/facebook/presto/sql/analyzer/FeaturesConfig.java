@@ -215,8 +215,9 @@ public class FeaturesConfig
 
     private boolean offsetClauseEnabled;
     private boolean materializedViewDataConsistencyEnabled = true;
-
+    private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
+
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private boolean verboseRuntimeStatsEnabled;
     private boolean hashBasedDistinctLimitEnabled;
@@ -1998,11 +1999,24 @@ public class FeaturesConfig
         return materializedViewDataConsistencyEnabled;
     }
 
+    public boolean isMaterializedViewPartitionFilteringEnabled()
+    {
+        return materializedViewPartitionFilteringEnabled;
+    }
+
     @Config("materialized-view-data-consistency-enabled")
     @ConfigDescription("When enabled and reading from materialized view, partition stitching is applied to achieve data consistency")
     public FeaturesConfig setMaterializedViewDataConsistencyEnabled(boolean materializedViewDataConsistencyEnabled)
     {
         this.materializedViewDataConsistencyEnabled = materializedViewDataConsistencyEnabled;
+        return this;
+    }
+
+    @Config("consider-query-filters-for-materialized-view-partitions")
+    @ConfigDescription("When enabled and counting materialized view partitions, filters partition domains not in base query")
+    public FeaturesConfig setMaterializedViewPartitionFilteringEnabled(boolean materializedViewPartitionFilteringEnabled)
+    {
+        this.materializedViewPartitionFilteringEnabled = materializedViewPartitionFilteringEnabled;
         return this;
     }
 
