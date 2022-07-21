@@ -14,6 +14,7 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.collect.ImmutableList;
@@ -118,6 +119,13 @@ public class PinotConfig
     private String grpcTlsTrustStorePath;
     private String grpcTlsTrustStorePassword;
     private String grpcTlsTrustStoreType = DEFAULT_GRPC_TLS_STORE_TYPE;
+
+    private String controllerAuthenticationType = "NONE";
+    private String controllerAuthenticationUser;
+    private String controllerAuthenticationPassword;
+    private String brokerAuthenticationType = "NONE";
+    private String brokerAuthenticationUser;
+    private String brokerAuthenticationPassword;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -681,6 +689,82 @@ public class PinotConfig
     public PinotConfig setGrpcTlsTrustStoreType(String grpcTlsTrustStoreType)
     {
         this.grpcTlsTrustStoreType = grpcTlsTrustStoreType;
+        return this;
+    }
+
+    @NotNull
+    public String getControllerAuthenticationType()
+    {
+        return controllerAuthenticationType;
+    }
+
+    @Config("pinot.controller-authentication-type")
+    public PinotConfig setControllerAuthenticationType(String controllerAuthenticationType)
+    {
+        this.controllerAuthenticationType = controllerAuthenticationType;
+        return this;
+    }
+
+    public String getControllerAuthenticationUser()
+    {
+        return controllerAuthenticationUser;
+    }
+
+    @Config("pinot.controller-authentication-user")
+    public PinotConfig setControllerAuthenticationUser(String controllerAuthenticationUser)
+    {
+        this.controllerAuthenticationUser = controllerAuthenticationUser;
+        return this;
+    }
+
+    public String getControllerAuthenticationPassword()
+    {
+        return controllerAuthenticationPassword;
+    }
+
+    @Config("pinot.controller-authentication-password")
+    @ConfigSecuritySensitive
+    public PinotConfig setControllerAuthenticationPassword(String controllerAuthenticationPassword)
+    {
+        this.controllerAuthenticationPassword = controllerAuthenticationPassword;
+        return this;
+    }
+
+    @NotNull
+    public String getBrokerAuthenticationType()
+    {
+        return brokerAuthenticationType;
+    }
+
+    @Config("pinot.broker-authentication-type")
+    public PinotConfig setBrokerAuthenticationType(String brokerAuthenticationType)
+    {
+        this.brokerAuthenticationType = brokerAuthenticationType;
+        return this;
+    }
+
+    public String getBrokerAuthenticationUser()
+    {
+        return brokerAuthenticationUser;
+    }
+
+    @Config("pinot.broker-authentication-user")
+    public PinotConfig setBrokerAuthenticationUser(String brokerAuthenticationUser)
+    {
+        this.brokerAuthenticationUser = brokerAuthenticationUser;
+        return this;
+    }
+
+    public String getBrokerAuthenticationPassword()
+    {
+        return brokerAuthenticationPassword;
+    }
+
+    @Config("pinot.broker-authentication-password")
+    @ConfigSecuritySensitive
+    public PinotConfig setBrokerAuthenticationPassword(String brokerAuthenticationPassword)
+    {
+        this.brokerAuthenticationPassword = brokerAuthenticationPassword;
         return this;
     }
 

@@ -85,7 +85,19 @@ Property Name                                               Description
 ``pinot.grpc-tls-trust-store-path``                         TLS truststore file location for gRPC connection, default is empty (not needed)
 ``pinot.grpc-tls-trust-store-type``                         TLS truststore type for gRPC connection, default is empty (not needed)
 ``pinot.grpc-tls-trust-store-password``                     TLS truststore password, default is empty (not needed)
+``pinot.controller-authentication-type``                    Pinot authentication method for controller requests. Allowed values are ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
+``pinot.controller-authentication-user``                    Controller username for basic authentication method.
+``pinot.controller-authentication-password``                Controller password for basic authentication method.
+``pinot.broker-authentication-type``                        Pinot authentication method for broker requests. Allowed values are ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
+``pinot.broker-authentication-user``                        Broker username for basic authentication method.
+``pinot.broker-authentication-password``                    Broker password for basic authentication method.
 ==========================================================  =============================================================================================================
+
+If ``pinot.controller-authentication-type`` is set to ``PASSWORD`` then both ``pinot.controller-authentication-user`` and
+``pinot.controller-authentication-password`` are required.
+
+If ``pinot.broker-authentication-type`` is set to ``PASSWORD`` then both ``pinot.broker-authentication-user`` and
+``pinot.broker-authentication-password`` are required.
 
 Session Properties
 ^^^^^^^^^^^^^^^^^^
@@ -109,6 +121,10 @@ Property Name                                             Description
 ``pinot.limit_larger_for_segment``                        Server query selection limit for large segment.
 ``pinot.override_distinct_count_function``                Override distinct count function to another function name.
 ``pinot.topn_large``                                      Cap the TOP/LIMIT value when pushing down broker query.
+``pinot.controller_authentication_user``                  Controller username for basic authentication method.
+``pinot.controller_authentication_password``              Controller password for basic authentication method.
+``pinot.broker_authentication_user``                      Broker username for basic authentication method.
+``pinot.broker_authentication_password``                  Broker password for basic authentication method.
 ========================================================  ==================================================================
 
 Map Pinot Schema to Presto Schema
