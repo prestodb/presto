@@ -37,10 +37,10 @@ import io.airlift.slice.Slice;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Conversions;
-import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -74,7 +74,7 @@ public class IcebergOrcFileWriter
             OrcWriterOptions options,
             int[] fileInputColumnIndexes,
             Map<String, String> metadata,
-            DateTimeZone hiveStorageTimeZone,
+            ZoneId hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
             OrcWriteValidation.OrcWriteValidationMode validationMode,
             NoOpOrcWriterStats stats,

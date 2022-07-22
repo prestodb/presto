@@ -69,9 +69,9 @@ import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergFileWriterFactory
 {
