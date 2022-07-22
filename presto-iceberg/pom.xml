@@ -225,11 +225,6 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-
         <!-- Iceberg -->
         <dependency>
             <groupId>org.apache.iceberg</groupId>

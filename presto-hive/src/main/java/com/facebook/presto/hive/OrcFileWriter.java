@@ -39,9 +39,11 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
@@ -97,6 +99,43 @@ public class OrcFileWriter
                 fileInputColumnIndexes,
                 metadata,
                 hiveStorageTimeZone,
+                validationInputFactory,
+                validationMode,
+                stats,
+                dwrfEncryptionProvider,
+                dwrfWriterEncryption);
+    }
+
+    public OrcFileWriter(
+            DataSink dataSink,
+            Callable<Void> rollbackAction,
+            OrcEncoding orcEncoding,
+            List<String> columnNames,
+            List<Type> fileColumnTypes,
+            Optional<List<OrcType>> fileColumnOrcTypes,
+            CompressionKind compression,
+            OrcWriterOptions options,
+            int[] fileInputColumnIndexes,
+            Map<String, String> metadata,
+            ZoneId hiveStorageTimeZone,
+            Optional<Supplier<OrcDataSource>> validationInputFactory,
+            OrcWriteValidationMode validationMode,
+            WriterStats stats,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            Optional<DwrfWriterEncryption> dwrfWriterEncryption)
+    {
+        this(
+                dataSink,
+                rollbackAction,
+                orcEncoding,
+                columnNames,
+                fileColumnTypes,
+                fileColumnOrcTypes,
+                compression,
+                options,
+                fileInputColumnIndexes,
+                metadata,
+                DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(hiveStorageTimeZone.getId()))),
                 validationInputFactory,
                 validationMode,
                 stats,
