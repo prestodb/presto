@@ -43,9 +43,11 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -304,6 +306,26 @@ public class OrcReader
             throws OrcCorruptionException
     {
         return createBatchRecordReader(includedColumns, predicate, 0, getOrcDataSource().getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
+    }
+
+    public OrcBatchRecordReader createBatchRecordReader(
+            Map<Integer, Type> includedColumns,
+            OrcPredicate predicate,
+            long offset,
+            long length,
+            ZoneId hiveStorageTimeZone,
+            OrcAggregatedMemoryContext systemMemoryUsage,
+            int initialBatchSize)
+            throws OrcCorruptionException
+    {
+        return createBatchRecordReader(
+                includedColumns,
+                predicate,
+                offset,
+                length,
+                DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(hiveStorageTimeZone.getId()))),
+                systemMemoryUsage,
+                initialBatchSize);
     }
 
     public OrcBatchRecordReader createBatchRecordReader(

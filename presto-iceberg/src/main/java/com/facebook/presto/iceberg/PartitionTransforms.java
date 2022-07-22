@@ -22,8 +22,6 @@ import io.airlift.slice.Murmur3Hash32;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.iceberg.PartitionField;
-import org.joda.time.DateTimeField;
-import org.joda.time.chrono.ISOChronology;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -50,11 +48,6 @@ public final class PartitionTransforms
 {
     private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
     private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
-
-    private static final DateTimeField YEAR_FIELD = ISOChronology.getInstanceUTC().year();
-    private static final DateTimeField MONTH_FIELD = ISOChronology.getInstanceUTC().monthOfYear();
-    private static final DateTimeField DAY_OF_YEAR_FIELD = ISOChronology.getInstanceUTC().dayOfYear();
-    private static final DateTimeField DAY_OF_MONTH_FIELD = ISOChronology.getInstanceUTC().dayOfMonth();
 
     private PartitionTransforms() {}
 
