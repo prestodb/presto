@@ -764,10 +764,16 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
           .customStats.at("flushRowCount")
           .sum,
       0);
+  EXPECT_GT(
+      toPlanStats(task->taskStats())
+          .at(aggNodeId)
+          .customStats.at("flushRowCount")
+          .max,
+      0);
 
   // Count aggregation.
   task = AssertQueryBuilder(duckDbQueryRunner_)
-             .config(core::QueryConfig::kMaxPartialAggregationMemory, "100")
+             .config(core::QueryConfig::kMaxPartialAggregationMemory, "1")
              .plan(PlanBuilder()
                        .values(vectors)
                        .partialAggregation({"c0"}, {"count(1)"})
@@ -780,6 +786,35 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
           .at(aggNodeId)
           .customStats.at("flushRowCount")
           .count,
+      0);
+  EXPECT_GT(
+      toPlanStats(task->taskStats())
+          .at(aggNodeId)
+          .customStats.at("flushRowCount")
+          .max,
+      0);
+
+  // Global aggregation.
+  task = AssertQueryBuilder(duckDbQueryRunner_)
+             .config(core::QueryConfig::kMaxPartialAggregationMemory, "1")
+             .plan(PlanBuilder()
+                       .values(vectors)
+                       .partialAggregation({}, {"sum(c0)"})
+                       .capturePlanNodeId(aggNodeId)
+                       .finalAggregation()
+                       .planNode())
+             .assertResults("SELECT sum(c0) FROM tmp");
+  EXPECT_GT(
+      toPlanStats(task->taskStats())
+          .at(aggNodeId)
+          .customStats.at("flushRowCount")
+          .count,
+      0);
+  EXPECT_GT(
+      toPlanStats(task->taskStats())
+          .at(aggNodeId)
+          .customStats.at("flushRowCount")
+          .max,
       0);
 }
 

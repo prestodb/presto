@@ -73,6 +73,10 @@ class HashAggregation : public Operator {
   bool pushdownChecked_ = false;
   bool mayPushdown_ = false;
 
+  /// Count the number of output rows. It is reset on partial aggregation output
+  /// flush.
+  int64_t numOutputRows_ = 0;
+
   /// Possibly reusable output vector.
   RowVectorPtr output_;
 };

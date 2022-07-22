@@ -186,12 +186,13 @@ void HashAggregation::prepareOutput(vector_size_t size) {
 }
 
 void HashAggregation::flushPartialOutputIfNeed() {
-  if (partialFull_) {
-    stats().addRuntimeStat(
-        "flushRowCount", RuntimeCounter(groupingSet_->numRows()));
-    groupingSet_->resetPartial();
-    partialFull_ = false;
+  if (!partialFull_) {
+    return;
   }
+  stats().addRuntimeStat("flushRowCount", RuntimeCounter(numOutputRows_));
+  groupingSet_->resetPartial();
+  partialFull_ = false;
+  numOutputRows_ = 0;
 }
 
 RowVectorPtr HashAggregation::getOutput() {
@@ -226,6 +227,7 @@ RowVectorPtr HashAggregation::getOutput() {
     std::copy(lookup.newGroups.begin(), lookup.newGroups.end(), indicesPtr);
     newDistincts_ = false;
     auto output = fillOutput(size, indices);
+    numOutputRows_ += size;
 
     // Drop reference to input_ to make it singly-referenced at the producer and
     // allow for memory reuse.
@@ -243,7 +245,6 @@ RowVectorPtr HashAggregation::getOutput() {
   bool hasData = groupingSet_->getOutput(batchSize, resultIterator_, output_);
   if (!hasData) {
     resultIterator_.reset();
-
     flushPartialOutputIfNeed();
 
     if (noMoreInput_) {
@@ -251,6 +252,7 @@ RowVectorPtr HashAggregation::getOutput() {
     }
     return nullptr;
   }
+  numOutputRows_ += output_->size();
   return output_;
 }
 
