@@ -199,7 +199,7 @@ void PagedInputStream::BackUp(int32_t count) {
     // decompression / decryption. Check that we do not back out of
     // the last range returned from input_->Next().
     VELOX_CHECK_GE(
-        inputBufferPtr_ - static_cast<size_t>(count), inputBufferStart_);
+        inputBufferPtr_ - inputBufferStart_, static_cast<size_t>(count));
   }
   outputBufferPtr_ -= static_cast<size_t>(count);
   outputBufferLength_ += static_cast<size_t>(count);
