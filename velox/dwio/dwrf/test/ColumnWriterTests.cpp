@@ -719,10 +719,8 @@ wrapInDictionary(const VectorPtr& batch, size_t stride, MemoryPool& pool) {
 template <typename T>
 void getUniqueKeys(
     std::vector<T>& uniqueKeys,
-    vector_size_t& numRows,
     const std::vector<VectorPtr>& batches) {
   std::unordered_set<T> seenKeys;
-  vector_size_t rowCount = 0;
 
   for (auto batch : batches) {
     auto map = std::dynamic_pointer_cast<MapVector>(batch);
@@ -734,35 +732,43 @@ void getUniqueKeys(
       ASSERT_TRUE(!flatKeys->isNullAt(i));
       seenKeys.insert(flatKeys->valueAt(i));
     }
-    rowCount += map->size();
   }
 
   uniqueKeys.insert(uniqueKeys.end(), seenKeys.begin(), seenKeys.end());
-  numRows = rowCount;
 }
 
-void printStruct(const VectorPtr& rows) {
-  auto rowStruct = std::dynamic_pointer_cast<RowVector>(rows);
-  ASSERT_TRUE(rowStruct);
-  for (int i = 0; i < rowStruct->size(); i++) {
-    LOG(INFO) << i << ": " << rowStruct->toString(i);
+void printStructs(const std::vector<VectorPtr>& batches) {
+  for (int i = 0; i < batches.size(); i++) {
+    auto rowStruct = std::dynamic_pointer_cast<RowVector>(batches[i]);
+    ASSERT_TRUE(rowStruct);
+    LOG(INFO) << "Batch " << i << ":";
+    for (int j = 0; j < rowStruct->size(); j++) {
+      LOG(INFO) << j << ": " << rowStruct->toString(j);
+    }
   }
 }
 
 template <typename TKEY, typename TVALUE>
-void fillValues(
-    const std::vector<VectorPtr>& batches,
-    const std::vector<TKEY>& uniqueKeys,
-    VectorPtr& rows) {
+void mapToStruct(
+    MemoryPool& pool,
+    std::vector<VectorPtr>& batches,
+    const std::vector<TKEY>& uniqueKeys) {
   std::unordered_map<TKEY, int> keyColIndex;
   for (int i = 0; i < uniqueKeys.size(); i++) {
     keyColIndex[uniqueKeys[i]] = i; // lookup from key -> column#
   }
 
-  auto rowStruct = std::dynamic_pointer_cast<RowVector>(rows);
-  ASSERT_TRUE(rowStruct);
-  vector_size_t rowOffset = 0;
-  for (auto batch : batches) {
+  for (size_t i = 0; i < batches.size(); i++) {
+    auto batch = batches[i];
+    std::vector<VectorPtr> childrenVectors(uniqueKeys.size());
+    // initialize children of batch size filled with nulls
+    VectorMaker maker{&pool};
+    for (int column = 0; column < uniqueKeys.size(); column++) {
+      childrenVectors[column] = maker.allNullFlatVector<TVALUE>(batch->size());
+    }
+    batches[i] = maker.rowVector(childrenVectors);
+    auto batchStruct = std::dynamic_pointer_cast<RowVector>(batches[i]);
+
     auto map = std::dynamic_pointer_cast<MapVector>(batch);
     ASSERT_TRUE(map);
 
@@ -783,22 +789,19 @@ void fillValues(
                          endOffset = offsets[row] + sizes[row];
            index < endOffset;
            index++) {
-        // set value in correct row
         ASSERT_FALSE(flatKeys->isNullAt(index));
         // ASSERT_TRUE(!flatValues->isNullAt(offsets[i] + sizes[j]));
+        // set value in correct row
         auto key = flatKeys->valueAt(index);
         auto element = std::dynamic_pointer_cast<FlatVector<TVALUE>>(
-            rowStruct->childAt(keyColIndex[key]));
+            batchStruct->childAt(keyColIndex[key]));
         ASSERT_TRUE(element);
-        element->set(rowOffset + row, flatValues->valueAt(index));
+        element->set(row, flatValues->valueAt(index));
       }
     }
-
-    // worry about overflow MapVector total size? use int64?
-    rowOffset += map->size();
   }
 
-  // printStruct(rows);
+  // printStructs(batches);
 }
 
 template <typename TKEY, typename TVALUE>
@@ -824,24 +827,18 @@ void testMapWriter(
   const auto config = std::make_shared<Config>();
   if (useFlatMap) {
     if (isStruct) {
-      vector_size_t numRows;
+      auto structs = batches;
       std::vector<TKEY> uniqueKeys;
-      ASSERT_NO_FATAL_FAILURE(
-          getUniqueKeys<TKEY>(uniqueKeys, numRows, batches));
+      ASSERT_NO_FATAL_FAILURE(getUniqueKeys<TKEY>(uniqueKeys, batches));
       // for (int i = 0; i < uniqueKeys.size(); i++) {
       //   LOG(INFO) << "key " << i << ": " << uniqueKeys[i];
       // }
 
-      std::vector<VectorPtr> childrenVectors(uniqueKeys.size());
-      // initialize children of row num size filled with nulls and rowCount
-      VectorMaker maker{&pool};
-      for (int i = 0; i < uniqueKeys.size(); i++) {
-        childrenVectors[i] = maker.allNullFlatVector<TVALUE>(numRows);
-      }
-      VectorPtr rows = maker.rowVector(childrenVectors);
-      // ASSERT_NO_FATAL_FAILURE(
-      fillValues<TKEY, TVALUE>(batches, uniqueKeys, rows); // unable to assert?
-      // );
+      ASSERT_NO_FATAL_FAILURE(
+          (mapToStruct<TKEY, TVALUE>(pool, structs, uniqueKeys)));
+      // printStructs(structs);
+
+      // TODO: add config variable, create config map, serialize map, set config
 
       // config->set(Config::MAP_FLAT_STRUCT_COLS,
       // /* map of column 0->vector of keys */);
