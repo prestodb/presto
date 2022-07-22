@@ -602,10 +602,6 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return vectorMaker_->allNullFlatVector<T>(size);
   }
 
-  RowVectorPtr makeRowVector(const std::vector<VectorPtr>& children) {
-    return vectorMaker_->rowVector(children);
-  }
-
   template <typename T>
   ArrayVectorPtr makeArrayVector(
       vector_size_t size,
@@ -2824,4 +2820,99 @@ TEST_F(ExprTest, lambdaWithRowField) {
   auto evalResult = evaluate("filter(c1, function('lambda1'))", rowVector);
 
   assertEqualVectors(array, evalResult);
+}
+
+TEST_F(ExprTest, flatNoNullsFastPath) {
+  auto data = makeRowVector(
+      {"a", "b", "c", "d"},
+      {
+          makeFlatVector<int32_t>({1, 2, 3}),
+          makeFlatVector<int32_t>({10, 20, 30}),
+          makeFlatVector<float>({0.1, 0.2, 0.3}),
+          makeFlatVector<float>({-1.2, 0.0, 10.67}),
+      });
+  auto rowType = asRowType(data->type());
+
+  // Basic math expressions.
+
+  auto exprSet = compileExpression("a + b", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  auto expectedResult = makeFlatVector<int32_t>({11, 22, 33});
+  auto result = evaluate(exprSet.get(), data);
+  assertEqualVectors(expectedResult, result);
+
+  exprSet = compileExpression("a + b * 5::integer", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  exprSet = compileExpression("floor(c * 1.34::real) / d", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  // Switch expressions.
+
+  exprSet = compileExpression("if (a > 10::integer, 0, b)", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  // If statement with 'then' or 'else' branch that can return null does not
+  // support fast path.
+  exprSet = compileExpression("if (a > 10::integer, 0, null)", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  exprSet = compileExpression(
+      "case when a > 10::integer then 1 when b > 10::integer then 2 else 3 end",
+      rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  // Switch without an else clause doesn't support fast path.
+  exprSet = compileExpression(
+      "case when a > 10::integer then 1 when b > 10::integer then 2 end",
+      rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  // AND / OR expressions.
+
+  exprSet = compileExpression("a > 10::integer AND b < 0::integer", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  exprSet = compileExpression(
+      "a > 10::integer OR (b % 7::integer == 4::integer)", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  // Coalesce expression.
+
+  exprSet = compileExpression("coalesce(a, b)", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  // Multiplying an integer by a double requires a cast, but cast doesn't
+  // support fast path.
+  exprSet = compileExpression("a * 0.1 + b", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
+
+  // Try expression doesn't support fast path.
+  exprSet = compileExpression("try(a / b)", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+      << exprSet->toString();
 }

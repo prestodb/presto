@@ -24,10 +24,9 @@ namespace facebook::velox::functions {
   struct Name {                                                   \
     VELOX_DEFINE_FUNCTION_TYPES(T);                               \
     template <typename TInput>                                    \
-    FOLLY_ALWAYS_INLINE bool                                      \
+    FOLLY_ALWAYS_INLINE void                                      \
     call(TResult& result, const TInput& lhs, const TInput& rhs) { \
       result = (Expr);                                            \
-      return true;                                                \
     }                                                             \
   };
 
@@ -90,13 +89,12 @@ struct EqFunction {
 template <typename T>
 struct BetweenFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       bool& result,
       const TInput& value,
       const TInput& low,
       const TInput& high) {
     result = value >= low && value <= high;
-    return true;
   }
 };
 
