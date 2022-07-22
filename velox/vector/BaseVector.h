@@ -49,6 +49,8 @@ class SimpleVector;
 template <typename T>
 class FlatVector;
 
+class VectorPool;
+
 /**
  * Base class for all columnar-based vectors of any type.
  */
@@ -449,7 +451,8 @@ class BaseVector {
       const SelectivityVector& rows,
       const TypePtr& type,
       velox::memory::MemoryPool* pool,
-      std::shared_ptr<BaseVector>* result);
+      std::shared_ptr<BaseVector>* result,
+      VectorPool* vectorPool = nullptr);
 
   virtual void ensureWritable(const SelectivityVector& rows);
 

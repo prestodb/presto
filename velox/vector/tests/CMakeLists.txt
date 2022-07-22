@@ -19,6 +19,7 @@ add_executable(
   velox_vector_test
   VectorCompareTest.cpp
   VectorMakerTest.cpp
+  VectorPoolTest.cpp
   VectorTest.cpp
   VectorToStringTest.cpp
   VectorEstimateFlatSizeTest.cpp

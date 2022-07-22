@@ -22,6 +22,7 @@
 #include "velox/core/Context.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/vector/DecodedVector.h"
+#include "velox/vector/VectorPool.h"
 
 namespace facebook::velox::core {
 
@@ -165,7 +166,10 @@ class ExecCtx : public Context {
   ExecCtx(
       memory::MemoryPool* FOLLY_NONNULL pool,
       QueryCtx* FOLLY_NULLABLE queryCtx)
-      : Context{ContextScope::QUERY}, pool_(pool), queryCtx_(queryCtx) {}
+      : Context{ContextScope::QUERY},
+        pool_(pool),
+        queryCtx_(queryCtx),
+        vectorPool_{pool} {}
 
   velox::memory::MemoryPool* FOLLY_NONNULL pool() const {
     return pool_;
@@ -220,6 +224,28 @@ class ExecCtx : public Context {
     decodedVectorPool_.push_back(std::move(vector));
   }
 
+  VectorPool& vectorPool() {
+    return vectorPool_;
+  }
+
+  /// Gets a possibly recycled vector of 'type and 'size'. Allocates from
+  /// 'pool_' if no pre-allocated vector.
+  VectorPtr getVector(const TypePtr& type, vector_size_t size) {
+    return vectorPool_.get(type, size);
+  }
+
+  /// Moves 'vector' to the pool if it is reusable, else leaves it in
+  /// place. Returns true if the vector was moved into the pool.
+  bool releaseVector(VectorPtr& vector) {
+    return vectorPool_.release(vector);
+  }
+
+  /// Moves elements of 'vectors' to the pool if reusable, else leaves them
+  /// in place. Returns number of vectors that were moved into the pool.
+  size_t releaseVectors(std::vector<VectorPtr>& vectors) {
+    return vectorPool_.release(vectors);
+  }
+
  private:
   // Pool for all Buffers for this thread
   memory::MemoryPool* FOLLY_NONNULL pool_;
@@ -229,6 +255,7 @@ class ExecCtx : public Context {
   // A pool of preallocated SelectivityVectors for use by expressions
   // and operators.
   std::vector<std::unique_ptr<SelectivityVector>> selectivityVectorPool_;
+  VectorPool vectorPool_;
 };
 
 } // namespace facebook::velox::core

@@ -24,6 +24,7 @@
 #include "velox/vector/LazyVector.h"
 #include "velox/vector/SequenceVector.h"
 #include "velox/vector/TypeAliases.h"
+#include "velox/vector/VectorPool.h"
 #include "velox/vector/VectorTypeUtils.h"
 
 namespace facebook {
@@ -490,9 +491,14 @@ void BaseVector::ensureWritable(
     const SelectivityVector& rows,
     const TypePtr& type,
     velox::memory::MemoryPool* pool,
-    VectorPtr* result) {
+    VectorPtr* result,
+    VectorPool* vectorPool) {
   if (!*result) {
-    *result = BaseVector::create(type, rows.size(), pool);
+    if (vectorPool) {
+      *result = vectorPool->get(type, rows.size());
+    } else {
+      *result = BaseVector::create(type, rows.size(), pool);
+    }
     return;
   }
   auto resultType = (*result)->type();
@@ -522,8 +528,13 @@ void BaseVector::ensureWritable(
   // vector.
   auto targetSize = std::max<vector_size_t>(rows.size(), (*result)->size());
 
-  auto copy =
-      BaseVector::create(isUnknownType ? type : resultType, targetSize, pool);
+  VectorPtr copy;
+  if (vectorPool) {
+    copy = vectorPool->get(isUnknownType ? type : resultType, targetSize);
+  } else {
+    copy =
+        BaseVector::create(isUnknownType ? type : resultType, targetSize, pool);
+  }
   SelectivityVector copyRows(
       std::min<vector_size_t>(targetSize, (*result)->size()));
   copyRows.deselect(rows);
