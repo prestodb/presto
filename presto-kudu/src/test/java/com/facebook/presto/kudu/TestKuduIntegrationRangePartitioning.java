@@ -36,7 +36,7 @@ public class TestKuduIntegrationRangePartitioning
                     "{\"lower\": \"S\", \"upper\": null}"),
             new TestRanges("timestamp",
                     "{\"lower\": null, \"upper\": \"2017-01-01T02:03:04.567Z\"}",
-                    "{\"lower\": \"2017-01-01 03:03:04.567+01:00\", \"upper\": \"2017-02-01 12:34\"}",
+                    "{\"lower\": \"2017-01-01 02:03:04.567+01:00\", \"upper\": \"2017-02-01 12:34\"}",
                     "{\"lower\": \"2017-02-01 12:34\", \"upper\": \"2017-03-01\"}",
                     "{\"lower\": \"2017-03-01\", \"upper\": null}",
                     "{\"lower\": null, \"upper\": \"2017-01-01T02:03:04.567Z\"}",
