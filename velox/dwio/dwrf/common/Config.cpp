@@ -141,6 +141,12 @@ Config::Entry<const std::vector<uint32_t>> Config::MAP_FLAT_COLS(
       return result;
     });
 
+Config::Entry<folly::dynamic> Config::MAP_FLAT_STRUCT_COLS(
+    "orc.map.flat.struct.cols",
+    folly::dynamic::object,
+    [](const folly::dynamic& val) { return folly::toJson(val); },
+    [](const std::string& val) { return folly::parseJson(val); });
+
 Config::Entry<uint32_t> Config::MAP_FLAT_MAX_KEYS(
     "orc.map.flat.max.keys",
     20000);

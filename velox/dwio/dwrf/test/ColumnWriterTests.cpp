@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <optional>
 #include <vector>
+#include "folly/DynamicConverter.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/common/MemoryInputStream.h"
@@ -839,9 +840,13 @@ void testMapWriter(
       // printStructs(structs);
 
       // TODO: add config variable, create config map, serialize map, set config
+      // std::map<uint32_t, std::vector<TKEY>> structConfig;
+      // structConfig[0] = uniqueKeys;
+      folly::dynamic structConfig =
+          folly::toDynamic<std::map<std::string, std::vector<TKEY>>>(
+              {{"0", uniqueKeys}});
 
-      // config->set(Config::MAP_FLAT_STRUCT_COLS,
-      // /* map of column 0->vector of keys */);
+      config->set(Config::MAP_FLAT_STRUCT_COLS, structConfig);
     }
 
     config->set(Config::FLATTEN_MAP, true);
@@ -849,7 +854,6 @@ void testMapWriter(
     config->set(
         Config::MAP_FLAT_DISABLE_DICT_ENCODING, disableDictionaryEncoding);
 
-    // if isStruct, convert batches to struct before writing
     // expect that if we pass isStruct true with useFlatMap false, it will fail
   }
 
