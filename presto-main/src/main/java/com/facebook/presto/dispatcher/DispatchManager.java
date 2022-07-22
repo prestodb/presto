@@ -47,6 +47,8 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -196,6 +198,7 @@ public class DispatchManager
                     sessionContext.getIdentity().getUser(),
                     Optional.ofNullable(sessionContext.getSource()),
                     sessionContext.getClientTags(),
+                    Optional.of(LocalDateTime.now(ZoneId.systemDefault())),
                     sessionContext.getResourceEstimates(),
                     queryType.map(Enum::name)));
 

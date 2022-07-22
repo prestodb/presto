@@ -24,6 +24,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -44,10 +45,11 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("A.user", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), null, EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), null, EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("A.user", null, ImmutableSet.of("tag1"), null, EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
     }
 
     @Test
@@ -60,11 +62,12 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
 
-        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
-        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), null, EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), null, EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), null, EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
     }
 
     @Test
@@ -77,11 +80,12 @@ public class TestStaticSelector
                 Optional.of(ImmutableList.of("tag1", "tag2")),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1", "tag2"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
-        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
-        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1", "tag2"), null, EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), null, EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), null, EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"), null, EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
     }
 
     @Test
@@ -90,6 +94,7 @@ public class TestStaticSelector
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
 
         StaticSelector smallQuerySelector = new StaticSelector(
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -110,6 +115,7 @@ public class TestStaticSelector
                                 "userA",
                                 null,
                                 ImmutableSet.of("tag1", "tag2"),
+                                null,
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("4m")),
                                         Optional.empty(),
@@ -124,6 +130,7 @@ public class TestStaticSelector
                                 "A.user",
                                 "a source b",
                                 ImmutableSet.of("tag1"),
+                                null,
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("4m")),
                                         Optional.empty(),
@@ -138,6 +145,7 @@ public class TestStaticSelector
                                 "userB",
                                 "source",
                                 ImmutableSet.of(),
+                                null,
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("4m")),
                                         Optional.empty(),
@@ -147,6 +155,7 @@ public class TestStaticSelector
                 Optional.empty());
 
         StaticSelector largeQuerySelector = new StaticSelector(
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -165,6 +174,7 @@ public class TestStaticSelector
                                 "userA",
                                 null,
                                 ImmutableSet.of("tag1", "tag2"),
+                                null,
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("100h")),
                                         Optional.empty(),
@@ -179,6 +189,7 @@ public class TestStaticSelector
                                 "A.user",
                                 "a source b",
                                 ImmutableSet.of("tag1"),
+                                null,
                                 new ResourceEstimates(
                                         Optional.empty(),
                                         Optional.empty(),
@@ -193,6 +204,7 @@ public class TestStaticSelector
                                 "userB",
                                 "source",
                                 ImmutableSet.of(),
+                                null,
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("1s")),
                                         Optional.of(Duration.valueOf("1s")),
@@ -202,8 +214,8 @@ public class TestStaticSelector
                 Optional.of(resourceGroupId));
     }
 
-    private SelectionCriteria newSelectionCriteria(String user, String source, Set<String> tags, ResourceEstimates resourceEstimates)
+    private SelectionCriteria newSelectionCriteria(String user, String source, Set<String> tags, LocalDateTime timeOfDay, ResourceEstimates resourceEstimates)
     {
-        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, resourceEstimates, Optional.empty());
+        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, Optional.ofNullable(timeOfDay), resourceEstimates, Optional.empty());
     }
 }

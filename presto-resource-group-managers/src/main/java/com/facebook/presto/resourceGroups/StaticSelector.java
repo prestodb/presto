@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +45,7 @@ public class StaticSelector
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
     private final Set<String> clientTags;
+    private final Optional<SelectorTimeOfDay> timeOfDay;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final Optional<String> queryType;
     private final ResourceGroupIdTemplate group;
@@ -53,6 +55,7 @@ public class StaticSelector
             Optional<Pattern> userRegex,
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
+            Optional<SelectorTimeOfDay> timeOfDay,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
             Optional<String> queryType,
             ResourceGroupIdTemplate group)
@@ -61,6 +64,7 @@ public class StaticSelector
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
+        this.timeOfDay = requireNonNull(timeOfDay, "timeOfDay is null");
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
@@ -109,6 +113,25 @@ public class StaticSelector
             String contextQueryType = criteria.getQueryType().orElse("");
             if (!queryType.get().equalsIgnoreCase(contextQueryType)) {
                 return Optional.empty();
+            }
+        }
+
+        if (timeOfDay.isPresent()) {
+            LocalTime startTime = timeOfDay.get().getStartTime();
+            LocalTime endTime = timeOfDay.get().getEndTime();
+            if (!criteria.getQuerySessionStartTime().isPresent()) {
+                return Optional.empty();
+            }
+            LocalTime querySessionStartTime = criteria.getQuerySessionStartTime().get().toLocalTime();
+            if (!(startTime.equals(querySessionStartTime) || endTime.equals(querySessionStartTime))) {
+                if (startTime.isAfter(endTime)) {
+                    if (querySessionStartTime.isBefore(startTime) && querySessionStartTime.isAfter(endTime)) {
+                        return Optional.empty();
+                    }
+                }
+                else if (!(querySessionStartTime.isAfter(startTime) && querySessionStartTime.isBefore(endTime))) {
+                    return Optional.empty();
+                }
             }
         }
 
