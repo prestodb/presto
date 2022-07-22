@@ -1,0 +1,68 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "subGroups": [
+        {
+          "name": "morning",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 2,
+          "maxQueued": 3
+        },
+        {
+          "name": "afternoon",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "evening",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "night",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "timeOfDay" : {
+        "startTime": "00:00",
+        "endTime": "11:59"
+      },
+      "group": "global.morning"
+    },
+    {
+      "timeOfDay" : {
+        "startTime": "12:00",
+        "endTime": "16:59"
+      },
+      "group": "global.afternoon"
+    },
+    {
+      "timeOfDay" : {
+        "startTime": "17:00",
+        "endTime": "19:59"
+      },
+      "group": "global.evening"
+    },
+    {
+      "timeOfDay" : {
+        "startTime": "20:00",
+        "endTime": "23:59"
+      },
+      "group": "global.night"
+    }
+  ],
+  "cpuQuotaPeriod": "1h"
+}
+

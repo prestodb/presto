@@ -42,6 +42,9 @@ import org.testng.annotations.Test;
 import javax.ws.rs.core.Response.Status;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.Set;
 
@@ -313,6 +316,21 @@ public class TestQueues
     }
 
     @Test(timeOut = 240_000)
+    public void testTimeOfDayBasedSelection()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_time_of_day_based_config.json")));
+
+            LocalDateTime currentDateTime = LocalDateTime.now(ZoneId.systemDefault());
+            String expectedSubGroup = getTimeOfDayResourceGroup(currentDateTime);
+            assertResourceGroup(queryRunner, newAdhocSession(), LONG_LASTING_QUERY, createResourceGroupId("global", expectedSubGroup));
+        }
+    }
+
+    @Test(timeOut = 240_000)
     public void testQueryTypeBasedSelection()
             throws Exception
     {
@@ -462,5 +480,25 @@ public class TestQueues
         Request request = preparePut().setUri(queryRunner.getCoordinator().resolve(path)).build();
         Status status = fromStatusCode(client.execute(request, createStringResponseHandler()).getStatusCode());
         assertEquals(Status.OK, status);
+    }
+
+    private String getTimeOfDayResourceGroup(LocalDateTime currentDateTime)
+    {
+        requireNonNull(currentDateTime, "currentTime is null");
+
+        LocalTime currentTime = currentDateTime.toLocalTime();
+
+        if (!(currentTime.isBefore(LocalTime.parse("23:59")) && currentTime.isAfter(LocalTime.parse("12:00")))) {
+            return "morning";
+        }
+        else if (currentTime.isAfter(LocalTime.parse("11:59")) && currentTime.isBefore(LocalTime.parse("17:00"))) {
+            return "afternoon";
+        }
+        else if (currentTime.isAfter(LocalTime.parse("16:59")) && currentTime.isBefore(LocalTime.parse("20:00"))) {
+            return "evening";
+        }
+        else {
+            return "night";
+        }
     }
 }
