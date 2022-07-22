@@ -154,7 +154,6 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMe
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
-import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -376,10 +375,10 @@ public class PrestoSparkQueryExecutionFactory
                 credentialsProviders,
                 authenticatorProviders);
 
-        Session session = sessionSupplier.createSession(queryId, sessionContext);
+        Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory);
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
-        WarningCollector warningCollector = warningCollectorFactory.create(getWarningHandlingLevel(session));
+        WarningCollector warningCollector = session.getWarningCollector();
 
         PlanAndMore planAndMore = null;
         try {

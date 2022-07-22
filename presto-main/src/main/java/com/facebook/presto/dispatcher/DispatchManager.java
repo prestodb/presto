@@ -33,7 +33,6 @@ import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
@@ -51,7 +50,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
-import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
 import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
@@ -167,8 +165,8 @@ public class DispatchManager
     }
 
     /**
-     *  Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
-     *  tracker.  If an error occurs while, creating a dispatch query a failed dispatch will be created and registered.
+     * Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
+     * tracker.  If an error occurs while, creating a dispatch query a failed dispatch will be created and registered.
      */
     private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
@@ -182,11 +180,10 @@ public class DispatchManager
             }
 
             // decode session
-            session = sessionSupplier.createSession(queryId, sessionContext);
+            session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory);
 
             // prepare query
-            WarningCollector warningCollector = warningCollectorFactory.create(getWarningHandlingLevel(session));
-            preparedQuery = queryPreparer.prepareQuery(session, query, warningCollector);
+            preparedQuery = queryPreparer.prepareQuery(session, query, session.getWarningCollector());
             query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group
@@ -213,7 +210,7 @@ public class DispatchManager
                     retryCount,
                     selectionContext.getResourceGroupId(),
                     queryType,
-                    warningCollector,
+                    session.getWarningCollector(),
                     (dq) -> resourceGroupManager.submit(preparedQuery.getStatement(), dq, selectionContext, queryExecutor));
 
             boolean queryAdded = queryCreated(dispatchQuery);
