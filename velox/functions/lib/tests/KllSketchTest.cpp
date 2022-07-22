@@ -221,6 +221,43 @@ TEST(KllSketchTest, serialize) {
   EXPECT_EQ(v, v2);
 }
 
+TEST(KllSketchTest, compact) {
+  constexpr int N = 1e5;
+  KllSketch<double> kll(kFromEpsilon(0.001));
+  for (int i = 0; i < N; ++i) {
+    kll.insert(i % 100);
+  }
+  kll.finish();
+  auto kll2 = kll;
+  kll2.compact();
+  EXPECT_GT(kll.serializedByteSize(), 60000);
+  EXPECT_LT(kll2.serializedByteSize(), 7000);
+  auto freq = kll.getFrequencies();
+  auto freq2 = kll2.getFrequencies();
+  ASSERT_EQ(freq.size(), freq2.size());
+  for (int i = 0; i < freq.size(); ++i) {
+    EXPECT_EQ(freq[i], freq2[i]);
+  }
+}
+
+TEST(KllSketchTest, growCompacted) {
+  constexpr int N = 1000;
+  constexpr int M = 101;
+  KllSketch<double> kll(kDefaultK, {}, 0);
+  for (int i = 0; i < N; ++i) {
+    kll.compact();
+    kll.insert(i);
+  }
+  kll.finish();
+  EXPECT_EQ(kll.totalCount(), N);
+  auto q = linspace(M);
+  auto v = kll.estimateQuantiles(folly::Range(q.begin(), q.end()));
+  ASSERT_TRUE(std::is_sorted(std::begin(v), std::end(v)));
+  for (int i = 0; i < M; ++i) {
+    EXPECT_NEAR(q[i], v[i] / N, kEpsilon);
+  }
+}
+
 TEST(KllSketchTest, fromRepeatedValue) {
   constexpr int N = 1000;
   constexpr int kTotal = (1 + N) * N / 2;

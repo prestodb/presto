@@ -291,7 +291,7 @@ template <typename T, typename A, typename C>
 void KllSketch<T, A, C>::doInsert(T value) {
   VELOX_DCHECK_GT(k_, 0);
   VELOX_DCHECK_GE(levels_.size(), 2);
-  if (items_.size() < k_) {
+  if (items_.size() < k_ && numLevels() == 1) {
     // Do not allocate all k elements in the beginning because in some group-by
     // aggregation most of the group size is small and won't use all k spaces.
     items_.push_back(value);
@@ -308,10 +308,18 @@ uint32_t KllSketch<T, A, C>::insertPosition() {
   if (levels_[0] == 0) {
     const uint8_t level = findLevelToCompact();
 
-    // It is important to add the new top level right here. Be aware
-    // that this operation grows the buffer and shifts the data and
-    // also the boundaries of the data and grows the levels array.
     if (level == numLevels() - 1) {
+      if (int delta =
+              detail::computeTotalCapacity(k_, numLevels()) - items_.size();
+          delta > 0) {
+        // Level zero must be under-populated (otherwise `findLevelToCompact()`
+        // would return 0), just grow it.
+        shiftItems(delta);
+        return --levels_[0];
+      }
+      // It is important to add the new top level right here. Be aware
+      // that this operation grows the buffer and shifts the data and
+      // also the boundaries of the data and grows the levels array.
       addEmptyTopLevelToCompletelyFullSketch();
     }
 
@@ -381,7 +389,7 @@ int KllSketch<T, A, C>::findLevelToCompact() const {
     VELOX_DCHECK_LT(level + 1, levels_.size());
     const uint32_t pop = levels_[level + 1] - levels_[level];
     const uint32_t cap = detail::levelCapacity(k_, numLevels(), level);
-    if (pop >= cap) {
+    if (pop >= cap || level + 1 == numLevels()) {
       return level;
     }
   }
@@ -396,17 +404,63 @@ void KllSketch<T, A, C>::addEmptyTopLevelToCompletelyFullSketch() {
   VELOX_DCHECK_EQ(items_.size(), curTotalCap);
 
   const uint32_t deltaCap = detail::levelCapacity(k_, numLevels() + 1, 0);
-  const uint32_t newTotalCap = curTotalCap + deltaCap;
-  items_.resize(newTotalCap);
-  std::move_backward(
-      items_.begin(), items_.begin() + curTotalCap, items_.end());
+  shiftItems(deltaCap);
+  VELOX_DCHECK_EQ(levels_.back(), curTotalCap + deltaCap);
+  levels_.push_back(levels_.back());
+}
 
-  // This loop includes the old "extra" index at the top.
+template <typename T, typename A, typename C>
+void KllSketch<T, A, C>::shiftItems(uint32_t delta) {
+  auto oldTotal = items_.size();
+  items_.resize(items_.size() + delta);
+  std::move_backward(items_.begin(), items_.begin() + oldTotal, items_.end());
   for (auto& lvl : levels_) {
-    lvl += deltaCap;
+    lvl += delta;
   }
-  VELOX_DCHECK_EQ(levels_.back(), newTotalCap);
-  levels_.push_back(newTotalCap);
+}
+
+template <typename T, typename A, typename C>
+void KllSketch<T, A, C>::compact() {
+  finish();
+  uint32_t k = 0;
+  std::vector<T> tmp;
+  auto beg = levels_[0];
+  auto end = levels_[1];
+  levels_[0] = 0;
+  for (int i = 0; i < numLevels(); ++i) {
+    if (!tmp.empty()) {
+      // Merge the items from lower levels.
+      VELOX_DCHECK_LE(k + tmp.size(), beg);
+      auto beg2 = beg - tmp.size();
+      std::copy(tmp.begin(), tmp.end(), items_.begin() + beg2);
+      std::inplace_merge(
+          items_.data() + beg2, items_.data() + beg, items_.data() + end, C());
+      beg = beg2;
+      tmp.clear();
+    }
+    for (auto j = beg; j < end;) {
+      if (j + 1 < end && items_[j] == items_[j + 1]) {
+        // Move to upper level.
+        tmp.push_back(items_[j]);
+        j += 2;
+      } else {
+        items_[k++] = items_[j++];
+      }
+    }
+    if (i + 1 == numLevels()) {
+      if (!tmp.empty()) {
+        levels_.push_back(levels_.back());
+      }
+    }
+    beg = end;
+    if (i + 1 < numLevels()) {
+      end = levels_[i + 2];
+    }
+    levels_[i + 1] = k;
+  }
+  VELOX_DCHECK_LE(k, items_.size());
+  items_.resize(k);
+  VELOX_DCHECK_EQ(items_.size(), levels_.back());
 }
 
 template <typename T, typename A, typename C>
@@ -415,6 +469,39 @@ void KllSketch<T, A, C>::finish() {
     std::sort(items_.data() + levels_[0], items_.data() + levels_[1], C());
     isLevelZeroSorted_ = true;
   }
+}
+
+template <typename T, typename A, typename C>
+std::vector<std::pair<T, uint64_t>> KllSketch<T, A, C>::getFrequencies() const {
+  VELOX_USER_CHECK(
+      isLevelZeroSorted_, "finish() must be called before estimate quantiles");
+  std::vector<std::pair<T, uint64_t>> entries;
+  entries.reserve(levels_.back());
+  for (int level = 0; level < numLevels(); ++level) {
+    auto oldLen = entries.size();
+    for (int i = levels_[level]; i < levels_[level + 1]; ++i) {
+      entries.emplace_back(items_[i], 1 << level);
+    }
+    if (oldLen > 0) {
+      std::inplace_merge(
+          entries.begin(),
+          entries.begin() + oldLen,
+          entries.end(),
+          [](auto& x, auto& y) { return C()(x.first, y.first); });
+    }
+  }
+  int k = 0;
+  for (int i = 0; i < entries.size();) {
+    entries[k] = entries[i];
+    int j = i + 1;
+    while (j < entries.size() && entries[j].first == entries[i].first) {
+      entries[k].second += entries[j++].second;
+    }
+    ++k;
+    i = j;
+  }
+  entries.resize(k);
+  return entries;
 }
 
 template <typename T, typename A, typename C>
@@ -439,32 +526,11 @@ void KllSketch<T, A, C>::estimateQuantiles(
     const folly::Range<Iter>& fractions,
     T* out) const {
   VELOX_USER_CHECK_GT(n_, 0, "estimateQuantiles called on empty sketch");
-  VELOX_USER_CHECK(
-      isLevelZeroSorted_, "finish() must be called before estimate quantiles");
-  using Entry = typename std::pair<T, uint64_t>;
-  using AllocEntry =
-      typename std::allocator_traits<A>::template rebind_alloc<Entry>;
-  std::vector<Entry, AllocEntry> entries((AllocEntry(allocator_)));
-  entries.reserve(levels_.back());
-  for (int level = 0; level < numLevels(); ++level) {
-    auto oldLen = entries.size();
-    for (int i = levels_[level]; i < levels_[level + 1]; ++i) {
-      entries.emplace_back(items_[i], 1 << level);
-    }
-    if (oldLen > 0) {
-      std::inplace_merge(
-          entries.begin(),
-          entries.begin() + oldLen,
-          entries.end(),
-          [](auto& x, auto& y) { return C()(x.first, y.first); });
-    }
-  }
+  auto entries = getFrequencies();
   uint64_t totalWeight = 0;
   for (auto& [_, w] : entries) {
-    auto newTotalWeight = totalWeight + w;
-    // Only count the number of elements strictly smaller.
+    totalWeight += w;
     w = totalWeight;
-    totalWeight = newTotalWeight;
   }
   int i = 0;
   for (auto& q : fractions) {
@@ -479,7 +545,7 @@ void KllSketch<T, A, C>::estimateQuantiles(
       continue;
     }
     uint64_t maxWeight = q * totalWeight;
-    auto it = std::lower_bound(
+    auto it = std::upper_bound(
         entries.begin(),
         entries.end(),
         std::make_pair(T{}, maxWeight),

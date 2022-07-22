@@ -60,6 +60,9 @@ struct KllSketch {
   /// Add one new value to the sketch.
   void insert(T value);
 
+  /// Call this before serialization can optimize the space used.
+  void compact();
+
   /// Merge this sketch with values from multiple other sketches.
   /// @tparam Iter Iterator type dereferenceable to the same type as this sketch
   ///  (KllSketch<T, Allocator, Compare>)
@@ -123,12 +126,16 @@ struct KllSketch {
   /// than deserialize then merge.
   void mergeDeserialized(const char* data);
 
+  /// Get frequencies of items being tracked.  The result is sorted by item.
+  std::vector<std::pair<T, uint64_t>> getFrequencies() const;
+
  private:
   KllSketch(const Allocator&, uint32_t seed);
   void doInsert(T);
   uint32_t insertPosition();
   int findLevelToCompact() const;
   void addEmptyTopLevelToCompletelyFullSketch();
+  void shiftItems(uint32_t delta);
 
   template <typename Iter>
   void estimateQuantiles(const folly::Range<Iter>& fractions, T* out) const;
