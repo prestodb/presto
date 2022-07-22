@@ -119,7 +119,7 @@ public class TestGraphvizPrinter
     @Test
     public void testPrintLogicalForJoinNode()
     {
-        ValuesNode valuesNode = new ValuesNode(Optional.empty(), new PlanNodeId("right"), ImmutableList.of(), ImmutableList.of());
+        ValuesNode valuesNode = new ValuesNode(Optional.empty(), new PlanNodeId("right"), ImmutableList.of(), ImmutableList.of(), Optional.empty());
 
         PlanNode node = new JoinNode(
                 Optional.empty(),

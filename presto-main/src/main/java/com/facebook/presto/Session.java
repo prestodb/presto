@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -90,6 +91,7 @@ public final class Session
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final AccessControlContext context;
     private final Optional<Tracer> tracer;
+    private final WarningCollector warningCollector;
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
 
@@ -116,7 +118,8 @@ public final class Session
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
-            Optional<Tracer> tracer)
+            Optional<Tracer> tracer,
+            WarningCollector warningCollector)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -156,6 +159,7 @@ public final class Session
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
         this.context = new AccessControlContext(queryId, clientInfo, source);
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     public QueryId getQueryId()
@@ -311,6 +315,11 @@ public final class Session
         return tracer;
     }
 
+    public WarningCollector getWarningCollector()
+    {
+        return warningCollector;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -401,7 +410,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
-                tracer);
+                tracer,
+                warningCollector);
     }
 
     public Session withDefaultProperties(
@@ -455,7 +465,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
-                tracer);
+                tracer,
+                warningCollector);
     }
 
     public ConnectorSession toConnectorSession()
@@ -580,6 +591,7 @@ public final class Session
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
         private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = new HashMap<>();
+        private WarningCollector warningCollector = WarningCollector.NOOP;
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -611,6 +623,7 @@ public final class Session
             this.preparedStatements.putAll(session.preparedStatements);
             this.sessionFunctions.putAll(session.sessionFunctions);
             this.tracer = requireNonNull(session.tracer, "tracer is null");
+            this.warningCollector = requireNonNull(session.warningCollector, "warningCollector is null");
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -755,6 +768,17 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setWarningCollector(WarningCollector warningCollector)
+        {
+            this.warningCollector = warningCollector;
+            return this;
+        }
+
+        public <T> T getSystemProperty(String name, Class<T> type)
+        {
+            return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
+        }
+
         public Session build()
         {
             return new Session(
@@ -780,7 +804,8 @@ public final class Session
                     sessionPropertyManager,
                     preparedStatements,
                     sessionFunctions,
-                    tracer);
+                    tracer,
+                    warningCollector);
         }
     }
 

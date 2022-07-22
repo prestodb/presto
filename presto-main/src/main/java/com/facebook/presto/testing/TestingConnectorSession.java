@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
@@ -189,6 +190,12 @@ public class TestingConnectorSession
     public Optional<String> getSchema()
     {
         return schema;
+    }
+
+    @Override
+    public WarningCollector getWarningCollector()
+    {
+        return WarningCollector.NOOP;
     }
 
     @Override

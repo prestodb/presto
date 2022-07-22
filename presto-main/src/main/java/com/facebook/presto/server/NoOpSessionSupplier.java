@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.spi.QueryId;
 
 /**
@@ -23,7 +24,7 @@ public class NoOpSessionSupplier
         implements SessionSupplier
 {
     @Override
-    public Session createSession(QueryId queryId, SessionContext context)
+    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
     {
         throw new UnsupportedOperationException();
     }
