@@ -15,9 +15,12 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.execution.warnings.WarningCollectorFactory;
+import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -33,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.Session.SessionBuilder;
+import static com.facebook.presto.SystemSessionProperties.WARNING_HANDLING;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -61,7 +65,7 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context)
+    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
     {
         Identity identity = context.getIdentity();
         accessControl.checkCanSetUser(
@@ -114,6 +118,10 @@ public class QuerySessionSupplier
         for (Entry<SqlFunctionId, SqlInvokedFunction> entry : context.getSessionFunctions().entrySet()) {
             sessionBuilder.addSessionFunction(entry.getKey(), entry.getValue());
         }
+
+        // Put after setSystemProperty are called
+        WarningCollector warningCollector = warningCollectorFactory.create(sessionBuilder.getSystemProperty(WARNING_HANDLING, WarningHandlingLevel.class));
+        sessionBuilder.setWarningCollector(warningCollector);
 
         Session session = sessionBuilder.build();
         if (context.getTransactionId().isPresent()) {

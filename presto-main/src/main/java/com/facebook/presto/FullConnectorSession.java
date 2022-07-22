@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
@@ -176,5 +177,11 @@ public class FullConnectorSession
                 .add("properties", properties)
                 .omitNullValues()
                 .toString();
+    }
+
+    @Override
+    public WarningCollector getWarningCollector()
+    {
+        return session.getWarningCollector();
     }
 }

@@ -14,12 +14,16 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -28,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -47,6 +52,9 @@ import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENA
 import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
 import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
+import static com.facebook.presto.hive.HiveWarningCode.HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.difference;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -54,6 +62,7 @@ import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.stream.Collectors.joining;
+import static org.testng.Assert.assertTrue;
 
 public class TestHivePushdownFilterQueries
         extends AbstractTestQueryFramework
@@ -1108,6 +1117,16 @@ public class TestHivePushdownFilterQueries
                 "SELECT partkey FROM lineitem WHERE orderkey > 10");
     }
 
+    @Test
+    public void testOptimizeWithWarningMessage()
+    {
+        assertWarnings(
+                getQueryRunner(),
+                getSession(),
+                "SELECT * FROM lineitem WHERE orderkey = 1 and orderkey = 2",
+                ImmutableSet.of(HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE.toWarningCode()));
+    }
+
     private Path getPartitionDirectory(String tableName, String partitionClause)
     {
         String filePath = ((String) computeActual(noPushdownFilter(getSession()), format("SELECT \"$path\" FROM %s WHERE %s LIMIT 1", tableName, partitionClause)).getOnlyValue())
@@ -1144,6 +1163,17 @@ public class TestHivePushdownFilterQueries
     private void assertQueryUsingH2Cte(String query, Function<String, String> rewriter)
     {
         assertQuery(query, WITH_LINEITEM_EX + toH2(rewriter.apply(query)));
+    }
+
+    private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, Set<WarningCode> expectedWarnings)
+    {
+        Set<WarningCode> warnings = queryRunner.execute(session, sql).getWarnings().stream()
+                .map(PrestoWarning::getWarningCode)
+                .collect(toImmutableSet());
+        Set<WarningCode> expectedButMissing = difference(expectedWarnings, warnings);
+        Set<WarningCode> unexpectedWarnings = difference(warnings, expectedWarnings);
+        assertTrue(expectedButMissing.isEmpty(), "Expected warnings: " + expectedButMissing);
+        assertTrue(unexpectedWarnings.isEmpty(), "Unexpected warnings: " + unexpectedWarnings);
     }
 
     private static String toH2(String query)

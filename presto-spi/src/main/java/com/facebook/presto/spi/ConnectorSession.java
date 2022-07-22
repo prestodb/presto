@@ -58,4 +58,6 @@ public interface ConnectorSession
     {
         return false;
     }
+
+    WarningCollector getWarningCollector();
 }
