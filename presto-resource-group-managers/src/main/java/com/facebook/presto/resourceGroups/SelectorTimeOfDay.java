@@ -28,14 +28,14 @@ public final class SelectorTimeOfDay
 
     @JsonCreator
     public SelectorTimeOfDay(
-            @JsonProperty("startTime") LocalTime startTime,
-            @JsonProperty("endTime") LocalTime endTime)
+            @JsonProperty("startTime") String startTime,
+            @JsonProperty("endTime") String endTime)
     {
         requireNonNull(startTime, "startTime is null");
         requireNonNull(endTime, "endTime is null");
 
-        this.startTime = startTime;
-        this.endTime = endTime;
+        this.startTime = LocalTime.parse(startTime);
+        this.endTime = LocalTime.parse(endTime);
     }
 
     @JsonProperty

@@ -89,6 +89,41 @@ public class TestStaticSelector
     }
 
     @Test
+    public void testSelectorTimeOfDay()
+    {
+        ResourceGroupId resourceGroupId1 = new ResourceGroupId(new ResourceGroupId("global"), "foo1");
+        ResourceGroupId resourceGroupId2 = new ResourceGroupId(new ResourceGroupId("global"), "foo2");
+
+        String startTime = "12:00";
+        String endTime1 = "17:00";
+        String endTime2 = "02:00";
+
+        StaticSelector selector1 = new StaticSelector(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new SelectorTimeOfDay(startTime, endTime1)),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.foo1"));
+        StaticSelector selector2 = new StaticSelector(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new SelectorTimeOfDay(startTime, endTime2)),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.foo2"));
+
+        assertEquals(selector1.match(newSelectionCriteria("userA", null, ImmutableSet.of(), LocalDateTime.parse("1986-04-08T12:30"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId1));
+        assertEquals(selector1.match(newSelectionCriteria("userB", null, ImmutableSet.of(), LocalDateTime.parse("1986-04-08T11:30"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.empty());
+        assertEquals(selector2.match(newSelectionCriteria("userA", null, ImmutableSet.of(), LocalDateTime.parse("1986-04-08T03:30"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.empty());
+        assertEquals(selector2.match(newSelectionCriteria("userB", null, ImmutableSet.of(), LocalDateTime.parse("1986-04-08T11:30"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.empty());
+        assertEquals(selector2.match(newSelectionCriteria("userC", null, ImmutableSet.of(), LocalDateTime.parse("1986-04-08T01:30"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId2));
+        assertEquals(selector2.match(newSelectionCriteria("userD", null, ImmutableSet.of(), LocalDateTime.parse("1986-04-08T17:30"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId2));
+    }
+
+    @Test
     public void testSelectorResourceEstimate()
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
