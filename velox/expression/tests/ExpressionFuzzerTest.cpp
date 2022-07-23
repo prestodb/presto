@@ -37,8 +37,6 @@ DEFINE_string(
     "this comma separated list of function names "
     "(e.g: --only \"split\" or --only \"substr,ltrim\").");
 
-DEFINE_int32(steps, 10, "Number of expressions to generate.");
-
 int main(int argc, char** argv) {
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
 
@@ -59,5 +57,5 @@ int main(int argc, char** argv) {
       "cardinality",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
-  return FuzzerRunner::run(FLAGS_only, FLAGS_steps, initialSeed, skipFunctions);
+  return FuzzerRunner::run(FLAGS_only, initialSeed, skipFunctions);
 }

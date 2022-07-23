@@ -59,6 +59,9 @@ endif
 NUM_THREADS ?= $(shell getconf _NPROCESSORS_CONF 2>/dev/null || echo 1)
 CPU_TARGET ?= "avx"
 
+FUZZER_SEED ?= 123456
+FUZZER_DURATION_SEC ?= 60
+
 all: release			#: Build the release version
 
 clean:					#: Delete all build artifacts
@@ -107,8 +110,8 @@ unittest: debug			#: Build with debugging and run unit tests
 # ensure the tests are reproducible.
 fuzzertest: debug
 	$(BUILD_BASE_DIR)/debug/velox/expression/tests/velox_expression_fuzzer_test \
-		--seed 123456 \
-		--steps 100000 \
+		--seed $(FUZZER_SEED) \
+		--duration_sec $(FUZZER_DURATION_SEC) \
 		--logtostderr=1 \
 		--minloglevel=0
 

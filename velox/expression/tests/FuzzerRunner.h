@@ -24,9 +24,8 @@
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/functions/FunctionRegistry.h"
 
-/// ExpressionFuzzerTest is an test/executable helper that leverages
-/// ExpressionFuzzer and VectorFuzzer to automatically generate and execute
-/// expression tests. It works by:
+/// FuzzerRunner leverages ExpressionFuzzer and VectorFuzzer to automatically
+/// generate and execute expression tests. It works by:
 ///
 ///  1. Taking an initial set of available function signatures.
 ///  2. Generating a random expression tree based on the available function
@@ -43,7 +42,9 @@
 ///
 /// The important flags that control Fuzzer's behavior are:
 ///
-///  --steps: how many iterations to run
+///  --steps: how many iterations to run.
+///  --duration_sec: alternatively, for how many seconds it should run (takes
+///          precedence over --steps).
 ///  --seed: pass a deterministic seed to reproduce the behavior (each iteration
 ///          will print a seed as part of the logs).
 ///  --v=1: verbose logging; print a lot more details about the execution.
@@ -102,7 +103,6 @@ class FuzzerRunner {
  public:
   static int run(
       const std::string& onlyFunctions,
-      size_t steps,
       size_t seed,
       const std::unordered_set<std::string>& skipFunctions) {
     facebook::velox::test::expressionFuzzer(
@@ -110,7 +110,6 @@ class FuzzerRunner {
             facebook::velox::getFunctionSignatures(),
             onlyFunctions,
             skipFunctions),
-        steps,
         seed);
     return RUN_ALL_TESTS();
   }

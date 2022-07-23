@@ -29,6 +29,14 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/VectorMaker.h"
 
+DEFINE_int32(steps, 10, "Number of expressions to generate and execute.");
+
+DEFINE_int32(
+    duration_sec,
+    0,
+    "For how long it should run (in seconds). If zero, "
+    "it executes exactly --steps iterations and exits.");
+
 DEFINE_int32(
     batch_size,
     100,
@@ -535,11 +543,29 @@ class ExpressionFuzzer {
     return true;
   }
 
- public:
-  void go(size_t steps) {
-    VELOX_CHECK(!signatures_.empty(), "No function signatures available.");
+  // If --duration_sec > 0, check if we expired the time budget. Otherwise,
+  // check if we expired the number of iterations (--steps).
+  template <typename T>
+  bool isDone(size_t i, T startTime) const {
+    if (FLAGS_duration_sec > 0) {
+      std::chrono::duration<double> elapsed =
+          std::chrono::system_clock::now() - startTime;
+      return elapsed.count() >= FLAGS_duration_sec;
+    }
+    return i >= FLAGS_steps;
+  }
 
-    for (size_t i = 0; i < steps; ++i) {
+ public:
+  void go() {
+    VELOX_CHECK(!signatures_.empty(), "No function signatures available.");
+    VELOX_CHECK(
+        FLAGS_steps > 0 || FLAGS_duration_sec > 0,
+        "Either --steps or --duration_sec needs to be greater than zero.")
+
+    auto startTime = std::chrono::system_clock::now();
+    size_t i = 0;
+
+    while (!isDone(i, startTime)) {
       LOG(INFO) << "==============================> Started iteration " << i
                 << " (seed: " << currentSeed_ << ")";
       VELOX_CHECK(inputRowTypes_.empty());
@@ -569,6 +595,7 @@ class ExpressionFuzzer {
 
       LOG(INFO) << "==============================> Done with iteration " << i;
       reSeed();
+      ++i;
     }
   }
 
@@ -605,11 +632,8 @@ class ExpressionFuzzer {
 
 } // namespace
 
-void expressionFuzzer(
-    FunctionSignatureMap signatureMap,
-    size_t steps,
-    size_t seed) {
-  ExpressionFuzzer(std::move(signatureMap), seed).go(steps);
+void expressionFuzzer(FunctionSignatureMap signatureMap, size_t seed) {
+  ExpressionFuzzer(std::move(signatureMap), seed).go();
 }
 
 } // namespace facebook::velox::test

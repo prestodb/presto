@@ -20,11 +20,8 @@
 
 namespace facebook::velox::test {
 
-// Generates random expressions based on `signatures` and random input data (via
-// VectorFuzzer). Generates `steps` distinct expressions.
-void expressionFuzzer(
-    FunctionSignatureMap signatureMap,
-    size_t steps,
-    size_t seed);
+// Generates random expressions based on `signatures`, random input data (via
+// VectorFuzzer), and executes them.
+void expressionFuzzer(FunctionSignatureMap signatureMap, size_t seed);
 
 } // namespace facebook::velox::test
