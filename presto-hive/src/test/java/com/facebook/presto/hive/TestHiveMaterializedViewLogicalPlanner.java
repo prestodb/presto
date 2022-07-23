@@ -2114,6 +2114,98 @@ public class TestHiveMaterializedViewLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewAvgRewrite()
+    {
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned";
+        String view = "orders_view_sum_count";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, totalprice, '2020-01-01' AS ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, totalprice, '2020-01-02' AS ds FROM orders WHERE orderkey > 1000 AND orderkey < 2000 ", table));
+
+            queryRunner.execute(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT sum(totalprice) AS sum_price, count(totalprice) AS price_count, orderkey, ds FROM %s GROUP BY orderkey, ds", view, table));
+
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2020-01-01'", view), 255);
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+
+            String baseQuery = format("SELECT avg(totalprice) as base_avg_price, orderkey FROM %s GROUP BY orderkey ORDER BY orderkey", table);
+            MaterializedResult baseQueryResult = computeActual(baseQuery);
+            MaterializedResult optimizedQueryResultSumCount = computeActual(queryOptimizationWithMaterializedView, baseQuery);
+            assertEquals(optimizedQueryResultSumCount, baseQueryResult);
+
+            assertPlan(queryOptimizationWithMaterializedView, baseQuery, anyTree(exchange(
+                    anyTree(constrainedTableScan(
+                            table,
+                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2020-01-02"))),
+                            ImmutableMap.of())),
+                    anyTree(constrainedTableScan(
+                            view,
+                            ImmutableMap.of(),
+                            ImmutableMap.of())))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewApproxDistinctRewrite()
+    {
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned";
+        String view = "orders_view";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, custkey, '2020-01-01' AS ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, custkey, '2020-01-02' AS ds FROM orders WHERE orderkey > 1000 AND orderkey < 2000 ", table));
+
+            queryRunner.execute(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT CAST(approx_set(custkey) AS varbinary) AS customers, orderkey, ds FROM %s GROUP BY orderkey, ds", view, table));
+
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2020-01-01'", view), 255);
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+
+            String baseQuery = format("SELECT approx_distinct(custkey) as approx_customers, orderkey FROM %s GROUP BY orderkey ORDER BY orderkey", table);
+
+            MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
+            MaterializedResult baseQueryResult = computeActual(baseQuery);
+            assertEquals(optimizedQueryResult, baseQueryResult);
+
+            assertPlan(queryOptimizationWithMaterializedView, baseQuery, anyTree(exchange(
+                    anyTree(constrainedTableScan(
+                            table,
+                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2020-01-02"))),
+                            ImmutableMap.of())),
+                    anyTree(constrainedTableScan(
+                            view,
+                            ImmutableMap.of(),
+                            ImmutableMap.of())))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testMaterializedViewForJoinWithMultiplePartitions()
     {
         QueryRunner queryRunner = getQueryRunner();

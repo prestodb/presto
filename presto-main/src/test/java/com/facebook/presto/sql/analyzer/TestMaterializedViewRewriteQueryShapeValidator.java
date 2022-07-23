@@ -37,8 +37,8 @@ public class TestMaterializedViewRewriteQueryShapeValidator
     public void unsupportedFunction()
     {
         assertFails(
-                "SELECT AVG(x) AS avg_x, y FROM tbl GROUP BY y",
-                "Query shape invalid: avg function is not supported for materialized view optimizations");
+                "SELECT GEOMETRIC_MEAN(x) AS geomean_x, y FROM tbl GROUP BY y",
+                "Query shape invalid: geometric_mean function is not supported for materialized view optimizations");
     }
 
     @Test
