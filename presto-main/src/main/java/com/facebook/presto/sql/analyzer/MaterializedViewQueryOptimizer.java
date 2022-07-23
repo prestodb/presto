@@ -78,6 +78,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -94,7 +95,9 @@ import static com.facebook.presto.sql.ExpressionUtils.removeExpressionPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeGroupingElementPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSingleColumnPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSortItemPrefix;
+import static com.facebook.presto.sql.MaterializedViewUtils.ASSOCIATIVE_REWRITE_FUNCTIONS;
 import static com.facebook.presto.sql.MaterializedViewUtils.COUNT;
+import static com.facebook.presto.sql.MaterializedViewUtils.NON_ASSOCIATIVE_REWRITE_FUNCTIONS;
 import static com.facebook.presto.sql.MaterializedViewUtils.SUM;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
@@ -590,12 +593,23 @@ public class MaterializedViewQueryOptimizer
         {
             ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
 
-            if (materializedViewInfo.getBaseToViewColumnMap().containsKey(node)) {
-                Identifier derivedColumn = materializedViewInfo.getBaseToViewColumnMap().get(node);
+            Map<Expression, Identifier> baseToViewColumnMap = materializedViewInfo.getBaseToViewColumnMap();
+
+            if (NON_ASSOCIATIVE_REWRITE_FUNCTIONS.containsKey(node.getName())) {
+                return MaterializedViewUtils.rewriteNonAssociativeFunction(node, baseToViewColumnMap);
+            }
+
+            if (!ASSOCIATIVE_REWRITE_FUNCTIONS.contains(node.getName())) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Was unable to rewrite non-associative function call with materialized view");
+            }
+
+            if (baseToViewColumnMap.containsKey(node)) {
+                Identifier derivedColumn = baseToViewColumnMap.get(node);
 
                 if (node.getName().equals(COUNT)) {
                     return rewriteCountAsSum(node, derivedColumn);
                 }
+                // TODO: We should be able to add more functions (e.g. BOOL_AND, BOOL_OR) to simple associative case
                 rewrittenArguments.add(derivedColumn);
             }
             else {
@@ -689,9 +703,13 @@ public class MaterializedViewQueryOptimizer
 
         private boolean validateExpressionForGroupBy(Set<Expression> groupByOfMaterializedView, Expression expression)
         {
+            boolean canRewrite = expression instanceof FunctionCall
+                    && (ASSOCIATIVE_REWRITE_FUNCTIONS.contains(((FunctionCall) expression).getName())
+                    || MaterializedViewUtils.validateNonAssociativeFunctionRewrite((FunctionCall) expression, materializedViewInfo.getBaseToViewColumnMap()));
+
             // If a selected column is not present in GROUP BY node of the query.
             // It must be 1) be selected in the materialized view and 2) not present in GROUP BY node of the materialized view
-            return groupByOfMaterializedView.contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression);
+            return groupByOfMaterializedView.contains(expression) || !(materializedViewInfo.getBaseToViewColumnMap().containsKey(expression) || canRewrite);
         }
 
         /**
