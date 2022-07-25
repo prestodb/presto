@@ -890,7 +890,11 @@ public class MetastoreUtil
             return getSupportedColumnStatistics(((TypeWithName) type).getType());
         }
         if (type instanceof DistinctType) {
-            return getSupportedColumnStatistics(((DistinctType) type).getBaseType());
+            Set<ColumnStatisticType> stats = getSupportedColumnStatistics(((DistinctType) type).getBaseType());
+            if (!type.isOrderable()) {
+                stats.removeAll(ImmutableSet.of(MIN_VALUE, MAX_VALUE));
+            }
+            return stats;
         }
         if (type instanceof EnumType) {
             return getSupportedColumnStatistics(((EnumType) type).getValueType());
