@@ -21,6 +21,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryFingerprint;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -71,6 +72,7 @@ public final class Session
     private final boolean clientTransactionSupport;
     private final Identity identity;
     private final Optional<String> source;
+    private Optional<QueryFingerprint> queryFingerprint;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final TimeZoneKey timeZoneKey;
@@ -99,6 +101,7 @@ public final class Session
             boolean clientTransactionSupport,
             Identity identity,
             Optional<String> source,
+            Optional<QueryFingerprint> queryFingerprint,
             Optional<String> catalog,
             Optional<String> schema,
             Optional<String> traceToken,
@@ -123,6 +126,7 @@ public final class Session
         this.clientTransactionSupport = clientTransactionSupport;
         this.identity = requireNonNull(identity, "identity is null");
         this.source = requireNonNull(source, "source is null");
+        this.queryFingerprint = requireNonNull(queryFingerprint, "query fingerprint is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
@@ -176,6 +180,11 @@ public final class Session
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    public Optional<QueryFingerprint> getQueryFingerprint()
+    {
+        return queryFingerprint;
     }
 
     public Optional<String> getCatalog()
@@ -384,6 +393,7 @@ public final class Session
                         identity.getExtraCredentials(),
                         identity.getExtraAuthenticators()),
                 source,
+                queryFingerprint,
                 catalog,
                 schema,
                 traceToken,
@@ -438,6 +448,7 @@ public final class Session
                 clientTransactionSupport,
                 identity,
                 source,
+                queryFingerprint,
                 catalog,
                 schema,
                 traceToken,
@@ -452,6 +463,34 @@ public final class Session
                 systemProperties,
                 ImmutableMap.of(),
                 connectorProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                sessionFunctions,
+                tracer);
+    }
+
+    public Session withQueryFingerprint(Optional<QueryFingerprint> queryFingerprint)
+    {
+        return new Session(queryId,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                source,
+                queryFingerprint,
+                catalog,
+                schema,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                resourceEstimates,
+                startTime,
+                systemProperties,
+                connectorProperties,
+                unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
@@ -501,6 +540,7 @@ public final class Session
                 identity.getUser(),
                 identity.getPrincipal().map(Principal::toString),
                 source,
+                queryFingerprint,
                 catalog,
                 schema,
                 traceToken,
@@ -529,6 +569,7 @@ public final class Session
                 .add("user", getUser())
                 .add("principal", getIdentity().getPrincipal().orElse(null))
                 .add("source", source.orElse(null))
+                .add("fingerprint", queryFingerprint.orElse(null))
                 .add("catalog", catalog.orElse(null))
                 .add("schema", schema.orElse(null))
                 .add("traceToken", traceToken.orElse(null))
@@ -562,6 +603,7 @@ public final class Session
         private boolean clientTransactionSupport;
         private Identity identity;
         private String source;
+        private QueryFingerprint queryFingerprint;
         private String catalog;
         private String schema;
         private Optional<String> traceToken = Optional.empty();
@@ -610,6 +652,7 @@ public final class Session
             session.unprocessedCatalogProperties.forEach((key, value) -> this.catalogSessionProperties.put(key, new HashMap<>(value)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.sessionFunctions.putAll(session.sessionFunctions);
+            this.queryFingerprint = queryFingerprint;
             this.tracer = requireNonNull(session.tracer, "tracer is null");
         }
 
@@ -665,6 +708,12 @@ public final class Session
         public SessionBuilder setSource(String source)
         {
             this.source = source;
+            return this;
+        }
+
+        public SessionBuilder setQueryFingerprint(QueryFingerprint queryFingerprint)
+        {
+            this.queryFingerprint = queryFingerprint;
             return this;
         }
 
@@ -763,6 +812,7 @@ public final class Session
                     clientTransactionSupport,
                     identity,
                     Optional.ofNullable(source),
+                    Optional.ofNullable(queryFingerprint),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
                     traceToken,

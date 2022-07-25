@@ -481,6 +481,7 @@ public class LocalQueryRunner
                 defaultSession.isClientTransactionSupport(),
                 defaultSession.getIdentity(),
                 defaultSession.getSource(),
+                defaultSession.getQueryFingerprint(),
                 defaultSession.getCatalog(),
                 defaultSession.getSchema(),
                 defaultSession.getTraceToken(),
