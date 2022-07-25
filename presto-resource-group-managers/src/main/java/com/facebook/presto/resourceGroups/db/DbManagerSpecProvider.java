@@ -107,6 +107,7 @@ public class DbManagerSpecProvider
                                 selectorRecord.getSourceRegex(),
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),
+                                selectorRecord.getTimeOfDay(),
                                 selectorRecord.getSelectorResourceEstimate(),
                                 resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
                 ).collect(toList());

@@ -15,6 +15,7 @@ package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.resourceGroups.SelectorResourceEstimate;
+import com.facebook.presto.resourceGroups.SelectorTimeOfDay;
 import com.google.common.collect.ImmutableList;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
@@ -37,6 +38,7 @@ public class SelectorRecord
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
+    private final Optional<SelectorTimeOfDay> timeOfDay;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
 
     public SelectorRecord(
@@ -46,6 +48,7 @@ public class SelectorRecord
             Optional<Pattern> sourceRegex,
             Optional<String> queryType,
             Optional<List<String>> clientTags,
+            Optional<SelectorTimeOfDay> timeOfDay,
             Optional<SelectorResourceEstimate> selectorResourceEstimate)
     {
         this.resourceGroupId = resourceGroupId;
@@ -54,6 +57,7 @@ public class SelectorRecord
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null").map(ImmutableList::copyOf);
+        this.timeOfDay = requireNonNull(timeOfDay, "timeOfDay is null");
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
     }
 
@@ -87,6 +91,11 @@ public class SelectorRecord
         return clientTags;
     }
 
+    public Optional<SelectorTimeOfDay> getTimeOfDay()
+    {
+        return timeOfDay;
+    }
+
     public Optional<SelectorResourceEstimate> getSelectorResourceEstimate()
     {
         return selectorResourceEstimate;
@@ -109,6 +118,7 @@ public class SelectorRecord
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("query_type")),
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
+                    Optional.empty(),
                     Optional.ofNullable(resultSet.getString("selector_resource_estimate")).map(SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC::fromJson));
         }
     }
