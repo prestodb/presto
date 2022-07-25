@@ -213,7 +213,7 @@
             "local_files": {
              "items": [
               {
-               "format": "FILE_FORMAT_UNSPECIFIED",
+               "orc": {},
                "partition_index": "0",
                "start": "0",
                "length": "3719",

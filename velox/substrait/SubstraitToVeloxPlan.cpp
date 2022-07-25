@@ -330,6 +330,8 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 
   // Parse local files
   if (readRel.has_local_files()) {
+    using SubstraitFileFormatCase =
+        ::substrait::ReadRel_LocalFiles_FileOrFiles::FileFormatCase;
     const auto& fileList = readRel.local_files().items();
     splitInfo->paths.reserve(fileList.size());
     splitInfo->starts.reserve(fileList.size());
@@ -340,11 +342,11 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       splitInfo->paths.emplace_back(file.uri_file());
       splitInfo->starts.emplace_back(file.start());
       splitInfo->lengths.emplace_back(file.length());
-      switch (file.format()) {
-        case 0:
+      switch (file.file_format_case()) {
+        case SubstraitFileFormatCase::kOrc:
           splitInfo->format = dwio::common::FileFormat::DWRF;
           break;
-        case 1:
+        case SubstraitFileFormatCase::kParquet:
           splitInfo->format = dwio::common::FileFormat::PARQUET;
           break;
         default:

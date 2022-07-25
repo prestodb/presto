@@ -412,11 +412,11 @@
             "local_files": {
              "items": [
               {
-               "format": "FILE_FORMAT_UNSPECIFIED",
                "partition_index": "0",
                "start": "0",
                "length": "3719",
-               "uri_file": "/mock_lineitem.orc"
+               "uri_file": "/mock_lineitem.orc",
+               "orc": {}
               }
              ]
             }
