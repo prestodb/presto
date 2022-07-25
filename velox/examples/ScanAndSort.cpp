@@ -129,14 +129,10 @@ int main(int argc, char** argv) {
       /*destination=*/0,
       core::QueryCtx::createForTest());
 
-  // Then start the task. `maxDrivers` controls the maximum number of threads
-  // that will be used to run operators in this pipeline.
-  exec::Task::start(writeTask, /*maxDrivers=*/1);
-
-  // Ensures that the task is finished before moving on. 0 timeout means it will
-  // block forever until the task finishes.
-  auto& inlineExecutor = folly::QueuedImmediateExecutor::instance();
-  writeTask->stateChangeFuture(0).via(&inlineExecutor).wait();
+  // next() starts execution using the client thread. The loop pumps output
+  // vectors out of the task (there are none in this query fragment).
+  while (auto result = writeTask->next())
+    ;
 
   // At this point, the first part of the example is done; there is now a
   // file encoded using dwrf at `filePath`. The next part of the example
@@ -155,27 +151,12 @@ int main(int argc, char** argv) {
                               .orderBy({"my_col"}, /*isPartial=*/false)
                               .planFragment();
 
-  // For the reader task, we also specify a `Consumer` callback, which is called
-  // whenever a new processed batch is available. It returns a `BlockingReason`,
-  // specifying whether the upstream task should be blocked (and the reason), or
-  // continue generating output vectors.
+  // Create the reader task.
   auto readTask = std::make_shared<exec::Task>(
       "my_read_task",
       readPlanFragment,
       /*destination=*/0,
-      core::QueryCtx::createForTest(),
-      [](RowVectorPtr vector, facebook::velox::ContinueFuture*) {
-        if (vector) {
-          LOG(INFO) << "Vector available after processing (scan + sort):";
-          for (size_t i = 0; i < vector->size(); ++i) {
-            LOG(INFO) << vector->toString(i);
-          }
-        }
-        return exec::BlockingReason::kNotBlocked;
-      });
-
-  // Start the task.
-  exec::Task::start(readTask, /*maxDrivers=*/1);
+      core::QueryCtx::createForTest());
 
   // Now that we have the query fragment and Task structure set up, we will
   // add data to it via `splits`.
@@ -193,12 +174,17 @@ int main(int argc, char** argv) {
   // TableScan.
   readTask->addSplit(scanNodeId, exec::Split{connectorSplit});
 
-  // Signal that no more splits will be added. After this point, the consumer
-  // callbacks will be called once the data is processed.
+  // Signal that no more splits will be added. After this point, calling next()
+  // on the task will start the plan execution using the current thread.
   readTask->noMoreSplits(scanNodeId);
 
-  // Here we need to make sure main() doesn't return (and hence destructs the
-  // local Task object) before the task is done executing.
-  readTask->stateChangeFuture(0).via(&inlineExecutor).wait();
+  // Read output vectors and print them.
+  while (auto result = readTask->next()) {
+    LOG(INFO) << "Vector available after processing (scan + sort):";
+    for (size_t i = 0; i < result->size(); ++i) {
+      LOG(INFO) << result->toString(i);
+    }
+  }
+
   return 0;
 }

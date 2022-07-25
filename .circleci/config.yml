@@ -172,10 +172,9 @@ jobs:
             make fuzzertest
           no_output_timeout: 5m
       - run:
-         name: "Run the velox examples"
+         name: "Run Example Binaries"
          command: |
-           _build/debug/velox/examples/velox_example_expression_eval
-           _build/debug/velox/examples/velox_example_opaque_type
+           find _build/debug/velox/examples/ -maxdepth 1 -type f -executable -exec "{}" \;
 
   linux-build-release:
     executor: build

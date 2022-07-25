@@ -440,7 +440,10 @@ void Driver::run(std::shared_ptr<Driver> self) {
 
   // When Driver runs on an executor, the last operator (sink) must not produce
   // any results.
-  VELOX_CHECK_NULL(nullResult);
+  VELOX_CHECK_NULL(
+      nullResult,
+      "The last operator (sink) must not produce any results. "
+      "Results need to be consumed by either a callback or another operator. ")
 
   switch (reason) {
     case StopReason::kBlock:
