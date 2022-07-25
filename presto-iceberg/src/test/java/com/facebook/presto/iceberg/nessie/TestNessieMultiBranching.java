@@ -79,7 +79,7 @@ public class TestNessieMultiBranching
         assertQueryFails(sessionOnRef("unknownRef"), "CREATE SCHEMA nessie_namespace", ".*Nessie ref 'unknownRef' does not exist.*");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testNamespaceVisibility()
             throws NessieConflictException, NessieNotFoundException
     {
@@ -98,7 +98,7 @@ public class TestNessieMultiBranching
         assertThat(computeActual(sessionTwo, "SHOW SCHEMAS FROM iceberg LIKE 'namespace_one'").getMaterializedRows()).isEmpty();
     }
 
-    @Test
+    @Test(enabled = false)
     public void testTableDataVisibility()
             throws NessieConflictException, NessieNotFoundException
     {
