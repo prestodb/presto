@@ -19,6 +19,7 @@ import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
+import com.facebook.presto.router.scheduler.SchedulerType;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
@@ -34,10 +35,12 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -52,7 +55,9 @@ public class ClusterManager
 
     private final Map<String, GroupSpec> groups;
     private final List<SelectorRuleSpec> groupSelectors;
+    private final SchedulerType schedulerType;
     private final Scheduler scheduler;
+    private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
 
     @Inject
     public ClusterManager(RouterConfig config)
@@ -86,7 +91,10 @@ public class ClusterManager
 
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
+        this.schedulerType = routerSpec.getSchedulerType();
         this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
+
+        this.initializeServerWeights();
     }
 
     public List<URI> getAllClusters()
@@ -104,7 +112,12 @@ public class ClusterManager
         }
 
         checkArgument(groups.containsKey(target.get()));
-        scheduler.setCandidates(groups.get(target.get()).getMembers());
+        GroupSpec groupSpec = groups.get(target.get());
+        scheduler.setCandidates(groupSpec.getMembers());
+        if (schedulerType == WEIGHTED_RANDOM_CHOICE) {
+            scheduler.setWeights(serverWeights.get(groupSpec.getName()));
+        }
+
         return scheduler.getDestination(requestInfo.getUser());
     }
 
@@ -115,5 +128,17 @@ public class ClusterManager
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
+    }
+
+    private void initializeServerWeights()
+    {
+        groups.forEach((name, groupSpec) -> {
+            List<URI> members = groupSpec.getMembers();
+            List<Integer> weights = groupSpec.getWeights();
+            serverWeights.put(name, new HashMap<>());
+            for (int i = 0; i < members.size(); i++) {
+                serverWeights.get(name).put(members.get(i), weights.get(i));
+            }
+        });
     }
 }
