@@ -15,10 +15,6 @@ set(VELOX_LINK_LIBS
     velox_caching
     velox_dwio_common
     velox_dwio_common_exception
-    velox_dwio_dwrf_common
-    velox_dwio_dwrf_reader
-    velox_dwio_dwrf_utils
-    velox_dwio_dwrf_writer
     velox_dwio_type_fbhive
     velox_encode
     velox_exception
@@ -32,7 +28,9 @@ set(VELOX_LINK_LIBS
 
 add_subdirectory(common)
 add_subdirectory(dwrf)
+
 if(VELOX_ENABLE_PARQUET)
   add_subdirectory(parquet)
 endif()
+
 add_subdirectory(type)

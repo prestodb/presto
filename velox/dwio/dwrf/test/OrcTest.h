@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include <google/protobuf/wire_format_lite.h>
 #include "velox/dwio/common/IntCodecCommon.h"
+#include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/dwio/dwrf/common/Encryption.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
-#include "velox/dwio/dwrf/test/utils/DataFiles.h"
 #include "velox/dwio/dwrf/writer/IndexBuilder.h"
 #include "velox/dwio/dwrf/writer/WriterBase.h"
 
 #include <gmock/gmock.h>
+#include <google/protobuf/wire_format_lite.h>
 
 namespace facebook::velox::dwrf {
 
@@ -33,7 +33,8 @@ namespace facebook::velox::dwrf {
 using MemoryPool = memory::MemoryPool;
 
 inline std::string getExampleFilePath(const std::string& fileName) {
-  return test::getDataFilePath("velox/dwio/dwrf/test", "examples/" + fileName);
+  return velox::test::getDataFilePath(
+      "velox/dwio/dwrf/test", "examples/" + fileName);
 }
 
 class MockStripeStreams : public StripeStreams {

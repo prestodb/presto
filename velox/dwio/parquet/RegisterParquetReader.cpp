@@ -16,6 +16,9 @@
 
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 
+#include "velox/dwio/parquet/duckdb_reader/ParquetReader.h"
+#include "velox/dwio/parquet/reader/ParquetReader.h"
+
 namespace facebook::velox::parquet {
 
 void registerParquetReaderFactory(ParquetReaderType parquetReaderType) {
@@ -23,6 +26,10 @@ void registerParquetReaderFactory(ParquetReaderType parquetReaderType) {
     case ParquetReaderType::DUCKDB:
       dwio::common::registerReaderFactory(
           std::make_shared<duckdb_reader::ParquetReaderFactory>());
+      break;
+    case ParquetReaderType::NATIVE:
+      dwio::common::registerReaderFactory(
+          std::make_shared<ParquetReaderFactory>());
       break;
     default:
       VELOX_UNSUPPORTED(

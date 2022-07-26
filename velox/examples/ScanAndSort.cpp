@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-#include <folly/init/Init.h>
-#include <algorithm>
-
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
+
+#include <folly/init/Init.h>
+#include <algorithm>
 
 using namespace facebook::velox;
 

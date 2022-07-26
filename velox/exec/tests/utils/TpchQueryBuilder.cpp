@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 #include "velox/exec/tests/utils/TpchQueryBuilder.h"
+
 #include "velox/common/base/tests/Fs.h"
-#include "velox/connectors/hive/HiveConnector.h"
+#include "velox/dwio/common/ReaderFactory.h"
 #include "velox/tpch/gen/TpchGen.h"
 
 namespace facebook::velox::exec::test {

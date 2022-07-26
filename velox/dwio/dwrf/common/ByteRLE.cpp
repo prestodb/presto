@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/dwio/dwrf/common/ByteRLE.h"
+
 #include <algorithm>
 
 #include "velox/dwio/common/exception/Exceptions.h"
-#include "velox/dwio/dwrf/common/ByteRLE.h"
 
 namespace facebook::velox::dwrf {
 

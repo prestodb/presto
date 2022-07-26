@@ -12,16 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(duckdb_reader)
-add_subdirectory(thrift)
-add_subdirectory(reader)
-add_subdirectory(writer)
-
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()
-
-add_library(velox_dwio_parquet_reader RegisterParquetReader.cpp)
-target_link_libraries(
-  velox_dwio_parquet_reader velox_dwio_duckdb_parquet_reader
-  velox_dwio_native_parquet_reader xsimd)
+add_library(velox_dwio_parquet_thrift ParquetThriftTypes.cpp)
+target_link_libraries(velox_dwio_parquet_thrift arrow thrift)

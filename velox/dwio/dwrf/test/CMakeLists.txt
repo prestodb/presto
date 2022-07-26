@@ -15,6 +15,7 @@
 add_subdirectory(utils)
 
 set(TEST_LINK_LIBS
+    velox_dwio_test_utils
     velox_dwrf_test_utils
     ${gflags_LIBRARIES}
     gtest

@@ -17,7 +17,7 @@
 #include "velox/substrait/tests/JsonToProtoConverter.h"
 
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/dwio/dwrf/test/utils/DataFiles.h"
+#include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"

@@ -192,7 +192,7 @@ class ScopedMemoryPool final : public MemoryPool {
     return pool_.reallocate(p, size, newSize);
   }
 
-  void free(void* p, int64_t size) override {
+  void free(void* FOLLY_NULLABLE p, int64_t size) override {
     return pool_.free(p, size);
   }
 

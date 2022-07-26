@@ -31,8 +31,15 @@ if(VELOX_ENABLE_ARROW)
       -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}/install
       -DARROW_BUILD_STATIC=ON)
   set(ARROW_LIBDIR ${ARROW_PREFIX}/install/${CMAKE_INSTALL_LIBDIR})
-  set(THRIFT
-      ${ARROW_PREFIX}/src/arrow_ep-build/thrift_ep-install/lib/libthrift.a)
+
+  add_library(thrift STATIC IMPORTED GLOBAL)
+  set(THRIFT_ROOT ${ARROW_PREFIX}/src/arrow_ep-build/thrift_ep-install)
+  set(THRIFT_LIB ${THRIFT_ROOT}/lib/libthrift.a)
+  file(MAKE_DIRECTORY ${THRIFT_ROOT}/include)
+  set_property(TARGET thrift PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+                                      ${THRIFT_ROOT}/include)
+  set_property(TARGET thrift PROPERTY IMPORTED_LOCATION ${THRIFT_LIB})
+
   ExternalProject_Add(
     arrow_ep
     PREFIX ${ARROW_PREFIX}
@@ -40,7 +47,7 @@ if(VELOX_ENABLE_ARROW)
     SOURCE_SUBDIR cpp
     CMAKE_ARGS ${ARROW_CMAKE_ARGS}
     BUILD_BYPRODUCTS ${ARROW_LIBDIR}/libarrow.a ${ARROW_LIBDIR}/libparquet.a
-                     ${THRIFT})
+                     ${THRIFT_LIB})
   add_library(arrow STATIC IMPORTED GLOBAL)
   add_library(parquet STATIC IMPORTED GLOBAL)
   add_dependencies(arrow arrow_ep)
@@ -51,7 +58,8 @@ if(VELOX_ENABLE_ARROW)
                              ${ARROW_PREFIX}/install/include)
   set_target_properties(arrow PROPERTIES IMPORTED_LOCATION
                                          ${ARROW_LIBDIR}/libarrow.a)
-  set_property(TARGET arrow PROPERTY INTERFACE_LINK_LIBRARIES ${RE2} ${THRIFT})
+  set_property(TARGET arrow PROPERTY INTERFACE_LINK_LIBRARIES ${RE2} thrift)
   set_target_properties(parquet PROPERTIES IMPORTED_LOCATION
                                            ${ARROW_LIBDIR}/libparquet.a)
+
 endif()

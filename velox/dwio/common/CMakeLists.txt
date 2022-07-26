@@ -49,8 +49,9 @@ target_link_libraries(
   velox_dwio_common
   velox_buffer
   velox_caching
-  velox_dwio_common_encryption
   velox_dwio_common_compression
+  velox_dwio_common_encryption
+  velox_dwio_common_exception
   velox_exception
   velox_memory
   Boost::regex

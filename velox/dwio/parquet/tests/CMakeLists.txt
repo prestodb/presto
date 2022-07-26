@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# for generated headers
-include_directories(${CMAKE_BINARY_DIR})
-
 set(TEST_LINK_LIBS
-    velox_dwrf_test_utils
+    velox_dwio_test_utils
     velox_vector_test_lib
     gtest
     gtest_main
@@ -26,21 +23,4 @@ set(TEST_LINK_LIBS
     ${FILESYSTEM})
 
 add_subdirectory(duckdb_reader)
-
-if(VELOX_ENABLE_ARROW)
-
-  add_executable(velox_parquet_e2e_filter_test E2EFilterTest.cpp)
-
-  add_test(velox_parquet_e2e_filter_test velox_parquet_e2e_filter_test)
-
-  target_link_libraries(
-    velox_parquet_e2e_filter_test
-    velox_e2e_filter_test_base
-    velox_dwio_parquet_writer
-    ${LZ4}
-    ${LZO}
-    ${ZSTD}
-    ${ZLIB_LIBRARIES}
-    ${TEST_LINK_LIBS})
-
-endif()
+add_subdirectory(reader)

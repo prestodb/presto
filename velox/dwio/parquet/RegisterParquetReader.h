@@ -16,11 +16,9 @@
 
 #pragma once
 
-#include "velox/dwio/parquet/duckdb_reader/ParquetReader.h"
-
 namespace facebook::velox::parquet {
 
-enum class ParquetReaderType { DUCKDB };
+enum class ParquetReaderType { DUCKDB, NATIVE };
 
 void registerParquetReaderFactory(ParquetReaderType parquetReaderType);
 

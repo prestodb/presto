@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <gtest/gtest.h>
-
-#include "velox/dwio/dwrf/test/utils/DataFiles.h"
+#include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/vector/tests/VectorMaker.h"
+
+#include <gtest/gtest.h>
 
 namespace facebook::velox::dwio::parquet {
 
@@ -145,6 +145,11 @@ class ParquetReaderTestBase : public testing::Test {
     rowReaderOpts.setScanSpec(scanSpec);
     auto rowReader = reader->createRowReader(rowReaderOpts);
     assertReadExpected(*rowReader, expected);
+  }
+
+  std::string getExampleFilePath(const std::string& fileName) {
+    return test::getDataFilePath(
+        "velox/dwio/parquet/tests/reader", "../examples/" + fileName);
   }
 
   std::unique_ptr<memory::ScopedMemoryPool> pool_{

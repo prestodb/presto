@@ -40,7 +40,7 @@ class MicrosecondTimer {
 
  private:
   std::chrono::steady_clock::time_point start_;
-  uint64_t* timer_;
+  uint64_t* FOLLY_NONNULL timer_;
 };
 
 // Measures the time between construction and destruction with

@@ -13,15 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/connectors/hive/HiveConnector.h"
 
-#include <memory>
-
 #include "velox/dwio/common/InputStream.h"
+#include "velox/dwio/common/ReaderFactory.h"
 #include "velox/expression/FieldReference.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
+
+#include <memory>
 
 using namespace facebook::velox::dwrf;
 using WriterConfig = facebook::velox::dwrf::Config;

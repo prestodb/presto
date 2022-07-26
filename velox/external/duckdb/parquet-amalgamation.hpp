@@ -345,6 +345,8 @@ public:
 #include <stdint.h>
 #endif
 
+//namespace duckdb_apache {
+//namespace thrift {
 /**
  * T_GLOBAL_DEBUGGING_LEVEL = 0: all debugging turned off, debug macros undefined
  * T_GLOBAL_DEBUGGING_LEVEL = 1: all debugging turned on
@@ -453,6 +455,9 @@ public:
 #define T_VIRTUAL_CALL()
 #define T_GENERIC_PROTOCOL(template_class, generic_prot, specific_prot)
 #endif
+
+//}
+//} // end of duckdb_apache::thrift
 
 #endif // #ifndef _DUCKDB_THRIFT_TLOGGING_H_
 

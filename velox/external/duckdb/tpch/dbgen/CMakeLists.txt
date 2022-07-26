@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.0.0)
+cmake_policy(SET CMP0063 NEW)
 
 project(dbgen CXX C)
 

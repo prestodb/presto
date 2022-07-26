@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_subdirectory(utils)
+
 add_executable(
   velox_dwio_common_test
   BitConcatenationTest.cpp
@@ -26,6 +28,7 @@ add_executable(
 add_test(velox_dwio_common_test velox_dwio_common_test)
 target_link_libraries(
   velox_dwio_common_test
+  velox_dwio_test_utils
   velox_temp_path
   Boost::regex
   ${VELOX_LINK_LIBS}
