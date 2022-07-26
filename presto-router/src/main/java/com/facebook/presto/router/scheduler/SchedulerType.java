@@ -17,4 +17,5 @@ public enum SchedulerType
 {
     RANDOM_CHOICE,
     USER_HASH,
+    WEIGHTED_RANDOM_CHOICE,
 }
