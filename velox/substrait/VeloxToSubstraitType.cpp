@@ -27,90 +27,133 @@ const ::substrait::Type& VeloxToSubstraitTypeConvertor::toSubstraitType(
       google::protobuf::Arena::CreateMessage<::substrait::Type>(&arena);
   switch (type->kind()) {
     case velox::TypeKind::BOOLEAN: {
-      substraitType->set_allocated_bool_(
+      auto substraitBool =
           google::protobuf::Arena::CreateMessage<::substrait::Type_Boolean>(
-              &arena));
+              &arena);
+      substraitBool->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_bool_(substraitBool);
+
       break;
     }
     case velox::TypeKind::TINYINT: {
-      substraitType->set_allocated_i8(
-          google::protobuf::Arena::CreateMessage<::substrait::Type_I8>(&arena));
+      auto substraitI8 =
+          google::protobuf::Arena::CreateMessage<::substrait::Type_I8>(&arena);
+      substraitI8->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_i8(substraitI8);
       break;
     }
     case velox::TypeKind::SMALLINT: {
-      substraitType->set_allocated_i16(
-          google::protobuf::Arena::CreateMessage<::substrait::Type_I16>(
-              &arena));
+      auto substraitI16 =
+          google::protobuf::Arena::CreateMessage<::substrait::Type_I16>(&arena);
+      substraitI16->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_i16(substraitI16);
       break;
     }
     case velox::TypeKind::INTEGER: {
-      substraitType->set_allocated_i32(
-          google::protobuf::Arena::CreateMessage<::substrait::Type_I32>(
-              &arena));
+      auto substraitI32 =
+          google::protobuf::Arena::CreateMessage<::substrait::Type_I32>(&arena);
+      substraitI32->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_i32(substraitI32);
       break;
     }
     case velox::TypeKind::BIGINT: {
-      substraitType->set_allocated_i64(
-          google::protobuf::Arena::CreateMessage<::substrait::Type_I64>(
-              &arena));
+      auto substraitI64 =
+          google::protobuf::Arena::CreateMessage<::substrait::Type_I64>(&arena);
+      substraitI64->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_i64(substraitI64);
       break;
     }
     case velox::TypeKind::REAL: {
-      substraitType->set_allocated_fp32(
+      auto substraitFp32 =
           google::protobuf::Arena::CreateMessage<::substrait::Type_FP32>(
-              &arena));
+              &arena);
+      substraitFp32->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_fp32(substraitFp32);
       break;
     }
     case velox::TypeKind::DOUBLE: {
-      substraitType->set_allocated_fp64(
+      auto substraitFp64 =
           google::protobuf::Arena::CreateMessage<::substrait::Type_FP64>(
-              &arena));
+              &arena);
+      substraitFp64->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_fp64(substraitFp64);
       break;
     }
     case velox::TypeKind::VARCHAR: {
-      substraitType->set_allocated_varchar(
+      auto substraitVarChar =
           google::protobuf::Arena::CreateMessage<::substrait::Type_VarChar>(
-              &arena));
+              &arena);
+      substraitVarChar->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_varchar(substraitVarChar);
       break;
     }
     case velox::TypeKind::VARBINARY: {
-      substraitType->set_allocated_binary(
+      auto substraitVarBinary =
           google::protobuf::Arena::CreateMessage<::substrait::Type_Binary>(
-              &arena));
+              &arena);
+      substraitVarBinary->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_binary(substraitVarBinary);
       break;
     }
     case velox::TypeKind::TIMESTAMP: {
-      substraitType->set_allocated_timestamp(
+      auto substraitTimestamp =
           google::protobuf::Arena::CreateMessage<::substrait::Type_Timestamp>(
-              &arena));
+              &arena);
+      substraitTimestamp->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_timestamp(substraitTimestamp);
       break;
     }
     case velox::TypeKind::ARRAY: {
-      ::substrait::Type_List* sTList =
+      ::substrait::Type_List* substraitList =
           google::protobuf::Arena::CreateMessage<::substrait::Type_List>(
               &arena);
 
-      sTList->mutable_type()->MergeFrom(
+      substraitList->mutable_type()->MergeFrom(
           toSubstraitType(arena, type->asArray().elementType()));
 
-      substraitType->set_allocated_list(sTList);
+      substraitList->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+
+      substraitType->set_allocated_list(substraitList);
 
       break;
     }
     case velox::TypeKind::MAP: {
-      ::substrait::Type_Map* sMap =
+      ::substrait::Type_Map* substraitMap =
           google::protobuf::Arena::CreateMessage<::substrait::Type_Map>(&arena);
 
-      sMap->mutable_key()->MergeFrom(
+      substraitMap->mutable_key()->MergeFrom(
           toSubstraitType(arena, type->asMap().keyType()));
-      sMap->mutable_value()->MergeFrom(
+      substraitMap->mutable_value()->MergeFrom(
           toSubstraitType(arena, type->asMap().valueType()));
 
-      substraitType->set_allocated_map(sMap);
+      substraitMap->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+
+      substraitType->set_allocated_map(substraitMap);
 
       break;
     }
-    case velox::TypeKind::UNKNOWN:
+    case velox::TypeKind::UNKNOWN: {
+      auto substraitUserDefined =
+          google::protobuf::Arena::CreateMessage<::substrait::Type_UserDefined>(
+              &arena);
+      substraitUserDefined->set_type_reference(0);
+      substraitUserDefined->set_nullability(
+          ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+      substraitType->set_allocated_user_defined(substraitUserDefined);
+      break;
+    }
     case velox::TypeKind::FUNCTION:
     case velox::TypeKind::OPAQUE:
     case velox::TypeKind::INVALID:
@@ -127,19 +170,25 @@ VeloxToSubstraitTypeConvertor::toSubstraitNamedStruct(
   ::substrait::NamedStruct* substraitNamedStruct =
       google::protobuf::Arena::CreateMessage<::substrait::NamedStruct>(&arena);
 
-  const int64_t size = rowType->size();
-  const std::vector<std::string>& names = rowType->names();
-  const std::vector<TypePtr>& veloxTypes = rowType->children();
-  ::substrait::Type_Struct* substraitType =
-      substraitNamedStruct->mutable_struct_();
+  const auto size = rowType->size();
+  if (size != 0) {
+    const auto& names = rowType->names();
+    const auto& veloxTypes = rowType->children();
 
-  for (int64_t i = 0; i < size; ++i) {
-    const std::string& name = names.at(i);
-    const TypePtr& veloxType = veloxTypes.at(i);
-    substraitNamedStruct->add_names(name);
+    auto substraitType = substraitNamedStruct->mutable_struct_();
 
-    substraitType->add_types()->MergeFrom(toSubstraitType(arena, veloxType));
+    substraitType->set_nullability(
+        ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+
+    for (int64_t i = 0; i < size; ++i) {
+      const auto& name = names.at(i);
+      const auto& veloxType = veloxTypes.at(i);
+      substraitNamedStruct->add_names(name);
+
+      substraitType->add_types()->MergeFrom(toSubstraitType(arena, veloxType));
+    }
   }
+
   return *substraitNamedStruct;
 }
 

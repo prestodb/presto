@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <folly/Random.h>
 #include <folly/init/Init.h>
 
@@ -59,6 +58,7 @@ class VeloxSubstraitRoundTripPlanConverterTest : public OperatorTestBase {
       const std::shared_ptr<const core::PlanNode>& plan,
       const std::string& duckDbSql) {
     assertQuery(plan, duckDbSql);
+
     // Convert Velox Plan to Substrait Plan.
     google::protobuf::Arena arena;
     auto substraitPlan = veloxConvertor_->toSubstrait(arena, plan);
@@ -90,8 +90,13 @@ TEST_F(VeloxSubstraitRoundTripPlanConverterTest, filter) {
   createDuckDbTable(vectors);
 
   auto plan = PlanBuilder().values(vectors).filter("c2 < 1000").planNode();
-
   assertPlanConversion(plan, "SELECT * FROM tmp WHERE c2 < 1000");
+}
+
+TEST_F(VeloxSubstraitRoundTripPlanConverterTest, null) {
+  auto vectors = makeRowVector(ROW({}, {}), 1);
+  auto plan = PlanBuilder().values({vectors}).project({"NULL"}).planNode();
+  assertPlanConversion(plan, "SELECT NULL ");
 }
 
 TEST_F(VeloxSubstraitRoundTripPlanConverterTest, values) {

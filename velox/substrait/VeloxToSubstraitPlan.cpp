@@ -55,16 +55,28 @@ namespace {
   exprConvertor_ =
       std::make_shared<VeloxToSubstraitExprConvertor>(functionMap_);
 
-  // TODO add root_rel
   ::substrait::Plan* substraitPlan =
       google::protobuf::Arena::CreateMessage<::substrait::Plan>(&arena);
 
   // Add Extension Functions.
   substraitPlan->MergeFrom(addExtensionFunc(arena));
 
+  // Add unknown type in extension.
+  auto unknownType = substraitPlan->add_extensions()->mutable_extension_type();
+
+  unknownType->set_extension_uri_reference(0);
+  unknownType->set_type_anchor(0);
+  unknownType->set_name("UNKNOWN");
+
   // Do conversion.
-  ::substrait::Rel* rel = substraitPlan->add_relations()->mutable_rel();
-  toSubstrait(arena, plan, rel);
+  ::substrait::RelRoot* rootRel =
+      substraitPlan->add_relations()->mutable_root();
+
+  toSubstrait(arena, plan, rootRel->mutable_input());
+  // Set RootRel names.
+  for (const auto& name : plan->outputType()->names()) {
+    rootRel->add_names(name);
+  }
 
   return *substraitPlan;
 }
@@ -132,9 +144,6 @@ void VeloxToSubstraitPlanConvertor::toSubstrait(
   ::substrait::ReadRel_VirtualTable* virtualTable =
       readRel->mutable_virtual_table();
 
-  readRel->mutable_base_schema()->MergeFrom(
-      typeConvertor_->toSubstraitNamedStruct(arena, outputType));
-
   // The row number of the input data.
   int64_t numVectors = valuesNode->values().size();
 
@@ -158,6 +167,10 @@ void VeloxToSubstraitPlanConvertor::toSubstrait(
           arena, std::make_shared<core::ConstantTypedExpr>(child), litValue));
     }
   }
+
+  readRel->mutable_base_schema()->MergeFrom(
+      typeConvertor_->toSubstraitNamedStruct(arena, outputType));
+
   readRel->mutable_common()->mutable_direct();
 }
 

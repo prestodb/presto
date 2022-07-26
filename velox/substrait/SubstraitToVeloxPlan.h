@@ -87,9 +87,12 @@ class SubstraitVeloxPlanConverter {
       const ::substrait::Plan& substraitPlan,
       memory::MemoryPool* pool);
 
+  /// Check the Substrait type extension only has one unknown extension.
+  bool checkTypeExtension(const ::substrait::Plan& substraitPlan);
+
   /// Construct the function map between the index and the Substrait function
   /// name.
-  void constructFunctionMap(const ::substrait::Plan& sPlan);
+  void constructFunctionMap(const ::substrait::Plan& substraitPlan);
 
   /// Return the function map used by this plan converter.
   const std::unordered_map<uint64_t, std::string>& getFunctionMap() const {

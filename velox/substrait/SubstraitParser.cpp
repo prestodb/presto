@@ -60,6 +60,14 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
       nullability = substraitType.string().nullability();
       break;
     }
+    case ::substrait::Type::KindCase::kUserDefined: {
+      // We only support UNKNOWN type to handle the null literal whose type is
+      // not known.
+      VELOX_CHECK_EQ(substraitType.user_defined().type_reference(), 0);
+      typeName = "UNKNOWN";
+      nullability = substraitType.string().nullability();
+      break;
+    }
     default:
       VELOX_NYI("Substrait parsing for type {} not supported.", typeName);
   }

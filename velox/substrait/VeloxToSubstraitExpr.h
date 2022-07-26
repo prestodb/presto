@@ -47,8 +47,6 @@ class VeloxToSubstraitExprConvertor {
   /// Literal Expression.
   /// @param arena Arena to use for allocating Substrait plan objects.
   /// @param constExpr Velox Constant expression needed to be converted.
-  /// @param inputType The input row Type of the current processed node,
-  /// which also equals the output row type of the previous node of the current.
   /// @param litValue The Struct that returned literal expression belong to.
   /// @return A pointer to Substrait Literal expression object allocated on
   /// the arena and representing the input Velox Constant expression.
@@ -57,13 +55,13 @@ class VeloxToSubstraitExprConvertor {
       const std::shared_ptr<const core::ConstantTypedExpr>& constExpr,
       ::substrait::Expression_Literal_Struct* litValue = nullptr);
 
-  /// Convert Velox null literal to Substrait null literal.
+  /// Convert Velox null value to Substrait null literal.
   const ::substrait::Expression_Literal& toSubstraitNullLiteral(
       google::protobuf::Arena& arena,
-      const velox::TypePtr& type);
+      const velox::TypeKind& typeKind);
 
-  /// Convert Velox variant to Substrait Literal Expression.
-  const ::substrait::Expression_Literal& toSubstraitLiteral(
+  /// Convert Velox not null variant to Substrait Literal Expression.
+  const ::substrait::Expression_Literal& toSubstraitNotNullLiteral(
       google::protobuf::Arena& arena,
       const velox::variant& variantValue);
 
@@ -91,6 +89,11 @@ class VeloxToSubstraitExprConvertor {
       google::protobuf::Arena& arena,
       const velox::VectorPtr& vectorValue,
       ::substrait::Expression_Literal_Struct* litValue);
+
+  /// Convert Velox variant to Substrait Literal Expression.
+  const ::substrait::Expression_Literal& toSubstraitLiteral(
+      google::protobuf::Arena& arena,
+      const velox::variant& variantValue);
 
   std::shared_ptr<VeloxToSubstraitTypeConvertor> typeConvertor_;
 
