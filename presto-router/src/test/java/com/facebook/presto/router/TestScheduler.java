@@ -14,6 +14,7 @@
 package com.facebook.presto.router;
 
 import com.facebook.presto.router.scheduler.RandomChoiceScheduler;
+import com.facebook.presto.router.scheduler.RoundRobinScheduler;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.UserHashScheduler;
 import com.facebook.presto.router.scheduler.WeightedRandomChoiceScheduler;
@@ -95,5 +96,29 @@ public class TestScheduler
         }
 
         assertTrue(hitCounter.get(new URI("192.168.0.3")) > hitCounter.get(new URI("192.168.0.1")));
+    }
+
+    @Test
+    public void testRoundRobinScheduler()
+            throws Exception
+    {
+        scheduler = new RoundRobinScheduler();
+        scheduler.setCandidates(servers);
+
+        URI target1 = scheduler.getDestination("test").orElse(new URI("invalid"));
+        assertTrue(servers.contains(target1));
+        assertEquals(target1.getPath(), "192.168.0.1");
+
+        URI target2 = scheduler.getDestination("test").orElse(new URI("invalid"));
+        assertTrue(servers.contains(target2));
+        assertEquals(target2.getPath(), "192.168.0.2");
+
+        URI target3 = scheduler.getDestination("test").orElse(new URI("invalid"));
+        assertTrue(servers.contains(target3));
+        assertEquals(target3.getPath(), "192.168.0.3");
+
+        URI target4 = scheduler.getDestination("test").orElse(new URI("invalid"));
+        assertTrue(servers.contains(target4));
+        assertEquals(target4.getPath(), "192.168.0.1");
     }
 }
