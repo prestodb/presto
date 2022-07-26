@@ -11,12 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_subdirectory(base)
-add_subdirectory(caching)
-add_subdirectory(encode)
-add_subdirectory(file)
-add_subdirectory(memory)
-add_subdirectory(process)
-add_subdirectory(serialization)
-add_subdirectory(time)
-add_subdirectory(testutil)
+include(GoogleTest)
+add_executable(velox_test_util_test TestValueTest.cpp)
+gtest_add_tests(velox_test_util_test "" AUTO)
+
+target_link_libraries(velox_test_util_test velox_test_util velox_exception
+                      gtest gtest_main)

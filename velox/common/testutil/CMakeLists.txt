@@ -11,12 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_subdirectory(base)
-add_subdirectory(caching)
-add_subdirectory(encode)
-add_subdirectory(file)
-add_subdirectory(memory)
-add_subdirectory(process)
-add_subdirectory(serialization)
-add_subdirectory(time)
-add_subdirectory(testutil)
+
+add_library(velox_test_util TestValue.cpp)
+target_link_libraries(velox_test_util velox_common_base)
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
