@@ -24,6 +24,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/VeloxException.h"
 #include "velox/type/Conversions.h"
+#include "velox/type/DecimalUtils.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -59,6 +60,12 @@ struct VariantEquality<TypeKind::ROW>;
 
 template <>
 struct VariantEquality<TypeKind::MAP>;
+
+template <>
+struct VariantEquality<TypeKind::SHORT_DECIMAL>;
+
+template <>
+struct VariantEquality<TypeKind::LONG_DECIMAL>;
 
 bool dispatchDynamicVariantEquality(
     const variant& a,
@@ -106,6 +113,58 @@ struct VariantTypeTraits<TypeKind::MAP> {
 template <>
 struct VariantTypeTraits<TypeKind::ARRAY> {
   using stored_type = std::vector<variant>;
+};
+
+/// Variants contain a TypeKind and a value.
+/// DECIMAL type variants use TypeKind to store the kind, and this struct as the
+/// value to store the optional unscaled value, precision, scale.
+template <typename T>
+struct DecimalCapsule {
+  std::optional<T> unscaledValue;
+  int precision;
+  int scale;
+
+  T value() const {
+    return unscaledValue.value();
+  }
+
+  bool hasValue() const {
+    return unscaledValue.has_value();
+  }
+
+  bool operator==(const DecimalCapsule& other) const {
+    VELOX_CHECK(hasValue() && other.hasValue());
+    return value() == other.value() && precision == other.precision &&
+        scale == other.scale;
+  }
+
+  bool operator<(const DecimalCapsule& other) const {
+    VELOX_CHECK(hasValue() && other.hasValue());
+    auto lhsIntegral =
+        (value().unscaledValue() / DecimalUtil::kPowersOfTen[scale]);
+    auto rhsIntegral =
+        (other.value().unscaledValue() /
+         DecimalUtil::kPowersOfTen[other.scale]);
+    if (lhsIntegral == rhsIntegral) {
+      return (value().unscaledValue() % DecimalUtil::kPowersOfTen[scale]) <
+          (other.value().unscaledValue() %
+           DecimalUtil::kPowersOfTen[other.scale]);
+    }
+    return lhsIntegral < rhsIntegral;
+  }
+};
+
+using ShortDecimalCapsule = DecimalCapsule<ShortDecimal>;
+using LongDecimalCapsule = DecimalCapsule<LongDecimal>;
+
+template <>
+struct VariantTypeTraits<TypeKind::SHORT_DECIMAL> {
+  using stored_type = ShortDecimalCapsule;
+};
+
+template <>
+struct VariantTypeTraits<TypeKind::LONG_DECIMAL> {
+  using stored_type = LongDecimalCapsule;
 };
 
 struct OpaqueCapsule {
@@ -192,7 +251,7 @@ class variant {
 
   [[noreturn]] void throwCheckIsKindError(TypeKind kind) const;
 
-  [[noreturn]] void throwCheckNotNullError() const;
+  [[noreturn]] void throwCheckPtrError() const;
 
  public:
   struct Hasher {
@@ -212,8 +271,6 @@ class variant {
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::SMALLINT)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::INTEGER)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::BIGINT)
-  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::SHORT_DECIMAL)
-  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::LONG_DECIMAL)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::REAL)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::DOUBLE)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARCHAR)
@@ -301,6 +358,32 @@ class variant {
     return {TypeKind::OPAQUE, new detail::OpaqueCapsule{type, input}};
   }
 
+  static variant shortDecimal(
+      const std::optional<int64_t> input,
+      const TypePtr& type) {
+    VELOX_CHECK(type->isShortDecimal(), "Not a ShortDecimal type");
+    auto decimalType = type->asShortDecimal();
+    return {
+        TypeKind::SHORT_DECIMAL,
+        new detail::ShortDecimalCapsule{
+            std::optional<ShortDecimal>(input),
+            decimalType.precision(),
+            decimalType.scale()}};
+  }
+
+  static variant longDecimal(
+      const std::optional<int128_t> input,
+      const TypePtr& type) {
+    VELOX_CHECK(type->isLongDecimal(), "Not a LongDecimal type");
+    auto decimalType = type->asLongDecimal();
+    return {
+        TypeKind::LONG_DECIMAL,
+        new detail::LongDecimalCapsule{
+            std::optional<LongDecimal>(input),
+            decimalType.precision(),
+            decimalType.scale()}};
+  }
+
   static variant array(const std::vector<variant>& inputs) {
     return {
         TypeKind::ARRAY,
@@ -317,7 +400,11 @@ class variant {
 
   variant() : kind_{TypeKind::INVALID}, ptr_{nullptr} {}
 
-  variant(TypeKind kind) : kind_{kind}, ptr_{nullptr} {}
+  variant(TypeKind kind) : kind_{kind}, ptr_{nullptr} {
+    VELOX_CHECK(
+        !isDecimalKind(kind),
+        "Use smallDecimal() or longDecimal() for DECIMAL values.");
+  }
 
   variant(const variant& other) : kind_{other.kind_}, ptr_{nullptr} {
     auto op = other.ptr_;
@@ -352,6 +439,9 @@ class variant {
   }
 
   static variant null(TypeKind kind) {
+    VELOX_CHECK(
+        !isDecimalKind(kind),
+        "Use smallDecimal() or longDecimal() for DECIMAL null values.");
     return variant{kind};
   }
 
@@ -426,22 +516,19 @@ class variant {
 
   static variant create(const folly::dynamic&);
 
-  bool isNull() const {
-    return ptr_ == nullptr;
-  }
-
-  bool isSet() const {
-    return ptr_ != nullptr;
-  }
-
   bool hasValue() const {
-    return ptr_ != nullptr;
+    return !isNull();
   }
 
-  void checkNotNull() const {
+  /// Similar to hasValue(). Legacy.
+  bool isSet() const {
+    return hasValue();
+  }
+
+  void checkPtr() const {
     if (ptr_ == nullptr) {
       // Error path outlined to encourage inlining of the branch.
-      throwCheckNotNullError();
+      throwCheckPtrError();
     }
   }
 
@@ -459,7 +546,8 @@ class variant {
   template <TypeKind KIND>
   const auto& value() const {
     checkIsKind(KIND);
-    checkNotNull();
+    checkPtr();
+
     return *static_cast<
         const typename detail::VariantTypeTraits<KIND>::stored_type*>(ptr_);
   }
@@ -467,6 +555,15 @@ class variant {
   template <typename T>
   const auto& value() const {
     return value<CppToType<T>::typeKind>();
+  }
+
+  bool isNull() const {
+    if (kind_ == TypeKind::SHORT_DECIMAL) {
+      return !value<TypeKind::SHORT_DECIMAL>().hasValue();
+    } else if (kind_ == TypeKind::LONG_DECIMAL) {
+      return !value<TypeKind::LONG_DECIMAL>().hasValue();
+    }
+    return ptr_ == nullptr;
   }
 
   uint64_t hash() const;
@@ -543,6 +640,14 @@ class variant {
           }
         }
         return ARRAY(elementType);
+      }
+      case TypeKind::SHORT_DECIMAL: {
+        auto val = value<TypeKind::SHORT_DECIMAL>();
+        return DECIMAL(val.precision, val.scale);
+      }
+      case TypeKind::LONG_DECIMAL: {
+        auto val = value<TypeKind::LONG_DECIMAL>();
+        return DECIMAL(val.precision, val.scale);
       }
       case TypeKind::OPAQUE: {
         return value<TypeKind::OPAQUE>().type;
