@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.HashSet;
 import java.util.List;
 
+import static com.facebook.presto.router.scheduler.SchedulerType.RANDOM_CHOICE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +39,12 @@ public class RouterSpec
     {
         this.groups = ImmutableList.copyOf(requireNonNull(groups, "groups is null"));
         this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "selectors is null"));
-        this.schedulerType = requireNonNull(schedulerType, "scheduler is null");
+        if (schedulerType == null) {
+            this.schedulerType = RANDOM_CHOICE;
+        }
+        else {
+            this.schedulerType = schedulerType;
+        }
 
         // make sure no duplicate names in group definition
         checkArgument(groups.stream()
