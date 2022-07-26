@@ -202,6 +202,7 @@ public class PinotQueryGeneratorContext
         if (!useSqlSyntax) {
             checkSupported(!hasGroupBy(), "Pinot doesn't yet support new selections on top of the grouped by data");
         }
+        checkSupported(!newOutputs.isEmpty(), "Missing output expression in Pinot query context");
         return new PinotQueryGeneratorContext(
                 newSelections,
                 newOutputs,
@@ -428,6 +429,8 @@ public class PinotQueryGeneratorContext
         String groupByExpressions = groupByColumns.stream()
                 .map(x -> selections.get(x).getDefinition())
                 .collect(Collectors.joining(", "));
+
+        checkSupported(!outputs.isEmpty(), "Unable to generate Pinot query without output expression");
         String selectExpressions = outputs.stream()
                 .filter(o -> !groupByColumns.contains(o))
                 .map(o -> updateSelection(selections.get(o).getDefinition(), session))
