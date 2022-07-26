@@ -63,10 +63,6 @@ class GroupingSet {
 
   void resetPartial();
 
-  /// Invoked to reset the intermediate aggregation state on init or partial
-  /// output flush.
-  void resetGlobalAggregation();
-
   const HashLookup& hashLookup() const;
 
   /// Spills content until under 'targetRows' and under 'targetBytes'
