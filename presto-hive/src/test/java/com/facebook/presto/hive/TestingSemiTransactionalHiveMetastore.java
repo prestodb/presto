@@ -92,6 +92,7 @@ public class TestingSemiTransactionalHiveMetastore
         HiveTableName hiveTableName = new HiveTableName(database, tableName);
         tablesMap.put(hiveTableName, table);
         partitionsMap.put(hiveTableName, partitions);
+        partitionNames = partitions;
     }
 
     @Override
