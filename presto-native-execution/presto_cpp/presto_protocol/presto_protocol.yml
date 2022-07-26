@@ -108,7 +108,7 @@ AbstractClasses:
         - { name: AggregationNode,          key: .AggregationNode }
         - { name: GroupIdNode,              key: com.facebook.presto.sql.planner.plan.GroupIdNode }
         - { name: DistinctLimitNode,        key: .DistinctLimitNode }
-        - { name: EnforceSingleRowNode,     key: com.facebook.presto.sql.planner.plan.EnforceSingleRowNode }
+        - { name: EnforceSingleRowNode,     key: .EnforceSingleRowNode }
         - { name: ExchangeNode,             key: com.facebook.presto.sql.planner.plan.ExchangeNode }
         - { name: FilterNode,               key: .FilterNode }
         - { name: JoinNode,                 key: com.facebook.presto.sql.planner.plan.JoinNode }
@@ -185,7 +185,7 @@ JavaClasses:
   - presto-client/src/main/java/com/facebook/presto/client/ErrorLocation.java
   - presto-client/src/main/java/com/facebook/presto/client/NodeVersion.java
   - presto-client/src/main/java/com/facebook/presto/client/ServerInfo.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/EnforceSingleRowNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/EnforceSingleRowNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/ExchangeNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/GroupIdNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/RowNumberNode.java

@@ -11,19 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class EnforceSingleRowNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final PlanNode source;
 
@@ -49,7 +46,7 @@ public class EnforceSingleRowNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return Collections.singletonList(source);
     }
 
     @Override
@@ -65,7 +62,7 @@ public class EnforceSingleRowNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitEnforceSingleRow(this, context);
     }
@@ -73,6 +70,14 @@ public class EnforceSingleRowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new EnforceSingleRowNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren));
+        checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
+        return new EnforceSingleRowNode(getSourceLocation(), getId(), newChildren.get(0));
+    }
+
+    private static void checkArgument(boolean condition, String message)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }
