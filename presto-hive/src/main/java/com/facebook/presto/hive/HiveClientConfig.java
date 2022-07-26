@@ -223,6 +223,8 @@ public class HiveClientConfig
 
     private boolean copyOnFirstWriteConfigurationEnabled = true;
 
+    private boolean partitionFilteringFromMetastoreEnabled = true;
+
     @Min(0)
     public int getMaxInitialSplits()
     {
@@ -1869,5 +1871,18 @@ public class HiveClientConfig
     public boolean isCopyOnFirstWriteConfigurationEnabled()
     {
         return copyOnFirstWriteConfigurationEnabled;
+    }
+
+    public boolean isPartitionFilteringFromMetastoreEnabled()
+    {
+        return partitionFilteringFromMetastoreEnabled;
+    }
+
+    @Config("hive.partition-filtering-from-metastore-enabled")
+    @ConfigDescription("When enabled attempts to retrieve partition metadata only for partitions that satisfy the query predicates")
+    public HiveClientConfig setPartitionFilteringFromMetastoreEnabled(boolean partitionFilteringFromMetastoreEnabled)
+    {
+        this.partitionFilteringFromMetastoreEnabled = partitionFilteringFromMetastoreEnabled;
+        return this;
     }
 }
