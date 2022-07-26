@@ -78,27 +78,15 @@ namespace {
 bool isStackTraceEnabled(VeloxException::Type type) {
   using namespace std::literals::chrono_literals;
   const bool isSysException = type == VeloxException::Type::kSystem;
-  // TODO: deprecate 'FLAGS_deprecate velox_exception_stacktrace' flag once
-  // after 'FLAGS_velox_exception_user_stacktrace_enabled' and
-  // 'FLAGS_velox_exception_system_stacktrace_enabled' have been rolled out in
-  // production.
-  if (!FLAGS_velox_exception_stacktrace &&
-      ((isSysException && !FLAGS_velox_exception_system_stacktrace_enabled) ||
-       (!isSysException && !FLAGS_velox_exception_user_stacktrace_enabled))) {
+  if ((isSysException && !FLAGS_velox_exception_system_stacktrace_enabled) ||
+      (!isSysException && !FLAGS_velox_exception_user_stacktrace_enabled)) {
     // VeloxException stacktraces are disabled.
     return false;
   }
 
-  // TODO: deprecate 'FLAGS_velox_exception_stacktrace_rate_limit_ms' flag once
-  // after 'FLAGS_velox_exception_user_stacktrace_rate_limit_ms' and
-  // 'FLAGS_velox_exception_system_stacktrace_rate_limit_ms' have been rolled
-  // out in production.
-
-  const int32_t rateLimitMs =
-      FLAGS_velox_exception_stacktrace_rate_limit_ms != 0
-      ? FLAGS_velox_exception_stacktrace_rate_limit_ms
-      : (isSysException ? FLAGS_velox_exception_system_stacktrace_rate_limit_ms
-                        : FLAGS_velox_exception_user_stacktrace_rate_limit_ms);
+  const int32_t rateLimitMs = isSysException
+      ? FLAGS_velox_exception_system_stacktrace_rate_limit_ms
+      : FLAGS_velox_exception_user_stacktrace_rate_limit_ms;
   // not static so the gflag can be manipulated at runtime
   if (0 == rateLimitMs) {
     // VeloxException stacktraces are not rate-limited

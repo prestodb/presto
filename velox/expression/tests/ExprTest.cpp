@@ -730,7 +730,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
 
 TEST_F(ExprTest, encodings) {
   // This test throws a lot of exceptions, so turn off stack trace capturing.
-  FLAGS_velox_exception_stacktrace = false;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
   int32_t counter = 0;
   for (auto& encoding1 : testEncodings_) {
     fillVectorAndReference<int64_t>(
@@ -815,7 +815,7 @@ TEST_F(ExprTest, encodings) {
 
 TEST_F(ExprTest, encodingsOverLazy) {
   // This test throws a lot of exceptions, so turn off stack trace capturing.
-  FLAGS_velox_exception_stacktrace = false;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
   int32_t counter = 0;
   for (auto& encoding1 : testEncodings_) {
     fillVectorAndReference<int64_t>(

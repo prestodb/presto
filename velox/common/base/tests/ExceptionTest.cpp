@@ -70,36 +70,17 @@ void verifyVeloxException(
       });
 }
 
-void testExceptionTraceCollectionControl(
-    bool userException,
-    bool enabled,
-    bool testNewFlag) {
+void testExceptionTraceCollectionControl(bool userException, bool enabled) {
   // Disable rate control in the test.
-  FLAGS_velox_exception_stacktrace_rate_limit_ms = 0;
   FLAGS_velox_exception_user_stacktrace_rate_limit_ms = 0;
   FLAGS_velox_exception_system_stacktrace_rate_limit_ms = 0;
 
-  // Test the old flag to deprecate.
-  if (testNewFlag) {
-    FLAGS_velox_exception_stacktrace = false;
-    if (userException) {
-      FLAGS_velox_exception_user_stacktrace_enabled = enabled ? true : false;
-      FLAGS_velox_exception_system_stacktrace_enabled = folly::Random::oneIn(2);
-    } else {
-      FLAGS_velox_exception_system_stacktrace_enabled = enabled ? true : false;
-      FLAGS_velox_exception_user_stacktrace_enabled = folly::Random::oneIn(2);
-    }
+  if (userException) {
+    FLAGS_velox_exception_user_stacktrace_enabled = enabled ? true : false;
+    FLAGS_velox_exception_system_stacktrace_enabled = folly::Random::oneIn(2);
   } else {
-    FLAGS_velox_exception_stacktrace = enabled ? true : false;
-    if (userException) {
-      FLAGS_velox_exception_user_stacktrace_enabled =
-          enabled ? folly::Random::oneIn(2) : false;
-      FLAGS_velox_exception_system_stacktrace_enabled = folly::Random::oneIn(2);
-    } else {
-      FLAGS_velox_exception_system_stacktrace_enabled =
-          enabled ? folly::Random::oneIn(2) : false;
-      FLAGS_velox_exception_user_stacktrace_enabled = folly::Random::oneIn(2);
-    }
+    FLAGS_velox_exception_system_stacktrace_enabled = enabled ? true : false;
+    FLAGS_velox_exception_user_stacktrace_enabled = folly::Random::oneIn(2);
   }
   try {
     if (userException) {
@@ -125,9 +106,8 @@ void testExceptionTraceCollectionControl(
     }
   } catch (::facebook::velox::VeloxException& e) {
     SCOPED_TRACE(fmt::format(
-        "enabled: {}, legacy flag: {}, user flag: {}, sys flag: {}",
+        "enabled: {}, user flag: {}, sys flag: {}",
         enabled,
-        FLAGS_velox_exception_stacktrace,
         FLAGS_velox_exception_user_stacktrace_enabled,
         FLAGS_velox_exception_system_stacktrace_enabled));
     ASSERT_EQ(
@@ -139,11 +119,9 @@ void testExceptionTraceCollectionControl(
 
 void testExceptionTraceCollectionRateControl(
     bool userException,
-    bool hasRateLimit,
-    bool testNewFlag) {
+    bool hasRateLimit) {
   // Disable rate control in the test.
   // Enable trace rate control in the test.
-  FLAGS_velox_exception_stacktrace = true;
   FLAGS_velox_exception_user_stacktrace_enabled = true;
   FLAGS_velox_exception_system_stacktrace_enabled = true;
   // Set rate control interval to a large value to avoid time related test
@@ -156,38 +134,18 @@ void testExceptionTraceCollectionRateControl(
     std::this_thread::sleep_for(
         std::chrono::milliseconds(kRateLimitIntervalMs)); // NOLINT
   }
-  // Test the old flag to deprecate.
-  if (testNewFlag) {
-    FLAGS_velox_exception_stacktrace_rate_limit_ms = 0;
-    if (userException) {
-      FLAGS_velox_exception_user_stacktrace_rate_limit_ms =
-          hasRateLimit ? kRateLimitIntervalMs : 0;
-      FLAGS_velox_exception_system_stacktrace_rate_limit_ms =
-          folly::Random::rand32();
-    } else {
-      // Set rate control to a large interval to avoid time related test
-      // flakiness.
-      FLAGS_velox_exception_system_stacktrace_rate_limit_ms =
-          hasRateLimit ? kRateLimitIntervalMs : 0;
-      FLAGS_velox_exception_user_stacktrace_rate_limit_ms =
-          folly::Random::rand32();
-    }
+  if (userException) {
+    FLAGS_velox_exception_user_stacktrace_rate_limit_ms =
+        hasRateLimit ? kRateLimitIntervalMs : 0;
+    FLAGS_velox_exception_system_stacktrace_rate_limit_ms =
+        folly::Random::rand32();
   } else {
     // Set rate control to a large interval to avoid time related test
     // flakiness.
-    FLAGS_velox_exception_stacktrace_rate_limit_ms =
+    FLAGS_velox_exception_system_stacktrace_rate_limit_ms =
         hasRateLimit ? kRateLimitIntervalMs : 0;
-    if (userException) {
-      FLAGS_velox_exception_user_stacktrace_rate_limit_ms =
-          hasRateLimit ? folly::Random::rand32() : 0;
-      FLAGS_velox_exception_system_stacktrace_rate_limit_ms =
-          folly::Random::rand32();
-    } else {
-      FLAGS_velox_exception_system_stacktrace_rate_limit_ms =
-          hasRateLimit ? folly::Random::rand32() : 0;
-      FLAGS_velox_exception_user_stacktrace_rate_limit_ms =
-          folly::Random::rand32();
-    }
+    FLAGS_velox_exception_user_stacktrace_rate_limit_ms =
+        folly::Random::rand32();
   }
   for (int iter = 0; iter < 3; ++iter) {
     try {
@@ -214,11 +172,9 @@ void testExceptionTraceCollectionRateControl(
       }
     } catch (::facebook::velox::VeloxException& e) {
       SCOPED_TRACE(fmt::format(
-          "userException: {}, testNewFlag: {}, hasRateLimit: {}, legacy limit: {}ms, user limit: {}ms, sys limit: {}ms",
+          "userException: {}, hasRateLimit: {}, user limit: {}ms, sys limit: {}ms",
           userException,
-          testNewFlag,
           hasRateLimit,
-          FLAGS_velox_exception_stacktrace_rate_limit_ms,
           FLAGS_velox_exception_user_stacktrace_rate_limit_ms,
           FLAGS_velox_exception_system_stacktrace_rate_limit_ms));
       ASSERT_EQ(
@@ -689,10 +645,7 @@ TEST(ExceptionTest, traceCollectionEnabling) {
   // Switch on/off tests.
   for (const bool enabled : {false, true}) {
     for (const bool userException : {false, true}) {
-      for (const bool testNewFlag : {false, true}) {
-        testExceptionTraceCollectionControl(
-            userException, enabled, testNewFlag);
-      }
+      testExceptionTraceCollectionControl(userException, enabled);
     }
   }
 }
@@ -701,10 +654,7 @@ TEST(ExceptionTest, traceCollectionRateControl) {
   // Rate limit tests.
   for (const bool withLimit : {false, true}) {
     for (const bool userException : {false, true}) {
-      for (const bool testNewFlag : {false, true}) {
-        testExceptionTraceCollectionRateControl(
-            userException, withLimit, testNewFlag);
-      }
+      testExceptionTraceCollectionRateControl(userException, withLimit);
     }
   }
 }

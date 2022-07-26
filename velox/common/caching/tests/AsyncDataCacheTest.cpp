@@ -28,8 +28,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-DECLARE_bool(velox_exception_stacktrace);
-
 using namespace facebook::velox;
 using namespace facebook::velox::cache;
 
@@ -530,7 +528,7 @@ TEST_F(AsyncDataCacheTest, pin) {
 
 TEST_F(AsyncDataCacheTest, replace) {
   constexpr int64_t kMaxBytes = 64 << 20;
-  FLAGS_velox_exception_stacktrace = false;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
   initializeCache(kMaxBytes);
   // Load 10x the max size, inject an error every 21 batches.
   loadLoop(0, kMaxBytes * 10, 21);
@@ -597,7 +595,7 @@ void corruptFile(const std::string& path) {
 TEST_F(AsyncDataCacheTest, ssd) {
   constexpr uint64_t kRamBytes = 32 << 20;
   constexpr uint64_t kSsdBytes = 512UL << 20;
-  FLAGS_velox_exception_stacktrace = false;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
   initializeCache(kRamBytes, kSsdBytes);
   cache_->setVerifyHook(
       [&](const AsyncDataCacheEntry& entry) { checkContents(entry); });

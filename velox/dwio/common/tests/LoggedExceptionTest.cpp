@@ -24,31 +24,9 @@ namespace {
 void testTraceCollectionSwitchControl(bool enabled) {
   // Logged exception is system type of velox exception.
   // Disable rate control in the test.
-  FLAGS_velox_exception_stacktrace_rate_limit_ms = 0;
   FLAGS_velox_exception_user_stacktrace_rate_limit_ms = 0;
   FLAGS_velox_exception_system_stacktrace_rate_limit_ms = 0;
 
-  // Test the old flag to deprecate.
-  FLAGS_velox_exception_stacktrace = enabled ? true : false;
-  // NOTE: the user flag should not affect the tracing behavior of system type
-  // of exception collection.
-  FLAGS_velox_exception_user_stacktrace_enabled = folly::Random::oneIn(2);
-  FLAGS_velox_exception_system_stacktrace_enabled =
-      enabled ? folly::Random::oneIn(2) : false;
-  try {
-    throw LoggedException("Test error message");
-  } catch (VeloxException& e) {
-    SCOPED_TRACE(fmt::format(
-        "enabled: {}, legacy flag: {}, user flag: {}, sys flag: {}",
-        enabled,
-        FLAGS_velox_exception_stacktrace,
-        FLAGS_velox_exception_user_stacktrace_enabled,
-        FLAGS_velox_exception_system_stacktrace_enabled));
-    ASSERT_TRUE(e.exceptionType() == VeloxException::Type::kSystem);
-    ASSERT_EQ(enabled, e.stackTrace() != nullptr);
-  }
-  // Test new flag.
-  FLAGS_velox_exception_stacktrace = false;
   // NOTE: the user flag should not affect the tracing behavior of system type
   // of exception collection.
   FLAGS_velox_exception_user_stacktrace_enabled = folly::Random::oneIn(2);
@@ -57,9 +35,8 @@ void testTraceCollectionSwitchControl(bool enabled) {
     throw LoggedException("Test error message");
   } catch (VeloxException& e) {
     SCOPED_TRACE(fmt::format(
-        "enabled: {}, legacy flag: {}, user flag: {}, sys flag: {}",
+        "enabled: {}, user flag: {}, sys flag: {}",
         enabled,
-        FLAGS_velox_exception_stacktrace,
         FLAGS_velox_exception_user_stacktrace_enabled,
         FLAGS_velox_exception_system_stacktrace_enabled));
     ASSERT_TRUE(e.exceptionType() == VeloxException::Type::kSystem);
