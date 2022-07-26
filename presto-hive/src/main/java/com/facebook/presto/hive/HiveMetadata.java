@@ -415,7 +415,6 @@ public class HiveMetadata
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final int maxPartitionBatchSize;
-    private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final StagingFileCommitter stagingFileCommitter;
@@ -442,7 +441,6 @@ public class HiveMetadata
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
-            TypeTranslator typeTranslator,
             String prestoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
             StagingFileCommitter stagingFileCommitter,
@@ -469,7 +467,6 @@ public class HiveMetadata
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
-        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
@@ -980,7 +977,7 @@ public class HiveMetadata
             throw new PrestoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema url is set");
         }
 
-        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<SortingColumn> preferredOrderingColumns = getPreferredOrderingColumns(tableMetadata.getProperties());
 
@@ -1102,7 +1099,6 @@ public class HiveMetadata
                 // type to the boolean type that is binary compatible
                 translateHiveUnsupportedTypesForTemporaryTable(columns, typeManager),
                 ImmutableSet.of(),
-                typeTranslator,
                 defaultHiveType);
 
         validateColumns(storageFormat, columnHandles);
@@ -1406,7 +1402,7 @@ public class HiveMetadata
         failIfAvroSchemaIsSet(session, handle);
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.addColumn(metastoreContext, handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
+        metastore.addColumn(metastoreContext, handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(column.getType()), column.getComment());
     }
 
     @Override
@@ -1563,7 +1559,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Optional<TableEncryptionProperties> tableEncryptionProperties = getTableEncryptionPropertiesFromTableProperties(tableMetadata, tableStorageFormat, partitionedBy);
-        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat partitionStorageFormat = isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session);
 
         // unpartitioned tables ignore the partition storage format
@@ -2268,7 +2264,7 @@ public class HiveMetadata
 
         for (ColumnMetadata column : viewMetadata.getColumns()) {
             try {
-                HiveType hiveType = toHiveType(typeTranslator, column.getType());
+                HiveType hiveType = toHiveType(column.getType());
                 columns.add(new Column(column.getName(), hiveType, Optional.ofNullable(column.getComment()), columnConverter.getTypeMetadata(hiveType, column.getType().getTypeSignature())));
             }
             catch (PrestoException e) {
@@ -3032,9 +3028,7 @@ public class HiveMetadata
                 return createHiveCompatiblePartitioningHandle(
                         partitionCount,
                         partitionTypes.stream()
-                                .map(type -> toHiveType(
-                                        typeTranslator,
-                                        translateHiveUnsupportedTypeForTemporaryTable(type, typeManager)))
+                                .map(type -> toHiveType(translateHiveUnsupportedTypeForTemporaryTable(type, typeManager)))
                                 .collect(toImmutableList()),
                         OptionalInt.empty());
             case PRESTO_NATIVE:
@@ -3194,7 +3188,7 @@ public class HiveMetadata
 
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
-                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(typeTranslator, column.getType())));
+                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
 
         return Optional.of(new ConnectorNewTableLayout(
                 createHiveCompatiblePartitioningHandle(
@@ -3223,7 +3217,7 @@ public class HiveMetadata
             return Optional.empty();
         }
 
-        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
         List<Column> partitionColumns = partitionedBy.stream()
                 .map(columnHandlesByName::get)
@@ -3683,26 +3677,24 @@ public class HiveMetadata
                         encryptionProvider));
     }
 
-    private static List<HiveColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, TypeTranslator typeTranslator)
+    private static List<HiveColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames)
     {
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
         validateCsvColumns(tableMetadata);
-        return getColumnHandles(tableMetadata.getColumns(), partitionColumnNames, typeTranslator);
+        return getColumnHandles(tableMetadata.getColumns(), partitionColumnNames);
     }
 
     private static List<HiveColumnHandle> getColumnHandles(
             List<ColumnMetadata> columns,
-            Set<String> partitionColumnNames,
-            TypeTranslator typeTranslator)
+            Set<String> partitionColumnNames)
     {
-        return getColumnHandles(columns, partitionColumnNames, typeTranslator, Optional.empty());
+        return getColumnHandles(columns, partitionColumnNames, Optional.empty());
     }
 
     private static List<HiveColumnHandle> getColumnHandles(
             List<ColumnMetadata> columns,
             Set<String> partitionColumnNames,
-            TypeTranslator typeTranslator,
             Optional<HiveType> defaultHiveType)
     {
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
@@ -3720,7 +3712,7 @@ public class HiveMetadata
             }
             columnHandles.add(new HiveColumnHandle(
                     column.getName(),
-                    toHiveType(typeTranslator, column.getType(), defaultHiveType),
+                    toHiveType(column.getType(), defaultHiveType),
                     column.getType().getTypeSignature(),
                     ordinal,
                     columnType,

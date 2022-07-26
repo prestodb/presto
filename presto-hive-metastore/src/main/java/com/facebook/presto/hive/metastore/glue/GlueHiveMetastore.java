@@ -120,7 +120,6 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRecursively;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
@@ -694,8 +693,7 @@ public class GlueHiveMetastore
             Map<Column, Domain> partitionPredicates)
     {
         Table table = getTableOrElseThrow(metastoreContext, databaseName, tableName);
-        List<String> parts = convertPredicateToParts(partitionPredicates);
-        String expression = buildGlueExpression(table.getPartitionColumns(), parts);
+        String expression = buildGlueExpression(partitionPredicates);
         List<Partition> partitions = getPartitions(databaseName, tableName, expression);
         return buildPartitionNames(table.getPartitionColumns(), partitions);
     }
