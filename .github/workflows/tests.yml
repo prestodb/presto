@@ -11,6 +11,8 @@ env:
   MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
   MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
   RETRY: .github/bin/retry
+  DD_CIVISIBILITY_AGENTLESS_ENABLED: true
+  DD_API_KEY: ${{ secrets.DATADOG_API_KEY }}
 
 jobs:
   test:
