@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.router.scheduler.SchedulerType.RANDOM_CHOICE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -29,22 +30,17 @@ public class RouterSpec
 {
     private final List<GroupSpec> groups;
     private final List<SelectorRuleSpec> selectors;
-    private final SchedulerType schedulerType;
+    private final Optional<SchedulerType> schedulerType;
 
     @JsonCreator
     public RouterSpec(
             @JsonProperty("groups") List<GroupSpec> groups,
             @JsonProperty("selectors") List<SelectorRuleSpec> selectors,
-            @JsonProperty("scheduler") SchedulerType schedulerType)
+            @JsonProperty("scheduler") Optional<SchedulerType> schedulerType)
     {
         this.groups = ImmutableList.copyOf(requireNonNull(groups, "groups is null"));
         this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "selectors is null"));
-        if (schedulerType == null) {
-            this.schedulerType = RANDOM_CHOICE;
-        }
-        else {
-            this.schedulerType = schedulerType;
-        }
+        this.schedulerType = requireNonNull(schedulerType, "scheduleType is null");
 
         // make sure no duplicate names in group definition
         checkArgument(groups.stream()
@@ -67,6 +63,6 @@ public class RouterSpec
     @JsonProperty
     public SchedulerType getSchedulerType()
     {
-        return schedulerType;
+        return schedulerType.orElse(RANDOM_CHOICE);
     }
 }
