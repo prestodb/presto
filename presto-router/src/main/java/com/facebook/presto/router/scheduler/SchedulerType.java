@@ -16,6 +16,7 @@ package com.facebook.presto.router.scheduler;
 public enum SchedulerType
 {
     RANDOM_CHOICE,
+    ROUND_ROBIN,
     USER_HASH,
     WEIGHTED_RANDOM_CHOICE,
 }
