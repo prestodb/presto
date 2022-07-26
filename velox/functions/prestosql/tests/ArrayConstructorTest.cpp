@@ -146,3 +146,33 @@ TEST_F(ArrayConstructorTest, empty) {
   auto other = asArray(sameResult);
   EXPECT_TRUE(asArray(result)->equalValueAt(other.get(), 0, 0));
 }
+
+TEST_F(ArrayConstructorTest, reuseResultWithNulls) {
+  vector_size_t size = 1'000;
+
+  auto a = makeFlatVector<int32_t>(size, [](vector_size_t row) { return row; });
+  auto b =
+      makeFlatVector<int32_t>(size, [](vector_size_t row) { return row + 1; });
+  std::shared_ptr<BaseVector> reusedResult = makeArrayVector<int32_t>(
+      size,
+      [](vector_size_t /* row */) { return 1; },
+      [](vector_size_t row) { return row; },
+      [](vector_size_t /* row */) { return true; });
+  SelectivityVector selected(size);
+
+  auto result = evaluate<ArrayVector>(
+      "array_constructor(c0, c1)",
+      makeRowVector({a, b}),
+      selected,
+      reusedResult);
+  auto resultElements = result->elements()->asFlatVector<int32_t>();
+  for (vector_size_t row = 0; row < result->size(); row++) {
+    ASSERT_FALSE(result->isNullAt(row)) << "at " << row;
+    ASSERT_EQ(2, result->sizeAt(row)) << "at " << row;
+    ASSERT_EQ(2 * row, result->offsetAt(row)) << "at " << row;
+
+    auto offset = 2 * row;
+    ASSERT_TRUE(a->equalValueAt(resultElements, row, offset));
+    ASSERT_TRUE(b->equalValueAt(resultElements, row, offset + 1));
+  }
+}
