@@ -17,7 +17,7 @@
 #include <folly/init/Init.h>
 #include <velox/exec/Driver.h>
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include <folly/Random.h>
 #include <algorithm>
 #include <random>

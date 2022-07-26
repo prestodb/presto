@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;

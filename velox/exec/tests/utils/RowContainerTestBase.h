@@ -18,7 +18,7 @@
 #include <array>
 #include <random>
 #include "velox/common/file/FileSystems.h"
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/RowContainer.h"
 #include "velox/exec/VectorHasher.h"

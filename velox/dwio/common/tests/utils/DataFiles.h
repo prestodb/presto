@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <iosfwd>
+#include <string>
 
 namespace facebook::velox::test {
 
@@ -23,5 +23,4 @@ std::string getDataFilePath(
     const std::string& baseDir,
     const std::string& filePath);
 
-std::string getDataFilePath(const std::string& filePath);
-} // namespace facebook::velox::test
+}

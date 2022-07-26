@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <folly/init/Init.h>
+
 #include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/duckdb_reader/ParquetReader.h"
@@ -21,8 +23,6 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
-
-#include <folly/init/Init.h>
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

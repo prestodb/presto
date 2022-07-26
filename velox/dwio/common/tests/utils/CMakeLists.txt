@@ -12,11 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_dwio_test_utils DataFiles.cpp)
+add_library(velox_dwio_common_test_utils BatchMaker.cpp DataFiles.cpp
+                                         FilterGenerator.cpp)
 
-target_link_libraries(velox_dwio_test_utils velox_dwio_common)
+target_link_libraries(
+  velox_dwio_common_test_utils
+  ${FOLLY_WITH_DEPENDENCIES}
+  velox_dwio_common
+  velox_dwio_common_exception
+  velox_exception
+  velox_memory
+  velox_type
+  velox_vector)
 
 # older versions of GCC need it to allow std::filesystem
 if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
-  target_link_libraries(velox_dwrf_test_utils stdc++fs)
+  target_link_libraries(velox_dwio_common_test_utils stdc++fs)
 endif()

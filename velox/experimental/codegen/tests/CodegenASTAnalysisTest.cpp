@@ -20,7 +20,7 @@
 #include <iostream>
 #include <memory>
 #include "velox/core/PlanNode.h"
-#include "velox/dwio_move/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio_move/common/tests/utils/BatchMaker.h"
 #include "velox/experimental/codegen/CodegenCompiledExpressionTransform.h"
 #include "velox/experimental/codegen/CompiledExpressionAnalysis.h"
 #include "velox/experimental/codegen/tests/CodegenTestBase.h"

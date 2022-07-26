@@ -35,7 +35,7 @@ target_link_libraries(
   velox_exec_test_util
   velox_functions_lib
   velox_functions_prestosql
-  velox_dwrf_test_utils)
+  velox_dwio_common_test_utils)
 
 add_test(velox_codegen_benchmark_single_output
          velox_codegen_benchmark_single_output)
@@ -101,4 +101,4 @@ target_link_libraries(
   velox_exec_test_util
   velox_functions_lib
   velox_functions_prestosql
-  velox_dwrf_test_utils)
+  velox_dwio_common_test_utils)

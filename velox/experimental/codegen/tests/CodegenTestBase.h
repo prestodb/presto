@@ -21,7 +21,7 @@
 #include <folly/Benchmark.h>
 #include <optional>
 #include "velox/core/PlanNode.h"
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"

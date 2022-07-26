@@ -73,7 +73,7 @@ target_link_libraries(
   velox_functions_prestosql
   velox_functions_lib
   velox_exec_test_util
-  velox_dwrf_test_utils
+  velox_dwio_common_test_utils
   gtest
   gtest_main
   ${gflags_LIBRARIES}

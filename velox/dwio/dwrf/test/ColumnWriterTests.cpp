@@ -26,14 +26,15 @@
 #include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/common/exception/Exception.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/MapBuilder.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
-#include "velox/dwio/dwrf/test/utils/MapBuilder.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/DictionaryVector.h"
 #include "velox/vector/tests/VectorMaker.h"
+
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;

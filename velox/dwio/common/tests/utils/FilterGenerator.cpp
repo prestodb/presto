@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/test/utils/FilterGenerator.h"
+#include "velox/dwio/common/tests/utils/FilterGenerator.h"
 
 #include <algorithm>
 #include <memory>
@@ -22,7 +22,8 @@
 
 #include "velox/common/base/Exceptions.h"
 
-namespace facebook::velox::dwio::dwrf {
+namespace facebook::velox::dwio::common {
+
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 
@@ -455,4 +456,4 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
   return filters;
 }
 
-} // namespace facebook::velox::dwio::dwrf
+} // namespace facebook::velox::dwio::common

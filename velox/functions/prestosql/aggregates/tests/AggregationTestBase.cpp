@@ -15,7 +15,7 @@
  */
 
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 

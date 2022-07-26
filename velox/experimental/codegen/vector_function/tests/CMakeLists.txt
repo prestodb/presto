@@ -38,7 +38,7 @@ target_link_libraries(
   velox_memory
   velox_dwio_type_fbhive
   velox_dwio_common_exception
-  velox_dwrf_test_utils
+  velox_dwio_common_test_utils
   velox_presto_serializer
   velox_transform_utils
   ${ANTLR4_RUNTIME}

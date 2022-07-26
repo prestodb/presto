@@ -15,8 +15,7 @@
 add_subdirectory(utils)
 
 set(TEST_LINK_LIBS
-    velox_dwio_test_utils
-    velox_dwrf_test_utils
+    velox_dwio_common_test_utils
     ${gflags_LIBRARIES}
     gtest
     gtest_main
@@ -337,6 +336,7 @@ add_test(
 
 target_link_libraries(
   velox_dwio_dwrf_reader_test
+  velox_dwrf_test_utils
   ${VELOX_LINK_LIBS}
   ${FOLLY_WITH_DEPENDENCIES}
   ${FMT}

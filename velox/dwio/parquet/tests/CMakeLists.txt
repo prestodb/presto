@@ -13,7 +13,7 @@
 # limitations under the License.
 
 set(TEST_LINK_LIBS
-    velox_dwio_test_utils
+    velox_dwio_common_test_utils
     velox_vector_test_lib
     gtest
     gtest_main

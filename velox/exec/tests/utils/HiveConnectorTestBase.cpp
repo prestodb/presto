@@ -18,8 +18,8 @@
 #include "velox/common/base/tests/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 

@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_dwrf_test_utils BatchMaker.cpp E2EWriterTestUtil.cpp
-                                  FilterGenerator.cpp)
+add_library(velox_dwrf_test_utils E2EWriterTestUtil.cpp)
 
 target_link_libraries(
   velox_dwrf_test_utils

@@ -28,9 +28,9 @@
 
 #include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/SelectiveColumnReader.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/FilterGenerator.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
-#include "velox/dwio/dwrf/test/utils/FilterGenerator.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 
@@ -130,7 +130,7 @@ class E2EFilterTestBase : public testing::Test {
 
   template <typename T>
   void makeIntDistribution(
-      const Subfield& field,
+      const common::Subfield& field,
       int64_t min,
       int64_t max,
       int32_t repeats,
@@ -141,7 +141,7 @@ class E2EFilterTestBase : public testing::Test {
     int counter = 0;
     for (RowVectorPtr batch : batches_) {
       auto numbers =
-          getChildBySubfield(batch.get(), field)->as<FlatVector<T>>();
+          common::getChildBySubfield(batch.get(), field)->as<FlatVector<T>>();
       for (auto row = 0; row < numbers->size(); ++row) {
         if (keepNulls && numbers->isNullAt(row)) {
           continue;
@@ -175,13 +175,13 @@ class E2EFilterTestBase : public testing::Test {
   // range. These patterns repeat every 100 values so as to trigger
   // dictionary encoding.
   void makeStringDistribution(
-      const Subfield& field,
+      const common::Subfield& field,
       int cardinality,
       bool keepNulls,
       bool addOneOffs);
 
   // Makes non-null strings unique by appending a row number.
-  void makeStringUnique(const Subfield& field);
+  void makeStringUnique(const common::Subfield& field);
 
   // Makes all data in 'batches_' non-null. This finds a sampling of
   // non-null values from each column and replaces nulls in the column
@@ -201,12 +201,12 @@ class E2EFilterTestBase : public testing::Test {
       std::unique_ptr<dwio::common::InputStream> input) = 0;
 
   void readWithoutFilter(
-      std::shared_ptr<ScanSpec> spec,
+      std::shared_ptr<common::ScanSpec> spec,
       const std::vector<RowVectorPtr>& batches,
       uint64_t& time);
 
   void readWithFilter(
-      std::shared_ptr<ScanSpec> spec,
+      std::shared_ptr<common::ScanSpec> spec,
       const std::vector<RowVectorPtr>& batches,
       const std::vector<uint32_t>& hitRows,
       uint64_t& time,
@@ -235,10 +235,10 @@ class E2EFilterTestBase : public testing::Test {
     child->as<LazyVector>()->load(rows, &hook);
     for (auto i = 0; i < rows.size(); ++i) {
       auto row = rows[i] + rowIndex;
-      auto reference = batches_[batchNumber(hitRows[row])]
+      auto reference = batches_[common::batchNumber(hitRows[row])]
                            ->childAt(columnIndex)
                            ->as<FlatVector<T>>();
-      auto referenceIndex = batchRow(hitRows[row]);
+      auto referenceIndex = common::batchRow(hitRows[row]);
       if (reference->isNullAt(referenceIndex)) {
         continue; // The hook is not called on nulls.
       }
@@ -256,7 +256,7 @@ class E2EFilterTestBase : public testing::Test {
       const std::vector<uint32_t>& hitRows,
       int32_t rowIndex);
 
-  void testFilterSpecs(const std::vector<FilterSpec>& filterSpecs);
+  void testFilterSpecs(const std::vector<common::FilterSpec>& filterSpecs);
 
   void testRowGroupSkip(const std::vector<std::string>& filterable);
 
@@ -281,7 +281,7 @@ class E2EFilterTestBase : public testing::Test {
     return readSizes_[nextReadSizeIndex_++];
   }
 
-  std::unique_ptr<FilterGenerator> filterGenerator;
+  std::unique_ptr<common::FilterGenerator> filterGenerator;
   std::unique_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<const RowType> rowType_;
   dwio::common::MemorySink* sinkPtr_;

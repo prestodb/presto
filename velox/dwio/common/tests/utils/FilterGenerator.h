@@ -27,7 +27,7 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/SimpleVector.h"
 
-namespace facebook::velox::dwio::dwrf {
+namespace facebook::velox::dwio::common {
 
 using namespace facebook::velox::common;
 
@@ -369,4 +369,4 @@ class FilterGenerator {
   std::unordered_map<std::string, std::array<int32_t, 2>> filterCoverage_;
 };
 
-} // namespace facebook::velox::dwio::dwrf
+} // namespace facebook::velox::dwio::common

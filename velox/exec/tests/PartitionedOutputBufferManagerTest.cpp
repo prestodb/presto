@@ -15,7 +15,7 @@
  */
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include <gtest/gtest.h>
-#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/serializers/PrestoSerializer.h"

@@ -23,6 +23,7 @@ namespace facebook::velox::dwio::dwrf {
 using namespace facebook::velox::test;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::dwio::type::fbhive;
+using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 
