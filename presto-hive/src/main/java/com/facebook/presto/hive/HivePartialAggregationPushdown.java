@@ -216,13 +216,12 @@ public class HivePartialAggregationPushdown
                 return Optional.empty();
             }
 
-            HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             Map<VariableReferenceExpression, ColumnHandle> assignments = new HashMap<>();
             for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> aggregationEntry : partialAggregationNode.getAggregations().entrySet()) {
                 CallExpression callExpression = aggregationEntry.getValue().getCall();
                 String columnName;
                 int columnIndex;
-                HiveType hiveType = HiveType.toHiveType(hiveTypeTranslator, callExpression.getType());
+                HiveType hiveType = HiveType.toHiveType(callExpression.getType());
                 if (callExpression.getArguments().isEmpty()) {
                     columnName = "count_star";
                     columnIndex = DUMMY_AGGREGATED_COLUMN_INDEX;

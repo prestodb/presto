@@ -378,6 +378,8 @@ public abstract class AbstractTestHiveClient
             .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
             .build();
 
+    protected static final Predicate<String> PARTITION_COLUMN_FILTER = columnName -> columnName.equals("ds") || columnName.startsWith("part_");
+
     protected static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA = new MaterializedResult(
             CREATE_TABLE_DATA.getMaterializedRows().stream()
                     .map(row -> new MaterializedRow(row.getPrecision(), newArrayList(concat(row.getFields(), ImmutableList.of("2015-07-0" + row.getField(0))))))
@@ -1013,7 +1015,6 @@ public abstract class AbstractTestHiveClient
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 listeningDecorator(executor),
-                new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
                 TEST_SERVER_VERSION,
@@ -1463,10 +1464,9 @@ public abstract class AbstractTestHiveClient
             MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER);
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session);
             Table oldTable = transaction.getMetastore().getTable(metastoreContext, schemaName, tableName).get();
-            HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()
                     .filter(columnMetadata -> !columnMetadata.getName().equals("ds"))
-                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(hiveTypeTranslator, columnMetadata.getType()), Optional.empty(), Optional.empty()))
+                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(columnMetadata.getType()), Optional.empty(), Optional.empty()))
                     .collect(toList());
             Table.Builder newTable = Table.builder(oldTable)
                     .setDataColumns(dataColumns);
@@ -4043,10 +4043,16 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         List<String> partitionedBy = createTableColumns.stream()
-                .filter(column -> column.getName().equals("ds"))
                 .map(ColumnMetadata::getName)
+                .filter(PARTITION_COLUMN_FILTER)
                 .collect(toList());
 
+        doCreateEmptyTable(tableName, storageFormat, createTableColumns, partitionedBy);
+    }
+
+    protected void doCreateEmptyTable(SchemaTableName tableName, HiveStorageFormat storageFormat, List<ColumnMetadata> createTableColumns, List<String> partitionedBy)
+            throws Exception
+    {
         String queryId;
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();

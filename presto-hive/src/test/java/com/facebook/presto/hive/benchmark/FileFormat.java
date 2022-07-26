@@ -30,9 +30,7 @@ import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveTypeName;
-import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.RecordFileWriter;
-import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.TestData;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -425,11 +423,10 @@ public enum FileFormat
             ConnectorSession session, File targetFile, List<String> columnNames, List<Type> columnTypes, HiveStorageFormat format)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
-        TypeTranslator typeTranslator = new HiveTypeTranslator();
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
+            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
         }
 
         RecordCursor recordCursor = cursorProvider
@@ -461,11 +458,10 @@ public enum FileFormat
             long modificationTime)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
-        TypeTranslator typeTranslator = new HiveTypeTranslator();
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
+            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
         }
 
         SchemaTableName tableName = new SchemaTableName("hive", "testtable");
@@ -546,13 +542,12 @@ public enum FileFormat
     private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
     {
         Properties schema = new Properties();
-        TypeTranslator typeTranslator = new HiveTypeTranslator();
         schema.setProperty(SERIALIZATION_LIB, format.getSerDe());
         schema.setProperty(FILE_INPUT_FORMAT, format.getInputFormat());
         schema.setProperty(META_TABLE_COLUMNS, columnNames.stream()
                 .collect(joining(",")));
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
-                .map(type -> toHiveType(typeTranslator, type))
+                .map(type -> toHiveType(type))
                 .map(HiveType::getHiveTypeName)
                 .map(HiveTypeName::toString)
                 .collect(joining(":")));

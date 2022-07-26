@@ -505,7 +505,6 @@ public class TestHiveSplitManager
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 executor,
-                new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, executor),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), executor),
                 TEST_SERVER_VERSION,

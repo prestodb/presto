@@ -61,7 +61,6 @@ public class HiveMetadataFactory
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final SmileCodec<PartitionUpdate> partitionUpdateSmileCodec;
     private final ListeningExecutorService fileRenameExecutor;
-    private final TypeTranslator typeTranslator;
     private final StagingFileCommitter stagingFileCommitter;
     private final ZeroRowFileCreator zeroRowFileCreator;
     private final String prestoVersion;
@@ -88,7 +87,6 @@ public class HiveMetadataFactory
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
-            TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
             NodeVersion nodeVersion,
@@ -122,7 +120,6 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 partitionUpdateSmileCodec,
                 fileRenameExecutor,
-                typeTranslator,
                 stagingFileCommitter,
                 zeroRowFileCreator,
                 nodeVersion.toString(),
@@ -157,7 +154,6 @@ public class HiveMetadataFactory
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             ListeningExecutorService fileRenameExecutor,
-            TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
             String prestoVersion,
@@ -190,7 +186,6 @@ public class HiveMetadataFactory
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.partitionUpdateSmileCodec = requireNonNull(partitionUpdateSmileCodec, "partitionUpdateSmileCodec is null");
         this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
-        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
         this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
@@ -237,7 +232,6 @@ public class HiveMetadataFactory
                 tableParameterCodec,
                 partitionUpdateCodec,
                 partitionUpdateSmileCodec,
-                typeTranslator,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
                 stagingFileCommitter,

@@ -13,73 +13,180 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
-import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Strings;
 import org.testng.annotations.Test;
 
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.GLUE_EXPRESSION_CHAR_LIMIT;
 import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
+import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpressionForSingleDomain;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 
 public class TestGlueExpressionUtil
 {
-    private static final List<Column> PARTITION_KEYS = ImmutableList.of(
-            getColumn("name", "string"),
-            getColumn("birthday", "date"),
-            getColumn("age", "int"));
-
-    private static Column getColumn(String name, String type)
+    @Test
+    public void testBuildGlueExpressionDomainEqualsSingleValue()
     {
-        return new Column(name, HiveType.valueOf(type), Optional.empty(), Optional.empty());
+        Domain domain = Domain.singleValue(VarcharType.VARCHAR, utf8Slice("2020-01-01"));
+        Optional<String> foo = buildGlueExpressionForSingleDomain("foo", domain);
+        assertEquals(foo.get(), "((foo = '2020-01-01'))");
     }
 
     @Test
-    public void testBuildExpression()
+    public void testBuildGlueExpressionTupleDomainEqualsSingleValue()
     {
-        List<String> partitionValues = ImmutableList.of("foo", "2018-01-02", "99");
-        String expression = buildGlueExpression(PARTITION_KEYS, partitionValues);
-        assertEquals(expression, "(name='foo') AND (birthday='2018-01-02') AND (age=99)");
-
-        partitionValues = ImmutableList.of("foo", "2018-01-02", "");
-        expression = buildGlueExpression(PARTITION_KEYS, partitionValues);
-        assertEquals(expression, "(name='foo') AND (birthday='2018-01-02')");
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addStringValues("col1", "2020-01-01")
+                .addStringValues("col2", "2020-02-20")
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, "((col1 = '2020-01-01')) AND ((col2 = '2020-02-20'))");
     }
 
     @Test
-    public void testBuildExpressionFromPartialSpecification()
+    public void testBuildGlueExpressionTupleDomainEqualsAndInClause()
     {
-        List<String> partitionValues = ImmutableList.of("", "2018-01-02", "");
-        String expression = buildGlueExpression(PARTITION_KEYS, partitionValues);
-        assertEquals(expression, "(birthday='2018-01-02')");
-
-        partitionValues = ImmutableList.of("foo", "", "99");
-        expression = buildGlueExpression(PARTITION_KEYS, partitionValues);
-        assertEquals(expression, "(name='foo') AND (age=99)");
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addStringValues("col1", "2020-01-01")
+                .addStringValues("col2", "2020-02-20", "2020-02-28")
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, "((col1 = '2020-01-01')) AND ((col2 in ('2020-02-20', '2020-02-28')))");
     }
 
     @Test
-    public void testBuildExpressionNullOrEmptyValues()
+    public void testBuildGlueExpressionTupleDomainRange()
     {
-        assertNull(buildGlueExpression(PARTITION_KEYS, ImmutableList.of()));
-        assertNull(buildGlueExpression(PARTITION_KEYS, null));
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addStringValues("col1", "2020-01-01")
+                .addRanges("col2", Range.greaterThan(BIGINT, 100L))
+                .addRanges("col2", Range.lessThan(BIGINT, 0L))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, "((col1 = '2020-01-01')) AND ((col2 < 0) OR (col2 > 100))");
     }
 
-    @Test(expectedExceptions = PrestoException.class)
-    public void testBuildExpressionInvalidPartitionValueListSize()
+    @Test
+    public void testBuildGlueExpressionTupleDomainEqualAndRangeLong()
     {
-        List<String> partitionValues = ImmutableList.of("foo", "2017-01-02", "99", "extra");
-        buildGlueExpression(PARTITION_KEYS, partitionValues);
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addBigintValues("col1", 3L)
+                .addRanges("col1", Range.greaterThan(BIGINT, 100L))
+                .addRanges("col1", Range.lessThan(BIGINT, 0L))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, "((col1 < 0) OR (col1 > 100) OR (col1 = 3))");
     }
 
-    @Test(expectedExceptions = PrestoException.class)
-    public void testBuildExpressionNullPartitionKeys()
+    @Test
+    public void testBuildGlueExpressionTupleDomainEqualAndRangeString()
     {
-        List<String> partitionValues = ImmutableList.of("foo", "2018-01-02", "99");
-        buildGlueExpression(null, partitionValues);
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addStringValues("col1", "2020-01-01", "2020-01-31")
+                .addRanges("col1", Range.range(VarcharType.VARCHAR, utf8Slice("2020-03-01"), true, utf8Slice("2020-03-31"), true))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, "((col1 >= '2020-03-01' AND col1 <= '2020-03-31') OR (col1 in ('2020-01-01', '2020-01-31')))");
+    }
+
+    @Test
+    public void testBuildGlueExpressionTupleDomainIsNull()
+    {
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addDomain("col1", Domain.onlyNull(VarcharType.VARCHAR))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, format("(col1 = '%s')", HIVE_DEFAULT_DYNAMIC_PARTITION));
+    }
+
+    @Test
+    public void testBuildGlueExpressionTupleDomainNotNull()
+    {
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addDomain("col1", Domain.notNull(VarcharType.VARCHAR))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, format("(col1 <> '%s')", HIVE_DEFAULT_DYNAMIC_PARTITION));
+    }
+
+    @Test
+    public void testBuildGlueExpressionMaxLengthNone()
+    {
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addStringValues("col1", Strings.repeat("x", GLUE_EXPRESSION_CHAR_LIMIT))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, "");
+    }
+
+    @Test
+    public void testBuildGlueExpressionMaxLengthOneColumn()
+    {
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addStringValues("col1", Strings.repeat("x", GLUE_EXPRESSION_CHAR_LIMIT))
+                .addStringValues("col2", Strings.repeat("x", 5))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, "((col2 = 'xxxxx'))");
+    }
+
+    @Test
+    public void testDecimalConversion()
+    {
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addDecimalValues("col1", "10.134")
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, "((col1 = 10.13400))");
+    }
+
+    @Test
+    public void testBigintConversion()
+    {
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addBigintValues("col1", Long.MAX_VALUE)
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, format("((col1 = %d))", Long.MAX_VALUE));
+    }
+
+    @Test
+    public void testIntegerConversion()
+    {
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addIntegerValues("col1", Long.valueOf(Integer.MAX_VALUE))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, format("((col1 = %d))", Integer.MAX_VALUE));
+    }
+
+    @Test
+    public void testSmallintConversion()
+    {
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addIntegerValues("col1", Long.valueOf(Short.MAX_VALUE))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, format("((col1 = %d))", Short.MAX_VALUE));
+    }
+
+    @Test
+    public void testTinyintConversion()
+    {
+        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+                .addIntegerValues("col1", Long.valueOf(Byte.MAX_VALUE))
+                .build();
+        String expression = buildGlueExpression(predicates);
+        assertEquals(expression, format("((col1 = %d))", Byte.MAX_VALUE));
     }
 }

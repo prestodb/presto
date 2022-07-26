@@ -254,7 +254,6 @@ public class TestHiveCommitHandleOutput
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 listeningExecutor,
-                new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningExecutor),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningExecutor),
                 TEST_SERVER_VERSION,
