@@ -1006,6 +1006,38 @@ TEST_F(ExprTest, constantArray) {
   ASSERT_TRUE(b->equalValueAt(result[1].get(), 5, 0));
 }
 
+TEST_F(ExprTest, constantComplexNull) {
+  std::vector<core::TypedExprPtr> expressions = {
+      std::make_shared<const core::ConstantTypedExpr>(
+          ARRAY(BIGINT()), variant::null(TypeKind::ARRAY)),
+      std::make_shared<const core::ConstantTypedExpr>(
+          MAP(VARCHAR(), BIGINT()), variant::null(TypeKind::MAP)),
+      std::make_shared<const core::ConstantTypedExpr>(
+          ROW({SMALLINT(), BIGINT()}), variant::null(TypeKind::ROW))};
+  auto exprSet =
+      std::make_unique<exec::ExprSet>(std::move(expressions), execCtx_.get());
+
+  const vector_size_t size = 10;
+  auto input = makeRowVector(ROW({}), size);
+  exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
+
+  SelectivityVector rows(size);
+  std::vector<VectorPtr> result(3);
+  exprSet->eval(rows, &context, &result);
+
+  ASSERT_EQ(VectorEncoding::Simple::CONSTANT, result[0]->encoding());
+  ASSERT_EQ(TypeKind::ARRAY, result[0]->typeKind());
+  ASSERT_TRUE(result[0]->as<ConstantVector<ComplexType>>()->isNullAt(0));
+
+  ASSERT_EQ(VectorEncoding::Simple::CONSTANT, result[1]->encoding());
+  ASSERT_EQ(TypeKind::MAP, result[1]->typeKind());
+  ASSERT_TRUE(result[1]->as<ConstantVector<ComplexType>>()->isNullAt(0));
+
+  ASSERT_EQ(VectorEncoding::Simple::CONSTANT, result[2]->encoding());
+  ASSERT_EQ(TypeKind::ROW, result[2]->typeKind());
+  ASSERT_TRUE(result[2]->as<ConstantVector<ComplexType>>()->isNullAt(0));
+}
+
 TEST_F(ExprTest, constantScalarEquals) {
   auto a = makeFlatVector<int32_t>(10, [](auto row) { return row; });
   auto b = makeFlatVector<int32_t>(10, [](auto row) { return row; });

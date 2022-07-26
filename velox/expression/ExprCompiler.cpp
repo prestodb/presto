@@ -442,8 +442,13 @@ ExprPtr compileExpression(
     if (constant->hasValueVector()) {
       result = std::make_shared<ConstantExpr>(constant->valueVector());
     } else {
-      result = std::make_shared<ConstantExpr>(
-          BaseVector::createConstant(constant->value(), 1, pool));
+      if (constant->value().isNull()) {
+        result = std::make_shared<ConstantExpr>(
+            BaseVector::createNullConstant(constant->type(), 1, pool));
+      } else {
+        result = std::make_shared<ConstantExpr>(
+            BaseVector::createConstant(constant->value(), 1, pool));
+      }
     }
   } else if (
       auto lambda = dynamic_cast<const core::LambdaTypedExpr*>(expr.get())) {

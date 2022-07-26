@@ -75,7 +75,8 @@ class ConstantTypedExpr : public ITypedExpr {
       : ITypedExpr{value.inferType()}, value_{std::move(value)} {}
 
   // Creates constant expression for cases when type cannot be properly inferred
-  // from the variant, like variant::null().
+  // from the variant, like variant::null(). For complex types, only
+  // variant::null() is supported.
   ConstantTypedExpr(std::shared_ptr<const Type> type, variant value)
       : ITypedExpr{std::move(type)}, value_{std::move(value)} {}
 
