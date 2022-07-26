@@ -32,6 +32,8 @@ public class SchedulerFactory
         switch (schedulerType) {
             case RANDOM_CHOICE:
                 return new RandomChoiceScheduler();
+            case WEIGHTED_RANDOM_CHOICE:
+                return new WeightedRandomChoiceScheduler();
             case USER_HASH:
                 return new UserHashScheduler();
         }

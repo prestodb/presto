@@ -16,11 +16,13 @@ package com.facebook.presto.router;
 import com.facebook.presto.router.scheduler.RandomChoiceScheduler;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.UserHashScheduler;
+import com.facebook.presto.router.scheduler.WeightedRandomChoiceScheduler;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -28,15 +30,24 @@ import static org.testng.Assert.assertTrue;
 public class TestScheduler
 {
     private final ArrayList<URI> servers = new ArrayList<>();
+    private final HashMap<URI, Integer> weights = new HashMap<>();
     private Scheduler scheduler;
 
     @BeforeClass
     public void setup()
             throws Exception
     {
-        servers.add(new URI("192.168.0.1"));
-        servers.add(new URI("192.168.0.2"));
-        servers.add(new URI("192.168.0.3"));
+        URI uri1 = new URI("192.168.0.1");
+        URI uri2 = new URI("192.168.0.2");
+        URI uri3 = new URI("192.168.0.3");
+
+        servers.add(uri1);
+        servers.add(uri2);
+        servers.add(uri3);
+
+        weights.put(uri1, 1);
+        weights.put(uri2, 10);
+        weights.put(uri3, 100);
     }
 
     @Test
@@ -64,5 +75,25 @@ public class TestScheduler
         assertTrue(servers.contains(target2));
 
         assertEquals(target2, target1);
+    }
+
+    @Test
+    public void testWeightedRandomChoiceScheduler()
+            throws Exception
+    {
+        scheduler = new WeightedRandomChoiceScheduler();
+        scheduler.setCandidates(servers);
+        scheduler.setWeights(weights);
+
+        HashMap<URI, Integer> hitCounter = new HashMap<>();
+
+        for (int i = 0; i < 1000; i++) {
+            URI target = scheduler.getDestination("test").orElse(new URI("invalid"));
+            assertTrue(servers.contains(target));
+            assertTrue(weights.containsKey(target));
+            hitCounter.put(target, hitCounter.getOrDefault(target, 0) + 1);
+        }
+
+        assertTrue(hitCounter.get(new URI("192.168.0.3")) > hitCounter.get(new URI("192.168.0.1")));
     }
 }
