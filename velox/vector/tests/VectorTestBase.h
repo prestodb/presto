@@ -166,6 +166,11 @@ class VectorTestBase {
     return vectorMaker_.flatVector<T>(size, type);
   }
 
+  template <typename T>
+  FlatVectorPtr<T> makeAllNullFlatVector(vector_size_t size) {
+    return vectorMaker_.allNullFlatVector<T>(size);
+  }
+
   FlatVectorPtr<ShortDecimal> makeShortDecimalFlatVector(
       const std::vector<int64_t>& unscaledValues,
       const TypePtr& type) {
@@ -587,7 +592,9 @@ class VectorTestBase {
 
   BufferPtr makeIndices(
       vector_size_t size,
-      std::function<vector_size_t(vector_size_t)> indexAt);
+      std::function<vector_size_t(vector_size_t)> indexAt) const;
+
+  BufferPtr makeIndices(const std::vector<vector_size_t>& indices) const;
 
   BufferPtr makeOddIndices(vector_size_t size);
 
