@@ -116,7 +116,6 @@ public class HiveClientModule
     public void configure(Binder binder)
     {
         binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
-        binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
         binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
