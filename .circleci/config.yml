@@ -81,7 +81,7 @@ jobs:
           command: |
             if [[ ! -e ${HOME}/.m2/repository ]]; then
               mkdir -p ${HOME}/.m2/repository
-              mvn de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
+              mvn clean install -DskipTests -T2C -pl -presto-docs
             fi
 
       - save_cache:
