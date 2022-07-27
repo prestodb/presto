@@ -122,6 +122,14 @@ public class TestTemplateExpressionRewriter
         assertRewritten("NOT null", "NOT ?");
     }
 
+    @Test
+    public void testRewriteTimeZoneExpression()
+    {
+        Expression before = new AtTimeZone(new TimestampLiteral("2022-01-01 01:02:03.1234"), new StringLiteral("US/Eastern"));
+        Expression after = new AtTimeZone(new Parameter(0), new Parameter(1));
+        assertRewritten(before, after);
+    }
+
     private static void assertRewritten(Expression before, String after)
     {
         assertRewritten(TemplateExpressionRewriter.rewrite(before), SQL_PARSER.createExpression(after));
