@@ -322,9 +322,7 @@ public class MapBlock
                 Arrays.equals(this.offsets, other.offsets) &&
                 Objects.equals(this.keyBlock, other.keyBlock) &&
                 Objects.equals(this.valueBlock, other.valueBlock) &&
-                Objects.equals(this.hashTables, other.hashTables) &&
-                this.retainedSizeInBytesExceptHashtable == other.retainedSizeInBytesExceptHashtable &&
-                this.sizeInBytes == other.sizeInBytes;
+                this.retainedSizeInBytesExceptHashtable == other.retainedSizeInBytesExceptHashtable;
     }
 
     @Override
@@ -336,8 +334,6 @@ public class MapBlock
                 Arrays.hashCode(offsets),
                 keyBlock,
                 valueBlock,
-                hashTables,
-                retainedSizeInBytesExceptHashtable,
-                sizeInBytes);
+                retainedSizeInBytesExceptHashtable);
     }
 }
