@@ -499,6 +499,11 @@ public abstract class AbstractMapBlock
             }
             set(hashTables);
         }
+
+        // This class intentionally does not implement hashcode and equals.
+        // Any class using Hashtables as a field (MapBlock, MapBlockBuilder) should not include this class's implementation as this is
+        // derived data. Only using KeyBlock hashcode/equals should suffice.
+        // This class has no immutable fields, which makes hashcode/equals error-prone.
     }
 
     @Override
