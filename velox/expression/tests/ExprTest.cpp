@@ -39,24 +39,24 @@ namespace {
 // encoding, either FLAT or CONSTANT. Subsequent elements add a wrapper, e.g.
 // DICTIONARY, SEQUENCE or CONSTANT.
 struct EncodingOptions {
-  VectorEncoding::Simple encoding;
+  const VectorEncoding::Simple encoding;
 
   // Specifies the count of values for a FLAT, DICTIONARY or SEQUENCE.
-  int32_t cardinality;
+  const int32_t cardinality;
 
   // Specifies the frequency of nulls added by a DICTIONARY wrapper. 0 means
   // no nulls are added, n means positions divisible by n have a null.
-  int32_t nullFrequency = 0;
+  const int32_t nullFrequency = 0;
 
   // Allows making two dictionaries with the same indices array.
-  BufferPtr indices = nullptr;
+  const BufferPtr indices = nullptr;
 
   // If wrapping vector inside a CONSTANT, specifies the element of the
   // wrapped vector which gives the constant value.
-  int32_t constantIndex = 0;
+  const int32_t constantIndex = 0;
 
-  static EncodingOptions flat(int32_t cardinality, int32_t nullFrequency) {
-    return {VectorEncoding::Simple::FLAT, cardinality, nullFrequency};
+  static EncodingOptions flat(int32_t cardinality) {
+    return {VectorEncoding::Simple::FLAT, cardinality};
   }
 
   static EncodingOptions dictionary(
@@ -139,32 +139,30 @@ class ExprTest : public testing::Test, public VectorTestBase {
         rawIndices[i] = 10 + (i % 80);
       }
     }
-    testEncodings_.push_back({EncodingOptions::flat(kTestSize, 2)});
+    testEncodings_.push_back({EncodingOptions::flat(kTestSize)});
     testEncodings_.push_back(
-        {EncodingOptions::flat(100, 2),
+        {EncodingOptions::flat(100),
          EncodingOptions::dictionary(kTestSize, indices)});
     testEncodings_.push_back(
-        {EncodingOptions::flat(100, 2),
+        {EncodingOptions::flat(100),
          EncodingOptions::dictionary(kTestSize, 0)});
     testEncodings_.push_back(
-        {EncodingOptions::flat(100, 2),
-         EncodingOptions::constant(kTestSize, 3)});
+        {EncodingOptions::flat(100), EncodingOptions::constant(kTestSize, 3)});
     testEncodings_.push_back(
-        {EncodingOptions::flat(100, 2),
-         EncodingOptions::constant(kTestSize, 7)});
+        {EncodingOptions::flat(100), EncodingOptions::constant(kTestSize, 7)});
     testEncodings_.push_back(
-        {EncodingOptions::flat(100, 2),
+        {EncodingOptions::flat(100),
          EncodingOptions::sequence(10),
          EncodingOptions::dictionary(kTestSize, 6)});
     testEncodings_.push_back(
-        {EncodingOptions::flat(100, 2),
+        {EncodingOptions::flat(100),
          EncodingOptions::dictionary(kTestSize, 6)});
     // A dictionary that masks everything as null.
     testEncodings_.push_back(
-        {EncodingOptions::flat(100, 2),
+        {EncodingOptions::flat(100),
          EncodingOptions::dictionary(kTestSize, 1)});
     testEncodings_.push_back(
-        {EncodingOptions::flat(100, 2),
+        {EncodingOptions::flat(100),
          EncodingOptions::dictionary(1000, 0),
          EncodingOptions::sequence(10)});
   }
@@ -229,7 +227,6 @@ class ExprTest : public testing::Test, public VectorTestBase {
     VectorPtr current;
     for (auto& option : options) {
       int32_t cardinality = option.cardinality;
-      auto nullFrequency = option.nullFrequency;
       switch (option.encoding) {
         case VectorEncoding::Simple::FLAT: {
           VELOX_CHECK(!current, "A flat vector must be in a leaf position");
@@ -269,6 +266,8 @@ class ExprTest : public testing::Test, public VectorTestBase {
                 cardinality, execCtx_->pool());
             auto rawIndices = indices->asMutable<vector_size_t>();
             uint64_t* rawNulls = nullptr;
+
+            auto nullFrequency = option.nullFrequency;
             if (nullFrequency && !nulls) {
               nulls = AlignedBuffer::allocate<bool>(
                   cardinality, execCtx_->pool(), bits::kNotNull);
@@ -480,6 +479,9 @@ class ExprTest : public testing::Test, public VectorTestBase {
     exprs_.reset();
   }
 
+  /// Evaluates 'text' expression on 'testDataRow()' twice. First, evaluates the
+  /// expression on the first 2/3 of the rows. Then, evaluates the expression on
+  /// the last 1/3 of the rows.
   template <typename T>
   void run(
       const std::string& text,
@@ -844,7 +846,7 @@ TEST_F(ExprTest, moreEncodings) {
 
 TEST_F(ExprTest, reorder) {
   constexpr int32_t kTestSize = 20000;
-  std::vector<EncodingOptions> encoding = {EncodingOptions::flat(kTestSize, 2)};
+  std::vector<EncodingOptions> encoding = {EncodingOptions::flat(kTestSize)};
   fillVectorAndReference<int64_t>(
       encoding,
       [](int32_t row) { return std::optional(static_cast<int64_t>(row)); },
@@ -1761,21 +1763,21 @@ TEST_F(ExprTest, opaque) {
   OpaqueState::clearStats();
 
   fillVectorAndReference<int64_t>(
-      {EncodingOptions::flat(kRows, 2)},
+      {EncodingOptions::flat(kRows)},
       [](int32_t row) {
         return row % 7 == 0 ? std::nullopt
                             : std::optional(static_cast<int64_t>(row));
       },
       &testData_.bigint1);
   fillVectorAndReference<int64_t>(
-      {EncodingOptions::flat(kRows, 2)},
+      {EncodingOptions::flat(kRows)},
       [](int32_t row) {
         return (row % 11 == 0) ? std::nullopt
                                : std::optional(static_cast<int64_t>(row * 2));
       },
       &testData_.bigint2);
   fillVectorAndReference<std::shared_ptr<void>>(
-      {EncodingOptions::flat(1, 100), EncodingOptions::constant(kRows, 0)},
+      {EncodingOptions::flat(1), EncodingOptions::constant(kRows, 0)},
       [](int32_t) {
         return std::static_pointer_cast<void>(
             std::make_shared<OpaqueState>(123));
@@ -2690,7 +2692,7 @@ TEST_F(ExprTest, switchExceptionContext) {
 
 TEST_F(ExprTest, conjunctExceptionContext) {
   fillVectorAndReference<int64_t>(
-      {EncodingOptions::flat(20, 2)},
+      {EncodingOptions::flat(20)},
       [](int32_t row) { return std::optional(static_cast<int64_t>(row)); },
       &testData_.bigint1);
 
