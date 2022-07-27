@@ -281,6 +281,7 @@ public class RowBlock
             return false;
         }
         RowBlock other = (RowBlock) obj;
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes as it makes the implementation non-deterministic.
         return this.startOffset == other.startOffset &&
                 this.positionCount == other.positionCount &&
                 Arrays.equals(this.rowIsNull, other.rowIsNull) &&
@@ -292,6 +293,7 @@ public class RowBlock
     @Override
     public int hashCode()
     {
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes as it makes the implementation non-deterministic.
         return Objects.hash(startOffset,
                 positionCount,
                 Arrays.hashCode(rowIsNull),

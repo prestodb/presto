@@ -253,6 +253,7 @@ public class ArrayBlock
             return false;
         }
         ArrayBlock other = (ArrayBlock) obj;
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes as it makes the implementation non-deterministic.
         return this.arrayOffset == other.arrayOffset &&
                 this.positionCount == other.positionCount &&
                 Arrays.equals(this.valueIsNull, other.valueIsNull) &&
@@ -264,6 +265,7 @@ public class ArrayBlock
     @Override
     public int hashCode()
     {
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes as it makes the implementation non-deterministic.
         return Objects.hash(arrayOffset,
                 positionCount,
                 Arrays.hashCode(valueIsNull),
