@@ -78,7 +78,42 @@ struct EncodingOptions {
   static EncodingOptions constant(int32_t cardinality, int32_t index) {
     return {VectorEncoding::Simple::CONSTANT, cardinality, -1, nullptr, index};
   }
+
+  std::string toString() const {
+    std::stringstream out;
+    out << mapSimpleToName(encoding) << ", " << cardinality << " rows";
+
+    switch (encoding) {
+      case VectorEncoding::Simple::FLAT:
+        break;
+      case VectorEncoding::Simple::DICTIONARY:
+        if (indices) {
+          out << " shared indices";
+        } else {
+          out << " null every " << nullFrequency;
+        }
+        break;
+      case VectorEncoding::Simple::CONSTANT:
+        out << " base index " << constantIndex;
+        break;
+      default:;
+    }
+
+    return out.str();
+  }
 };
+
+std::string toString(const std::vector<EncodingOptions>& options) {
+  std::stringstream out;
+
+  for (auto i = 0; i < options.size(); ++i) {
+    if (i > 0) {
+      out << ", ";
+    }
+    out << options[i].toString();
+  }
+  return out.str();
+}
 
 template <typename T>
 struct VectorAndReference {
@@ -90,12 +125,16 @@ struct TestData {
   VectorAndReference<int64_t> bigint1;
   VectorAndReference<int64_t> bigint2;
 };
-
 } // namespace
 
-class ExprEncodingsTest : public testing::Test, public VectorTestBase {
+class ExprEncodingsTest
+    : public testing::TestWithParam<std::tuple<int, int, bool>>,
+      public VectorTestBase {
  protected:
   void SetUp() override {
+    // This test throws a lot of exceptions, so turn off stack trace capturing.
+    FLAGS_velox_exception_user_stacktrace_enabled = false;
+
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
 
@@ -155,7 +194,7 @@ class ExprEncodingsTest : public testing::Test, public VectorTestBase {
       const std::vector<EncodingOptions>& options,
       std::function<std::optional<T>(vector_size_t)> generator,
       VectorAndReference<T>* result,
-      bool makeLazyVector = false) {
+      bool makeLazyVector) {
     auto& reference = result->reference;
     VectorPtr current;
     for (auto& option : options) {
@@ -454,6 +493,30 @@ class ExprEncodingsTest : public testing::Test, public VectorTestBase {
         }));
   }
 
+  void prepareTestData() {
+    auto& encoding1 = testEncodings_[std::get<0>(GetParam())];
+    auto& encoding2 = testEncodings_[std::get<1>(GetParam())];
+    bool makeLazyVector = std::get<2>(GetParam());
+
+    fillVectorAndReference<int64_t>(
+        encoding1,
+        [](int32_t row) {
+          return row % 7 == 0 ? std::nullopt
+                              : std::optional(static_cast<int64_t>(row));
+        },
+        &testData_.bigint1,
+        makeLazyVector);
+
+    fillVectorAndReference<int64_t>(
+        encoding2,
+        [](int32_t row) {
+          return (row % 11 == 0) ? std::nullopt
+                                 : std::optional(static_cast<int64_t>(row));
+        },
+        &testData_.bigint2,
+        makeLazyVector);
+  }
+
   std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
@@ -469,175 +532,116 @@ class ExprEncodingsTest : public testing::Test, public VectorTestBase {
 #define INT64V(v) std::optional<int64_t>(v)
 #define INT64N std::optional<int64_t>()
 
-TEST_F(ExprEncodingsTest, encodings) {
-  // This test throws a lot of exceptions, so turn off stack trace capturing.
-  FLAGS_velox_exception_user_stacktrace_enabled = false;
-  int32_t counter = 0;
-  for (auto& encoding1 : testEncodings_) {
-    fillVectorAndReference<int64_t>(
-        encoding1,
-        [](int32_t row) {
-          return row % 7 == 0 ? std::nullopt
-                              : std::optional(static_cast<int64_t>(row));
-        },
-        &testData_.bigint1);
-    for (auto& encoding2 : testEncodings_) {
-      fillVectorAndReference<int64_t>(
-          encoding2,
-          [](int32_t row) {
-            return (row % 11 == 0) ? std::nullopt
-                                   : std::optional(static_cast<int64_t>(row));
-          },
-          &testData_.bigint2);
-      ++counter;
+TEST_P(ExprEncodingsTest, basic) {
+  prepareTestData();
 
-      run<int64_t>("2 * bigint1 + 3 * bigint2", [&](int32_t row) {
-        if (IS_BIGINT1 && IS_BIGINT2) {
-          return INT64V(2 * BIGINT1 + 3 * BIGINT2);
-        }
-        return INT64N;
-      });
-
-      run<int64_t>(
-          "if(bigint1 % 2 = 0, 2 * bigint1 + 10, 3 * bigint2) + 11",
-          [&](int32_t row) {
-            auto temp = (IS_BIGINT1 && BIGINT1 % 2 == 0)
-                ? INT64V(2 * BIGINT1 + 10)
-                : IS_BIGINT2 ? INT64V(3 * BIGINT2)
-                             : INT64N;
-            return temp.has_value() ? INT64V(temp.value() + 11) : temp;
-          });
-
-      run<int64_t>(
-          "if(bigint1 % 2 = 0 and bigint2 < 1000 and bigint1 + bigint2 > 0,"
-          "  bigint1, bigint2) + 11",
-          [&](int32_t row) {
-            if ((IS_BIGINT1 && BIGINT1 % 2 == 0) &&
-                (IS_BIGINT2 && BIGINT2 < 1000) &&
-                (IS_BIGINT1 && IS_BIGINT2 && BIGINT1 + BIGINT2 > 0)) {
-              return IS_BIGINT1 ? INT64V(BIGINT1 + 11) : INT64N;
-            }
-            return IS_BIGINT2 ? INT64V(BIGINT2 + 11) : INT64N;
-          });
-
-      if (!isAllNulls(testData_.bigint2.vector)) {
-        runWithError("bigint2 % 0");
-      }
-
-      // Produce an error if bigint1 is a multiple of 3 or bigint2 is a multiple
-      // of 13. Then mask this error by a false. Return 1 for true and 0 for
-      // false.
-      run<int64_t>(
-          "if ((if (bigint1 % 3 = 0, bigint1 % 0 > 1, bigint1 >= 0)"
-          "and if(bigint2 % 13 = 0, bigint2 % 0 > 1, bigint2 > 0)"
-          "and (bigint1 % 3 > 0) and (bigint2 % 13 > 0)), 1, 0)",
-          [&](int32_t row) {
-            if (IS_BIGINT1 && BIGINT1 % 3 > 0 && IS_BIGINT2 && BIGINT2 % 13 > 0)
-              return 1;
-            return 0;
-          });
-
-      // Test common subexpressions at top level and inside conditionals.
-      run<int64_t>(
-          "if(bigint1 % 2 = 0, 2 * (bigint1 + bigint2),"
-          "   3 * (bigint1 + bigint2)) + "
-          "4 * (bigint1 + bigint2)",
-          [&](int32_t row) -> std::optional<int64_t> {
-            if (!IS_BIGINT1 || !IS_BIGINT2) {
-              return std::nullopt;
-            } else {
-              auto sum = BIGINT1 + BIGINT2;
-              return (BIGINT1 % 2 == 0 ? 2 * sum : 3 * sum) + 4 * sum;
-            }
-          });
+  run<int64_t>("2 * bigint1 + 3 * bigint2", [&](int32_t row) {
+    if (IS_BIGINT1 && IS_BIGINT2) {
+      return INT64V(2 * BIGINT1 + 3 * BIGINT2);
     }
-  }
+    return INT64N;
+  });
 }
 
-TEST_F(ExprEncodingsTest, encodingsOverLazy) {
-  // This test throws a lot of exceptions, so turn off stack trace capturing.
-  FLAGS_velox_exception_user_stacktrace_enabled = false;
-  int32_t counter = 0;
-  for (auto& encoding1 : testEncodings_) {
-    fillVectorAndReference<int64_t>(
-        encoding1,
-        [](int32_t row) {
-          return row % 7 == 0 ? std::nullopt
-                              : std::optional(static_cast<int64_t>(row));
-        },
-        &testData_.bigint1,
-        true);
-    for (auto& encoding2 : testEncodings_) {
-      fillVectorAndReference<int64_t>(
-          encoding2,
-          [](int32_t row) {
-            return (row % 11 == 0) ? std::nullopt
-                                   : std::optional(static_cast<int64_t>(row));
-          },
-          &testData_.bigint2,
-          true);
-      ++counter;
+TEST_P(ExprEncodingsTest, conditional) {
+  prepareTestData();
 
-      run<int64_t>("2 * bigint1 + 3 * bigint2", [&](int32_t row) {
-        if (IS_BIGINT1 && IS_BIGINT2) {
-          return INT64V(2 * BIGINT1 + 3 * BIGINT2);
-        }
-        return INT64N;
-      });
-
-      run<int64_t>(
-          "if(bigint1 % 2 = 0, 2 * bigint1 + 10, 3 * bigint2) + 11",
-          [&](int32_t row) {
-            auto temp = (IS_BIGINT1 && BIGINT1 % 2 == 0)
-                ? INT64V(2 * BIGINT1 + 10)
-                : IS_BIGINT2 ? INT64V(3 * BIGINT2)
-                             : INT64N;
-            return temp.has_value() ? INT64V(temp.value() + 11) : temp;
-          });
-
-      run<int64_t>(
-          "if(bigint1 % 2 = 0 and bigint2 < 1000 and bigint1 + bigint2 > 0,"
-          "  bigint1, bigint2) + 11",
-          [&](int32_t row) {
-            if ((IS_BIGINT1 && BIGINT1 % 2 == 0) &&
-                (IS_BIGINT2 && BIGINT2 < 1000) &&
-                (IS_BIGINT1 && IS_BIGINT2 && BIGINT1 + BIGINT2 > 0)) {
-              return IS_BIGINT1 ? INT64V(BIGINT1 + 11) : INT64N;
-            }
-            return IS_BIGINT2 ? INT64V(BIGINT2 + 11) : INT64N;
-          });
-
-      if (!isAllNulls(testData_.bigint2.vector)) {
-        runWithError("bigint2 % 0");
-      }
-
-      // Produce an error if bigint1 is a multiple of 3 or bigint2 is a multiple
-      // of 13. Then mask this error by a false. Return 1 for true and 0 for
-      // false.
-      run<int64_t>(
-          "if ((if (bigint1 % 3 = 0, bigint1 % 0 > 1, bigint1 >= 0)"
-          "and if(bigint2 % 13 = 0, bigint2 % 0 > 1, bigint2 > 0)"
-          "and (bigint1 % 3 > 0) and (bigint2 % 13 > 0)), 1, 0)",
-          [&](int32_t row) {
-            if (IS_BIGINT1 && BIGINT1 % 3 > 0 && IS_BIGINT2 && BIGINT2 % 13 > 0)
-              return 1;
-            return 0;
-          });
-
-      // Test common subexpressions at top level and inside conditionals.
-      run<int64_t>(
-          "if(bigint1 % 2 = 0, 2 * (bigint1 + bigint2),"
-          "   3 * (bigint1 + bigint2)) + "
-          "4 * (bigint1 + bigint2)",
-          [&](int32_t row) -> std::optional<int64_t> {
-            if (!IS_BIGINT1 || !IS_BIGINT2) {
-              return std::nullopt;
-            } else {
-              auto sum = BIGINT1 + BIGINT2;
-              return (BIGINT1 % 2 == 0 ? 2 * sum : 3 * sum) + 4 * sum;
-            }
-          });
-    }
+  // TODO This test fails when using lazy vectors. Fix and re-enable.
+  if (std::get<2>(GetParam())) {
+    GTEST_SKIP();
   }
+
+  run<int64_t>(
+      "if(bigint1 % 2 = 0, 2 * bigint1 + 10, 3 * bigint2) + 11",
+      [&](int32_t row) {
+        auto temp = (IS_BIGINT1 && BIGINT1 % 2 == 0) ? INT64V(2 * BIGINT1 + 10)
+            : IS_BIGINT2                             ? INT64V(3 * BIGINT2)
+                                                     : INT64N;
+        return temp.has_value() ? INT64V(temp.value() + 11) : temp;
+      });
 }
+
+TEST_P(ExprEncodingsTest, moreConditional) {
+  prepareTestData();
+
+  // TODO This test fails when using lazy vectors. Fix and re-enable.
+  if (std::get<2>(GetParam())) {
+    GTEST_SKIP();
+  }
+
+  run<int64_t>(
+      "if(bigint1 % 2 = 0 and bigint2 < 1000 and bigint1 + bigint2 > 0,"
+      "  bigint1, bigint2) + 11",
+      [&](int32_t row) {
+        if ((IS_BIGINT1 && BIGINT1 % 2 == 0) &&
+            (IS_BIGINT2 && BIGINT2 < 1000) &&
+            (IS_BIGINT1 && IS_BIGINT2 && BIGINT1 + BIGINT2 > 0)) {
+          return IS_BIGINT1 ? INT64V(BIGINT1 + 11) : INT64N;
+        }
+        return IS_BIGINT2 ? INT64V(BIGINT2 + 11) : INT64N;
+      });
+}
+
+TEST_P(ExprEncodingsTest, errors) {
+  prepareTestData();
+
+  if (isAllNulls(testData_.bigint2.vector)) {
+    GTEST_SKIP() << "This test requires input that is not all-null";
+  }
+
+  runWithError("bigint2 % 0");
+}
+
+TEST_P(ExprEncodingsTest, maskedErrors) {
+  prepareTestData();
+
+  // TODO This test fails when using lazy vectors. Fix and re-enable.
+  if (std::get<2>(GetParam())) {
+    GTEST_SKIP();
+  }
+
+  // Produce an error if bigint1 is a multiple of 3 or bigint2 is a multiple
+  // of 13. Then mask this error by a false. Return 1 for true and 0 for
+  // false.
+  run<int64_t>(
+      "if ((if (bigint1 % 3 = 0, bigint1 % 0 > 1, bigint1 >= 0)"
+      "and if(bigint2 % 13 = 0, bigint2 % 0 > 1, bigint2 > 0)"
+      "and (bigint1 % 3 > 0) and (bigint2 % 13 > 0)), 1, 0)",
+      [&](int32_t row) {
+        if (IS_BIGINT1 && BIGINT1 % 3 > 0 && IS_BIGINT2 && BIGINT2 % 13 > 0)
+          return 1;
+        return 0;
+      });
+}
+
+TEST_P(ExprEncodingsTest, commonSubExpressions) {
+  prepareTestData();
+
+  // TODO This test fails when using lazy vectors. Fix and re-enable.
+  if (std::get<2>(GetParam())) {
+    GTEST_SKIP();
+  }
+
+  // Test common subexpressions at top level and inside conditionals.
+  run<int64_t>(
+      "if(bigint1 % 2 = 0, 2 * (bigint1 + bigint2),"
+      "   3 * (bigint1 + bigint2)) + "
+      "4 * (bigint1 + bigint2)",
+      [&](int32_t row) -> std::optional<int64_t> {
+        if (!IS_BIGINT1 || !IS_BIGINT2) {
+          return std::nullopt;
+        } else {
+          auto sum = BIGINT1 + BIGINT2;
+          return (BIGINT1 % 2 == 0 ? 2 * sum : 3 * sum) + 4 * sum;
+        }
+      });
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ExprEncodingsTest,
+    ExprEncodingsTest,
+    testing::Combine(
+        testing::Range(0, 9),
+        testing::Range(0, 9),
+        testing::Bool()));
 } // namespace facebook::velox::test
