@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <optional>
 #include <vector>
-#include "folly/DynamicConverter.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/common/MemoryInputStream.h"
@@ -792,7 +791,6 @@ void mapToStruct(
            index < endOffset;
            index++) {
         ASSERT_FALSE(flatKeys->isNullAt(index));
-        // ASSERT_TRUE(!flatValues->isNullAt(offsets[i] + sizes[j]));
         // set value in correct row
         auto key = flatKeys->valueAt(index);
         auto element = std::dynamic_pointer_cast<FlatVector<TVALUE>>(
@@ -832,22 +830,9 @@ void testMapWriter(
       auto structs = batches;
       std::vector<TKEY> uniqueKeys;
       ASSERT_NO_FATAL_FAILURE(getUniqueKeys<TKEY>(uniqueKeys, batches));
-      // for (int i = 0; i < uniqueKeys.size(); i++) {
-      //   LOG(INFO) << "key " << i << ": " << uniqueKeys[i];
-      // }
-
       ASSERT_NO_FATAL_FAILURE(
           (mapToStruct<TKEY, TVALUE>(pool, structs, uniqueKeys)));
       // printStructs(structs);
-
-      // TODO: add config variable, create config map, serialize map, set config
-      // std::map<uint32_t, std::vector<TKEY>> structConfig;
-      // structConfig[0] = uniqueKeys;
-      folly::dynamic structConfig =
-          folly::toDynamic<std::map<std::string, std::vector<TKEY>>>(
-              {{"0", uniqueKeys}});
-
-      config->set(Config::MAP_FLAT_STRUCT_COLS, structConfig);
     }
 
     config->set(Config::FLATTEN_MAP, true);
