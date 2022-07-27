@@ -89,14 +89,8 @@ struct VectorAndReference {
 };
 
 struct TestData {
-  VectorAndReference<int8_t> tinyint1;
-  VectorAndReference<int16_t> smallint1;
-  VectorAndReference<int32_t> integer1;
   VectorAndReference<int64_t> bigint1;
   VectorAndReference<int64_t> bigint2;
-  VectorAndReference<StringView> string1;
-  VectorAndReference<bool> bool1;
-  VectorAndReference<std::shared_ptr<void>> opaquestate1;
 };
 
 } // namespace
@@ -107,23 +101,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
 
-    testDataType_ =
-        ROW({"tinyint1",
-             "smallint1",
-             "integer1",
-             "bigint1",
-             "bigint2",
-             "string1",
-             "bool1",
-             "opaquestate1"},
-            {TINYINT(),
-             SMALLINT(),
-             INTEGER(),
-             BIGINT(),
-             BIGINT(),
-             VARCHAR(),
-             BOOLEAN(),
-             OPAQUE<OpaqueState>()});
+    testDataType_ = ROW({"bigint1", "bigint2"}, {BIGINT(), BIGINT()});
     // A set of dictionary indices from >= 0 < 100 with many repeats and a few
     // values that occur only at one end.
     constexpr int32_t kTestSize = 10'000;
@@ -169,10 +147,9 @@ class ExprTest : public testing::Test, public VectorTestBase {
 
   std::shared_ptr<const core::ITypedExpr> parseExpression(
       const std::string& text,
-      const RowTypePtr& rowType = nullptr) {
+      const RowTypePtr& rowType) {
     auto untyped = parse::parseExpr(text);
-    return core::Expressions::inferTypes(
-        untyped, rowType ? rowType : testDataType_, execCtx_->pool());
+    return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
   }
 
   std::unique_ptr<exec::ExprSet> compileExpression(
@@ -230,18 +207,12 @@ class ExprTest : public testing::Test, public VectorTestBase {
       switch (option.encoding) {
         case VectorEncoding::Simple::FLAT: {
           VELOX_CHECK(!current, "A flat vector must be in a leaf position");
-          auto flatVector =
-              std::dynamic_pointer_cast<FlatVector<T>>(BaseVector::create(
-                  CppToType<T>::create(), cardinality, execCtx_->pool()));
           reference.resize(cardinality);
           for (int32_t index = 0; index < cardinality; ++index) {
             reference[index] = generator(index);
-            if (reference[index].has_value()) {
-              flatVector->set(index, reference[index].value());
-            } else {
-              flatVector->setNull(index, true);
-            }
-          };
+          }
+
+          auto flatVector = makeNullableFlatVector(reference);
 
           if (makeLazyVector) {
             current = wrapInLazyDictionary(flatVector);
@@ -334,39 +305,21 @@ class ExprTest : public testing::Test, public VectorTestBase {
       // Test that the reference and the vector with possible wrappers
       // are consistent.
       SelectivityVector rows(current->size());
-      DecodedVector decoded(*current, rows);
-      compare<T>(
-          rows, decoded, [&](int32_t row) { return reference[row]; }, "");
+      auto expected = makeNullableFlatVector<T>(reference);
+      assertEqualRows(expected, current, rows);
     }
   }
 
-  template <typename T>
-  void compare(
-      const SelectivityVector& rows,
-      DecodedVector& decoded,
-      std::function<std::optional<T>(int32_t)> reference,
-      const std::string& errorPrefix) {
-    auto base = decoded.base()->as<SimpleVector<T>>();
-    auto indices = decoded.indices();
-    auto nulls = decoded.nulls();
-    auto nullIndices = decoded.nullIndices();
-    rows.applyToSelected([&](int32_t row) {
-      auto value = reference(row);
-      auto baseRow = indices[row];
-      auto nullRow = nullIndices ? nullIndices[row] : row;
-      if (value.has_value()) {
-        if (nulls && bits::isBitNull(nulls, nullRow)) {
-          FAIL() << errorPrefix << ": expected non-null at " << row;
-          return;
-        }
-        if (value != base->valueAt(baseRow)) {
-          EXPECT_EQ(value.value(), base->valueAt(baseRow))
-              << errorPrefix << ": at " << row;
-        }
-      } else if (!(nulls && bits::isBitNull(nulls, nullRow))) {
-        FAIL() << errorPrefix << ": reference is null and tests is not null at "
-               << row;
-      }
+  void assertEqualRows(
+      const VectorPtr& expected,
+      const VectorPtr& actual,
+      const SelectivityVector& rows) {
+    ASSERT_GE(actual->size(), rows.end());
+    ASSERT_EQ(expected->typeKind(), actual->typeKind());
+    rows.applyToSelected([&](auto row) {
+      ASSERT_TRUE(expected->equalValueAt(actual.get(), row, row))
+          << "at " << row << ": expected " << expected->toString(row)
+          << ", but got " << actual->toString(row);
     });
   }
 
@@ -390,14 +343,8 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::shared_ptr<RowVector> testDataRow() {
     std::vector<VectorPtr> fields;
     vector_size_t size = -1;
-    addField(testData_.tinyint1, fields, size);
-    addField(testData_.smallint1, fields, size);
-    addField(testData_.integer1, fields, size);
     addField(testData_.bigint1, fields, size);
     addField(testData_.bigint2, fields, size);
-    addField(testData_.string1, fields, size);
-    addField(testData_.bool1, fields, size);
-    addField(testData_.opaquestate1, fields, size);
 
     // Keep only non-null fields.
     std::vector<std::string> names;
@@ -440,25 +387,6 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return out.str();
   }
 
-  static std::string makeErrorPrefix(
-      const std::string& text,
-      const RowVectorPtr& row,
-      vector_size_t begin,
-      vector_size_t end) {
-    std::ostringstream message;
-    message << "expression: " << text << ", encodings: ";
-    int32_t nonNullChildCount = 0;
-    for (auto& child : row->children()) {
-      if (child) {
-        message << (nonNullChildCount > 0 ? ", " : "")
-                << describeEncoding(child.get());
-        nonNullChildCount++;
-      }
-    }
-    message << ", begin=" << begin << ", end=" << end << std::endl;
-    return message.str();
-  }
-
   /// Evaluates 'text' expression on 'testDataRow()' twice. First, evaluates the
   /// expression on the first 2/3 of the rows. Then, evaluates the expression on
   /// the last 1/3 of the rows.
@@ -466,34 +394,46 @@ class ExprTest : public testing::Test, public VectorTestBase {
   void run(
       const std::string& text,
       std::function<std::optional<T>(int32_t)> reference) {
-    auto source = {parseExpression(text)};
-    exprs_ = std::make_unique<exec::ExprSet>(source, execCtx_.get());
+    auto source = {parseExpression(text, testDataType_)};
+    auto exprSet = std::make_unique<exec::ExprSet>(source, execCtx_.get());
     auto row = testDataRow();
-    exec::EvalCtx context(execCtx_.get(), exprs_.get(), row.get());
+    exec::EvalCtx context(execCtx_.get(), exprSet.get(), row.get());
     auto size = row->size();
+
+    auto expectedResult = makeFlatVector<T>(
+        size,
+        [&](auto row) {
+          auto v = reference(row);
+          return v.has_value() ? v.value() : T();
+        },
+        [&](auto row) { return !reference(row).has_value(); });
 
     SelectivityVector allRows(size);
     *context.mutableIsFinalSelection() = false;
     *context.mutableFinalSelection() = &allRows;
 
-    vector_size_t begin = 0;
-    vector_size_t end = size / 3 * 2;
     {
+      vector_size_t begin = 0;
+      vector_size_t end = size / 3 * 2;
       auto rows = selectRange(begin, end);
       std::vector<VectorPtr> result(1);
-      exprs_->eval(rows, &context, &result);
-      DecodedVector decoded(*result[0], rows);
-      compare(rows, decoded, reference, makeErrorPrefix(text, row, begin, end));
+      exprSet->eval(rows, &context, &result);
+
+      SCOPED_TRACE(text);
+      SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
+      assertEqualRows(expectedResult, result[0], rows);
     }
 
-    begin = size / 3;
-    end = size;
     {
+      vector_size_t begin = size / 3;
+      vector_size_t end = size;
       auto rows = selectRange(begin, end);
       std::vector<VectorPtr> result(1);
-      exprs_->eval(0, 1, false, rows, &context, &result);
-      DecodedVector decoded(*result[0], rows);
-      compare(rows, decoded, reference, makeErrorPrefix(text, row, begin, end));
+      exprSet->eval(0, 1, false, rows, &context, &result);
+
+      SCOPED_TRACE(text);
+      SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
+      assertEqualRows(expectedResult, result[0], rows);
     }
   }
 
@@ -505,7 +445,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
   }
 
   void runWithError(const std::string& text) {
-    exec::ExprSet exprs({parseExpression(text)}, execCtx_.get());
+    exec::ExprSet exprs({parseExpression(text, testDataType_)}, execCtx_.get());
     auto row = testDataRow();
     exec::EvalCtx context(execCtx_.get(), &exprs, row.get());
     auto size = row->size();
@@ -515,8 +455,10 @@ class ExprTest : public testing::Test, public VectorTestBase {
     {
       auto rows = selectRange(begin, end);
       std::vector<VectorPtr> result(1);
-      ASSERT_THROW(exprs.eval(rows, &context, &result), VeloxException)
-          << makeErrorPrefix(text, row, begin, end);
+
+      SCOPED_TRACE(text);
+      SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
+      ASSERT_THROW(exprs.eval(rows, &context, &result), VeloxException);
     }
 
     begin = size / 3;
@@ -524,9 +466,11 @@ class ExprTest : public testing::Test, public VectorTestBase {
     {
       auto rows = selectRange(begin, end);
       std::vector<VectorPtr> result(1);
+
+      SCOPED_TRACE(text);
+      SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
       ASSERT_THROW(
-          exprs.eval(0, 1, false, rows, &context, &result), VeloxException)
-          << makeErrorPrefix(text, row, begin, end);
+          exprs.eval(0, 1, false, rows, &context, &result), VeloxException);
     }
   }
 
@@ -540,13 +484,6 @@ class ExprTest : public testing::Test, public VectorTestBase {
       }
     }
     return true;
-  }
-
-  exec::Expr* compileExpression(const std::string& text) {
-    std::vector<std::shared_ptr<const core::ITypedExpr>> source = {
-        parseExpression(text)};
-    exprs_ = std::make_unique<exec::ExprSet>(std::move(source), execCtx_.get());
-    return exprs_->expr(0).get();
   }
 
   template <typename T = ComplexType>
@@ -613,7 +550,6 @@ class ExprTest : public testing::Test, public VectorTestBase {
       std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
   TestData testData_;
   RowTypePtr testDataType_;
-  std::unique_ptr<exec::ExprSet> exprs_;
   std::vector<std::vector<EncodingOptions>> testEncodings_;
 };
 
@@ -851,15 +787,16 @@ TEST_F(ExprTest, reorder) {
 }
 
 TEST_F(ExprTest, constant) {
-  auto expr = compileExpression("1 + 2 + 3 + 4");
-  auto constExpr = dynamic_cast<exec::ConstantExpr*>(expr);
+  auto exprSet = compileExpression("1 + 2 + 3 + 4", ROW({}));
+  auto constExpr = dynamic_cast<exec::ConstantExpr*>(exprSet->expr(0).get());
   ASSERT_NE(constExpr, nullptr);
   auto constant = constExpr->value()->as<ConstantVector<int64_t>>()->valueAt(0);
   EXPECT_EQ(10, constant);
 
-  expr = compileExpression("bigint1 * (1 + 2 + 3)");
-  ASSERT_EQ(2, expr->inputs().size());
-  constExpr = dynamic_cast<exec::ConstantExpr*>(expr->inputs()[1].get());
+  exprSet = compileExpression("a * (1 + 2 + 3)", ROW({"a"}, {BIGINT()}));
+  ASSERT_EQ(2, exprSet->expr(0)->inputs().size());
+  constExpr =
+      dynamic_cast<exec::ConstantExpr*>(exprSet->expr(0)->inputs()[1].get());
   ASSERT_NE(constExpr, nullptr);
   constant = constExpr->value()->as<ConstantVector<int64_t>>()->valueAt(0);
   EXPECT_EQ(6, constant);
@@ -928,7 +865,7 @@ TEST_F(ExprTest, validateReturnType) {
 }
 
 TEST_F(ExprTest, constantFolding) {
-  auto typedExpr = parseExpression("1 + 2");
+  auto typedExpr = parseExpression("1 + 2", ROW({}));
 
   auto extractConstant = [](exec::Expr* expr) {
     auto constExpr = dynamic_cast<exec::ConstantExpr*>(expr);
@@ -961,7 +898,7 @@ TEST_F(ExprTest, constantFolding) {
     // codepoint() takes a single character, so this expression
     // deterministically throws; however, we should never throw at constant
     // folding time. Ensure compiling this expression does not throw..
-    auto typedExpr = parseExpression("codepoint('abcdef')");
+    auto typedExpr = parseExpression("codepoint('abcdef')", ROW({}));
     EXPECT_NO_THROW(exec::ExprSet exprSet({typedExpr}, execCtx_.get(), true));
   }
 }
@@ -1275,7 +1212,7 @@ TEST_F(ExprTest, nonDeterministicConstantFolding) {
       std::make_unique<PlusRandomIntegerFunction>());
 
   const vector_size_t size = 1'000;
-  auto emptyRow = vectorMaker_.rowVector(ROW({}, {}), size);
+  auto emptyRow = vectorMaker_.rowVector(ROW({}), size);
 
   auto result = evaluate("plus_random(cast(23 as integer))", emptyRow);
 
