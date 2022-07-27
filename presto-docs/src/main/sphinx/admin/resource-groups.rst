@@ -100,6 +100,15 @@ Selector Rules
 * ``clientTags`` (optional): list of tags. To match, every tag in this list must be in the list of
   client-provided tags associated with the query.
 
+* ``schedule`` (optional): string representation specifying a time zone and schedule. To match, the query must be dispatched within the specified schedule.
+   ``"TZ=<time-zone>; <seconds> <minutes> <hours> <day-of-month> <month> <day-of-week>"``
+
+      * Valid values for ``<time-zone>`` are consistent with `Java ZoneId <https://docs.oracle.com/javase/8/docs/api/java/time/ZoneId.html>`_.
+
+      * The schedule is represented as an expression using
+         `Apache Log4j CronExpression <https://logging.apache.org/log4j/2.x/log4j-core/apidocs/org/apache/logging/log4j/core/util/CronExpression.html>`_ syntax,
+         composed of 6 required fields separated by white space and 1 optional field.
+
 * ``group`` (required): the group these queries will run in.
 
 Global Properties
