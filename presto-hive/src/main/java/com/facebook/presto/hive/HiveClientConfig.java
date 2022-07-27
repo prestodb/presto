@@ -221,6 +221,8 @@ public class HiveClientConfig
     private Protocol thriftProtocol = Protocol.BINARY;
     private DataSize thriftBufferSize = new DataSize(128, BYTE);
 
+    private boolean copyOnFirstWriteConfigurationEnabled = true;
+
     @Min(0)
     public int getMaxInitialSplits()
     {
@@ -1854,5 +1856,18 @@ public class HiveClientConfig
     {
         this.thriftBufferSize = thriftBufferSize;
         return this;
+    }
+
+    @Config("hive.copy-on-first-write-configuration-enabled")
+    @ConfigDescription("Optimize the number of configuration copies by enabling copy-on-write technique")
+    public HiveClientConfig setCopyOnFirstWriteConfigurationEnabled(boolean copyOnFirstWriteConfigurationEnabled)
+    {
+        this.copyOnFirstWriteConfigurationEnabled = copyOnFirstWriteConfigurationEnabled;
+        return this;
+    }
+
+    public boolean isCopyOnFirstWriteConfigurationEnabled()
+    {
+        return copyOnFirstWriteConfigurationEnabled;
     }
 }
