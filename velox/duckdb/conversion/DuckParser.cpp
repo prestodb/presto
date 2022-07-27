@@ -42,6 +42,8 @@ using ::duckdb::Parser;
 using ::duckdb::ParserOptions;
 using ::duckdb::StringUtil;
 using ::duckdb::Value;
+using ::duckdb::WindowBoundary;
+using ::duckdb::WindowExpression;
 
 namespace {
 
@@ -481,6 +483,101 @@ std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
   return {
       parseExpr(*orderByNode.expression),
       core::SortOrder(ascending, nullsFirst)};
+}
+
+namespace {
+WindowType parseWindowType(const WindowExpression& expr) {
+  auto windowType =
+      [&](const ::duckdb::WindowBoundary& boundary) -> WindowType {
+    if (boundary == WindowBoundary::CURRENT_ROW_ROWS ||
+        boundary == WindowBoundary::EXPR_FOLLOWING_ROWS ||
+        boundary == WindowBoundary::EXPR_PRECEDING_ROWS) {
+      return WindowType::kRows;
+    }
+    return WindowType::kRange;
+  };
+
+  auto startType = windowType(expr.start);
+  if (startType == WindowType::kRows) {
+    return startType;
+  }
+  return windowType(expr.end);
+}
+
+BoundType parseBoundType(WindowBoundary boundary) {
+  switch (boundary) {
+    case WindowBoundary::CURRENT_ROW_RANGE:
+    case WindowBoundary::CURRENT_ROW_ROWS:
+      return BoundType::kCurrentRow;
+    case WindowBoundary::EXPR_PRECEDING_ROWS:
+    case WindowBoundary::EXPR_PRECEDING_RANGE:
+      return BoundType::kPreceding;
+    case WindowBoundary::EXPR_FOLLOWING_ROWS:
+    case WindowBoundary::EXPR_FOLLOWING_RANGE:
+      return BoundType::kFollowing;
+    case WindowBoundary::UNBOUNDED_FOLLOWING:
+      return BoundType::kUnboundedFollowing;
+    case WindowBoundary::UNBOUNDED_PRECEDING:
+      return BoundType::kUnboundedPreceding;
+    case WindowBoundary::INVALID:
+      VELOX_UNREACHABLE();
+  }
+  VELOX_UNREACHABLE();
+}
+
+} // namespace
+
+const IExprWindowFunction parseWindowExpr(const std::string& windowString) {
+  auto parsedExpressions = parseExpression(windowString);
+  if (parsedExpressions.size() != 1) {
+    throw std::invalid_argument(folly::sformat(
+        "Expecting exactly one input expression, found {}.",
+        parsedExpressions.size()));
+  }
+
+  ParsedExpression& parsedExpr = *parsedExpressions.front();
+  if (!parsedExpr.IsWindow()) {
+    throw std::invalid_argument(folly::sformat(
+        "Invalid window function expression, found {}.", windowString));
+  }
+
+  IExprWindowFunction windowIExpr;
+  auto& windowExpr = dynamic_cast<WindowExpression&>(parsedExpr);
+  for (int i = 0; i < windowExpr.partitions.size(); i++) {
+    windowIExpr.partitionBy.push_back(
+        parseExpr(*(windowExpr.partitions[i].get())));
+  }
+
+  for (const auto& orderByNode : windowExpr.orders) {
+    const bool ascending = isAscending(orderByNode.type, windowString);
+    const bool nullsFirst = isNullsFirst(orderByNode.null_order, windowString);
+    windowIExpr.orderBy.emplace_back(
+        parseExpr(*orderByNode.expression),
+        core::SortOrder(ascending, nullsFirst));
+  }
+
+  std::vector<std::shared_ptr<const core::IExpr>> params;
+  params.reserve(windowExpr.children.size());
+  for (const auto& c : windowExpr.children) {
+    params.emplace_back(parseExpr(*c));
+  }
+  auto func = normalizeFuncName(windowExpr.function_name);
+  windowIExpr.functionCall =
+      callExpr(func, std::move(params), getAlias(windowExpr));
+
+  windowIExpr.ignoreNulls = windowExpr.ignore_nulls;
+
+  windowIExpr.frame.type = parseWindowType(windowExpr);
+  windowIExpr.frame.startType = parseBoundType(windowExpr.start);
+  if (windowExpr.start_expr) {
+    windowIExpr.frame.startValue = parseExpr(*windowExpr.start_expr.get());
+  }
+
+  windowIExpr.frame.endType = parseBoundType(windowExpr.end);
+  if (windowExpr.end_expr) {
+    windowIExpr.frame.endValue = parseExpr(*windowExpr.end_expr.get());
+  }
+  return windowIExpr;
 }
 
 } // namespace facebook::velox::duckdb

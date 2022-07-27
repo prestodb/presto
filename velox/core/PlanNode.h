@@ -73,8 +73,8 @@ class SortOrder {
   }
 
  private:
-  const bool ascending_;
-  const bool nullsFirst_;
+  bool ascending_;
+  bool nullsFirst_;
 };
 
 extern const SortOrder kAscNullsFirst;
