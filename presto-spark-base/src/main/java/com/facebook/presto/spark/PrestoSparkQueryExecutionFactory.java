@@ -1228,6 +1228,7 @@ public class PrestoSparkQueryExecutionFactory
                 else {
                     RddAndMore<PrestoSparkMutableRow> childRdd = createRdd(child, PrestoSparkMutableRow.class);
                     JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionedRdd = partitionBy(childFragment.getId().getId(), childRdd.getRdd(), child.getFragment().getPartitioningScheme());
+                    System.out.println("ShuffledRDD id: " + partitionedRdd.rdd().id());
                     MapOutputStatistics mapOutputStatistics = RddAndMore.executeShuffleRDD(sparkContext.sc(), (ShuffledRDD) partitionedRdd.rdd());
 
                     long totalStageOutputBytes = Arrays.stream(mapOutputStatistics.bytesByPartitionId()).sum();
@@ -1236,6 +1237,7 @@ public class PrestoSparkQueryExecutionFactory
                     int numberOfShufflePartitions = Math.max(20, (int) (totalStageOutputBytes / DataSize.succinctDataSize(1, DataSize.Unit.GIGABYTE).toBytes()));
 
                     JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> coalesceRDD = partitionedRdd.coalesce(numberOfShufflePartitions);
+                    System.out.println("coalesceRDD id: " + coalesceRDD.rdd().id());
                     rddInputs.put(childFragment.getId(), coalesceRDD);
                     broadcastDependencies.addAll(childRdd.getBroadcastDependencies());
                 }
