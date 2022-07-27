@@ -16,6 +16,9 @@ add_subdirectory(utils)
 
 set(TEST_LINK_LIBS
     velox_dwio_common_test_utils
+    velox_dwio_dwrf_proto
+    velox_dwio_dwrf_reader
+    velox_dwio_dwrf_writer
     ${gflags_LIBRARIES}
     gtest
     gtest_main
@@ -337,19 +340,6 @@ add_test(
 target_link_libraries(
   velox_dwio_dwrf_reader_test
   velox_dwrf_test_utils
-  ${VELOX_LINK_LIBS}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${FMT}
-  ${LZ4}
-  ${LZO}
-  ${ZSTD}
-  ${ZLIB_LIBRARIES}
-  ${TEST_LINK_LIBS})
-
-add_library(velox_e2e_filter_test_base E2EFilterTestBase.cpp)
-
-target_link_libraries(
-  velox_e2e_filter_test_base
   ${VELOX_LINK_LIBS}
   ${FOLLY_WITH_DEPENDENCIES}
   ${FMT}

@@ -28,7 +28,7 @@ add_executable(
 add_test(velox_dwio_common_test velox_dwio_common_test)
 target_link_libraries(
   velox_dwio_common_test
-  velox_dwio_test_utils
+  velox_dwio_common_test_utils
   velox_temp_path
   Boost::regex
   ${VELOX_LINK_LIBS}
@@ -51,3 +51,16 @@ add_executable(velox_dwio_common_int_decoder_benchmark IntDecoderBenchmark.cpp)
 target_link_libraries(
   velox_dwio_common_int_decoder_benchmark velox_dwio_common_exception
   velox_exception velox_dwio_dwrf_common ${FOLLY} ${FOLLY_BENCHMARK})
+
+add_library(velox_e2e_filter_test_base E2EFilterTestBase.cpp)
+
+target_link_libraries(
+  velox_e2e_filter_test_base
+  ${VELOX_LINK_LIBS}
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${FMT}
+  ${LZ4}
+  ${LZO}
+  ${ZSTD}
+  ${ZLIB_LIBRARIES}
+  ${TEST_LINK_LIBS})

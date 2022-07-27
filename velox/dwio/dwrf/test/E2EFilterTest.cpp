@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/test/E2EFilterTestBase.h"
+#include "velox/dwio/common/tests/E2EFilterTestBase.h"
+#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 
-using namespace facebook::velox::dwio::dwrf;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox;

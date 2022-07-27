@@ -66,7 +66,7 @@ target_link_libraries(
   velox_functions_test_lib
   velox_exec
   velox_dwio_common
-  velox_dwio_test_utils
+  velox_dwio_common_test_utils
   velox_aggregates
   velox_aggregates_test_lib
   velox_functions_lib

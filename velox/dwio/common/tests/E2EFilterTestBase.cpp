@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/test/E2EFilterTestBase.h"
+#include "velox/dwio/common/tests/E2EFilterTestBase.h"
 
 DEFINE_int32(timing_repeats, 0, "Count of repeats for timing filter tests");
 
-namespace facebook::velox::dwio::dwrf {
+namespace facebook::velox::dwio::common {
 
 using namespace facebook::velox::test;
-using namespace facebook::velox::dwrf;
 using namespace facebook::velox::dwio::type::fbhive;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
@@ -420,4 +419,4 @@ void OwnershipChecker::check(const VectorPtr& batch) {
   ++batchCounter_;
 }
 
-} // namespace facebook::velox::dwio::dwrf
+} // namespace facebook::velox::dwio::common

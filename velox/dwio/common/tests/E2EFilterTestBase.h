@@ -26,15 +26,15 @@
 #include "velox/type/Subfield.h"
 #include "velox/vector/FlatVector.h"
 
+#include "velox/dwio/common/DataSink.h"
 #include "velox/dwio/common/MemoryInputStream.h"
+#include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/SelectiveColumnReader.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/common/tests/utils/FilterGenerator.h"
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 
-namespace facebook::velox::dwio::dwrf {
+namespace facebook::velox::dwio::common {
 
 template <typename T>
 class TestingHook : public ValueHook {
@@ -294,4 +294,4 @@ class E2EFilterTestBase : public testing::Test {
   std::vector<int32_t> readSizes_;
 };
 
-} // namespace facebook::velox::dwio::dwrf
+} // namespace facebook::velox::dwio::common

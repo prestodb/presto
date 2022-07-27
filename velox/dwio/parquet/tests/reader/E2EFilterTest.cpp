@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/test/E2EFilterTestBase.h"
+#include "velox/dwio/common/tests/E2EFilterTestBase.h"
 #include "velox/dwio/parquet/writer/Writer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::common;
-using namespace facebook::velox::dwio::dwrf;
+using namespace facebook::velox::dwio::common;
 
 using dwio::common::MemoryInputStream;
 using dwio::common::MemorySink;

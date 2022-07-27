@@ -450,8 +450,8 @@ std::shared_ptr<cache::CoalescedLoad> CachedBufferedInput::coalescedLoad(
           return nullptr;
         }
         auto load = std::move(it->second);
-        auto dwrfLoad = dynamic_cast<DwioCoalescedLoadBase*>(load.get());
-        for (auto& request : dwrfLoad->requests()) {
+        auto dwioLoad = dynamic_cast<DwioCoalescedLoadBase*>(load.get());
+        for (auto& request : dwioLoad->requests()) {
           loads.erase(request.stream);
         }
         return load;
