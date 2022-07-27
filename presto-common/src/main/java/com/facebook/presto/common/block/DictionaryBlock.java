@@ -684,6 +684,7 @@ public class DictionaryBlock
             return false;
         }
         DictionaryBlock other = (DictionaryBlock) obj;
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes, uniqueIds as it makes the implementation non-deterministic.
         return this.positionCount == other.positionCount &&
                 Objects.equals(this.dictionary, other.dictionary) &&
                 this.idsOffset == other.idsOffset &&
@@ -695,6 +696,7 @@ public class DictionaryBlock
     @Override
     public int hashCode()
     {
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes, uniqueIds as it makes the implementation non-deterministic.
         return Objects.hash(positionCount,
                 dictionary,
                 idsOffset,
