@@ -57,6 +57,7 @@ public class QueryInfo
     private final List<String> fieldNames;
     private final String query;
     private final String queryHash;
+    private final Optional<String> queryTemplate;
     // expand the original query to a more accurate one if the data flow indicated by the original query is too obscure.
     private final Optional<String> expandedQuery;
     private final Optional<String> preparedQuery;
@@ -98,6 +99,7 @@ public class QueryInfo
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
+            @JsonProperty("queryTemplate") Optional<String> queryTemplate,
             @JsonProperty("expandedQuery") Optional<String> expandedQuery,
             @JsonProperty("preparedQuery") Optional<String> preparedQuery,
             @JsonProperty("queryStats") QueryStats queryStats,
@@ -139,6 +141,7 @@ public class QueryInfo
         requireNonNull(deallocatedPreparedStatements, "deallocatedPreparedStatements is null");
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
+        requireNonNull(queryTemplate, "queryTemplate is null");
         requireNonNull(expandedQuery, "expandedQuery is null");
         requireNonNull(preparedQuery, "preparedQuery is null");
         requireNonNull(outputStage, "outputStage is null");
@@ -161,6 +164,7 @@ public class QueryInfo
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
         this.queryHash = computeQueryHash(query);
+        this.queryTemplate = queryTemplate;
         this.expandedQuery = expandedQuery;
         this.preparedQuery = preparedQuery;
         this.queryStats = queryStats;
@@ -245,6 +249,12 @@ public class QueryInfo
     public String getQueryHash()
     {
         return queryHash;
+    }
+
+    @JsonProperty
+    public Optional<String> getQueryTemplateHash()
+    {
+        return queryTemplate.map(template -> computeQueryHash(template));
     }
 
     @JsonProperty

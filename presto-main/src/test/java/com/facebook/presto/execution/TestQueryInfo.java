@@ -155,6 +155,7 @@ public class TestQueryInfo
                 URI.create("1"),
                 ImmutableList.of("number"),
                 "SELECT 1",
+                Optional.of("template_query"),
                 Optional.of("expanded_query"),
                 Optional.of("prepared_query"),
                 TestQueryStats.EXPECTED,

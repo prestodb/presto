@@ -171,6 +171,8 @@ public class Analysis
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
 
+    private String queryTemplate;
+
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
         this.root = root;
@@ -898,9 +900,20 @@ public class Analysis
     {
         this.currentQuerySpecification = Optional.of(currentSubQuery);
     }
+
     public Optional<QuerySpecification> getCurrentQuerySpecification()
     {
         return currentQuerySpecification;
+    }
+
+    public void setQueryTemplate(String queryTemplate)
+    {
+        this.queryTemplate = queryTemplate;
+    }
+
+    public String getQueryTemplate()
+    {
+        return queryTemplate;
     }
 
     @Immutable

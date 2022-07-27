@@ -29,6 +29,7 @@ public class QueryMetadata
 
     private final String query;
     private final String queryHash;
+    private final Optional<String> queryTemplateHash;
     private final Optional<String> preparedQuery;
     private final String queryState;
 
@@ -47,6 +48,7 @@ public class QueryMetadata
             Optional<String> transactionId,
             String query,
             String queryHash,
+            Optional<String> queryTemplateHash,
             Optional<String> preparedQuery,
             String queryState,
             URI uri,
@@ -60,6 +62,7 @@ public class QueryMetadata
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.query = requireNonNull(query, "query is null");
         this.queryHash = requireNonNull(queryHash, "queryHash is null");
+        this.queryTemplateHash = requireNonNull(queryTemplateHash, "queryTemplateHash is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryState = requireNonNull(queryState, "queryState is null");
         this.uri = requireNonNull(uri, "uri is null");
@@ -92,6 +95,11 @@ public class QueryMetadata
     public String getQueryHash()
     {
         return queryHash;
+    }
+
+    public Optional<String> getQueryTemplateHash()
+    {
+        return queryTemplateHash;
     }
 
     @JsonProperty

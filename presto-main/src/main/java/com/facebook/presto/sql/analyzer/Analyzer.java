@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.SqlFormatter.formatSqlAsTemplate;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExternalFunctions;
@@ -92,6 +93,7 @@ public class Analyzer
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement());
+        analysis.setQueryTemplate(formatSqlAsTemplate(analysis.getStatement()));
         return analysis;
     }
 
