@@ -85,6 +85,11 @@ public interface ConnectorMetadata
      */
     ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
 
+    default ConnectorTableHandle getTableHandleOnly(ConnectorSession session, SchemaTableName tableName)
+    {
+        return getTableHandle(session, tableName);
+    }
+
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      * The returned table handle can contain information in analyzeProperties.

@@ -1234,13 +1234,6 @@ class StatementAnalyzer
             }
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
-            Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
-                    GET_VIEW_TIME_NANOS,
-                    () -> metadata.getView(session, name));
-            if (optionalView.isPresent()) {
-                return processView(table, scope, name, optionalView);
-            }
-
             Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
                     GET_MATERIALIZED_VIEW_TIME_NANOS,
                     () -> metadata.getMaterializedView(session, name));
@@ -1267,8 +1260,15 @@ class StatementAnalyzer
                 }
             }
 
-            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadata.getTableHandle(session, name));
+            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadata.getTableHandleOnly(session, name));
             if (!tableHandle.isPresent()) {
+                Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
+                        GET_VIEW_TIME_NANOS,
+                        () -> metadata.getView(session, name));
+                if (optionalView.isPresent()) {
+                    return processView(table, scope, name, optionalView);
+                }
+
                 if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
                     throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
                 }

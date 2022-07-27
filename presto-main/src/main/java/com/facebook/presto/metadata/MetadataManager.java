@@ -342,6 +342,29 @@ public class MetadataManager
     }
 
     @Override
+    public Optional<TableHandle> getTableHandleOnly(Session session, QualifiedObjectName table)
+    {
+        requireNonNull(table, "table is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+
+            ConnectorTableHandle tableHandle = metadata.getTableHandleOnly(session.toConnectorSession(connectorId), toSchemaTableName(table));
+            if (tableHandle != null) {
+                return Optional.of(new TableHandle(
+                        connectorId,
+                        tableHandle,
+                        catalogMetadata.getTransactionHandleFor(connectorId),
+                        Optional.empty()));
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName table, Map<String, Object> analyzeProperties)
     {
         requireNonNull(table, "table is null");
