@@ -40,10 +40,10 @@ public class RowBlock
     private final boolean[] rowIsNull;
     private final int[] fieldBlockOffsets;
     private final Block[] fieldBlocks;
+    private final long retainedSizeInBytes;
 
     private volatile long sizeInBytes;
     private volatile long logicalSizeInBytes;
-    private final long retainedSizeInBytes;
 
     /**
      * Create a row block directly from columnar nulls and field blocks.
@@ -286,8 +286,6 @@ public class RowBlock
                 Arrays.equals(this.rowIsNull, other.rowIsNull) &&
                 Arrays.equals(this.fieldBlockOffsets, other.fieldBlockOffsets) &&
                 Arrays.equals(this.fieldBlocks, other.fieldBlocks) &&
-                this.sizeInBytes == other.sizeInBytes &&
-                this.logicalSizeInBytes == other.logicalSizeInBytes &&
                 this.retainedSizeInBytes == other.retainedSizeInBytes;
     }
 
@@ -299,8 +297,6 @@ public class RowBlock
                 Arrays.hashCode(rowIsNull),
                 Arrays.hashCode(fieldBlockOffsets),
                 Arrays.hashCode(fieldBlocks),
-                sizeInBytes,
-                logicalSizeInBytes,
                 retainedSizeInBytes);
     }
 }

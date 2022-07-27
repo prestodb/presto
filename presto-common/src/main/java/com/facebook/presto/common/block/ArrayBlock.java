@@ -37,10 +37,10 @@ public class ArrayBlock
     private final boolean[] valueIsNull;
     private final Block values;
     private final int[] offsets;
+    private final long retainedSizeInBytes;
 
     private volatile long sizeInBytes;
     private volatile long logicalSizeInBytes;
-    private final long retainedSizeInBytes;
 
     /**
      * Create an array block directly from columnar nulls, values, and offsets into the values.
@@ -258,8 +258,6 @@ public class ArrayBlock
                 Arrays.equals(this.valueIsNull, other.valueIsNull) &&
                 Objects.equals(this.values, other.values) &&
                 Arrays.equals(this.offsets, other.offsets) &&
-                this.sizeInBytes == other.sizeInBytes &&
-                this.logicalSizeInBytes == other.logicalSizeInBytes &&
                 this.retainedSizeInBytes == other.retainedSizeInBytes;
     }
 
@@ -271,8 +269,6 @@ public class ArrayBlock
                 Arrays.hashCode(valueIsNull),
                 values,
                 Arrays.hashCode(offsets),
-                sizeInBytes,
-                logicalSizeInBytes,
                 retainedSizeInBytes);
     }
 }

@@ -47,10 +47,11 @@ public class DictionaryBlock
     private final int idsOffset;
     private final int[] ids;
     private final long retainedSizeInBytes;
+    private final DictionaryId dictionarySourceId;
+
     private volatile long sizeInBytes = -1;
     private volatile long logicalSizeInBytes = -1;
     private volatile int uniqueIds = -1;
-    private final DictionaryId dictionarySourceId;
 
     public DictionaryBlock(Block dictionary, int[] ids)
     {
@@ -688,9 +689,6 @@ public class DictionaryBlock
                 this.idsOffset == other.idsOffset &&
                 Arrays.equals(this.ids, other.ids) &&
                 this.retainedSizeInBytes == other.retainedSizeInBytes &&
-                this.sizeInBytes == other.sizeInBytes &&
-                this.logicalSizeInBytes == other.logicalSizeInBytes &&
-                this.uniqueIds == other.uniqueIds &&
                 Objects.equals(this.dictionarySourceId, other.dictionarySourceId);
     }
 
@@ -702,9 +700,6 @@ public class DictionaryBlock
                 idsOffset,
                 Arrays.hashCode(ids),
                 retainedSizeInBytes,
-                sizeInBytes,
-                logicalSizeInBytes,
-                uniqueIds,
                 dictionarySourceId);
     }
 }
