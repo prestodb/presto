@@ -459,26 +459,6 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return message.str();
   }
 
-  template <typename T>
-  void runAll(
-      const std::string& text,
-      std::function<std::optional<T>(int32_t)> reference) {
-    auto source = {parseExpression(text)};
-    exprs_ = std::make_unique<exec::ExprSet>(std::move(source), execCtx_.get());
-    auto row = testDataRow();
-    exec::EvalCtx context(execCtx_.get(), exprs_.get(), row.get());
-    auto size = row->size();
-
-    auto rows = selectRange(0, size);
-    std::vector<VectorPtr> result(1);
-    exprs_->eval(rows, &context, &result);
-    DecodedVector decoded(*result[0], rows);
-    compare(rows, decoded, reference, makeErrorPrefix(text, row, 0, size));
-
-    // reset the caches
-    exprs_.reset();
-  }
-
   /// Evaluates 'text' expression on 'testDataRow()' twice. First, evaluates the
   /// expression on the first 2/3 of the rows. Then, evaluates the expression on
   /// the last 1/3 of the rows.
@@ -845,23 +825,25 @@ TEST_F(ExprTest, moreEncodings) {
 }
 
 TEST_F(ExprTest, reorder) {
-  constexpr int32_t kTestSize = 20000;
-  std::vector<EncodingOptions> encoding = {EncodingOptions::flat(kTestSize)};
-  fillVectorAndReference<int64_t>(
-      encoding,
-      [](int32_t row) { return std::optional(static_cast<int64_t>(row)); },
-      &testData_.bigint1);
-  run<int64_t>(
-      "if (bigint1 % 409 < 300 and bigint1 %103 < 30, 1, 2)", [&](int32_t row) {
-        return BIGINT1 % 409 < 300 && BIGINT1 % 103 < 30 ? INT64V(1)
-                                                         : INT64V(2);
-      });
-  auto expr = exprs_->expr(0);
-  auto condition =
-      std::dynamic_pointer_cast<exec::ConjunctExpr>(expr->inputs()[0]);
+  constexpr int32_t kTestSize = 20'000;
+
+  auto data = makeRowVector(
+      {makeFlatVector<int64_t>(kTestSize, [](auto row) { return row; })});
+  auto exprSet = compileExpression(
+      "if (c0 % 409 < 300 and c0 % 103 < 30, 1, 2)", asRowType(data->type()));
+  auto result = evaluate(exprSet.get(), data);
+
+  auto expectedResult = makeFlatVector<int64_t>(kTestSize, [](auto row) {
+    return (row % 409) < 300 && (row % 103) < 30 ? 1 : 2;
+  });
+
+  auto condition = std::dynamic_pointer_cast<exec::ConjunctExpr>(
+      exprSet->expr(0)->inputs()[0]);
   EXPECT_TRUE(condition != nullptr);
-  // We check that the more efficient filter is first.
+
+  // Verify that more efficient filter is first.
   for (auto i = 1; i < condition->inputs().size(); ++i) {
+    std::cout << condition->selectivityAt(i - 1).timeToDropValue() << std::endl;
     EXPECT_LE(
         condition->selectivityAt(i - 1).timeToDropValue(),
         condition->selectivityAt(i).timeToDropValue());
@@ -1758,76 +1740,66 @@ bool registerTestUDFs() {
 TEST_F(ExprTest, opaque) {
   registerTestUDFs();
 
-  const int kRows = 100;
+  static constexpr vector_size_t kRows = 100;
 
   OpaqueState::clearStats();
 
-  fillVectorAndReference<int64_t>(
-      {EncodingOptions::flat(kRows)},
-      [](int32_t row) {
-        return row % 7 == 0 ? std::nullopt
-                            : std::optional(static_cast<int64_t>(row));
-      },
-      &testData_.bigint1);
-  fillVectorAndReference<int64_t>(
-      {EncodingOptions::flat(kRows)},
-      [](int32_t row) {
-        return (row % 11 == 0) ? std::nullopt
-                               : std::optional(static_cast<int64_t>(row * 2));
-      },
-      &testData_.bigint2);
-  fillVectorAndReference<std::shared_ptr<void>>(
-      {EncodingOptions::flat(1), EncodingOptions::constant(kRows, 0)},
-      [](int32_t) {
-        return std::static_pointer_cast<void>(
-            std::make_shared<OpaqueState>(123));
-      },
-      &testData_.opaquestate1);
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(
+          kRows, [](auto row) { return row; }, nullEvery(7)),
+      makeFlatVector<int64_t>(
+          kRows, [](auto row) { return row * 2; }, nullEvery(11)),
+      BaseVector::wrapInConstant(
+          kRows,
+          0,
+          makeFlatVector<std::shared_ptr<void>>(
+              1,
+              [](auto row) {
+                return std::static_pointer_cast<void>(
+                    std::make_shared<OpaqueState>(123));
+              })),
+  });
+
   EXPECT_EQ(1, OpaqueState::constructed);
 
   int nonNulls = 0;
-  for (int i = 0; i < kRows; ++i) {
-    nonNulls += testData_.bigint1.reference[i].has_value() &&
-            testData_.bigint2.reference[i].has_value()
-        ? 1
-        : 0;
+  for (auto i = 0; i < kRows; ++i) {
+    if (i % 7 != 0 && i % 11 != 0) {
+      ++nonNulls;
+    }
   }
 
-  // opaque created each time
+  // Opaque value created each time.
   OpaqueState::clearStats();
-  runAll<int64_t>(
-      "test_opaque_add(test_opaque_create(bigint1), bigint2)",
-      [&](int32_t row) {
-        if (IS_BIGINT1 && IS_BIGINT2) {
-          return INT64V(BIGINT1 + BIGINT2);
-        }
-        return INT64N;
-      });
+  auto result = evaluate("test_opaque_add(test_opaque_create(c0), c1)", data);
+  auto expectedResult = makeFlatVector<int64_t>(
+      kRows,
+      [](auto row) { return row + row * 2; },
+      [](auto row) { return row % 7 == 0 || row % 11 == 0; });
+  assertEqualVectors(expectedResult, result);
+
   EXPECT_EQ(OpaqueState::constructed, nonNulls);
   EXPECT_EQ(OpaqueState::destructed, nonNulls);
 
-  // opaque passed in as a constant explicitly
+  // Opaque value passed in as a constant explicitly.
   OpaqueState::clearStats();
-  runAll<int64_t>("test_opaque_add(opaquestate1, bigint2)", [&](int32_t row) {
-    if (IS_BIGINT2) {
-      return INT64V(123 + BIGINT2);
-    }
-    return INT64N;
-  });
-  // nothing got created!
+  result = evaluate("test_opaque_add(c2, c1)", data);
+  expectedResult = makeFlatVector<int64_t>(
+      kRows, [](auto row) { return 123 + row * 2; }, nullEvery(11));
+  assertEqualVectors(expectedResult, result);
+
+  // Nothing got created!
   EXPECT_EQ(OpaqueState::constructed, 0);
   EXPECT_EQ(OpaqueState::destructed, 0);
 
-  // opaque created by a function taking a literal and should be constant
-  // folded
+  // Opaque value created by a function taking a literal. Should be
+  // constant-folded.
   OpaqueState::clearStats();
-  runAll<int64_t>(
-      "test_opaque_add(test_opaque_create(123), bigint2)", [&](int32_t row) {
-        if (IS_BIGINT2) {
-          return INT64V(123 + BIGINT2);
-        }
-        return INT64N;
-      });
+  result = evaluate("test_opaque_add(test_opaque_create(123), c1)", data);
+  expectedResult = makeFlatVector<int64_t>(
+      kRows, [](auto row) { return 123 + row * 2; }, nullEvery(11));
+  assertEqualVectors(expectedResult, result);
+
   EXPECT_EQ(OpaqueState::constructed, 1);
   EXPECT_EQ(OpaqueState::destructed, 1);
 }
@@ -2691,23 +2663,14 @@ TEST_F(ExprTest, switchExceptionContext) {
 }
 
 TEST_F(ExprTest, conjunctExceptionContext) {
-  fillVectorAndReference<int64_t>(
-      {EncodingOptions::flat(20)},
-      [](int32_t row) { return std::optional(static_cast<int64_t>(row)); },
-      &testData_.bigint1);
+  auto data = makeFlatVector<int64_t>(20, [](auto row) { return row; });
 
-  try {
-    run<int64_t>(
-        "if (bigint1 % 409 < 300 and bigint1 / 0 < 30, 1, 2)",
-        [&](int32_t /*row*/) { return 0; });
-    ASSERT_TRUE(false) << "Expected an error";
-  } catch (VeloxException& e) {
-    ASSERT_EQ("divide(bigint1, 0:BIGINT)", e.context());
-    ASSERT_EQ(
-        "switch(and(lt(mod(bigint1, 409:BIGINT), 300:BIGINT), lt(divide(bigint1, 0:BIGINT), 30:BIGINT)), 1:BIGINT, 2:BIGINT)",
-        e.topLevelContext());
-    ASSERT_EQ("division by zero", e.message());
-  }
+  assertError(
+      "if (c0 % 409 < 300 and c0 / 0 < 30, 1, 2)",
+      data,
+      "divide(c0, 0:BIGINT)",
+      "switch(and(lt(mod(c0, 409:BIGINT), 300:BIGINT), lt(divide(c0, 0:BIGINT), 30:BIGINT)), 1:BIGINT, 2:BIGINT)",
+      "division by zero");
 }
 
 TEST_F(ExprTest, lambdaExceptionContext) {
