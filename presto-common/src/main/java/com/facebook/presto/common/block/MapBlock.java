@@ -316,6 +316,7 @@ public class MapBlock
             return false;
         }
         MapBlock other = (MapBlock) obj;
+        // Do not use mutable fields sizeInBytes, hashtables as it makes the implementation non-deterministic.
         return this.startOffset == other.startOffset &&
                 this.positionCount == other.positionCount &&
                 Arrays.equals(this.mapIsNull, other.mapIsNull) &&
@@ -328,6 +329,7 @@ public class MapBlock
     @Override
     public int hashCode()
     {
+        // Do not use mutable fields sizeInBytes, hashtables as it makes the implementation non-deterministic.
         return Objects.hash(startOffset,
                 positionCount,
                 Arrays.hashCode(mapIsNull),
