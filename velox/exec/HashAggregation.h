@@ -47,6 +47,8 @@ class HashAggregation : public Operator {
   bool isFinished() override;
 
   void close() override {
+    // Release the unused memory reservation on close.
+    operatorCtx_->pool()->getMemoryUsageTracker()->release();
     Operator::close();
     groupingSet_.reset();
   }
@@ -58,15 +60,23 @@ class HashAggregation : public Operator {
   /// flushed.
   void resetPartialOutputIfNeed();
 
+  /// Invoked on partial output flush to try to bump up the partial aggregation
+  /// memory usage if it needs. 'aggregationPct' is the ratio between the number
+  /// of output rows and the number of input rows as a percentage. It is a
+  /// measure of the effectiveness of the partial aggregation.
+  void maybeIncreasePartialAggregationMemoryUsage(double aggregationPct);
+
   /// Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
-
-  const int64_t maxPartialAggregationMemoryUsage_;
 
   const bool isPartialOutput_;
   const bool isDistinct_;
   const bool isGlobal_;
+  const std::shared_ptr<memory::MemoryUsageTracker> memoryTracker_;
+  const double partialAggregationGoodPct_;
+  const int64_t maxExtendedPartialAggregationMemoryUsage_;
 
+  int64_t maxPartialAggregationMemoryUsage_;
   std::unique_ptr<GroupingSet> groupingSet_;
 
   bool partialFull_ = false;
@@ -76,6 +86,9 @@ class HashAggregation : public Operator {
   bool pushdownChecked_ = false;
   bool mayPushdown_ = false;
 
+  /// Count the number of input rows. It is reset on partial aggregation output
+  /// flush.
+  int64_t numInputRows_ = 0;
   /// Count the number of output rows. It is reset on partial aggregation output
   /// flush.
   int64_t numOutputRows_ = 0;

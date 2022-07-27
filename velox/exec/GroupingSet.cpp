@@ -162,6 +162,7 @@ bool GroupingSet::hasOutput() {
 void GroupingSet::addInputForActiveRows(
     const RowVectorPtr& input,
     bool mayPushdown) {
+  VELOX_CHECK(!isGlobal_);
   bool rehash = false;
   if (!table_) {
     rehash = true;
@@ -197,6 +198,14 @@ void GroupingSet::addInputForActiveRows(
     }
   }
 
+  if (rehash) {
+    if (table_->hashMode() != BaseHashTable::HashMode::kHash) {
+      table_->decideHashMode(input->size());
+    }
+    addInputForActiveRows(input, mayPushdown);
+    return;
+  }
+
   if (activeRows_.isAllSelected()) {
     std::iota(lookup_->rows.begin(), lookup_->rows.end(), 0);
   } else {
@@ -207,13 +216,6 @@ void GroupingSet::addInputForActiveRows(
         });
   }
 
-  if (rehash) {
-    if (table_->hashMode() != BaseHashTable::HashMode::kHash) {
-      table_->decideHashMode(input->size());
-    }
-    addInputForActiveRows(input, mayPushdown);
-    return;
-  }
   table_->groupProbe(*lookup_);
   masks_.addInput(input, activeRows_);
   for (auto i = 0; i < aggregates_.size(); ++i) {

@@ -304,7 +304,6 @@ bool Spiller::fillSpillRuns(
   constexpr int32_t kHashBatchSize = 1024;
   bool final = false;
   if (rowsFromNonSpillingPartitions) {
-    final = true;
     VELOX_CHECK_EQ(
         targetSize,
         RowContainer::kUnlimited,

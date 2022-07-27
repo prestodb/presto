@@ -135,7 +135,7 @@ class MemoryUsageTracker
 
   // Increments the reservation for 'this' so that we can allocate at
   // least 'size' bytes on top of the current allocation. This is used
-  // when an a memory user needs to allocate more memory and needs a
+  // when a memory user needs to allocate more memory and needs a
   // guarantee of at least 'size' being available. If less memory ends
   // up being needed, the unused reservation should be released with
   // release().  If the new reserved amount exceeds the usage limit,

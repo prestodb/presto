@@ -77,6 +77,15 @@ class QueryConfig {
   static constexpr const char* kMaxPartialAggregationMemory =
       "max_partial_aggregation_memory";
 
+  static constexpr const char* kMaxExtendedPartialAggregationMemory =
+      "max_extended_partial_aggregation_memory";
+
+  /// Output volume as percentage of input volume below which we will not seek
+  /// to increase reduction by using more memory. the data volume is measured as
+  /// the number of rows.
+  static constexpr const char* kPartialAggregationGoodPct =
+      "partial_aggregation_reduction_ratio_threshold";
+
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "driver.max-page-partitioning-buffer-size";
 
@@ -100,6 +109,16 @@ class QueryConfig {
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
+  }
+
+  uint64_t maxExtendedPartialAggregationMemoryUsage() const {
+    static constexpr uint64_t kDefault = 1L << 24;
+    return get<uint64_t>(kMaxExtendedPartialAggregationMemory, kDefault);
+  }
+
+  double partialAggregationGoodPct() const {
+    static constexpr double kDefault = 0.5;
+    return get<double>(kPartialAggregationGoodPct, kDefault);
   }
 
   // Returns the target size for a Task's buffered output. The
