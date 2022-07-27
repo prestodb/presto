@@ -74,7 +74,7 @@ public class TestHiveClientFileMetastore
         HiveClientConfig hiveConfig = new HiveClientConfig();
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         HdfsConfigurationInitializer updater = new HdfsConfigurationInitializer(hiveConfig, metastoreClientConfig);
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updater, ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updater, ImmutableSet.of(), hiveConfig);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
     }

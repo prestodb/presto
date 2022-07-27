@@ -80,7 +80,8 @@ public class HudiTestUtils
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(
                 new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                hiveClientConfig);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, catalogDir, "test");
     }

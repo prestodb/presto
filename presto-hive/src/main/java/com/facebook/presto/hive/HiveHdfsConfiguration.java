@@ -48,10 +48,11 @@ public class HiveHdfsConfiguration
 
     // This is set to TRUE if the configuration providers are empty or they do NOT dependent on the URI
     private final boolean isConfigReusable;
+    private final boolean isCopyOnFirstWriteConfigurationEnabled;
     private Configuration uriAgnosticConfiguration;
 
     @Inject
-    public HiveHdfsConfiguration(HdfsConfigurationInitializer initializer, Set<DynamicConfigurationProvider> dynamicProviders)
+    public HiveHdfsConfiguration(HdfsConfigurationInitializer initializer, Set<DynamicConfigurationProvider> dynamicProviders, HiveClientConfig hiveClientConfig)
     {
         this.initializer = requireNonNull(initializer, "initializer is null");
         this.dynamicProviders = ImmutableSet.copyOf(requireNonNull(dynamicProviders, "dynamicProviders is null"));
@@ -60,6 +61,7 @@ public class HiveHdfsConfiguration
             isUriIndependentConfig = isUriIndependentConfig && provider.isUriIndependentConfigurationProvider();
         }
         this.isConfigReusable = isUriIndependentConfig;
+        this.isCopyOnFirstWriteConfigurationEnabled = hiveClientConfig.isCopyOnFirstWriteConfigurationEnabled();
     }
 
     @Override
@@ -70,7 +72,7 @@ public class HiveHdfsConfiguration
             return hadoopConfiguration.get();
         }
 
-        if (isConfigReusable && uriAgnosticConfiguration != null) {
+        if (isCopyOnFirstWriteConfigurationEnabled && isConfigReusable && uriAgnosticConfiguration != null) {
             // use the same configuration for everything
             return new CopyOnFirstWriteConfiguration(uriAgnosticConfiguration);
         }
@@ -80,7 +82,7 @@ public class HiveHdfsConfiguration
             provider.updateConfiguration(config, context, uri);
         }
 
-        if (isConfigReusable && uriAgnosticConfiguration == null) {
+        if (isCopyOnFirstWriteConfigurationEnabled && isConfigReusable && uriAgnosticConfiguration == null) {
             uriAgnosticConfiguration = config;
             // return a CopyOnFirstWrite configuration so that we make a copy before modifying it down the lane
             return new CopyOnFirstWriteConfiguration(uriAgnosticConfiguration);
