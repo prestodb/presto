@@ -107,6 +107,10 @@ class TreeOfLosers {
   // calling this again. Returns nullptr when all streams are at end.
   Stream* next() {
     if (UNLIKELY(lastIndex_ == kEmpty)) {
+      if (UNLIKELY(values_.empty())) {
+        // Only one stream. We handle this off the common path.
+        return streams_[0]->hasData() ? streams_[0].get() : nullptr;
+      }
       lastIndex_ = first(0);
     } else {
       lastIndex_ = propagate(
@@ -126,6 +130,11 @@ class TreeOfLosers {
   std::pair<Stream*, bool> nextWithEquals() {
     IndexAndFlag result;
     if (UNLIKELY(lastIndex_ == kEmpty)) {
+      // Only one stream. We handle this off the common path.
+      if (values_.empty()) {
+        return streams_[0]->hasData() ? std::make_pair(streams_[0].get(), false)
+                                      : std::make_pair(nullptr, false);
+      }
       result = firstWithEquals(0);
     } else {
       result = propagateWithEquals(

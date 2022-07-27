@@ -37,6 +37,7 @@ TEST_F(TreeOfLosersTest, merge) {
   testBoth(17, 17);
   testBoth(0, 9);
   testBoth(5000000, 37);
+  testBoth(500, 1);
 }
 
 TEST_F(TreeOfLosersTest, nextWithEquals) {
@@ -76,6 +77,26 @@ TEST_F(TreeOfLosersTest, nextWithEquals) {
       EXPECT_NE(allNumbers[i], allNumbers[i - 1]);
     }
     expectRepeat = result.second;
+    result.first->pop();
+  }
+}
+
+TEST_F(TreeOfLosersTest, singleWithEquals) {
+  std::vector<uint32_t> allNumbers = {1, 2, 3, 4};
+  // TestingStream produces reverse order.
+  std::vector<uint32_t> stream = {4, 3, 2, 1};
+  std::vector<std::unique_ptr<TestingStream>> mergeStreams;
+  mergeStreams.push_back(std::make_unique<TestingStream>(std::move(stream)));
+  TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+  for (auto i = 0; i < allNumbers.size(); ++i) {
+    auto result = merge.nextWithEquals();
+    if (result.first == nullptr) {
+      FAIL() << "Merge ends too soon";
+      break;
+    }
+    auto number = result.first->current()->value();
+    EXPECT_EQ(allNumbers[i], number);
+    EXPECT_FALSE(result.second);
     result.first->pop();
   }
 }
