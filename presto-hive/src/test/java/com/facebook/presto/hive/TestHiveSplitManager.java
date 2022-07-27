@@ -477,7 +477,7 @@ public class TestHiveSplitManager
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig().setPartitionStatisticsBasedOptimizationEnabled(true);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(
-                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, new MetastoreClientConfig()), ImmutableSet.of()),
+                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, new MetastoreClientConfig()), ImmutableSet.of(), hiveClientConfig),
                 new MetastoreClientConfig(),
                 new NoHdfsAuthentication());
         HiveMetadataFactory metadataFactory = new HiveMetadataFactory(

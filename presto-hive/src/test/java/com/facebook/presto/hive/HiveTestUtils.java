@@ -216,7 +216,8 @@ public final class HiveTestUtils
                         metastoreClientConfig,
                         new PrestoS3ConfigurationUpdater(new HiveS3Config()),
                         new HiveGcsConfigurationInitializer(new HiveGcsConfig())),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                config);
         return new HdfsEnvironment(hdfsConfig, metastoreClientConfig, new NoHdfsAuthentication());
     }
 
