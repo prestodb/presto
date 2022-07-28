@@ -21,3 +21,8 @@ add_executable(velox_vector_selectivity_vector_benchmark
 
 target_link_libraries(velox_vector_selectivity_vector_benchmark velox_vector
                       ${FOLLY_WITH_DEPENDENCIES} ${FOLLY_BENCHMARK})
+
+add_executable(copy_benchmark CopyBenchmark.cpp)
+
+target_link_libraries(copy_benchmark velox_vector_test_lib
+                      ${FOLLY_WITH_DEPENDENCIES} ${FOLLY_BENCHMARK})

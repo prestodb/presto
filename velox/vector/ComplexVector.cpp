@@ -450,16 +450,24 @@ void ArrayVector::copy(
       SelectivityVector::empty(), elements_->type(), pool(), &elements_);
   auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
   auto wantWidth = type()->isFixedWidth() ? type()->fixedElementsWidth() : 0;
-  for (int32_t i = 0; i < count; ++i) {
-    if (source->isNullAt(sourceIndex + i)) {
-      setNull(targetIndex + i, true);
+  auto* mutableOffsets = offsets_->asMutable<vector_size_t>();
+  auto* mutableSizes = sizes_->asMutable<vector_size_t>();
+  vector_size_t childSize = elements_->size();
+  if (count == 1) {
+    // Fast path if we're just copying a single array.
+    if (source->isNullAt(sourceIndex)) {
+      setNull(targetIndex, true);
     } else {
       if (setNotNulls) {
-        setNull(targetIndex + i, false);
+        setNull(targetIndex, false);
       }
-      vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex + i);
+
+      vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex);
       vector_size_t copySize = sourceArray->sizeAt(wrappedIndex);
-      vector_size_t childSize = elements_->size();
+
+      mutableOffsets[targetIndex] = childSize;
+      mutableSizes[targetIndex] = copySize;
+
       if (copySize > 0) {
         // If we are populating a FixedSizeArray we validate here that
         // the entries we are populating are the correct sizes.
@@ -467,18 +475,66 @@ void ArrayVector::copy(
           VELOX_CHECK_EQ(
               copySize,
               wantWidth,
-              "Invalid length element at index {}, wrappedIndex {}",
-              i,
+              "Invalid length element at wrappedIndex {}",
               wrappedIndex);
         }
+        auto copyOffset = sourceArray->offsetAt(wrappedIndex);
         elements_->resize(childSize + copySize);
+
         elements_->copy(
-            sourceArray->elements_.get(),
-            childSize,
-            sourceArray->offsetAt(wrappedIndex),
-            copySize);
+            sourceArray->elements_.get(), childSize, copyOffset, copySize);
       }
-      setOffsetAndSize(targetIndex + i, childSize, copySize);
+    }
+  } else {
+    std::vector<std::pair<vector_size_t, vector_size_t>> ranges;
+    ranges.reserve(count);
+    for (int32_t i = 0; i < count; ++i) {
+      if (source->isNullAt(sourceIndex + i)) {
+        setNull(targetIndex + i, true);
+      } else {
+        if (setNotNulls) {
+          setNull(targetIndex + i, false);
+        }
+        vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex + i);
+        vector_size_t copySize = sourceArray->sizeAt(wrappedIndex);
+
+        if (copySize > 0) {
+          // If we are populating a FixedSizeArray we validate here that
+          // the entries we are populating are the correct sizes.
+          if (wantWidth != 0) {
+            VELOX_CHECK_EQ(
+                copySize,
+                wantWidth,
+                "Invalid length element at index {}, wrappedIndex {}",
+                i,
+                wrappedIndex);
+          }
+
+          auto copyOffset = sourceArray->offsetAt(wrappedIndex);
+
+          // If we're copying two adjacent ranges, merge them.
+          // This only works if they're consecutive.
+          if (!ranges.empty() &&
+              (ranges.back().first + ranges.back().second == copyOffset)) {
+            ranges.back().second += copySize;
+          } else {
+            ranges.emplace_back(copyOffset, copySize);
+          }
+        }
+
+        mutableOffsets[targetIndex + i] = childSize;
+        mutableSizes[targetIndex + i] = copySize;
+        childSize += copySize;
+      }
+    }
+
+    vector_size_t childOffset = elements_->size();
+    elements_->resize(childSize);
+
+    for (auto& range : ranges) {
+      elements_->copy(
+          sourceArray->elements_.get(), childOffset, range.first, range.second);
+      childOffset += range.second;
     }
   }
 }
@@ -671,29 +727,76 @@ void MapVector::copy(
   BaseVector::ensureWritable(
       SelectivityVector::empty(), keys_->type(), pool(), &keys_);
   auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
-  for (int32_t i = 0; i < count; ++i) {
-    if (source->isNullAt(sourceIndex + i)) {
-      setNull(targetIndex + i, true);
+  auto* mutableOffsets = offsets_->asMutable<vector_size_t>();
+  auto* mutableSizes = sizes_->asMutable<vector_size_t>();
+  vector_size_t childSize = keys_->size();
+  if (count == 1) {
+    // Fast path if we're just copying a single map.
+    if (source->isNullAt(sourceIndex)) {
+      setNull(targetIndex, true);
     } else {
       if (setNotNulls) {
-        setNull(targetIndex + i, false);
+        setNull(targetIndex, false);
       }
-      vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex + i);
+
+      vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex);
       vector_size_t copySize = sourceMap->sizeAt(wrappedIndex);
-      // Call reserveMap also for 0 size, since this writes the offset/size.
-      vector_size_t childSize = reserveMap(targetIndex + i, copySize);
+
+      mutableOffsets[targetIndex] = childSize;
+      mutableSizes[targetIndex] = copySize;
+
       if (copySize > 0) {
-        keys_->copy(
-            sourceMap->keys_.get(),
-            childSize,
-            sourceMap->offsetAt(wrappedIndex),
-            copySize);
+        auto copyOffset = sourceMap->offsetAt(wrappedIndex);
+        keys_->resize(childSize + copySize);
+        values_->resize(childSize + copySize);
+
+        keys_->copy(sourceMap->keys_.get(), childSize, copyOffset, copySize);
         values_->copy(
-            sourceMap->values_.get(),
-            childSize,
-            sourceMap->offsetAt(wrappedIndex),
-            copySize);
+            sourceMap->values_.get(), childSize, copyOffset, copySize);
       }
+    }
+  } else {
+    std::vector<std::pair<vector_size_t, vector_size_t>> ranges;
+    ranges.reserve(count);
+    for (int32_t i = 0; i < count; ++i) {
+      if (source->isNullAt(sourceIndex + i)) {
+        setNull(targetIndex + i, true);
+      } else {
+        if (setNotNulls) {
+          setNull(targetIndex + i, false);
+        }
+        vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex + i);
+        vector_size_t copySize = sourceMap->sizeAt(wrappedIndex);
+
+        if (copySize > 0) {
+          auto copyOffset = sourceMap->offsetAt(wrappedIndex);
+
+          // If we're copying two adjacent ranges, merge them.
+          // This only works if they're consecutive.
+          if (!ranges.empty() &&
+              (ranges.back().first + ranges.back().second == copyOffset)) {
+            ranges.back().second += copySize;
+          } else {
+            ranges.emplace_back(copyOffset, copySize);
+          }
+        }
+
+        mutableOffsets[targetIndex + i] = childSize;
+        mutableSizes[targetIndex + i] = copySize;
+        childSize += copySize;
+      }
+    }
+
+    vector_size_t childOffset = keys_->size();
+    keys_->resize(childSize);
+    values_->resize(childSize);
+
+    for (auto& range : ranges) {
+      keys_->copy(
+          sourceMap->keys_.get(), childOffset, range.first, range.second);
+      values_->copy(
+          sourceMap->values_.get(), childOffset, range.first, range.second);
+      childOffset += range.second;
     }
   }
 }
