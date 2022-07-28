@@ -83,9 +83,8 @@ BinaryStreamReader::BinaryStreamReader(
     : stripeReaderBase_{reader},
       columnSelector_{reader->getSchema(), columnIds},
       stripeIndex_{0},
-      numStripes{folly::to<uint32_t>(reader->getFooter().stripes_size())} {
-  DWIO_ENSURE(
-      !reader->getFooter().has_encryption(), "encryption not supported");
+      numStripes{folly::to<uint32_t>(reader->getFooter().stripesSize())} {
+  DWIO_ENSURE(!reader->getFooter().hasEncryption(), "encryption not supported");
   DWIO_ENSURE(!columnIds.empty(), "Atleast one column expected to be read");
 }
 
@@ -101,8 +100,8 @@ std::unordered_map<uint32_t, proto::ColumnStatistics>
 BinaryStreamReader::getStatistics() const {
   std::unordered_map<uint32_t, proto::ColumnStatistics> stats;
   auto footerStatsSize =
-      stripeReaderBase_.getReader().getFooter().statistics_size();
-  auto typesSize = stripeReaderBase_.getReader().getFooter().types_size();
+      stripeReaderBase_.getReader().getFooter().statisticsSize();
+  auto typesSize = stripeReaderBase_.getReader().getFooter().typesSize();
 
   if (footerStatsSize == 0) {
     DWIO_ENSURE_EQ(
@@ -130,7 +129,7 @@ BinaryStreamReader::getStatistics() const {
 }
 
 uint32_t BinaryStreamReader::getStrideLen() const {
-  return stripeReaderBase_.getReader().getFooter().rowindexstride();
+  return stripeReaderBase_.getReader().getFooter().rowIndexStride();
 }
 
 } // namespace facebook::velox::dwrf::detail

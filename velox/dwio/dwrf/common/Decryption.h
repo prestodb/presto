@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/EncryptionCommon.h"
 
 namespace facebook::velox::dwrf::encryption {
@@ -27,6 +28,11 @@ class DecryptionHandler
 
   static std::unique_ptr<DecryptionHandler> create(
       const proto::Footer& footer,
+      dwio::common::encryption::DecrypterFactory* factory = nullptr);
+
+  // Temporary function before Footer can totally replace proto::Footer
+  static std::unique_ptr<DecryptionHandler> create(
+      const Footer& footer,
       dwio::common::encryption::DecrypterFactory* factory = nullptr);
 
  private:

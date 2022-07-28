@@ -98,7 +98,7 @@ uint64_t DwrfRowReader::next(uint64_t size, VectorPtr& result) {
       startNextStripe();
     }
 
-    auto strideSize = footer.rowindexstride();
+    auto strideSize = footer.rowIndexStride();
     if (LIKELY(strideSize > 0) && selectiveColumnReader_) {
       checkSkipStrides(context, strideSize);
     }

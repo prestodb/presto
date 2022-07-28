@@ -117,6 +117,7 @@ TEST(StripeStream, planReads) {
       std::make_unique<PostScript>(proto::PostScript{}),
       footer,
       nullptr);
+  std::cout << "done" << std::endl;
   ColumnSelector cs{readerBase->getSchema(), std::vector<uint64_t>{2}, true};
   auto stripeFooter =
       google::protobuf::Arena::CreateMessage<proto::StripeFooter>(&arena);
@@ -282,7 +283,7 @@ TEST(StripeStream, planReadsIndex) {
   auto cacheBuffer = std::make_shared<DataBuffer<char>>(pool, str.size());
   memcpy(cacheBuffer->data(), str.data(), str.size());
   auto cache = std::make_unique<StripeMetadataCache>(
-      StripeCacheMode::INDEX, *footer, std::move(cacheBuffer));
+      StripeCacheMode::INDEX, Footer(footer), std::move(cacheBuffer));
 
   auto is = std::make_unique<RecordingInputStream>();
   auto isPtr = is.get();
@@ -382,7 +383,7 @@ TEST(StripeStream, readEncryptedStreams) {
     *stripe->add_keymetadata() = folly::to<std::string>("key", i);
   }
   TestDecrypterFactory factory;
-  auto handler = DecryptionHandler::create(*footer, &factory);
+  auto handler = DecryptionHandler::create(Footer(footer), &factory);
   TestEncrypter encrypter;
 
   ProtoWriter pw{pool};
@@ -452,7 +453,7 @@ TEST(StripeStream, schemaMismatch) {
   auto stripe = footer->add_stripes();
   *stripe->add_keymetadata() = "key";
   TestDecrypterFactory factory;
-  auto handler = DecryptionHandler::create(*footer, &factory);
+  auto handler = DecryptionHandler::create(Footer(footer), &factory);
   TestEncrypter encrypter;
 
   ProtoWriter pw{pool};

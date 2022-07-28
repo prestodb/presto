@@ -27,7 +27,7 @@ class StripeMetadataCache {
  public:
   StripeMetadataCache(
       StripeCacheMode mode,
-      const proto::Footer& footer,
+      const Footer& footer,
       std::shared_ptr<dwio::common::DataBuffer<char>> buffer)
       : StripeMetadataCache{mode, std::move(buffer), getOffsets(footer)} {}
 
@@ -79,10 +79,10 @@ class StripeMetadataCache {
     return INVALID_INDEX;
   }
 
-  std::vector<uint32_t> getOffsets(const proto::Footer& footer) {
+  std::vector<uint32_t> getOffsets(const Footer& footer) {
     std::vector<uint32_t> offsets;
-    offsets.reserve(footer.stripecacheoffsets_size());
-    const auto& from = footer.stripecacheoffsets();
+    offsets.reserve(footer.stripeCacheOffsetsSize());
+    const auto& from = footer.stripeCacheOffsets();
     offsets.assign(from.begin(), from.end());
     return offsets;
   }

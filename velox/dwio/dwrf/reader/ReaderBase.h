@@ -90,21 +90,20 @@ class ReaderBase {
       : pool_{pool},
         stream_{std::move(stream)},
         postScript_{std::move(ps)},
-        footer_{footer},
+        footer_{std::make_unique<Footer>(footer)},
         cache_{std::move(cache)},
         handler_{std::move(handler)},
         input_{
             stream_
                 ? std::make_unique<dwio::common::BufferedInput>(*stream_, pool_)
                 : nullptr},
-        schema_{
-            std::dynamic_pointer_cast<const RowType>(convertType(*footer_))},
+        schema_{std::dynamic_pointer_cast<const RowType>(convertType(*footer))},
         fileLength_{0},
         psLength_{0} {
-    DWIO_ENSURE(footer_->GetArena());
+    DWIO_ENSURE(footer_->getDwrfFooter()->GetArena());
     DWIO_ENSURE_NOT_NULL(schema_, "invalid schema");
     if (!handler_) {
-      handler_ = encryption::DecryptionHandler::create(*footer_);
+      handler_ = encryption::DecryptionHandler::create(*footer);
     }
   }
 
@@ -129,7 +128,7 @@ class ReaderBase {
     return *postScript_;
   }
 
-  const proto::Footer& getFooter() const {
+  const Footer& getFooter() const {
     return *footer_;
   }
 
@@ -244,8 +243,7 @@ class ReaderBase {
   std::unique_ptr<dwio::common::InputStream> stream_;
   std::unique_ptr<google::protobuf::Arena> arena_;
   std::unique_ptr<PostScript> postScript_;
-
-  proto::Footer* footer_ = nullptr;
+  std::unique_ptr<Footer> footer_ = nullptr;
   uint64_t fileNum_;
   std::unique_ptr<StripeMetadataCache> cache_;
   // Keeps factory alive for possibly async prefetch.

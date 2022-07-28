@@ -1319,10 +1319,10 @@ void testMapWriterStats(const std::shared_ptr<const RowType> type) {
   auto mapReader = getDwrfReader(pool, type, batch, false);
   auto flatMapReader = getDwrfReader(pool, type, batch, true);
   ASSERT_EQ(
-      mapReader->getFooter().statistics_size(),
-      flatMapReader->getFooter().statistics_size());
+      mapReader->getFooter().statisticsSize(),
+      flatMapReader->getFooter().statisticsSize());
 
-  for (int32_t i = 0; i < mapReader->getFooter().statistics_size(); ++i) {
+  for (int32_t i = 0; i < mapReader->getFooter().statisticsSize(); ++i) {
     LOG(INFO) << "Stats " << i
               << "     map: " << mapReader->columnStatistics(i)->toString();
     LOG(INFO) << "Stats " << i

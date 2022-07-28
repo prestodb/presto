@@ -24,7 +24,7 @@ const proto::StripeInformation& StripeReaderBase::loadStripe(
     uint32_t index,
     bool& preload) {
   auto& footer = reader_->getFooter();
-  DWIO_ENSURE_LT(index, footer.stripes_size(), "invalid stripe index");
+  DWIO_ENSURE_LT(index, footer.stripesSize(), "invalid stripe index");
   auto& stripe = footer.stripes(index);
   auto& cache = reader_->getMetadataCache();
 
@@ -96,7 +96,7 @@ void StripeReaderBase::loadEncryptionKeys(uint32_t index) {
   DWIO_ENSURE_EQ(
       footer_->encryptiongroups_size(), handler_->getEncryptionGroupCount());
   auto& footer = reader_->getFooter();
-  DWIO_ENSURE_LT(index, footer.stripes_size(), "invalid stripe index");
+  DWIO_ENSURE_LT(index, footer.stripesSize(), "invalid stripe index");
 
   auto& stripe = footer.stripes(index);
   // If current stripe has keys, load these keys.

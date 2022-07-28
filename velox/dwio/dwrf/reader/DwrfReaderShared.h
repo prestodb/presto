@@ -49,7 +49,7 @@ class DwrfRowReaderShared : public StrideIndexProvider,
 
   // internal methods
   std::optional<size_t> estimatedRowSizeHelper(
-      const proto::Footer& footer,
+      const Footer& footer,
       const dwio::common::Statistics& stats,
       uint32_t nodeId) const;
 
@@ -170,14 +170,14 @@ class DwrfReaderShared : public dwio::common::Reader {
   }
 
   uint32_t getNumberOfStripes() const {
-    return readerBase_->getFooter().stripes_size();
+    return readerBase_->getFooter().stripesSize();
   }
 
   std::vector<uint64_t> getRowsPerStripe() const {
     return readerBase_->getRowsPerStripe();
   }
   uint32_t strideSize() const {
-    return readerBase_->getFooter().rowindexstride();
+    return readerBase_->getFooter().rowIndexStride();
   }
 
   std::unique_ptr<StripeInformation> getStripe(uint32_t) const;
@@ -208,14 +208,14 @@ class DwrfReaderShared : public dwio::common::Reader {
     return readerBase_->getPostScript();
   }
 
-  const proto::Footer& getFooter() const {
+  const Footer& getFooter() const {
     return readerBase_->getFooter();
   }
 
   std::optional<uint64_t> numberOfRows() const override {
     auto& footer = readerBase_->getFooter();
-    if (footer.has_numberofrows()) {
-      return footer.numberofrows();
+    if (footer.hasNumberOfRows()) {
+      return footer.numberOfRows();
     }
     return std::nullopt;
   }

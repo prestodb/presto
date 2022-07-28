@@ -345,6 +345,195 @@ class PostScript {
   uint64_t stripeStatisticsLength_;
 };
 
+// TODO: wrap stripes, types, metadata, column statistics
+class Footer {
+ public:
+  explicit Footer(proto::Footer* footer)
+      : headerLength_{footer->has_headerlength() ? footer->headerlength() : 0},
+        contentLength_{
+            footer->has_contentlength() ? footer->contentlength() : 0},
+        numberOfRows_{footer->has_numberofrows() ? footer->numberofrows() : 0},
+        rowIndexStride_{
+            footer->has_rowindexstride() ? footer->rowindexstride() : 0},
+        rawDataSize_{footer->has_rawdatasize() ? footer->rawdatasize() : 0},
+        checksumAlgorithm_{
+            footer->has_checksumalgorithm() ? footer->checksumalgorithm()
+                                            : proto::ChecksumAlgorithm::NULL_},
+        dwrfFooter_{footer} {
+    stripeCacheOffsets_.reserve(footer->stripecacheoffsets_size());
+    for (const auto offset : footer->stripecacheoffsets()) {
+      stripeCacheOffsets_.push_back(offset);
+    }
+  }
+
+  const proto::Footer* getDwrfFooter() const {
+    return dwrfFooter_;
+  }
+
+  const proto::orc::Footer* getOrcFooter() const {
+    return orcFooter_;
+  }
+
+  bool hasHeaderLength() const {
+    return true;
+  }
+
+  uint64_t headerLength() const {
+    return headerLength_;
+  }
+
+  bool hasContentLength() const {
+    return true;
+  }
+
+  uint64_t contentLength() const {
+    return contentLength_;
+  }
+
+  int stripesSize() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->stripes_size();
+  }
+
+  const ::facebook::velox::dwrf::proto::StripeInformation& stripes(
+      int index) const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->stripes(index);
+  }
+
+  int typesSize() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->types_size();
+  }
+
+  const ::google::protobuf::RepeatedPtrField<
+      ::facebook::velox::dwrf::proto::Type>&
+  types() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->types();
+  }
+
+  const ::facebook::velox::dwrf::proto::Type& types(int index) const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->types(index);
+  }
+
+  int metadataSize() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->metadata_size();
+  }
+
+  const ::google::protobuf::RepeatedPtrField<
+      ::facebook::velox::dwrf::proto::UserMetadataItem>&
+  metadata() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->metadata();
+  }
+
+  const ::facebook::velox::dwrf::proto::UserMetadataItem& metadata(
+      int index) const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->metadata(index);
+  }
+
+  bool hasNumberOfRows() const {
+    return numberOfRows_ != 0;
+  }
+
+  uint64_t numberOfRows() const {
+    return numberOfRows_;
+  }
+
+  int statisticsSize() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->statistics_size();
+  }
+
+  const ::google::protobuf::RepeatedPtrField<
+      ::facebook::velox::dwrf::proto::ColumnStatistics>&
+  statistics() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->statistics();
+  }
+
+  const ::facebook::velox::dwrf::proto::ColumnStatistics& statistics(
+      int index) const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->statistics(index);
+  }
+
+  bool hasRowIndexStride() const {
+    return true;
+  }
+
+  uint32_t rowIndexStride() const {
+    return rowIndexStride_;
+  }
+
+  bool hasEncryption() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->has_encryption();
+  }
+
+  const ::facebook::velox::dwrf::proto::Encryption& encryption() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->encryption();
+  }
+
+  bool hasRawDataSize() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->has_rawdatasize();
+  }
+
+  uint64_t rawDataSize() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return rawDataSize_;
+  }
+
+  bool hasChecksumAlgorithm() const {
+    return true;
+  }
+
+  const proto::ChecksumAlgorithm& checksumAlgorithm() const {
+    return checksumAlgorithm_;
+  }
+
+  int stripeCacheOffsetsSize() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->stripecacheoffsets_size();
+  }
+
+  const ::google::protobuf::RepeatedField<::google::protobuf::uint32>&
+  stripeCacheOffsets() const {
+    DWIO_ENSURE(dwrfFooter_);
+    return dwrfFooter_->stripecacheoffsets();
+  }
+
+ private:
+  uint64_t headerLength_;
+  uint64_t contentLength_;
+  uint64_t numberOfRows_;
+  uint32_t rowIndexStride_;
+  // TODO: wrap stripes, types, metadata, column statistics
+
+  // DWRF-specific
+  uint64_t rawDataSize_;
+  std::vector<uint32_t> stripeCacheOffsets_;
+  proto::ChecksumAlgorithm checksumAlgorithm_;
+  // TODO: encryption fallback to dwrfFooter_
+
+  // ORC-specific
+  // TODO: getter
+  uint32_t writer_;
+  // TODO: encryption
+  proto::orc::CalendarKind calendarKind_;
+  std::string softwareVersion_;
+
+  // pointers to format-specific footers
+  proto::Footer* dwrfFooter_ = nullptr;
+  proto::orc::Footer* orcFooter_ = nullptr;
+};
+
 enum RleVersion { RleVersion_1, RleVersion_2 };
 
 constexpr int32_t RLE_MINIMUM_REPEAT = 3;

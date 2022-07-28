@@ -94,15 +94,15 @@ void verifyStats(
     const size_t repeat,
     const std::vector<size_t>& nodeSizePerStride,
     const bool hasFlatMapCol) {
-  ASSERT_EQ(1, rowReader.getReader().getFooter().stripes_size())
+  ASSERT_EQ(1, rowReader.getReader().getFooter().stripesSize())
       << "Only one stripe expected";
 
-  ASSERT_EQ(true, rowReader.getReader().getFooter().has_rawdatasize())
+  ASSERT_EQ(true, rowReader.getReader().getFooter().hasRawDataSize())
       << "File raw data size does not exist";
 
   ASSERT_EQ(
       nodeSizePerStride.at(0) * repeat,
-      rowReader.getReader().getFooter().rawdatasize())
+      rowReader.getReader().getFooter().rawDataSize())
       << "File raw data size does not match";
 
   // Verify File Column's raw Size.
@@ -133,7 +133,7 @@ void verifyStats(
   computeCumulativeNodeSize(
       nodeSizes, *TypeWithId::create(rowReader.getReader().getSchema()));
   for (auto nodeId = 0;
-       nodeId < rowReader.getReader().getFooter().statistics_size();
+       nodeId < rowReader.getReader().getFooter().statisticsSize();
        nodeId++) {
     ASSERT_EQ(
         nodeSizes[nodeId],

@@ -298,7 +298,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
   }
 
   uint32_t rowsPerRowGroup() const override {
-    return reader_.getReader().getFooter().rowindexstride();
+    return reader_.getReader().getFooter().rowIndexStride();
   }
 
  private:
