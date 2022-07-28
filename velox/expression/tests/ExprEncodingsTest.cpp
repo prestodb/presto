@@ -547,11 +547,6 @@ TEST_P(ExprEncodingsTest, basic) {
 TEST_P(ExprEncodingsTest, conditional) {
   prepareTestData();
 
-  // TODO This test fails when using lazy vectors. Fix and re-enable.
-  if (std::get<2>(GetParam())) {
-    GTEST_SKIP();
-  }
-
   run<int64_t>(
       "if(bigint1 % 2 = 0, 2 * bigint1 + 10, 3 * bigint2) + 11",
       [&](int32_t row) {
@@ -564,11 +559,6 @@ TEST_P(ExprEncodingsTest, conditional) {
 
 TEST_P(ExprEncodingsTest, moreConditional) {
   prepareTestData();
-
-  // TODO This test fails when using lazy vectors. Fix and re-enable.
-  if (std::get<2>(GetParam())) {
-    GTEST_SKIP();
-  }
 
   run<int64_t>(
       "if(bigint1 % 2 = 0 and bigint2 < 1000 and bigint1 + bigint2 > 0,"
@@ -596,11 +586,6 @@ TEST_P(ExprEncodingsTest, errors) {
 TEST_P(ExprEncodingsTest, maskedErrors) {
   prepareTestData();
 
-  // TODO This test fails when using lazy vectors. Fix and re-enable.
-  if (std::get<2>(GetParam())) {
-    GTEST_SKIP();
-  }
-
   // Produce an error if bigint1 is a multiple of 3 or bigint2 is a multiple
   // of 13. Then mask this error by a false. Return 1 for true and 0 for
   // false.
@@ -617,11 +602,6 @@ TEST_P(ExprEncodingsTest, maskedErrors) {
 
 TEST_P(ExprEncodingsTest, commonSubExpressions) {
   prepareTestData();
-
-  // TODO This test fails when using lazy vectors. Fix and re-enable.
-  if (std::get<2>(GetParam())) {
-    GTEST_SKIP();
-  }
 
   // Test common subexpressions at top level and inside conditionals.
   run<int64_t>(

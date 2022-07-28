@@ -231,7 +231,7 @@ class LazyVector : public BaseVector {
   }
 
   bool isScalar() const override {
-    return loadedVector()->isScalar();
+    return type()->isPrimitiveType() || type()->isOpaque();
   }
 
   bool mayHaveNulls() const override {

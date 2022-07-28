@@ -534,7 +534,7 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
         continue;
       }
       if (numLevels == 0 && leaf->isConstant(rows)) {
-        context.ensureFieldLoaded(fieldIndex, rows);
+        leaf = context.ensureFieldLoaded(fieldIndex, rows);
         setPeeled(leaf, fieldIndex, context, maybePeeled);
         constantFields.resize(numFields);
         constantFields.at(fieldIndex) = true;
@@ -703,6 +703,11 @@ bool Expr::removeSureNulls(
   for (auto* field : distinctFields_) {
     VectorPtr values;
     field->evalSpecialForm(rows, context, values);
+
+    if (isLazyNotLoaded(*values)) {
+      continue;
+    }
+
     if (values->mayHaveNulls()) {
       auto nulls = values->flatRawNulls(rows);
       if (nulls) {
@@ -763,7 +768,12 @@ void Expr::evalWithNulls(
   if (propagatesNulls_) {
     bool mayHaveNulls = false;
     for (const auto& field : distinctFields_) {
-      if (context.getField(field->index(context))->mayHaveNulls()) {
+      const auto& vector = context.getField(field->index(context));
+      if (isLazyNotLoaded(*vector)) {
+        continue;
+      }
+
+      if (vector->mayHaveNulls()) {
         mayHaveNulls = true;
         break;
       }

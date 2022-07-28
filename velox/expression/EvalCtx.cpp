@@ -214,7 +214,9 @@ const VectorPtr& EvalCtx::getField(int32_t index) const {
   return *field;
 }
 
-void EvalCtx::ensureFieldLoaded(int32_t index, const SelectivityVector& rows) {
+VectorPtr EvalCtx::ensureFieldLoaded(
+    int32_t index,
+    const SelectivityVector& rows) {
   auto field = getField(index);
   if (isLazyNotLoaded(*field)) {
     const auto& rowsToLoad = isFinalSelection_ ? rows : *finalSelection_;
@@ -237,6 +239,8 @@ void EvalCtx::ensureFieldLoaded(int32_t index, const SelectivityVector& rows) {
     // they contain a loaded lazyVector.
     field->loadedVector();
   }
+
+  return field;
 }
 
 } // namespace facebook::velox::exec
