@@ -85,6 +85,7 @@ highlight_language = 'sql'
 
 rst_epilog = """
 .. |presto_server_release| replace:: ``presto-server-{release}``
+.. |presto_router_release| replace:: ``presto-router-{release}``
 """.replace('{release}', release)
 
 # -- Options for HTML output ---------------------------------------------------
