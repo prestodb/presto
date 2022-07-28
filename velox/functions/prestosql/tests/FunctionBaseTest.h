@@ -67,7 +67,7 @@ class FunctionBaseTest : public testing::Test,
   std::shared_ptr<const core::ITypedExpr> makeTypedExpr(
       const std::string& text,
       const RowTypePtr& rowType) {
-    auto untyped = parse::parseExpr(text);
+    auto untyped = parse::parseExpr(text, options_);
     return core::Expressions::inferTypes(untyped, rowType, execCtx_.pool());
   }
 
@@ -227,13 +227,17 @@ class FunctionBaseTest : public testing::Test,
       TypePtr rowType,
       const std::string& body) {
     core::Expressions::registerLambda(
-        name, signature, rowType, parse::parseExpr(body), execCtx_.pool());
+        name,
+        signature,
+        rowType,
+        parse::parseExpr(body, options_),
+        execCtx_.pool());
   }
 
   core::TypedExprPtr parseExpression(
       const std::string& text,
       const RowTypePtr& rowType) {
-    auto untyped = parse::parseExpr(text);
+    auto untyped = parse::parseExpr(text, options_);
     return core::Expressions::inferTypes(untyped, rowType, pool());
   }
 
@@ -259,6 +263,7 @@ class FunctionBaseTest : public testing::Test,
 
   std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
+  parse::ParseOptions options_;
 
  private:
   template <typename T>

@@ -19,6 +19,7 @@
 #include <velox/core/PlanFragment.h>
 #include <velox/core/PlanNode.h>
 #include "velox/common/memory/Memory.h"
+#include "velox/parse/ExpressionsParser.h"
 
 namespace facebook::velox::core {
 class IExpr;
@@ -699,6 +700,12 @@ class PlanBuilder {
     return *this;
   }
 
+  /// Set parsing options
+  PlanBuilder& setParseOptions(const parse::ParseOptions& options) {
+    options_ = options;
+    return *this;
+  }
+
  private:
   std::string nextPlanNodeId();
 
@@ -757,5 +764,6 @@ class PlanBuilder {
   std::shared_ptr<PlanNodeIdGenerator> planNodeIdGenerator_;
   core::PlanNodePtr planNode_;
   memory::MemoryPool* pool_;
+  parse::ParseOptions options_;
 };
 } // namespace facebook::velox::exec::test

@@ -16,14 +16,19 @@
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/duckdb/conversion/DuckParser.h"
 
-namespace facebook {
-namespace velox {
-namespace parse {
+namespace facebook::velox::parse {
 
-std::shared_ptr<const core::IExpr> parseExpr(const std::string& strExpr) {
-  return facebook::velox::duckdb::parseExpr(strExpr);
+std::shared_ptr<const core::IExpr> parseExpr(
+    const std::string& expr,
+    const ParseOptions& options) {
+  facebook::velox::duckdb::ParseOptions duckConversionOptions;
+  duckConversionOptions.parseDecimalAsDouble = options.parseDecimalAsDouble;
+  return facebook::velox::duckdb::parseExpr(expr, duckConversionOptions);
 }
 
-} // namespace parse
-} // namespace velox
-} // namespace facebook
+std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
+    const std::string& expr) {
+  return facebook::velox::duckdb::parseOrderByExpr(expr);
+}
+
+} // namespace facebook::velox::parse

@@ -17,7 +17,6 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/PlanNode.h"
 #include "velox/duckdb/conversion/DuckConversion.h"
-#include "velox/expression/CastExpr.h"
 #include "velox/external/duckdb/duckdb.hpp"
 #include "velox/parse/Expressions.h"
 #include "velox/type/Variant.h"
@@ -47,7 +46,9 @@ using ::duckdb::WindowExpression;
 
 namespace {
 
-std::shared_ptr<const core::IExpr> parseExpr(ParsedExpression& expr);
+std::shared_ptr<const core::IExpr> parseExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options);
 
 std::string normalizeFuncName(std::string input) {
   static std::map<std::string, std::string> kLookup{
@@ -120,7 +121,9 @@ std::shared_ptr<const core::CallExpr> callExpr(
 }
 
 // Parse a constant (1, 99.8, "string", etc).
-std::shared_ptr<const core::IExpr> parseConstantExpr(ParsedExpression& expr) {
+std::shared_ptr<const core::IExpr> parseConstantExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   auto& constantExpr = dynamic_cast<ConstantExpression&>(expr);
   auto& value = constantExpr.value;
 
@@ -130,12 +133,16 @@ std::shared_ptr<const core::IExpr> parseConstantExpr(ParsedExpression& expr) {
   if (value.type().id() == LogicalTypeId::INTEGER) {
     value = Value::BIGINT(value.GetValue<int32_t>());
   }
+
   return std::make_shared<const core::ConstantExpr>(
-      duckValueToVariant(constantExpr.value), getAlias(expr));
+      duckValueToVariant(constantExpr.value, options.parseDecimalAsDouble),
+      getAlias(expr));
 }
 
 // Parse a column reference (col1, "col2", tbl.col, etc).
-std::shared_ptr<const core::IExpr> parseColumnRefExpr(ParsedExpression& expr) {
+std::shared_ptr<const core::IExpr> parseColumnRefExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   const auto& colRefExpr = dynamic_cast<ColumnRefExpression&>(expr);
   if (!colRefExpr.IsQualified()) {
     return std::make_shared<const core::FieldAccessExpr>(
@@ -151,13 +158,15 @@ std::shared_ptr<const core::IExpr> parseColumnRefExpr(ParsedExpression& expr) {
 
 // Parse a function call (avg(a), func(1, b), etc).
 // Arithmetic operators also follow this path (a + b, a * b, etc).
-std::shared_ptr<const core::IExpr> parseFunctionExpr(ParsedExpression& expr) {
+std::shared_ptr<const core::IExpr> parseFunctionExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   const auto& functionExpr = dynamic_cast<FunctionExpression&>(expr);
   std::vector<std::shared_ptr<const core::IExpr>> params;
   params.reserve(functionExpr.children.size());
 
   for (const auto& c : functionExpr.children) {
-    params.emplace_back(parseExpr(*c));
+    params.emplace_back(parseExpr(*c, options));
   }
   auto func = normalizeFuncName(functionExpr.function_name);
   // NOT LIKE function needs special handling as it maps to two functions
@@ -172,10 +181,12 @@ std::shared_ptr<const core::IExpr> parseFunctionExpr(ParsedExpression& expr) {
 }
 
 // Parse a comparison (a > b, a = b, etc).
-std::shared_ptr<const core::IExpr> parseComparisonExpr(ParsedExpression& expr) {
+std::shared_ptr<const core::IExpr> parseComparisonExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   const auto& compExpr = dynamic_cast<ComparisonExpression&>(expr);
   std::vector<std::shared_ptr<const core::IExpr>> params{
-      parseExpr(*compExpr.left), parseExpr(*compExpr.right)};
+      parseExpr(*compExpr.left, options), parseExpr(*compExpr.right, options)};
   return callExpr(
       normalizeFuncName(ExpressionTypeToOperator(expr.GetExpressionType())),
       std::move(params),
@@ -183,19 +194,22 @@ std::shared_ptr<const core::IExpr> parseComparisonExpr(ParsedExpression& expr) {
 }
 
 // Parse x between lower and upper
-std::shared_ptr<const core::IExpr> parseBetweenExpr(ParsedExpression& expr) {
+std::shared_ptr<const core::IExpr> parseBetweenExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   const auto& betweenExpr = dynamic_cast<BetweenExpression&>(expr);
   return callExpr(
       "between",
-      {parseExpr(*betweenExpr.input),
-       parseExpr(*betweenExpr.lower),
-       parseExpr(*betweenExpr.upper)},
+      {parseExpr(*betweenExpr.input, options),
+       parseExpr(*betweenExpr.lower, options),
+       parseExpr(*betweenExpr.upper, options)},
       getAlias(expr));
 }
 
 // Parse a conjunction (AND or OR).
 std::shared_ptr<const core::IExpr> parseConjunctionExpr(
-    ParsedExpression& expr) {
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   const auto& conjExpr = dynamic_cast<ConjunctionExpression&>(expr);
   std::string conjName =
       StringUtil::Lower(ExpressionTypeToOperator(expr.GetExpressionType()));
@@ -217,11 +231,11 @@ std::shared_ptr<const core::IExpr> parseConjunctionExpr(
     params.reserve(2);
 
     if (current == nullptr) {
-      params.emplace_back(parseExpr(*conjExpr.children[0]));
-      params.emplace_back(parseExpr(*conjExpr.children[1]));
+      params.emplace_back(parseExpr(*conjExpr.children[0], options));
+      params.emplace_back(parseExpr(*conjExpr.children[1], options));
     } else {
       params.emplace_back(current);
-      params.emplace_back(parseExpr(*conjExpr.children[i]));
+      params.emplace_back(parseExpr(*conjExpr.children[i], options));
     }
     current = callExpr(conjName, std::move(params), getAlias(expr));
   }
@@ -229,7 +243,9 @@ std::shared_ptr<const core::IExpr> parseConjunctionExpr(
 }
 
 // Parse an "operator", like NOT.
-std::shared_ptr<const core::IExpr> parseOperatorExpr(ParsedExpression& expr) {
+std::shared_ptr<const core::IExpr> parseOperatorExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   const auto& operExpr = dynamic_cast<OperatorExpression&>(expr);
 
   // Code for array literal parsing (e.g. "ARRAY[1, 2, 3]")
@@ -239,7 +255,8 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(ParsedExpression& expr) {
 
     for (const auto& c : operExpr.children) {
       if (auto constantExpr = dynamic_cast<ConstantExpression*>(c.get())) {
-        arrayElements.emplace_back(duckValueToVariant(constantExpr->value));
+        arrayElements.emplace_back(duckValueToVariant(
+            constantExpr->value, options.parseDecimalAsDouble));
       } else {
         VELOX_UNSUPPORTED("Array literal elements need to be constant");
       }
@@ -258,14 +275,15 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(ParsedExpression& expr) {
     for (auto i = 0; i < numValues; i++) {
       if (auto constantExpr = dynamic_cast<ConstantExpression*>(
               operExpr.children[i + 1].get())) {
-        values.emplace_back(duckValueToVariant(constantExpr->value));
+        values.emplace_back(duckValueToVariant(
+            constantExpr->value, options.parseDecimalAsDouble));
       } else {
         VELOX_UNSUPPORTED("IN list values need to be constant");
       }
     }
 
     std::vector<std::shared_ptr<const core::IExpr>> params;
-    params.emplace_back(parseExpr(*operExpr.children[0]));
+    params.emplace_back(parseExpr(*operExpr.children[0], options));
     params.emplace_back(std::make_shared<const core::ConstantExpr>(
         variant::array(values), std::nullopt));
     auto inExpr = callExpr("in", std::move(params), getAlias(expr));
@@ -279,7 +297,7 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(ParsedExpression& expr) {
   params.reserve(operExpr.children.size());
 
   for (const auto& c : operExpr.children) {
-    params.emplace_back(parseExpr(*c));
+    params.emplace_back(parseExpr(*c, options));
   }
 
   // STRUCT_EXTRACT(struct, 'entry') resolves nested field access such as
@@ -324,7 +342,9 @@ bool isNullConstant(const std::shared_ptr<const core::IExpr>& expr) {
 } // namespace
 
 // Parse an IF()/CASE expression.
-std::shared_ptr<const core::IExpr> parseCaseExpr(ParsedExpression& expr) {
+std::shared_ptr<const core::IExpr> parseCaseExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   const auto& caseExpr = dynamic_cast<CaseExpression&>(expr);
   const auto& checks = caseExpr.case_checks;
 
@@ -332,9 +352,9 @@ std::shared_ptr<const core::IExpr> parseCaseExpr(ParsedExpression& expr) {
     const auto& check = checks.front();
 
     std::vector<std::shared_ptr<const core::IExpr>> params{
-        parseExpr(*check.when_expr),
-        parseExpr(*check.then_expr),
-        parseExpr(*caseExpr.else_expr),
+        parseExpr(*check.when_expr, options),
+        parseExpr(*check.then_expr, options),
+        parseExpr(*caseExpr.else_expr, options),
     };
     return callExpr("if", std::move(params), getAlias(expr));
   }
@@ -342,11 +362,11 @@ std::shared_ptr<const core::IExpr> parseCaseExpr(ParsedExpression& expr) {
   std::vector<std::shared_ptr<const core::IExpr>> inputs;
   inputs.reserve(checks.size() * 2 + 1);
   for (auto& check : checks) {
-    inputs.emplace_back(parseExpr(*check.when_expr));
-    inputs.emplace_back(parseExpr(*check.then_expr));
+    inputs.emplace_back(parseExpr(*check.when_expr, options));
+    inputs.emplace_back(parseExpr(*check.then_expr, options));
   }
 
-  auto elseExpr = parseExpr(*caseExpr.else_expr);
+  auto elseExpr = parseExpr(*caseExpr.else_expr, options);
   if (!isNullConstant(elseExpr)) {
     inputs.emplace_back(elseExpr);
   }
@@ -355,10 +375,12 @@ std::shared_ptr<const core::IExpr> parseCaseExpr(ParsedExpression& expr) {
 }
 
 // Parse an CAST expression.
-std::shared_ptr<const core::IExpr> parseCastExpr(ParsedExpression& expr) {
+std::shared_ptr<const core::IExpr> parseCastExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   const auto& castExpr = dynamic_cast<CastExpression&>(expr);
   std::vector<std::shared_ptr<const core::IExpr>> params{
-      parseExpr(*castExpr.child)};
+      parseExpr(*castExpr.child, options)};
   // We may need to expand toVeloxType in the future to support
   // Map and Array and Struct properly.
   auto targetType = toVeloxType(castExpr.cast_type);
@@ -368,34 +390,36 @@ std::shared_ptr<const core::IExpr> parseCastExpr(ParsedExpression& expr) {
       targetType, params[0], nullOnFailure, getAlias(expr));
 }
 
-std::shared_ptr<const core::IExpr> parseExpr(ParsedExpression& expr) {
+std::shared_ptr<const core::IExpr> parseExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
   switch (expr.GetExpressionClass()) {
     case ExpressionClass::CONSTANT:
-      return parseConstantExpr(expr);
+      return parseConstantExpr(expr, options);
 
     case ExpressionClass::COLUMN_REF:
-      return parseColumnRefExpr(expr);
+      return parseColumnRefExpr(expr, options);
 
     case ExpressionClass::FUNCTION:
-      return parseFunctionExpr(expr);
+      return parseFunctionExpr(expr, options);
 
     case ExpressionClass::COMPARISON:
-      return parseComparisonExpr(expr);
+      return parseComparisonExpr(expr, options);
 
     case ExpressionClass::BETWEEN:
-      return parseBetweenExpr(expr);
+      return parseBetweenExpr(expr, options);
 
     case ExpressionClass::CONJUNCTION:
-      return parseConjunctionExpr(expr);
+      return parseConjunctionExpr(expr, options);
 
     case ExpressionClass::OPERATOR:
-      return parseOperatorExpr(expr);
+      return parseOperatorExpr(expr, options);
 
     case ExpressionClass::CASE:
-      return parseCaseExpr(expr);
+      return parseCaseExpr(expr, options);
 
     case ExpressionClass::CAST:
-      return parseCastExpr(expr);
+      return parseCastExpr(expr, options);
 
     default:
       throw std::invalid_argument(
@@ -417,15 +441,16 @@ std::vector<std::unique_ptr<::duckdb::ParsedExpression>> parseExpression(
 }
 } // namespace
 
-std::shared_ptr<const core::IExpr> parseExpr(const std::string& exprString) {
+std::shared_ptr<const core::IExpr> parseExpr(
+    const std::string& exprString,
+    const ParseOptions& options) {
   auto parsedExpressions = parseExpression(exprString);
   if (parsedExpressions.size() != 1) {
     throw std::invalid_argument(folly::sformat(
         "Expecting exactly one input expression, found {}.",
         parsedExpressions.size()));
   }
-
-  return parseExpr(*parsedExpressions.front());
+  return parseExpr(*parsedExpressions.front(), options);
 }
 
 namespace {
@@ -467,6 +492,7 @@ bool isNullsFirst(
 std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
     const std::string& exprString) {
   ParserOptions options;
+  ParseOptions parseOptions;
   options.preserve_identifier_case = false;
   auto orderByNodes = Parser::ParseOrderList(exprString, options);
   if (orderByNodes.size() != 1) {
@@ -481,7 +507,7 @@ std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
   const bool nullsFirst = isNullsFirst(orderByNode.null_order, exprString);
 
   return {
-      parseExpr(*orderByNode.expression),
+      parseExpr(*orderByNode.expression, parseOptions),
       core::SortOrder(ascending, nullsFirst)};
 }
 
@@ -528,6 +554,7 @@ BoundType parseBoundType(WindowBoundary boundary) {
 } // namespace
 
 const IExprWindowFunction parseWindowExpr(const std::string& windowString) {
+  ParseOptions options;
   auto parsedExpressions = parseExpression(windowString);
   if (parsedExpressions.size() != 1) {
     throw std::invalid_argument(folly::sformat(
@@ -545,21 +572,21 @@ const IExprWindowFunction parseWindowExpr(const std::string& windowString) {
   auto& windowExpr = dynamic_cast<WindowExpression&>(parsedExpr);
   for (int i = 0; i < windowExpr.partitions.size(); i++) {
     windowIExpr.partitionBy.push_back(
-        parseExpr(*(windowExpr.partitions[i].get())));
+        parseExpr(*(windowExpr.partitions[i].get()), options));
   }
 
   for (const auto& orderByNode : windowExpr.orders) {
     const bool ascending = isAscending(orderByNode.type, windowString);
     const bool nullsFirst = isNullsFirst(orderByNode.null_order, windowString);
     windowIExpr.orderBy.emplace_back(
-        parseExpr(*orderByNode.expression),
+        parseExpr(*orderByNode.expression, options),
         core::SortOrder(ascending, nullsFirst));
   }
 
   std::vector<std::shared_ptr<const core::IExpr>> params;
   params.reserve(windowExpr.children.size());
   for (const auto& c : windowExpr.children) {
-    params.emplace_back(parseExpr(*c));
+    params.emplace_back(parseExpr(*c, options));
   }
   auto func = normalizeFuncName(windowExpr.function_name);
   windowIExpr.functionCall =
@@ -570,12 +597,13 @@ const IExprWindowFunction parseWindowExpr(const std::string& windowString) {
   windowIExpr.frame.type = parseWindowType(windowExpr);
   windowIExpr.frame.startType = parseBoundType(windowExpr.start);
   if (windowExpr.start_expr) {
-    windowIExpr.frame.startValue = parseExpr(*windowExpr.start_expr.get());
+    windowIExpr.frame.startValue =
+        parseExpr(*windowExpr.start_expr.get(), options);
   }
 
   windowIExpr.frame.endType = parseBoundType(windowExpr.end);
   if (windowExpr.end_expr) {
-    windowIExpr.frame.endValue = parseExpr(*windowExpr.end_expr.get());
+    windowIExpr.frame.endValue = parseExpr(*windowExpr.end_expr.get(), options);
   }
   return windowIExpr;
 }

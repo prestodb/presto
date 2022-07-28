@@ -20,6 +20,7 @@
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/parse/ExpressionsParser.h"
 #include "velox/type/Variant.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/tests/VectorMaker.h"
@@ -121,7 +122,8 @@ class OperatorTestBase : public testing::Test,
 
   std::shared_ptr<const core::ITypedExpr> parseExpr(
       const std::string& text,
-      RowTypePtr rowType);
+      RowTypePtr rowType,
+      const parse::ParseOptions& options = {});
 
   DuckDbQueryRunner duckDbQueryRunner_;
 

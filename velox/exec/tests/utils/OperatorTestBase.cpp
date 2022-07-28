@@ -139,8 +139,9 @@ std::shared_ptr<core::FieldAccessTypedExpr> OperatorTestBase::toFieldExpr(
 
 std::shared_ptr<const core::ITypedExpr> OperatorTestBase::parseExpr(
     const std::string& text,
-    RowTypePtr rowType) {
-  auto untyped = parse::parseExpr(text);
+    RowTypePtr rowType,
+    const parse::ParseOptions& options) {
+  auto untyped = parse::parseExpr(text, options);
   return core::Expressions::inferTypes(untyped, rowType, pool_.get());
 }
 

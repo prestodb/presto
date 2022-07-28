@@ -32,7 +32,7 @@ class ASTAnalysisTest : public ExpressionCodegenTestBase {
   template <typename InputRowTypeTrait>
   ASTNodePtr generateCodegenAST(const std::string& expression) {
     auto inputRowType = makeRowType(InputRowTypeTrait::veloxDynamicTypes());
-    auto untypedExpr = parse::parseExpr(expression);
+    auto untypedExpr = parse::parseExpr(expression, options_);
     auto typedExpr = core::Expressions::inferTypes(
         untypedExpr, inputRowType, getExecContext().pool());
 
@@ -82,6 +82,8 @@ class ASTAnalysisTest : public ExpressionCodegenTestBase {
         codegen::analysis::isFilterDefaultNull(codegenExprTree),
         expectedResult);
   }
+
+  parse::ParseOptions options_;
 };
 
 TEST_F(ASTAnalysisTest, DefaultNullStrict) {

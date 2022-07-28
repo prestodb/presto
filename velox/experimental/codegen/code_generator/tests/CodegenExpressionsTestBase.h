@@ -554,7 +554,7 @@ class ExpressionCodegenTestBase : public testing::Test {
   std::shared_ptr<const core::ConcatTypedExpr> makeConcatTypedExpr(
       const std::string& text,
       const std::shared_ptr<const RowType>& inputRowType) {
-    auto untypedExpr = parse::parseExpr(text);
+    auto untypedExpr = parse::parseExpr(text, options_);
     auto typedExpr = core::Expressions::inferTypes(
         untypedExpr, inputRowType, execCtx_->pool());
 
@@ -590,6 +590,7 @@ class ExpressionCodegenTestBase : public testing::Test {
   std::unique_ptr<CodeManager> codeManager_;
   std::unique_ptr<ExprCodeGenerator> generator_;
   DefaultScopedTimer::EventSequence eventSequence_;
+  parse::ParseOptions options_;
 };
 
 } // namespace expressions::test

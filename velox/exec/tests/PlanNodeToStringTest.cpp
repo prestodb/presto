@@ -501,3 +501,18 @@ TEST_F(PlanNodeToStringTest, tableScan) {
         plan->toString(true, false));
   }
 }
+
+TEST_F(PlanNodeToStringTest, decimalConstant) {
+  parse::ParseOptions options;
+  options.parseDecimalAsDouble = false;
+
+  auto plan = PlanBuilder()
+                  .setParseOptions(options)
+                  .tableScan(ROW({"a"}, {VARCHAR()}))
+                  .project({"a", "1.234"})
+                  .planNode();
+
+  ASSERT_EQ(
+      "-- Project[expressions: (a:VARCHAR, ROW[\"a\"]), (p1:SHORT_DECIMAL(4,3), 1.234)] -> a:VARCHAR, p1:SHORT_DECIMAL(4,3)\n",
+      plan->toString(true));
+}

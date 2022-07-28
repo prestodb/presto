@@ -80,7 +80,7 @@ class CodegenTestCore {
   std::shared_ptr<const core::ITypedExpr> makeTypedExpr(
       const std::string& text,
       const TypePtr& rowType) {
-    auto untyped = parse::parseExpr(text);
+    auto untyped = parse::parseExpr(text, options_);
     return core::Expressions::inferTypes(untyped, rowType, pool_.get());
   }
 
@@ -286,6 +286,7 @@ class CodegenTestCore {
   UDFManager udfManager_;
   bool useSymbolForArithmetic_;
   NamedSteadyClockEventSequence eventSequence_;
+  parse::ParseOptions options_;
 };
 
 class CodegenTestBase : public CodegenTestCore, public testing::Test {

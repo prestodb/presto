@@ -58,7 +58,8 @@ class VeloxIn10MinDemo : public VectorTestBase {
   core::TypedExprPtr parseExpression(
       const std::string& text,
       const RowTypePtr& rowType) {
-    auto untyped = parse::parseExpr(text);
+    parse::ParseOptions options;
+    auto untyped = parse::parseExpr(text, options);
     return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
   }
 

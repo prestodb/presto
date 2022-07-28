@@ -16,15 +16,23 @@
 #pragma once
 
 #include <set>
+#include "velox/core/PlanNode.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/parse/IExpr.h"
 
-namespace facebook {
-namespace velox {
-namespace parse {
+namespace facebook::velox::parse {
 
-std::shared_ptr<const core::IExpr> parseExpr(const std::string& expr);
+/// Hold parsing options.
+struct ParseOptions {
+  // Retain legacy behavior by default.
+  bool parseDecimalAsDouble = true;
+};
 
-} // namespace parse
-} // namespace velox
-} // namespace facebook
+std::shared_ptr<const core::IExpr> parseExpr(
+    const std::string& expr,
+    const ParseOptions& options);
+
+std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
+    const std::string& expr);
+
+} // namespace facebook::velox::parse

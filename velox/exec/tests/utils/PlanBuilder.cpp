@@ -16,7 +16,6 @@
 
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include <velox/core/ITypedExpr.h>
-#include <velox/type/Filter.h>
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
@@ -28,6 +27,7 @@
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/parse/Expressions.h"
+#include "velox/parse/ExpressionsParser.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::connector::hive;
@@ -43,8 +43,9 @@ static const std::string kTpchConnectorId = "test-tpch";
 core::TypedExprPtr parseExpr(
     const std::string& text,
     const RowTypePtr& rowType,
+    const parse::ParseOptions& options,
     memory::MemoryPool* pool) {
-  auto untyped = duckdb::parseExpr(text);
+  auto untyped = parse::parseExpr(text, options);
   return core::Expressions::inferTypes(untyped, rowType, pool);
 }
 
@@ -90,7 +91,7 @@ PlanBuilder& PlanBuilder::tableScan(
   SubfieldFilters filters;
   filters.reserve(subfieldFilters.size());
   for (const auto& filter : subfieldFilters) {
-    auto filterExpr = parseExpr(filter, outputType, pool_);
+    auto filterExpr = parseExpr(filter, outputType, options_, pool_);
     auto [subfield, subfieldFilter] = exec::toSubfieldFilter(filterExpr);
 
     auto it = columnAliases.find(subfield.toString());
@@ -109,8 +110,9 @@ PlanBuilder& PlanBuilder::tableScan(
 
   core::TypedExprPtr remainingFilterExpr;
   if (!remainingFilter.empty()) {
-    remainingFilterExpr = parseExpr(remainingFilter, outputType, pool_)
-                              ->rewriteInputNames(columnAliases);
+    remainingFilterExpr =
+        parseExpr(remainingFilter, outputType, options_, pool_)
+            ->rewriteInputNames(columnAliases);
   }
 
   auto tableHandle = std::make_shared<HiveTableHandle>(
@@ -185,7 +187,7 @@ parseOrderByClauses(
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
   std::vector<core::SortOrder> sortingOrders;
   for (const auto& key : keys) {
-    auto [untypedExpr, sortOrder] = duckdb::parseOrderByExpr(key);
+    auto [untypedExpr, sortOrder] = parse::parseOrderByExpr(key);
     auto typedExpr =
         core::Expressions::inferTypes(untypedExpr, inputType, pool);
 
@@ -219,7 +221,7 @@ PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
   std::vector<core::TypedExprPtr> expressions;
   std::vector<std::string> projectNames;
   for (auto i = 0; i < projections.size(); ++i) {
-    auto untypedExpr = duckdb::parseExpr(projections[i]);
+    auto untypedExpr = parse::parseExpr(projections[i], options_);
     expressions.push_back(inferTypes(untypedExpr));
     if (untypedExpr->alias().has_value()) {
       projectNames.push_back(untypedExpr->alias().value());
@@ -242,7 +244,7 @@ PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
 PlanBuilder& PlanBuilder::filter(const std::string& filter) {
   planNode_ = std::make_shared<core::FilterNode>(
       nextPlanNodeId(),
-      parseExpr(filter, planNode_->outputType(), pool_),
+      parseExpr(filter, planNode_->outputType(), options_, pool_),
       planNode_);
   return *this;
 }
@@ -524,7 +526,7 @@ PlanBuilder::createAggregateExpressionsAndNames(
       resolver.setResultType(resultTypes[i]);
     }
 
-    auto untypedExpr = duckdb::parseExpr(agg);
+    auto untypedExpr = parse::parseExpr(agg, options_);
 
     auto expr = std::dynamic_pointer_cast<const core::CallTypedExpr>(
         inferTypes(untypedExpr));
@@ -764,7 +766,8 @@ struct LocalPartitionTypes {
 
 LocalPartitionTypes genLocalPartitionTypes(
     const std::vector<core::PlanNodePtr>& sources,
-    const std::vector<std::string>& outputLayout) {
+    const std::vector<std::string>& outputLayout,
+    const parse::ParseOptions& options) {
   LocalPartitionTypes ret;
   auto inputType = sources[0]->outputType();
 
@@ -773,7 +776,7 @@ LocalPartitionTypes genLocalPartitionTypes(
   std::vector<std::string> outputNames;
   std::vector<std::string> outputAliases;
   for (const auto& output : outputLayout) {
-    auto untypedExpr = duckdb::parseExpr(output);
+    auto untypedExpr = parse::parseExpr(output, options);
     auto fieldExpr =
         dynamic_cast<const core::FieldAccessExpr*>(untypedExpr.get());
     VELOX_CHECK_NOT_NULL(
@@ -803,8 +806,9 @@ core::PlanNodePtr createLocalPartitionNode(
     const core::PlanNodeId& planNodeId,
     const std::vector<std::string>& keys,
     const std::vector<core::PlanNodePtr>& sources,
-    const std::vector<std::string>& outputLayout) {
-  auto types = genLocalPartitionTypes(sources, outputLayout);
+    const std::vector<std::string>& outputLayout,
+    const parse::ParseOptions& options) {
+  auto types = genLocalPartitionTypes(sources, outputLayout, options);
 
   auto partitionFunctionFactory =
       createPartitionFunctionFactory(sources[0]->outputType(), keys);
@@ -863,8 +867,8 @@ PlanBuilder& PlanBuilder::localPartition(
     const std::vector<core::PlanNodePtr>& sources,
     const std::vector<std::string>& outputLayout) {
   VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
-  planNode_ =
-      createLocalPartitionNode(nextPlanNodeId(), keys, sources, outputLayout);
+  planNode_ = createLocalPartitionNode(
+      nextPlanNodeId(), keys, sources, outputLayout, options_);
   return *this;
 }
 
@@ -872,7 +876,7 @@ PlanBuilder& PlanBuilder::localPartition(
     const std::vector<std::string>& keys,
     const std::vector<std::string>& outputLayout) {
   planNode_ = createLocalPartitionNode(
-      nextPlanNodeId(), keys, {planNode_}, outputLayout);
+      nextPlanNodeId(), keys, {planNode_}, outputLayout, options_);
   return *this;
 }
 
@@ -882,7 +886,7 @@ PlanBuilder& PlanBuilder::localPartitionRoundRobin(
   VELOX_CHECK_NULL(
       planNode_, "localPartitionRoundRobin() must be the first call");
 
-  auto types = genLocalPartitionTypes(sources, outputLayout);
+  auto types = genLocalPartitionTypes(sources, outputLayout, options_);
 
   auto partitionFunctionFactory = [](auto numPartitions) {
     return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
@@ -912,7 +916,7 @@ PlanBuilder& PlanBuilder::hashJoin(
   auto resultType = concat(leftType, rightType);
   core::TypedExprPtr filterExpr;
   if (!filter.empty()) {
-    filterExpr = parseExpr(filter, resultType, pool_);
+    filterExpr = parseExpr(filter, resultType, options_, pool_);
   }
   auto outputType = extract(resultType, outputLayout);
   auto leftKeyFields = fields(leftType, leftKeys);
@@ -944,7 +948,7 @@ PlanBuilder& PlanBuilder::mergeJoin(
   auto resultType = concat(leftType, rightType);
   core::TypedExprPtr filterExpr;
   if (!filter.empty()) {
-    filterExpr = parseExpr(filter, resultType, pool_);
+    filterExpr = parseExpr(filter, resultType, options_, pool_);
   }
   auto outputType = extract(resultType, outputLayout);
   auto leftKeyFields = fields(leftType, leftKeys);

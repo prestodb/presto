@@ -38,10 +38,11 @@ namespace facebook::velox::codegen {
 
 auto parseTypedExprs(
     const std::vector<std::string>& stringExprs,
-    std::shared_ptr<const RowType>& rowType) {
+    std::shared_ptr<const RowType>& rowType,
+    const parse::ParseOptions& options) {
   std::vector<std::shared_ptr<const core::ITypedExpr>> typedExprs;
   for (const auto& stringExpr : stringExprs) {
-    auto untyped = parse::parseExpr(stringExpr);
+    auto untyped = parse::parseExpr(stringExpr, options);
     auto typed = core::Expressions::inferTypes(untyped, rowType);
     typedExprs.push_back(std::move(typed));
   };
@@ -68,7 +69,7 @@ class GenerateAstTest : public CodegenTestBase {
 
     std::vector<std::string> exprString{"c0 + c1", "c1 - c0"};
 
-    auto projections = parseTypedExprs(exprString, rowType_);
+    auto projections = parseTypedExprs(exprString, rowType_, options_);
 
     project_ = std::make_shared<ProjectNode>(
         "projection",
@@ -85,6 +86,7 @@ class GenerateAstTest : public CodegenTestBase {
 
   bool useBuiltInForArithmetic_;
   UDFManager udfManager_;
+  parse::ParseOptions options_;
 };
 
 TEST_F(GenerateAstTest, CreateAST) {

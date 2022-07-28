@@ -42,7 +42,9 @@ static Timestamp duckdbTimestampToVelox(
 
 // Converts a duckDB Value (class that holds an arbitraty data type) into a
 // VELOX's variant.
-variant duckValueToVariant(const ::duckdb::Value& val);
+variant duckValueToVariant(
+    const ::duckdb::Value& val,
+    bool parseDecimalAsDouble);
 
 // value conversion routines
 template <class T>

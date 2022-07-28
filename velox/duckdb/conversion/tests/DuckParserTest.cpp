@@ -16,10 +16,18 @@
 #include "velox/duckdb/conversion/DuckParser.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/PlanNode.h"
+#include "velox/external/duckdb/duckdb.hpp"
 #include "velox/parse/Expressions.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::duckdb;
+
+namespace {
+std::shared_ptr<const core::IExpr> parseExpr(const std::string& exprString) {
+  ParseOptions options;
+  return parseExpr(exprString, options);
+}
+} // namespace
 
 TEST(DuckParserTest, constants) {
   // Integers.
@@ -330,27 +338,27 @@ TEST(DuckParserTest, orderBy) {
 }
 
 namespace {
-const std::string windowTypeString(duckdb::WindowType w) {
+const std::string windowTypeString(WindowType w) {
   switch (w) {
-    case duckdb::WindowType::kRange:
+    case WindowType::kRange:
       return "RANGE";
-    case duckdb::WindowType::kRows:
+    case WindowType::kRows:
       return "ROWS";
   }
   VELOX_UNREACHABLE();
 }
 
-const std::string boundTypeString(duckdb::BoundType b) {
+const std::string boundTypeString(BoundType b) {
   switch (b) {
-    case duckdb::BoundType::kUnboundedPreceding:
+    case BoundType::kUnboundedPreceding:
       return "UNBOUNDED PRECEDING";
-    case duckdb::BoundType::kUnboundedFollowing:
+    case BoundType::kUnboundedFollowing:
       return "UNBOUNDED FOLLOWING";
-    case duckdb::BoundType::kPreceding:
+    case BoundType::kPreceding:
       return "PRECEDING";
-    case duckdb::BoundType::kFollowing:
+    case BoundType::kFollowing:
       return "FOLLOWING";
-    case duckdb::BoundType::kCurrentRow:
+    case BoundType::kCurrentRow:
       return "CURRENT ROW";
   }
   VELOX_UNREACHABLE();
@@ -439,4 +447,16 @@ TEST(DuckParserTest, invalidExpression) {
   VELOX_ASSERT_THROW(
       parseExpr("func(a b)"),
       "Cannot parse expression: func(a b). Parser Error: syntax error at or near \"b\"");
+}
+
+TEST(DuckParserTest, parseDecimalConstant) {
+  ParseOptions options;
+  options.parseDecimalAsDouble = false;
+  auto expr = parseExpr("1.234", options);
+  if (auto constant =
+          std::dynamic_pointer_cast<const core::ConstantExpr>(expr)) {
+    ASSERT_EQ(*constant->type(), *DECIMAL(4, 3));
+  } else {
+    FAIL() << expr->toString() << " is not a constant";
+  }
 }

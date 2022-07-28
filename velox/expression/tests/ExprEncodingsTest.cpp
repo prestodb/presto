@@ -185,7 +185,7 @@ class ExprEncodingsTest
   std::shared_ptr<const core::ITypedExpr> parseExpression(
       const std::string& text,
       const RowTypePtr& rowType) {
-    auto untyped = parse::parseExpr(text);
+    auto untyped = parse::parseExpr(text, options_);
     return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
   }
 
@@ -523,6 +523,7 @@ class ExprEncodingsTest
   TestData testData_;
   RowTypePtr testDataType_;
   std::vector<std::vector<EncodingOptions>> testEncodings_;
+  parse::ParseOptions options_;
 };
 
 #define IS_BIGINT1 testData_.bigint1.reference[row].has_value()

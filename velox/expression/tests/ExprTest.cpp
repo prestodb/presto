@@ -41,7 +41,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::shared_ptr<const core::ITypedExpr> parseExpression(
       const std::string& text,
       const RowTypePtr& rowType) {
-    auto untyped = parse::parseExpr(text);
+    auto untyped = parse::parseExpr(text, options_);
     return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
   }
 
@@ -149,6 +149,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
+  parse::ParseOptions options_;
 };
 
 TEST_F(ExprTest, moreEncodings) {
@@ -2036,7 +2037,7 @@ TEST_F(ExprTest, lambdaExceptionContext) {
       "lambda1",
       ROW({"x"}, {BIGINT()}),
       ROW({ARRAY(BIGINT())}),
-      parse::parseExpr("x / 0 > 1"),
+      parse::parseExpr("x / 0 > 1", options_),
       execCtx_->pool());
   assertError(
       "filter(c0, function('lambda1'))",
@@ -2049,7 +2050,7 @@ TEST_F(ExprTest, lambdaExceptionContext) {
       "lambda2",
       ROW({"x"}, {BIGINT()}),
       ROW({"c1"}, {INTEGER()}),
-      parse::parseExpr("x / c1 > 1"),
+      parse::parseExpr("x / c1 > 1", options_),
       execCtx_->pool());
   assertError(
       "filter(c0, function('lambda2'))",
@@ -2088,7 +2089,7 @@ TEST_F(ExprTest, lambdaWithRowField) {
       "lambda1",
       ROW({"x"}, {BIGINT()}),
       ROW({"c0", "c1"}, {ROW({"val"}, {BIGINT()}), ARRAY(BIGINT())}),
-      parse::parseExpr("x + c0.val >= 0"),
+      parse::parseExpr("x + c0.val >= 0", options_),
       execCtx_->pool());
 
   auto rowVector = vectorMaker_.rowVector({"c0", "c1"}, {row, array});

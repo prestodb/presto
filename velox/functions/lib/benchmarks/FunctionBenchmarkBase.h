@@ -32,7 +32,7 @@ class FunctionBenchmarkBase {
   exec::ExprSet compileExpression(
       const std::string& text,
       const TypePtr& rowType) {
-    auto untyped = parse::parseExpr(text);
+    auto untyped = parse::parseExpr(text, options_);
     auto typed =
         core::Expressions::inferTypes(untyped, rowType, execCtx_.pool());
     return exec::ExprSet({typed}, &execCtx_);
@@ -60,5 +60,6 @@ class FunctionBenchmarkBase {
       memory::getDefaultScopedMemoryPool()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
   facebook::velox::test::VectorMaker vectorMaker_{execCtx_.pool()};
+  parse::ParseOptions options_;
 };
 } // namespace facebook::velox::functions::test

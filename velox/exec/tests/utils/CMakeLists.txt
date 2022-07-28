@@ -29,7 +29,6 @@ add_library(
 target_link_libraries(
   velox_exec_test_util
   velox_temp_path
-  duckdb
   velox_core
   velox_exception
   velox_expression
