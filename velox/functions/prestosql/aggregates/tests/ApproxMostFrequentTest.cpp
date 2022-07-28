@@ -119,8 +119,7 @@ TYPED_TEST(ApproxMostFrequentTest, grouped) {
       {this->makeRowVector({groupKeys, expected})});
 }
 
-// TODO This test crashes. Fix and re-enable.
-TYPED_TEST(ApproxMostFrequentTest, DISABLED_emptyGroup) {
+TYPED_TEST(ApproxMostFrequentTest, emptyGroup) {
   auto values = this->makeValuesWithNulls();
   auto keys = this->makeKeys();
   auto groupKeys = this->makeGroupKeys();

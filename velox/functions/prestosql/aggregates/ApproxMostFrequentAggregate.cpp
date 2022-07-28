@@ -95,6 +95,15 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
+    (*result)->resize(numGroups);
+    if (buckets_ == kMissingArgument) {
+      // No data has been added.
+      for (int i = 0; i < numGroups; ++i) {
+        VELOX_DCHECK_EQ(value<StreamSummary>(groups[i])->size(), 0);
+        (*result)->setNull(i, true);
+      }
+      return;
+    }
     auto mapVector = (*result)->as<MapVector>();
     auto [keys, values] = prepareFinalResult(groups, numGroups, mapVector);
     vector_size_t entryCount = 0;
@@ -262,7 +271,6 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
   std::pair<FlatVector<T>*, FlatVector<int64_t>*>
   prepareFinalResult(char** groups, int32_t numGroups, MapVector* result) {
     VELOX_CHECK(result);
-    result->resize(numGroups);
     auto keys = result->mapKeys()->asUnchecked<FlatVector<T>>();
     auto values = result->mapValues()->asUnchecked<FlatVector<int64_t>>();
     VELOX_CHECK(keys);
