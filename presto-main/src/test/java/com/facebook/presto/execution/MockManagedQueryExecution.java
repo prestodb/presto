@@ -57,6 +57,7 @@ public class MockManagedQueryExecution
     private Throwable failureCause;
     private Optional<ResourceGroupQueryLimits> resourceGroupQueryLimits = Optional.empty();
     private final ResourceGroupId resourceGroupId;
+    private Optional<ResourceGroupId> resourceGroupQueuedOn = Optional.empty();
 
     public MockManagedQueryExecution(long memoryUsage)
     {
@@ -227,5 +228,11 @@ public class MockManagedQueryExecution
         for (StateChangeListener<QueryState> listener : listeners) {
             listener.stateChanged(state);
         }
+    }
+
+    @Override
+    public void setResourceGroupQueuedOn(Optional<ResourceGroupId> resourceGroup)
+    {
+        resourceGroupQueuedOn = resourceGroup;
     }
 }
