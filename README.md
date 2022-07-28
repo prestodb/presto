@@ -2,7 +2,7 @@
 
 Presto is a distributed SQL query engine for big data.
 
-See the [User Manual](https://prestodb.github.io/docs/current/) for deployment instructions and end user documentation.
+See the [User Manual](https://prestodb.github.io/docs/current/) for deployment instructions and end-user documentation.
 
 ## Requirements
 
@@ -29,10 +29,10 @@ Presto has a comprehensive set of unit tests that can take several minutes to ru
 
 After building Presto for the first time, you can load the project into your IDE and run the server. We recommend using [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven project, you can import it into your IDE using the root `pom.xml` file. In IntelliJ, choose Open Project from the Quick Start box or choose Open from the File menu and select the root `pom.xml` file.
 
-After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
+After opening the project in IntelliJ, double-check that the Java SDK is properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that a 1.8 JDK is selected (create one if none exist)
+* In the SDKs section, ensure that a 1.8 JDK is selected (create one if none exists)
 * In the Project section, ensure the Project language level is set to 8.0 as Presto makes use of several Java 8 language features
 
 Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
