@@ -2030,6 +2030,12 @@
                 <groupId>com.facebook.presto.ranger</groupId>
                 <artifactId>ranger-apache</artifactId>
                 <version>2.1.0-2</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.zookeeper</groupId>
+                        <artifactId>zookeeper</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
