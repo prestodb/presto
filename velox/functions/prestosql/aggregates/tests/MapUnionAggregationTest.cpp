@@ -22,14 +22,7 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
-class MapUnionTest : public AggregationTestBase {
- protected:
-  void SetUp() override {
-    AggregationTestBase::SetUp();
-    // Tests only single batches of input.
-    disableSpill();
-  }
-};
+class MapUnionTest : public AggregationTestBase {};
 
 /**
  * This test checks single, partial, intermediate, final aggregates

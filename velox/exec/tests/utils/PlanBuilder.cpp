@@ -880,25 +880,43 @@ PlanBuilder& PlanBuilder::localPartition(
   return *this;
 }
 
-PlanBuilder& PlanBuilder::localPartitionRoundRobin(
+namespace {
+core::PlanNodePtr createLocalPartitionRoundRobinNode(
+    const core::PlanNodeId& planNodeId,
     const std::vector<core::PlanNodePtr>& sources,
-    const std::vector<std::string>& outputLayout) {
-  VELOX_CHECK_NULL(
-      planNode_, "localPartitionRoundRobin() must be the first call");
-
-  auto types = genLocalPartitionTypes(sources, outputLayout, options_);
+    const std::vector<std::string>& outputLayout,
+    const parse::ParseOptions& options) {
+  auto types = genLocalPartitionTypes(sources, outputLayout, options);
 
   auto partitionFunctionFactory = [](auto numPartitions) {
     return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
         numPartitions);
   };
-  planNode_ = std::make_shared<core::LocalPartitionNode>(
-      nextPlanNodeId(),
+
+  return std::make_shared<core::LocalPartitionNode>(
+      planNodeId,
       core::LocalPartitionNode::Type::kRepartition,
       partitionFunctionFactory,
       types.outputType,
       sources,
       types.inputTypeFromSource);
+}
+} // namespace
+
+PlanBuilder& PlanBuilder::localPartitionRoundRobin(
+    const std::vector<core::PlanNodePtr>& sources,
+    const std::vector<std::string>& outputLayout) {
+  VELOX_CHECK_NULL(
+      planNode_, "localPartitionRoundRobin() must be the first call");
+  planNode_ = createLocalPartitionRoundRobinNode(
+      nextPlanNodeId(), sources, outputLayout, options_);
+  return *this;
+}
+
+PlanBuilder& PlanBuilder::localPartitionRoundRobin(
+    const std::vector<std::string>& outputLayout) {
+  planNode_ = createLocalPartitionRoundRobinNode(
+      nextPlanNodeId(), {planNode_}, outputLayout, options_);
   return *this;
 }
 

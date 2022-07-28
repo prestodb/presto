@@ -578,6 +578,11 @@ class PlanBuilder {
       const std::vector<core::PlanNodePtr>& sources,
       const std::vector<std::string>& outputLayout = {});
 
+  /// A convenience method to add a LocalPartitionNode with a single source (the
+  /// current plan node).
+  PlanBuilder& localPartitionRoundRobin(
+      const std::vector<std::string>& outputLayout = {});
+
   /// Add a HashJoinNode to join two inputs using one or more join keys and an
   /// optional filter.
   ///

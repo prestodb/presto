@@ -55,8 +55,6 @@ class VarianceAggregationTest : public AggregationTestBase {
 };
 
 TEST_F(VarianceAggregationTest, varianceConst) {
-  // Not enough data.
-  disableSpill();
   // Have two row vectors at least as it triggers different code paths.
   auto vectors = {
       makeRowVector({
@@ -98,7 +96,6 @@ TEST_F(VarianceAggregationTest, varianceConst) {
 }
 
 TEST_F(VarianceAggregationTest, varianceConstNull) {
-  disableSpill();
   // Have two row vectors at least as it triggers different code paths.
   auto vectors = {
       makeRowVector({
@@ -126,7 +123,6 @@ TEST_F(VarianceAggregationTest, varianceConstNull) {
 }
 
 TEST_F(VarianceAggregationTest, varianceNulls) {
-  disableSpill();
   // Have two row vectors at least as it triggers different code paths.
   auto vectors = {
       makeRowVector({
@@ -154,7 +150,12 @@ TEST_F(VarianceAggregationTest, varianceNulls) {
 }
 
 TEST_F(VarianceAggregationTest, variance) {
-  disableSpill();
+  // TODO Variance functions are not sensitive to the order of inputs except
+  // when inputs are very large integers (> 15 digits long). Unfortunately
+  // makeVectors() generates data that contains a lot of very large integers.
+  // Replace makeVectors() with a dataset that doesn't contain very large
+  // integers and enable more testing by calling allowInputShuffle() from
+  // Setup().
   auto vectors = makeVectors(rowType_, 10, 20);
   createDuckDbTable(vectors);
 

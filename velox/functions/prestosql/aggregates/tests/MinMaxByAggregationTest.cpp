@@ -208,7 +208,8 @@ FlatVectorPtr<StringView> MinMaxByAggregationTestBase::buildDataVector() {
 }
 
 void MinMaxByAggregationTestBase::SetUp() {
-  disableSpill();
+  AggregationTestBase::SetUp();
+
   for (const TypeKind type : kSupportedTypes) {
     switch (type) {
       case TypeKind::TINYINT:

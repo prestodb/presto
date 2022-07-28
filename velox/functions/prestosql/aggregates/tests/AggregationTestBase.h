@@ -26,6 +26,8 @@ namespace facebook::velox::aggregate::test {
 
 class AggregationTestBase : public exec::test::OperatorTestBase {
  protected:
+  void SetUp() override;
+
   std::vector<RowVectorPtr>
   makeVectors(const RowTypePtr& rowType, vector_size_t size, int numVectors);
 
@@ -99,11 +101,6 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& aggregates,
       const std::vector<RowVectorPtr>& expectedResult);
 
-  // Turns off spill test. Use if the test has only one batch of input.
-  void disableSpill() {
-    noSpill_ = true;
-  }
-
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node, and the expected result instead of a
   /// DuckDB SQL query to validate the result.
@@ -114,9 +111,14 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& postAggregationProjections,
       const std::vector<RowVectorPtr>& expectedResult);
 
-  // Set to true if the case does not have enough data to spill even
-  // if spill forced (only one vector of input).
-  bool noSpill_{false};
+  /// Specifies that all aggregate functions used in this test are not sensitive
+  /// to the order of inputs.
+  void allowInputShuffle() {
+    allowInputShuffle_ = true;
+  }
+
+ private:
+  bool allowInputShuffle_{false};
 };
 
 } // namespace facebook::velox::aggregate::test

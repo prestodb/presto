@@ -26,8 +26,8 @@ namespace facebook::velox::aggregate::test {
 class ChecksumAggregateTest : public AggregationTestBase {
  protected:
   void SetUp() override {
-    // Test cases are too short to spill.
-    disableSpill();
+    AggregationTestBase::SetUp();
+    allowInputShuffle();
   }
 
   template <typename T>

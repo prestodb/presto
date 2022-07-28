@@ -25,8 +25,8 @@ namespace {
 class LastAggregateTest : public aggregate::test::AggregationTestBase {
  public:
   LastAggregateTest() {
+    aggregate::test::AggregationTestBase::SetUp();
     aggregates::registerAggregateFunctions("");
-    disableSpill();
   }
 
   template <typename T>

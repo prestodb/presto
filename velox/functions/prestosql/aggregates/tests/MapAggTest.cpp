@@ -22,14 +22,7 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
-class MapAggTest : public AggregationTestBase {
- protected:
-  void SetUp() override {
-    AggregationTestBase::SetUp();
-    // Single batches of input.
-    disableSpill();
-  }
-};
+class MapAggTest : public AggregationTestBase {};
 
 TEST_F(MapAggTest, groupBy) {
   vector_size_t num = 10;
