@@ -152,6 +152,8 @@ public class QueryStateMachine
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
     private final AtomicReference<Optional<String>> expandedQuery = new AtomicReference<>(Optional.empty());
 
+    private final AtomicReference<Optional<ResourceGroupId>> resourceGroupQueuedOn = new AtomicReference<>(Optional.empty());
+
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
     private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
 
@@ -471,6 +473,7 @@ public class QueryStateMachine
                 output.get(),
                 finalInfo,
                 Optional.of(resourceGroup),
+                resourceGroupQueuedOn.get(),
                 queryType,
                 failedTasks,
                 runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages),
@@ -901,6 +904,11 @@ public class QueryStateMachine
         queryStateTimer.endAnalysis();
     }
 
+    public void setResourceGroupQueuedOn(Optional<ResourceGroupId> resourceGroup)
+    {
+        resourceGroupQueuedOn.set(resourceGroup);
+    }
+
     public DateTime getCreateTime()
     {
         return queryStateTimer.getCreateTime();
@@ -949,7 +957,6 @@ public class QueryStateMachine
         if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
             return;
         }
-
         QueryInfo queryInfo = finalInfo.get();
         Optional<StageInfo> prunedOutputStage = queryInfo.getOutputStage().map(outputStage -> new StageInfo(
                 outputStage.getStageId(),
@@ -990,6 +997,7 @@ public class QueryStateMachine
                 queryInfo.getOutput(),
                 queryInfo.isFinalQueryInfo(),
                 queryInfo.getResourceGroupId(),
+                queryInfo.getResourceGroupQueuedOn(),
                 queryInfo.getQueryType(),
                 queryInfo.getFailedTasks(),
                 queryInfo.getRuntimeOptimizedStages(),

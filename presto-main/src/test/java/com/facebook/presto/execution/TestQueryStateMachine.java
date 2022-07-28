@@ -359,6 +359,10 @@ public class TestQueryStateMachine
         stateMachine.endColumnAccessPermissionChecking();
         assertState(stateMachine, QUEUED);
 
+        ResourceGroupId queuedOn = new ResourceGroupId("test-root");
+        stateMachine.setResourceGroupQueuedOn(Optional.of(queuedOn));
+        assertEquals(stateMachine.getQueryInfo(Optional.empty()).getResourceGroupQueuedOn(), Optional.of(queuedOn));
+
         mockTicker.increment(25, MILLISECONDS);
         assertTrue(stateMachine.transitionToWaitingForResources());
         assertState(stateMachine, WAITING_FOR_RESOURCES);

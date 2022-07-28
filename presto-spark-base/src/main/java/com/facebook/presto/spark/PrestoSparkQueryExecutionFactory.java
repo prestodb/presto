@@ -719,6 +719,7 @@ public class PrestoSparkQueryExecutionFactory
                 planAndMore.flatMap(PlanAndMore::getOutput),
                 queryState.isDone(),
                 sparkQueueName.map(ResourceGroupId::new),
+                Optional.empty(),
                 planAndMore.flatMap(PlanAndMore::getQueryType),
                 Optional.empty(),
                 Optional.empty(),
