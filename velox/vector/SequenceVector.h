@@ -173,6 +173,17 @@ class SequenceVector : public SimpleVector<T> {
     throw std::runtime_error("addNulls not supported");
   }
 
+  std::string toString(vector_size_t index) const override {
+    if (BaseVector::isNullAt(index)) {
+      return "null";
+    }
+    auto inner = offsetOfIndex(index);
+    std::stringstream out;
+    out << "[" << index << "->" << inner << "] "
+        << sequenceValues_->toString(inner);
+    return out.str();
+  }
+
  private:
   // Prepares for use after construction.
   void setInternalState();
