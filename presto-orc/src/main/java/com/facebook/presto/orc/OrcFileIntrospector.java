@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
+import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 
 import java.util.List;
@@ -28,6 +29,8 @@ public interface OrcFileIntrospector
     default void onFileTail(OrcFileTail fileTail) {}
 
     default void onStripe(StripeInformation stripeInformation, Stripe stripe) {}
+
+    default void onStripeFooter(StripeInformation stripeInformation, StripeFooter stripeFooter) {}
 
     default void onRowGroupIndexes(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes) {}
 }
