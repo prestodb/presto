@@ -97,23 +97,35 @@ TEST_F(PlanBuilderTest, windowFunctionCall) {
 
   registerWindowFunction();
 
-  VELOX_CHECK_NOT_NULL(
+  VELOX_CHECK_EQ(
       PlanBuilder()
           .tableScan(ROW({"a", "b", "c"}, {VARCHAR(), BIGINT(), BIGINT()}))
           .window({"window1(c) over (partition by a order by b) as d"})
-          .planNode());
+          .planNode()
+          ->toString(true, false),
+      "-- Window[partition by [a] order by [b ASC NULLS LAST] "
+      "d := window1(ROW[\"c\"]) RANGE between UNBOUNDED PRECEDING and CURRENT ROW] "
+      "-> a:VARCHAR, b:BIGINT, c:BIGINT, d:BIGINT\n");
 
-  VELOX_CHECK_NOT_NULL(
+  VELOX_CHECK_EQ(
       PlanBuilder()
           .tableScan(ROW({"a", "b", "c"}, {VARCHAR(), BIGINT(), BIGINT()}))
           .window({"window1(c) over (partition by a) as d"})
-          .planNode());
+          .planNode()
+          ->toString(true, false),
+      "-- Window[partition by [a] order by [] "
+      "d := window1(ROW[\"c\"]) RANGE between UNBOUNDED PRECEDING and CURRENT ROW] "
+      "-> a:VARCHAR, b:BIGINT, c:BIGINT, d:BIGINT\n");
 
-  VELOX_CHECK_NOT_NULL(
+  VELOX_CHECK_EQ(
       PlanBuilder()
           .tableScan(ROW({"a", "b", "c"}, {VARCHAR(), BIGINT(), BIGINT()}))
           .window({"window1(c) over ()"})
-          .planNode());
+          .planNode()
+          ->toString(true, false),
+      "-- Window[partition by [] order by [] "
+      "w0 := window1(ROW[\"c\"]) RANGE between UNBOUNDED PRECEDING and CURRENT ROW] "
+      "-> a:VARCHAR, b:BIGINT, c:BIGINT, w0:BIGINT\n");
 
   VELOX_ASSERT_THROW(
       PlanBuilder()
@@ -133,9 +145,9 @@ TEST_F(PlanBuilderTest, windowFunctionCall) {
 TEST_F(PlanBuilderTest, windowFrame) {
   registerWindowFunction();
 
-  // TODO: Change these tests to validate the results of the parsing when
-  // WindowNode::toString() is implemented.
-  VELOX_CHECK_NOT_NULL(
+  // Validating that function invocations with different frames but the same
+  // partitioning and order can be executed in the same node.
+  VELOX_CHECK_EQ(
       PlanBuilder()
           .tableScan(ROW({"a", "b", "c"}, {VARCHAR(), BIGINT(), BIGINT()}))
           .window(
@@ -148,8 +160,22 @@ TEST_F(PlanBuilderTest, windowFrame) {
                "window1(c) over (partition by a order by b rows between current row and unbounded following) as d7",
                "window1(c) over (partition by a order by b range between current row and unbounded following) as d8",
                "window1(c) over (partition by a order by b rows between unbounded preceding and unbounded following) as d9",
-               "window1(c) over (partition by a order by b rows between unbounded preceding and unbounded following) as d10"})
-          .planNode());
+               "window1(c) over (partition by a order by b range between unbounded preceding and unbounded following) as d10"})
+          .planNode()
+          ->toString(true, false),
+      "-- Window[partition by [a] order by [b ASC NULLS LAST] "
+      "d1 := window1(ROW[\"c\"]) ROWS between b PRECEDING and CURRENT ROW, "
+      "d2 := window1(ROW[\"c\"]) RANGE between b PRECEDING and CURRENT ROW, "
+      "d3 := window1(ROW[\"c\"]) ROWS between UNBOUNDED PRECEDING and CURRENT ROW, "
+      "d4 := window1(ROW[\"c\"]) RANGE between UNBOUNDED PRECEDING and CURRENT ROW, "
+      "d5 := window1(ROW[\"c\"]) ROWS between CURRENT ROW and b FOLLOWING, "
+      "d6 := window1(ROW[\"c\"]) RANGE between CURRENT ROW and b FOLLOWING, "
+      "d7 := window1(ROW[\"c\"]) ROWS between CURRENT ROW and UNBOUNDED FOLLOWING, "
+      "d8 := window1(ROW[\"c\"]) RANGE between CURRENT ROW and UNBOUNDED FOLLOWING, "
+      "d9 := window1(ROW[\"c\"]) RANGE between UNBOUNDED PRECEDING and UNBOUNDED FOLLOWING, "
+      "d10 := window1(ROW[\"c\"]) RANGE between UNBOUNDED PRECEDING and UNBOUNDED FOLLOWING] "
+      "-> a:VARCHAR, b:BIGINT, c:BIGINT, d1:BIGINT, d2:BIGINT, d3:BIGINT, d4:BIGINT, "
+      "d5:BIGINT, d6:BIGINT, d7:BIGINT, d8:BIGINT, d9:BIGINT, d10:BIGINT\n");
 
   VELOX_ASSERT_THROW(
       PlanBuilder()
