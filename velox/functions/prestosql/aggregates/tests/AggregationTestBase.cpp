@@ -150,7 +150,7 @@ void AggregationTestBase::testAggregations(
   }
 
   if (!groupingKeys.empty() && allowInputShuffle_) {
-    SCOPED_TRACE("Run single with spilling");
+    SCOPED_TRACE("Run partial + final with spilling");
     PlanBuilder builder;
     makeSource(builder);
 

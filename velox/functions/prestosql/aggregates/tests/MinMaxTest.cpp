@@ -32,6 +32,11 @@ std::string max(const std::string& column) {
 
 class MinMaxTest : public aggregate::test::AggregationTestBase {
  protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    allowInputShuffle();
+  }
+
   template <typename TAgg>
   void testIntegralType(TAgg agg, const TypePtr& inputType) {
     auto rowType = ROW({"c0", "c1"}, {BIGINT(), inputType});
@@ -195,24 +200,42 @@ TEST_F(MinMaxTest, constVarchar) {
 }
 
 TEST_F(MinMaxTest, minMaxTimestamp) {
-  auto rowType = ROW({"c0"}, {TIMESTAMP()});
-  auto vectors = makeVectors(rowType, 10, 1);
+  auto rowType = ROW({"c0", "c1"}, {SMALLINT(), TIMESTAMP()});
+  auto vectors = makeVectors(rowType, 1'000, 10);
   createDuckDbTable(vectors);
 
   testAggregations(
       vectors,
       {},
-      {"min(c0)", "max(c0)"},
-      "SELECT date_trunc('millisecond', min(c0)), date_trunc('millisecond', max(c0)) FROM tmp");
+      {"min(c1)", "max(c1)"},
+      "SELECT date_trunc('millisecond', min(c1)), "
+      "date_trunc('millisecond', max(c1)) FROM tmp");
+
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project({"c0 % 17 as k", "c1"});
+      },
+      {"k"},
+      {"min(c1)", "max(c1)"},
+      "SELECT c0 % 17, date_trunc('millisecond', min(c1)), "
+      "date_trunc('millisecond', max(c1)) FROM tmp GROUP BY 1");
 }
 
 TEST_F(MinMaxTest, minMaxDate) {
-  auto rowType = ROW({"c0"}, {DATE()});
+  auto rowType = ROW({"c0", "c1"}, {SMALLINT(), DATE()});
   auto vectors = makeVectors(rowType, 1'000, 10);
   createDuckDbTable(vectors);
 
   testAggregations(
-      vectors, {}, {"min(c0)", "max(c0)"}, "SELECT min(c0), max(c0) from tmp");
+      vectors, {}, {"min(c1)", "max(c1)"}, "SELECT min(c1), max(c1) FROM tmp");
+
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project({"c0 % 17 as k", "c1"});
+      },
+      {"k"},
+      {"min(c1)", "max(c1)"},
+      "SELECT c0 % 17, min(c1), max(c1) FROM tmp GROUP BY 1");
 }
 
 TEST_F(MinMaxTest, initialValue) {
