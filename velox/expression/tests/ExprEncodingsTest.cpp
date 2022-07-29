@@ -577,10 +577,11 @@ TEST_P(ExprEncodingsTest, errors) {
   prepareTestData();
 
   if (isAllNulls(testData_.bigint2.vector)) {
-    GTEST_SKIP() << "This test requires input that is not all-null";
+    LOG(WARNING)
+        << "This test requires input that is not all-null. Skipping it.";
+  } else {
+    runWithError("bigint2 % 0");
   }
-
-  runWithError("bigint2 % 0");
 }
 
 TEST_P(ExprEncodingsTest, maskedErrors) {
