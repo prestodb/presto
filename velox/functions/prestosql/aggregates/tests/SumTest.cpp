@@ -23,61 +23,45 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
-class SumTest : public AggregationTestBase {};
+class SumTest : public AggregationTestBase {
+ protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    allowInputShuffle();
+  }
+};
 
 TEST_F(SumTest, sumTinyint) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), TINYINT()});
   auto vectors = makeVectors(rowType, 1000, 10);
   createDuckDbTable(vectors);
 
-  // Global partial aggregation.
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"sum(c1)"})
-                 .planNode();
-  assertQuery(agg, "SELECT sum(c1) FROM tmp");
+  // Global aggregation.
+  testAggregations(vectors, {}, {"sum(c1)"}, "SELECT sum(c1) FROM tmp");
 
-  // Global final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .partialAggregation({}, {"sum(c1)"})
-            .finalAggregation()
-            .planNode();
-  assertQuery(agg, "SELECT sum(c1) FROM tmp");
+  // Group by aggregation.
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project({"c0 % 10", "c1"});
+      },
+      {"p0"},
+      {"sum(c1)"},
+      "SELECT c0 % 10, sum(c1) FROM tmp GROUP BY 1");
 
-  // Group by partial aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"})
-            .partialAggregation({"p0"}, {"sum(c1)"})
-            .planNode();
-  assertQuery(agg, "SELECT c0 % 10, sum(c1) FROM tmp GROUP BY 1");
+  // Encodings: use filter to wrap aggregation inputs in a dictionary.
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).filter("c0 % 2 = 0").project({"c0 % 11", "c1"});
+      },
+      {"p0"},
+      {"sum(c1)"},
+      "SELECT c0 % 11, sum(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 
-  // Group by final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"})
-            .partialAggregation({"p0"}, {"sum(c1)"})
-            .finalAggregation()
-            .planNode();
-  assertQuery(agg, "SELECT c0 % 10, sum(c1) FROM tmp GROUP BY 1");
-
-  // encodings: use filter to wrap aggregation inputs in a dictionary.
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .project({"c0 % 11", "c1"})
-            .partialAggregation({"p0"}, {"sum(c1)"})
-            .planNode();
-  assertQuery(
-      agg, "SELECT c0 % 11, sum(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
-
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .partialAggregation({}, {"sum(c1)"})
-            .planNode();
-  assertQuery(agg, "SELECT sum(c1) FROM tmp WHERE c0 % 2 = 0");
+  testAggregations(
+      [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 0"); },
+      {},
+      {"sum(c1)"},
+      "SELECT sum(c1) FROM tmp WHERE c0 % 2 = 0");
 }
 
 TEST_F(SumTest, sumDouble) {
@@ -85,14 +69,8 @@ TEST_F(SumTest, sumDouble) {
   auto vectors = makeVectors(rowType, 1000, 10);
   createDuckDbTable(vectors);
 
-  // Global final aggregation.
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"sum(c0)", "sum(c1)"})
-                 .intermediateAggregation()
-                 .finalAggregation()
-                 .planNode();
-  assertQuery(agg, "SELECT sum(c0), sum(c1) FROM tmp");
+  testAggregations(
+      vectors, {}, {"sum(c0)", "sum(c1)"}, "SELECT sum(c0), sum(c1) FROM tmp");
 }
 
 TEST_F(SumTest, sumWithMask) {
@@ -206,11 +184,8 @@ TEST_F(SumTest, boolKey) {
        makeFlatVector<int32_t>(size, [](auto row) { return row; })});
   createDuckDbTable({vector});
 
-  auto agg = PlanBuilder()
-                 .values({vector})
-                 .partialAggregation({"c0"}, {"sum(c1)"})
-                 .planNode();
-  assertQuery(agg, "SELECT c0, sum(c1) FROM tmp GROUP BY 1");
+  testAggregations(
+      {vector}, {"c0"}, {"sum(c1)"}, "SELECT c0, sum(c1) FROM tmp GROUP BY 1");
 }
 
 TEST_F(SumTest, emptyValues) {
@@ -219,11 +194,7 @@ TEST_F(SumTest, emptyValues) {
       {makeFlatVector<int32_t>(std::vector<int32_t>{}),
        makeFlatVector<int64_t>(std::vector<int64_t>{})});
 
-  auto agg = PlanBuilder()
-                 .values({vector})
-                 .partialAggregation({"c0"}, {"sum(c1)"})
-                 .planNode();
-  assertQuery(agg, "SELECT 1 LIMIT 0");
+  testAggregations({vector}, {"c0"}, {"sum(c1)"}, "");
 }
 
 /// Test aggregating over lots of null values.
@@ -238,13 +209,11 @@ TEST_F(SumTest, nulls) {
       })};
   createDuckDbTable(data);
 
-  auto plan = PlanBuilder()
-                  .values(data)
-                  .partialAggregation({"a"}, {"sum(b) AS sum_b"})
-                  .finalAggregation()
-                  .planNode();
-
-  assertQuery(plan, "SELECT a, sum(b) as sum_b FROM tmp GROUP BY 1");
+  testAggregations(
+      data,
+      {"a"},
+      {"sum(b) AS sum_b"},
+      "SELECT a, sum(b) as sum_b FROM tmp GROUP BY 1");
 }
 
 struct SumRow {

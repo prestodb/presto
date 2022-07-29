@@ -139,6 +139,20 @@ class SumAggregate
   }
 };
 
+/// Override 'extractValues' for single aggregation over float values.
+/// Make sure to correctly read 'float' value from 'double' accumulator.
+template <>
+inline void SumAggregate<float, double, float>::extractValues(
+    char** groups,
+    int32_t numGroups,
+    VectorPtr* result) {
+  BaseAggregate::template doExtractValues<float>(
+      groups, numGroups, result, [&](char* group) {
+        return (
+            float)(*BaseAggregate::Aggregate::template value<double>(group));
+      });
+}
+
 template <template <typename U, typename V, typename W> class T>
 bool registerSumAggregate(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
