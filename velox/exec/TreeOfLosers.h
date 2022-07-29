@@ -207,6 +207,7 @@ class TreeOfLosers {
 
   IndexAndFlag firstWithEquals(TIndex node) {
     if (node >= firstStream_) {
+      VELOX_DCHECK_LT(node - firstStream_, streams_.size());
       return indexAndFlag(
           streams_[node - firstStream_]->hasData() ? node - firstStream_
                                                    : kEmpty,
@@ -230,7 +231,7 @@ class TreeOfLosers {
         return left;
       } else {
         values_[node] = left.first;
-        equals_[node] = right.second;
+        equals_[node] = left.second;
         return right;
       }
     }
@@ -289,6 +290,7 @@ class TreeOfLosers {
   static TIndex rightChild(TIndex node) {
     return node * 2 + 2;
   }
+
   std::vector<TIndex> values_;
   // 'true' if the corresponding element of 'values_' has met an equal
   // element on its way to its present position. Used only in nextWithEquals().

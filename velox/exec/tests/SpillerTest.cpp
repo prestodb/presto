@@ -16,12 +16,21 @@
 
 #include "velox/exec/Spiller.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/tests/utils/RowContainerTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
+using namespace facebook::velox::common::testutil;
 
-class SpillerTest : public exec::test::RowContainerTestBase {
+class SpillerTest : public exec::test::RowContainerTestBase,
+                    public testing::WithParamInterface<int> {
+ public:
+  static void SetUpTestCase() {
+    TestValue::enable();
+  }
+
  protected:
   void testSpill(int32_t spillPct, bool makeError = false) {
     constexpr int32_t kNumRows = 100000;
@@ -117,6 +126,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       }
     }
   }
+
   std::unique_ptr<RowContainer> makeSpillData(
       int32_t numRows,
       std::vector<char*>& rows,
@@ -175,30 +185,60 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     return data;
   }
 
-  folly::IOThreadPoolExecutor* FOLLY_NONNULL executor() {
+  folly::IOThreadPoolExecutor* executor() {
     static std::mutex mutex;
     std::lock_guard<std::mutex> l(mutex);
-    if (!executor_) {
-      executor_ = std::make_unique<folly::IOThreadPoolExecutor>(8);
+    if (GetParam() == 0) {
+      return nullptr;
+    }
+    if (executor_ == nullptr) {
+      executor_ = std::make_unique<folly::IOThreadPoolExecutor>(GetParam());
     }
     return executor_.get();
   }
 
+  const int numPartitions_ = 4;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
 };
 
-TEST_F(SpillerTest, spilFew) {
+TEST_P(SpillerTest, spilFew) {
   testSpill(10);
 }
 
-TEST_F(SpillerTest, spilMost) {
+TEST_P(SpillerTest, spilMost) {
   testSpill(60);
 }
 
-TEST_F(SpillerTest, spillAll) {
+TEST_P(SpillerTest, spillAll) {
   testSpill(100);
 }
 
-TEST_F(SpillerTest, error) {
+TEST_P(SpillerTest, error) {
   testSpill(100, true);
 }
+
+#ifndef NDEBUG
+/// This test verifies if the spilling partition is incrementally added.
+TEST_P(SpillerTest, incrementalSpillRunCheck) {
+  if (GetParam() != 8) {
+    // Test with spill execution pool size of 8 is sufficient and skip the other
+    // test settings.
+    GTEST_SKIP();
+  }
+  std::set<int> spillRunSizeSet;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Spiller::spill",
+      std::function<void(const int*)>(
+          [&](const int* runSize) { spillRunSizeSet.emplace(*runSize); }));
+  testSpill(100);
+  // Spill all the data and expect the spill runs has been built up with one
+  // partition at a time.
+  EXPECT_EQ(numPartitions_, spillRunSizeSet.size());
+  EXPECT_EQ(1, *spillRunSizeSet.begin());
+  EXPECT_EQ(numPartitions_, *spillRunSizeSet.rbegin());
+}
+#endif
+
+// Test with different spill executor pool size. If the size is zero, then spill
+// write path is executed inline with spiller control code path.
+VELOX_INSTANTIATE_TEST_SUITE_P(SpillerTest, SpillerTest, testing::Values(0, 8));

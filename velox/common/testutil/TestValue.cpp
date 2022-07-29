@@ -43,7 +43,9 @@ void TestValue::clear(const std::string& injectionPoint) {
   injectionMap_.erase(injectionPoint);
 }
 
-void TestValue::adjust(const std::string& injectionPoint, void* testData) {
+void TestValue::notify(
+    const std::string& injectionPoint,
+    const void* testData) {
   Callback injectionCb;
   {
     std::lock_guard<std::mutex> l(mutex_);
@@ -61,7 +63,9 @@ bool TestValue::enabled() {
   return false;
 }
 void TestValue::clear(const std::string& injectionPoint) {}
-void TestValue::adjust(const std::string& injectionPoint, void* testData) {}
+void TestValue::notify(
+    const std::string& injectionPoint,
+    const void* testData) {}
 #endif
 
 } // namespace facebook::velox::common::testutil

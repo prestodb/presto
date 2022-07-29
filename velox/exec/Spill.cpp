@@ -174,6 +174,10 @@ std::unique_ptr<TreeOfLosers<SpillStream>> SpillState::startMerge(
   if (extra) {
     result.push_back(std::move(extra));
   }
+  // Check if the partition is empty or not.
+  if (FOLLY_UNLIKELY(result.empty())) {
+    return nullptr;
+  }
   return std::make_unique<TreeOfLosers<SpillStream>>(std::move(result));
 }
 

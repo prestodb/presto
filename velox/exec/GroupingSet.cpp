@@ -523,8 +523,9 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
       targetIncrement / (rows->fixedRowSize() + outOfLineBytesPerRow);
 
   spill(
-      numDistinct - rowsToSpill,
-      outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow));
+      std::max<int64_t>(0, numDistinct - rowsToSpill),
+      std::max<int64_t>(
+          0, outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow)));
 }
 
 void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
@@ -588,7 +589,7 @@ bool GroupingSet::getOutputWithSpill(const RowVectorPtr& result) {
     auto limit = std::min<size_t>(
         1000, nonSpilledRows_.value().size() - nonSpilledIndex_);
     for (; numGroups < limit; ++numGroups) {
-      bytes += table_->rows()->rowSize(
+      bytes += rowsWhileReadingSpill_->rowSize(
           nonSpilledRows_.value()[nonSpilledIndex_ + numGroups]);
       if (bytes > maxBatchBytes_) {
         ++numGroups;
@@ -606,7 +607,9 @@ bool GroupingSet::getOutputWithSpill(const RowVectorPtr& result) {
     if (!merge_) {
       merge_ = spiller_->startMerge(outputPartition_);
     }
-    if (!mergeNext(result)) {
+    // NOTE: 'merge_' might be set to nullptr if 'outputPartition_' hasn't
+    // spilled or is empty.
+    if (merge_ == nullptr || !mergeNext(result)) {
       ++outputPartition_;
       merge_ = nullptr;
       continue;

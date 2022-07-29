@@ -19,6 +19,9 @@
 #include "velox/common/base/AsyncSource.h"
 
 #include <folly/ScopeGuard.h>
+#include "velox/common/testutil/TestValue.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 
@@ -121,7 +124,11 @@ class RowContainerSpillStream : public SpillStream {
 
 std::unique_ptr<SpillStream> Spiller::spillStreamOverRows(int32_t partition) {
   VELOX_CHECK(spillFinalized_);
-  VELOX_CHECK_LT(partition, spillRuns_.size());
+  VELOX_CHECK_LT(partition, state_.maxPartitions());
+  // Check if the partition has spilled or not.
+  if (partition >= spillRuns_.size()) {
+    return nullptr;
+  }
   ensureSorted(spillRuns_[partition]);
   return std::make_unique<RowContainerSpillStream>(
       rowType_,
@@ -255,10 +262,15 @@ void Spiller::spill(
       return;
     }
     for (auto newPartition = spillRuns_.size();
-         newPartition < state_.maxPartitions();
+         newPartition < state_.numPartitions();
          ++newPartition) {
       spillRuns_.emplace_back(spillMappedMemory());
     }
+    if (TestValue::enabled()) {
+      int numSpillRuns = spillRuns_.size();
+      TestValue::notify("facebook::velox::exec::Spiller::spill", &numSpillRuns);
+    }
+
     clearSpillRuns();
     iterator.reset();
     if (fillSpillRuns(
@@ -355,7 +367,7 @@ bool Spiller::fillSpillRuns(
     if (final) {
       return true;
     }
-    if (!numRows) {
+    if (numRows == 0) {
       if (numConsidered == container_.numRows()) {
         // If done full sweep but no spill started yet, start enough partitions
         // to cover the ask.
@@ -367,14 +379,16 @@ bool Spiller::fillSpillRuns(
             });
         int64_t started = 0;
         for (auto i : indices) {
-          pendingSpillPartitions_.insert(i);
-          started += spillRuns_[i].numBytes;
+          if (spillRuns_[i].numBytes > 0) {
+            pendingSpillPartitions_.insert(i);
+            started += spillRuns_[i].numBytes;
+          }
           if (started > targetSize) {
             break;
           }
         }
         clearNonSpillingRuns();
-        return false;
+        return started == 0;
       }
       clearNonSpillingRuns();
       return true;

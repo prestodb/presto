@@ -27,21 +27,14 @@ class TestObject {
   TestObject() = default;
 
   void set(int value) {
-    TestValue::adjust("facebook::velox::exec::test::TestObject::set", &value);
-    internalSet(value);
+    ++count_;
+    value_ = value;
+    const std::pair<int, int> testValue(value_, count_);
+    TestValue::notify(
+        "facebook::velox::exec::test::TestObject::set", &testValue);
   }
 
  private:
-  void internalSet(int value) {
-    if (TestValue::enabled()) {
-      std::pair<int, int> testValue(value, count_);
-      TestValue::adjust(
-          "facebook::velox::exec::test::TestObject::internalSet", &testValue);
-    }
-    ++count_;
-    value_ = value;
-  }
-
   int count_ = 0;
   int value_;
 };
@@ -54,15 +47,9 @@ TEST(TestValueTest, testValueDisabled) {
   int setCount = 0;
   int setValue = 0;
   int value = 200;
-  int changeValue = 100;
-  TestValue::set<int>(
-      "facebook::velox::exec::test::TestObject::set", [&](int* testData) {
-        EXPECT_EQ(value, *testData);
-        *testData = changeValue;
-      });
   TestValue::set<std::pair<int, int>>(
-      "facebook::velox::exec::test::TestObject::internalSet",
-      [&](std::pair<int, int>* testData) {
+      "facebook::velox::exec::test::TestObject::set",
+      [&](const std::pair<int, int>* testData) {
         setValue = testData->first;
         setCount = testData->second;
       });
@@ -73,9 +60,6 @@ TEST(TestValueTest, testValueDisabled) {
   EXPECT_EQ(0, setValue);
   EXPECT_EQ(0, setCount);
 
-  obj.set(value);
-  EXPECT_EQ(0, setValue);
-  EXPECT_EQ(0, setCount);
   TestValue::clear("facebook::velox::exec::test::TestObject::set");
   TestValue::clear("facebook::velox::exec::test::TestObject::internalSet");
 
@@ -90,44 +74,29 @@ TEST(TestValueTest, testValueEnabled) {
   int setCount = 0;
   int setValue = 0;
   int value = 200;
-  int changeValue = 100;
-  TestValue::set<int>(
-      "facebook::velox::exec::test::TestObject::set", [&](int* testData) {
-        EXPECT_EQ(value, *testData);
-        *testData = changeValue;
-      });
   TestValue::set<std::pair<int, int>>(
-      "facebook::velox::exec::test::TestObject::internalSet",
-      [&](std::pair<int, int>* testData) {
+      "facebook::velox::exec::test::TestObject::set",
+      [&](const std::pair<int, int>* testData) {
         setValue = testData->first;
         setCount = testData->second;
       });
   TestObject obj;
   obj.set(value);
-  EXPECT_EQ(changeValue, setValue);
-  EXPECT_EQ(0, setCount);
+  EXPECT_EQ(value, setValue);
+  EXPECT_EQ(1, setCount);
 
   setCount = 0;
   setValue = 0;
-  obj.set(value);
-  EXPECT_EQ(changeValue, setValue);
-  EXPECT_EQ(1, setCount);
+  obj.set(value + 1);
+  EXPECT_EQ(value + 1, setValue);
+  EXPECT_EQ(2, setCount);
 
   TestValue::clear("facebook::velox::exec::test::TestObject::set");
   setCount = 0;
   setValue = 0;
-  obj.set(value);
+  obj.set(value + 2);
   // The outer test value has been cleared so 'setValue' will be set
   // method input value.
-  EXPECT_EQ(value, setValue);
-  EXPECT_EQ(2, setCount);
-
-  TestValue::clear("facebook::velox::exec::test::TestObject::internalSet");
-  setCount = 0;
-  setValue = 0;
-  obj.set(value);
-  // The test values have been cleared so both 'setValue' and 'setCount'
-  // won't be set.
   EXPECT_EQ(0, setValue);
   EXPECT_EQ(0, setCount);
 }
@@ -138,37 +107,31 @@ TEST(TestValueTest, scopeUsageEnabled) {
   {
     // Invalid ctor checks.
     EXPECT_ANY_THROW(ScopedTestValue(
-        "", std::function<void(void*)>([&](void* /*unused*/) {})));
+        "", std::function<void(const void*)>([&](const void* /*unused*/) {})));
     EXPECT_ANY_THROW(
-        ScopedTestValue("dummy", std::function<void(void*)>(nullptr)));
+        ScopedTestValue("dummy", std::function<void(const void*)>(nullptr)));
   }
   {
     int setCount = 0;
     int setValue = 0;
     int value = 200;
-    int changeValue = 100;
     TestObject obj;
     {
-      ScopedTestValue testSet(
-          "facebook::velox::exec::test::TestObject::set",
-          std::function<void(int*)>([&](auto* testData) {
-            EXPECT_EQ(value, *testData);
-            *testData = changeValue;
-          }));
       ScopedTestValue testInternalSet(
-          "facebook::velox::exec::test::TestObject::internalSet",
-          std::function<void(std::pair<int, int>*)>([&](auto* testData) {
-            setValue = testData->first;
-            setCount = testData->second;
-          }));
+          "facebook::velox::exec::test::TestObject::set",
+          std::function<void(const std::pair<int, int>*)>(
+              [&](const auto* testData) {
+                setValue = testData->first;
+                setCount = testData->second;
+              }));
       obj.set(value);
-      EXPECT_EQ(changeValue, setValue);
-      EXPECT_EQ(0, setCount);
+      EXPECT_EQ(value, setValue);
+      EXPECT_EQ(1, setCount);
     }
-    // Scoped object dtor will clear the test value settings.
+    // Scoped bject dtor will clear the test value settings.
     setCount = 0;
     setValue = 0;
-    obj.set(value);
+    obj.set(value + 1);
     EXPECT_EQ(0, setValue);
     EXPECT_EQ(0, setCount);
   }
@@ -176,24 +139,18 @@ TEST(TestValueTest, scopeUsageEnabled) {
     int setCount = 0;
     int setValue = 0;
     int value = 200;
-    int changeValue = 100;
     TestObject obj;
     {
       SCOPED_TESTVALUE_SET(
           "facebook::velox::exec::test::TestObject::set",
-          std::function<void(int*)>([&](auto* testData) {
-            EXPECT_EQ(value, *testData);
-            *testData = changeValue;
-          }));
-      SCOPED_TESTVALUE_SET(
-          "facebook::velox::exec::test::TestObject::internalSet",
-          std::function<void(std::pair<int, int>*)>(([&](auto* testData) {
-            setValue = testData->first;
-            setCount = testData->second;
-          })));
+          std::function<void(const std::pair<int, int>*)>(
+              ([&](const auto* testData) {
+                setValue = testData->first;
+                setCount = testData->second;
+              })));
       obj.set(value);
-      EXPECT_EQ(changeValue, setValue);
-      EXPECT_EQ(0, setCount);
+      EXPECT_EQ(value, setValue);
+      EXPECT_EQ(1, setCount);
     }
     // Scoped object dtor will clear the test value settings.
     setCount = 0;
@@ -204,27 +161,21 @@ TEST(TestValueTest, scopeUsageEnabled) {
   }
 }
 
-TEST(TestValueTest, scopeUsage) {
+TEST(TestValueTest, scopeUsageDisabled) {
   TestValue::disable();
   EXPECT_FALSE(TestValue::enabled());
   {
     int setCount = 0;
     int setValue = 0;
     int value = 200;
-    int changeValue = 100;
     TestObject obj;
-    ScopedTestValue testSet(
-        "facebook::velox::exec::test::TestObject::set",
-        std::function<void(int*)>([&](auto* testData) {
-          EXPECT_EQ(value, *testData);
-          *testData = changeValue;
-        }));
     ScopedTestValue testInternalSet(
-        "facebook::velox::exec::test::TestObject::internalSet",
-        std::function<void(std::pair<int, int>*)>([&](auto* testData) {
-          setValue = testData->first;
-          setCount = testData->second;
-        }));
+        "facebook::velox::exec::test::TestObject::set",
+        std::function<void(const std::pair<int, int>*)>(
+            [&](const auto* testData) {
+              setValue = testData->first;
+              setCount = testData->second;
+            }));
     obj.set(value);
     // If test value has not been enabled, then both 'setValue' and
     // 'setCount' won't be set.
@@ -236,20 +187,14 @@ TEST(TestValueTest, scopeUsage) {
     int setCount = 0;
     int setValue = 0;
     int value = 200;
-    int changeValue = 100;
     TestObject obj;
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::test::TestObject::set",
-        std::function<void(int*)>([&](auto* testData) {
-          EXPECT_EQ(value, *testData);
-          *testData = changeValue;
-        }));
-    SCOPED_TESTVALUE_SET(
-        "facebook::velox::exec::test::TestObject::internalSet",
-        std::function<void(std::pair<int, int>*)>([&](auto* testData) {
-          setValue = testData->first;
-          setCount = testData->second;
-        }));
+        std::function<void(const std::pair<int, int>*)>(
+            [&](const auto* testData) {
+              setValue = testData->first;
+              setCount = testData->second;
+            }));
     obj.set(value);
     // If test value has not been enabled, then both 'setValue' and
     // 'setCount' won't be set.

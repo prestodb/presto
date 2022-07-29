@@ -26,6 +26,7 @@
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/FunctionSignature.h"
 
+using facebook::velox::core::QueryConfig;
 using facebook::velox::exec::Aggregate;
 using facebook::velox::test::BatchMaker;
 
@@ -260,6 +261,7 @@ class AggregationTest : public OperatorTestBase {
  protected:
   void SetUp() override {
     filesystems::registerLocalFileSystem();
+    mappedMemory_ = memory::MappedMemory::getInstance();
   }
 
   std::vector<RowVectorPtr>
@@ -470,9 +472,26 @@ class AggregationTest : public OperatorTestBase {
         counter = 0;
       }
     }
-    if (counter) {
+    if (counter > 0) {
       addBatch(counter, rows, dictionary, batches);
     }
+  }
+
+  std::unique_ptr<RowContainer> makeRowContainer(
+      const std::vector<TypePtr>& keyTypes,
+      const std::vector<TypePtr>& dependentTypes) {
+    static const std::vector<std::unique_ptr<Aggregate>> kEmptyAggregates;
+    return std::make_unique<RowContainer>(
+        keyTypes,
+        false,
+        kEmptyAggregates,
+        dependentTypes,
+        false,
+        false,
+        true,
+        true,
+        mappedMemory_,
+        ContainerRowSerde::instance());
   }
 
   RowTypePtr rowType_{
@@ -485,6 +504,7 @@ class AggregationTest : public OperatorTestBase {
            DOUBLE(),
            VARCHAR()})};
   folly::Random::DefaultGenerator rng_;
+  memory::MappedMemory* mappedMemory_;
 };
 
 template <>
@@ -749,16 +769,15 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
 
   // Distinct aggregation.
   core::PlanNodeId aggNodeId;
-  auto task =
-      AssertQueryBuilder(duckDbQueryRunner_)
-          .config(core::QueryConfig::kMaxPartialAggregationMemory, "100")
-          .plan(PlanBuilder()
-                    .values(vectors)
-                    .partialAggregation({"c0"}, {})
-                    .capturePlanNodeId(aggNodeId)
-                    .finalAggregation()
-                    .planNode())
-          .assertResults("SELECT distinct c0 FROM tmp");
+  auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                  .config(QueryConfig::kMaxPartialAggregationMemory, "100")
+                  .plan(PlanBuilder()
+                            .values(vectors)
+                            .partialAggregation({"c0"}, {})
+                            .capturePlanNodeId(aggNodeId)
+                            .finalAggregation()
+                            .planNode())
+                  .assertResults("SELECT distinct c0 FROM tmp");
   EXPECT_GT(
       toPlanStats(task->taskStats())
           .at(aggNodeId)
@@ -774,7 +793,7 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
 
   // Count aggregation.
   task = AssertQueryBuilder(duckDbQueryRunner_)
-             .config(core::QueryConfig::kMaxPartialAggregationMemory, "1")
+             .config(QueryConfig::kMaxPartialAggregationMemory, "1")
              .plan(PlanBuilder()
                        .values(vectors)
                        .partialAggregation({"c0"}, {"count(1)"})
@@ -797,7 +816,7 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
 
   // Global aggregation.
   task = AssertQueryBuilder(duckDbQueryRunner_)
-             .config(core::QueryConfig::kMaxPartialAggregationMemory, "1")
+             .config(QueryConfig::kMaxPartialAggregationMemory, "1")
              .plan(PlanBuilder()
                        .values(vectors)
                        .partialAggregation({}, {"sum(c0)"})
@@ -863,13 +882,13 @@ TEST_F(AggregationTest, partialAggregationMemoryLimitIncrease) {
     core::PlanNodeId aggNodeId;
     auto task = AssertQueryBuilder(duckDbQueryRunner_)
                     .config(
-                        core::QueryConfig::kMaxPartialAggregationMemory,
+                        QueryConfig::kMaxPartialAggregationMemory,
                         std::to_string(testData.initialPartialMemoryLimit))
                     .config(
-                        core::QueryConfig::kMaxExtendedPartialAggregationMemory,
+                        QueryConfig::kMaxExtendedPartialAggregationMemory,
                         std::to_string(testData.extendedPartialMemoryLimit))
                     .config(
-                        core::QueryConfig::kPartialAggregationGoodPct,
+                        QueryConfig::kPartialAggregationGoodPct,
                         std::to_string(testData.partialAggregationGoodPct))
                     .plan(PlanBuilder()
                               .values(vectors)
@@ -921,9 +940,9 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
   CursorParameters params;
   params.queryCtx = core::QueryCtx::createForTest();
   params.queryCtx->setConfigOverridesUnsafe({
-      {core::QueryConfig::kMaxPartialAggregationMemory,
+      {QueryConfig::kMaxPartialAggregationMemory,
        std::to_string(kMaxPartialMemoryUsage)},
-      {core::QueryConfig::kMaxExtendedPartialAggregationMemory,
+      {QueryConfig::kMaxExtendedPartialAggregationMemory,
        std::to_string(kMaxPartialMemoryUsage)},
   });
   {
@@ -1012,7 +1031,6 @@ TEST_F(AggregationTest, validatePartialTypes) {
 }
 
 TEST_F(AggregationTest, spill) {
-  using core::QueryConfig;
   constexpr int32_t kNumDistinct = 200000;
   constexpr int64_t kMaxBytes = 24LL << 20; // 24 MB
   rng_.seed(1);
@@ -1060,7 +1078,6 @@ TEST_F(AggregationTest, spill) {
   auto queryCtx = core::QueryCtx::createForTest();
   queryCtx->pool()->setMemoryUsageTracker(
       velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
-
   auto task =
       AssertQueryBuilder(PlanBuilder()
                              .values(batches)
@@ -1075,6 +1092,102 @@ TEST_F(AggregationTest, spill) {
   // Over 20MB spilled.
   EXPECT_LT(20 << 20, stats[0].operatorStats[1].spilledBytes);
 }
+
+TEST_F(AggregationTest, spillWithEmptyPartition) {
+  constexpr int32_t kNumDistinct = 100'000;
+  constexpr int64_t kMaxBytes = 20LL << 20; // 20 MB
+  rowType_ = ROW({"c0", "a"}, {INTEGER(), VARCHAR()});
+  // Used to calculate the aggregation spilling partition number.
+  //
+  // TODO: make the partition parameters configurable through query config.
+  const int kNumPartitions = 4;
+  const HashBitRange hashBits{29, 31};
+  std::vector<uint64_t> hashes(1);
+
+  for (int emptyPartitionNum : {0, 1, 3}) {
+    SCOPED_TRACE(fmt::format("emptyPartitionNum: {}", emptyPartitionNum));
+    rng_.seed(1);
+    // The input batch has kNumDistinct distinct keys. The repeat count of a key
+    // is given by min(1, (k % 100) - 90). The batch is repeated 3 times, each
+    // time in a different order.
+    RowVectorPtr rowVector = std::static_pointer_cast<RowVector>(
+        BaseVector::create(rowType_, kNumDistinct, pool_.get()));
+    SelectivityVector allRows(kNumDistinct);
+    const TypePtr keyType = rowVector->type()->childAt(0);
+    const TypePtr valueType = rowVector->type()->childAt(1);
+    auto rowContainer = makeRowContainer({keyType}, {valueType});
+    // Used to check hash aggregation partition.
+    char* testRow = rowContainer->newRow();
+    std::vector<char*> testRows(1, testRow);
+    const auto testRowSet = folly::Range<char**>(testRows.data(), 1);
+
+    folly::F14FastSet<uint64_t> order1;
+    folly::F14FastSet<uint64_t> order2;
+    folly::F14FastSet<uint64_t> order3;
+
+    auto keyVector = rowVector->childAt(0)->as<FlatVector<int32_t>>();
+    keyVector->resize(kNumDistinct);
+    auto valueVector = rowVector->childAt(1)->as<FlatVector<StringView>>();
+    valueVector->resize(kNumDistinct);
+
+    DecodedVector decodedVector(*keyVector, allRows);
+    int32_t totalCount = 0;
+    for (int key = 0, index = 0; index < kNumDistinct; ++key) {
+      keyVector->set(index, key);
+      // Skip the empty partition.
+      rowContainer->store(decodedVector, index, testRow, 0);
+      // Calculate hashes for this batch of spill candidates.
+      rowContainer->hash(0, testRowSet, false, hashes.data());
+      const int partitionNum = hashBits.partition(hashes[0], kNumPartitions);
+      if (partitionNum == emptyPartitionNum) {
+        continue;
+      }
+      std::string str = fmt::format("{}{}", key, key);
+      valueVector->set(index, StringView(str));
+      const int numRepeats = std::max(1, (index % 100) - 90);
+      // We make random permutations of the data by adding the indices into a
+      // set with a random 6 high bits followed by a serial number. These are
+      // inlined in the F14FastSet in an order that depends on the hash number.
+      for (auto i = 0; i < numRepeats; ++i) {
+        ++totalCount;
+        insertRandomOrder(index, totalCount, order1);
+        insertRandomOrder(index, totalCount, order2);
+        insertRandomOrder(index, totalCount, order3);
+      }
+      ++index;
+    }
+    std::vector<RowVectorPtr> batches;
+    makeBatches(rowVector, order1, batches);
+    makeBatches(rowVector, order2, batches);
+    makeBatches(rowVector, order3, batches);
+    auto results =
+        AssertQueryBuilder(PlanBuilder()
+                               .values(batches)
+                               .singleAggregation({"c0"}, {"array_agg(c1)"})
+                               .planNode())
+            .copyResults(pool_.get());
+
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto queryCtx = core::QueryCtx::createForTest();
+    queryCtx->pool()->setMemoryUsageTracker(
+        velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
+
+    auto task =
+        AssertQueryBuilder(PlanBuilder()
+                               .values(batches)
+                               .singleAggregation({"c0"}, {"array_agg(c1)"})
+                               .planNode())
+            .queryCtx(queryCtx)
+            .config(QueryConfig::kSpillPath, tempDirectory->path)
+            .assertResults(results);
+
+    auto stats = task->taskStats().pipelineStats;
+    // Check spilled bytes.
+    EXPECT_LT(0, stats[0].operatorStats[1].spilledBytes);
+  }
+}
+
+// TODO: add spill with unspilling partition test.
 
 /// Verify number of memory allocations in the HashAggregation operator.
 TEST_F(AggregationTest, memoryAllocations) {
