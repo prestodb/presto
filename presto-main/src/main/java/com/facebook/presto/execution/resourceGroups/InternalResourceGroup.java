@@ -676,17 +676,25 @@ public class InternalResourceGroup
             InternalResourceGroup group = this;
             boolean canQueue = true;
             boolean canRun = true;
+            boolean queued = false;
             while (true) {
                 canQueue &= group.canQueueMore();
                 canRun &= group.canRunMore();
+                if (!canRun) {
+                    if (canQueue && !queued) {
+                        queued = true;
+                        query.setResourceGroupQueuedOn(Optional.of(group.getId()));
+                    }
+                    else if (!canQueue) {
+                        query.setResourceGroupQueuedOn(Optional.empty());
+                        query.fail(new QueryQueueFullException(id));
+                        return;
+                    }
+                }
                 if (!group.parent.isPresent()) {
                     break;
                 }
                 group = group.parent.get();
-            }
-            if (!canQueue && !canRun) {
-                query.fail(new QueryQueueFullException(id));
-                return;
             }
             query.setResourceGroupQueryLimits(perQueryLimits);
             if (canRun && queuedQueries.isEmpty()) {
