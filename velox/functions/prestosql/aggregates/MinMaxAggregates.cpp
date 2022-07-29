@@ -83,6 +83,18 @@ void MinMaxAggregate<Timestamp, int64_t>::extractValues(
       });
 }
 
+template <>
+void MinMaxAggregate<Timestamp, Timestamp>::extractValues(
+    char** groups,
+    int32_t numGroups,
+    VectorPtr* result) {
+  BaseAggregate::template doExtractValues<Timestamp>(
+      groups, numGroups, result, [&](char* group) {
+        auto ts = *BaseAggregate::Aggregate::template value<Timestamp>(group);
+        return Timestamp::fromMillis(ts.toMillis());
+      });
+}
+
 template <typename T, typename ResultType>
 class MaxAggregate : public MinMaxAggregate<T, ResultType> {
   using BaseAggregate = SimpleNumericAggregate<T, T, ResultType>;

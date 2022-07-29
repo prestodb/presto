@@ -42,61 +42,37 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
     static const std::string c1 = "c1";
     static const std::string a0 = "a0";
 
-    // Global partial aggregation.
-    auto op = PlanBuilder()
-                  .values(vectors)
-                  .partialAggregation({}, {agg(c1)})
-                  .planNode();
-    assertQuery(op, fmt::format("SELECT {} FROM tmp", agg(c1)));
+    // Global aggregation.
+    testAggregations(
+        vectors, {}, {agg(c1)}, fmt::format("SELECT {} FROM tmp", agg(c1)));
 
-    // Global final aggregation.
-    op = PlanBuilder()
-             .values(vectors)
-             .partialAggregation({}, {agg(c1)})
-             .finalAggregation()
-             .planNode();
-    assertQuery(op, fmt::format("SELECT {} FROM tmp", agg(c1)));
+    // Group by aggregation.
+    testAggregations(
+        [&](auto& builder) {
+          builder.values(vectors).project({"c0 % 10", "c1"});
+        },
+        {"p0"},
+        {agg(c1)},
+        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
 
-    // Group by partial aggregation.
-    op = PlanBuilder()
-             .values(vectors)
-             .project({"c0 % 10", "c1"})
-             .partialAggregation({"p0"}, {agg(c1)})
-             .planNode();
-    assertQuery(
-        op, fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
-
-    // Group by final aggregation.
-    op = PlanBuilder()
-             .values(vectors)
-             .project({"c0 % 10", "c1"})
-             .partialAggregation({"p0"}, {agg(c1)})
-             .finalAggregation()
-             .planNode();
-    assertQuery(
-        op, fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
-
-    // encodings: use filter to wrap aggregation inputs in a dictionary.
-    op = PlanBuilder()
-             .values(vectors)
-             .filter("c0 % 2 = 0")
-             .project({"c0 % 11", "c1"})
-             .partialAggregation({"p0"}, {agg(c1)})
-             .planNode();
-
-    assertQuery(
-        op,
+    // Encodings: use filter to wrap aggregation inputs in a dictionary.
+    testAggregations(
+        [&](auto& builder) {
+          builder.values(vectors)
+              .filter("c0 % 2 = 0")
+              .project({"c0 % 11", "c1"});
+        },
+        {"p0"},
+        {agg(c1)},
         fmt::format(
             "SELECT c0 % 11, {} FROM tmp WHERE c0 % 2 = 0 GROUP BY 1",
             agg(c1)));
 
-    op = PlanBuilder()
-             .values(vectors)
-             .filter("c0 % 2 = 0")
-             .partialAggregation({}, {agg(c1)})
-             .planNode();
-    assertQuery(
-        op, fmt::format("SELECT {} FROM tmp WHERE c0 % 2 = 0", agg(c1)));
+    testAggregations(
+        [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 0"); },
+        {},
+        {agg(c1)},
+        fmt::format("SELECT {} FROM tmp WHERE c0 % 2 = 0", agg(c1)));
   }
 };
 
@@ -139,53 +115,30 @@ TEST_F(MinMaxTest, maxVarchar) {
   std::vector<RowVectorPtr> vectors = {vector};
   createDuckDbTable(vectors);
 
-  auto op = PlanBuilder()
-                .values(vectors)
-                .project({"c0 % 11", "c1"})
-                .partialAggregation({"p0"}, {"max(c1)"})
-                .planNode();
-  assertQuery(op, "SELECT c0 % 11, max(c1) FROM tmp GROUP BY 1");
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project({"c0 % 11", "c1"});
+      },
+      {"p0"},
+      {"max(c1)"},
+      "SELECT c0 % 11, max(c1) FROM tmp GROUP BY 1");
 
-  op = PlanBuilder()
-           .values(vectors)
-           .partialAggregation({}, {"max(c1)"})
-           .planNode();
-  assertQuery(op, "SELECT max(c1) FROM tmp");
+  testAggregations(vectors, {}, {"max(c1)"}, "SELECT max(c1) FROM tmp");
 
   // Encodings: use filter to wrap aggregation inputs in a dictionary
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .project({"c0 % 11", "c1"})
-           .partialAggregation({"p0"}, {"max(c1)"})
-           .planNode();
-  assertQuery(
-      op, "SELECT c0 % 11, max(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).filter("c0 % 2 = 0").project({"c0 % 11", "c1"});
+      },
+      {"p0"},
+      {"max(c1)"},
+      "SELECT c0 % 11, max(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .project({"c0 % 11", "c1"})
-           .partialAggregation({"p0"}, {"max(c1)"})
-           .finalAggregation()
-           .planNode();
-  assertQuery(
-      op, "SELECT c0 % 11, max(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
-
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .partialAggregation({}, {"max(c1)"})
-           .planNode();
-  assertQuery(op, "SELECT max(c1) FROM tmp WHERE c0 % 2 = 0");
-
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .partialAggregation({}, {"max(c1)"})
-           .finalAggregation()
-           .planNode();
-  assertQuery(op, "SELECT max(c1) FROM tmp WHERE c0 % 2 = 0");
+  testAggregations(
+      [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 0"); },
+      {},
+      {"max(c1)"},
+      "SELECT max(c1) FROM tmp WHERE c0 % 2 = 0");
 }
 
 TEST_F(MinMaxTest, minVarchar) {
@@ -195,53 +148,30 @@ TEST_F(MinMaxTest, minVarchar) {
   std::vector<RowVectorPtr> vectors = {vector};
   createDuckDbTable(vectors);
 
-  auto op = PlanBuilder()
-                .values(vectors)
-                .project({"c0 % 17", "c1"})
-                .partialAggregation({"p0"}, {"min(c1)"})
-                .planNode();
-  assertQuery(op, "SELECT c0 % 17, min(c1) FROM tmp GROUP BY 1");
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project({"c0 % 17", "c1"});
+      },
+      {"p0"},
+      {"min(c1)"},
+      "SELECT c0 % 17, min(c1) FROM tmp GROUP BY 1");
 
-  op = PlanBuilder()
-           .values(vectors)
-           .partialAggregation({}, {"min(c1)"})
-           .planNode();
-  assertQuery(op, "SELECT min(c1) FROM tmp");
+  testAggregations(vectors, {}, {"min(c1)"}, "SELECT min(c1) FROM tmp");
 
   // Encodings: use filter to wrap aggregation inputs in a dictionary
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .project({"c0 % 17", "c1"})
-           .partialAggregation({"p0"}, {"min(c1)"})
-           .planNode();
-  assertQuery(
-      op, "SELECT c0 % 17, min(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).filter("c0 % 2 = 0").project({"c0 % 17", "c1"});
+      },
+      {"p0"},
+      {"min(c1)"},
+      "SELECT c0 % 17, min(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .project({"c0 % 17", "c1"})
-           .partialAggregation({"p0"}, {"min(c1)"})
-           .finalAggregation()
-           .planNode();
-  assertQuery(
-      op, "SELECT c0 % 17, min(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
-
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .partialAggregation({}, {"min(c1)"})
-           .planNode();
-  assertQuery(op, "SELECT min(c1) FROM tmp WHERE c0 % 2 = 0");
-
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .partialAggregation({}, {"min(c1)"})
-           .finalAggregation()
-           .planNode();
-  assertQuery(op, "SELECT min(c1) FROM tmp WHERE c0 % 2 = 0");
+  testAggregations(
+      [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 0"); },
+      {},
+      {"min(c1)"},
+      "SELECT min(c1) FROM tmp WHERE c0 % 2 = 0");
 }
 
 TEST_F(MinMaxTest, constVarchar) {
@@ -256,26 +186,23 @@ TEST_F(MinMaxTest, constVarchar) {
           makeConstant("banana", 1'000),
           makeConstant(TypeKind::VARCHAR, 1'000),
       })};
-  auto op =
-      PlanBuilder()
-          .values({constVectors})
-          .singleAggregation({}, {"min(c0)", "max(c0)", "min(c1)", "max(c1)"})
-          .planNode();
-  assertQuery(op, "SELECT 'apple', 'banana', null, null");
+
+  testAggregations(
+      {constVectors},
+      {},
+      {"min(c0)", "max(c0)", "min(c1)", "max(c1)"},
+      "SELECT 'apple', 'banana', null, null");
 }
 
 TEST_F(MinMaxTest, minMaxTimestamp) {
   auto rowType = ROW({"c0"}, {TIMESTAMP()});
-  auto vectors = makeVectors(rowType, 1'000, 10);
+  auto vectors = makeVectors(rowType, 10, 1);
   createDuckDbTable(vectors);
 
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"min(c0)", "max(c0)"})
-                 .finalAggregation()
-                 .planNode();
-  assertQuery(
-      agg,
+  testAggregations(
+      vectors,
+      {},
+      {"min(c0)", "max(c0)"},
       "SELECT date_trunc('millisecond', min(c0)), date_trunc('millisecond', max(c0)) FROM tmp");
 }
 
@@ -284,12 +211,8 @@ TEST_F(MinMaxTest, minMaxDate) {
   auto vectors = makeVectors(rowType, 1'000, 10);
   createDuckDbTable(vectors);
 
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"min(c0)", "max(c0)"})
-                 .finalAggregation()
-                 .planNode();
-  assertQuery(agg, "SELECT min(c0), max(c0) from tmp");
+  testAggregations(
+      vectors, {}, {"min(c0)", "max(c0)"}, "SELECT min(c0), max(c0) from tmp");
 }
 
 TEST_F(MinMaxTest, initialValue) {
@@ -305,19 +228,9 @@ TEST_F(MinMaxTest, initialValue) {
 
   // Test min of {1, 1, ...} and max {-1, -1, ..}.
   // Make sure they are not zero.
-  auto agg = PlanBuilder()
-                 .values({row})
-                 .partialAggregation({}, {"min(c0)"})
-                 .finalAggregation()
-                 .planNode();
-  assertQuery(agg, "SELECT 1");
+  testAggregations({row}, {}, {"min(c0)"}, "SELECT 1");
 
-  agg = PlanBuilder()
-            .values({row})
-            .partialAggregation({}, {"max(c1)"})
-            .finalAggregation()
-            .planNode();
-  assertQuery(agg, "SELECT -1");
+  testAggregations({row}, {}, {"max(c1)"}, "SELECT -1");
 }
 
 } // namespace
