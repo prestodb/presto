@@ -19,6 +19,7 @@ import org.apache.logging.log4j.core.util.CronExpression;
 
 import java.text.ParseException;
 import java.time.ZoneId;
+import java.time.zone.ZoneRulesException;
 import java.util.Objects;
 import java.util.TimeZone;
 
@@ -47,6 +48,9 @@ public final class SelectorSchedule
         }
         catch (ParseException e) {
             throw new IllegalArgumentException("Invalid expression provided", e);
+        }
+        catch (ZoneRulesException e) {
+            throw new IllegalArgumentException("Invalid time zone provided", e);
         }
     }
 
