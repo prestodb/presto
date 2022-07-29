@@ -235,4 +235,9 @@ public class MockManagedQueryExecution
     {
         resourceGroupQueuedOn = resourceGroup;
     }
+
+    public Optional<ResourceGroupId> getResourceGroupQueuedOn()
+    {
+        return resourceGroupQueuedOn;
+    }
 }
