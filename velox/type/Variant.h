@@ -665,12 +665,6 @@ class variant {
     return stream;
   }
 
-  // Compares REAL and DOUBLE (only) types for equality using kEpsilon.
-  // For testing purposes.
-  static bool equalsFloatingPointWithEpsilon(
-      const variant& a,
-      const variant& b);
-
   // Uses kEpsilon to compare floating point types (REAL and DOUBLE).
   // For testing purposes.
   bool lessThanWithEpsilon(const variant& other) const;

@@ -24,6 +24,11 @@ namespace {
 
 class AverageAggregationTest : public AggregationTestBase {
  protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    allowInputShuffle();
+  }
+
   RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
           {BIGINT(), SMALLINT(), INTEGER(), BIGINT(), REAL(), DOUBLE()})};

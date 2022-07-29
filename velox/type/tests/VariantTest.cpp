@@ -16,10 +16,11 @@
 #include "velox/type/Variant.h"
 #include <gtest/gtest.h>
 #include <velox/type/Type.h>
+#include <numeric>
 
 using namespace facebook::velox;
 
-TEST(Variant, arrayInferType) {
+TEST(VariantTest, arrayInferType) {
   EXPECT_EQ(*ARRAY(UNKNOWN()), *variant(TypeKind::ARRAY).inferType());
   EXPECT_EQ(*ARRAY(UNKNOWN()), *variant::array({}).inferType());
   EXPECT_EQ(
@@ -34,7 +35,7 @@ TEST(Variant, arrayInferType) {
            .inferType());
 }
 
-TEST(Variant, mapInferType) {
+TEST(VariantTest, mapInferType) {
   EXPECT_EQ(*variant::map({{1LL, 1LL}}).inferType(), *MAP(BIGINT(), BIGINT()));
   EXPECT_EQ(*variant::map({}).inferType(), *MAP(UNKNOWN(), UNKNOWN()));
 
@@ -54,7 +55,7 @@ struct Foo {};
 
 struct Bar {};
 
-TEST(Variant, opaque) {
+TEST(VariantTest, opaque) {
   auto foo = std::make_shared<Foo>();
   auto foo2 = std::make_shared<Foo>();
   auto bar = std::make_shared<Bar>();
@@ -90,7 +91,7 @@ TEST(Variant, opaque) {
   }
 }
 
-TEST(Variant, shortDecimal) {
+TEST(VariantTest, shortDecimal) {
   auto shortDecimalType = DECIMAL(10, 3);
   variant v = variant::shortDecimal(1234, shortDecimalType);
   EXPECT_TRUE(v.hasValue());
@@ -112,7 +113,7 @@ TEST(Variant, shortDecimal) {
       u2.value<TypeKind::SHORT_DECIMAL>(), v.value<TypeKind::SHORT_DECIMAL>());
 }
 
-TEST(Variant, shortDecimalNull) {
+TEST(VariantTest, shortDecimalNull) {
   variant null = variant::shortDecimal(std::nullopt, DECIMAL(10, 5));
   EXPECT_TRUE(null.isNull());
   EXPECT_EQ(null.toJson(), "null");
@@ -120,7 +121,7 @@ TEST(Variant, shortDecimalNull) {
   EXPECT_THROW(variant::null(TypeKind::SHORT_DECIMAL), VeloxException);
 }
 
-TEST(Variant, longDecimal) {
+TEST(VariantTest, longDecimal) {
   auto longDecimalType = DECIMAL(20, 3);
   variant v = variant::longDecimal(12345, longDecimalType);
   EXPECT_TRUE(v.hasValue());
@@ -142,10 +143,103 @@ TEST(Variant, longDecimal) {
       v.value<TypeKind::LONG_DECIMAL>(), u2.value<TypeKind::LONG_DECIMAL>());
 }
 
-TEST(Variant, longDecimalNull) {
+TEST(VariantTest, longDecimalNull) {
   variant null = variant::longDecimal(std::nullopt, DECIMAL(20, 5));
   EXPECT_TRUE(null.isNull());
   EXPECT_EQ(null.toJson(), "null");
   EXPECT_EQ(*null.inferType(), *DECIMAL(20, 5));
   EXPECT_THROW(variant::null(TypeKind::LONG_DECIMAL), VeloxException);
+}
+
+/// Test variant::equalsWithEpsilon by summing up large 64-bit integers (> 15
+/// digits long) into double in different order to get slightly different
+/// results due to loss of precision.
+TEST(VariantTest, equalsWithEpsilonDouble) {
+  std::vector<int64_t> data = {
+      -6524373357247204968,
+      -1459602477200235160,
+      -5427507077629018454,
+      -6362318851342815124,
+      -6567761115475435067,
+      9193194088128540374,
+      -7862838580565801772,
+      -7650459730033994045,
+      327870505158904254,
+  };
+
+  double sum1 = std::accumulate(data.begin(), data.end(), 0.0);
+
+  double sumEven = 0;
+  double sumOdd = 0;
+  for (auto i = 0; i < data.size(); i++) {
+    if (i % 2 == 0) {
+      sumEven += data[i];
+    } else {
+      sumOdd += data[i];
+    }
+  }
+
+  double sum2 = sumOdd + sumEven;
+
+  ASSERT_NE(sum1, sum2);
+  ASSERT_DOUBLE_EQ(sum1, sum2);
+  ASSERT_TRUE(variant(sum1).equalsWithEpsilon(variant(sum2)));
+
+  // Add up all numbers but one. Make sure the result is not equal to sum1.
+  double sum3 = 0;
+  for (auto i = 0; i < data.size(); i++) {
+    if (i != 5) {
+      sum3 += data[i];
+    }
+  }
+
+  ASSERT_NE(sum1, sum3);
+  ASSERT_FALSE(variant(sum1).equalsWithEpsilon(variant(sum3)));
+}
+
+/// Similar to equalsWithEpsilonDouble, test variant::equalsWithEpsilon by
+/// summing up large 32-bit integers into float in different order to get
+/// slightly different results due to loss of precision.
+TEST(VariantTest, equalsWithEpsilonFloat) {
+  std::vector<int32_t> data{
+      -795755684,
+      581869302,
+      -404620562,
+      -708632711,
+      545404204,
+      -133711905,
+      -372047867,
+      949333985,
+      -1579004998,
+      1323567403,
+  };
+
+  float sum1 = std::accumulate(data.begin(), data.end(), 0.0f);
+
+  float sumEven = 0;
+  float sumOdd = 0;
+  for (auto i = 0; i < data.size(); i++) {
+    if (i % 2 == 0) {
+      sumEven += data[i];
+    } else {
+      sumOdd += data[i];
+    }
+  }
+
+  float sum2 = sumOdd + sumEven;
+
+  ASSERT_NE(sum1, sum2);
+  ASSERT_FLOAT_EQ(sum1, sum2);
+  ASSERT_TRUE(variant(sum1).equalsWithEpsilon(variant(sum2)));
+
+  // Add up all numbers but one. Make sure the result is not equal to sum1.
+  float sum3 = 0;
+  for (auto i = 0; i < data.size(); i++) {
+    if (i != 5) {
+      sum3 += data[i];
+    }
+  }
+
+  ASSERT_NE(sum1, sum3);
+  ASSERT_FALSE(variant(sum1).equalsWithEpsilon(variant(sum3)));
 }
