@@ -33,7 +33,13 @@ struct TestParams {
 };
 
 class BoolAndOrTest : public virtual AggregationTestBase,
-                      public testing::WithParamInterface<TestParams> {};
+                      public testing::WithParamInterface<TestParams> {
+ protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    allowInputShuffle();
+  }
+};
 
 TEST_P(BoolAndOrTest, basic) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), BOOLEAN()});
@@ -45,65 +51,38 @@ TEST_P(BoolAndOrTest, basic) {
 
   const auto partialAgg = fmt::format("{}(c1)", veloxName);
 
-  // Global partial aggregation.
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {partialAgg})
-                 .planNode();
-  assertQuery(agg, fmt::format("SELECT {}(c1::TINYINT) FROM tmp", duckDbName));
+  // Global aggregation.
+  testAggregations(
+      vectors,
+      {},
+      {partialAgg},
+      fmt::format("SELECT {}(c1::TINYINT) FROM tmp", duckDbName));
 
-  // Global final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .partialAggregation({}, {partialAgg})
-            .finalAggregation()
-            .planNode();
-  assertQuery(agg, fmt::format("SELECT {}(c1::TINYINT) FROM tmp", duckDbName));
-
-  // Group by partial aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"})
-            .partialAggregation({"p0"}, {partialAgg})
-            .planNode();
-  assertQuery(
-      agg,
+  // Group by aggregation.
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project({"c0 % 10", "c1"});
+      },
+      {"p0"},
+      {partialAgg},
       fmt::format(
           "SELECT c0 % 10, {}(c1::TINYINT) FROM tmp GROUP BY 1", duckDbName));
 
-  // Group by final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"})
-            .partialAggregation({"p0"}, {partialAgg})
-            .finalAggregation()
-            .planNode();
-  assertQuery(
-      agg,
-      fmt::format(
-          "SELECT c0 % 10, {}(c1::TINYINT) FROM tmp GROUP BY 1", duckDbName));
-
-  // encodings: use filter to wrap aggregation inputs in a dictionary.
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .project({"c0 % 11", "c1"})
-            .partialAggregation({"p0"}, {partialAgg})
-            .planNode();
-
-  assertQuery(
-      agg,
+  // Encodings: use filter to wrap aggregation inputs in a dictionary.
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).filter("c0 % 2 = 0").project({"c0 % 11", "c1"});
+      },
+      {"p0"},
+      {partialAgg},
       fmt::format(
           "SELECT c0 % 11, {}(c1::TINYINT) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1",
           duckDbName));
 
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .partialAggregation({}, {partialAgg})
-            .planNode();
-  assertQuery(
-      agg,
+  testAggregations(
+      [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 0"); },
+      {},
+      {partialAgg},
       fmt::format(
           "SELECT {}(c1::TINYINT) FROM tmp WHERE c0 % 2 = 0", duckDbName));
 }
