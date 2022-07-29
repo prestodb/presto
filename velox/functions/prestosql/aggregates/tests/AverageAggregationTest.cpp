@@ -48,41 +48,24 @@ TEST_F(AverageAggregationTest, avgConst) {
 
   createDuckDbTable(vectors);
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {"avg(c1)", "avg(c2)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT avg(c1), avg(c2) FROM tmp");
-  }
+  testAggregations(
+      vectors, {}, {"avg(c1)", "avg(c2)"}, "SELECT avg(c1), avg(c2) FROM tmp");
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({"c0"}, {"avg(c1)", "avg(c2)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
-  }
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"avg(c1)", "avg(c2)"},
+      "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {"avg(c0)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT avg(c0) FROM tmp");
-  }
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .project({"c0 % 2 AS c0_mod_2", "c0"})
-                   .partialAggregation({"c0_mod_2"}, {"avg(c0)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT c0 % 2, avg(c0) FROM tmp group by 1");
-  }
+  testAggregations(vectors, {}, {"avg(c0)"}, "SELECT avg(c0) FROM tmp");
+
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project({"c0 % 2 AS c0_mod_2", "c0"});
+      },
+      {"c0_mod_2"},
+      {"avg(c0)"},
+      "SELECT c0 % 2, avg(c0) FROM tmp group by 1");
 }
 
 TEST_F(AverageAggregationTest, avgConstNull) {
@@ -102,32 +85,16 @@ TEST_F(AverageAggregationTest, avgConstNull) {
 
   createDuckDbTable(vectors);
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {"avg(c1)", "avg(c2)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT avg(c1), avg(c2) FROM tmp");
-  }
+  testAggregations(
+      vectors, {}, {"avg(c1)", "avg(c2)"}, "SELECT avg(c1), avg(c2) FROM tmp");
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({"c0"}, {"avg(c1)", "avg(c2)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
-  }
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"avg(c1)", "avg(c2)"},
+      "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {"avg(c0)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT avg(c0) FROM tmp");
-  }
+  testAggregations(vectors, {}, {"avg(c0)"}, "SELECT avg(c0) FROM tmp");
 }
 
 TEST_F(AverageAggregationTest, avgNulls) {
@@ -147,23 +114,14 @@ TEST_F(AverageAggregationTest, avgNulls) {
 
   createDuckDbTable(vectors);
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {"avg(c1)", "avg(c2)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT avg(c1), avg(c2) FROM tmp");
-  }
+  testAggregations(
+      vectors, {}, {"avg(c1)", "avg(c2)"}, "SELECT avg(c1), avg(c2) FROM tmp");
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({"c0"}, {"avg(c1)", "avg(c2)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
-  }
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"avg(c1)", "avg(c2)"},
+      "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
 }
 
 TEST_F(AverageAggregationTest, avg) {
@@ -171,121 +129,58 @@ TEST_F(AverageAggregationTest, avg) {
   createDuckDbTable(vectors);
 
   // global aggregation
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation(
-                       {}, {"avg(c1)", "avg(c2)", "avg(c4)", "avg(c5)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
-
-    agg =
-        PlanBuilder()
-            .values(vectors)
-            .singleAggregation({}, {"avg(c1)", "avg(c2)", "avg(c4)", "avg(c5)"})
-            .planNode();
-    assertQuery(agg, "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
-
-    agg = PlanBuilder()
-              .values(vectors)
-              .partialAggregation(
-                  {}, {"avg(c1)", "avg(c2)", "avg(c4)", "avg(c5)"})
-              .intermediateAggregation()
-              .finalAggregation()
-              .planNode();
-    assertQuery(agg, "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
-  }
+  testAggregations(
+      vectors,
+      {},
+      {"avg(c1)", "avg(c2)", "avg(c4)", "avg(c5)"},
+      "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
 
   // global aggregation; no input
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .filter("c0 % 2 = 5")
-                   .partialAggregation({}, {"avg(c0)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT null");
-  }
+  testAggregations(
+      [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 5"); },
+      {},
+      {"avg(c0)"},
+      "SELECT null");
 
   // global aggregation over filter
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .filter("c0 % 5 = 3")
-                   .partialAggregation({}, {"avg(c1)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "SELECT avg(c1) FROM tmp WHERE c0 % 5 = 3");
-  }
+  testAggregations(
+      [&](auto& builder) { builder.values(vectors).filter("c0 % 5 = 3"); },
+      {},
+      {"avg(c1)"},
+      "SELECT avg(c1) FROM tmp WHERE c0 % 5 = 3");
 
   // group by
-  {
-    auto agg =
-        PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10 AS c0_mod_10", "c1", "c2", "c3", "c4", "c5"})
-            .partialAggregation(
-                {"c0_mod_10"},
-                {"avg(c1)", "avg(c2)", "avg(c3)", "avg(c4)", "avg(c5)"})
-            .finalAggregation()
-            .planNode();
-    assertQuery(
-        agg,
-        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
-        "avg(c4), avg(c5) FROM tmp GROUP BY 1");
-
-    agg = PlanBuilder()
-              .values(vectors)
-              .project({"c0 % 10 AS c0_mod_10", "c1", "c2", "c3", "c4", "c5"})
-              .singleAggregation(
-                  {"c0_mod_10"},
-                  {"avg(c1)", "avg(c2)", "avg(c3)", "avg(c4)", "avg(c5)"})
-              .planNode();
-    assertQuery(
-        agg,
-        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
-        "avg(c4), avg(c5) FROM tmp GROUP BY 1");
-
-    agg = PlanBuilder()
-              .values(vectors)
-              .project({"c0 % 10 AS c0_mod_10", "c1", "c2", "c3", "c4", "c5"})
-              .partialAggregation(
-                  {"c0_mod_10"},
-                  {"avg(c1)", "avg(c2)", "avg(c3)", "avg(c4)", "avg(c5)"})
-              .intermediateAggregation()
-              .finalAggregation()
-              .planNode();
-    assertQuery(
-        agg,
-        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
-        "avg(c4), avg(c5) FROM tmp GROUP BY 1");
-  }
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project(
+            {"c0 % 10 AS c0_mod_10", "c1", "c2", "c3", "c4", "c5"});
+      },
+      {"c0_mod_10"},
+      {"avg(c1)", "avg(c2)", "avg(c3)", "avg(c4)", "avg(c5)"},
+      "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
+      "avg(c4), avg(c5) FROM tmp GROUP BY 1");
 
   // group by; no input
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .project({"c0 % 10 AS c0_mod_10", "c1"})
-                   .filter("c0_mod_10 > 10")
-                   .partialAggregation({"c0_mod_10"}, {"avg(c1)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(agg, "");
-  }
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors)
+            .project({"c0 % 10 AS c0_mod_10", "c1"})
+            .filter("c0_mod_10 > 10");
+      },
+      {"c0_mod_10"},
+      {"avg(c1)"},
+      "");
 
   // group by over filter
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .filter("c2 % 5 = 3")
-                   .project({"c0 % 10 AS c0_mod_10", "c1"})
-                   .partialAggregation({"c0_mod_10"}, {"avg(c1)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(
-        agg, "SELECT c0 % 10, avg(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1");
-  }
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors)
+            .filter("c2 % 5 = 3")
+            .project({"c0 % 10 AS c0_mod_10", "c1"});
+      },
+      {"c0_mod_10"},
+      {"avg(c1)"},
+      "SELECT c0 % 10, avg(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1");
 }
 
 TEST_F(AverageAggregationTest, partialResults) {
