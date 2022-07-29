@@ -27,8 +27,10 @@ void BitConcatenation::append(
     appendOnes(numBits);
     return;
   }
-
-  hasZeros_ = true;
+  if (!hasZeros_) {
+    bits::fillBits(ensureSpace(numBits), 0, numBits_, true);
+    hasZeros_ = true;
+  }
   bits::copyBits(bits, begin, ensureSpace(numBits), numBits_, numBits);
   numBits_ += numBits;
   setSize();

@@ -337,6 +337,14 @@ class ColumnVisitor {
     return reader_->mutableValues<T>(size);
   }
 
+  int32_t numRows() const {
+    return reader_->numRows();
+  }
+
+  SelectiveColumnReader& reader() const {
+    return *reader_;
+  }
+
   inline vector_size_t rowAt(vector_size_t index) {
     if (isDense) {
       return index;
@@ -390,10 +398,14 @@ class ColumnVisitor {
     return reader_->mutableOutputRows(size);
   }
 
+  void setNumValuesBias(int32_t bias) {
+    numValuesBias_ = bias;
+  }
+
   void setNumValues(int32_t size) {
-    reader_->setNumValues(size);
+    reader_->setNumValues(numValuesBias_ + size);
     if (!std::is_same<TFilter, velox::common::AlwaysTrue>::value) {
-      reader_->setNumRows(size);
+      reader_->setNumRows(numValuesBias_ + size);
     }
   }
 
@@ -414,7 +426,7 @@ class ColumnVisitor {
   }
 
   void setAllNull(int32_t numValues) {
-    reader_->setNumValues(numValues);
+    setNumValues(numValues);
     reader_->setAllNull();
   }
 
@@ -426,8 +438,19 @@ class ColumnVisitor {
     return reader_->outerNonNullRows();
   }
 
+  raw_vector<vector_size_t>& rowsCopy() const {
+    return reader_->scanState().rowsCopy;
+  }
+
   DictionaryColumnVisitor<T, TFilter, ExtractValues, isDense>
   toDictionaryColumnVisitor();
+
+  // Use for replacing *coall rows with non-null rows for fast path with
+  // processRun and processRle.
+  void setRows(folly::Range<const int32_t*> newRows) {
+    rows_ = newRows.data();
+    numRows_ = newRows.size();
+  }
 
  protected:
   TFilter& filter_;
@@ -436,6 +459,7 @@ class ColumnVisitor {
   const vector_size_t* rows_;
   vector_size_t numRows_;
   vector_size_t rowIndex_;
+  int32_t numValuesBias_{0};
   ExtractValues values_;
 };
 
@@ -702,13 +726,6 @@ class DictionaryColumnVisitor
       return 0;
     }
     return super::currentRow() - previous - 1;
-  }
-
-  // Use for replacing all rows with non-null rows for fast path with
-  // processRun and processRle.
-  void setRows(folly::Range<const int32_t*> newRows) {
-    super::rows_ = newRows.data();
-    super::numRows_ = newRows.size();
   }
 
   // Processes 'numInput' dictionary indices in 'input'. Sets 'values'

@@ -75,12 +75,15 @@ void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
   }
 }
 
-void SelectiveColumnReader::prepareNulls(RowSet rows, bool hasNulls) {
+void SelectiveColumnReader::prepareNulls(
+    RowSet rows,
+    bool hasNulls,
+    int32_t extraRows) {
   if (!hasNulls) {
     anyNulls_ = false;
     return;
   }
-  auto numRows = rows.size();
+  auto numRows = rows.size() + extraRows;
   if (useBulkPath()) {
     bool isDense = rows.back() == rows.size() - 1;
     if (!scanSpec_->filter()) {
@@ -288,6 +291,27 @@ void SelectiveColumnReader::addStringValue(folly::StringPiece value) {
   auto copy = copyStringValue(value);
   reinterpret_cast<StringView*>(rawValues_)[numValues_++] =
       StringView(copy, value.size());
+}
+
+bool SelectiveColumnReader::readsNullsOnly() const {
+  auto filter = scanSpec_->filter();
+  if (filter) {
+    auto kind = filter->kind();
+    return kind == velox::common::FilterKind::kIsNull ||
+        (!scanSpec_->keepValues() &&
+         kind == velox::common::FilterKind::kIsNotNull);
+  }
+  return false;
+}
+
+void SelectiveColumnReader::setNulls(BufferPtr resultNulls) {
+  resultNulls_ = resultNulls;
+  rawResultNulls_ = resultNulls ? resultNulls->asMutable<uint64_t>() : nullptr;
+  anyNulls_ = rawResultNulls_ &&
+      !bits::isAllSet(rawResultNulls_, 0, numValues_, bits::kNotNull);
+  allNull_ =
+      anyNulls_ && bits::isAllSet(rawResultNulls_, 0, numValues_, bits::kNull);
+  returnReaderNulls_ = false;
 }
 
 void SelectiveColumnReader::resetFilterCaches() {

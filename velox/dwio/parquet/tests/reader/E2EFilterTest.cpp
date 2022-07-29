@@ -15,11 +15,13 @@
  */
 
 #include "velox/dwio/common/tests/E2EFilterTestBase.h"
+#include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/dwio/parquet/writer/Writer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::parquet;
 
 using dwio::common::MemoryInputStream;
 using dwio::common::MemorySink;
@@ -47,9 +49,9 @@ class E2EFilterTest : public E2EFilterTestBase {
   }
 
   std::unique_ptr<dwio::common::Reader> makeReader(
-      const dwio::common::ReaderOptions&,
-      std::unique_ptr<dwio::common::InputStream>) override {
-    VELOX_NYI();
+      const dwio::common::ReaderOptions& opts,
+      std::unique_ptr<dwio::common::InputStream> input) override {
+    return std::make_unique<ParquetReader>(std::move(input), opts);
   }
 
   std::unique_ptr<facebook::velox::parquet::Writer> writer_;
@@ -65,4 +67,21 @@ TEST_F(E2EFilterTest, writerMagic) {
   auto size = sinkPtr_->size();
   EXPECT_EQ("PAR1", std::string(data, 4));
   EXPECT_EQ("PAR1", std::string(data + size - 4, 4));
+}
+
+TEST_F(E2EFilterTest, integerDirect) {
+  writerProperties_ = ::parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->data_pagesize(4 * 1024)
+                          ->build();
+  testWithTypes(
+      "short_val:smallint,"
+      "int_val:int,"
+      "long_val:bigint,"
+      "long_null:bigint",
+      [&]() { makeAllNulls("long_null"); },
+      false,
+      {"short_val", "int_val", "long_val"},
+      20,
+      true);
 }
