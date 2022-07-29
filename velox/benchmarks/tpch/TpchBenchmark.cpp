@@ -187,6 +187,11 @@ BENCHMARK(q19) {
   benchmark.run(planContext);
 }
 
+BENCHMARK(q22) {
+  const auto planContext = queryBuilder->getQueryPlan(22);
+  benchmark.run(planContext);
+}
+
 int main(int argc, char** argv) {
   folly::init(&argc, &argv, false);
   benchmark.initialize();

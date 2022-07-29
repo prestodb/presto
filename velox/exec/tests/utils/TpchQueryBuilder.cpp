@@ -128,6 +128,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ18Plan();
     case 19:
       return getQ19Plan();
+    case 22:
+      return getQ22Plan();
     default:
       VELOX_NYI("TPC-H query {} is not supported yet", queryId);
   }
@@ -898,6 +900,86 @@ TpchPlan TpchQueryBuilder::getQ19Plan() const {
   context.plan = std::move(plan);
   context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
   context.dataFiles[partScanNodeId] = getTableFilePaths(kPart);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getQ22Plan() const {
+  std::vector<std::string> ordersColumns = {"o_custkey"};
+  std::vector<std::string> customerColumns = {"c_acctbal", "c_phone"};
+  std::vector<std::string> customerColumnsWithKey = {
+      "c_custkey", "c_acctbal", "c_phone"};
+
+  const auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto& ordersFileColumns = getFileColumnNames(kOrders);
+  const auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
+  const auto& customerFileColumns = getFileColumnNames(kCustomer);
+  const auto customerSelectedRowTypeWithKey =
+      getRowType(kCustomer, customerColumnsWithKey);
+  const auto& customerFileColumnsWithKey = getFileColumnNames(kCustomer);
+
+  const std::string phoneFilter =
+      "substr(c_phone, 1, 2) IN ('13', '31', '23', '29', '30', '18', '17')";
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId customerScanNodeId;
+  core::PlanNodeId customerScanNodeIdWithKey;
+  core::PlanNodeId ordersScanNodeId;
+
+  auto orders =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kOrders, ordersSelectedRowType, ordersFileColumns)
+          .capturePlanNodeId(ordersScanNodeId)
+          .planNode();
+
+  auto customerAvgAccountBalance =
+      PlanBuilder(planNodeIdGenerator, pool_.get())
+          .tableScan(
+              kCustomer,
+              customerSelectedRowType,
+              customerFileColumns,
+              {"c_acctbal > 0.0"},
+              phoneFilter)
+          .capturePlanNodeId(customerScanNodeId)
+          .partialAggregation({}, {"avg(c_acctbal) as avg_acctbal"})
+          .localPartition({})
+          .finalAggregation()
+          .planNode();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator, pool_.get())
+          .tableScan(
+              kCustomer,
+              customerSelectedRowTypeWithKey,
+              customerFileColumnsWithKey,
+              {},
+              phoneFilter)
+          .capturePlanNodeId(customerScanNodeIdWithKey)
+          .crossJoin(
+              customerAvgAccountBalance,
+              {"c_acctbal", "avg_acctbal", "c_custkey", "c_phone"})
+          .filter("c_acctbal > avg_acctbal")
+          .hashJoin(
+              {"c_custkey"},
+              {"o_custkey"},
+              orders,
+              "",
+              {"c_acctbal", "c_phone"},
+              core::JoinType::kAnti)
+          .project({"substr(c_phone, 1, 2) AS country_code", "c_acctbal"})
+          .partialAggregation(
+              {"country_code"},
+              {"count(0) AS numcust", "sum(c_acctbal) AS totacctbal"})
+          .localPartition({})
+          .finalAggregation()
+          .orderBy({"country_code"}, false)
+          .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[ordersScanNodeId] = getTableFilePaths(kOrders);
+  context.dataFiles[customerScanNodeId] = getTableFilePaths(kCustomer);
+  context.dataFiles[customerScanNodeIdWithKey] = getTableFilePaths(kCustomer);
   context.dataFileFormat = format_;
   return context;
 }
