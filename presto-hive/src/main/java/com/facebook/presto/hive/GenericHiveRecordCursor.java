@@ -302,7 +302,15 @@ class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
+            ObjectInspector fieldInspector = fieldInspectors[column];
+            Object fieldValue = null;
+            if (fieldInspector instanceof WritableTimestampObjectInspector) {
+                TimestampWritable timestampWritable = new TimestampWritable(new Timestamp(((LongWritable) fieldData).get() / 1000));
+                fieldValue = ((PrimitiveObjectInspector) fieldInspector).getPrimitiveJavaObject(timestampWritable);
+            }
+            else {
+                fieldValue = ((PrimitiveObjectInspector) fieldInspector).getPrimitiveJavaObject(fieldData);
+            }
             checkState(fieldValue != null, "fieldValue should not be null");
             longs[column] = getLongExpressedValue(fieldValue, hiveStorageTimeZone);
             nulls[column] = false;
