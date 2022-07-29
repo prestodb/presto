@@ -352,7 +352,7 @@ class ArrayPositionFunction : public exec::VectorFunction {
     VELOX_CHECK(arrayVector->type()->asArray().elementType()->kindEquals(
         searchVector->type()));
 
-    BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
+    context->ensureWritable(rows, BIGINT(), *result);
     auto flatResult = (*result)->asFlatVector<int64_t>();
 
     exec::DecodedArgs decodedArgs(rows, args, context);

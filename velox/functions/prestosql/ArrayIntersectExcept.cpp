@@ -294,7 +294,7 @@ class ArraysOverlapFunction : public exec::VectorFunction {
         decodeArrayElements(arrayDecoder, elementsDecoder, rows);
     auto decodedLeftArray = arrayDecoder.get();
     auto baseLeftArray = decodedLeftArray->base()->as<ArrayVector>();
-    BaseVector::ensureWritable(rows, BOOLEAN(), context->pool(), result);
+    context->ensureWritable(rows, BOOLEAN(), *result);
     auto resultBoolVector = (*result)->template asFlatVector<bool>();
     auto processRow = [&](auto row, const SetWithNull<T>& rightSet) {
       auto idx = decodedLeftArray->index(row);

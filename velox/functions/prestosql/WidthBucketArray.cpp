@@ -62,7 +62,7 @@ class WidthBucketArrayFunction : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
+    context->ensureWritable(rows, BIGINT(), *result);
     auto flatResult = (*result)->asFlatVector<int64_t>()->mutableRawValues();
 
     exec::DecodedArgs decodedArgs(rows, args, context);
@@ -103,7 +103,7 @@ class WidthBucketArrayFunctionConstantBins : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
+    context->ensureWritable(rows, BIGINT(), *result);
     auto flatResult = (*result)->asFlatVector<int64_t>()->mutableRawValues();
 
     exec::DecodedArgs decodedArgs(rows, args, context);

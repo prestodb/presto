@@ -119,7 +119,7 @@ class HashFunction final : public exec::VectorFunction {
       VectorPtr* resultRef) const final {
     constexpr int32_t kSeed = 42;
 
-    BaseVector::ensureWritable(rows, INTEGER(), context->pool(), resultRef);
+    context->ensureWritable(rows, INTEGER(), *resultRef);
 
     FlatVector<int32_t>& result = *(*resultRef)->as<FlatVector<int32_t>>();
     rows.applyToSelected([&](int row) { result.set(row, kSeed); });

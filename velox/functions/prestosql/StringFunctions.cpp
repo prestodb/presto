@@ -230,7 +230,7 @@ class StringPosition : public exec::VectorFunction {
     auto decodedSubStringInput = decodedArgs.at(1);
 
     auto stringArgStringEncoding = isAscii(args.at(0).get(), rows);
-    BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
+    context->ensureWritable(rows, BIGINT(), *result);
 
     auto* resultFlatVector = (*result)->as<FlatVector<int64_t>>();
 

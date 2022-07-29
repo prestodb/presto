@@ -45,7 +45,7 @@ class LeastGreatestFunction final : public exec::VectorFunction {
     const auto nrows = rows.end();
 
     // Setup result vector.
-    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
+    context->ensureWritable(rows, outputType, *result);
     FlatVector<T>& flatResult = *(*result)->as<FlatVector<T>>();
 
     // NULL all elements.

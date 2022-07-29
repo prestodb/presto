@@ -242,7 +242,7 @@ class InPredicate : public exec::VectorFunction {
     auto flatArg = arg->asUnchecked<FlatVector<T>>();
     auto rawValues = flatArg->rawValues();
 
-    BaseVector::ensureWritable(rows, BOOLEAN(), context->pool(), result);
+    context->ensureWritable(rows, BOOLEAN(), *result);
     auto boolResult = static_cast<FlatVector<bool>*>((*result).get());
 
     auto rawResults = boolResult->mutableRawValues<uint64_t>();

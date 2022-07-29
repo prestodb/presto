@@ -69,17 +69,17 @@ void checkForBadPattern(const RE2& re) {
 
 FlatVector<bool>& ensureWritableBool(
     const SelectivityVector& rows,
-    velox::memory::MemoryPool* pool,
+    EvalCtx* context,
     std::shared_ptr<BaseVector>* result) {
-  BaseVector::ensureWritable(rows, BOOLEAN(), pool, result);
+  context->ensureWritable(rows, BOOLEAN(), *result);
   return *(*result)->as<FlatVector<bool>>();
 }
 
 FlatVector<StringView>& ensureWritableStringView(
     const SelectivityVector& rows,
-    velox::memory::MemoryPool* pool,
+    EvalCtx* context,
     std::shared_ptr<BaseVector>* result) {
-  BaseVector::ensureWritable(rows, VARCHAR(), pool, result);
+  context->ensureWritable(rows, VARCHAR(), *result);
   auto* flat = (*result)->as<FlatVector<StringView>>();
   flat->mutableValues(rows.end());
   return *flat;
@@ -194,8 +194,7 @@ class Re2MatchConstantPattern final : public VectorFunction {
       EvalCtx* context,
       VectorPtr* resultRef) const final {
     VELOX_CHECK_EQ(args.size(), 2);
-    FlatVector<bool>& result =
-        ensureWritableBool(rows, context->pool(), resultRef);
+    FlatVector<bool>& result = ensureWritableBool(rows, context, resultRef);
     exec::LocalDecodedVector toSearch(context, *args[0], rows);
     checkForBadPattern(re_);
     rows.applyToSelected([&](vector_size_t i) {
@@ -223,8 +222,7 @@ class Re2Match final : public VectorFunction {
       return;
     }
     // General case.
-    FlatVector<bool>& result =
-        ensureWritableBool(rows, context->pool(), resultRef);
+    FlatVector<bool>& result = ensureWritableBool(rows, context, resultRef);
     exec::LocalDecodedVector toSearch(context, *args[0], rows);
     exec::LocalDecodedVector pattern(context, *args[1], rows);
     rows.applyToSelected([&](vector_size_t row) {
@@ -258,7 +256,7 @@ class Re2SearchAndExtractConstantPattern final : public VectorFunction {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
     // TODO: Potentially re-use the string vector, not just the buffer.
     FlatVector<StringView>& result =
-        ensureWritableStringView(rows, context->pool(), resultRef);
+        ensureWritableStringView(rows, context, resultRef);
 
     // apply() will not be invoked if the selection is empty.
     checkForBadPattern(re_);
@@ -342,7 +340,7 @@ class Re2SearchAndExtract final : public VectorFunction {
     // The general case. Further optimizations are possible to avoid regex
     // recompilation, but a constant pattern is by far the most common case.
     FlatVector<StringView>& result =
-        ensureWritableStringView(rows, context->pool(), resultRef);
+        ensureWritableStringView(rows, context, resultRef);
     exec::LocalDecodedVector toSearch(context, *args[0], rows);
     exec::LocalDecodedVector pattern(context, *args[1], rows);
     bool mustRefSourceStrings = false;
@@ -399,8 +397,7 @@ class LikeConstantPattern final : public VectorFunction {
 
     // apply() will not be invoked if the selection is empty.
     checkForBadPattern(re_);
-    FlatVector<bool>& result =
-        ensureWritableBool(rows, context->pool(), resultRef);
+    FlatVector<bool>& result = ensureWritableBool(rows, context, resultRef);
 
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto toSearch = decodedArgs.at(0);

@@ -107,7 +107,7 @@ class EqualtoNullSafe final : public exec::VectorFunction {
 
     DecodedVector* decoded0 = decodedArgs.at(0);
     DecodedVector* decoded1 = decodedArgs.at(1);
-    BaseVector::ensureWritable(rows, BOOLEAN(), context->pool(), result);
+    context->ensureWritable(rows, BOOLEAN(), *result);
     FlatVector<bool>* flatResult = (*result)->asFlatVector<bool>();
     flatResult->mutableRawValues<int64_t>();
 

@@ -383,7 +383,7 @@ VectorPtr createVeloxVector(
     exec::EvalCtx* context) {
   auto resultType = toVeloxType(type);
   auto result = BaseVector::create(resultType, count, context->pool());
-  BaseVector::ensureWritable(rows, resultType, context->pool(), &result);
+  context->ensureWritable(rows, resultType, result);
   return result;
 }
 

@@ -33,7 +33,7 @@ class ArrayConstructor : public exec::VectorFunction {
       VectorPtr* result) const override {
     auto numArgs = args.size();
 
-    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
+    context->ensureWritable(rows, outputType, *result);
     (*result)->clearNulls(rows);
     auto arrayResult = (*result)->as<ArrayVector>();
     auto sizes = arrayResult->mutableSizes(rows.size());

@@ -68,7 +68,7 @@ class ExtremeValueFunction : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx* context,
       VectorPtr* result) const {
-    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
+    context->ensureWritable(rows, outputType, *result);
     BufferPtr resultValues =
         (*result)->as<FlatVector<T>>()->mutableValues(rows.end());
     T* __restrict rawResult = resultValues->asMutable<T>();

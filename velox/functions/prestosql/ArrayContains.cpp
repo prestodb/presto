@@ -170,7 +170,7 @@ class ArrayContainsFunction : public exec::VectorFunction {
     VELOX_CHECK(arrayVector->type()->asArray().elementType()->kindEquals(
         searchVector->type()));
 
-    BaseVector::ensureWritable(rows, BOOLEAN(), context->pool(), result);
+    context->ensureWritable(rows, BOOLEAN(), *result);
     auto flatResult = (*result)->asFlatVector<bool>();
 
     exec::LocalDecodedVector arrayHolder(context, *arrayVector, rows);

@@ -41,7 +41,7 @@ class IsNullFunction : public exec::VectorFunction {
         return;
       }
 
-      BaseVector::ensureWritable(rows, BOOLEAN(), arg->pool(), result);
+      context->ensureWritable(rows, BOOLEAN(), *result);
       FlatVector<bool>* flatResult = (*result)->asFlatVector<bool>();
       flatResult->clearNulls(rows);
       flatResult->mutableRawValues<int64_t>();
@@ -56,7 +56,7 @@ class IsNullFunction : public exec::VectorFunction {
       return;
     }
 
-    BaseVector::ensureWritable(rows, BOOLEAN(), arg->pool(), result);
+    context->ensureWritable(rows, BOOLEAN(), *result);
     FlatVector<bool>* flatResult = (*result)->asFlatVector<bool>();
     if (!arg->mayHaveNulls()) {
       rows.applyToSelected(

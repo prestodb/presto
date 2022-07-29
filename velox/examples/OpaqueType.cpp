@@ -134,7 +134,7 @@ class MapResolverVectorFunction : public exec::VectorFunction {
 
     // Ensure we have an output vector where we can write the output opaqued
     // values.
-    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
+    context->ensureWritable(rows, outputType, *result);
     auto* output = (*result)->as<KindToFlatVector<TypeKind::OPAQUE>::type>();
 
     // `applyToSelected()` will execute the lambda below on each row enabled in

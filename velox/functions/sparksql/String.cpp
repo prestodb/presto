@@ -51,7 +51,7 @@ class Instr : public exec::VectorFunction {
     VELOX_CHECK_EQ(args[1]->typeKind(), TypeKind::VARCHAR);
     exec::LocalDecodedVector haystack(context, *args[0], selected);
     exec::LocalDecodedVector needle(context, *args[1], selected);
-    BaseVector::ensureWritable(selected, INTEGER(), context->pool(), result);
+    context->ensureWritable(selected, INTEGER(), *result);
     auto* output = (*result)->as<FlatVector<int32_t>>();
 
     if (isAscii(args[0].get(), selected)) {
@@ -90,7 +90,7 @@ class Length : public exec::VectorFunction {
         args[0]->typeKind() == TypeKind::VARCHAR ||
         args[0]->typeKind() == TypeKind::VARBINARY);
     exec::LocalDecodedVector input(context, *args[0], selected);
-    BaseVector::ensureWritable(selected, INTEGER(), context->pool(), result);
+    context->ensureWritable(selected, INTEGER(), *result);
     auto* output = (*result)->as<FlatVector<int32_t>>();
 
     if (args[0]->typeKind() == TypeKind::VARCHAR &&

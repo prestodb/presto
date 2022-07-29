@@ -191,7 +191,7 @@ struct AsJson {
     });
     baseRows->updateBounds();
 
-    BaseVector::ensureWritable(*baseRows, JSON(), context->pool(), &json_);
+    context->ensureWritable(*baseRows, JSON(), json_);
     auto flatJsonStrings = json_->as<FlatVector<StringView>>();
 
     VELOX_DYNAMIC_TYPE_DISPATCH_ALL(

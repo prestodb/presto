@@ -143,7 +143,7 @@ class VectorArithmetic : public VectorFunction {
     } else {
       // if the output is previously initialized, we prepare it for writing
       // here using ensureWritable
-      BaseVector::ensureWritable(rows, outputType, context->pool(), result);
+      context->ensureWritable(rows, outputType, *result);
     }
     // Here we provide a pointer to the raw flat results.
     BufferPtr resultValues =

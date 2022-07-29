@@ -113,11 +113,8 @@ class MapFunction : public exec::VectorFunction {
     }
 
     // Initializing input
-    BaseVector::ensureWritable(
-        rows,
-        std::make_shared<MapType>(keyType, valueType),
-        context->pool(),
-        result);
+    context->ensureWritable(
+        rows, std::make_shared<MapType>(keyType, valueType), *result);
 
     auto mapResult = (*result)->as<MapVector>();
     auto sizes = mapResult->mutableSizes(rows.size());
