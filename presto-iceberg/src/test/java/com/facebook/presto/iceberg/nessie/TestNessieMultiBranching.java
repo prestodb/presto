@@ -27,7 +27,9 @@ import org.projectnessie.error.NessieNotFoundException;
 import org.projectnessie.model.Branch;
 import org.projectnessie.model.LogResponse;
 import org.projectnessie.model.Reference;
+import org.projectnessie.model.Tag;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -38,6 +40,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Test(singleThreaded = true)
 public class TestNessieMultiBranching
         extends AbstractTestQueryFramework
 {
@@ -66,6 +69,20 @@ public class TestNessieMultiBranching
         }
     }
 
+    @AfterMethod
+    public void resetData() throws NessieNotFoundException, NessieConflictException
+    {
+        Branch defaultBranch = nessieApiV1.getDefaultBranch();
+        for (Reference r : nessieApiV1.getAllReferences().get().getReferences()) {
+            if (r instanceof Branch && !r.getName().equals(defaultBranch.getName())) {
+                nessieApiV1.deleteBranch().branch((Branch) r).delete();
+            }
+            if (r instanceof Tag) {
+                nessieApiV1.deleteTag().tag((Tag) r).delete();
+            }
+        }
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -79,7 +96,7 @@ public class TestNessieMultiBranching
         assertQueryFails(sessionOnRef("unknownRef"), "CREATE SCHEMA nessie_namespace", ".*Nessie ref 'unknownRef' does not exist.*");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testNamespaceVisibility()
             throws NessieConflictException, NessieNotFoundException
     {
@@ -87,28 +104,30 @@ public class TestNessieMultiBranching
         Reference two = createBranch("branchTwo");
         Session sessionOne = sessionOnRef(one.getName());
         Session sessionTwo = sessionOnRef(two.getName());
-        assertQuerySucceeds(sessionOne, "CREATE SCHEMA namespace_one");
-        assertThat(computeActual(sessionOne, "SHOW SCHEMAS FROM iceberg LIKE 'namespace_one'").getMaterializedRows()).hasSize(1);
-        assertQuerySucceeds(sessionTwo, "CREATE SCHEMA namespace_two");
-        assertThat(computeActual(sessionTwo, "SHOW SCHEMAS FROM iceberg LIKE 'namespace_two'").getMaterializedRows()).hasSize(1);
+        assertQuerySucceeds(sessionOne, "CREATE SCHEMA ns_one");
+        assertThat(computeActual(sessionOne, "SHOW SCHEMAS FROM iceberg LIKE 'ns_one'").getMaterializedRows()).hasSize(1);
+        assertQuerySucceeds(sessionTwo, "CREATE SCHEMA ns_two");
+        assertThat(computeActual(sessionTwo, "SHOW SCHEMAS FROM iceberg LIKE 'ns_two'").getMaterializedRows()).hasSize(1);
 
-        // namespace_two shouldn't be visible on branchOne
-        assertThat(computeActual(sessionOne, "SHOW SCHEMAS FROM iceberg LIKE 'namespace_two'").getMaterializedRows()).isEmpty();
-        // namespace_one shouldn't be visible on branchTwo
-        assertThat(computeActual(sessionTwo, "SHOW SCHEMAS FROM iceberg LIKE 'namespace_one'").getMaterializedRows()).isEmpty();
+        // ns_two shouldn't be visible on branchOne
+        assertThat(computeActual(sessionOne, "SHOW SCHEMAS FROM iceberg LIKE 'ns_two'").getMaterializedRows()).isEmpty();
+        // ns_one shouldn't be visible on branchTwo
+        assertThat(computeActual(sessionTwo, "SHOW SCHEMAS FROM iceberg LIKE 'ns_one'").getMaterializedRows()).isEmpty();
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTableDataVisibility()
             throws NessieConflictException, NessieNotFoundException
     {
-        assertQuerySucceeds("CREATE SCHEMA namespace_one");
-        assertQuerySucceeds("CREATE TABLE namespace_one.tbl (a int)");
-        assertQuerySucceeds("INSERT INTO namespace_one.tbl (a) VALUES (1)");
-        assertQuerySucceeds("INSERT INTO namespace_one.tbl (a) VALUES (2)");
+        Reference ref = createBranch("tableDataVisibility");
+        Session session = sessionOnRef(ref.getName());
+        assertQuerySucceeds(session, "CREATE SCHEMA namespace_one");
+        assertQuerySucceeds(session, "CREATE TABLE namespace_one.tbl (a int)");
+        assertQuerySucceeds(session, "INSERT INTO namespace_one.tbl (a) VALUES (1)");
+        assertQuerySucceeds(session, "INSERT INTO namespace_one.tbl (a) VALUES (2)");
 
-        Reference one = createBranch("branchOneWithTable");
-        Reference two = createBranch("branchTwoWithTable");
+        Reference one = createBranch("branchOneWithTable", ref.getName());
+        Reference two = createBranch("branchTwoWithTable", ref.getName());
         Session sessionOne = sessionOnRef(one.getName());
         Session sessionTwo = sessionOnRef(two.getName());
 
@@ -117,9 +136,9 @@ public class TestNessieMultiBranching
         assertQuerySucceeds(sessionTwo, "INSERT INTO namespace_one.tbl (a) VALUES (5)");
         assertQuerySucceeds(sessionTwo, "INSERT INTO namespace_one.tbl (a) VALUES (6)");
 
-        // main branch should still have 2 entries
-        assertThat(computeScalar("SELECT count(*) FROM namespace_one.tbl")).isEqualTo(2L);
-        MaterializedResult rows = computeActual("SELECT * FROM namespace_one.tbl");
+        // tableDataVisibility branch should still have 2 entries
+        assertThat(computeScalar(session, "SELECT count(*) FROM namespace_one.tbl")).isEqualTo(2L);
+        MaterializedResult rows = computeActual(session, "SELECT * FROM namespace_one.tbl");
         assertThat(rows.getMaterializedRows()).hasSize(2);
         assertEqualsIgnoreOrder(rows.getMaterializedRows(), resultBuilder(getSession(), rows.getTypes()).row(1).row(2).build().getMaterializedRows());
 
@@ -161,7 +180,13 @@ public class TestNessieMultiBranching
     private Reference createBranch(String branchName)
             throws NessieConflictException, NessieNotFoundException
     {
-        Reference main = nessieApiV1.getReference().refName("main").get();
-        return nessieApiV1.createReference().sourceRefName(main.getName()).reference(Branch.of(branchName, main.getHash())).create();
+        return createBranch(branchName, "main");
+    }
+
+    private Reference createBranch(String branchName, String sourceBranch)
+            throws NessieConflictException, NessieNotFoundException
+    {
+        Reference source = nessieApiV1.getReference().refName(sourceBranch).get();
+        return nessieApiV1.createReference().sourceRefName(source.getName()).reference(Branch.of(branchName, source.getHash())).create();
     }
 }
