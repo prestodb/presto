@@ -23,12 +23,16 @@ namespace facebook::velox::aggregate::test {
 
 class CountIfAggregationTest : public AggregationTestBase {
  protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    allowInputShuffle();
+  }
+
   RowTypePtr rowType_{
       ROW({"c0", "c1", "c2"}, {INTEGER(), BOOLEAN(), BOOLEAN()})};
 };
 
 TEST_F(CountIfAggregationTest, countIfConst) {
-  // Have two row vectors a lest as it triggers different code paths.
   auto vectors = {
       makeRowVector({
           makeFlatVector<int64_t>(
@@ -40,29 +44,17 @@ TEST_F(CountIfAggregationTest, countIfConst) {
 
   createDuckDbTable(vectors);
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({}, {"count_if(c1)", "count_if(c2)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(
-        agg,
-        "SELECT sum(if(c1, 1, 0)), "
-        "sum(if(c2, 1, 0)) FROM tmp");
-  }
+  testAggregations(
+      vectors,
+      {},
+      {"count_if(c1)", "count_if(c2)"},
+      "SELECT sum(if(c1, 1, 0)), sum(if(c2, 1, 0)) FROM tmp");
 
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation({"c0"}, {"count_if(c1)", "count_if(c2)"})
-                   .finalAggregation()
-                   .planNode();
-    assertQuery(
-        agg,
-        "SELECT c0, sum(if(c1, 1, 0)), "
-        "sum(if(c2, 1, 0)) FROM tmp group by c0");
-  }
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"count_if(c1)", "count_if(c2)"},
+      "SELECT c0, sum(if(c1, 1, 0)), sum(if(c2, 1, 0)) FROM tmp group by c0");
 }
 
 TEST_F(CountIfAggregationTest, oneAggregateSingleGroup) {
@@ -75,70 +67,57 @@ TEST_F(CountIfAggregationTest, oneAggregateSingleGroup) {
   };
 
   createDuckDbTable(vectors);
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"count_if(c0)"})
-                 .finalAggregation()
-                 .planNode();
-  assertQuery(agg, "SELECT sum(if(c0, 1, 0)) FROM tmp");
+
+  testAggregations(
+      vectors, {}, {"count_if(c0)"}, "SELECT sum(if(c0, 1, 0)) FROM tmp");
 }
 
 TEST_F(CountIfAggregationTest, oneAggregateMultipleGroups) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({"c0"}, {"count_if(c1)"})
-                 .finalAggregation()
-                 .planNode();
-  assertQuery(
-      agg,
-      "SELECT c0, sum(CASE WHEN c1 THEN 1 ELSE 0 END) FROM tmp GROUP BY c0");
+
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"count_if(c1)"},
+      "SELECT c0, sum(if(c1, 1, 0)) FROM tmp GROUP BY c0");
 }
 
 TEST_F(CountIfAggregationTest, twoAggregatesSingleGroup) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"count_if(c1)", "count_if(c2)"})
-                 .finalAggregation()
-                 .planNode();
-  assertQuery(
-      agg,
-      "SELECT sum(CASE WHEN c1 THEN 1 ELSE 0 END), "
-      "sum(CASE WHEN c2 THEN 1 ELSE 0 END) FROM tmp");
+
+  testAggregations(
+      vectors,
+      {},
+      {"count_if(c1)", "count_if(c2)"},
+      "SELECT sum(if(c1, 1, 0)), sum(if(c2, 1, 0)) FROM tmp");
 }
 
 TEST_F(CountIfAggregationTest, twoAggregatesMultipleGroups) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({"c0"}, {"count_if(c1)", "count_if(c2)"})
-                 .finalAggregation()
-                 .planNode();
-  assertQuery(
-      agg,
-      "SELECT c0, SUM(CASE WHEN c1 THEN 1 ELSE 0 END), "
-      "SUM(CASE WHEN c2 THEN 1 ELSE 0 END) FROM tmp GROUP BY c0");
+
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"count_if(c1)", "count_if(c2)"},
+      "SELECT c0, SUM(if(c1, 1, 0)), SUM(if(c2, 1, 0)) FROM tmp GROUP BY c0");
 }
 
 TEST_F(CountIfAggregationTest, twoAggregatesMultipleGroupsWrapped) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
-  auto agg =
-      PlanBuilder()
-          .values(vectors)
-          .filter("c0 % 2 = 0")
-          .project({"c0 % 11 AS c0_mod_11", "c1", "c2"})
-          .partialAggregation({"c0_mod_11"}, {"count_if(c1)", "count_if(c2)"})
-          .finalAggregation()
-          .planNode();
-  assertQuery(
-      agg,
-      "SELECT c0 % 11, SUM(CASE WHEN c1 THEN 1 ELSE 0 END), "
-      "SUM(CASE WHEN c2 THEN 1 ELSE 0 END) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
+
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors)
+            .filter("c0 % 2 = 0")
+            .project({"c0 % 11 AS c0_mod_11", "c1", "c2"});
+      },
+      {"c0_mod_11"},
+      {"count_if(c1)", "count_if(c2)"},
+      "SELECT c0 % 11, SUM(if(c1, 1, 0)), SUM(if(c2, 1, 0)) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 }
 
 } // namespace facebook::velox::aggregate::test

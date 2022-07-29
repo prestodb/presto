@@ -151,11 +151,14 @@ class CountIfAggregate : public exec::Aggregate {
 
   void addSingleGroupIntermediateResults(
       char* group,
-      const SelectivityVector& /*rows*/,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    VELOX_CHECK_EQ(1, args[0]->size());
-    auto numTrue = args[0]->as<SimpleVector<int64_t>>()->valueAt(0);
+    auto arg = args[0]->as<SimpleVector<int64_t>>();
+
+    int64_t numTrue = 0;
+    rows.applyToSelected([&](auto row) { numTrue += arg->valueAt(row); });
+
     addToGroup(group, numTrue);
   }
 
