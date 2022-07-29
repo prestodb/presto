@@ -24,6 +24,11 @@ namespace {
 
 class BitwiseAggregationTest : public AggregationTestBase {
  protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    allowInputShuffle();
+  }
+
   RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4"},
           {BIGINT(), TINYINT(), SMALLINT(), INTEGER(), BIGINT()})};
@@ -33,145 +38,54 @@ TEST_F(BitwiseAggregationTest, bitwiseOr) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
 
-  // Global partial aggregation.
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation(
-                       {},
-                       {"bitwise_or_agg(c1)",
-                        "bitwise_or_agg(c2)",
-                        "bitwise_or_agg(c3)",
-                        "bitwise_or_agg(c4)"})
-                   .planNode();
-    assertQuery(
-        agg, "SELECT bit_or(c1), bit_or(c2), bit_or(c3), bit_or(c4) FROM tmp");
-  }
-
-  // Global final aggregation.
-  {
-    auto finalAgg = PlanBuilder()
-                        .values(vectors)
-                        .partialAggregation(
-                            {},
-                            {"bitwise_or_agg(c1)",
-                             "bitwise_or_agg(c2)",
-                             "bitwise_or_agg(c3)",
-                             "bitwise_or_agg(c4)"})
-                        .finalAggregation()
-                        .planNode();
-    assertQuery(
-        finalAgg,
-        "SELECT bit_or(c1), bit_or(c2), bit_or(c3), bit_or(c4) FROM tmp");
-  }
+  // Global aggregation.
+  testAggregations(
+      vectors,
+      {},
+      {"bitwise_or_agg(c1)",
+       "bitwise_or_agg(c2)",
+       "bitwise_or_agg(c3)",
+       "bitwise_or_agg(c4)"},
+      "SELECT bit_or(c1), bit_or(c2), bit_or(c3), bit_or(c4) FROM tmp");
 
   // Group by partial aggregation.
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .project({"c0 % 10", "c1", "c2", "c3", "c4"})
-                   .partialAggregation(
-                       {"p0"},
-                       {"bitwise_or_agg(c1)",
-                        "bitwise_or_agg(c2)",
-                        "bitwise_or_agg(c3)",
-                        "bitwise_or_agg(c4)"})
-                   .planNode();
-    assertQuery(
-        agg,
-        "SELECT c0 % 10, bit_or(c1), bit_or(c2), bit_or(c3), bit_or(c4) FROM tmp GROUP BY 1");
-  }
-
-  // Group by final aggregation.
-  {
-    auto finalAgg = PlanBuilder()
-                        .values(vectors)
-                        .project({"c0 % 10", "c1", "c2", "c3", "c4"})
-                        .partialAggregation(
-                            {"p0"},
-                            {"bitwise_or_agg(c1)",
-                             "bitwise_or_agg(c2)",
-                             "bitwise_or_agg(c3)",
-                             "bitwise_or_agg(c4)"})
-                        .finalAggregation()
-                        .planNode();
-    assertQuery(
-        finalAgg,
-        "SELECT c0 % 10, bit_or(c1), bit_or(c2), bit_or(c3), bit_or(c4) FROM tmp GROUP BY 1");
-  }
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project({"c0 % 10", "c1", "c2", "c3", "c4"});
+      },
+      {"p0"},
+      {"bitwise_or_agg(c1)",
+       "bitwise_or_agg(c2)",
+       "bitwise_or_agg(c3)",
+       "bitwise_or_agg(c4)"},
+      "SELECT c0 % 10, bit_or(c1), bit_or(c2), bit_or(c3), bit_or(c4) FROM tmp GROUP BY 1");
 }
 
 TEST_F(BitwiseAggregationTest, bitwiseAnd) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
 
-  // Global partial aggregation.
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .partialAggregation(
-                       {},
-                       {"bitwise_and_agg(c1)",
-                        "bitwise_and_agg(c2)",
-                        "bitwise_and_agg(c3)",
-                        "bitwise_and_agg(c4)"})
-                   .planNode();
-    assertQuery(
-        agg,
-        "SELECT bit_and(c1), bit_and(c2), bit_and(c3), bit_and(c4) FROM tmp");
-  }
+  // Global aggregation.
+  testAggregations(
+      vectors,
+      {},
+      {"bitwise_and_agg(c1)",
+       "bitwise_and_agg(c2)",
+       "bitwise_and_agg(c3)",
+       "bitwise_and_agg(c4)"},
+      "SELECT bit_and(c1), bit_and(c2), bit_and(c3), bit_and(c4) FROM tmp");
 
-  // Global final aggregation.
-  {
-    auto finalAgg = PlanBuilder()
-                        .values(vectors)
-                        .partialAggregation(
-                            {},
-                            {"bitwise_and_agg(c1)",
-                             "bitwise_and_agg(c2)",
-                             "bitwise_and_agg(c3)",
-                             "bitwise_and_agg(c4)"})
-                        .finalAggregation()
-                        .planNode();
-    assertQuery(
-        finalAgg,
-        "SELECT bit_and(c1), bit_and(c2), bit_and(c3), bit_and(c4) FROM tmp");
-  }
-
-  // Group by partial aggregation.
-  {
-    auto agg = PlanBuilder()
-                   .values(vectors)
-                   .project({"c0 % 10", "c1", "c2", "c3", "c4"})
-                   .partialAggregation(
-                       {"p0"},
-                       {"bitwise_and_agg(c1)",
-                        "bitwise_and_agg(c2)",
-                        "bitwise_and_agg(c3)",
-                        "bitwise_and_agg(c4)"})
-                   .planNode();
-    assertQuery(
-        agg,
-        "SELECT c0 % 10, bit_and(c1), bit_and(c2), bit_and(c3), bit_and(c4) FROM tmp GROUP BY 1");
-  }
-
-  // Group by final aggregation.
-  {
-    auto finalAgg = PlanBuilder()
-                        .values(vectors)
-                        .project({"c0 % 10", "c1", "c2", "c3", "c4"})
-                        .partialAggregation(
-                            {"p0"},
-                            {"bitwise_and_agg(c1)",
-                             "bitwise_and_agg(c2)",
-                             "bitwise_and_agg(c3)",
-                             "bitwise_and_agg(c4)"})
-                        .finalAggregation()
-                        .planNode();
-    assertQuery(
-        finalAgg,
-        "SELECT c0 % 10, bit_and(c1), bit_and(c2), bit_and(c3), bit_and(c4) FROM tmp GROUP BY 1");
-  }
+  // Group by aggregation.
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors).project({"c0 % 10", "c1", "c2", "c3", "c4"});
+      },
+      {"p0"},
+      {"bitwise_and_agg(c1)",
+       "bitwise_and_agg(c2)",
+       "bitwise_and_agg(c3)",
+       "bitwise_and_agg(c4)"},
+      "SELECT c0 % 10, bit_and(c1), bit_and(c2), bit_and(c3), bit_and(c4) FROM tmp GROUP BY 1");
 }
 
 } // namespace
