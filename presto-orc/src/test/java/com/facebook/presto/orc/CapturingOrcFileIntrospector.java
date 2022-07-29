@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
+import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ public class CapturingOrcFileIntrospector
     private final List<StripeInformation> stripeInformations = new ArrayList<>();
     private final List<Stripe> stripes = new ArrayList<>();
     private final Map<Long, Map<StreamId, List<RowGroupIndex>>> rowGroupIndexesByStripeOffset = new HashMap<>();
+    private final Map<Long, StripeFooter> stripeFooterByStripeOffset = new HashMap<>();
     private Footer fileFooter;
     private OrcFileTail fileTail;
 
@@ -56,11 +58,17 @@ public class CapturingOrcFileIntrospector
     }
 
     @Override
+    public void onStripeFooter(StripeInformation stripeInformation, StripeFooter stripeFooter)
+    {
+        Long stripeOffset = stripeInformation.getOffset();
+        assertNull(stripeFooterByStripeOffset.put(stripeOffset, stripeFooter));
+    }
+
+    @Override
     public void onRowGroupIndexes(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes)
     {
         Long stripeOffset = stripe.getOffset();
-        assertNull(rowGroupIndexesByStripeOffset.get(stripeOffset));
-        rowGroupIndexesByStripeOffset.put(stripeOffset, columnIndexes);
+        assertNull(rowGroupIndexesByStripeOffset.put(stripeOffset, columnIndexes));
     }
 
     public List<StripeInformation> getStripeInformations()
@@ -76,6 +84,11 @@ public class CapturingOrcFileIntrospector
     public Map<Long, Map<StreamId, List<RowGroupIndex>>> getRowGroupIndexesByStripeOffset()
     {
         return rowGroupIndexesByStripeOffset;
+    }
+
+    public Map<Long, StripeFooter> getStripeFooterByStripeOffset()
+    {
+        return stripeFooterByStripeOffset;
     }
 
     public Footer getFileFooter()
