@@ -80,10 +80,6 @@ class MetricsLog {
       uint64_t numNodes,
       bool hasSchema) const {}
 
-  virtual void logMapKeyFilter(
-      const FilterNode& /* mapNode */,
-      std::string_view /* expr */) const {}
-
   // write path logging methods
   virtual void logWrite(size_t size, size_t duration) const {}
 

@@ -42,10 +42,6 @@ class TestingDwioMetricsLog : public MetricsLog {
       uint64_t /* unused */,
       bool /* unused */) const override {}
 
-  void logMapKeyFilter(
-      const FilterNode& /* unused */,
-      std::string_view /* unused */) const override {}
-
   void logWrite(
       const std::string& /* unused */,
       size_t /* unused */,

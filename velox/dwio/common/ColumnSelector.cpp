@@ -309,9 +309,6 @@ const FilterTypePtr& ColumnSelector::process(const std::string& column, bool) {
       // set expression for this node
       auto& nodeValue = node->getNode();
       const_cast<common::FilterNode&>(nodeValue).expression = expr;
-
-      // log this filtering expression
-      getLog()->logMapKeyFilter(nodeValue, expr);
     }
     return node;
   }
