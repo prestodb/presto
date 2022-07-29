@@ -141,6 +141,12 @@ public class StreamOrderingLayout
         // iterate through all the encodings and if the encoding has additional sequence encodings put it in the map
         for (Map.Entry<Integer, ColumnEncoding> entry : nodeIdToColumnEncodings.entrySet()) {
             int nodeId = entry.getKey();
+
+            // skip the root node, because it doesn't have a column
+            if (nodeId == 0) {
+                continue;
+            }
+
             int column = nodeIdToColumn.get(nodeId);
             if (entry.getValue().getAdditionalSequenceEncodings().isPresent() && columnToKeySet.containsKey(column) && !columnsVisited.contains(column)) {
                 // add entries only if stream ordering contains the column ID
