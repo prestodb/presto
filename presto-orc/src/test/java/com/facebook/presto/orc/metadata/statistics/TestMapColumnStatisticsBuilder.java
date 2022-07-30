@@ -83,6 +83,34 @@ public class TestMapColumnStatisticsBuilder
         assertEquals(entries.get(1).getColumnStatistics(), columnStatistics2);
     }
 
+    // test a case when keys are carried of from one row group, to another row
+    // group having all null entries
+    @Test(dataProvider = "keySupplier")
+    public void testAddMapStatisticsNoValues(KeyInfo[] keys)
+    {
+        KeyInfo key1 = keys[0];
+        KeyInfo key2 = keys[1];
+
+        ColumnStatistics columnStatistics1 = new ColumnStatistics(3L, null);
+        ColumnStatistics columnStatistics2 = new ColumnStatistics(5L, null);
+
+        MapColumnStatisticsBuilder builder = new MapColumnStatisticsBuilder(true);
+        builder.addMapStatistics(key1, columnStatistics1);
+        builder.addMapStatistics(key2, columnStatistics2);
+        builder.increaseValueCount(0);
+
+        MapColumnStatistics columnStatistics = (MapColumnStatistics) builder.buildColumnStatistics();
+        assertEquals(columnStatistics.getNumberOfValues(), 0);
+
+        MapStatistics mapStatistics = columnStatistics.getMapStatistics();
+        List<MapStatisticsEntry> entries = mapStatistics.getEntries();
+        assertEquals(entries.size(), 2);
+        assertEquals(entries.get(0).getKey(), key1);
+        assertEquals(entries.get(0).getColumnStatistics(), columnStatistics1);
+        assertEquals(entries.get(1).getKey(), key2);
+        assertEquals(entries.get(1).getColumnStatistics(), columnStatistics2);
+    }
+
     @Test(dataProvider = "keySupplier")
     public void testMergeMapStatistics(KeyInfo[] keys)
     {
