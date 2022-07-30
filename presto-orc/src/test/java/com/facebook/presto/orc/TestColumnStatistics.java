@@ -227,6 +227,53 @@ public class TestColumnStatistics
                 rowGroupStats3.buildColumnStatistics());
     }
 
+    // test a case when first row group has values, but second row group is all nulls,
+    // thus forcing the keys from first row group to be carried over to the second row group
+    // and use 0 value count
+    @Test(dataProvider = "mapKeyTypeProvider")
+    public void testMapStatisticsWithNullsFullRowGroup(Type mapKeyType)
+            throws Exception
+    {
+        MapType mapType = (MapType) mapType(mapKeyType, BIGINT);
+        Object key = mapKeyType == BIGINT ? 0L : "k0";
+
+        Page maps = createMapPage(mapType, Arrays.asList(
+                // stripe 1, row group 1
+                mapOf(key, 1L),
+                mapOf(),
+
+                // stripe 1, row group 2 - make all values null to have make
+                // nonNullRowGroupValueCount=0 in MapFlatColumnWriter
+                null,
+                null,
+
+                // stripe 2, row group 1
+                mapOf(key, null),
+                mapOf(key, 2L)));
+
+        MapColumnStatisticsBuilder fileStatistics = new MapColumnStatisticsBuilder(true);
+        fileStatistics.increaseValueCount(4);
+        addIntStats(fileStatistics, key, 2L, 1L, 2L, 3L);
+
+        MapColumnStatisticsBuilder rowGroupStats1 = new MapColumnStatisticsBuilder(true);
+        rowGroupStats1.increaseValueCount(2);
+        addIntStats(rowGroupStats1, key, 1L, 1L, 1L, 1L);
+
+        MapColumnStatisticsBuilder rowGroupStats2 = new MapColumnStatisticsBuilder(true);
+        rowGroupStats2.increaseValueCount(0);
+        rowGroupStats2.addMapStatistics(keyInfo(key), new ColumnStatistics(0L));
+
+        MapColumnStatisticsBuilder rowGroupStats3 = new MapColumnStatisticsBuilder(true);
+        rowGroupStats3.increaseValueCount(2);
+        addIntStats(rowGroupStats3, key, 1L, 2L, 2L, 2L);
+
+        doTestFlatMapStatistics(mapType, maps,
+                fileStatistics.buildColumnStatistics(),
+                rowGroupStats1.buildColumnStatistics(),
+                rowGroupStats2.buildColumnStatistics(),
+                rowGroupStats3.buildColumnStatistics());
+    }
+
     private void doTestFlatMapStatistics(
             Type type,
             Page page,
@@ -237,6 +284,7 @@ public class TestColumnStatistics
             throws Exception
     {
         // this test case is geared toward pages with 6 rows to create two stripes with 4 and 2 rows each
+        // row group size is 2 rows (MAP_STATS_TEST_ROW_GROUP_MAX_ROW_COUNT)
         assertEquals(page.getPositionCount(), 6);
 
         CapturingOrcFileIntrospector introspector;
