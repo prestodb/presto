@@ -242,7 +242,8 @@ TEST_F(JodaDateTimeTest, parseSecond) {
 }
 
 TEST_F(JodaDateTimeTest, parseTimezone) {
-  // Broken timezone offfsets; allowed formats are either "+00:00" or "+00".
+  // Broken timezone offfsets; allowed formats are "+00:00", "+00", "+0000" or
+  // "Z".
   EXPECT_THROW(parse("", "ZZ"), VeloxUserError);
   EXPECT_THROW(parse("0", "ZZ"), VeloxUserError);
   EXPECT_THROW(parse("00", "ZZ"), VeloxUserError);
@@ -251,10 +252,14 @@ TEST_F(JodaDateTimeTest, parseTimezone) {
   EXPECT_THROW(parse("+00:", "ZZ"), VeloxUserError);
   EXPECT_THROW(parse("+00:0", "ZZ"), VeloxUserError);
   EXPECT_THROW(parse("12", "YYZZ"), VeloxUserError);
+  EXPECT_THROW(parse("ZZ", "Z"), VeloxUserError);
+  EXPECT_THROW(parse("ZZ", "ZZ"), VeloxUserError);
 
   // GMT
   EXPECT_EQ("+00:00", parseTZ("+00:00", "ZZ"));
   EXPECT_EQ("+00:00", parseTZ("-00:00", "ZZ"));
+  EXPECT_EQ("+00:00", parseTZ("Z", "ZZ"));
+  EXPECT_EQ("+00:00", parseTZ("Z", "Z"));
 
   // Valid long format:
   EXPECT_EQ("+00:01", parseTZ("+00:01", "ZZ"));
@@ -359,6 +364,11 @@ TEST_F(JodaDateTimeTest, parseFractionOfSecond) {
   EXPECT_NE(
       util::fromTimestampString("2022-02-23 12:15:00.223"),
       parse("2022-02-23T12:15:00.776", "yyyy-MM-dd'T'HH:mm:ss.SSS"));
+
+  // Z in the input means GMT in Joda.
+  EXPECT_EQ(
+      util::fromTimestampString("2022-07-29 20:03:54.667"),
+      parse("2022-07-29T20:03:54.667Z", "yyyy-MM-dd'T'HH:mm:ss.SSSZ"));
 }
 
 } // namespace
