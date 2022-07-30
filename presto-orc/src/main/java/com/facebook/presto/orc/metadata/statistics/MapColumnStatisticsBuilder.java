@@ -26,7 +26,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class MapColumnStatisticsBuilder
@@ -73,7 +72,6 @@ public class MapColumnStatisticsBuilder
     private Optional<MapStatistics> buildMapStatistics()
     {
         if (hasEntries && collectKeyStats) {
-            checkState(nonNullValueCount > 0, "MapColumnStatisticsBuilder has map entries, but nonNullValueCount is 0");
             MapStatistics mapStatistics = new MapStatistics(entries.build());
             return Optional.of(mapStatistics);
         }
@@ -84,7 +82,6 @@ public class MapColumnStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         if (hasEntries && collectKeyStats) {
-            checkState(nonNullValueCount > 0, "MapColumnStatisticsBuilder has map entries, but nonNullValueCount is 0");
             MapStatistics mapStatistics = new MapStatistics(entries.build());
             return new MapColumnStatistics(nonNullValueCount, null, mapStatistics);
         }
