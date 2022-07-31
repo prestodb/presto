@@ -15,20 +15,24 @@ package com.facebook.presto.router;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.airlift.http.server.HttpServerInfo;
 import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.node.testing.TestingNodeModule;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.jdbc.PrestoResultSet;
-import com.facebook.presto.router.cluster.ClusterStatusTracker;
+import com.facebook.presto.router.predictor.CpuInfo;
+import com.facebook.presto.router.predictor.MemoryInfo;
+import com.facebook.presto.router.predictor.PredictorManager;
+import com.facebook.presto.router.predictor.ResourceGroup;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
+import okhttp3.mockwebserver.Dispatcher;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -39,31 +43,23 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static java.lang.String.format;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestClusterManager
+public class TestPredictorManager
 {
-    private static final int NUM_CLUSTERS = 3;
-    private static final int NUM_QUERIES = 7;
+    private static final int NUM_CLUSTERS = 2;
 
     private List<TestingPrestoServer> prestoServers;
     private LifeCycleManager lifeCycleManager;
-    private HttpServerInfo httpServerInfo;
-    private ClusterStatusTracker clusterStatusTracker;
+    private PredictorManager predictorManager;
     private File configFile;
+    private MockWebServer predictorServer;
 
     @BeforeClass
     public void setup()
@@ -81,15 +77,48 @@ public class TestClusterManager
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),
-                new TestingHttpServerModule(), new JsonModule(),
+                new TestingHttpServerModule(),
+                new JsonModule(),
                 new JaxrsModule(true),
                 new RouterModule());
 
-        Injector injector = app.doNotInitializeLogging().setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath()).quiet().initialize();
+        Injector injector = app
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
+                .quiet()
+                .initialize();
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
-        httpServerInfo = injector.getInstance(HttpServerInfo.class);
-        clusterStatusTracker = injector.getInstance(ClusterStatusTracker.class);
+        predictorManager = injector.getInstance(PredictorManager.class);
+        initializePredictorServer();
+    }
+
+    @Test
+    public void testPredictor()
+    {
+        String sql = "select * from presto.logs";
+
+        ResourceGroup resourceGroup = predictorManager.fetchPrediction(sql);
+        assertNotNull(resourceGroup, "The resource group should not be null");
+        assertNotNull(resourceGroup.getCpuInfo());
+        assertNotNull(resourceGroup.getMemoryInfo());
+
+        resourceGroup = predictorManager.fetchPredictionParallel(sql);
+        assertNotNull(resourceGroup, "The resource group should not be null");
+        assertNotNull(resourceGroup.getCpuInfo());
+        assertNotNull(resourceGroup.getMemoryInfo());
+
+        CpuInfo cpuInfo = predictorManager.fetchCpuPrediction(sql);
+        MemoryInfo memoryInfo = predictorManager.fetchMemoryPrediction(sql);
+        assertNotNull(cpuInfo);
+        assertNotNull(memoryInfo);
+
+        int low = 0;
+        int high = 3;
+        assertTrue(low <= cpuInfo.getCpuTimeLabel(), "CPU time label should be larger or equal to " + low);
+        assertTrue(cpuInfo.getCpuTimeLabel() <= high, "CPU time label should be smaller or equal to " + high);
+        assertTrue(low <= memoryInfo.getMemoryBytesLabel(), "Memory bytes label should be larger or equal to " + low);
+        assertTrue(memoryInfo.getMemoryBytesLabel() <= high, "Memory bytes label should be smaller or equal to " + high);
     }
 
     @AfterClass(alwaysRun = true)
@@ -100,55 +129,7 @@ public class TestClusterManager
             prestoServer.close();
         }
         lifeCycleManager.stop();
-    }
-
-    @Test(enabled = false)
-    public void testQuery()
-            throws Exception
-    {
-        String sql = "SELECT row_number() OVER () n FROM tpch.tiny.orders";
-        for (int i = 0; i < NUM_QUERIES; ++i) {
-            try (Connection connection = createConnection(httpServerInfo.getHttpUri());
-                    Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery(sql)) {
-                long count = 0;
-                long sum = 0;
-                while (rs.next()) {
-                    count++;
-                    sum += rs.getLong("n");
-                }
-                assertEquals(count, 15000);
-                assertEquals(sum, (count / 2) * (1 + count));
-            }
-        }
-
-        sleepUninterruptibly(10, SECONDS);
-        assertEquals(clusterStatusTracker.getAllQueryInfos().size(), NUM_QUERIES);
-        assertQueryState();
-    }
-
-    private void assertQueryState()
-            throws SQLException
-    {
-        String sql = "SELECT query_id, state FROM system.runtime.queries";
-        int total = 0;
-        for (TestingPrestoServer server : prestoServers) {
-            try (Connection connection = createConnection(server.getBaseUrl());
-                    Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery(sql)) {
-                String id = rs.unwrap(PrestoResultSet.class).getQueryId();
-                int count = 0;
-                while (rs.next()) {
-                    if (!rs.getString("query_id").equals(id)) {
-                        assertEquals(QueryState.valueOf(rs.getString("state")), QueryState.FINISHED);
-                        count++;
-                    }
-                }
-                assertTrue(count > 0);
-                total += count;
-            }
-        }
-        assertEquals(total, NUM_QUERIES);
+        predictorServer.close();
     }
 
     private static TestingPrestoServer createPrestoServer()
@@ -160,6 +141,33 @@ public class TestClusterManager
         server.refreshNodes();
 
         return server;
+    }
+
+    private void initializePredictorServer()
+            throws IOException
+    {
+        Dispatcher dispatcher = new Dispatcher()
+        {
+            @Override
+            public MockResponse dispatch(RecordedRequest request)
+            {
+                switch (request.getPath()) {
+                    case "/v1/cpu":
+                        return new MockResponse()
+                                .addHeader(CONTENT_TYPE, "application/json")
+                                .setBody("{\"cpu_pred_label\": 2, \"cpu_pred_str\": \"1h - 5h\"}");
+                    case "/v1/memory":
+                        return new MockResponse()
+                                .addHeader(CONTENT_TYPE, "application/json")
+                                .setBody("{\"memory_pred_label\": 2, \"memory_pred_str\": \"> 1TB\"}");
+                }
+                return new MockResponse().setResponseCode(404);
+            }
+        };
+
+        predictorServer = new MockWebServer();
+        predictorServer.setDispatcher(dispatcher);
+        predictorServer.start(8000);
     }
 
     private File getConfigFile(List<TestingPrestoServer> servers)
@@ -178,13 +186,6 @@ public class TestClusterManager
     {
         JsonCodec<List<URI>> codec = JsonCodec.listJsonCodec(URI.class);
         return codec.toJson(servers.stream().map(TestingPrestoServer::getBaseUrl).collect(toImmutableList()));
-    }
-
-    private static Connection createConnection(URI uri)
-            throws SQLException
-    {
-        String url = format("jdbc:presto://%s:%s", uri.getHost(), uri.getPort());
-        return DriverManager.getConnection(url, "test", null);
     }
 
     private String getResourceFilePath(String fileName)
