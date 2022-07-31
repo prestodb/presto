@@ -31,6 +31,13 @@
             <artifactId>hadoop-apache2</artifactId>
         </dependency>
 
+        <!-- the dependency is needed for UDF registration -->
+        <!-- similar issue: https://issues.apache.org/jira/browse/SPARK-27176 -->
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-llap-common</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>

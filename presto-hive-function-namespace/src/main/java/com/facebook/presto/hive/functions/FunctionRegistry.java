@@ -17,6 +17,8 @@ package com.facebook.presto.hive.functions;
 import org.apache.hadoop.hive.ql.exec.FunctionInfo;
 import org.apache.hadoop.hive.ql.exec.Registry;
 import org.apache.hadoop.hive.ql.parse.SemanticException;
+import org.apache.hadoop.hive.ql.udf.UDFAcos;
+import org.apache.hadoop.hive.ql.udf.UDFAsin;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFAverage;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFCollectList;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFCollectSet;
@@ -305,6 +307,10 @@ public final class FunctionRegistry
         system.registerGenericUDF("to_epoch_milli", GenericUDFEpochMilli.class);
         system.registerGenericUDF("lead", GenericUDFLead.class);
         system.registerGenericUDF("lag", GenericUDFLag.class);
+
+        // register UDF
+        system.registerUDF("asin", UDFAsin.class, false);
+        system.registerUDF("acos", UDFAcos.class, false);
 
         // Aggregate functions
         system.registerGenericUDAF("max", new GenericUDAFMax());
