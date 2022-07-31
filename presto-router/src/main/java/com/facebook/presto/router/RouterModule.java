@@ -20,6 +20,10 @@ import com.facebook.presto.router.cluster.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.ForClusterInfoTracker;
 import com.facebook.presto.router.cluster.ForQueryInfoTracker;
 import com.facebook.presto.router.cluster.RemoteInfoFactory;
+import com.facebook.presto.router.predictor.ForQueryCpuPredictor;
+import com.facebook.presto.router.predictor.ForQueryMemoryPredictor;
+import com.facebook.presto.router.predictor.PredictorManager;
+import com.facebook.presto.router.predictor.RemoteQueryFactory;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.units.Duration;
@@ -37,8 +41,10 @@ public class RouterModule
 {
     private static final int IDLE_TIMEOUT_SECOND = 30;
     private static final int REQUEST_TIMEOUT_SECOND = 10;
+    private static final int PREDICTOR_REQUEST_TIMEOUT_SECOND = 2;
 
     private static final String QUERY_TRACKER = "query-tracker";
+    private static final String QUERY_PREDICTOR = "query-predictor";
     private static final String UI_PATH = "/ui";
     private static final String ROUTER_UI = "router_ui";
     private static final String INDEX_HTML = "index.html";
@@ -52,20 +58,26 @@ public class RouterModule
         binder.bind(ClusterManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteInfoFactory.class).in(Scopes.SINGLETON);
 
-        bindHttpClient(binder, QUERY_TRACKER, ForQueryInfoTracker.class);
-        bindHttpClient(binder, QUERY_TRACKER, ForClusterInfoTracker.class);
+        bindHttpClient(binder, QUERY_TRACKER, ForQueryInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
+        bindHttpClient(binder, QUERY_TRACKER, ForClusterInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
 
         binder.bind(ClusterStatusTracker.class).in(Scopes.SINGLETON);
+
+        binder.bind(PredictorManager.class).in(Scopes.SINGLETON);
+        binder.bind(RemoteQueryFactory.class).in(Scopes.SINGLETON);
+
+        bindHttpClient(binder, QUERY_PREDICTOR, ForQueryCpuPredictor.class, IDLE_TIMEOUT_SECOND, PREDICTOR_REQUEST_TIMEOUT_SECOND);
+        bindHttpClient(binder, QUERY_PREDICTOR, ForQueryMemoryPredictor.class, IDLE_TIMEOUT_SECOND, PREDICTOR_REQUEST_TIMEOUT_SECOND);
 
         jaxrsBinder(binder).bind(RouterResource.class);
         jaxrsBinder(binder).bind(ClusterStatusResource.class);
     }
 
-    private void bindHttpClient(Binder binder, String name, Class<? extends Annotation> annotation)
+    private void bindHttpClient(Binder binder, String name, Class<? extends Annotation> annotation, int idleTimeout, int requestTimeout)
     {
         httpClientBinder(binder).bindHttpClient(name, annotation).withConfigDefaults(config -> {
-            config.setIdleTimeout(new Duration(IDLE_TIMEOUT_SECOND, SECONDS));
-            config.setRequestTimeout(new Duration(REQUEST_TIMEOUT_SECOND, SECONDS));
+            config.setIdleTimeout(new Duration(idleTimeout, SECONDS));
+            config.setRequestTimeout(new Duration(requestTimeout, SECONDS));
         });
     }
 }
