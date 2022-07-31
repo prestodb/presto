@@ -3,9 +3,9 @@ package com.facebook.presto.util;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public final class MapUitls {
+public final class MapUtils {
 
-    private MapUitls() {
+    private MapUtils() {
     }
 
     public static <K, V> Collection<K> getTopNKeys(final Map<K, V> map, final long n) {
