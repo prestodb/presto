@@ -93,23 +93,23 @@ public class TestPredictorManager
         initializePredictorServer();
     }
 
-    @Test
+    @Test(enabled = false)
     public void testPredictor()
     {
         String sql = "select * from presto.logs";
 
-        ResourceGroup resourceGroup = predictorManager.fetchPrediction(sql);
+        ResourceGroup resourceGroup = predictorManager.fetchPrediction(sql).orElse(null);
         assertNotNull(resourceGroup, "The resource group should not be null");
         assertNotNull(resourceGroup.getCpuInfo());
         assertNotNull(resourceGroup.getMemoryInfo());
 
-        resourceGroup = predictorManager.fetchPredictionParallel(sql);
+        resourceGroup = predictorManager.fetchPredictionParallel(sql).orElse(null);
         assertNotNull(resourceGroup, "The resource group should not be null");
         assertNotNull(resourceGroup.getCpuInfo());
         assertNotNull(resourceGroup.getMemoryInfo());
 
-        CpuInfo cpuInfo = predictorManager.fetchCpuPrediction(sql);
-        MemoryInfo memoryInfo = predictorManager.fetchMemoryPrediction(sql);
+        CpuInfo cpuInfo = predictorManager.fetchCpuPrediction(sql).orElse(null);
+        MemoryInfo memoryInfo = predictorManager.fetchMemoryPrediction(sql).orElse(null);
         assertNotNull(cpuInfo);
         assertNotNull(memoryInfo);
 

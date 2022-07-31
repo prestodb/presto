@@ -107,7 +107,8 @@ The following provides an example of ``etc/router-config.json``.
           "targetGroup": "all"
         }
       ],
-      "scheduler": "RANDOM_CHOICE"
+      "scheduler": "RANDOM_CHOICE",
+      "predictor": "http://127.0.0.1:8000/v1"
     }
 
 These properties requires some explanation:
@@ -125,6 +126,12 @@ These properties requires some explanation:
 * ``scheduler``:
   The type of scheduler used in the router service. See :doc:`/router/scheduler`
   for details.
+  The default is *RANDOM_CHOICE*.
+
+* ``predictor``:
+  An optional URI for the query predictor. The router uses the URI to fetch
+  query resource usage information from the predictor for scheduling.
+  The default is *http://127.0.0.1:8000/v1*.
 
 .. _running_router:
 

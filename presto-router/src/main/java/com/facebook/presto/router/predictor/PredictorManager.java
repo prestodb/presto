@@ -19,6 +19,7 @@ import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.spec.RouterSpec;
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 
@@ -29,10 +30,12 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -55,87 +58,100 @@ public class PredictorManager
     @Inject
     public PredictorManager(RemoteQueryFactory remoteQueryFactory, RouterConfig config)
     {
-        RouterSpec routerSpec;
-        try {
-            routerSpec = CODEC.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile())));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        catch (IllegalArgumentException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof UnrecognizedPropertyException) {
-                UnrecognizedPropertyException ex = (UnrecognizedPropertyException) cause;
-                String message = format("Unknown property at line %s:%s: %s",
-                        ex.getLocation().getLineNr(),
-                        ex.getLocation().getColumnNr(),
-                        ex.getPropertyName());
-                throw new IllegalArgumentException(message, e);
-            }
-            if (cause instanceof JsonMappingException) {
-                // remove the extra "through reference chain" message
-                if (cause.getCause() != null) {
-                    cause = cause.getCause();
-                }
-                throw new IllegalArgumentException(cause.getMessage(), e);
-            }
-            throw e;
-        }
+        RouterSpec routerSpec = parseRouterConfig(config)
+                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
 
         this.remoteQueryFactory = requireNonNull(remoteQueryFactory, "");
-        this.uri = routerSpec.getPredictorUri();
+        this.uri = routerSpec.getPredictorUri().orElse(null);
     }
 
-    public ResourceGroup fetchPrediction(String statement)
+    public Optional<ResourceGroup> fetchPrediction(String statement)
     {
         try {
-            return new ResourceGroup(fetchCpuPrediction(statement), fetchMemoryPrediction(statement));
+            return Optional.of(new ResourceGroup(fetchCpuPrediction(statement).orElse(null), fetchMemoryPrediction(statement).orElse(null)));
         }
         catch (Exception e) {
             log.error("Error in fetching prediction", e);
         }
-        return null;
+        return Optional.empty();
     }
 
-    public ResourceGroup fetchPredictionParallel(String statement)
+    public Optional<ResourceGroup> fetchPredictionParallel(String statement)
     {
         ExecutorService executor = Executors.newCachedThreadPool();
-        Future<CpuInfo> cpuInfoFuture = executor.submit(() -> fetchCpuPrediction(statement));
-        Future<MemoryInfo> memoryInfoFuture = executor.submit(() -> fetchMemoryPrediction(statement));
+        Future<CpuInfo> cpuInfoFuture = executor.submit(() -> fetchCpuPrediction(statement).orElse(null));
+        Future<MemoryInfo> memoryInfoFuture = executor.submit(() -> fetchMemoryPrediction(statement).orElse(null));
         try {
-            return new ResourceGroup(cpuInfoFuture.get(), memoryInfoFuture.get());
+            return Optional.of(new ResourceGroup(cpuInfoFuture.get(), memoryInfoFuture.get()));
         }
         catch (Exception e) {
             log.error("Error in fetching prediction in parallel", e);
         }
-        return null;
+        return Optional.empty();
     }
 
-    public CpuInfo fetchCpuPrediction(String statement)
+    public Optional<CpuInfo> fetchCpuPrediction(String statement)
     {
         RemoteQueryCpu remoteQueryCpu;
         try {
             remoteQueryCpu = this.remoteQueryFactory.createRemoteQueryCPU(this.uri);
             remoteQueryCpu.execute(statement);
-            return remoteQueryCpu.getCpuInfo();
+            return Optional.of(remoteQueryCpu.getCpuInfo());
         }
         catch (Exception e) {
             log.error("Error in fetching CPU prediction", e);
         }
-        return null;
+        return Optional.empty();
     }
 
-    public MemoryInfo fetchMemoryPrediction(String statement)
+    public Optional<MemoryInfo> fetchMemoryPrediction(String statement)
     {
         RemoteQueryMemory remoteQueryMemory;
         try {
             remoteQueryMemory = this.remoteQueryFactory.createRemoteQueryMemory(this.uri);
             remoteQueryMemory.execute(statement);
-            return remoteQueryMemory.getMemoryInfo();
+            return Optional.of(remoteQueryMemory.getMemoryInfo());
         }
         catch (Exception e) {
             log.error("Error in fetching memory prediction", e);
         }
-        return null;
+        return Optional.empty();
+    }
+
+    private static Optional<RouterSpec> parseRouterConfig(RouterConfig config)
+    {
+        Optional<RouterSpec> routerSpec;
+        try {
+            routerSpec = Optional.of(CODEC.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile()))));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        catch (IllegalArgumentException e) {
+            handleConfigIllegalArgumentException(e);
+            throw e;
+        }
+
+        return routerSpec;
+    }
+
+    private static void handleConfigIllegalArgumentException(IllegalArgumentException e)
+    {
+        Throwable cause = e.getCause();
+        if (cause instanceof UnrecognizedPropertyException) {
+            UnrecognizedPropertyException ex = (UnrecognizedPropertyException) cause;
+            String message = format("Unknown property at line %s:%s: %s",
+                    ex.getLocation().getLineNr(),
+                    ex.getLocation().getColumnNr(),
+                    ex.getPropertyName());
+            throw new IllegalArgumentException(message, e);
+        }
+        if (cause instanceof JsonMappingException) {
+            // remove the extra "through reference chain" message
+            if (cause.getCause() != null) {
+                cause = cause.getCause();
+            }
+            throw new IllegalArgumentException(cause.getMessage(), e);
+        }
     }
 }
