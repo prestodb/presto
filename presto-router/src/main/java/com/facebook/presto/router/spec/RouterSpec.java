@@ -75,14 +75,14 @@ public class RouterSpec
     }
 
     @JsonProperty
-    public URI getPredictorUri()
+    public Optional<URI> getPredictorUri()
     {
         try {
-            return predictorUri.orElse(new URI("http://127.0.0.1:8000/v1"));
+            return Optional.of(predictorUri.orElse(new URI("http://127.0.0.1:8000/v1")));
         }
         catch (URISyntaxException e) {
             log.error("Error in getting the predictor's URI");
         }
-        return null;
+        return Optional.empty();
     }
 }
