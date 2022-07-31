@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
@@ -151,21 +152,25 @@ import static java.util.stream.Collectors.toList;
 public class AddExchanges
         implements PlanOptimizer
 {
+    private static final Logger log = Logger.get(AddExchanges.class);
     private final SqlParser parser;
     private final Metadata metadata;
     private final PartitioningProviderManager partitioningProviderManager;
+    private final PhysicalResourceOptimizer physicalResourceOptimizer;
 
-    public AddExchanges(Metadata metadata, SqlParser parser, PartitioningProviderManager partitioningProviderManager)
+    public AddExchanges(Metadata metadata, SqlParser parser, PartitioningProviderManager partitioningProviderManager, PhysicalResourceOptimizer physicalResourceOptimizer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
+        this.physicalResourceOptimizer = requireNonNull(physicalResourceOptimizer, "physicalResourceOptimizer is null");
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager), PreferredProperties.any());
+        log.info("MYMARKER in AddExchanges optimize  hash partition=>" + getHashPartitionCount(session));
+        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager, physicalResourceOptimizer), PreferredProperties.any());
         return result.getNode();
     }
 
@@ -191,7 +196,8 @@ public class AddExchanges
                 PlanNodeIdAllocator idAllocator,
                 PlanVariableAllocator variableAllocator,
                 Session session,
-                PartitioningProviderManager partitioningProviderManager)
+                PartitioningProviderManager partitioningProviderManager,
+                PhysicalResourceOptimizer physicalResourceOptimizer)
         {
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
@@ -204,7 +210,7 @@ public class AddExchanges
             this.partialMergePushdownStrategy = getPartialMergePushdownStrategy(session);
             this.preferStreamingOperators = preferStreamingOperators(session);
             this.partitioningProviderCatalog = getPartitioningProviderCatalog(session);
-            this.hashPartitionCount = getHashPartitionCount(session);
+            this.hashPartitionCount = (physicalResourceOptimizer.isValid()) ? physicalResourceOptimizer.getHashPartitionCount() : getHashPartitionCount(session);
             this.exchangeMaterializationStrategy = getExchangeMaterializationStrategy(session);
             this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         }

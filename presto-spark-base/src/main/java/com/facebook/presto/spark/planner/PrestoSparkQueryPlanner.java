@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.planner;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
@@ -21,6 +22,7 @@ import com.facebook.presto.execution.Output;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spark.PhysicalResourceSettings;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.QueryType;
@@ -51,6 +53,7 @@ import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkQueryPlanner
 {
+    private static final Logger log = Logger.get(PrestoSparkQueryPlanner.class);
     private final SqlParser sqlParser;
     private final PlanOptimizers optimizers;
     private final QueryExplainer queryExplainer;
@@ -95,6 +98,7 @@ public class PrestoSparkQueryPlanner
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                 warningCollector);
 
+        log.info("optimizer class ->" + optimizers.getClass());
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 false,
                 session,
@@ -113,13 +117,30 @@ public class PrestoSparkQueryPlanner
         Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
         Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());
         List<String> columnNames = ((OutputNode) plan.getRoot()).getColumnNames();
+        PhysicalResourceSettings physicalResourceSettings = new PhysicalResourceSettings(optimizers.getPhysicalResourceOptimizer().getExecutorCount(), optimizers.getPhysicalResourceOptimizer().getHashPartitionCount());
+
+        log.info("TESTRUN number of inputs=>" + inputs.size());
+        double totalSize = 0;
+        for (int i = 0; i < inputs.size(); i++) {
+            log.info("Table name =>" + inputs.get(i).getTable());
+            if (inputs.get(i).getStatistics().isPresent()) {
+                log.info("ROW COunt ->" + inputs.get(i).getStatistics().get().getRowCount().getValue());
+                log.info("Size ->" + inputs.get(i).getStatistics().get().getTotalSize().getValue());
+                totalSize = totalSize + inputs.get(i).getStatistics().get().getTotalSize().getValue();
+            }
+            else {
+                log.info("Statistics ABSENT");
+            }
+        }
+        log.info("TESTRUN DONE inputs=> totalSize -->" + totalSize);
         return new PlanAndMore(
                 plan,
                 Optional.ofNullable(analysis.getUpdateType()),
                 columnNames,
                 ImmutableSet.copyOf(inputs),
                 output,
-                queryType);
+                queryType,
+                physicalResourceSettings);
     }
 
     public static class PlanAndMore
@@ -130,6 +151,7 @@ public class PrestoSparkQueryPlanner
         private final Set<Input> inputs;
         private final Optional<Output> output;
         private final Optional<QueryType> queryType;
+        private final PhysicalResourceSettings physicalResourceSettings;
 
         public PlanAndMore(
                 Plan plan,
@@ -137,7 +159,8 @@ public class PrestoSparkQueryPlanner
                 List<String> fieldNames,
                 Set<Input> inputs,
                 Optional<Output> output,
-                Optional<QueryType> queryType)
+                Optional<QueryType> queryType,
+                PhysicalResourceSettings physicalResourceSettings)
         {
             this.plan = requireNonNull(plan, "plan is null");
             this.updateType = requireNonNull(updateType, "updateType is null");
@@ -145,6 +168,7 @@ public class PrestoSparkQueryPlanner
             this.inputs = ImmutableSet.copyOf(requireNonNull(inputs, "inputs is null"));
             this.output = requireNonNull(output, "output is null");
             this.queryType = requireNonNull(queryType, "queryType is null");
+            this.physicalResourceSettings = requireNonNull(physicalResourceSettings, "physicalResourceSetting is null.");
         }
 
         public Plan getPlan()
@@ -175,6 +199,11 @@ public class PrestoSparkQueryPlanner
         public Optional<QueryType> getQueryType()
         {
             return queryType;
+        }
+
+        public PhysicalResourceSettings getPhysicalResourceSettings()
+        {
+            return physicalResourceSettings;
         }
     }
 }

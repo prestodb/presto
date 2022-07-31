@@ -42,6 +42,9 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_MEMORY_REVOKING_THRESHOLD = "spark_memory_revoking_threshold";
     public static final String SPARK_MEMORY_REVOKING_TARGET = "spark_memory_revoking_target";
     public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED = "spark_retry_on_out_of_memory_broadcast_join_enabled";
+    public static final String AUTOMATIC_RESOURCE_MANAGEMENT_ENABLED = "automatic_resource_management_enabled";
+    public static final String MULTIPLIER_FOR_AUTOMATIC_RESOURCE_MANAGEMENT = "multiplier_for_automatic_resource_management";
+    public static final String RESOURCE_MANAGEMENT_DIRCU_OPTIMIZED = "resource_management_dircu_optimized";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -113,6 +116,21 @@ public class PrestoSparkSessionProperties
                         SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED,
                         "Disable broadcast join on broadcast OOM and re-submit the query again within the same spark session",
                         prestoSparkConfig.isRetryOnOutOfMemoryBroadcastJoinEnabled(),
+                        false),
+                booleanProperty(
+                        AUTOMATIC_RESOURCE_MANAGEMENT_ENABLED,
+                        "Disable broadcast join on broadcast OOM and re-submit the query again within the same spark session",
+                        prestoSparkConfig.isAutomaticResourceManagementEnabled(),
+                        false),
+                doubleProperty(
+                        MULTIPLIER_FOR_AUTOMATIC_RESOURCE_MANAGEMENT,
+                        "When revoking memory, try to revoke so much that memory pool is filled below target at the end",
+                        prestoSparkConfig.getMultiplierForResourceManagement(),
+                        false),
+                booleanProperty(
+                        RESOURCE_MANAGEMENT_DIRCU_OPTIMIZED,
+                        "Disable broadcast join on broadcast OOM and re-submit the query again within the same spark session",
+                        prestoSparkConfig.isAutomaticResourceManagementEnabled(),
                         false));
     }
 
@@ -184,5 +202,20 @@ public class PrestoSparkSessionProperties
     public static boolean isRetryOnOutOfMemoryBroadcastJoinEnabled(Session session)
     {
         return session.getSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isAutomaticResourceManagementEnabled(Session session)
+    {
+        return session.getSystemProperty(AUTOMATIC_RESOURCE_MANAGEMENT_ENABLED, Boolean.class);
+    }
+
+    public static double getMultiplierForAutomaticResourceManagement(Session session)
+    {
+        return session.getSystemProperty(MULTIPLIER_FOR_AUTOMATIC_RESOURCE_MANAGEMENT, Double.class);
+    }
+
+    public static boolean isResourceManagementDIRCUOptimized(Session session)
+    {
+        return session.getSystemProperty(RESOURCE_MANAGEMENT_DIRCU_OPTIMIZED, Boolean.class);
     }
 }

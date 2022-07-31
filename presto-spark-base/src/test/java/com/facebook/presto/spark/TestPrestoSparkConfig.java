@@ -46,7 +46,10 @@ public class TestPrestoSparkConfig
                 .setSplitAssignmentBatchSize(1_000_000)
                 .setMemoryRevokingThreshold(0)
                 .setMemoryRevokingTarget(0)
-                .setRetryOnOutOfMemoryBroadcastJoinEnabled(false));
+                .setRetryOnOutOfMemoryBroadcastJoinEnabled(false)
+                .setAutomaticResourceManagementEnabled(true)
+                .setMultiplierForResourceManagement(1.25)
+                .setResourceManagementDIRCUoptimized(true));
     }
 
     @Test
@@ -68,6 +71,9 @@ public class TestPrestoSparkConfig
                 .put("spark.memory-revoking-threshold", "0.5")
                 .put("spark.memory-revoking-target", "0.5")
                 .put("spark.retry-on-out-of-memory-broadcast-join-enabled", "true")
+                .put("spark.automatic-resource-management-enabled", "false")
+                .put("spark.multiplier-for-resource-management", "1.1")
+                .put("spark.resource-management-dircu-optimized", "false")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -84,7 +90,10 @@ public class TestPrestoSparkConfig
                 .setSplitAssignmentBatchSize(420)
                 .setMemoryRevokingThreshold(0.5)
                 .setMemoryRevokingTarget(0.5)
-                .setRetryOnOutOfMemoryBroadcastJoinEnabled(true);
+                .setRetryOnOutOfMemoryBroadcastJoinEnabled(true)
+                .setResourceManagementDIRCUoptimized(false)
+                .setMultiplierForResourceManagement(1.1)
+                .setAutomaticResourceManagementEnabled(false);
         assertFullMapping(properties, expected);
     }
 }
