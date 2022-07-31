@@ -224,6 +224,7 @@ public class FeaturesConfig
 
     private boolean streamingForPartialAggregationEnabled;
     private boolean preferMergeJoin;
+    private boolean mergeJoinBufferEnabled = true;
     private boolean segmentedAggregationEnabled;
 
     private int maxStageCountForEagerScheduling = 25;
@@ -2122,6 +2123,18 @@ public class FeaturesConfig
     public FeaturesConfig setPreferMergeJoin(boolean preferMergeJoin)
     {
         this.preferMergeJoin = preferMergeJoin;
+        return this;
+    }
+
+    public boolean isMergeJoinBufferEnabled()
+    {
+        return mergeJoinBufferEnabled;
+    }
+
+    @Config("optimizer.merge-join-buffer-enabled")
+    public FeaturesConfig setMergeJoinBufferEnabled(boolean mergeJoinBufferEnabled)
+    {
+        this.mergeJoinBufferEnabled = mergeJoinBufferEnabled;
         return this;
     }
 

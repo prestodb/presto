@@ -229,6 +229,7 @@ public final class SystemSessionProperties
     public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
     public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
     public static final String PREFER_MERGE_JOIN = "prefer_merge_join";
+    public static final String MERGE_JOIN_BUFFER_ENABLED = "merge_join_buffer_enabled";
     public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
     public static final String USE_EXTERNAL_PLAN_STATISTICS = "use_external_plan_statistics";
 
@@ -1224,6 +1225,13 @@ public final class SystemSessionProperties
                         featuresConfig.isPreferMergeJoin(),
                         true),
                 booleanProperty(
+                        MERGE_JOIN_BUFFER_ENABLED,
+                        "Enable buffering for right side pages during merge join. When there are too many leaf splits scheduled for task without buffering, the task " +
+                                "can be stuck indefinitely. This feature is enabled by default. If disabling the buffer, also adjust concurrent_lifespans_per_task so " +
+                                "that the task does not get stuck.",
+                        featuresConfig.isMergeJoinBufferEnabled(),
+                        true),
+                booleanProperty(
                         SEGMENTED_AGGREGATION_ENABLED,
                         "Enable segmented aggregation.",
                         featuresConfig.isSegmentedAggregationEnabled(),
@@ -2167,6 +2175,11 @@ public final class SystemSessionProperties
     public static boolean preferMergeJoin(Session session)
     {
         return session.getSystemProperty(PREFER_MERGE_JOIN, Boolean.class);
+    }
+
+    public static boolean isMergeJoinBufferEnabled(Session session)
+    {
+        return session.getSystemProperty(MERGE_JOIN_BUFFER_ENABLED, Boolean.class);
     }
 
     public static boolean isSegmentedAggregationEnabled(Session session)
