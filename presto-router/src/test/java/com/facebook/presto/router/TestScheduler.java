@@ -32,7 +32,6 @@ public class TestScheduler
 {
     private final ArrayList<URI> servers = new ArrayList<>();
     private final HashMap<URI, Integer> weights = new HashMap<>();
-    private Scheduler scheduler;
 
     @BeforeClass
     public void setup()
@@ -55,7 +54,7 @@ public class TestScheduler
     public void testRandomChoiceScheduler()
             throws Exception
     {
-        scheduler = new RandomChoiceScheduler();
+        Scheduler scheduler = new RandomChoiceScheduler();
         scheduler.setCandidates(servers);
 
         URI target = scheduler.getDestination("test").orElse(new URI("invalid"));
@@ -66,7 +65,7 @@ public class TestScheduler
     public void testUserHashScheduler()
             throws Exception
     {
-        scheduler = new UserHashScheduler();
+        Scheduler scheduler = new UserHashScheduler();
         scheduler.setCandidates(servers);
 
         URI target1 = scheduler.getDestination("test").orElse(new URI("invalid"));
@@ -82,7 +81,7 @@ public class TestScheduler
     public void testWeightedRandomChoiceScheduler()
             throws Exception
     {
-        scheduler = new WeightedRandomChoiceScheduler();
+        Scheduler scheduler = new WeightedRandomChoiceScheduler();
         scheduler.setCandidates(servers);
         scheduler.setWeights(weights);
 
@@ -102,7 +101,7 @@ public class TestScheduler
     public void testRoundRobinScheduler()
             throws Exception
     {
-        scheduler = new RoundRobinScheduler();
+        Scheduler scheduler = new RoundRobinScheduler();
         scheduler.setCandidates(servers);
 
         URI target1 = scheduler.getDestination("test").orElse(new URI("invalid"));
