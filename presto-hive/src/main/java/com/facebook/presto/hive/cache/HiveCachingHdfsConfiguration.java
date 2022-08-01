@@ -25,6 +25,7 @@ import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.HadoopExtendedFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 
@@ -37,6 +38,7 @@ import java.util.function.BiFunction;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.fs.FileSystem.getDefaultUri;
 
 public class HiveCachingHdfsConfiguration
         implements HdfsConfiguration
@@ -66,6 +68,9 @@ public class HiveCachingHdfsConfiguration
         Configuration config = new CachingJobConf((factoryConfig, factoryUri) -> {
             try {
                 FileSystem fileSystem = (new Path(factoryUri)).getFileSystem(hiveHdfsConfiguration.getConfiguration(context, factoryUri));
+                if (isFileSystemDisabledCache(new Path(factoryUri), factoryConfig)) {
+                    fileSystem = new HadoopExtendedFileSystem(fileSystem);
+                }
                 checkState(fileSystem instanceof ExtendedFileSystem);
                 return cacheFactory.createCachingFileSystem(
                         factoryConfig,
@@ -100,5 +105,17 @@ public class HiveCachingHdfsConfiguration
         {
             return factory.apply(this, uri);
         }
+    }
+
+    private boolean isFileSystemDisabledCache(Path path, Configuration configuration)
+    {
+        URI uri = path.toUri();
+        String scheme = uri.getScheme();
+        if (scheme == null) {
+            uri = getDefaultUri(configuration);
+            scheme = uri.getScheme();
+        }
+        String disableCacheName = String.format("fs.%s.impl.disable.cache", scheme);
+        return configuration.getBoolean(disableCacheName, false);
     }
 }
