@@ -234,6 +234,7 @@ AggregateFunctionSignatureBuilder::build() {
   VELOX_CHECK(intermediateType_.has_value());
   return std::make_shared<AggregateFunctionSignature>(
       std::move(typeVariableConstants_),
+      std::move(variables_),
       returnType_.value(),
       intermediateType_.value(),
       std::move(argumentTypes_),

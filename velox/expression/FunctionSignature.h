@@ -175,6 +175,21 @@ class AggregateFunctionSignature : public FunctionSignature {
             variableArity),
         intermediateType_{std::move(intermediateType)} {}
 
+  AggregateFunctionSignature(
+      std::vector<TypeVariableConstraint> typeVariableConstants,
+      std::vector<TypeVariableConstraint> variables,
+      TypeSignature returnType,
+      TypeSignature intermediateType,
+      std::vector<TypeSignature> argumentTypes,
+      bool variableArity)
+      : FunctionSignature(
+            std::move(typeVariableConstants),
+            std::move(variables),
+            std::move(returnType),
+            std::move(argumentTypes),
+            variableArity),
+        intermediateType_{std::move(intermediateType)} {}
+
   const TypeSignature& intermediateType() const {
     return intermediateType_;
   }
@@ -289,6 +304,13 @@ class AggregateFunctionSignatureBuilder {
     return *this;
   }
 
+  AggregateFunctionSignatureBuilder& variableConstraint(
+      std::string name,
+      std::string constraint) {
+    variables_.emplace_back(name, constraint);
+    return *this;
+  }
+
   std::shared_ptr<AggregateFunctionSignature> build();
 
  private:
@@ -296,6 +318,7 @@ class AggregateFunctionSignatureBuilder {
   std::optional<TypeSignature> returnType_;
   std::optional<TypeSignature> intermediateType_;
   std::vector<TypeSignature> argumentTypes_;
+  std::vector<TypeVariableConstraint> variables_;
   bool variableArity_{false};
 };
 

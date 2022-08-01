@@ -27,7 +27,7 @@ void testSignatureBinder(
 
   auto returnType = binder.tryResolveReturnType();
   ASSERT_TRUE(returnType != nullptr);
-  ASSERT_TRUE(expectedReturnType->kindEquals(returnType));
+  ASSERT_TRUE(expectedReturnType->equivalent(*returnType));
 }
 
 void assertCannotResolve(
@@ -57,7 +57,7 @@ TEST(SignatureBinderTest, decimals) {
         signature->argumentTypes()[1].toString(),
         "DECIMAL(b_precision, b_scale)");
     testSignatureBinder(
-        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, DECIMAL(12, 6));
+        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, DECIMAL(13, 6));
   }
 
   // Decimal Multiply.
@@ -110,6 +110,28 @@ TEST(SignatureBinderTest, decimals) {
         signature,
         {SHORT_DECIMAL(11, 5), SHORT_DECIMAL(10, 6)},
         DECIMAL(10, 6));
+  }
+  // Aggregate Sum.
+  {
+    auto signature = exec::AggregateFunctionSignatureBuilder()
+                         .argumentType("DECIMAL(a_precision, a_scale)")
+                         .intermediateType("DECIMAL(38, i_scale)")
+                         .variableConstraint("i_scale", "a_scale")
+                         .returnType("DECIMAL(38, r_scale)")
+                         .variableConstraint("r_scale", "a_scale")
+                         .build();
+
+    const std::vector<TypePtr> actualTypes{DECIMAL(10, 4)};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_TRUE(binder.tryBind());
+
+    auto intermediateType =
+        binder.tryResolveType(signature->intermediateType());
+    ASSERT_TRUE(intermediateType != nullptr);
+    ASSERT_TRUE(DECIMAL(38, 4)->equivalent(*intermediateType));
+    auto returnType = binder.tryResolveReturnType();
+    ASSERT_TRUE(returnType != nullptr);
+    ASSERT_TRUE(DECIMAL(38, 4)->equivalent(*returnType));
   }
   // Error: missing constraint
   {
