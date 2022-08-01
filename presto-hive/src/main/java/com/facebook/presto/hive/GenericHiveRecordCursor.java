@@ -308,6 +308,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             ObjectInspector fieldInspector = fieldInspectors[column];
             Object fieldValue = null;
             if (fieldInspector instanceof WritableTimestampObjectInspector && fieldData instanceof LongWritable) {
+                //deal with int96
                 TimestampWritable timestampWritable = new TimestampWritable(new Timestamp(((LongWritable) fieldData).get() / 1000));
                 fieldValue = ((PrimitiveObjectInspector) fieldInspector).getPrimitiveJavaObject(timestampWritable);
             }
