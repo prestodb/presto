@@ -225,7 +225,7 @@ public class TestPinotSegmentPageSource
                                         Hex.decodeHex("0DE0B6B3A7640000".toCharArray())); // Hex of BigDecimal.ONE
                             }
                             catch (DecoderException e) {
-                                // nothing to do here
+                                throw new RuntimeException(e);
                             }
                             break;
                         default:
