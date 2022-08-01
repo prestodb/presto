@@ -607,8 +607,7 @@ bool GroupingSet::getOutputWithSpill(const RowVectorPtr& result) {
     if (!merge_) {
       merge_ = spiller_->startMerge(outputPartition_);
     }
-    // NOTE: 'merge_' might be set to nullptr if 'outputPartition_' hasn't
-    // spilled or is empty.
+    // NOTE: 'merge_' might be nullptr if 'outputPartition_' is empty.
     if (merge_ == nullptr || !mergeNext(result)) {
       ++outputPartition_;
       merge_ = nullptr;

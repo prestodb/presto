@@ -58,6 +58,7 @@ BooleanMix getFlatBool(
         BaseVector::ensureBuffer<bool>(
             size, context.pool(), tempValues, &mergedValues);
 
+        // NOTE: false bit in 'nulls' indicate null.
         bits::andBits(
             mergedValues, values, nulls, activeRows.begin(), activeRows.end());
 

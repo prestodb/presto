@@ -31,7 +31,8 @@ class VectorPool {
   VectorPtr get(const TypePtr& type, vector_size_t size);
 
   /// Moves vector into 'this' if it is flat, recursively singly referenced and
-  /// there is space.
+  /// there is space. The function returns true if 'vector' is not null and has
+  /// been returned back to this pool, otherwise returns false.
   bool release(VectorPtr& vector);
 
   size_t release(std::vector<VectorPtr>& vectors);
@@ -60,6 +61,28 @@ class VectorPool {
 
   /// Caches of pre-allocated vectors indexed by typeKind.
   std::array<TypePool, kNumCachedVectorTypes> vectors_;
+};
+
+/// A simple vector ptr wrapper with an associated context object. It releases
+/// the allocated vector back to vector pool in context on destruction.
+///
+/// NOTE: the context object must provide 'releaseVector' vector such as
+/// EvalCtx.
+template <class Context>
+class ScopedVectorPtr {
+ public:
+  explicit ScopedVectorPtr(Context& context) : context_(context) {}
+  ~ScopedVectorPtr() {
+    context_.releaseVector(vector_);
+  }
+
+  VectorPtr& ptr() {
+    return vector_;
+  }
+
+ private:
+  VectorPtr vector_;
+  Context& context_;
 };
 
 } // namespace facebook::velox

@@ -30,6 +30,9 @@ VectorPtr VectorPool::get(const TypePtr& type, vector_size_t size) {
 }
 
 bool VectorPool::release(VectorPtr& vector) {
+  if (FOLLY_UNLIKELY(vector == nullptr)) {
+    return false;
+  }
   if (!vector.unique() || vector->size() > kMaxRecycleSize) {
     return false;
   }

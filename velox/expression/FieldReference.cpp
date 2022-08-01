@@ -23,18 +23,18 @@ void FieldReference::evalSpecialForm(
     EvalCtx& context,
     VectorPtr& result) {
   if (result) {
-    BaseVector::ensureWritable(rows, type_, context.pool(), &result);
+    context.ensureWritable(rows, type_, result);
   }
   const RowVector* row;
   DecodedVector decoded;
-  VectorPtr input;
+  ScopedVectorPtr input(context);
   bool useDecode = false;
   if (inputs_.empty()) {
     row = context.row();
   } else {
-    inputs_[0]->eval(rows, context, input);
+    inputs_[0]->eval(rows, context, input.ptr());
 
-    if (auto rowTry = input->as<RowVector>()) {
+    if (auto rowTry = input.ptr()->as<RowVector>()) {
       // Make sure output is not copied
       if (rowTry->isCodegenOutput()) {
         auto rowType = dynamic_cast<const RowType*>(rowTry->type().get());
@@ -45,7 +45,7 @@ void FieldReference::evalSpecialForm(
       }
     }
 
-    decoded.decode(*input.get(), rows);
+    decoded.decode(*input.ptr(), rows);
     useDecode = !decoded.isIdentityMapping();
     const BaseVector* base = decoded.base();
     VELOX_CHECK(base->encoding() == VectorEncoding::Simple::ROW);
@@ -83,7 +83,7 @@ void FieldReference::evalSpecialForm(
         child = BaseVector::wrapInConstant(rows.size(), 0, child);
       }
     }
-    result = useDecode ? std::move(decoded.wrap(child, *input.get(), rows))
+    result = useDecode ? std::move(decoded.wrap(child, *input.ptr(), rows))
                        : std::move(child);
   }
 }

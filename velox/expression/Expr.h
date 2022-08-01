@@ -305,6 +305,10 @@ class Expr {
  protected:
   void appendInputs(std::stringstream& stream) const;
 
+  /// Release 'inputValues_' back to vector pool in 'evalCtx' so they can be
+  /// reused.
+  void releaseInputValues(EvalCtx& evalCtx);
+
   /// Returns an instance of CpuWallTimer if cpu usage tracking is enabled. Null
   /// otherwise.
   std::unique_ptr<CpuWallTimer> cpuWallTimer() {

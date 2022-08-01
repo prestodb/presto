@@ -1273,6 +1273,30 @@ TEST_F(ExprTest, switchExpr) {
   assertEqualVectors(expected, result);
 }
 
+TEST_F(ExprTest, switchExprWithNull) {
+  vector_size_t size = 1'000;
+  // Build an input with c0 column having nulls at odd row index.
+  auto vector = makeRowVector(
+      {makeFlatVector<int32_t>(
+           size,
+           [](auto /*unused*/) { return 7; },
+           [](auto row) { return row % 2; }),
+       makeFlatVector<int32_t>(
+           size, [](auto row) { return row; }, nullEvery(5)),
+       makeConstant<int32_t>(0, size)});
+
+  auto result = evaluate("case c0 when 7 then 1 else 0 end", vector);
+  // If 'c0' is null, then we shall get 0 from else branch.
+  auto expected = makeFlatVector<int64_t>(size, [](auto row) {
+    if (row % 2 == 0) {
+      return 1;
+    } else {
+      return 0;
+    }
+  });
+  assertEqualVectors(expected, result);
+}
+
 TEST_F(ExprTest, ifWithConstant) {
   vector_size_t size = 4;
 

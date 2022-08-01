@@ -77,3 +77,24 @@ TEST_F(EvalCtxTest, vectorPool) {
   ASSERT_EQ(anotherVector->size(), 512);
   ASSERT_EQ(anotherVector.get(), vectorPtr);
 }
+
+TEST_F(EvalCtxTest, ScopedVectorPtr) {
+  EvalCtx context(&execCtx_);
+  auto vector = context.getVector(BIGINT(), 1'00);
+  auto* vectorPtr = vector.get();
+  {
+    ScopedVectorPtr tempVectorPtr(context);
+    tempVectorPtr.ptr() = std::move(vector);
+  }
+  vector = context.getVector(BIGINT(), 1'00);
+  ASSERT_EQ(vector.get(), vectorPtr);
+  { ScopedVectorPtr emptyVectorPtr(context); }
+
+  // Hold the allocated vector on scoped vector destruction.
+  {
+    ScopedVectorPtr tempVectorPtr(context);
+    tempVectorPtr.ptr() = vector;
+  }
+  vector = context.getVector(BIGINT(), 1'00);
+  ASSERT_NE(vectorPtr, vector.get());
+}

@@ -65,11 +65,10 @@ void SwitchExpr::evalSpecialForm(
     if (!remainingRows.get()->hasSelections()) {
       break;
     }
-
     // evaluate the case condition
     inputs_[2 * i]->eval(*remainingRows.get(), context, condition);
 
-    auto booleanMix = getFlatBool(
+    const auto booleanMix = getFlatBool(
         condition.get(),
         *remainingRows.get(),
         context,
@@ -78,6 +77,7 @@ void SwitchExpr::evalSpecialForm(
         true,
         &values,
         nullptr);
+    context.releaseVector(condition);
     switch (booleanMix) {
       case BooleanMix::kAllTrue:
         inputs_[2 * i + 1]->eval(*remainingRows.get(), context, result);
@@ -106,10 +106,8 @@ void SwitchExpr::evalSpecialForm(
   if (remainingRows.get()->hasSelections()) {
     if (hasElseClause_) {
       inputs_.back()->eval(*remainingRows.get(), context, result);
-
     } else {
-      BaseVector::ensureWritable(
-          *remainingRows.get(), type(), context.pool(), &result);
+      context.ensureWritable(*remainingRows.get(), type(), result);
 
       // fill in nulls for remainingRows
       remainingRows.get()->applyToSelected(

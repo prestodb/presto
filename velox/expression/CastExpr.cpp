@@ -419,8 +419,7 @@ VectorPtr CastExpr::applyRow(
             toFieldName)
       }
       // Create a vector for null for this child
-      BaseVector::ensureWritable(
-          rows, toChildType, context.pool(), &outputChild);
+      context.ensureWritable(rows, toChildType, outputChild);
       outputChild->addNulls(nullptr, rows);
     } else {
       auto inputChild = input->children()[fromChildrenIndex];
@@ -494,14 +493,12 @@ void applyCustomTypeCast(
 
   VectorPtr localResult;
   if constexpr (castTo) {
-    BaseVector::ensureWritable(
-        *baseRows, thisType, context.pool(), &localResult);
+    context.ensureWritable(*baseRows, thisType, localResult);
 
     castOperator->castTo(
         *inputDecoded->base(), context, *baseRows, nullOnFailure, *localResult);
   } else {
-    BaseVector::ensureWritable(
-        *baseRows, otherType, context.pool(), &localResult);
+    context.ensureWritable(*baseRows, otherType, localResult);
 
     castOperator->castFrom(
         *inputDecoded->base(), context, *baseRows, nullOnFailure, *localResult);
@@ -512,6 +509,7 @@ void applyCustomTypeCast(
   }
 
   context.moveOrCopyResult(localResult, nonNullRows, result);
+  context.releaseVector(localResult);
 }
 
 void CastExpr::apply(
@@ -608,9 +606,10 @@ void CastExpr::apply(
       }
 
       context.moveOrCopyResult(localResult, rows, result);
+      context.releaseVector(localResult);
     } else {
       // Handling primitive type conversions
-      BaseVector::ensureWritable(rows, toType, context.pool(), &result);
+      context.ensureWritable(rows, toType, result);
       // Unwrapping toType pointer. VERY IMPORTANT: dynamic type pointer and
       // static type templates in each cast must match exactly
       VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
@@ -645,6 +644,8 @@ void CastExpr::evalSpecialForm(
   stats_.numProcessedRows += rows.countSelected();
   auto timer = cpuWallTimer();
   apply(rows, input, context, fromType, toType, result);
+  // Return 'input' back to the vector pool in 'context' so it can be reused.
+  context.releaseVector(input);
 }
 
 std::string CastExpr::toString(bool recursive) const {

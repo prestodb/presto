@@ -97,7 +97,7 @@ void ConjunctExpr::evalSpecialForm(
   // TODO Revisit error handling
   bool throwOnError = *context.mutableThrowOnError();
   VarSetter saveError(context.mutableThrowOnError(), false);
-  BaseVector::ensureWritable(rows, type(), context.pool(), &result);
+  context.ensureWritable(rows, type(), result);
   auto flatResult = result->asFlatVector<bool>();
   // clear nulls from the result for the active rows.
   if (flatResult->mayHaveNulls()) {
@@ -128,7 +128,7 @@ void ConjunctExpr::evalSpecialForm(
   assert(activeRows); // lint
   int32_t numActive = activeRows->countSelected();
   for (int32_t i = 0; i < inputs_.size(); ++i) {
-    VectorPtr inputResult;
+    ScopedVectorPtr inputResult(context);
     EvalCtx::ErrorVectorPtr errors;
     if (handleErrors) {
       context.swapErrors(errors);
@@ -142,7 +142,7 @@ void ConjunctExpr::evalSpecialForm(
         isAnd_ && context.isFinalSelection());
 
     SelectivityTimer timer(selectivity_[inputOrder_[i]], numActive);
-    inputs_[inputOrder_[i]]->eval(*activeRows, context, inputResult);
+    inputs_[inputOrder_[i]]->eval(*activeRows, context, inputResult.ptr());
     if (context.errors()) {
       handleErrors = true;
     }
@@ -153,7 +153,7 @@ void ConjunctExpr::evalSpecialForm(
       extraActive =
           rowsWithError(rows, *activeRows, context, errors, errorRows);
     }
-    updateResult(inputResult.get(), context, flatResult, activeRows);
+    updateResult(inputResult.ptr().get(), context, flatResult, activeRows);
     if (extraActive) {
       uint64_t* activeBits = activeRows->asMutableRange().bits();
       bits::orBits(activeBits, extraActive, rows.begin(), rows.end());

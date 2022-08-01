@@ -58,6 +58,9 @@ TEST_F(VectorPoolTest, basic) {
   // Verify that multiply-referenced vector cannot be returned to the pool.
   auto copy = anotherRecycledVector;
   ASSERT_FALSE(vectorPool.release(anotherRecycledVector));
+
+  VectorPtr nullVector = nullptr;
+  ASSERT_FALSE(vectorPool.release(nullVector));
 }
 
 TEST_F(VectorPoolTest, limit) {
@@ -93,5 +96,54 @@ TEST_F(VectorPoolTest, limit) {
   // Return all vectors to the pool. Verify that only 'limit' number of vectors
   // can be returned.
   ASSERT_EQ(vectorPool.release(vectors), 10);
+}
+
+class MockContext {
+ public:
+  explicit MockContext(VectorPool& vectorPool) : vectorPool_(vectorPool) {}
+
+  void releaseVector(VectorPtr& vector) {
+    vectorPool_.release(vector);
+  }
+
+ private:
+  VectorPool& vectorPool_;
+};
+
+TEST_F(VectorPoolTest, ScopedVectorPtr) {
+  VectorPool vectorPool(pool());
+  MockContext context(vectorPool);
+
+  // Empty scoped vector does nothing.
+  {
+    ScopedVectorPtr tempVectorPtr(context);
+    ASSERT_EQ(tempVectorPtr.ptr(), nullptr);
+  }
+
+  // Get new vector from the pool and release it back.
+  BaseVector* rawPtr;
+  {
+    ScopedVectorPtr tempVectorPtr(context);
+    ASSERT_EQ(tempVectorPtr.ptr(), nullptr);
+    tempVectorPtr.ptr() = vectorPool.get(BIGINT(), 1'000);
+    rawPtr = tempVectorPtr.ptr().get();
+  }
+
+  // Get new vector from the pool and hold it on scoped vector destruction.
+  VectorPtr vectorHolder;
+  {
+    ScopedVectorPtr tempVectorPtr(context);
+    tempVectorPtr.ptr() = vectorPool.get(BIGINT(), 1'000);
+    ASSERT_EQ(rawPtr, tempVectorPtr.ptr().get());
+    vectorHolder = tempVectorPtr.ptr();
+  }
+  ASSERT_NE(vectorHolder, nullptr);
+
+  {
+    ScopedVectorPtr tempVectorPtr(context);
+    tempVectorPtr.ptr() = vectorPool.get(BIGINT(), 1'000);
+    ;
+    ASSERT_NE(rawPtr, tempVectorPtr.ptr().get());
+  }
 }
 } // namespace facebook::velox::test
