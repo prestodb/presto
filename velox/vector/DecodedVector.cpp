@@ -197,6 +197,11 @@ void DecodedVector::combineWrappers(
 void DecodedVector::applyDictionaryWrapper(
     const BaseVector& dictionaryVector,
     const SelectivityVector& rows) {
+  if (!rows.hasSelections()) {
+    // No further processing is needed.
+    return;
+  }
+
   auto newIndices = dictionaryVector.wrapInfo()->as<vector_size_t>();
   auto newNulls = dictionaryVector.rawNulls();
   if (newNulls) {
@@ -231,6 +236,11 @@ void DecodedVector::applyDictionaryWrapper(
 void DecodedVector::applySequenceWrapper(
     const BaseVector& sequenceVector,
     const SelectivityVector& rows) {
+  if (!rows.hasSelections()) {
+    // No further processing is needed.
+    return;
+  }
+
   const auto* lengths = sequenceVector.wrapInfo()->as<vector_size_t>();
   auto newNulls = sequenceVector.rawNulls();
   if (newNulls) {
