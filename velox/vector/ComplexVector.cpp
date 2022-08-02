@@ -189,14 +189,12 @@ void RowVector::copy(
           rowSource->childAt(i)->loadedVector(), nonNullRows, toSourceRow);
     }
   } else {
-    auto nullIndices = decodedSource.nullIndices();
     auto nulls = decodedSource.nulls();
 
     if (nulls) {
       rows.applyToSelected([&](auto row) {
         auto idx = toSourceRow ? toSourceRow[row] : row;
-        idx = nullIndices ? nullIndices[idx] : idx;
-        if (bits::isBitNull(nulls, idx)) {
+        if (bits::isBitNull(nulls, decodedSource.nullIndex(idx))) {
           nonNullRows.setValid(row, false);
         }
       });

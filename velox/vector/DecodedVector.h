@@ -91,13 +91,18 @@ class DecodedVector {
 
   /// Returns the raw nulls buffer for the base vector combined with nulls found
   /// in dictionary wrappings. May return nullptr if there are no nulls. Use
-  /// nullIndices() to access individual null flags, e.g.
+  /// nullIndex() to access individual null flags, e.g.
   ///
-  ///  nulls() ? bits::isBitNull(nulls(), nullIndices() ? nullIndices[i] : i) :
-  ///  false
+  ///  nulls() ? bits::isBitNull(nulls(), decoded.nullIndex(i)) : false
   ///
   /// returns the null flag for top-level row 'i' given that 'i' is one of the
   /// rows specified for decoding.
+  ///
+  /// When isConstantMapping() == false, may also use nullIndices() which may be
+  /// a little faster than nullIndex().
+  ///
+  ///  nulls() ? bits::isBitNull(nulls(), nullIndices() ? nullIndices[i] : i) :
+  ///  false
   const uint64_t* nulls() const {
     return nulls_;
   }
@@ -111,12 +116,15 @@ class DecodedVector {
     return &indices_[0];
   }
 
+  /// Available only if isConstantMapping() == false.
   /// Returns the mapping from top-level rows to entries in nulls() buffer.
   /// Returns nullptr if mapping is identity.
   const vector_size_t* nullIndices() {
     if (hasExtraNulls_) {
       return nullptr;
     }
+
+    VELOX_CHECK(!isConstantMapping_);
     return indices_;
   }
 

@@ -445,7 +445,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto base = decoded.base();
     auto nulls = decoded.nulls();
     auto indices = decoded.indices();
-    auto nullIndices = decoded.nullIndices();
     for (int32_t i = 0; i < sourceSize; ++i) {
       if (i % 2 == 0) {
         auto sourceIdx = evenSource[i];
@@ -454,9 +453,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
             << source->toString(sourceIdx);
 
         // We check the same with 'decoded'.
-        if (nulls &&
-            bits::isBitNull(
-                nulls, nullIndices ? nullIndices[sourceIdx] : sourceIdx)) {
+        if (nulls && bits::isBitNull(nulls, decoded.nullIndex(sourceIdx))) {
           EXPECT_TRUE(decoded.isNullAt(sourceIdx));
           EXPECT_TRUE(bits::isBitNull(flatNulls, sourceIdx));
           EXPECT_TRUE(target->isNullAt(i));
@@ -471,9 +468,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         EXPECT_TRUE(target->equalValueAt(source.get(), i, oddSource[i]));
         // We check the same with 'decoded'.
         auto sourceIdx = oddSource[i];
-        if (nulls &&
-            bits::isBitNull(
-                nulls, nullIndices ? nullIndices[sourceIdx] : sourceIdx)) {
+        if (nulls && bits::isBitNull(nulls, decoded.nullIndex(sourceIdx))) {
           EXPECT_TRUE(bits::isBitNull(flatNulls, sourceIdx));
           EXPECT_TRUE(target->isNullAt(i));
         } else {
@@ -569,7 +564,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
           break;
         }
       }
-      constant = BaseVector::wrapInConstant(firstNull + 20, firstNull, source);
+      constant = BaseVector::wrapInConstant(firstNull + 123, firstNull, source);
       testCopy(constant, level - 1);
     }
 
