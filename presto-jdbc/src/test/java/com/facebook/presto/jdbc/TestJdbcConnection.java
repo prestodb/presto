@@ -102,6 +102,19 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testAutocommit()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            assertTrue(connection.getAutoCommit());
+            connection.setAutoCommit(false);
+            assertFalse(connection.getAutoCommit());
+            connection.setAutoCommit(true);
+            assertTrue(connection.getAutoCommit());
+        }
+    }
+
+    @Test
     public void testCommit()
             throws SQLException
     {
