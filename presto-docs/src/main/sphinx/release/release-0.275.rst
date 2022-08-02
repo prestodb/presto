@@ -2,27 +2,26 @@
 Release 0.275
 =============
 
+**Highlights**
+==============
+
 **Details**
 ===========
 
 General Changes
 _______________
-* Fix Disaggregated Coordinator to correctly identify running queries as leaked.
-* Add :func:`trimmed_mean` for :ref:`tdigest <tdigest_type>`.
+* Fixing Disaggregated Coordinator to not wrongly identifying running queries as leaked.
+* Improve the memory limit error message with allocationTag.
+* Add :func:`trimmed_mean` for :ref:`tdigest <tdigest_type>`. The prototype of the function is: trimmed_mean(tdigest: TDIGEST, lower_quantile: DOUBLE, upper_quantile: DOUBLE) -> DOUBLE.
+* Add a router in front of presto clusters. The router is deployed as a standalone service with a presto-styled UI.
+* Add new fields in Iceberg files system table.
+* Add raft server to resource manager with disaggregated coordinators using Apache Ratis. Raft server enabled in resource manager using the ``isEnabled`` property in Config file.
 * Add session property ``query_max_output_positions`` and configuration property ``query.max-output-positions`` to control how many rows a query can output. The query might end up returning more rows than the limit as the check is asynchronous.
-* Add :func:`construct_tdigest()` for `Tdigest`.
-
-Hudi Changes
-______________
-* Add support for reading log-only on hudi MOR table
 
 Router Changes
 ______________
-* Add a router to route queries to presto clusters. The new router supports random choice scheduling and user hash scheduling. The router is deployed as a standalone service with a presto-styled UI.
-
-Spark Changes
-______________
-* Add support for setting session properties for presto on spark.
+* Add a random choice scheduler in the Presto router.
+* Add a user hash scheduler in the Presto router.
 
 **Credits**
 ===========
