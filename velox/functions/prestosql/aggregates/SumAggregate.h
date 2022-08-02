@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/expression/FunctionSignature.h"
+#include "velox/functions/prestosql/CheckedArithmeticImpl.h"
 #include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 
 namespace facebook::velox::aggregate {
@@ -83,8 +84,8 @@ class SumAggregate
         group,
         rows,
         args[0],
-        [](TAccumulator& result, TInput value) { result += value; },
-        [](TAccumulator& result, TInput value, int n) { result += n * value; },
+        &updateSingleValue<TAccumulator>,
+        &updateDuplicateValues<TAccumulator>,
         mayPushdown,
         0);
   }
@@ -98,8 +99,8 @@ class SumAggregate
         group,
         rows,
         args[0],
-        [](ResultType& result, TInput value) { result += value; },
-        [](ResultType& result, TInput value, int n) { result += n * value; },
+        &updateSingleValue<ResultType>,
+        &updateDuplicateValues<ResultType>,
         mayPushdown,
         0);
   }
@@ -123,18 +124,37 @@ class SumAggregate
 
     if (exec::Aggregate::numNulls_) {
       BaseAggregate::template updateGroups<true, TData>(
-          groups,
-          rows,
-          arg,
-          [](TData& result, TInput value) { result += value; },
-          false);
+          groups, rows, arg, &updateSingleValue<TData>, false);
     } else {
       BaseAggregate::template updateGroups<false, TData>(
-          groups,
-          rows,
-          arg,
-          [](TData& result, TInput value) { result += value; },
-          false);
+          groups, rows, arg, &updateSingleValue<TData>, false);
+    }
+  }
+
+ private:
+  /// Update functions that check for overflows for integer types.
+  /// For floating points, an overflow results in +/- infinity which is a
+  /// valid output.
+  template <typename TOutput>
+  static void updateSingleValue(TOutput& result, TInput value) {
+    if constexpr (
+        std::is_same<TOutput, double>::value ||
+        std::is_same<TOutput, float>::value) {
+      result += value;
+    } else {
+      result = functions::checkedPlus<TOutput>(result, value);
+    }
+  }
+
+  template <typename TOutput>
+  static void updateDuplicateValues(TOutput& result, TInput value, int n) {
+    if constexpr (
+        std::is_same<TOutput, double>::value ||
+        std::is_same<TOutput, float>::value) {
+      result += n * value;
+    } else {
+      result = functions::checkedPlus<TOutput>(
+          result, functions::checkedMultiply<TOutput>(n, value));
     }
   }
 };
