@@ -49,7 +49,9 @@ sudo apt install -y \
   libre2-dev \
   libsnappy-dev \
   liblzo2-dev \
-  protobuf-compiler
+  protobuf-compiler \
+  bison \
+  flex
 
 function run_and_time {
   time "$@"
