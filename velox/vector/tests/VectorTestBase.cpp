@@ -86,7 +86,7 @@ void assertEqualVectors(
     const VectorPtr& actual,
     const std::string& additionalContext) {
   ASSERT_EQ(expected->size(), actual->size()) << additionalContext;
-  ASSERT_EQ(expected->typeKind(), actual->typeKind());
+  ASSERT_TRUE(expected->type()->equivalent(*actual->type()));
   for (auto i = 0; i < expected->size(); i++) {
     ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
         << "at " << i << ": expected " << expected->toString(i) << ", but got "

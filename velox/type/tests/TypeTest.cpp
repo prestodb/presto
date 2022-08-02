@@ -535,6 +535,23 @@ TEST(TypeTest, equivalent) {
   EXPECT_TRUE(LONG_DECIMAL(30, 5)->equivalent(*LONG_DECIMAL(30, 5)));
   EXPECT_FALSE(LONG_DECIMAL(30, 6)->equivalent(*LONG_DECIMAL(30, 5)));
   EXPECT_FALSE(LONG_DECIMAL(31, 5)->equivalent(*LONG_DECIMAL(30, 5)));
+  auto complexTypeA = ROW(
+      {{"a0", ARRAY(ROW({{"a1", DECIMAL(20, 8)}}))},
+       {"a2", MAP(VARCHAR(), ROW({{"a3", DECIMAL(10, 5)}}))}});
+  auto complexTypeB = ROW(
+      {{"b0", ARRAY(ROW({{"b1", DECIMAL(20, 8)}}))},
+       {"b2", MAP(VARCHAR(), ROW({{"b3", DECIMAL(10, 5)}}))}});
+  EXPECT_TRUE(complexTypeA->equivalent(*complexTypeB));
+  // Change Array element type.
+  complexTypeB = ROW(
+      {{"b0", ARRAY(ROW({{"b1", DECIMAL(20, 7)}}))},
+       {"b2", MAP(VARCHAR(), ROW({{"b3", DECIMAL(10, 5)}}))}});
+  EXPECT_FALSE(complexTypeA->equivalent(*complexTypeB));
+  // Change Map value type.
+  complexTypeB = ROW(
+      {{"b0", ARRAY(ROW({{"b1", DECIMAL(20, 8)}}))},
+       {"b2", MAP(VARCHAR(), ROW({{"b3", DECIMAL(20, 5)}}))}});
+  EXPECT_FALSE(complexTypeA->equivalent(*complexTypeB));
 }
 
 TEST(TypeTest, kindEquals) {

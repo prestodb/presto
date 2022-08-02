@@ -219,7 +219,7 @@ bool ArrayType::equivalent(const Type& other) const {
     return false;
   }
   auto& otherArray = other.asArray();
-  return *child_ == *otherArray.child_;
+  return child_->equivalent(*otherArray.child_);
 }
 
 folly::dynamic ArrayType::serialize() const {
@@ -458,7 +458,8 @@ bool MapType::equivalent(const Type& other) const {
     return false;
   }
   auto& otherMap = other.asMap();
-  return *keyType_ == *otherMap.keyType_ && *valueType_ == *otherMap.valueType_;
+  return keyType_->equivalent(*otherMap.keyType_) &&
+      valueType_->equivalent(*otherMap.valueType_);
 }
 
 bool FunctionType::equivalent(const Type& other) const {
