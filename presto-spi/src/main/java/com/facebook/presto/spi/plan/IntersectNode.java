@@ -36,7 +36,18 @@ public final class IntersectNode
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("outputToInputs") Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs)
     {
-        super(sourceLocation, id, sources, outputVariables, outputToInputs);
+        this(sourceLocation, id, Optional.empty(), sources, outputVariables, outputToInputs);
+    }
+
+    public IntersectNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            List<PlanNode> sources,
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode, sources, outputVariables, outputToInputs);
     }
 
     @Override
@@ -46,8 +57,14 @@ public final class IntersectNode
     }
 
     @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new IntersectNode(getSourceLocation(), getId(), statsEquivalentPlanNode, getSources(), getOutputVariables(), getVariableMapping());
+    }
+
+    @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new IntersectNode(getSourceLocation(), getId(), newChildren, getOutputVariables(), getVariableMapping());
+        return new IntersectNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren, getOutputVariables(), getVariableMapping());
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -25,6 +26,9 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.String.format;
+
 public class GroupReference
         extends InternalPlanNode
 {
@@ -34,7 +38,7 @@ public class GroupReference
 
     public GroupReference(Optional<SourceLocation> sourceLocation, PlanNodeId id, int groupId, List<VariableReferenceExpression> outputs, Optional<LogicalProperties> logicalProperties)
     {
-        super(sourceLocation, id);
+        super(sourceLocation, id, Optional.empty());
         this.groupId = groupId;
         this.outputs = ImmutableList.copyOf(outputs);
         this.logicalProperties = logicalProperties;
@@ -67,6 +71,12 @@ public class GroupReference
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Cannot assign canonical plan id to Group Reference node: %s", this));
     }
 
     public Optional<LogicalProperties> getLogicalProperties()

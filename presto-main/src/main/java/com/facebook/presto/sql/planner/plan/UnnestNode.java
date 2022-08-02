@@ -52,7 +52,19 @@ public class UnnestNode
             @JsonProperty("unnestVariables") Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables,
             @JsonProperty("ordinalityVariable") Optional<VariableReferenceExpression> ordinalityVariable)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, replicateVariables, unnestVariables, ordinalityVariable);
+    }
+
+    public UnnestNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            List<VariableReferenceExpression> replicateVariables,
+            Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables,
+            Optional<VariableReferenceExpression> ordinalityVariable)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
         this.replicateVariables = ImmutableList.copyOf(requireNonNull(replicateVariables, "replicateVariables is null"));
         checkArgument(source.getOutputVariables().containsAll(replicateVariables), "Source does not contain all replicateSymbols");
@@ -115,7 +127,13 @@ public class UnnestNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnnestNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), replicateVariables, unnestVariables, ordinalityVariable);
+        return new UnnestNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), replicateVariables, unnestVariables, ordinalityVariable);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new UnnestNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, replicateVariables, unnestVariables, ordinalityVariable);
     }
 
     @Override
