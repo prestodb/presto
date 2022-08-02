@@ -63,26 +63,26 @@ class VectorPool {
   std::array<TypePool, kNumCachedVectorTypes> vectors_;
 };
 
-/// A simple vector ptr wrapper with an associated context object. It releases
-/// the allocated vector back to vector pool in context on destruction.
-///
-/// NOTE: the context object must provide 'releaseVector' vector such as
-/// EvalCtx.
-template <class Context>
-class ScopedVectorPtr {
+/// A simple vector ptr wrapper with an associated vector pool. It releases
+/// the allocated vector back to vector pool on destruction.
+class VectorRecycler {
  public:
-  explicit ScopedVectorPtr(Context& context) : context_(context) {}
-  ~ScopedVectorPtr() {
-    context_.releaseVector(vector_);
-  }
+  explicit VectorRecycler(VectorPtr& vector, VectorPool& pool)
+      : vector_(vector), pool_(pool) {}
+  VectorRecycler(const VectorRecycler&) = delete;
+  VectorRecycler& operator=(const VectorRecycler&) = delete;
+  VectorRecycler(const VectorRecycler&&) = delete;
+  VectorRecycler& operator=(const VectorRecycler&&) = delete;
+  VectorRecycler(VectorRecycler&) = delete;
+  VectorRecycler& operator=(VectorRecycler&) = delete;
 
-  VectorPtr& ptr() {
-    return vector_;
+  ~VectorRecycler() {
+    pool_.release(vector_);
   }
 
  private:
-  VectorPtr vector_;
-  Context& context_;
+  VectorPtr& vector_;
+  VectorPool& pool_;
 };
 
 } // namespace facebook::velox

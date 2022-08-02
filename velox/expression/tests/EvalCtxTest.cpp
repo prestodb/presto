@@ -78,23 +78,25 @@ TEST_F(EvalCtxTest, vectorPool) {
   ASSERT_EQ(anotherVector.get(), vectorPtr);
 }
 
-TEST_F(EvalCtxTest, ScopedVectorPtr) {
+TEST_F(EvalCtxTest, VectorRecycler) {
   EvalCtx context(&execCtx_);
-  auto vector = context.getVector(BIGINT(), 1'00);
-  auto* vectorPtr = vector.get();
+  VectorPtr vector;
+  BaseVector* vectorPtr;
   {
-    ScopedVectorPtr tempVectorPtr(context);
-    tempVectorPtr.ptr() = std::move(vector);
+    VectorRecycler vectorRecycler(vector, context.vectorPool());
+    vector = context.getVector(BIGINT(), 1'00);
+    vectorPtr = vector.get();
   }
-  vector = context.getVector(BIGINT(), 1'00);
-  ASSERT_EQ(vector.get(), vectorPtr);
-  { ScopedVectorPtr emptyVectorPtr(context); }
+  auto newVector = context.getVector(BIGINT(), 1'00);
+  ASSERT_EQ(newVector.get(), vectorPtr);
+  vector.reset();
+  { VectorRecycler vectorRecycler(vector, context.vectorPool()); }
 
   // Hold the allocated vector on scoped vector destruction.
-  {
-    ScopedVectorPtr tempVectorPtr(context);
-    tempVectorPtr.ptr() = vector;
-  }
   vector = context.getVector(BIGINT(), 1'00);
-  ASSERT_NE(vectorPtr, vector.get());
+  ASSERT_NE(vector.get(), newVector.get());
+  newVector = vector;
+  { VectorRecycler vectorRecycler(vector, context.vectorPool()); }
+  vector = context.getVector(BIGINT(), 1'00);
+  ASSERT_NE(vector.get(), newVector.get());
 }

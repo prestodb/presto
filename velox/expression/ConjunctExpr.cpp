@@ -128,7 +128,8 @@ void ConjunctExpr::evalSpecialForm(
   assert(activeRows); // lint
   int32_t numActive = activeRows->countSelected();
   for (int32_t i = 0; i < inputs_.size(); ++i) {
-    ScopedVectorPtr inputResult(context);
+    VectorPtr inputResult;
+    VectorRecycler inputResultRecycler(inputResult, context.vectorPool());
     EvalCtx::ErrorVectorPtr errors;
     if (handleErrors) {
       context.swapErrors(errors);
@@ -142,7 +143,7 @@ void ConjunctExpr::evalSpecialForm(
         isAnd_ && context.isFinalSelection());
 
     SelectivityTimer timer(selectivity_[inputOrder_[i]], numActive);
-    inputs_[inputOrder_[i]]->eval(*activeRows, context, inputResult.ptr());
+    inputs_[inputOrder_[i]]->eval(*activeRows, context, inputResult);
     if (context.errors()) {
       handleErrors = true;
     }
@@ -153,7 +154,7 @@ void ConjunctExpr::evalSpecialForm(
       extraActive =
           rowsWithError(rows, *activeRows, context, errors, errorRows);
     }
-    updateResult(inputResult.ptr().get(), context, flatResult, activeRows);
+    updateResult(inputResult.get(), context, flatResult, activeRows);
     if (extraActive) {
       uint64_t* activeBits = activeRows->asMutableRange().bits();
       bits::orBits(activeBits, extraActive, rows.begin(), rows.end());

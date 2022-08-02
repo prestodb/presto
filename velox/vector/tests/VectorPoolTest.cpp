@@ -98,52 +98,35 @@ TEST_F(VectorPoolTest, limit) {
   ASSERT_EQ(vectorPool.release(vectors), 10);
 }
 
-class MockContext {
- public:
-  explicit MockContext(VectorPool& vectorPool) : vectorPool_(vectorPool) {}
-
-  void releaseVector(VectorPtr& vector) {
-    vectorPool_.release(vector);
-  }
-
- private:
-  VectorPool& vectorPool_;
-};
-
 TEST_F(VectorPoolTest, ScopedVectorPtr) {
   VectorPool vectorPool(pool());
-  MockContext context(vectorPool);
 
   // Empty scoped vector does nothing.
-  {
-    ScopedVectorPtr tempVectorPtr(context);
-    ASSERT_EQ(tempVectorPtr.ptr(), nullptr);
-  }
+  VectorPtr vectorPtr;
+  { VectorRecycler vectorRecycler(vectorPtr, vectorPool); }
 
   // Get new vector from the pool and release it back.
   BaseVector* rawPtr;
   {
-    ScopedVectorPtr tempVectorPtr(context);
-    ASSERT_EQ(tempVectorPtr.ptr(), nullptr);
-    tempVectorPtr.ptr() = vectorPool.get(BIGINT(), 1'000);
-    rawPtr = tempVectorPtr.ptr().get();
+    VectorRecycler vectorRecycler(vectorPtr, vectorPool);
+    vectorPtr = vectorPool.get(BIGINT(), 1'000);
+    rawPtr = vectorPtr.get();
   }
 
   // Get new vector from the pool and hold it on scoped vector destruction.
   VectorPtr vectorHolder;
   {
-    ScopedVectorPtr tempVectorPtr(context);
-    tempVectorPtr.ptr() = vectorPool.get(BIGINT(), 1'000);
-    ASSERT_EQ(rawPtr, tempVectorPtr.ptr().get());
-    vectorHolder = tempVectorPtr.ptr();
+    VectorRecycler vectorRecycler(vectorPtr, vectorPool);
+    vectorPtr = vectorPool.get(BIGINT(), 1'000);
+    ASSERT_EQ(rawPtr, vectorPtr.get());
+    vectorHolder = vectorPtr;
   }
   ASSERT_NE(vectorHolder, nullptr);
 
   {
-    ScopedVectorPtr tempVectorPtr(context);
-    tempVectorPtr.ptr() = vectorPool.get(BIGINT(), 1'000);
-    ;
-    ASSERT_NE(rawPtr, tempVectorPtr.ptr().get());
+    VectorRecycler vectorRecycler(vectorPtr, vectorPool);
+    vectorPtr = vectorPool.get(BIGINT(), 1'000);
+    ASSERT_NE(rawPtr, vectorPtr.get());
   }
 }
 } // namespace facebook::velox::test
