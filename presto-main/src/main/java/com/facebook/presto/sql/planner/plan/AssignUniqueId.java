@@ -43,7 +43,17 @@ public class AssignUniqueId
             @JsonProperty("source") PlanNode source,
             @JsonProperty("idVariable") VariableReferenceExpression idVariable)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, idVariable);
+    }
+
+    public AssignUniqueId(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            VariableReferenceExpression idVariable)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
         this.idVariable = requireNonNull(idVariable, "idVariable is null");
     }
@@ -92,6 +102,12 @@ public class AssignUniqueId
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
-        return new AssignUniqueId(newChildren.get(0).getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), idVariable);
+        return new AssignUniqueId(newChildren.get(0).getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), idVariable);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new AssignUniqueId(getSourceLocation(), getId(), statsEquivalentPlanNode, source, idVariable);
     }
 }

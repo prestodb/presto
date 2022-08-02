@@ -34,7 +34,18 @@ public final class ExceptNode
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("outputToInputs") Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs)
     {
-        super(sourceLocation, id, sources, outputVariables, outputToInputs);
+        this(sourceLocation, id, Optional.empty(), sources, outputVariables, outputToInputs);
+    }
+
+    public ExceptNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            List<PlanNode> sources,
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode, sources, outputVariables, outputToInputs);
     }
 
     @Override
@@ -44,8 +55,14 @@ public final class ExceptNode
     }
 
     @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new ExceptNode(getSourceLocation(), getId(), statsEquivalentPlanNode, getSources(), getOutputVariables(), getVariableMapping());
+    }
+
+    @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExceptNode(getSourceLocation(), getId(), newChildren, getOutputVariables(), getVariableMapping());
+        return new ExceptNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren, getOutputVariables(), getVariableMapping());
     }
 }

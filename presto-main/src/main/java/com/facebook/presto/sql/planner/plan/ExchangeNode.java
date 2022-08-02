@@ -104,7 +104,22 @@ public class ExchangeNode
             @JsonProperty("ensureSourceOrdering") boolean ensureSourceOrdering,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), type, scope, partitioningScheme, sources, inputs, ensureSourceOrdering, orderingScheme);
+    }
+
+    public ExchangeNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            Type type,
+            Scope scope,
+            PartitioningScheme partitioningScheme,
+            List<PlanNode> sources,
+            List<List<VariableReferenceExpression>> inputs,
+            boolean ensureSourceOrdering,
+            Optional<OrderingScheme> orderingScheme)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         requireNonNull(type, "type is null");
         requireNonNull(scope, "scope is null");
@@ -314,6 +329,12 @@ public class ExchangeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExchangeNode(getSourceLocation(), getId(), type, scope, partitioningScheme, newChildren, inputs, ensureSourceOrdering, orderingScheme);
+        return new ExchangeNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), type, scope, partitioningScheme, newChildren, inputs, ensureSourceOrdering, orderingScheme);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new ExchangeNode(getSourceLocation(), getId(), statsEquivalentPlanNode, type, scope, partitioningScheme, sources, inputs, ensureSourceOrdering, orderingScheme);
     }
 }

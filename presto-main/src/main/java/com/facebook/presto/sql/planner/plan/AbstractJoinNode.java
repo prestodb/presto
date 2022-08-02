@@ -24,9 +24,9 @@ import java.util.Optional;
 public abstract class AbstractJoinNode
         extends InternalPlanNode
 {
-    protected AbstractJoinNode(Optional<SourceLocation> sourceLocation, PlanNodeId planNodeId)
+    protected AbstractJoinNode(Optional<SourceLocation> sourceLocation, PlanNodeId planNodeId, Optional<PlanNode> statsEquivalentPlanNode)
     {
-        super(sourceLocation, planNodeId);
+        super(sourceLocation, planNodeId, statsEquivalentPlanNode);
     }
 
     public abstract Map<String, VariableReferenceExpression> getDynamicFilters();
