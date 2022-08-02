@@ -67,6 +67,38 @@ inline JodaFormatSpecifier getSpecifier(char c) {
   return it->second;
 }
 
+// According to JodaFormatSpecifier enum class
+std::string_view getSpecifierName(JodaFormatSpecifier spec) {
+  static std::unordered_map<JodaFormatSpecifier, std::string_view>
+      specifierNameMap{
+          {JodaFormatSpecifier::ERA, "ERA"},
+          {JodaFormatSpecifier::CENTURY_OF_ERA, "CENTURY_OF_ERA"},
+          {JodaFormatSpecifier::YEAR_OF_ERA, "YEAR_OF_ERA"},
+          {JodaFormatSpecifier::WEEK_YEAR, "WEEK_YEAR"},
+          {JodaFormatSpecifier::WEEK_OF_WEEK_YEAR, "WEEK_OF_WEEK_YEAR"},
+          {JodaFormatSpecifier::DAY_OF_WEEK, "DAY_OF_WEEK"},
+          {JodaFormatSpecifier::DAY_OF_WEEK_TEXT, "DAY_OF_WEEK_TEXT"},
+          {JodaFormatSpecifier::YEAR, "YEAR"},
+          {JodaFormatSpecifier::DAY_OF_YEAR, "DAY_OF_YEAR"},
+          {JodaFormatSpecifier::MONTH_OF_YEAR, "MONTH_OF_YEAR"},
+          {JodaFormatSpecifier::DAY_OF_MONTH, "DAY_OF_MONTH"},
+          {JodaFormatSpecifier::HALFDAY_OF_DAY, "HALFDAY_OF_DAY"},
+          {JodaFormatSpecifier::HOUR_OF_HALFDAY, "HOUR_OF_HALFDAY"},
+          {JodaFormatSpecifier::CLOCK_HOUR_OF_HALFDAY, "CLOCK_HOUR_OF_HALFDAY"},
+          {JodaFormatSpecifier::HOUR_OF_DAY, "HOUR_OF_DAY"},
+          {JodaFormatSpecifier::CLOCK_HOUR_OF_DAY, "CLOCK_HOUR_OF_DAY"},
+          {JodaFormatSpecifier::MINUTE_OF_HOUR, "MINUTE_OF_HOUR"},
+          {JodaFormatSpecifier::SECOND_OF_MINUTE, "SECOND_OF_MINUTE"},
+          {JodaFormatSpecifier::FRACTION_OF_SECOND, "FRACTION_OF_SECOND"},
+          {JodaFormatSpecifier::TIMEZONE, "TIMEZONE"},
+          {JodaFormatSpecifier::TIMEZONE_OFFSET_ID, "TIMEZONE_OFFSET_ID"},
+      };
+
+  auto it = specifierNameMap.find(spec);
+  return it != specifierNameMap.end() ? it->second
+                                      : std::string_view("[UNKNOWN]");
+}
+
 bool specAllowsNegative(JodaFormatSpecifier s) {
   switch (s) {
     case JodaFormatSpecifier::YEAR:
@@ -233,56 +265,6 @@ parseTimezoneOffset(const char* cur, const char* end, JodaDate& jodaDate) {
   throw std::runtime_error("Unable to parse timezone offset id.");
 }
 
-// According to JodaFormatSpecifier enum class
-std::string getSpecifierName(int enumInt) {
-  switch (enumInt) {
-    case 0:
-      return "ERA";
-    case 1:
-      return "CENTURY_OF_ERA";
-    case 2:
-      return "YEAR_OF_ERA";
-    case 3:
-      return "WEEK_YEAR";
-    case 4:
-      return "WEEK_OF_WEEK_YEAR";
-    case 5:
-      return "DAY_OF_WEEK";
-    case 6:
-      return "DAY_OF_WEEK_TEXT";
-    case 7:
-      return "YEAR";
-    case 8:
-      return "DAY_OF_YEAR";
-    case 9:
-      return "MONTH_OF_YEAR";
-    case 10:
-      return "DAY_OF_MONTH";
-    case 11:
-      return "HALFDAY_OF_DAY";
-    case 12:
-      return "HOUR_OF_HALFDAY";
-    case 13:
-      return "CLOCK_HOUR_OF_HALFDAY";
-    case 14:
-      return "HOUR_OF_DAY";
-    case 15:
-      return "CLOCK_HOUR_OF_DAY";
-    case 16:
-      return "MINUTE_OF_HOUR";
-    case 17:
-      return "SECOND_OF_MINUTE";
-    case 18:
-      return "FRACTION_OF_SECOND";
-    case 19:
-      return "TIMEZONE";
-    case 20:
-      return "TIMEZONE_OFFSET_ID";
-    default:
-      return "[Specifier not updated to conversion function yet]";
-  }
-}
-
 void parseFromPattern(
     JodaFormatSpecifier curPattern,
     const std::string& input,
@@ -361,9 +343,9 @@ void parseFromPattern(
 
       default:
         VELOX_NYI(
-            "Numeric Joda specifier JodaFormatSpecifier::" +
-            getSpecifierName(static_cast<int>(curPattern)) +
-            " not implemented yet.");
+            "Numeric Joda specifier JodaFormatSpecifier::{} "
+            "not implemented yet.",
+            getSpecifierName(curPattern));
     }
   } else {
     try {
