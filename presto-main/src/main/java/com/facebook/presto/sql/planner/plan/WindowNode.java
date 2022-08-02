@@ -61,7 +61,21 @@ public class WindowNode
             @JsonProperty("prePartitionedInputs") Set<VariableReferenceExpression> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
+    }
+
+    public WindowNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            Specification specification,
+            Map<VariableReferenceExpression, Function> windowFunctions,
+            Optional<VariableReferenceExpression> hashVariable,
+            Set<VariableReferenceExpression> prePartitionedInputs,
+            int preSortedOrderPrefix)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
@@ -162,7 +176,13 @@ public class WindowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new WindowNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
+        return new WindowNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new WindowNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
     }
 
     @Immutable

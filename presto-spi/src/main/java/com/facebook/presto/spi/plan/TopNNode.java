@@ -63,7 +63,19 @@ public final class TopNNode
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
             @JsonProperty("step") Step step)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, count, orderingScheme, step);
+    }
+
+    public TopNNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            long count,
+            OrderingScheme orderingScheme,
+            Step step)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be positive");
@@ -126,10 +138,16 @@ public final class TopNNode
     }
 
     @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new TopNNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, count, orderingScheme, step);
+    }
+
+    @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkCondition(newChildren != null && newChildren.size() == 1, GENERIC_INTERNAL_ERROR, "Expect exactly 1 child PlanNode");
-        return new TopNNode(getSourceLocation(), getId(), newChildren.get(0), count, orderingScheme, step);
+        return new TopNNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), count, orderingScheme, step);
     }
 
     private static void checkArgument(boolean condition, String message)

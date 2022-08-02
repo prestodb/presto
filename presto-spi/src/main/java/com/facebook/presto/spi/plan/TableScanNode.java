@@ -61,7 +61,7 @@ public final class TableScanNode
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
-        super(sourceLocation, id);
+        super(sourceLocation, id, Optional.empty());
         this.table = requireNonNull(table, "table is null");
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
@@ -93,7 +93,21 @@ public final class TableScanNode
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
-        super(sourceLocation, id);
+        this (sourceLocation, id, Optional.empty(), table, outputVariables, assignments, tableConstraints, currentConstraint, enforcedConstraint);
+    }
+
+    public TableScanNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            TableHandle table,
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
+            List<TableConstraint<ColumnHandle>> tableConstraints,
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.table = requireNonNull(table, "table is null");
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
@@ -187,6 +201,12 @@ public final class TableScanNode
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTableScan(this, context);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new TableScanNode(getSourceLocation(), getId(), statsEquivalentPlanNode, table, outputVariables, assignments, tableConstraints, currentConstraint, enforcedConstraint);
     }
 
     @Override

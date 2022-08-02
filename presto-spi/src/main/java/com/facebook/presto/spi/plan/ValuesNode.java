@@ -49,7 +49,18 @@ public final class ValuesNode
             @JsonProperty("rows") List<List<RowExpression>> rows,
             @JsonProperty("valuesNodeLabel") Optional<String> valuesNodeLabel)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), outputVariables, rows, valuesNodeLabel);
+    }
+
+    public ValuesNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            List<VariableReferenceExpression> outputVariables,
+            List<List<RowExpression>> rows,
+            Optional<String> valuesNodeLabel)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.outputVariables = immutableListCopyOf(outputVariables);
         this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(Collectors.toList()));
 
@@ -96,6 +107,12 @@ public final class ValuesNode
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitValues(this, context);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new ValuesNode(getSourceLocation(), getId(), statsEquivalentPlanNode, outputVariables, rows, valuesNodeLabel);
     }
 
     @Override
