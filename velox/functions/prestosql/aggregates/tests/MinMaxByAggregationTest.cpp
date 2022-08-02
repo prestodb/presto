@@ -122,7 +122,7 @@ class MinMaxByAggregationTestBase : public AggregationTestBase {
   // returned flat vector is in ascending order.
   template <typename T>
   FlatVectorPtr<T> buildDataVector() {
-    return makeFlatVector<T>(numValues_, [](auto row) { return row + 1; });
+    return makeFlatVector<T>(numValues_, [](auto row) { return row - 3; });
   }
 
   template <typename T>

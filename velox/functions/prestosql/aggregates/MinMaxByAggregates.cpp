@@ -470,7 +470,7 @@ class MaxByAggregate : public MinMaxByAggregate<T, U> {
       typename AccumulatorTypeTraits<U>::AccumulatorType;
 
   explicit MaxByAggregate(TypePtr resultType)
-      : MinMaxByAggregate<T, U>(resultType, std::numeric_limits<U>::min()) {}
+      : MinMaxByAggregate<T, U>(resultType, std::numeric_limits<U>::lowest()) {}
 
   void addRawInput(
       char** groups,
