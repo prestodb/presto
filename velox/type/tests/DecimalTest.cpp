@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "velox/type/DecimalUtils.h"
+#include "velox/type/DecimalUtil.h"
 
 namespace facebook::velox {
 namespace {

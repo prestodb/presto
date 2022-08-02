@@ -24,7 +24,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/VeloxException.h"
 #include "velox/type/Conversions.h"
-#include "velox/type/DecimalUtils.h"
+#include "velox/type/DecimalUtil.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
