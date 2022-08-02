@@ -66,7 +66,22 @@ public final class AggregationNode
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
             @JsonProperty("groupIdVariable") Optional<VariableReferenceExpression> groupIdVariable)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
+    }
+
+    public AggregationNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            Map<VariableReferenceExpression, Aggregation> aggregations,
+            GroupingSetDescriptor groupingSets,
+            List<VariableReferenceExpression> preGroupedVariables,
+            Step step,
+            Optional<VariableReferenceExpression> hashVariable,
+            Optional<VariableReferenceExpression> groupIdVariable)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         this.source = source;
         this.aggregations = unmodifiableMap(new LinkedHashMap<>(requireNonNull(aggregations, "aggregations is null")));
@@ -219,10 +234,16 @@ public final class AggregationNode
     }
 
     @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new AggregationNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
+    }
+
+    @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
-        return new AggregationNode(getSourceLocation(), getId(), newChildren.get(0), aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
+        return new AggregationNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
     }
 
     public boolean isStreamable()

@@ -47,7 +47,20 @@ public class StatisticsWriterNode
             @JsonProperty("rowCountEnabled") boolean rowCountEnabled,
             @JsonProperty("descriptor") StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, tableHandle, rowCountVariable, rowCountEnabled, descriptor);
+    }
+
+    public StatisticsWriterNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            TableHandle tableHandle,
+            VariableReferenceExpression rowCountVariable,
+            boolean rowCountEnabled,
+            StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
@@ -103,7 +116,22 @@ public class StatisticsWriterNode
         return new StatisticsWriterNode(
                 getSourceLocation(),
                 getId(),
+                getStatsEquivalentPlanNode(),
                 Iterables.getOnlyElement(newChildren),
+                tableHandle,
+                rowCountVariable,
+                rowCountEnabled,
+                descriptor);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new StatisticsWriterNode(
+                getSourceLocation(),
+                getId(),
+                statsEquivalentPlanNode,
+                source,
                 tableHandle,
                 rowCountVariable,
                 rowCountEnabled,
