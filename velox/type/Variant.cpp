@@ -502,6 +502,12 @@ variant variant::create(const folly::dynamic& variantobj) {
 uint64_t variant::hash() const {
   uint64_t hash = 0;
   if (isNull()) {
+    if (kind_ == TypeKind::SHORT_DECIMAL) {
+      return value<TypeKind::SHORT_DECIMAL>().hash();
+    }
+    if (kind_ == TypeKind::LONG_DECIMAL) {
+      return value<TypeKind::LONG_DECIMAL>().hash();
+    }
     return folly::Hash{}(static_cast<int32_t>(kind_));
   }
 
@@ -555,7 +561,12 @@ uint64_t variant::hash() const {
       return folly::Hash{}(
           timestampValue.getSeconds(), timestampValue.getNanos());
     }
-
+    case TypeKind::SHORT_DECIMAL: {
+      return value<TypeKind::SHORT_DECIMAL>().hash();
+    }
+    case TypeKind::LONG_DECIMAL: {
+      return value<TypeKind::LONG_DECIMAL>().hash();
+    }
     case TypeKind::MAP: {
       auto hasher = folly::Hash{};
       auto& mapVariant = value<TypeKind::MAP>();

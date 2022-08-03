@@ -102,28 +102,66 @@ TEST(VariantTest, shortDecimal) {
   EXPECT_EQ(*v.inferType(), *shortDecimalType);
   EXPECT_EQ(v.toJson(), "1.234");
   // 1.2345
-  variant u1 = variant::shortDecimal(12345, DECIMAL(10, 4));
+  auto u1 = variant::shortDecimal(12345, DECIMAL(10, 4));
   // 1.2345 > 1.234
   EXPECT_LT(
       v.value<TypeKind::SHORT_DECIMAL>(), u1.value<TypeKind::SHORT_DECIMAL>());
   // 0.1234
-  variant u2 = variant::shortDecimal(1234, DECIMAL(10, 4));
+  auto u2 = variant::shortDecimal(1234, DECIMAL(10, 4));
   // 0.1234 < 1.234
   EXPECT_LT(
       u2.value<TypeKind::SHORT_DECIMAL>(), v.value<TypeKind::SHORT_DECIMAL>());
 }
 
+TEST(VariantTest, shortDecimalHash) {
+  auto shortDecimalType = DECIMAL(10, 3);
+  auto v = variant::shortDecimal(1234, shortDecimalType);
+  auto vValue = v.value<TypeKind::SHORT_DECIMAL>();
+  auto vHash = v.hash();
+
+  // v and v1 differ in precision.
+  auto v1 =
+      variant::shortDecimal(vValue.value().unscaledValue(), DECIMAL(11, 3));
+  EXPECT_NE(vHash, v1.hash());
+
+  // v and v2 differ in scale.
+  auto v2 =
+      variant::shortDecimal(vValue.value().unscaledValue(), DECIMAL(10, 4));
+  EXPECT_NE(vHash, v2.hash());
+
+  // v and v3 differ in value.
+  auto v3 = variant::shortDecimal(123456, shortDecimalType);
+  EXPECT_NE(vHash, v3.hash());
+
+  // v and v4 are exactly same.
+  auto v4 = v;
+  EXPECT_EQ(vHash, v4.hash());
+}
+
 TEST(VariantTest, shortDecimalNull) {
-  variant null = variant::shortDecimal(std::nullopt, DECIMAL(10, 5));
-  EXPECT_TRUE(null.isNull());
-  EXPECT_EQ(null.toJson(), "null");
-  EXPECT_EQ(*null.inferType(), *DECIMAL(10, 5));
+  auto n = variant::shortDecimal(std::nullopt, DECIMAL(10, 5));
+  EXPECT_TRUE(n.isNull());
+  EXPECT_EQ(n.toJson(), "null");
+  EXPECT_EQ(*n.inferType(), *DECIMAL(10, 5));
   EXPECT_THROW(variant::null(TypeKind::SHORT_DECIMAL), VeloxException);
+  auto nHash = n.hash();
+
+  // n and n1 differ in precision.
+  auto n1 = variant::shortDecimal(std::nullopt, DECIMAL(11, 5));
+  EXPECT_NE(nHash, n1.hash());
+
+  // n and n2 differ in scale.
+  auto n2 = variant::shortDecimal(std::nullopt, DECIMAL(10, 4));
+  EXPECT_NE(nHash, n2.hash());
+
+  // n and n3 have same precision and scale.
+  auto n3 = n;
+  EXPECT_EQ(nHash, n3.hash());
 }
 
 TEST(VariantTest, longDecimal) {
   auto longDecimalType = DECIMAL(20, 3);
-  variant v = variant::longDecimal(12345, longDecimalType);
+  auto v = variant::longDecimal(12345, longDecimalType);
   EXPECT_TRUE(v.hasValue());
   EXPECT_EQ(TypeKind::LONG_DECIMAL, v.kind());
   EXPECT_EQ(12345, v.value<TypeKind::LONG_DECIMAL>().value().unscaledValue());
@@ -132,23 +170,61 @@ TEST(VariantTest, longDecimal) {
   EXPECT_EQ(*v.inferType(), *longDecimalType);
   EXPECT_EQ(v.toJson(), "12.345");
   // 1.2345
-  variant u1 = variant::longDecimal(12345, DECIMAL(20, 4));
+  auto u1 = variant::longDecimal(12345, DECIMAL(20, 4));
   // 1.2345 < 12.345
   EXPECT_LT(
       u1.value<TypeKind::LONG_DECIMAL>(), v.value<TypeKind::LONG_DECIMAL>());
   // 12.3456
-  variant u2 = variant::longDecimal(123456, DECIMAL(20, 4));
+  auto u2 = variant::longDecimal(123456, DECIMAL(20, 4));
   // 12.3456 > 12.345
   EXPECT_LT(
       v.value<TypeKind::LONG_DECIMAL>(), u2.value<TypeKind::LONG_DECIMAL>());
 }
 
+TEST(VariantTest, longDecimalHash) {
+  auto longDecimalType = DECIMAL(20, 3);
+  auto v = variant::longDecimal(12345, longDecimalType);
+  auto vValue = v.value<TypeKind::LONG_DECIMAL>();
+  auto vHash = vValue.hash();
+
+  // v and v1 differ in precision.
+  auto v1 =
+      variant::longDecimal(vValue.value().unscaledValue(), DECIMAL(21, 3));
+  EXPECT_NE(vHash, v1.hash());
+
+  // v and v2 differ in scale.
+  auto v2 =
+      variant::longDecimal(vValue.value().unscaledValue(), DECIMAL(20, 4));
+  EXPECT_NE(vHash, v2.hash());
+
+  // v and v3 differ in value.
+  auto v3 = variant::longDecimal(123456, longDecimalType);
+  EXPECT_NE(vHash, v3.hash());
+
+  // v and v4 are exactly same.
+  auto v4 = v;
+  EXPECT_EQ(vHash, v4.hash());
+}
+
 TEST(VariantTest, longDecimalNull) {
-  variant null = variant::longDecimal(std::nullopt, DECIMAL(20, 5));
-  EXPECT_TRUE(null.isNull());
-  EXPECT_EQ(null.toJson(), "null");
-  EXPECT_EQ(*null.inferType(), *DECIMAL(20, 5));
+  auto n = variant::longDecimal(std::nullopt, DECIMAL(20, 5));
+  EXPECT_TRUE(n.isNull());
+  EXPECT_EQ(n.toJson(), "null");
+  EXPECT_EQ(*n.inferType(), *DECIMAL(20, 5));
   EXPECT_THROW(variant::null(TypeKind::LONG_DECIMAL), VeloxException);
+  auto nHash = n.hash();
+
+  // n and n1 differ in precision.
+  auto n1 = variant::longDecimal(std::nullopt, DECIMAL(21, 5));
+  EXPECT_NE(nHash, n1.hash());
+
+  // n and n2 differ in scale.
+  auto n2 = variant::longDecimal(std::nullopt, DECIMAL(20, 4));
+  EXPECT_NE(nHash, n2.hash());
+
+  // n and n3 have same precision and scale.
+  auto n3 = n;
+  EXPECT_EQ(nHash, n3.hash());
 }
 
 /// Test variant::equalsWithEpsilon by summing up large 64-bit integers (> 15

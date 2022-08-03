@@ -152,6 +152,16 @@ struct DecimalCapsule {
     }
     return lhsIntegral < rhsIntegral;
   }
+
+  size_t hash() const {
+    auto hasher = folly::Hash{};
+    auto hash = folly::hash::hash_combine_generic(
+        hasher, hasher(precision), hasher(scale));
+    if (hasValue()) {
+      hash = folly::hash::hash_combine_generic(hasher, hasher(value()), hash);
+    }
+    return hash;
+  }
 };
 
 using ShortDecimalCapsule = DecimalCapsule<ShortDecimal>;
