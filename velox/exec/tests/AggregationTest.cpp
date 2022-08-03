@@ -656,7 +656,7 @@ TEST_F(AggregationTest, setNull) {
       RowContainer::nullByte(nullOffset),
       RowContainer::nullMask(nullOffset),
       0);
-  char group;
+  char group{0};
   aggregate.clearNullTest(&group);
   EXPECT_FALSE(aggregate.isNullTest(&group));
 
