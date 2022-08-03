@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/memory/AllocationPool.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/common/memory/CompactDoubleList.h"
@@ -395,7 +396,8 @@ struct StlAllocator {
   }
 
   T* FOLLY_NONNULL allocate(std::size_t n) {
-    return reinterpret_cast<T*>(allocator_->allocate(n * sizeof(T))->begin());
+    return reinterpret_cast<T*>(
+        allocator_->allocate(checkedMultiply(n, sizeof(T)))->begin());
   }
 
   void deallocate(T* FOLLY_NONNULL p, std::size_t /*n*/) noexcept {
@@ -451,7 +453,8 @@ struct AlignedStlAllocator {
   T* FOLLY_NONNULL allocate(std::size_t n) {
     // Allocate extra Alignment bytes for alignment and 4 bytes to store the
     // delta between unaligned and aligned pointers.
-    auto size = Alignment + 4 + n * sizeof(T);
+    auto size =
+        checkedPlus<size_t>(Alignment + 4, checkedMultiply(n, sizeof(T)));
     auto ptr = reinterpret_cast<T*>(allocator_->allocate(size)->begin());
 
     // Align 'ptr + 4'.

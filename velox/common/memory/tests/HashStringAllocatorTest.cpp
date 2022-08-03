@@ -315,3 +315,10 @@ TEST_F(HashStringAllocatorTest, alignedStlAllocatorWithF14Map) {
   // generate more free blocks at the end, so we loosen the upper bound a bit.
   EXPECT_LE(instance_->retainedSize() - instance_->freeSpace(), 130);
 }
+
+TEST_F(HashStringAllocatorTest, stlAllocatorOverflow) {
+  StlAllocator<int64_t> alloc(instance_.get());
+  EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
+  AlignedStlAllocator<int64_t, 16> alignedAlloc(instance_.get());
+  EXPECT_THROW(alignedAlloc.allocate(1ULL << 62), VeloxException);
+}

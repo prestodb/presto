@@ -687,6 +687,13 @@ TEST_P(MappedMemoryTest, stlMappedMemoryAllocator) {
   }
   EXPECT_EQ(0, instance_->numAllocated());
   EXPECT_TRUE(instance_->checkConsistency());
+  {
+    StlMappedMemoryAllocator<int64_t> alloc(instance_);
+    EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
+    auto p = alloc.allocate(1);
+    EXPECT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
+    alloc.deallocate(p, 1);
+  }
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

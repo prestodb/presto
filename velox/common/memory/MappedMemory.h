@@ -24,6 +24,7 @@
 #include <unordered_set>
 
 #include <gflags/gflags.h>
+#include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/memory/MemoryUsageTracker.h"
 #include "velox/common/time/Timer.h"
@@ -605,11 +606,12 @@ struct StlMappedMemoryAllocator {
   }
 
   T* FOLLY_NONNULL allocate(std::size_t n) {
-    return reinterpret_cast<T*>(allocator_->allocateBytes(n * sizeof(T)));
+    return reinterpret_cast<T*>(
+        allocator_->allocateBytes(checkedMultiply(n, sizeof(T))));
   }
 
-  void deallocate(T* FOLLY_NONNULL p, std::size_t n) noexcept {
-    allocator_->freeBytes(p, n * sizeof(T));
+  void deallocate(T* FOLLY_NONNULL p, std::size_t n) {
+    allocator_->freeBytes(p, checkedMultiply(n, sizeof(T)));
   }
 
   MappedMemory* FOLLY_NONNULL allocator() const {

@@ -20,6 +20,7 @@
 
 #include <boost/intrusive_ptr.hpp>
 #include "velox/common/base/BitUtil.h"
+#include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Range.h"
 #include "velox/common/base/SimdUtil.h"
@@ -318,8 +319,9 @@ class AlignedBuffer : public Buffer {
       size_t numElements,
       velox::memory::MemoryPool* pool,
       const std::optional<T>& initValue = std::nullopt) {
-    size_t size = numElements * sizeof(T);
-    size_t preferredSize = pool->getPreferredSize(size + kPaddedSize);
+    size_t size = checkedMultiply(numElements, sizeof(T));
+    size_t preferredSize =
+        pool->getPreferredSize(checkedPlus<size_t>(size, kPaddedSize));
     void* memory = pool->allocate(preferredSize);
     auto* buffer = new (memory) ImplClass<T>(pool, preferredSize - kPaddedSize);
     // set size explicitly instead of setSize because `fillNewMemory` already
@@ -339,7 +341,7 @@ class AlignedBuffer : public Buffer {
       BufferPtr* buffer,
       size_t numElements,
       const std::optional<T>& initValue = std::nullopt) {
-    auto size = numElements * sizeof(T);
+    auto size = checkedMultiply(numElements, sizeof(T));
     Buffer* old = buffer->get();
     VELOX_CHECK(old, "Buffer doesn't exist in reallocate");
     old->checkEndGuard();
@@ -358,7 +360,6 @@ class AlignedBuffer : public Buffer {
       return;
     }
     velox::memory::MemoryPool* pool = old->pool();
-    size_t preferredSize = pool->getPreferredSize(size + kPaddedSize);
     if (!is_pod_like_v<T>) {
       // We always take this code path for non-POD types because
       // pool->reallocate below would move memory around without calling move
@@ -383,6 +384,9 @@ class AlignedBuffer : public Buffer {
       *buffer = std::move(newBuffer);
       return;
     }
+    auto oldCapacity = checkedPlus<size_t>(old->capacity(), kPaddedSize);
+    auto preferredSize =
+        pool->getPreferredSize(checkedPlus<size_t>(size, kPaddedSize));
     // Make the buffer no longer owned by '*buffer' because reallocate
     // may free the old buffer. Reassigning the new buffer to
     // '*buffer' would be a double free.
@@ -390,8 +394,13 @@ class AlignedBuffer : public Buffer {
     // Decrement the reference count.  No need to check, we just
     // checked old->unique().
     old->referenceCount_.fetch_sub(1);
-    void* newPtr =
-        pool->reallocate(old, old->capacity() + kPaddedSize, preferredSize);
+    void* newPtr;
+    try {
+      newPtr = pool->reallocate(old, oldCapacity, preferredSize);
+    } catch (const std::exception&) {
+      *buffer = old;
+      throw;
+    }
     if (newPtr == reinterpret_cast<void*>(old)) {
       // The pointer did not change. Put the old pointer back in the
       // smart pointer and adjust capacity.
@@ -422,10 +431,12 @@ class AlignedBuffer : public Buffer {
     size_t bytes = sizeof(T) * numItems;
     size_t size = (*buffer)->size();
     size_t capacity = (*buffer)->capacity();
-    if (size + bytes > capacity) {
-      reallocate<char>(buffer, std::max(2 * capacity, size + bytes));
+    size_t newSize = checkedPlus(size, bytes);
+    if (newSize > capacity) {
+      reallocate<char>(
+          buffer, std::max(checkedMultiply<size_t>(2, capacity), newSize));
     }
-    (*buffer)->setSize(size + bytes);
+    (*buffer)->setSize(newSize);
     auto startOfCopy = (*buffer)->asMutable<uint8_t>() + size;
     memcpy(startOfCopy, items, bytes);
     return reinterpret_cast<T*>(startOfCopy);
@@ -503,7 +514,7 @@ class AlignedBuffer : public Buffer {
   }
 
   void freeToPool() override {
-    pool_->free(this, kPaddedSize + capacity_);
+    pool_->free(this, checkedPlus<size_t>(kPaddedSize, capacity_));
   }
 };
 
@@ -618,7 +629,8 @@ class NonPODAlignedBuffer : public Buffer {
   }
 
   void freeToPool() override {
-    pool_->free(this, AlignedBuffer::kPaddedSize + capacity_);
+    pool_->free(
+        this, checkedPlus<size_t>(AlignedBuffer::kPaddedSize, capacity_));
   }
 
   // Needs to use this class from static methods of AlignedBuffer

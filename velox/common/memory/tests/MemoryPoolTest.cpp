@@ -608,6 +608,16 @@ TEST(MemoryPoolTest, getPreferredSizeOverflow) {
   EXPECT_EQ(1ULL << 32, pool.getPreferredSize((1ULL << 32) - 1));
   EXPECT_EQ(1ULL << 63, pool.getPreferredSize((1ULL << 62) - 1 + (1ULL << 62)));
 }
+
+TEST(MemoryPoolTest, allocatorOverflow) {
+  MemoryManager<MemoryAllocator, 64> manager{};
+  auto& pool =
+      dynamic_cast<MemoryPoolImpl<MemoryAllocator, 64>&>(manager.getRoot());
+  Allocator<int64_t> alloc(pool);
+  EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
+  EXPECT_THROW(alloc.deallocate(nullptr, 1ULL << 62), VeloxException);
+}
+
 } // namespace memory
 } // namespace velox
 } // namespace facebook

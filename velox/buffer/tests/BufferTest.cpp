@@ -337,5 +337,14 @@ TEST_F(BufferTest, testNonPODMemoryUsage) {
   EXPECT_EQ(pool_->getCurrentBytes(), currentBytes);
 }
 
+TEST_F(BufferTest, testAllocateSizeOverflow) {
+  EXPECT_THROW(
+      AlignedBuffer::allocate<int64_t>(1ull << 62, pool_.get()),
+      VeloxException);
+  auto buf = AlignedBuffer::allocate<int64_t>(8, pool_.get());
+  EXPECT_THROW(
+      AlignedBuffer::reallocate<int64_t>(&buf, 1ull << 62), VeloxException);
+}
+
 } // namespace velox
 } // namespace facebook
