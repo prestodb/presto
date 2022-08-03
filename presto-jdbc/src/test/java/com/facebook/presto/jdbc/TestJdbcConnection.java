@@ -146,6 +146,26 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testImmediateCommit()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            connection.setAutoCommit(false);
+            connection.commit();
+        }
+    }
+
+    @Test
+    public void testImmediateRollback()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            connection.setAutoCommit(false);
+            connection.rollback();
+        }
+    }
+
+    @Test
     public void testUse()
             throws SQLException
     {
