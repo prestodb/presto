@@ -42,7 +42,7 @@ add_executable(
   PrintPlanWithStatsTest.cpp
   RoundRobinPartitionFunctionTest.cpp
   RowContainerTest.cpp
-  SimpleFunctionResolutionTest.cpp
+  FunctionResolutionTest.cpp
   SpillTest.cpp
   SpillerTest.cpp
   StreamingAggregationTest.cpp

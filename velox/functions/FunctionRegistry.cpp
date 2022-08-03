@@ -106,17 +106,7 @@ std::shared_ptr<const Type> resolveSimpleFunction(
 std::shared_ptr<const Type> resolveVectorFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
-  if (auto vectorFunctionSignatures =
-          exec::getVectorFunctionSignatures(functionName)) {
-    for (const auto& signature : vectorFunctionSignatures.value()) {
-      exec::SignatureBinder binder(*signature, argTypes);
-      if (binder.tryBind()) {
-        return binder.tryResolveReturnType();
-      }
-    }
-  }
-
-  return nullptr;
+  return exec::resolveVectorFunction(functionName, argTypes);
 }
 
 } // namespace facebook::velox

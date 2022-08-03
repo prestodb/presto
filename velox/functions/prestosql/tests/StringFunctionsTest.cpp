@@ -1083,7 +1083,8 @@ void StringFunctionsTest::testReplaceInPlace(
   // If its not expected make sure it did not happen.
   auto applyReplaceFunction = [&](std::vector<VectorPtr>& functionInputs,
                                   VectorPtr& resultPtr) {
-    auto replaceFunction = exec::getVectorFunction("replace", {VARCHAR()}, {});
+    auto replaceFunction =
+        exec::getVectorFunction("replace", {VARCHAR(), VARCHAR()}, {});
     SelectivityVector rows(tests.size());
     ExprSet exprSet({}, &execCtx_);
     RowVectorPtr inputRows = makeRowVector({});

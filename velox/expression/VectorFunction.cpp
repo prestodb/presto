@@ -17,6 +17,7 @@
 #include <unordered_map>
 #include "folly/Singleton.h"
 #include "folly/Synchronized.h"
+#include "velox/expression/SignatureBinder.h"
 
 namespace facebook::velox::exec {
 
@@ -35,6 +36,22 @@ std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(
         return it == functions.end() ? std::nullopt
                                      : std::optional(it->second.signatures);
       });
+}
+
+std::shared_ptr<const Type> resolveVectorFunction(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes) {
+  if (auto vectorFunctionSignatures =
+          exec::getVectorFunctionSignatures(functionName)) {
+    for (const auto& signature : vectorFunctionSignatures.value()) {
+      exec::SignatureBinder binder(*signature, argTypes);
+      if (binder.tryBind()) {
+        return binder.tryResolveReturnType();
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 std::shared_ptr<VectorFunction> getVectorFunction(
@@ -60,11 +77,13 @@ std::shared_ptr<VectorFunction> getVectorFunction(
   }
 
   return vectorFunctionFactories().withRLock(
-      [&sanitizedName, &inputArgs ](auto& functionMap) -> auto {
-        auto functionIterator = functionMap.find(sanitizedName);
-        return functionIterator == functionMap.end()
-            ? nullptr
-            : functionIterator->second.factory(sanitizedName, inputArgs);
+      [&sanitizedName, &inputArgs, &inputTypes](
+          auto& functionMap) -> std::shared_ptr<VectorFunction> {
+        if (resolveVectorFunction(sanitizedName, inputTypes)) {
+          auto functionIterator = functionMap.find(sanitizedName);
+          return functionIterator->second.factory(sanitizedName, inputArgs);
+        }
+        return nullptr;
       });
 }
 

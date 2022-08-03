@@ -770,7 +770,7 @@ TEST_F(ExprTest, overwriteInRegistry) {
       true);
   ASSERT_TRUE(inserted);
 
-  auto vectorFunction = exec::getVectorFunction("plus5", {}, {});
+  auto vectorFunction = exec::getVectorFunction("plus5", {INTEGER()}, {});
   ASSERT_TRUE(vectorFunction != nullptr);
 
   inserted = exec::registerVectorFunction(
@@ -780,7 +780,7 @@ TEST_F(ExprTest, overwriteInRegistry) {
       true);
   ASSERT_TRUE(inserted);
 
-  auto vectorFunction2 = exec::getVectorFunction("plus5", {}, {});
+  auto vectorFunction2 = exec::getVectorFunction("plus5", {INTEGER()}, {});
 
   ASSERT_TRUE(vectorFunction2 != nullptr);
   ASSERT_TRUE(vectorFunction != vectorFunction2);

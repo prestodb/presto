@@ -141,6 +141,12 @@ class SimpleFunctionAdapterFactory {
 std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(
     const std::string& name);
 
+/// Given name of vector function and argument types, returns
+/// the return type if function exists otherwise returns nullptr.
+std::shared_ptr<const Type> resolveVectorFunction(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes);
+
 /// Returns an instance of VectorFunction for the given name, input types and
 /// optionally constant input values.
 /// constantInputs should be empty if there are no constant inputs.
