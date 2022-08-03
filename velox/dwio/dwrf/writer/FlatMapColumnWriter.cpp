@@ -302,11 +302,22 @@ template <TypeKind K>
 uint64_t FlatMapColumnWriter<K>::write(
     const VectorPtr& slice,
     const Ranges& ranges) {
-  // enable once writeRow() is tested
-  // if (slice->as<RowVector>()) {
-  //   return writeRow(slice, ranges);
-  // }
   return writeMap(slice, ranges);
+
+  // enable once writeRow() is tested
+
+  // switch (slice->typeKind()) {
+  //   case TypeKind::MAP:
+  //     return writeMap(slice, ranges);
+  //     break;
+  //   case TypeKind::ROW:
+  //     // fail if missing keys
+  //     return writeRow(slice, ranges);
+  //     break;
+  //   default:
+  //     DWIO_ENSURE(slice->as<MapVector>(), "unexpected vector type");
+  //     return -1; // error
+  // }
 }
 
 template <TypeKind K>
@@ -410,26 +421,42 @@ uint64_t FlatMapColumnWriter<K>::writeMap(
   return rawSize;
 }
 
+template <typename Row>
+Ranges getNonNullRanges(const Ranges& ranges, const Row& row) {
+  Ranges nonNullRanges;
+  if (row.hasNulls()) {
+    for (auto& index : ranges) {
+      if (!row.isNullAt(index)) {
+        nonNullRanges.add(row.index(index), row.index(index) + 1);
+      }
+    }
+  } else {
+    nonNullRanges = ranges;
+  }
+  return nonNullRanges;
+}
+
 template <TypeKind K>
 uint64_t FlatMapColumnWriter<K>::writeRow(
     const VectorPtr& slice,
     const Ranges& ranges) {
   uint64_t rawSize = 0;
-
-  // #1 - writeNulls()
-  writeNulls(slice, ranges);
-
-  // #2 - count non-null rows
   Ranges nonNullRanges;
-  // adding handling for encoded row in future diff
-  if (slice->mayHaveNulls()) {
-    for (auto& index : ranges) {
-      if (!slice->isNullAt(index)) {
-        nonNullRanges.add(index, index + 1);
-      }
-    }
+
+  // #1, 2 - writeNulls() & count non-null rows
+  const RowVector* rowSlice = slice->as<RowVector>();
+  if (rowSlice) {
+    // Row is flat
+    writeNulls(slice, ranges);
+    nonNullRanges = getNonNullRanges(ranges, Flat{slice});
   } else {
-    nonNullRanges = ranges;
+    // Row is encoded. Decode.
+    auto& decodedRow = decode(slice, ranges).get();
+    writeNulls(decodedRow, ranges);
+    rowSlice = decodedRow.base()->template as<RowVector>();
+    // may verify in write() before entering writeRow() -- still needed?
+    DWIO_ENSURE(rowSlice, "unexpected vector type");
+    nonNullRanges = getNonNullRanges(ranges, Decoded{decodedRow});
   }
 
   // #3 - create Buffer filled with 1 to reuse for all columns
