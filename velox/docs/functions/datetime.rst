@@ -131,7 +131,8 @@ Java Date Functions
 The functions in this section leverage a native cpp implementation that follows
 a format string compatible with JodaTime’s `DateTimeFormat
 <http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html>`_
-pattern format.
+pattern format. The symbols currently supported are ``y``, ``Y``, ``M`` , ``d``,
+``H``, ``m``, ``s``, ``S``, and ``Z``.
 
 .. function:: parse_datetime(string, format) -> timestamp with time zone
 

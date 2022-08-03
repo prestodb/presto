@@ -178,12 +178,51 @@ void JodaFormatter::tokenize(const std::string_view& format) {
 namespace {
 
 struct JodaDate {
-  int32_t year = 1970;
-  int32_t month = 1;
-  int32_t day = 1;
+ private:
+  int32_t year_ = 1970;
+  int32_t month_ = 1;
+  int32_t day_ = 1;
+
+  bool hasYear_ = false; // Whether year was explicitly specified.
+
+ public:
+  void setYear(int32_t year) {
+    hasYear_ = true;
+    year_ = year;
+  }
+
+  int32_t getYear() const {
+    return year_;
+  }
+
+  void setMonth(int32_t month) {
+    // Joda has this weird behavior where it returns 1970 as the year by
+    // default (if no year is specified), but if either day or month are
+    // specified, it falls back to 2000.
+    if (!hasYear_) {
+      hasYear_ = true;
+      year_ = 2000;
+    }
+    month_ = month;
+  }
+
+  int32_t getMonth() const {
+    return month_;
+  }
+
+  void setDay(int32_t day) {
+    if (!hasYear_) {
+      hasYear_ = true;
+      year_ = 2000;
+    }
+    day_ = day;
+  }
+
+  int32_t getDay() const {
+    return day_;
+  }
 
   bool isYearOfEra = false; // Year of era cannot be zero or negative.
-  bool hasYear = false; // Whether year was explicitly specified.
 
   int32_t hour = 0;
   int32_t minute = 0;
@@ -199,10 +238,13 @@ void parseFail(const std::string& input, const char* cur, const char* end) {
       std::string_view(cur, end - cur));
 }
 
-// Returns number of characters consumed, or throws if timezone offset id could
-// not be parsed.
-int64_t
-parseTimezoneOffset(const char* cur, const char* end, JodaDate& jodaDate) {
+// Returns number of characters consumed, or calls parseFail() if timezone
+// offset id could not be parsed.
+int64_t parseTimezoneOffset(
+    const std::string& input,
+    const char* cur,
+    const char* end,
+    JodaDate& jodaDate) {
   // For timezone offset ids, there are four formats allowed by Joda:
   //
   // 1. '+' or '-' followed by two digits: "+00"
@@ -211,72 +253,169 @@ parseTimezoneOffset(const char* cur, const char* end, JodaDate& jodaDate) {
   // 3. '+' or '-' followed by four digits:
   //    "+0000"
   // 4. 'Z': means GMT
-  if (cur < end) {
-    if ((*cur == '-' || *cur == '+')) {
-      // Long format: "+00:00"
-      if ((end - cur) >= 6 && *(cur + 3) == ':') {
-        // Fast path for the common case ("+00:00" or "-00:00"), to prevent
-        // calling getTimeZoneID(), which does a map lookup.
-        if (std::strncmp(cur + 1, "00:00", 5) == 0) {
-          jodaDate.timezoneId = 0;
-        } else {
-          jodaDate.timezoneId = util::getTimeZoneID(std::string_view(cur, 6));
+  try {
+    if (cur < end) {
+      if ((*cur == '-' || *cur == '+')) {
+        // Long format: "+00:00"
+        if ((end - cur) >= 6 && *(cur + 3) == ':') {
+          // Fast path for the common case ("+00:00" or "-00:00"), to prevent
+          // calling getTimeZoneID(), which does a map lookup.
+          if (std::strncmp(cur + 1, "00:00", 5) == 0) {
+            jodaDate.timezoneId = 0;
+          } else {
+            jodaDate.timezoneId = util::getTimeZoneID(std::string_view(cur, 6));
+          }
+          return 6;
         }
-        return 6;
-      }
-      // Long format without colon: "+0000"
-      else if ((end - cur) >= 5 && *(cur + 3) != ':') {
-        // Same fast path described above.
-        if (std::strncmp(cur + 1, "0000", 4) == 0) {
-          jodaDate.timezoneId = 0;
-        } else {
-          // We need to concatenate the 3 first chars with ":" followed by the
-          // last 2 chars before calling getTimeZoneID, so we use a static
-          // thread_local buffer to prevent extra allocations.
-          std::memcpy(&timezoneBuffer[0], cur, 3);
-          std::memcpy(&timezoneBuffer[4], cur + 3, 2);
+        // Long format without colon: "+0000"
+        else if ((end - cur) >= 5 && *(cur + 3) != ':') {
+          // Same fast path described above.
+          if (std::strncmp(cur + 1, "0000", 4) == 0) {
+            jodaDate.timezoneId = 0;
+          } else {
+            // We need to concatenate the 3 first chars with ":" followed by the
+            // last 2 chars before calling getTimeZoneID, so we use a static
+            // thread_local buffer to prevent extra allocations.
+            std::memcpy(&timezoneBuffer[0], cur, 3);
+            std::memcpy(&timezoneBuffer[4], cur + 3, 2);
 
-          jodaDate.timezoneId = util::getTimeZoneID(timezoneBuffer);
+            jodaDate.timezoneId = util::getTimeZoneID(timezoneBuffer);
+          }
+          return 5;
         }
-        return 5;
+        // Short format: "+00"
+        else if ((end - cur) >= 3) {
+          // Same fast path described above.
+          if (std::strncmp(cur + 1, "00", 2) == 0) {
+            jodaDate.timezoneId = 0;
+          } else {
+            // We need to concatenate the 3 first chars with a trailing ":00"
+            // before calling getTimeZoneID, so we use a static thread_local
+            // buffer to prevent extra allocations.
+            std::memcpy(&timezoneBuffer[0], cur, 3);
+            std::memcpy(&timezoneBuffer[4], defaultTrailingOffset, 2);
+            jodaDate.timezoneId = util::getTimeZoneID(timezoneBuffer);
+          }
+          return 3;
+        }
       }
-      // Short format: "+00"
-      else if ((end - cur) >= 3) {
-        // Same fast path described above.
-        if (std::strncmp(cur + 1, "00", 2) == 0) {
-          jodaDate.timezoneId = 0;
-        } else {
-          // We need to concatenate the 3 first chars with a trailing ":00"
-          // before calling getTimeZoneID, so we use a static thread_local
-          // buffer to prevent extra allocations.
-          std::memcpy(&timezoneBuffer[0], cur, 3);
-          std::memcpy(&timezoneBuffer[4], defaultTrailingOffset, 2);
-          jodaDate.timezoneId = util::getTimeZoneID(timezoneBuffer);
-        }
-        return 3;
+      // A single 'Z' means GMT.
+      else if (*cur == 'Z') {
+        jodaDate.timezoneId = 0;
+        return 1;
       }
     }
-    // A single 'Z' means GMT.
-    else if (*cur == 'Z') {
-      jodaDate.timezoneId = 0;
-      return 1;
+  } catch (const std::exception&) {
+  }
+  parseFail(input, cur, end);
+  return 0; // non-reachable.
+}
+
+int64_t parseMonthText(
+    const std::string& input,
+    const char* cur,
+    const char* end,
+    JodaDate& jodaDate) {
+  // Ensure there are at least 3 characters left.
+  if (cur < end && (end - cur >= 3)) {
+    // For month strings, Joda supports either a 3 letter prefix ("Jan") or the
+    // full month name ("January").
+    //
+    // In addition, it supports three variations: (a) capitalized ("Jan"), (b)
+    // upper case ("JAN"), or (c) lower case ("jan"). Hard coding all these
+    // variation so we don't need to copy and lower-case each input string.
+    //
+    // The table also splits prefix and suffix so we can quickly check if the
+    // prefix matches, and optionally check if the suffix also does.
+    static std::
+        unordered_map<std::string_view, std::pair<std::string_view, int64_t>>
+            monthMap{
+                // Capitalized.
+                {"Jan", {"uary", 1}},
+                {"Feb", {"ruary", 2}},
+                {"Mar", {"rch", 3}},
+                {"Apr", {"il", 4}},
+                {"May", {"", 5}},
+                {"Jun", {"e", 6}},
+                {"Jul", {"y", 7}},
+                {"Aug", {"ust", 8}},
+                {"Sep", {"tember", 9}},
+                {"Oct", {"ober", 10}},
+                {"Nov", {"ember", 11}},
+                {"Dec", {"ember", 12}},
+
+                // Lower case.
+                {"jan", {"uary", 1}},
+                {"feb", {"ruary", 2}},
+                {"mar", {"rch", 3}},
+                {"apr", {"il", 4}},
+                {"may", {"", 5}},
+                {"jun", {"e", 6}},
+                {"jul", {"y", 7}},
+                {"aug", {"ust", 8}},
+                {"sep", {"tember", 9}},
+                {"oct", {"ober", 10}},
+                {"nov", {"ember", 11}},
+                {"dec", {"ember", 12}},
+
+                // Upper case.
+                {"JAN", {"UARY", 1}},
+                {"FEB", {"RUARY", 2}},
+                {"MAR", {"RCH", 3}},
+                {"APR", {"IL", 4}},
+                {"MAY", {"", 5}},
+                {"JUN", {"E", 6}},
+                {"JUL", {"Y", 7}},
+                {"AUG", {"UST", 8}},
+                {"SEP", {"TEMBER", 9}},
+                {"OCT", {"OBER", 10}},
+                {"NOV", {"EMBER", 11}},
+                {"DEC", {"EMBER", 12}},
+            };
+
+    // First check is there's a prefix match.
+    auto it = monthMap.find(std::string_view(cur, 3));
+    if (it != monthMap.end()) {
+      jodaDate.setMonth(it->second.second);
+
+      // If there was a match in the first 3 character prefix, we check if we
+      // can consume the suffix.
+      if (end - cur >= it->second.first.size() + 3) {
+        if (std::strncmp(
+                cur + 3, it->second.first.data(), it->second.first.size()) ==
+            0) {
+          return it->second.first.size() + 3;
+        }
+      }
+      // If the suffix didn't match, still ok. Return a prefix match.
+      return 3;
     }
   }
-  throw std::runtime_error("Unable to parse timezone offset id.");
+  parseFail(input, cur, end);
+  return 0; // non-reachable.
 }
 
 void parseFromPattern(
-    JodaFormatSpecifier curPattern,
+    const JodaPattern& pattern,
     const std::string& input,
     const char*& cur,
     const char* end,
     JodaDate& jodaDate) {
-  // For now, timezone offset is the only non-numeric token supported.
-  if (curPattern != JodaFormatSpecifier::TIMEZONE_OFFSET_ID) {
+  if (pattern.specifier == JodaFormatSpecifier::TIMEZONE_OFFSET_ID) {
+    cur += parseTimezoneOffset(input, cur, end, jodaDate);
+  }
+  // Following Joda format, for 3 or more 'M's, use text, otherwise use number.
+  else if (
+      (pattern.specifier == JodaFormatSpecifier::MONTH_OF_YEAR) &&
+      (pattern.count > 2)) {
+    cur += parseMonthText(input, cur, end, jodaDate);
+  }
+  // All other numeric patterns.
+  else {
     int64_t number = 0;
     bool negative = false;
 
-    if (cur < end && specAllowsNegative(curPattern) && *cur == '-') {
+    if (cur < end && specAllowsNegative(pattern.specifier) && *cur == '-') {
       negative = true;
       ++cur;
     }
@@ -297,32 +436,20 @@ void parseFromPattern(
       number *= -1L;
     }
 
-    switch (curPattern) {
+    switch (pattern.specifier) {
       case JodaFormatSpecifier::YEAR:
       case JodaFormatSpecifier::YEAR_OF_ERA:
-        jodaDate.isYearOfEra = (curPattern == JodaFormatSpecifier::YEAR_OF_ERA);
-        jodaDate.hasYear = true;
-        jodaDate.year = number;
+        jodaDate.isYearOfEra =
+            (pattern.specifier == JodaFormatSpecifier::YEAR_OF_ERA);
+        jodaDate.setYear(number);
         break;
 
       case JodaFormatSpecifier::MONTH_OF_YEAR:
-        jodaDate.month = number;
-
-        // Joda has this weird behavior where it returns 1970 as the year by
-        // default (if no year is specified), but if either day or month are
-        // specified, it fallsback to 2000.
-        if (!jodaDate.hasYear) {
-          jodaDate.hasYear = true;
-          jodaDate.year = 2000;
-        }
+        jodaDate.setMonth(number);
         break;
 
       case JodaFormatSpecifier::DAY_OF_MONTH:
-        jodaDate.day = number;
-        if (!jodaDate.hasYear) {
-          jodaDate.hasYear = true;
-          jodaDate.year = 2000;
-        }
+        jodaDate.setDay(number);
         break;
 
       case JodaFormatSpecifier::HOUR_OF_DAY:
@@ -345,13 +472,7 @@ void parseFromPattern(
         VELOX_NYI(
             "Numeric Joda specifier JodaFormatSpecifier::{} "
             "not implemented yet.",
-            getSpecifierName(curPattern));
-    }
-  } else {
-    try {
-      cur += parseTimezoneOffset(cur, end, jodaDate);
-    } catch (...) {
-      parseFail(input, cur, end);
+            getSpecifierName(pattern.specifier));
     }
   }
 }
@@ -373,7 +494,7 @@ JodaResult JodaFormatter::parse(const std::string& input) {
         cur += tok.literal.size();
         break;
       case JodaToken::Type::kPattern:
-        parseFromPattern(tok.pattern.specifier, input, cur, end, jodaDate);
+        parseFromPattern(tok.pattern, input, cur, end, jodaDate);
         break;
     }
   }
@@ -385,10 +506,10 @@ JodaResult JodaFormatter::parse(const std::string& input) {
 
   // Enforce Joda's year range if year was specified as "year of era".
   if (jodaDate.isYearOfEra &&
-      (jodaDate.year > 292278993 || jodaDate.year < 1)) {
+      (jodaDate.getYear() > 292278993 || jodaDate.getYear() < 1)) {
     VELOX_USER_FAIL(
         "Value {} for yearOfEra must be in the range [1,292278993]",
-        jodaDate.year);
+        jodaDate.getYear());
   }
 
   if (jodaDate.hour > 23 || jodaDate.hour < 0) {
@@ -409,8 +530,8 @@ JodaResult JodaFormatter::parse(const std::string& input) {
   }
 
   // Convert the parsed date/time into a timestamp.
-  int32_t daysSinceEpoch =
-      util::fromDate(jodaDate.year, jodaDate.month, jodaDate.day);
+  int32_t daysSinceEpoch = util::fromDate(
+      jodaDate.getYear(), jodaDate.getMonth(), jodaDate.getDay());
   int64_t microsSinceMidnight = util::fromTime(
       jodaDate.hour, jodaDate.minute, jodaDate.second, jodaDate.microsecond);
   return {

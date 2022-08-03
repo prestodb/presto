@@ -181,9 +181,38 @@ TEST_F(JodaDateTimeTest, parseMonth) {
   EXPECT_EQ(util::fromTimestampString("2000-11-01"), parse("11-", "M-"));
   EXPECT_EQ(util::fromTimestampString("2000-12-01"), parse("-12-", "-M-"));
 
+  // Invalid numeric month.
   EXPECT_THROW(parse("0", "M"), VeloxUserError);
   EXPECT_THROW(parse("13", "M"), VeloxUserError);
   EXPECT_THROW(parse("12345", "M"), VeloxUserError);
+
+  // Three or more 'M's means text.
+  EXPECT_EQ(util::fromTimestampString("2000-07-01"), parse("Jul", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-08-01"), parse("Aug", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("Jan", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-10-01"), parse("OCT", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-11-01"), parse("NOV", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-02-01"), parse("feb", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-05-01"), parse("may", "MMM"));
+
+  EXPECT_EQ(util::fromTimestampString("2000-05-01"), parse("May", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-12-01"), parse("December", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-02-01"), parse("February", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-11-01"), parse("november", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-09-01"), parse("SEPTEMBER", "MMM"));
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("JANUARY", "MMM"));
+
+  EXPECT_THROW(parse("", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("01", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("8", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("", "MMMMMMMM"), VeloxUserError);
+  EXPECT_THROW(parse("J", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("Ju", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("Jup", "MMM"), VeloxUserError);
+
+  EXPECT_THROW(parse("JUl", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("JuL", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("jUL", "MMM"), VeloxUserError);
 }
 
 TEST_F(JodaDateTimeTest, parseDay) {
@@ -313,6 +342,10 @@ TEST_F(JodaDateTimeTest, parseMixed) {
   EXPECT_EQ(
       util::fromTimestampString("2019-07-03 11:04:10"),
       parse("2019-07-03 11:04:10", "YYYY-MM-dd HH:mm:ss"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2022-07-29 20:26:17"),
+      parse("29/Jul/2022:20:26:17 +0000", "dd/MMM/yyyy:HH:mm:ss Z"));
 
   // Backwards, just for fun:
   EXPECT_EQ(
