@@ -173,6 +173,11 @@ class GroupingSet {
   const std::vector<TypePtr> intermediateTypes_;
 
   const bool ignoreNullKeys_;
+
+  /// Parameters used for spilling control.
+  const int32_t spillPartitionBits_;
+  const int32_t spillFileSizeFactor_;
+
   memory::MappedMemory* FOLLY_NONNULL const mappedMemory_;
 
   // Boolean indicating whether accumulators for a global aggregation (i.e.
@@ -216,7 +221,6 @@ class GroupingSet {
 
   std::unique_ptr<Spiller> spiller_;
   std::unique_ptr<TreeOfLosers<SpillStream>> merge_;
-  RowContainerIterator spillIterator_;
 
   // Container for materializing batches of output from spilling.
   std::unique_ptr<RowContainer> mergeRows_;

@@ -1040,10 +1040,9 @@ TEST_F(AggregationTest, spillWithEmptyPartition) {
   constexpr int64_t kMaxBytes = 20LL << 20; // 20 MB
   rowType_ = ROW({"c0", "a"}, {INTEGER(), VARCHAR()});
   // Used to calculate the aggregation spilling partition number.
-  //
-  // TODO: make the partition parameters configurable through query config.
-  const int kNumPartitions = 4;
+  const int kPartitionsBits = 2;
   const HashBitRange hashBits{29, 31};
+  const int kNumPartitions = hashBits.numPartitions();
   std::vector<uint64_t> hashes(1);
 
   for (int emptyPartitionNum : {0, 1, 3}) {
@@ -1121,6 +1120,9 @@ TEST_F(AggregationTest, spillWithEmptyPartition) {
                                .planNode())
             .queryCtx(queryCtx)
             .config(QueryConfig::kSpillPath, tempDirectory->path)
+            .config(
+                QueryConfig::kSpillPartitionBits,
+                std::to_string(kPartitionsBits))
             .assertResults(results);
 
     auto stats = task->taskStats().pipelineStats;

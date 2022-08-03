@@ -73,6 +73,10 @@ GroupingSet::GroupingSet(
       constantLists_(std::move(constantLists)),
       intermediateTypes_(std::move(intermediateTypes)),
       ignoreNullKeys_(ignoreNullKeys),
+      spillPartitionBits_(
+          operatorCtx->driverCtx()->queryConfig().spillPartitionBits()),
+      spillFileSizeFactor_(
+          operatorCtx->driverCtx()->queryConfig().spillFileSizeFactor()),
       mappedMemory_(operatorCtx->mappedMemory()),
       stringAllocator_(mappedMemory_),
       rows_(mappedMemory_),
@@ -485,7 +489,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   // Test-only spill path.
   if (testSpillPct_ &&
       (folly::hasher<uint64_t>()(++spillTestCounter_)) % 100 <= testSpillPct_) {
-    auto rowsToSpill = numDistinct / 10;
+    const auto rowsToSpill = std::max<int64_t>(1, numDistinct / 10);
     spill(
         numDistinct - rowsToSpill,
         outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow));
@@ -519,8 +523,8 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   if (tracker->maybeReserve(targetIncrement)) {
     return;
   }
-  auto rowsToSpill =
-      targetIncrement / (rows->fixedRowSize() + outOfLineBytesPerRow);
+  auto rowsToSpill = std::max<int64_t>(
+      1, targetIncrement / (rows->fixedRowSize() + outOfLineBytesPerRow));
 
   spill(
       std::max<int64_t>(0, numDistinct - rowsToSpill),
@@ -539,21 +543,23 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
       names.push_back(fmt::format("s{}", i));
     }
     assert(mappedMemory_->tracker()); // lint
-    auto fileSize = mappedMemory_->tracker()->getCurrentUserBytes() / 4;
+    const auto fileSize =
+        mappedMemory_->tracker()->getCurrentUserBytes() / spillFileSizeFactor_;
     spiller_ = std::make_unique<Spiller>(
+        Spiller::Type::kAggregate,
         *rows,
         [&](folly::Range<char**> rows) { table_->erase(rows); },
         ROW(std::move(names), std::move(types)),
-        // Spill up to 4 partitions based on bits 29 and 30 of the hash number.
-        // Any two bits would do.
-        HashBitRange(29, 31),
+        // Spill up to 8 partitions based on bits starting from 29th of the hash
+        // number. Any from one to three bits would do.
+        HashBitRange(29, 29 + spillPartitionBits_),
         rows->keyTypes().size(),
         spillPath_.value(),
         fileSize,
         Spiller::spillPool(),
         spillExecutor_);
   }
-  spiller_->spill(targetRows, targetBytes, spillIterator_);
+  spiller_->spill(targetRows, targetBytes);
 }
 
 bool GroupingSet::getOutputWithSpill(const RowVectorPtr& result) {

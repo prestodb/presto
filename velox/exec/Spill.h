@@ -221,6 +221,10 @@ class SpillFile : public SpillStream {
   // Sets 'result' to refer to the next row of content of 'this'.
   void read(RowVector& result);
 
+  const std::string& TEST_filePath() const {
+    return path_;
+  }
+
  private:
   void nextBatch() override;
 
@@ -279,6 +283,12 @@ class SpillFileList {
 
   int64_t spilledBytes() const;
 
+  int64_t spilledFiles() const {
+    return files_.size();
+  }
+
+  std::vector<std::string> TEST_spilledFiles() const;
+
  private:
   // Returns the current file to write to and creates one if needed.
   WriteFile& currentOutput();
@@ -317,16 +327,19 @@ class SpillState {
         maxPartitions_(maxPartitions),
         numSortingKeys_(numSortingKeys),
         targetFileSize_(targetFileSize),
-        files_(maxPartitions_),
         pool_(pool),
-        mappedMemory_(mappedMemory) {}
+        mappedMemory_(mappedMemory),
+        isPartitionSpilled_(maxPartitions_, false),
+        files_(maxPartitions_) {}
 
-  int32_t numPartitions() const {
-    return numPartitions_;
+  /// Indicates if a given 'partition' has been spilled or not.
+  bool isPartitionSpilled(int32_t partition) const {
+    VELOX_DCHECK_LT(partition, maxPartitions_);
+    return isPartitionSpilled_[partition];
   }
 
-  // Sets how many of the spill partitions are in use.
-  void setNumPartitions(int32_t numPartitions);
+  // Sets a partition as spilled.
+  void setPartitionSpilled(int32_t partition);
 
   // Returns how many ways spilled data can be partitioned.
   int32_t maxPartitions() const {
@@ -351,12 +364,13 @@ class SpillState {
   // again, the data does not have to be sorted relative to the data
   // written so far.
   void finishWrite(int32_t partition) {
+    VELOX_DCHECK(isPartitionSpilled(partition));
     files_[partition]->finishFile();
   }
 
   // Starts reading values for 'partition'. If 'extra' is non-null, it can be
-  // a stream of rows from a RowContainer so as to merge unspilled
-  // data with spilled data.
+  // a stream of rows from a RowContainer so as to merge unspilled data with
+  // spilled data.
   std::unique_ptr<TreeOfLosers<SpillStream>> startMerge(
       int32_t partition,
       std::unique_ptr<SpillStream>&& extra);
@@ -367,19 +381,26 @@ class SpillState {
 
   int64_t spilledBytes() const;
 
+  int64_t spilledFiles() const;
+
+  std::vector<std::string> TEST_spilledFiles() const;
+
  private:
   const RowTypePtr type_;
   const std::string path_;
   const int32_t maxPartitions_;
   const int32_t numSortingKeys_;
-  // Number of currently spilling partitions.
-  int32_t numPartitions_ = 0;
   const uint64_t targetFileSize_;
+
+  memory::MemoryPool& pool_;
+  memory::MappedMemory& mappedMemory_;
+
+  // A vector of flags indicates if each partition has been spilled or not.
+  std::vector<bool> isPartitionSpilled_;
+
   // A file list for each spilled partition. Only partitions that have
   // started spilling have an entry here.
   std::vector<std::unique_ptr<SpillFileList>> files_;
-  memory::MemoryPool& pool_;
-  memory::MappedMemory& mappedMemory_;
 };
 
 } // namespace facebook::velox::exec

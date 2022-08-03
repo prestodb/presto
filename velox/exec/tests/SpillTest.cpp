@@ -24,6 +24,7 @@
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
+using namespace facebook::velox::filesystems;
 
 class SpillTest : public testing::Test,
                   public facebook::velox::test::VectorTestBase {
@@ -37,63 +38,126 @@ class SpillTest : public testing::Test,
     filesystems::registerLocalFileSystem();
   }
 
+  void spillStateTest(
+      int64_t targetFileSize,
+      int numPartitions,
+      int numBatches,
+      int64_t expectedNumSpilledFiles) {
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    const std::string kSpillPath = tempDirectory->path + "/test";
+    std::shared_ptr<FileSystem> fs;
+    std::vector<std::string> spilledFiles;
+    const int kNumRowsPerBatch = 100'000;
+    {
+      // We make a state that has 'numPartitions' partitions, each with its own
+      // file list. We write 'numBatches' sorted vectors in each partition. The
+      // vectors have the ith element = i * 'numBatches' + batch, where batch is
+      // the batch number of the vector in the partition. When read back, both
+      // partitions produce an ascending sequence of integers without gaps.
+      SpillState state(
+          kSpillPath,
+          numPartitions,
+          1,
+          targetFileSize,
+          *pool(),
+          *mappedMemory_);
+      EXPECT_EQ(targetFileSize, state.targetFileSize());
+      EXPECT_EQ(numPartitions, state.maxPartitions());
+
+      for (auto partition = 0; partition < state.maxPartitions(); ++partition) {
+        EXPECT_FALSE(state.isPartitionSpilled(partition));
+        // Expect an exception if partition is not set to spill.
+        {
+          RowVectorPtr dummyInput;
+          EXPECT_ANY_THROW(state.appendToPartition(partition, dummyInput));
+        }
+        state.setPartitionSpilled(partition);
+        EXPECT_TRUE(state.isPartitionSpilled(partition));
+        EXPECT_FALSE(state.hasFiles(partition));
+        for (auto batch = 0; batch < numBatches; ++batch) {
+          // We add a sorted run in two pieces: 1, 11, 21,,, followed by X00001
+          // , X00011, X00021   etc. where the last digit is the batch number.
+          // Each sorted run has 20000 rows.
+          state.appendToPartition(
+              partition,
+              makeRowVector(
+                  {makeFlatVector<int64_t>(kNumRowsPerBatch, [&](auto row) {
+                    return row * numBatches + batch;
+                  })}));
+          EXPECT_TRUE(state.hasFiles(partition));
+
+          state.appendToPartition(
+              partition,
+              makeRowVector(
+                  {makeFlatVector<int64_t>(kNumRowsPerBatch, [&](auto row) {
+                    return row * numBatches + batch +
+                        kNumRowsPerBatch * numBatches;
+                  })}));
+          EXPECT_TRUE(state.hasFiles(partition));
+
+          // Indicates that the next additions to 'partition' are not sorted
+          // with respect to the values added so far.
+          state.finishWrite(partition);
+          EXPECT_TRUE(state.hasFiles(partition));
+        }
+      }
+      EXPECT_LT(
+          numPartitions * numBatches * sizeof(int64_t), state.spilledBytes());
+      EXPECT_EQ(expectedNumSpilledFiles, state.spilledFiles());
+      spilledFiles = state.TEST_spilledFiles();
+      std::unordered_set<std::string> spilledFileSet(
+          spilledFiles.begin(), spilledFiles.end());
+      EXPECT_EQ(spilledFileSet.size(), spilledFiles.size());
+      EXPECT_EQ(expectedNumSpilledFiles, spilledFileSet.size());
+      // Verify the spilled file exist on file system.
+      fs = filesystems::getFileSystem(tempDirectory->path, nullptr);
+      for (const auto& spilledFile : spilledFileSet) {
+        auto readFile = fs->openFileForRead(spilledFile);
+        EXPECT_NE(readFile.get(), nullptr);
+      }
+
+      for (auto partition = 0; partition < state.maxPartitions(); ++partition) {
+        auto merge = state.startMerge(partition, nullptr);
+        // We expect all the rows in dense increasing order.
+        for (auto i = 0; i < numPartitions * numBatches * kNumRowsPerBatch;
+             ++i) {
+          auto stream = merge->next();
+          ASSERT_NE(nullptr, stream);
+          EXPECT_EQ(
+              i,
+              stream->current()
+                  .childAt(0)
+                  ->asUnchecked<FlatVector<int64_t>>()
+                  ->valueAt(stream->currentIndex()));
+          EXPECT_EQ(
+              i, stream->decoded(0).valueAt<int64_t>(stream->currentIndex()));
+
+          stream->pop();
+        }
+        ASSERT_EQ(nullptr, merge->next());
+      }
+      // Both spilled bytes and files stats are cleared after merge read.
+      EXPECT_EQ(0, state.spilledBytes());
+      EXPECT_EQ(0, state.spilledFiles());
+    }
+    // Verify the spilled file has been removed from file system after spill
+    // state destruction.
+    for (const auto& spilledFile : spilledFiles) {
+      EXPECT_ANY_THROW(fs->openFileForRead(spilledFile));
+    }
+  }
+
   memory::MappedMemory* mappedMemory_;
 };
 
 TEST_F(SpillTest, spillState) {
-  auto tempDirectory = exec::test::TempDirectoryPath::create();
-  // We make a state that has 2 partitions, each with its own file
-  // list. We write 10 sorted vectors in each partition. The vectors
-  // have the ith element = i * 20 + sequence, where sequence is the
-  // sequence number of the vector in the partition. When read back,
-  // both partitions produce an ascending sequence of integers without
-  // gaps.
-  SpillState state(
-      tempDirectory->path + "/test",
-      2,
-      1,
-      10000, // small target file size. Makes a new file for each batch.
-      *pool(),
-      *mappedMemory_);
+  // Set the target file size to a large value to avoid new file creation
+  // triggered by batch write.
+  spillStateTest(1'000'000'000, 2, 10, 2 * 10);
+}
 
-  EXPECT_EQ(2, state.maxPartitions());
-  state.setNumPartitions(2);
-  for (auto partition = 0; partition < state.maxPartitions(); ++partition) {
-    for (auto batch = 0; batch < 10; ++batch) {
-      // We add a sorted run in two pieces: 1, 11, 21,,, followed by 100001 ,
-      // 100011, 100021   etc. where the last digit is the batch number. Each
-      // sorted run has 20000 rows.
-      state.appendToPartition(
-          partition,
-          makeRowVector({makeFlatVector<int64_t>(
-              10000, [&](auto row) { return row * 10 + batch; })}));
-
-      state.appendToPartition(
-          partition,
-          makeRowVector({makeFlatVector<int64_t>(
-              10000, [&](auto row) { return row * 10 + batch + 100000; })}));
-      // Indicates that the next additions to 'partition' are not sorted with
-      // respect to the values added so far.
-      state.finishWrite(partition);
-    }
-  }
-  EXPECT_LT(200'000 * sizeof(int64_t), state.spilledBytes());
-  for (auto partition = 0; partition < state.maxPartitions(); ++partition) {
-    auto merge = state.startMerge(partition, nullptr);
-    // We expect 10 * 20000 rows in dense increasing order.
-    for (auto i = 0; i < 200000; ++i) {
-      auto stream = merge->next();
-      ASSERT_NE(nullptr, stream);
-      EXPECT_EQ(
-          i,
-          stream->current()
-              .childAt(0)
-              ->asUnchecked<FlatVector<int64_t>>()
-              ->valueAt(stream->currentIndex()));
-      EXPECT_EQ(i, stream->decoded(0).valueAt<int64_t>(stream->currentIndex()));
-
-      stream->pop();
-    }
-    ASSERT_EQ(nullptr, merge->next());
-  }
+TEST_F(SpillTest, spillStateWithSmallTargetFileSize) {
+  // Set the target file size to a small value to open a new file on each batch
+  // write.
+  spillStateTest(1, 2, 10, 2 * 10 * 2);
 }

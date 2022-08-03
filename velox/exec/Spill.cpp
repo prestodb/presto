@@ -136,15 +136,24 @@ int64_t SpillFileList::spilledBytes() const {
   return bytes;
 }
 
-void SpillState::setNumPartitions(int32_t numPartitions) {
-  VELOX_CHECK_LE(numPartitions, maxPartitions());
-  VELOX_CHECK_GT(numPartitions, numPartitions_, "May only add partitions");
-  numPartitions_ = numPartitions;
+std::vector<std::string> SpillFileList::TEST_spilledFiles() const {
+  std::vector<std::string> spilledFiles;
+  for (auto& file : files_) {
+    spilledFiles.push_back(file->TEST_filePath());
+  }
+  return spilledFiles;
+}
+
+void SpillState::setPartitionSpilled(int32_t partition) {
+  VELOX_DCHECK_LT(partition, maxPartitions_);
+  VELOX_DCHECK(!isPartitionSpilled_[partition]);
+  isPartitionSpilled_[partition] = true;
 }
 
 void SpillState::appendToPartition(
     int32_t partition,
     const RowVectorPtr& rows) {
+  VELOX_CHECK(isPartitionSpilled(partition));
   // Ensure that partition exist before writing.
   if (!files_.at(partition)) {
     files_[partition] = std::make_unique<SpillFileList>(
@@ -171,6 +180,7 @@ std::unique_ptr<TreeOfLosers<SpillStream>> SpillState::startMerge(
       result.push_back(std::move(file));
     }
   }
+  VELOX_DCHECK_EQ(!result.empty(), isPartitionSpilled(partition));
   if (extra) {
     result.push_back(std::move(extra));
   }
@@ -189,6 +199,30 @@ int64_t SpillState::spilledBytes() const {
     }
   }
   return bytes;
+}
+
+int64_t SpillState::spilledFiles() const {
+  int64_t numFiles = 0;
+  for (const auto& list : files_) {
+    if (list != nullptr) {
+      numFiles += list->spilledFiles();
+    }
+  }
+  return numFiles;
+}
+
+std::vector<std::string> SpillState::TEST_spilledFiles() const {
+  std::vector<std::string> spilledFiles;
+  for (const auto& list : files_) {
+    if (list != nullptr) {
+      const auto spilledFilesFromList = list->TEST_spilledFiles();
+      spilledFiles.insert(
+          spilledFiles.end(),
+          spilledFilesFromList.begin(),
+          spilledFilesFromList.end());
+    }
+  }
+  return spilledFiles;
 }
 
 } // namespace facebook::velox::exec
