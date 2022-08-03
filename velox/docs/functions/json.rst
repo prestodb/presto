@@ -29,17 +29,19 @@ and value type of the map is one of the supported types. Additionally,
 element types of ARRAY and MAP and field types of ROW are also allowed to
 be JSON. Behaviors of the casts are shown with the examples below:
 
-``SELECT CAST(NULL AS JSON); -- NULL``
-``SELECT CAST(1 AS JSON); -- JSON '1'``
-``SELECT CAST(9223372036854775807 AS JSON); -- JSON '9223372036854775807'``
-``SELECT CAST('abc' AS JSON); -- JSON '"abc"'``
-``SELECT CAST(true AS JSON); -- JSON 'true'``
-``SELECT CAST(1.234 AS JSON); -- JSON '1.234'``
-``SELECT CAST(ARRAY[1, 23, 456] AS JSON); -- JSON '[1,23,456]'``
-``SELECT CAST(ARRAY[1, NULL, 456] AS JSON); -- JSON '[1,null,456]'``
-``SELECT CAST(ARRAY[ARRAY[1, 23], ARRAY[456]] AS JSON); -- JSON '[[1,23],[456]]'``
-``SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('k1', 1), ('k2', 23), ('k3', 456)]) AS JSON); -- JSON '{"k1":1,"k2":23,"k3":456}'``
-``SELECT CAST(CAST(ROW(123, 'abc', true, JSON '["a"]') AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN, v4 JSON)) AS JSON); -- JSON '[123,"abc",true,["a"]]'``
+::
+
+    SELECT CAST(NULL AS JSON); -- NULL
+    SELECT CAST(1 AS JSON); -- JSON '1'
+    SELECT CAST(9223372036854775807 AS JSON); -- JSON '9223372036854775807'
+    SELECT CAST('abc' AS JSON); -- JSON '"abc"'
+    SELECT CAST(true AS JSON); -- JSON 'true'
+    SELECT CAST(1.234 AS JSON); -- JSON '1.234'
+    SELECT CAST(ARRAY[1, 23, 456] AS JSON); -- JSON '[1,23,456]'
+    SELECT CAST(ARRAY[1, NULL, 456] AS JSON); -- JSON '[1,null,456]'
+    SELECT CAST(ARRAY[ARRAY[1, 23], ARRAY[456]] AS JSON); -- JSON '[[1,23],[456]]'
+    SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('k1', 1), ('k2', 23), ('k3', 456)]) AS JSON); -- JSON '{"k1":1,"k2":23,"k3":456}'
+    SELECT CAST(CAST(ROW(123, 'abc', true, JSON '["a"]') AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN, v4 JSON)) AS JSON); -- JSON '[123,"abc",true,["a"]]'
 
 Notice that casting from NULL to JSON is not straightforward. Casting from
 a standalone NULL will produce a SQL NULL instead of JSON 'null'. However,
@@ -66,16 +68,18 @@ when the key type of the map is BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT,
 REAL, DOUBLE, or VARCHAR and value type of the map is one of the supported types.
 Behaviors of the casts are shown with the examples below:
 
-``SELECT CAST(JSON 'null' AS VARCHAR); -- NULL``
-``SELECT CAST(JSON '1' AS INTEGER); -- 1``
-``SELECT CAST(JSON '9223372036854775807' AS BIGINT); -- 9223372036854775807``
-``SELECT CAST(JSON '"abc"' AS VARCHAR); -- abc``
-``SELECT CAST(JSON 'true' AS BOOLEAN); -- true``
-``SELECT CAST(JSON '1.234' AS DOUBLE); -- 1.234``
-``SELECT CAST(JSON '[1,23,456]' AS ARRAY(INTEGER)); -- [1, 23, 456]``
-``SELECT CAST(JSON '[1,null,456]' AS ARRAY(INTEGER)); -- [1, NULL, 456]``
-``SELECT CAST(JSON '[[1,23],[456]]' AS ARRAY(ARRAY(INTEGER))); -- [[1, 23], [456]]``
-``SELECT CAST(JSON '{"k1":1,"k2":23,"k3":456}' AS MAP(VARCHAR, INTEGER)); -- {k1=1, k2=23, k3=456}``
+::
+
+    SELECT CAST(JSON 'null' AS VARCHAR); -- NULL
+    SELECT CAST(JSON '1' AS INTEGER); -- 1
+    SELECT CAST(JSON '9223372036854775807' AS BIGINT); -- 9223372036854775807
+    SELECT CAST(JSON '"abc"' AS VARCHAR); -- abc
+    SELECT CAST(JSON 'true' AS BOOLEAN); -- true
+    SELECT CAST(JSON '1.234' AS DOUBLE); -- 1.234
+    SELECT CAST(JSON '[1,23,456]' AS ARRAY(INTEGER)); -- [1, 23, 456]
+    SELECT CAST(JSON '[1,null,456]' AS ARRAY(INTEGER)); -- [1, NULL, 456]
+    SELECT CAST(JSON '[[1,23],[456]]' AS ARRAY(ARRAY(INTEGER))); -- [[1, 23], [456]]
+    SELECT CAST(JSON '{"k1":1,"k2":23,"k3":456}' AS MAP(VARCHAR, INTEGER)); -- {k1=1, k2=23, k3=456}
 
 Notice that casting a JSON text to VARCHAR does not turn the JSON text into
 a plain string as is. Instead, it returns the VARCHAR string represented by
