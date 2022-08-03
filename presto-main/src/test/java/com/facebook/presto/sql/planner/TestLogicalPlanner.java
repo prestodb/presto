@@ -63,6 +63,7 @@ import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
+import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
@@ -88,6 +89,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchan
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.groupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
@@ -175,6 +177,71 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
                                                         PARTIAL,
                                                         anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
+    }
+
+    @Test
+    public void testGroupingSet()
+    {
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                // Disable push RemoteExchange through GroupId.
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "false")
+                .build();
+        assertDistributedPlan(
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderstatus, orderpriority))",
+                session,
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                aggregation(
+                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))), PARTIAL,
+                                                        anyTree(
+                                                                groupingSet(ImmutableList.of(ImmutableList.of("orderstatus"), ImmutableList.of("orderstatus", "orderpriority")), ImmutableMap.of("totalprice", "totalprice"), "groupid",
+                                                                        tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus", "orderpriority", "orderpriority"))))))))));
+    }
+
+    @Test
+    public void testGroupingSetWithPushRemoteExchange()
+    {
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                // Enable push RemoteExchange through GroupId.
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "true")
+                .build();
+        assertDistributedPlan(
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderstatus, orderpriority))",
+                session,
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, GATHER,
+                                        aggregation(
+                                                ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                PARTIAL,
+                                                anyTree(
+                                                        groupingSet(ImmutableList.of(ImmutableList.of("orderstatus"), ImmutableList.of("orderstatus", "orderpriority")), ImmutableMap.of("totalprice", "totalprice"), "groupid",
+                                                                anyTree(
+                                                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                                                anyTree(
+                                                                                        tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus", "orderpriority", "orderpriority"))))))))))));
+
+        // Verify RemoteExchange is not pushed through GroupId if grouping sets have no common grouping column.
+        assertDistributedPlan(
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))",
+                session,
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                aggregation(
+                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))), PARTIAL,
+                                                        anyTree(
+                                                                groupingSet(ImmutableList.of(ImmutableList.of("orderstatus"), ImmutableList.of("orderpriority")), ImmutableMap.of("totalprice", "totalprice"), "groupid",
+                                                                        tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus", "orderpriority", "orderpriority"))))))))));
     }
 
     @Test
