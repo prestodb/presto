@@ -14,8 +14,10 @@
 
 package com.facebook.presto.hive.functions;
 
+import com.facebook.airlift.log.Logger;
 import org.apache.hadoop.hive.ql.exec.FunctionInfo;
 import org.apache.hadoop.hive.ql.exec.Registry;
+import org.apache.hadoop.hive.ql.exec.UDF;
 import org.apache.hadoop.hive.ql.parse.SemanticException;
 import org.apache.hadoop.hive.ql.udf.UDFAcos;
 import org.apache.hadoop.hive.ql.udf.UDFAsin;
@@ -39,6 +41,7 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFNTile;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFPercentRank;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFPercentileApprox;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFRank;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFResolver;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFRowNumber;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFStd;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFStdSample;
@@ -46,6 +49,7 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFSum;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFVariance;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFVarianceSample;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFnGrams;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFAbs;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFAddMonths;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFAesDecrypt;
@@ -166,16 +170,30 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDFUpper;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFWhen;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFWidthBucket;
 import org.apache.hadoop.hive.ql.udf.generic.UDFCurrentDB;
-import org.apache.hadoop.hive.ql.udf.xml.GenericUDFXPath;
+import org.apache.hadoop.util.ReflectionUtils;
+import org.reflections.Reflections;
+import org.reflections.scanners.SubTypesScanner;
+import org.reflections.util.ClasspathHelper;
+import org.reflections.util.ConfigurationBuilder;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.HashSet;
 import java.util.Set;
 
 public final class FunctionRegistry
 {
     private FunctionRegistry() {}
 
+    private static final Logger log = Logger.get(FunctionRegistry.class);
+
     // registry for hive functions
-    private static final Registry system = new Registry(true);
+    public static final Registry system = new Registry(true);
 
     static {
         // register genericUDF
@@ -238,7 +256,7 @@ public final class FunctionRegistry
         system.registerGenericUDF("datediff", GenericUDFDateDiff.class);
         system.registerGenericUDF("add_months", GenericUDFAddMonths.class);
         system.registerGenericUDF("months_between", GenericUDFMonthsBetween.class);
-        system.registerGenericUDF("xpath", GenericUDFXPath.class);
+        // system.registerGenericUDF("xpath", GenericUDFXPath.class);
         system.registerGenericUDF("grouping", GenericUDFGrouping.class);
         system.registerGenericUDF("current_database", UDFCurrentDB.class);
         system.registerGenericUDF("current_date", GenericUDFCurrentDate.class);
@@ -343,9 +361,151 @@ public final class FunctionRegistry
         system.registerGenericUDAF("ntile", new GenericUDAFNTile());
         system.registerGenericUDAF("first_value", new GenericUDAFFirstValue());
         system.registerGenericUDAF("last_value", new GenericUDAFLastValue());
+
+        File file = new File("/tmp/core-udfs-1.0-SNAPSHOT-standalone.jar");
+        URL url;
+        try {
+            url = file.toURI().toURL();
+        }
+        catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+
+        try (URLClassLoader childClassLoader = new URLClassLoader(new URL[]{url}, ClassLoader.getSystemClassLoader())) {
+            Class<?> urlClass = URLClassLoader.class;
+            Method method = urlClass.getDeclaredMethod("addURL", URL.class);
+            method.setAccessible(true);
+            method.invoke(childClassLoader, url);
+
+            ConfigurationBuilder configurationBuilder =
+                    new ConfigurationBuilder()
+                            .addClassLoaders(childClassLoader)
+                            .setScanners(new SubTypesScanner(false))
+                            .addUrls(ClasspathHelper.forPackage("com.facebook", childClassLoader));
+                            // .addUrls(ClasspathHelper.forPackage("org.apache", childClassLoader));
+            Reflections reflections = new Reflections(configurationBuilder);
+
+            // Get and Register UDF
+            registerHiveUDFs(reflections.getSubTypesOf(UDF.class));
+
+            // Get and Register GenericUDF
+            registerHiveGenericUDFs(reflections.getSubTypesOf(GenericUDF.class));
+
+//            log.info("All udfs: " + result);
+//            for (Class<?> udf : result) {
+//                if (!udf.getName().startsWith("org.apache.hadoop.hive")) {
+//                    log.info("registering " + udfClassToFBName(udf.getSimpleName()));
+//
+//                    try {
+//                        registerTemporaryHiveFunction(udfClassToFBName(udf.getSimpleName()), udf);
+//                    } catch (Throwable e) {
+//                        log.info("Class not found: " + e.getMessage());
+//                    }
+//                }
+//            }
+//            result.size();
+        }
+        catch (IOException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public static FunctionInfo getFunctionInfo(String functionName) throws SemanticException
+    public static String udfClassToFBName(String udfClass) {
+        return "FB_"+udfClass.replaceFirst("^UD(A|T)?F", "").replaceAll(
+                String.format("%s|%s|%s",
+                        "(?<=[A-Z])(?=[A-Z][a-z])",
+                        "(?<=[^A-Z0-9])(?=[A-Z])",
+                        "(?<=[A-Za-z0-9])(?=[^A-Za-z0-9])"
+                ), "_").toUpperCase();
+    }
+
+    public static void registerHiveUDFs(Set<Class<? extends UDF>> udfs) {
+        for (Class<? extends UDF> udfClass : udfs) {
+            if (!udfClass.getName().startsWith("org.apache.hadoop.hive")) {
+                String functionName = udfClassToFBName(udfClass.getSimpleName());
+                log.info("registering " + functionName);
+
+                try {
+                    log.info("Registering function inside presto hive function namespace: " + functionName + " " + udfClass.getName());
+                    if (system.isBuiltInFunc(udfClass)) {
+                        log.info("Skipping builtin function " + functionName);
+                        return;
+                    }
+
+                    log.info("Registering UDF inside Presto hive functions namespace: " + functionName);
+                    system.registerUDF(functionName, udfClass, false);
+                } catch (Throwable e) {
+                    log.info("Class not found: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public static void registerHiveGenericUDFs(Set<Class<? extends GenericUDF>> udfs) {
+        for (Class<? extends GenericUDF> udfClass : udfs) {
+            if (!udfClass.getName().startsWith("org.apache.hadoop.hive")) {
+                String functionName = udfClassToFBName(udfClass.getSimpleName());
+                log.info("registering " + functionName);
+
+                try {
+                    log.info("Registering function inside presto hive function namespace: " + functionName + " " + udfClass.getName());
+                    if (system.isBuiltInFunc(udfClass)) {
+                        log.info("Skipping builtin function " + functionName);
+                        return;
+                    }
+
+                    log.info("Registering GenericUDF : " + functionName);
+                    system.registerGenericUDF(functionName, udfClass);
+                } catch (Throwable e) {
+                    log.info("Class not found: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        }
+
+
+    }
+
+
+    public static boolean registerTemporaryHiveFunction(
+            String functionName, Class<?> udfClass)
+    {
+        log.info("Registering function inside presto hive function namespace: " + functionName + " " + udfClass.getName());
+        if (system.isBuiltInFunc(udfClass)) {
+            log.info("Skipping builtin function " + functionName);
+            return false;
+        }
+
+        if (UDF.class.isAssignableFrom(udfClass)) {
+            log.info("Registering UDF inside Presto hive functions namespace: " + functionName);
+            system.registerUDF(functionName, (Class<? extends UDF>) udfClass, false);
+        }
+        else if (GenericUDF.class.isAssignableFrom(udfClass)) {
+            log.info("Registering GenericUDF : " + functionName);
+            system.registerGenericUDF(functionName, (Class<? extends GenericUDF>) udfClass);
+        }
+//        else if (GenericUDTF.class.isAssignableFrom(udfClass)) {
+//            system.registerGenericUDTF(functionName, (Class<? extends GenericUDTF>) udfClass);
+//        }
+//        else if (UDAF.class.isAssignableFrom(udfClass)) {
+//            system.registerUDAF(functionName, (Class<? extends UDAF>) udfClass);
+//        }
+        else if (GenericUDAFResolver.class.isAssignableFrom(udfClass)) {
+            system.registerGenericUDAF(functionName, (GenericUDAFResolver)
+                    ReflectionUtils.newInstance(udfClass, null));
+        }
+        else {
+            log.info("Skipping registration for function: " + functionName);
+            return false;
+        }
+
+        log.info("Suceessful registration for function: " + functionName);
+        return true;
+    }
+
+    public static FunctionInfo getFunctionInfo(String functionName)
+            throws SemanticException
     {
         return system.getFunctionInfo(functionName);
     }

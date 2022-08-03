@@ -186,7 +186,6 @@
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -231,6 +230,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-memory</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers</artifactId>
             <scope>test</scope>
             <exclusions>
@@ -249,6 +254,19 @@
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive-function-namespace</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- the dependency is needed for UDF registration -->
+        <!-- similar issue: https://issues.apache.org/jira/browse/SPARK-27176 -->
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-llap-common</artifactId>
         </dependency>
     </dependencies>
 

@@ -14,24 +14,31 @@
 
 package com.facebook.presto.hive.functions;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import org.apache.hadoop.hive.ql.parse.SemanticException;
 
 import javax.inject.Inject;
 
+import java.net.URLClassLoader;
+import java.util.Arrays;
+
+import static com.facebook.presto.hive.functions.FunctionRegistry.getCurrentFunctionNames;
 import static com.facebook.presto.hive.functions.FunctionRegistry.getFunctionInfo;
 import static java.util.Objects.requireNonNull;
 
 public class StaticHiveFunctionRegistry
         implements HiveFunctionRegistry
 {
+    private static final Logger log = Logger.get(StaticHiveFunctionRegistry.class);
     private final ClassLoader classLoader;
 
     @Inject
     public StaticHiveFunctionRegistry(@ForHiveFunction ClassLoader classLoader)
     {
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
+        // registerUdfs((URLClassLoader) classLoader);
     }
 
     @Override
@@ -39,10 +46,30 @@ public class StaticHiveFunctionRegistry
             throws ClassNotFoundException
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            getCurrentFunctionNames().stream().forEach(log::info);
+            log.info("Function name: " + name.getObjectName());
+            Arrays.stream(((URLClassLoader) classLoader).getURLs()).forEach(url -> log.info(url.getFile()));
             return getFunctionInfo(name.getObjectName()).getFunctionClass();
         }
         catch (SemanticException | NullPointerException e) {
+            e.printStackTrace();
             throw new ClassNotFoundException("Class of function " + name + " not found", e);
+        }
+    }
+
+    public void registerUdfs(URLClassLoader urlClassLoader)
+    {
+        try {
+            log.info("Registering hive-udfs static function registry");
+            Arrays.stream((urlClassLoader).getURLs()).forEach(url -> log.info(url.getFile()));
+            Class<?> loaderClass = Class.forName("RegisterUDFs", true, urlClassLoader);
+            loaderClass.newInstance();
+            Arrays.stream((urlClassLoader).getURLs()).forEach(url -> log.info(url.getFile()));
+            log.info("Registered hive-udfs");
+        }
+        catch (IllegalAccessException | InstantiationException | ClassNotFoundException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 }

@@ -147,6 +147,15 @@ public class TestHiveScalarFunctions
         check(select("struct", "'a'", "1"), typeOf("row(col1 varchar,col2 integer)"), asList("a", 1));
     }
 
+    @Test
+    public void test()
+    {
+        // check(selectF("FB_TRUNC", "'2014-01-01'", "'MM'"), VARCHAR, "2014-01-01");
+        check(selectF("FB_ARG_MAX", "1", "2", "3"), INTEGER, 2);
+        check(selectF("FB_IS_EMPTY", "'foo'"), BOOLEAN, false);
+        check(selectF("FB_ARRAY_SET_INTERSECT", "ARRAY [3,2,1]", "ARRAY [2,5,6]", "ARRAY[2]"), INTEGER_ARRAY, asList(2));
+    }
+
     public void check(@Language("SQL") String query, Type expectedType, Object expectedValue)
     {
         MaterializedResult result = client.execute(query).getResult();

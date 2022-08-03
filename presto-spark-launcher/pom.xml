@@ -49,6 +49,11 @@
             <artifactId>spark-core</artifactId>
             <scope>provided</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-llap-common</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

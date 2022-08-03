@@ -20,6 +20,7 @@ import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
+import com.facebook.presto.hive.functions.HiveFunctionNamespacePlugin;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.security.AccessControl;
@@ -172,7 +173,9 @@ public class PrestoSparkInjectorFactory
         Injector injector = app.initialize();
 
         try {
-            injector.getInstance(PluginManager.class).loadPlugins();
+            PluginManager pluginManager = injector.getInstance(PluginManager.class);
+            pluginManager.loadPlugins();
+            pluginManager.installPlugin(new HiveFunctionNamespacePlugin());
             injector.getInstance(StaticCatalogStore.class).loadCatalogs(catalogProperties);
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
