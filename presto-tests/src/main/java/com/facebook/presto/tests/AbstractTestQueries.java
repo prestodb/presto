@@ -57,6 +57,7 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PER
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
+import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -1303,6 +1304,54 @@ public abstract class AbstractTestQueries
 
         assertQuery("SELECT grouping(a) FROM (VALUES ('h', 'j', 11), ('k', 'l', 7)) AS t (a, b, c) GROUP BY GROUPING SETS (a,c), c*2",
                 "VALUES (0), (1), (0), (1)");
+    }
+
+    @Test
+    public void testGroupingSets()
+    {
+        Session sessionWithPushRemoteExchangeThroughGroupIdEnabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "true")
+                .build();
+        Session sessionWithPushRemoteExchangeThroughGroupIdDisabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "false")
+                .build();
+        testGroupingSets(sessionWithPushRemoteExchangeThroughGroupIdEnabled);
+        testGroupingSets(sessionWithPushRemoteExchangeThroughGroupIdDisabled);
+    }
+
+    private void testGroupingSets(Session session)
+    {
+        assertQuery(session,
+                "SELECT cast(sum(totalprice) as bigint), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderstatus, orderpriority))",
+                "VALUES (200872441, 'O', '5-LOW'), " +
+                        "        (199678223, 'O', '3-MEDIUM'), " +
+                        "        (206109275, 'F', '1-URGENT'), " +
+                        "        (210258874, 'O', '2-HIGH'), " +
+                        "        (13665497, 'P', '3-MEDIUM'), " +
+                        "        (12650639, 'P', '2-HIGH'), " +
+                        "        (1028376331, 'O', NULL), " +
+                        "        (205922827, 'F', '4-NOT SPECIFIED'), " +
+                        "        (1035681023, 'F', NULL), " +
+                        "        (208560811, 'O', '4-NOT SPECIFIED'), " +
+                        "        (210211977, 'F', '5-LOW'), " +
+                        "        (63339475, 'P', NULL), " +
+                        "        (202158746, 'F', '3-MEDIUM'), " +
+                        "        (209005981, 'O', '1-URGENT'), " +
+                        "        (211278198, 'F', '2-HIGH'), " +
+                        "        (12098256, 'P', '5-LOW'), " +
+                        "        (11233550, 'P', '1-URGENT'), " +
+                        "        (13691534, 'P', '4-NOT SPECIFIED') ");
+
+        assertQuery(session,
+                "SELECT cast(sum(totalprice) as bigint), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))",
+                "VALUES (1028376331, 'O', NULL), " +
+                        "        (1035681023, 'F', NULL), " +
+                        "        (63339475, 'P', NULL), " +
+                        "        (423182675, NULL, '5-LOW'), " +
+                        "        (434187712, NULL, '2-HIGH'), " +
+                        "        (426348806, NULL, '1-URGENT'), " +
+                        "        (428175171, NULL, '4-NOT SPECIFIED'), " +
+                        "        (415502467, NULL, '3-MEDIUM')");
     }
 
     @Test
