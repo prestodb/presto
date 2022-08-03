@@ -88,6 +88,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThro
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
+import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughGroupId;
 import com.facebook.presto.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
@@ -623,6 +624,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
                         .add(new PushRemoteExchangeThroughAssignUniqueId())
+                        .add(new PushRemoteExchangeThroughGroupId(metadata))
                         .add(new InlineProjections(metadata.getFunctionAndTypeManager()))
                         .build()));
 

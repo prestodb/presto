@@ -232,6 +232,8 @@ public class FeaturesConfig
 
     private double hyperloglogStandardErrorWarningThreshold = 0.004;
 
+    private boolean pushRemoteExchangeThroughGroupId;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2160,6 +2162,18 @@ public class FeaturesConfig
     public FeaturesConfig setQuickDistinctLimitEnabled(boolean quickDistinctLimitEnabled)
     {
         this.quickDistinctLimitEnabled = quickDistinctLimitEnabled;
+        return this;
+    }
+
+    public boolean isPushRemoteExchangeThroughGroupId()
+    {
+        return pushRemoteExchangeThroughGroupId;
+    }
+
+    @Config("optimizer.push-remote-exchange-through-group-id")
+    public FeaturesConfig setPushRemoteExchangeThroughGroupId(boolean value)
+    {
+        this.pushRemoteExchangeThroughGroupId = value;
         return this;
     }
 }

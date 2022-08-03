@@ -235,6 +235,7 @@ public final class SystemSessionProperties
     public static final String TRACK_HISTORY_BASED_PLAN_STATISTICS = "track_history_based_plan_statistics";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
+    public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1338,6 +1339,11 @@ public final class SystemSessionProperties
                         LEAF_NODE_LIMIT_ENABLED,
                         "Throw exception if the number of leaf nodes in logical plan exceeds threshold set in max_leaf_nodes_in_plan",
                         compilerConfig.getLeafNodeLimitEnabled(),
+                        false),
+                booleanProperty(
+                        PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID,
+                        "Enable optimization rule to push remote exchange through GroupId",
+                        featuresConfig.isPushRemoteExchangeThroughGroupId(),
                         false));
     }
 
@@ -2252,5 +2258,10 @@ public final class SystemSessionProperties
     public static boolean trackHistoryBasedPlanStatisticsEnabled(Session session)
     {
         return session.getSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, Boolean.class);
+    }
+
+    public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
+    {
+        return session.getSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, Boolean.class);
     }
 }
