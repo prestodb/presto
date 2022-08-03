@@ -1029,6 +1029,20 @@ struct TypeFactory<TypeKind::UNKNOWN> {
 };
 
 template <>
+struct TypeFactory<TypeKind::SHORT_DECIMAL> {
+  static std::shared_ptr<const ShortDecimalType> create() {
+    VELOX_UNSUPPORTED();
+  }
+};
+
+template <>
+struct TypeFactory<TypeKind::LONG_DECIMAL> {
+  static std::shared_ptr<const LongDecimalType> create() {
+    VELOX_UNSUPPORTED();
+  }
+};
+
+template <>
 struct TypeFactory<TypeKind::ARRAY> {
   static std::shared_ptr<const ArrayType> create(
       std::shared_ptr<const Type> elementType) {
