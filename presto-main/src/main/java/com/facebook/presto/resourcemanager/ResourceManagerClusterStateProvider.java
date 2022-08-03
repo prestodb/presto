@@ -29,7 +29,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -43,7 +42,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
@@ -62,7 +60,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Stream.concat;
@@ -219,7 +216,6 @@ public class ResourceManagerClusterStateProvider
             throws ResourceManagerInconsistentException
     {
         requireNonNull(excludingNode, "excludingNode is null");
-        validateCoordinatorConsistency();
 
         Map<ResourceGroupId, ResourceGroupRuntimeInfo.Builder> resourceGroupBuilders = new HashMap<>();
         nodeQueryStates.values().stream()
@@ -335,19 +331,6 @@ public class ResourceManagerClusterStateProvider
             String nodeHost = URI.create(e.getValue().getNodeStatus().getExternalAddress()).getHost();
             return nodeIdentifier + " [" + nodeHost + "]";
         }, e -> e.getValue().getNodeStatus().getMemoryInfo()));
-    }
-
-    private void validateCoordinatorConsistency()
-    {
-        Set<String> coordinators = internalNodeManager.getCoordinators().stream().map(InternalNode::getNodeIdentifier).collect(toImmutableSet());
-        Set<String> heartbeatedCoordinatorNodes = nodeStatuses.values().stream()
-                .map(InternalNodeState::getNodeStatus)
-                .filter(NodeStatus::isCoordinator)
-                .map(NodeStatus::getNodeId)
-                .collect(toImmutableSet());
-        if (!(Sets.difference(coordinators, heartbeatedCoordinatorNodes).isEmpty() && !coordinators.isEmpty())) {
-            throw new ResourceManagerInconsistentException(format("%s nodes found in discovery vs. %s nodes found in heartbeats", coordinators.size(), heartbeatedCoordinatorNodes.size()));
-        }
     }
 
     private static class CoordinatorResourceGroupState
