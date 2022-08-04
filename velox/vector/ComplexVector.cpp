@@ -194,7 +194,7 @@ void RowVector::copy(
     if (nulls) {
       rows.applyToSelected([&](auto row) {
         auto idx = toSourceRow ? toSourceRow[row] : row;
-        if (bits::isBitNull(nulls, decodedSource.nullIndex(idx))) {
+        if (bits::isBitNull(nulls, idx)) {
           nonNullRows.setValid(row, false);
         }
       });

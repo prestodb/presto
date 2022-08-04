@@ -453,7 +453,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
             << source->toString(sourceIdx);
 
         // We check the same with 'decoded'.
-        if (nulls && bits::isBitNull(nulls, decoded.nullIndex(sourceIdx))) {
+        if (nulls && bits::isBitNull(nulls, sourceIdx)) {
           EXPECT_TRUE(decoded.isNullAt(sourceIdx));
           EXPECT_TRUE(bits::isBitNull(flatNulls, sourceIdx));
           EXPECT_TRUE(target->isNullAt(i));
@@ -468,7 +468,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         EXPECT_TRUE(target->equalValueAt(source.get(), i, oddSource[i]));
         // We check the same with 'decoded'.
         auto sourceIdx = oddSource[i];
-        if (nulls && bits::isBitNull(nulls, decoded.nullIndex(sourceIdx))) {
+        if (nulls && bits::isBitNull(nulls, sourceIdx)) {
           EXPECT_TRUE(bits::isBitNull(flatNulls, sourceIdx));
           EXPECT_TRUE(target->isNullAt(i));
         } else {

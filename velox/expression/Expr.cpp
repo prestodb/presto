@@ -474,7 +474,7 @@ SelectivityVector* translateToInnerRows(
   // indices for places that a dictionary sets to null are not
   // defined. Null adding dictionaries are not peeled off non
   // null-propagating Exprs.
-  auto flatNulls = decoded.nullIndices() != indices ? decoded.nulls() : nullptr;
+  auto flatNulls = decoded.hasExtraNulls() ? decoded.nulls() : nullptr;
 
   auto* newRows = newRowsHolder.get(baseSize, false);
   rows.applyToSelected([&](vector_size_t row) {

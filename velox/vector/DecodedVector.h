@@ -91,20 +91,17 @@ class DecodedVector {
 
   /// Returns the raw nulls buffer for the base vector combined with nulls found
   /// in dictionary wrappings. May return nullptr if there are no nulls. Use
-  /// nullIndex() to access individual null flags, e.g.
+  /// top-level row numbers to access individual null flags, e.g.
   ///
-  ///  nulls() ? bits::isBitNull(nulls(), decoded.nullIndex(i)) : false
+  ///  nulls() ? bits::isBitNull(nulls(), i) : false
   ///
   /// returns the null flag for top-level row 'i' given that 'i' is one of the
   /// rows specified for decoding.
-  ///
-  /// When isConstantMapping() == false, may also use nullIndices() which may be
-  /// a little faster than nullIndex().
-  ///
-  ///  nulls() ? bits::isBitNull(nulls(), nullIndices() ? nullIndices[i] : i) :
-  ///  false
-  const uint64_t* nulls() const {
-    return nulls_;
+  const uint64_t* nulls();
+
+  /// Returns true if wrappings may have added nulls.
+  bool hasExtraNulls() const {
+    return hasExtraNulls_;
   }
 
   /// Returns the mapping from top-level rows to rows in the base vector or
@@ -116,18 +113,6 @@ class DecodedVector {
     return &indices_[0];
   }
 
-  /// Available only if isConstantMapping() == false.
-  /// Returns the mapping from top-level rows to entries in nulls() buffer.
-  /// Returns nullptr if mapping is identity.
-  const vector_size_t* nullIndices() {
-    if (hasExtraNulls_) {
-      return nullptr;
-    }
-
-    VELOX_CHECK(!isConstantMapping_);
-    return indices_;
-  }
-
   /// Given a top-level row returns corresponding index in the base vector or
   /// data().
   vector_size_t index(vector_size_t idx) const {
@@ -136,19 +121,6 @@ class DecodedVector {
     }
     if (isConstantMapping_) {
       return constantIndex_;
-    }
-    VELOX_DCHECK(indices_);
-    return indices_[idx];
-  }
-
-  /// Given a top-level row returns corresponding bit position in the nulls()
-  /// buffer.
-  vector_size_t nullIndex(vector_size_t idx) const {
-    if (isIdentityMapping_ || hasExtraNulls_) {
-      return idx;
-    }
-    if (isConstantMapping_) {
-      return 0;
     }
     VELOX_DCHECK(indices_);
     return indices_[idx];
@@ -175,7 +147,17 @@ class DecodedVector {
     if (!nulls_) {
       return false;
     }
-    return bits::isBitNull(nulls_, nullIndex(idx));
+
+    if (isIdentityMapping_ || hasExtraNulls_) {
+      return bits::isBitNull(nulls_, idx);
+    }
+
+    if (isConstantMapping_) {
+      return bits::isBitNull(nulls_, 0);
+    }
+
+    VELOX_DCHECK(indices_);
+    return bits::isBitNull(nulls_, indices_[idx]);
   }
 
   /// Returns the largest decoded row number + 1, i.e. rows.end().
@@ -283,9 +265,17 @@ class DecodedVector {
   // complex type.
   const void* data_ = nullptr;
 
-  // Null bitmask. One bit for each T in 'data_'. nullptr f if there
-  // are no nulls.
+  // Null bitmask of the base vector if wrappings didn't add nulls
+  // (hasExtraNulls_ is false). Otherwise, null bitmask of the base vector
+  // combined with null bitmasks in all the wrappings (hasExtraNulls_ is true).
+  // May be nullptr if there are no nulls.
   const uint64_t* nulls_ = nullptr;
+
+  // Nulls bitmask indexed using top-level row numbers and containing null bits
+  // of the base vector combined with null bits in all the wrappings. May be
+  // nullptr if there are no nulls or allNullsInitialized_ is false. Initialized
+  // on first access.
+  std::optional<const uint64_t*> allNulls_ = nullptr;
 
   // The base vector of 'vector' given to decode(). This is the data
   // after sequence, constant and dictionary vectors have been peeled

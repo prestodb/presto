@@ -40,6 +40,22 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     }
   }
 
+  void assertNoNulls(DecodedVector& decodedVector) {
+    ASSERT_TRUE(decodedVector.nulls() == nullptr);
+    for (auto i = 0; i < decodedVector.size(); ++i) {
+      ASSERT_FALSE(decodedVector.isNullAt(i));
+    }
+  }
+
+  void assertNulls(const VectorPtr& vector, DecodedVector& decodedVector) {
+    SCOPED_TRACE(vector->toString(true));
+    ASSERT_TRUE(decodedVector.nulls() != nullptr);
+    for (auto i = 0; i < decodedVector.size(); ++i) {
+      ASSERT_EQ(decodedVector.isNullAt(i), vector->isNullAt(i));
+      ASSERT_EQ(bits::isBitNull(decodedVector.nulls(), i), vector->isNullAt(i));
+    }
+  }
+
   template <typename T>
   void assertDecodedVector(
       const std::vector<std::optional<T>>& expected,
@@ -99,7 +115,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     SelectivityVector selection(100);
     DecodedVector decoded(*constantVector, selection);
     EXPECT_TRUE(decoded.isConstantMapping());
-    EXPECT_FALSE(decoded.isIdentityMapping());
+    EXPECT_TRUE(!decoded.isIdentityMapping());
+    EXPECT_TRUE(decoded.nulls() == nullptr);
     for (int32_t i = 0; i < 100; i++) {
       EXPECT_FALSE(decoded.isNullAt(i));
       EXPECT_EQ(decoded.valueAt<T>(i), value);
@@ -107,19 +124,23 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
   }
 
   void testConstant(const VectorPtr& base, vector_size_t index) {
+    SCOPED_TRACE(base->toString());
     auto constantVector = std::make_shared<ConstantVector<ComplexType>>(
         pool_.get(), 100, index, base);
     SelectivityVector selection(100);
     DecodedVector decoded(*constantVector, selection);
     EXPECT_TRUE(decoded.isConstantMapping());
-    EXPECT_FALSE(decoded.isIdentityMapping());
+    EXPECT_TRUE(!decoded.isIdentityMapping());
     EXPECT_EQ(base->encoding(), decoded.base()->encoding());
     bool isNull = base->isNullAt(index);
     if (isNull) {
+      EXPECT_TRUE(decoded.nulls() != nullptr);
       for (int32_t i = 0; i < 100; i++) {
         EXPECT_TRUE(decoded.isNullAt(i)) << "at " << i;
+        EXPECT_TRUE(bits::isBitNull(decoded.nulls(), i)) << "at " << i;
       }
     } else {
+      EXPECT_TRUE(decoded.nulls() == nullptr);
       for (int32_t i = 0; i < 100; i++) {
         EXPECT_FALSE(decoded.isNullAt(i));
         EXPECT_TRUE(base->equalValueAt(decoded.base(), index, decoded.index(i)))
@@ -148,6 +169,7 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
   }
 
   void testConstantNull(const TypePtr& type) {
+    SCOPED_TRACE(type->toString());
     auto constantVector =
         BaseVector::createNullConstant(type, 100, pool_.get());
     EXPECT_EQ(constantVector->isScalar(), type->isPrimitiveType());
@@ -162,9 +184,11 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
           BaseVector::create(type, 1, pool_.get())->encoding());
     }
     EXPECT_TRUE(decoded.isConstantMapping());
-    EXPECT_FALSE(decoded.isIdentityMapping());
+    EXPECT_TRUE(!decoded.isIdentityMapping());
+    ASSERT_TRUE(decoded.nulls() != nullptr);
     for (int32_t i = 0; i < 100; i++) {
       EXPECT_TRUE(decoded.isNullAt(i));
+      EXPECT_TRUE(bits::isBitNull(decoded.nulls(), i));
     }
   }
 
@@ -210,7 +234,7 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     constexpr vector_size_t size = 1000;
     auto constantVector = BaseVector::createConstant(value, size, pool_.get());
 
-    // add nulls via dictionary. Make every 2-nd element a null.
+    // Add nulls via dictionary. Make every 2-nd element a null.
     BufferPtr nulls = evenNulls(size);
 
     // Every even element is null. Every odd element is a constant.
@@ -223,12 +247,16 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     DecodedVector decoded(*dictionaryVector, selection, false);
     ASSERT_FALSE(decoded.isIdentityMapping());
     ASSERT_FALSE(decoded.isConstantMapping());
+    ASSERT_TRUE(decoded.nulls() != nullptr);
     for (auto i = 0; i < dictionarySize; i++) {
       if (i % 2 == 0) {
         ASSERT_TRUE(decoded.isNullAt(i)) << "at " << i;
       } else {
         ASSERT_EQ(value, decoded.valueAt<T>(i)) << "at " << i;
       }
+      ASSERT_EQ(decoded.isNullAt(i), dictionaryVector->isNullAt(i));
+      ASSERT_EQ(
+          bits::isBitNull(decoded.nulls(), i), dictionaryVector->isNullAt(i));
     }
   }
 
@@ -301,7 +329,7 @@ void DecodedVectorTest::testConstant<StringView>(const StringView& value) {
   }
 }
 
-TEST_F(DecodedVectorTest, testFlat) {
+TEST_F(DecodedVectorTest, flat) {
   testFlat<int8_t>();
   testFlat<int16_t>();
   testFlat<int32_t>();
@@ -578,4 +606,114 @@ TEST_F(DecodedVectorTest, emptyRowsMultiDict) {
   VELOX_CHECK_NOT_NULL(d.indices());
 }
 
+TEST_F(DecodedVectorTest, flatNulls) {
+  // Flat vector with no nulls.
+  auto flatNoNulls = makeFlatVector<int64_t>(100, [](auto row) { return row; });
+  SelectivityVector rows(100);
+  DecodedVector d(*flatNoNulls, rows);
+  assertNoNulls(d);
+
+  // Flat vector with nulls.
+  auto flatWithNulls = makeFlatVector<int64_t>(
+      100, [](auto row) { return row; }, nullEvery(7));
+  d.decode(*flatWithNulls, rows);
+  ASSERT_TRUE(d.nulls() != nullptr);
+  for (auto i = 0; i < 100; ++i) {
+    ASSERT_EQ(d.isNullAt(i), i % 7 == 0);
+    ASSERT_EQ(bits::isBitNull(d.nulls(), i), i % 7 == 0);
+  }
+}
+
+TEST_F(DecodedVectorTest, dictionaryOverFlatNulls) {
+  SelectivityVector rows(100);
+  DecodedVector d;
+
+  auto flatNoNulls = makeFlatVector<int64_t>(100, [](auto row) { return row; });
+  auto flatWithNulls = makeFlatVector<int64_t>(
+      100, [](auto row) { return row; }, nullEvery(7));
+
+  // Dictionary over flat with no nulls.
+  auto dict = wrapInDictionary(makeIndicesInReverse(100), 100, flatNoNulls);
+  d.decode(*dict, rows);
+  assertNoNulls(d);
+
+  // Dictionary over flat with nulls.
+  auto indices = makeIndicesInReverse(100);
+  dict = wrapInDictionary(indices, 100, flatWithNulls);
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+
+  // Dictionary that adds nulls over flat with no nulls.
+  auto nulls = makeNulls(100, nullEvery(3));
+  dict = BaseVector::wrapInDictionary(nulls, indices, 100, flatNoNulls);
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+
+  // Dictionary that adds nulls over flat with nulls.
+  dict = BaseVector::wrapInDictionary(nulls, indices, 100, flatWithNulls);
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+
+  // 2 layers of dictionary over flat using all combinations of nulls/no-nulls
+  // at each level.
+
+  // Dict(Dict(Flat))
+  dict = wrapInDictionary(
+      indices, 100, wrapInDictionary(indices, 100, flatNoNulls));
+  d.decode(*dict, rows);
+  assertNoNulls(d);
+
+  // Dict(Dict(Flat-with-Nulls))
+  dict = wrapInDictionary(
+      indices, 100, wrapInDictionary(indices, 100, flatWithNulls));
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+
+  // Dict(Dict-with-Nulls(Flat))
+  dict = wrapInDictionary(
+      indices,
+      100,
+      BaseVector::wrapInDictionary(nulls, indices, 100, flatNoNulls));
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+
+  // Dict(Dict-with-Nulls(Flat-with-Nulls))
+  dict = wrapInDictionary(
+      indices,
+      100,
+      BaseVector::wrapInDictionary(nulls, indices, 100, flatWithNulls));
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+
+  // Dict-with-Nulls(Dict(Flat))
+  auto moreNulls = makeNulls(100, nullEvery(5));
+  dict = BaseVector::wrapInDictionary(
+      moreNulls, indices, 100, wrapInDictionary(indices, 100, flatNoNulls));
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+
+  // Dict-with-Nulls(Dict-with-Nulls(Flat))
+  dict = BaseVector::wrapInDictionary(
+      moreNulls,
+      indices,
+      100,
+      BaseVector::wrapInDictionary(nulls, indices, 100, flatNoNulls));
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+
+  // Dict-with-Nulls(Dict(Flat-with-Nulls))
+  dict = BaseVector::wrapInDictionary(
+      moreNulls, indices, 100, wrapInDictionary(indices, 100, flatWithNulls));
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+
+  // Dict-with-Nulls(Dict-with-Nulls(Flat-with-Nulls))
+  dict = BaseVector::wrapInDictionary(
+      moreNulls,
+      indices,
+      100,
+      BaseVector::wrapInDictionary(nulls, indices, 100, flatWithNulls));
+  d.decode(*dict, rows);
+  assertNulls(dict, d);
+}
 } // namespace facebook::velox::test

@@ -116,7 +116,6 @@ vector_size_t processEncodedFilterResults(
   auto values = decoded.data<uint64_t>();
   auto nulls = decoded.nulls();
   auto indices = decoded.indices();
-  auto nullIndices = decoded.nullIndices();
 
   vector_size_t passed = 0;
   auto* rawSelected = filterEvalCtx.getRawSelectedIndices(size, pool);
@@ -124,8 +123,7 @@ vector_size_t processEncodedFilterResults(
   memset(rawSelectedBits, 0, bits::nbytes(size));
   for (int32_t i = 0; i < size; ++i) {
     auto index = indices[i];
-    auto nullIndex = nullIndices ? nullIndices[i] : i;
-    if ((!nulls || !bits::isBitNull(nulls, nullIndex)) &&
+    if ((!nulls || !bits::isBitNull(nulls, i)) &&
         bits::isBitSet(values, index)) {
       rawSelected[passed++] = i;
       bits::setBit(rawSelectedBits, i);
