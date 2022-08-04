@@ -1299,15 +1299,7 @@ class VectorCreateConstantTest : public VectorTest {
       }
     }
 
-    auto expectedStr = fmt::format(
-        "[CONSTANT {}: {} value, {} size]",
-        type->toString(),
-        baseVector->toString(0),
-        size_);
-    EXPECT_EQ(expectedStr, baseVector->toString());
-    for (auto i = 1; i < baseVector->size(); ++i) {
-      EXPECT_EQ(baseVector->toString(0), baseVector->toString(i));
-    }
+    verifyConstantToString(type, baseVector);
   }
 
   template <TypeKind KIND>
@@ -1326,14 +1318,18 @@ class VectorCreateConstantTest : public VectorTest {
       ASSERT_TRUE(vector->equalValueAt(baseVector.get(), 0, i));
     }
 
+    verifyConstantToString(type, baseVector);
+  }
+
+  void verifyConstantToString(const TypePtr& type, const VectorPtr& constant) {
     auto expectedStr = fmt::format(
-        "[CONSTANT {}: {} value, {} size]",
+        "[CONSTANT {}: {} elements, {}]",
         type->toString(),
-        vector->toString(0),
-        size_);
-    EXPECT_EQ(expectedStr, baseVector->toString());
-    for (auto i = 1; i < baseVector->size(); ++i) {
-      EXPECT_EQ(baseVector->toString(0), baseVector->toString(i));
+        size_,
+        constant->toString(0));
+    EXPECT_EQ(expectedStr, constant->toString());
+    for (auto i = 1; i < constant->size(); ++i) {
+      EXPECT_EQ(constant->toString(0), constant->toString(i));
     }
   }
 
@@ -1354,7 +1350,7 @@ class VectorCreateConstantTest : public VectorTest {
     }
 
     auto expectedStr = fmt::format(
-        "[CONSTANT {}: null value, {} size]", type->toString(), size_);
+        "[CONSTANT {}: {} elements, null]", type->toString(), size_);
     EXPECT_EQ(expectedStr, baseVector->toString());
     for (auto i = 1; i < baseVector->size(); ++i) {
       EXPECT_EQ(baseVector->toString(0), baseVector->toString(i));

@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
 
   // For fun, let's print the shuffled data to stdout.
   LOG(INFO) << "Input vector generated:";
-  for (size_t i = 0; i < rowVector->size(); ++i) {
+  for (vector_size_t i = 0; i < rowVector->size(); ++i) {
     LOG(INFO) << rowVector->toString(i);
   }
 
@@ -182,7 +182,7 @@ int main(int argc, char** argv) {
   // Read output vectors and print them.
   while (auto result = readTask->next()) {
     LOG(INFO) << "Vector available after processing (scan + sort):";
-    for (size_t i = 0; i < result->size(); ++i) {
+    for (vector_size_t i = 0; i < result->size(); ++i) {
       LOG(INFO) << result->toString(i);
     }
   }

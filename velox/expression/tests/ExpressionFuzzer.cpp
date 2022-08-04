@@ -339,7 +339,7 @@ class ExpressionFuzzer {
     LOG(INFO) << "RowVector contents (" << rowVector->type()->toString()
               << "):";
 
-    for (size_t i = 0; i < rowVector->size(); ++i) {
+    for (vector_size_t i = 0; i < rowVector->size(); ++i) {
       LOG(INFO) << "\tAt " << i << ": " << rowVector->toString(i);
     }
   }

@@ -292,7 +292,7 @@ TEST(TpchGenTestLineItem, batches) {
   EXPECT_EQ("1996-03-13"_sv, shipDate->valueAt(0));
   LOG(INFO) << rowVector1->toString(0);
 
-  size_t lastRow = rowVector1->size() - 1;
+  vector_size_t lastRow = rowVector1->size() - 1;
   EXPECT_EQ(388, orderKey->valueAt(lastRow));
   EXPECT_EQ("1992-12-24"_sv, shipDate->valueAt(lastRow));
   LOG(INFO) << rowVector1->toString(lastRow);

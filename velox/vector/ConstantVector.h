@@ -314,19 +314,21 @@ class ConstantVector final : public SimpleVector<T> {
     return SimpleVector<T>::compare(other, index, otherIndex, flags);
   }
 
-  std::string toString() const override {
-    std::stringstream out;
-    out << "[" << BaseVector::encoding() << " " << this->type()->toString()
-        << ": " << toString(index_) << " value, " << this->size() << " size]";
-    return out.str();
-  }
-
   std::string toString(vector_size_t index) const override {
     if (isScalar()) {
       return SimpleVector<T>::toString(index);
     }
 
     return valueVector_->toString(index_);
+  }
+
+ protected:
+  std::string toSummaryString() const override {
+    std::stringstream out;
+    out << "[" << BaseVector::encoding() << " "
+        << BaseVector::type()->toString() << ": " << BaseVector::size()
+        << " elements, " << toString(index_) << "]";
+    return out.str();
   }
 
  private:

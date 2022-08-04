@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
   auto rowReader = reader->createRowReader(rowReaderOptions);
   while (rowReader->next(500, batch)) {
     auto rowVector = batch->as<RowVector>();
-    for (size_t i = 0; i < rowVector->size(); ++i) {
+    for (vector_size_t i = 0; i < rowVector->size(); ++i) {
       std::cout << rowVector->toString(i) << std::endl;
     }
   }

@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
 
   // Print the output vector, just for fun:
   const auto& outputVector = result.front();
-  for (size_t i = 0; i < outputVector->size(); ++i) {
+  for (vector_size_t i = 0; i < outputVector->size(); ++i) {
     LOG(INFO) << outputVector->toString(i);
   }
 

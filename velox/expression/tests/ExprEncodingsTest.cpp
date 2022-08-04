@@ -311,7 +311,7 @@ class ExprEncodingsTest
       const SelectivityVector& rows) {
     ASSERT_GE(actual->size(), rows.end());
     ASSERT_EQ(expected->typeKind(), actual->typeKind());
-    rows.applyToSelected([&](auto row) {
+    rows.applyToSelected([&](vector_size_t row) {
       ASSERT_TRUE(expected->equalValueAt(actual.get(), row, row))
           << "at " << row << ": expected " << expected->toString(row)
           << ", but got " << actual->toString(row);

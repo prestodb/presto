@@ -427,7 +427,7 @@ void BaseVector::resizeIndices(
   *raw = indices->get()->asMutable<vector_size_t>();
 }
 
-std::string BaseVector::toString() const {
+std::string BaseVector::toSummaryString() const {
   std::stringstream out;
   out << "[" << encoding() << " " << type_->toString() << ": " << length_
       << " elements, ";
@@ -437,6 +437,27 @@ std::string BaseVector::toString() const {
     out << countNulls(nulls_, 0, length_) << " nulls";
   }
   out << "]";
+  return out.str();
+}
+
+std::string BaseVector::toString(bool recursive) const {
+  std::stringstream out;
+  out << toSummaryString();
+
+  if (recursive) {
+    switch (encoding()) {
+      case VectorEncoding::Simple::DICTIONARY:
+      case VectorEncoding::Simple::SEQUENCE:
+      case VectorEncoding::Simple::CONSTANT:
+        if (valueVector() != nullptr) {
+          out << ", " << valueVector()->toString(true);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
   return out.str();
 }
 

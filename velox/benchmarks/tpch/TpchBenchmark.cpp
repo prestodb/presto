@@ -68,7 +68,7 @@ void printResults(const std::vector<RowVectorPtr>& results) {
       std::cout << vector->type()->asRow().toString() << std::endl;
       printType = false;
     }
-    for (size_t i = 0; i < vector->size(); ++i) {
+    for (vector_size_t i = 0; i < vector->size(); ++i) {
       std::cout << vector->toString(i) << std::endl;
     }
   }
