@@ -221,6 +221,18 @@ TEST_F(MinMaxTest, minMaxTimestamp) {
       "date_trunc('millisecond', max(c1)) FROM tmp GROUP BY 1");
 }
 
+TEST_F(MinMaxTest, largeValuesDate) {
+  auto vectors = {makeRowVector(
+      {makeConstant(Date(60577), 100), makeConstant(Date(-57604), 100)})};
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      vectors,
+      {},
+      {"min(c0)", "max(c0)", "min(c1)", "max(c1)"},
+      "SELECT min(c0), max(c0), min(c1), max(c1) FROM tmp");
+}
+
 TEST_F(MinMaxTest, minMaxDate) {
   auto rowType = ROW({"c0", "c1"}, {SMALLINT(), DATE()});
   auto vectors = makeVectors(rowType, 1'000, 10);

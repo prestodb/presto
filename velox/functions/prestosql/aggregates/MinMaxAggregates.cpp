@@ -40,6 +40,17 @@ struct MinMaxTrait<Timestamp> {
   }
 };
 
+template <>
+struct MinMaxTrait<Date> {
+  static constexpr Date min() {
+    return Date(std::numeric_limits<int32_t>::min());
+  }
+
+  static constexpr Date max() {
+    return Date(std::numeric_limits<int32_t>::max());
+  }
+};
+
 template <typename T>
 class MinMaxAggregate : public SimpleNumericAggregate<T, T, T> {
   using BaseAggregate = SimpleNumericAggregate<T, T, T>;
