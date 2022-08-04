@@ -18,8 +18,8 @@ import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
-import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.useExternalPlanStatisticsEnabled;
+import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.spi.StandardErrorCode.PLAN_SERIALIZATION_ERROR;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
@@ -46,16 +46,16 @@ import static java.util.Objects.requireNonNull;
 public class HistoryBasedPlanStatisticsCalculator
         implements StatsCalculator
 {
-    private final Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider;
+    private final Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider;
     private final StatsCalculator delegate;
     private final ObjectMapper objectMapper;
 
     public HistoryBasedPlanStatisticsCalculator(
-            Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider,
+            Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
             StatsCalculator delegate,
             ObjectMapper objectMapper)
     {
-        this.externalPlanStatisticsProvider = requireNonNull(externalPlanStatisticsProvider, "externalPlanStatisticsProvider is null");
+        this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
@@ -70,7 +70,7 @@ public class HistoryBasedPlanStatisticsCalculator
     private PlanStatistics getStatistics(PlanNode planNode, Session session, Lookup lookup)
     {
         PlanNode plan = resolveGroupReferences(planNode, lookup);
-        if (!useExternalPlanStatisticsEnabled(session)) {
+        if (!useHistoryBasedPlanStatisticsEnabled(session)) {
             return PlanStatistics.empty();
         }
 
@@ -90,7 +90,7 @@ public class HistoryBasedPlanStatisticsCalculator
             planNodeWithHashes = ImmutableList.of(new PlanNodeWithHash(plan, Optional.empty()));
         }
 
-        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = externalPlanStatisticsProvider.get().getStats(planNodeWithHashes);
+        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = historyBasedPlanStatisticsProvider.get().getStats(planNodeWithHashes);
 
         // Return statistics corresponding to first strategy that we find, in order specified by `historyBasedPlanCanonicalizationStrategyList`
         for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {

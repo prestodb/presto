@@ -87,7 +87,7 @@ public class FeaturesConfig
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
-    private boolean useExternalPlanStatistics;
+    private boolean useHistoryBasedPlanStatistics;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -732,15 +732,15 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isUseExternalPlanStatistics()
+    public boolean isUseHistoryBasedPlanStatistics()
     {
-        return useExternalPlanStatistics;
+        return useHistoryBasedPlanStatistics;
     }
 
-    @Config("optimizer.use-external-plan-statistics")
-    public FeaturesConfig setUseExternalPlanStatistics(boolean useExternalPlanStatistics)
+    @Config("optimizer.use-history-based-plan-statistics")
+    public FeaturesConfig setUseHistoryBasedPlanStatistics(boolean useHistoryBasedPlanStatistics)
     {
-        this.useExternalPlanStatistics = useExternalPlanStatistics;
+        this.useHistoryBasedPlanStatistics = useHistoryBasedPlanStatistics;
         return this;
     }
 
