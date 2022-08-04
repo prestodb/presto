@@ -31,6 +31,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
@@ -90,6 +91,16 @@ public final class TypeUtils
             allTypes.addAll(type.getTypeParameters());
         }
         return false;
+    }
+
+    public static boolean isStringType(Type type)
+    {
+        return isCharacterStringType(type) || VARBINARY.equals(type);
+    }
+
+    public static boolean isCharacterStringType(Type type)
+    {
+        return type instanceof VarcharType || type instanceof CharType;
     }
 
     /**

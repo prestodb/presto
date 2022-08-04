@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericDataType;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingOperation;
@@ -81,6 +82,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
+import com.facebook.presto.sql.tree.TypeParameter;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -96,6 +98,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -681,6 +684,27 @@ public final class ExpressionFormatter
         public String visitGroupingOperation(GroupingOperation node, Void context)
         {
             return "GROUPING (" + joinExpressions(node.getGroupingColumns()) + ")";
+        }
+
+        @Override
+        protected String visitGenericDataType(GenericDataType node, Void context)
+        {
+            StringBuilder result = new StringBuilder();
+            result.append(node.getName());
+
+            if (!node.getArguments().isEmpty()) {
+                result.append(node.getArguments().stream()
+                        .map(this::process)
+                        .collect(Collectors.joining(", ", "(", ")")));
+            }
+
+            return result.toString();
+        }
+
+        @Override
+        protected String visitTypeParameter(TypeParameter node, Void context)
+        {
+            return node.getValue();
         }
 
         @Override

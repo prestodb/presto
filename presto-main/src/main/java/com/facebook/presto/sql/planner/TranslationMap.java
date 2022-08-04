@@ -25,6 +25,9 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.JsonExists;
+import com.facebook.presto.sql.tree.JsonQuery;
+import com.facebook.presto.sql.tree.JsonValue;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.NodeRef;
@@ -267,6 +270,24 @@ class TranslationMap
             {
                 checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
                 return coerceIfNecessary(node, analysis.getParameters().get(NodeRef.of(node)));
+            }
+
+            @Override
+            public Expression rewriteJsonExists(JsonExists node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                throw new UnsupportedOperationException("JSON_EXISTS function is not yet supported");
+            }
+
+            @Override
+            public Expression rewriteJsonValue(JsonValue node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                throw new UnsupportedOperationException("JSON_VALUE function is not yet supported");
+            }
+
+            @Override
+            public Expression rewriteJsonQuery(JsonQuery node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                throw new UnsupportedOperationException("JSON_QUERY function is not yet supported");
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)

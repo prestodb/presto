@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -103,6 +104,11 @@ public class Analysis
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> utilizedTableColumnReferences = new LinkedHashMap<>();
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferences = new LinkedHashMap<>();
 
+    // for JSON features
+    private final Map<NodeRef<Expression>, JsonPathAnalysis> jsonPathAnalyses = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, FunctionHandle> jsonInputFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, FunctionHandle> jsonOutputFunctions = new LinkedHashMap<>();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<Expression>> groupByExpressions = new LinkedHashMap<>();
@@ -131,7 +137,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
-    private final Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, FunctionHandle> functionHandles = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
@@ -514,12 +520,12 @@ public class Analysis
         return functionHandles.get(NodeRef.of(function));
     }
 
-    public Map<NodeRef<FunctionCall>, FunctionHandle> getFunctionHandles()
+    public Map<NodeRef<Expression>, FunctionHandle> getFunctionHandles()
     {
         return ImmutableMap.copyOf(functionHandles);
     }
 
-    public void addFunctionHandles(Map<NodeRef<FunctionCall>, FunctionHandle> infos)
+    public void addFunctionHandles(Map<NodeRef<Expression>, FunctionHandle> infos)
     {
         functionHandles.putAll(infos);
     }
@@ -785,6 +791,36 @@ public class Analysis
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
         tableColumnAndSubfieldReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+    }
+
+    public void setJsonPathAnalyses(Map<NodeRef<Expression>, JsonPathAnalysis> pathAnalyses)
+    {
+        jsonPathAnalyses.putAll(pathAnalyses);
+    }
+
+    public JsonPathAnalysis getJsonPathAnalysis(Expression expression)
+    {
+        return jsonPathAnalyses.get(NodeRef.of(expression));
+    }
+
+    public void setJsonInputFunctions(Map<NodeRef<Expression>, FunctionHandle> functions)
+    {
+        jsonInputFunctions.putAll(functions);
+    }
+
+    public FunctionHandle getJsonInputFunction(Expression expression)
+    {
+        return jsonInputFunctions.get(NodeRef.of(expression));
+    }
+
+    public void setJsonOutputFunctions(Map<NodeRef<Expression>, FunctionHandle> functions)
+    {
+        jsonOutputFunctions.putAll(functions);
+    }
+
+    public FunctionHandle getJsonOutputFunction(Expression expression)
+    {
+        return jsonOutputFunctions.get(NodeRef.of(expression));
     }
 
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()

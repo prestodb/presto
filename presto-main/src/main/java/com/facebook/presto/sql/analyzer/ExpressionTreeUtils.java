@@ -58,7 +58,7 @@ public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
 
-    static List<FunctionCall> extractAggregateFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionAndTypeManager functionAndTypeManager)
+    static List<FunctionCall> extractAggregateFunctions(Map<NodeRef<Expression>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionAndTypeManager functionAndTypeManager)
     {
         return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionHandles, functionAndTypeManager));
     }
@@ -68,7 +68,7 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, FunctionCall.class, ExpressionTreeUtils::isWindowFunction);
     }
 
-    static List<FunctionCall> extractExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionAndTypeManager functionAndTypeManager)
+    static List<FunctionCall> extractExternalFunctions(Map<NodeRef<Expression>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionAndTypeManager functionAndTypeManager)
     {
         return extractExpressions(nodes, FunctionCall.class, isExternalFunctionPredicate(functionHandles, functionAndTypeManager));
     }
@@ -80,7 +80,7 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
-    private static Predicate<FunctionCall> isAggregationPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager)
+    private static Predicate<FunctionCall> isAggregationPredicate(Map<NodeRef<Expression>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager)
     {
         return functionCall -> (functionAndTypeManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getFunctionKind() == AGGREGATE || functionCall.getFilter().isPresent())
                 && !functionCall.getWindow().isPresent()
@@ -92,7 +92,7 @@ public final class ExpressionTreeUtils
         return functionCall.getWindow().isPresent();
     }
 
-    private static Predicate<FunctionCall> isExternalFunctionPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager)
+    private static Predicate<FunctionCall> isExternalFunctionPredicate(Map<NodeRef<Expression>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager)
     {
         return functionCall -> functionAndTypeManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getImplementationType().isExternal();
     }

@@ -98,8 +98,10 @@ public class TestingRowExpressionTranslator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression, TypeProvider typeProvider)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
-                TEST_SESSION,
+                metadata,
+                TEST_SESSION.getSessionFunctions(),
+                TEST_SESSION.getTransactionId(),
+                TEST_SESSION.getSqlFunctionProperties(),
                 typeProvider,
                 emptyMap(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),

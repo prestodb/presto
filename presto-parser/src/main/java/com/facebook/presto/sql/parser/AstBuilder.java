@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.CurrentUser;
+import com.facebook.presto.sql.tree.DataTypeParameter;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
@@ -72,6 +73,7 @@ import com.facebook.presto.sql.tree.ExternalBodyReference;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericDataType;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GrantRoles;
@@ -175,6 +177,7 @@ import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.TryExpression;
+import com.facebook.presto.sql.tree.TypeParameter;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
@@ -2187,6 +2190,33 @@ class AstBuilder
                         .map((x) -> x.getChild(0).getPayload())
                         .map(Token.class::cast)
                         .map(AstBuilder::getIntervalFieldType));
+    }
+
+    @Override
+    public Node visitType(SqlBaseParser.TypeContext ctx)
+    {
+        List<DataTypeParameter> parameters = ctx.typeParameter().stream()
+                .map(this::visit)
+                .map(DataTypeParameter.class::cast)
+                .collect(toImmutableList());
+
+        SqlBaseParser.IdentifierContext identifier = ctx.identifier(0);
+        ParseTree child = ctx.getChild(0);
+        while (identifier == null && child != null) {
+            if (child instanceof SqlBaseParser.IdentifierContext) {
+                identifier = (SqlBaseParser.IdentifierContext) child;
+                break;
+            }
+            child = child.getChild(0);
+        }
+
+        return new GenericDataType(getLocation(ctx), (Identifier) visit(identifier), parameters);
+    }
+
+    @Override
+    public Node visitTypeParameter(SqlBaseParser.TypeParameterContext context)
+    {
+        return new TypeParameter(getLocation(context), context.getText());
     }
 
     @Override

@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 
 public class Identifier
         extends Expression
@@ -66,6 +67,15 @@ public class Identifier
     public boolean isDelimited()
     {
         return delimited;
+    }
+
+    public String getCanonicalValue()
+    {
+        if (isDelimited()) {
+            return value;
+        }
+
+        return value.toUpperCase(ENGLISH);
     }
 
     @Override

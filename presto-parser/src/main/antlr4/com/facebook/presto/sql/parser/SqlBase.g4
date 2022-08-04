@@ -420,46 +420,46 @@ primaryExpression
       ')'                                                                                 #jsonQuery
     ;
 
-    jsonPathInvocation
-        : jsonValueExpression ',' path=string
-            (PASSING jsonArgument (',' jsonArgument)*)?
-        ;
+jsonPathInvocation
+    : jsonValueExpression ',' path=string
+        (PASSING jsonArgument (',' jsonArgument)*)?
+    ;
 
-    jsonValueExpression
-        : expression (FORMAT jsonRepresentation)?
-        ;
+jsonValueExpression
+    : expression (FORMAT jsonRepresentation)?
+    ;
 
-    jsonRepresentation
-        : JSON (ENCODING (UTF8 | UTF16 | UTF32))? // TODO add implementation-defined JSON representation option
-        ;
+jsonRepresentation
+    : JSON (ENCODING (UTF8 | UTF16 | UTF32))? // TODO add implementation-defined JSON representation option
+    ;
 
-    jsonArgument
-        : jsonValueExpression AS identifier
-        ;
+jsonArgument
+    : jsonValueExpression AS identifier
+    ;
 
-    jsonExistsErrorBehavior
-        : TRUE
-        | FALSE
-        | UNKNOWN
-        | ERROR
-        ;
+jsonExistsErrorBehavior
+    : TRUE
+    | FALSE
+    | UNKNOWN
+    | ERROR
+    ;
 
-    jsonValueBehavior
-        : ERROR
-        | NULL
-        | DEFAULT expression
-        ;
+jsonValueBehavior
+    : ERROR
+    | NULL
+    | DEFAULT expression
+    ;
 
-    jsonQueryWrapperBehavior
-        : WITHOUT ARRAY?
-        | WITH (CONDITIONAL | UNCONDITIONAL)? ARRAY?
-        ;
+jsonQueryWrapperBehavior
+    : WITHOUT ARRAY?
+    | WITH (CONDITIONAL | UNCONDITIONAL)? ARRAY?
+    ;
 
-    jsonQueryBehavior
-        : ERROR
-        | NULL
-        | EMPTY ARRAY
-        | EMPTY OBJECT
+jsonQueryBehavior
+    : ERROR
+    | NULL
+    | EMPTY ARRAY
+    | EMPTY OBJECT
     ;
 
 string

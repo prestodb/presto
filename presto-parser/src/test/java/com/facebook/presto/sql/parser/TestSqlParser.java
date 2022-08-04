@@ -63,6 +63,7 @@ import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericDataType;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GrantRoles;
@@ -2764,7 +2765,7 @@ public class TestSqlParser
                                                 new Identifier(location(1, 368), "end_parameter", false),
                                                 new Identifier(location(1, 327), "end_column", false),
                                                 Optional.of(UTF16)))),
-                        Optional.of(new Identifier(location(1, 423), "double", false)),
+                        Optional.of(new GenericDataType(location(1, 423), new Identifier(location(1, 423), "double", false), ImmutableList.of())),
                         JsonValue.EmptyOrErrorBehavior.DEFAULT,
                         Optional.of(new DoubleLiteral(location(1, 469), "5e0")),
                         JsonValue.EmptyOrErrorBehavior.ERROR,
@@ -2803,24 +2804,25 @@ public class TestSqlParser
                 "                               EMPTY ARRAY ON EMPTY " +
                 "                               ERROR ON ERROR)",
                 new JsonQuery(
-                        Optional.of(location(1, 1)),
+                        Optional.of(location(1, 0)),
                         new JsonPathInvocation(
-                                Optional.of(location(1, 43)),
-                                new Identifier(location(1, 43), "json_column", false),
+                                Optional.of(location(1, 42)),
+                                new Identifier(location(1, 42), "json_column", false),
                                 UTF8,
-                                new StringLiteral(location(1, 113), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                new StringLiteral(location(1, 112), "lax $[start_parameter TO end_parameter.ceiling()]"),
                                 ImmutableList.of(
                                         new JsonPathParameter(
-                                                Optional.of(location(1, 251)),
-                                                new Identifier(location(1, 267), "start_parameter", false),
-                                                new Identifier(location(1, 251), "start_column", false),
+                                                Optional.of(location(1, 250)),
+                                                new Identifier(location(1, 266), "start_parameter", false),
+                                                new Identifier(location(1, 250), "start_column", false),
                                                 Optional.empty()),
                                         new JsonPathParameter(
-                                                Optional.of(location(1, 327)),
-                                                new Identifier(location(1, 368), "end_parameter", false),
-                                                new Identifier(location(1, 327), "end_column", false),
+                                                Optional.of(location(1, 326)),
+                                                new Identifier(location(1, 367), "end_parameter", false),
+                                                new Identifier(location(1, 326), "end_column", false),
                                                 Optional.of(UTF16)))),
-                        Optional.of(new Identifier(location(1, 423), "varchar", false)),
+                        Optional.of(new GenericDataType(location(1, 422), new Identifier(location(1, 422), "varchar", false), ImmutableList.of())),
+                        //Optional.of(new Identifier(location(1, 422), "varchar", false)),
                         Optional.of(UTF32),
                         JsonQuery.ArrayWrapperBehavior.UNCONDITIONAL,
                         Optional.of(JsonQuery.QuotesBehavior.OMIT),

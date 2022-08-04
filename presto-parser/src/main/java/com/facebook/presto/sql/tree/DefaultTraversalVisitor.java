@@ -578,4 +578,41 @@ public abstract class DefaultTraversalVisitor<R, C>
 
         return super.visitLateral(node, context);
     }
+
+    @Override
+    protected R visitJsonExists(JsonExists node, C context)
+    {
+        process(node.getJsonPathInvocation(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitJsonValue(JsonValue node, C context)
+    {
+        process(node.getJsonPathInvocation(), context);
+        node.getEmptyDefault().ifPresent(expression -> process(expression, context));
+        node.getErrorDefault().ifPresent(expression -> process(expression, context));
+
+        return null;
+    }
+
+    @Override
+    protected R visitJsonQuery(JsonQuery node, C context)
+    {
+        process(node.getJsonPathInvocation(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitJsonPathInvocation(JsonPathInvocation node, C context)
+    {
+        process(node.getInputExpression(), context);
+        for (JsonPathParameter parameter : node.getPathParameters()) {
+            process(parameter.getParameter(), context);
+        }
+
+        return null;
+    }
 }

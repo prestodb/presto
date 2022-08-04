@@ -39,6 +39,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPE
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAMETER_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
@@ -46,6 +47,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PATH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
@@ -1775,5 +1777,346 @@ public class TestAnalyzer
     {
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION sum() RETURNS INT RETURN 1");
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION dev.test.foo() RETURNS INT RETURN 1");
+    }
+
+    @Test
+    public void testJsonContextItemType()
+    {
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES X'65683F', X'65683E') t(json_column)");
+
+        assertFails(TYPE_MISMATCH,
+                "line 1:20: Cannot read input of type integer as JSON using formatting JSON",
+                "SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES -1, -2) t(json_column)");
+    }
+
+    @Test
+    public void testJsonContextItemFormat()
+    {
+        // implicit FORMAT JSON
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES X'65683F', X'65683E') t(json_column)");
+
+        // explicit input format
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF8, 'lax $.abs()') FROM (VALUES X'1A', X'2B') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF16, 'lax $.abs()') FROM (VALUES X'1A', X'2B') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF32, 'lax $.abs()') FROM (VALUES X'1A', X'2B') t(json_column)");
+
+        // incorrect format: ENCODING specified for character string input
+        assertFails(TYPE_MISMATCH,
+                "line 1:20: Cannot read input of type varchar\\(3\\) as JSON using formatting JSON ENCODING UTF8",
+                "SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF8, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonPathParameterNames()
+    {
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING " +
+                "                                                   1 AS parameter_1, " +
+                "                                                   'x' AS parameter_2, " +
+                "                                                   true AS parameter_3) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(DUPLICATE_PARAMETER_NAME,
+                "line 1:309: PARAMETER_1 JSON path parameter is specified more than once",
+                "SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING " +
+                "                                                   1 AS parameter_1, " +
+                "                                                   'x' AS parameter_2, " +
+                "                                                   true AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testCaseSensitiveNames()
+    {
+        // JSON path variable names are case-sensitive. Unquoted parameter names in the PASSING clause are upper-cased.
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $some_name' PASSING 1 AS \"some_name\") FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $SOME_NAME' PASSING 1 AS some_name) FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // no matching parameter, but similar parameter found with different case. provide a hint in the error message
+        assertFails(INVALID_PATH,
+                "line 1:33: no value passed for parameter some_name. Try quoting \"some_name\" in the PASSING clause to match case",
+                "SELECT JSON_EXISTS(json_column, 'lax $some_name' PASSING 1 AS some_name) FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(INVALID_PATH,
+                "line 1:33: no value passed for parameter some_NAME. Try quoting \"some_NAME\" in the PASSING clause to match case",
+                "SELECT JSON_EXISTS(json_column, 'lax $some_NAME' PASSING 1 AS some_name) FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // no matching parameter, and it is not the issue with case sensitivity. no hint in the error message
+        assertFails(INVALID_PATH,
+                "line 1:33: no value passed for parameter some_name",
+                "SELECT JSON_EXISTS(json_column, 'lax $some_name' PASSING 1 AS some_other_name) FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonPathParameterFormats()
+    {
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING 'x' FORMAT JSON AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING X'65683F' FORMAT JSON ENCODING UTF8 AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(TYPE_MISMATCH,
+                "line 1:110: Cannot read input of type integer as JSON using formatting JSON",
+                "SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING 1 FORMAT JSON AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(TYPE_MISMATCH,
+                "line 1:110: Cannot read input of type integer as JSON using formatting JSON ENCODING UTF8",
+                "SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING 1 FORMAT JSON ENCODING UTF8 AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // FORMAT JSON as the parameter format option is the same as the output format of the JSON_QUERY call
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING JSON_QUERY(json_column, 'lax $.abs()' RETURNING varchar FORMAT JSON) FORMAT JSON AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // FORMAT JSON as the parameter format option is different than the output format of the JSON_QUERY call
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING JSON_QUERY(json_column, 'lax $.abs()' RETURNING varbinary FORMAT JSON) FORMAT JSON ENCODING UTF8 AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // the parameter is a JSON_QUERY call, so the format option FORMAT JSON is implicit for the parameter
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING JSON_QUERY(json_column, 'lax $.abs()' RETURNING varchar FORMAT JSON) AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonPathParameterTypes()
+    {
+        assertFails(INVALID_PROCEDURE_ARGUMENTS,
+                "line 1:110: Invalid type of JSON path parameter: interval day to second",
+                "SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING INTERVAL '2' DAY AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonValueReturnedType()
+    {
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING char(30)) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.size()'" +
+                "                   RETURNING bigint) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(TYPE_MISMATCH,
+                "line 1:8: Unknown type: tdigest",
+                "SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING tdigest) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(TYPE_MISMATCH,
+                "line 1:8: Unknown type: some_type\\(10\\)",
+                "SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING some_type(10)) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonValueDefaultValues()
+    {
+        // default value has the same type as the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1e0 ON EMPTY) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // default value can be coerced to the declared returned type
+        /* The default of decimal literal treatment is REJECT, this will fail at parsing 1.0
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1.0 ON EMPTY) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+        */
+
+        assertFails(TYPE_MISMATCH, "SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 'text' ON EMPTY) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // default value has the same type as the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1e0 ON ERROR) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // default value can be coerced to the declared returned type
+        /* The default of decimal literal treatment is REJECT, this will fail at parsing 1.0
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1.0 ON ERROR) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+        */
+
+        assertFails(TYPE_MISMATCH, "SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 'text' ON ERROR) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonQueryOutputTypeAndFormat()
+    {
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varchar) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varchar FORMAT JSON) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING char(5) FORMAT JSON) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varbinary FORMAT JSON ENCODING UTF8) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(TYPE_MISMATCH,
+                "line 1:8: Unknown type: some_type\\(10\\)",
+                "SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING some_type(10)) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(TYPE_MISMATCH, "SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING double) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(TYPE_MISMATCH, "SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varchar FORMAT JSON ENCODING UTF8) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonQueryQuotesBehavior()
+    {
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   OMIT QUOTES ON SCALAR STRING) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(INVALID_PROCEDURE_ARGUMENTS,
+                "line 1:8: OMIT QUOTES behavior specified with WITH UNCONDITIONAL ARRAY WRAPPER behavior",
+                "SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()' " +
+                "                   WITH ARRAY WRAPPER " +
+                "                   OMIT QUOTES ON SCALAR STRING) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonExistsInAggregationContext()
+    {
+        analyze("SELECT JSON_EXISTS('-5', 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_EXISTS(a, 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_EXISTS(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, 100), ('-2', 20, 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:8: 'JSON_EXISTS\\(c FORMAT JSON, 'lax \\$.abs\\(\\) \\+ \\$some_number' PASSING b AS \"some_number\" FALSE ON ERROR\\)' must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT JSON_EXISTS(c, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, '100'), ('-2', 20, '200')) t(a, b, c) GROUP BY a, b");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:8: 'JSON_EXISTS\\(b FORMAT JSON, 'lax \\$.abs\\(\\) \\+ \\$some_number' PASSING c AS \"some_number\" FALSE ON ERROR\\)' must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT JSON_EXISTS(b, 'lax $.abs() + $some_number' PASSING c AS \"some_number\") FROM (VALUES (-1, '10', 100), (-2, '20', 200)) t(a, b, c) GROUP BY a, b");
+    }
+
+    @Test
+    public void testJsonValueInAggregationContext()
+    {
+        analyze("SELECT JSON_VALUE('-5', 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_VALUE(a, 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_VALUE(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, 100), ('-2', 20, 200)) t(a, b, c) GROUP BY a, b");
+        analyze("SELECT JSON_VALUE(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT lower(b) ON EMPTY DEFAULT upper(b) ON ERROR) FROM (VALUES ('-1', '10', 100), ('-2', '20', 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:8: 'JSON_VALUE\\(c FORMAT JSON, 'lax \\$.abs\\(\\) \\+ \\$some_number' PASSING b AS \"some_number\" NULL ON EMPTY NULL ON ERROR\\)' must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT JSON_VALUE(c, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, '100'), ('-2', 20, '200')) t(a, b, c) GROUP BY a, b");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:8: 'JSON_VALUE\\(b FORMAT JSON, 'lax \\$.abs\\(\\) \\+ \\$some_number' PASSING c AS \"some_number\" NULL ON EMPTY NULL ON ERROR\\)' must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT JSON_VALUE(b, 'lax $.abs() + $some_number' PASSING c AS \"some_number\") FROM (VALUES (-1, '10', 100), (-2, '20', 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:8: 'JSON_VALUE\\(b FORMAT JSON, 'lax \\$.abs\\(\\) \\+ \\$some_number' PASSING b AS \"some_number\" DEFAULT c ON EMPTY NULL ON ERROR\\)' must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT JSON_VALUE(b, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT c ON EMPTY) FROM (VALUES (-1, '10', '100'), (-2, '20', '200')) t(a, b, c) GROUP BY a, b");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:8: 'JSON_VALUE\\(b FORMAT JSON, 'lax \\$.abs\\(\\) \\+ \\$some_number' PASSING b AS \"some_number\" NULL ON EMPTY DEFAULT c ON ERROR\\)' must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT JSON_VALUE(b, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT c ON ERROR) FROM (VALUES (-1, '10', '100'), (-2, '20', '200')) t(a, b, c) GROUP BY a, b");
+    }
+
+    @Test
+    public void testJsonQueryInAggregationContext()
+    {
+        analyze("SELECT JSON_QUERY('-5', 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_QUERY(a, 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_QUERY(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, 100), ('-2', 20, 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:8: 'JSON_QUERY\\(c FORMAT JSON, 'lax \\$.abs\\(\\) \\+ \\$some_number' PASSING b AS \"some_number\" WITHOUT ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR\\)' must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT JSON_QUERY(c, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, '100'), ('-2', 20, '200')) t(a, b, c) GROUP BY a, b");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:8: 'JSON_QUERY\\(b FORMAT JSON, 'lax \\$.abs\\(\\) \\+ \\$some_number' PASSING c AS \"some_number\" WITHOUT ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR\\)' must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT JSON_QUERY(b, 'lax $.abs() + $some_number' PASSING c AS \"some_number\") FROM (VALUES (-1, '10', 100), (-2, '20', 200)) t(a, b, c) GROUP BY a, b");
     }
 }

@@ -835,4 +835,19 @@ public abstract class AstVisitor<R, C>
     {
         return visitNode(node, context);
     }
+
+    protected R visitDataTypeParameter(DataTypeParameter node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitTypeParameter(TypeParameter node, C context)
+    {
+        return visitDataTypeParameter(node, context);
+    }
+
+    protected R visitGenericDataType(GenericDataType node, C context)
+    {
+        return visitExpression(node, context);
+    }
 }

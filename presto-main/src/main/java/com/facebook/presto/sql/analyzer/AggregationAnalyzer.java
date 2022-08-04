@@ -48,6 +48,11 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.JsonExists;
+import com.facebook.presto.sql.tree.JsonPathInvocation;
+import com.facebook.presto.sql.tree.JsonPathParameter;
+import com.facebook.presto.sql.tree.JsonQuery;
+import com.facebook.presto.sql.tree.JsonValue;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
@@ -689,6 +694,35 @@ class AggregationAnalyzer
                         argumentNotInGroupBy.get());
             }
             return true;
+        }
+
+        @Override
+        protected Boolean visitJsonExists(JsonExists node, Void context)
+        {
+            return process(node.getJsonPathInvocation(), context);
+        }
+
+        @Override
+        protected Boolean visitJsonValue(JsonValue node, Void context)
+        {
+            return process(node.getJsonPathInvocation(), context) &&
+                    node.getEmptyDefault().map(expression -> process(expression, context)).orElse(true) &&
+                    node.getErrorDefault().map(expression -> process(expression, context)).orElse(true);
+        }
+
+        @Override
+        protected Boolean visitJsonQuery(JsonQuery node, Void context)
+        {
+            return process(node.getJsonPathInvocation(), context);
+        }
+
+        @Override
+        protected Boolean visitJsonPathInvocation(JsonPathInvocation node, Void context)
+        {
+            return process(node.getInputExpression(), context) &&
+                    node.getPathParameters().stream()
+                            .map(JsonPathParameter::getParameter)
+                            .allMatch(expression -> process(expression, context));
         }
 
         @Override
