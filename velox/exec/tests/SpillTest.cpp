@@ -38,16 +38,29 @@ class SpillTest : public testing::Test,
     filesystems::registerLocalFileSystem();
   }
 
+  // 'numDuplicates' specifies the number of duplicates generated for each
+  // distinct sort key value in test.
   void spillStateTest(
       int64_t targetFileSize,
       int numPartitions,
       int numBatches,
+      int numDuplicates,
       int64_t expectedNumSpilledFiles) {
     auto tempDirectory = exec::test::TempDirectoryPath::create();
     const std::string kSpillPath = tempDirectory->path + "/test";
     std::shared_ptr<FileSystem> fs;
     std::vector<std::string> spilledFiles;
-    const int kNumRowsPerBatch = 100'000;
+    const int kNumRowsPerBatch = 200'000;
+    std::vector<int64_t> values(numBatches * kNumRowsPerBatch);
+    // Create a sequence of sorted 'values' in ascending order starting at -10.
+    // Each distinct value occurs 'numDuplicates' times. The sequence total has
+    // numBatches * kNumRowsPerBatch item. Each batch created in the test below,
+    // contains a subsequence with index mod being equal to its batch number.
+    for (int i = 0, value = -10; i < kNumRowsPerBatch * numBatches; ++value) {
+      for (int j = 0; j < numDuplicates; ++j, ++i) {
+        values[i] = value;
+      }
+    }
     {
       // We make a state that has 'numPartitions' partitions, each with its own
       // file list. We write 'numBatches' sorted vectors in each partition. The
@@ -75,23 +88,20 @@ class SpillTest : public testing::Test,
         EXPECT_TRUE(state.isPartitionSpilled(partition));
         EXPECT_FALSE(state.hasFiles(partition));
         for (auto batch = 0; batch < numBatches; ++batch) {
-          // We add a sorted run in two pieces: 1, 11, 21,,, followed by X00001
-          // , X00011, X00021   etc. where the last digit is the batch number.
-          // Each sorted run has 20000 rows.
           state.appendToPartition(
               partition,
               makeRowVector(
-                  {makeFlatVector<int64_t>(kNumRowsPerBatch, [&](auto row) {
-                    return row * numBatches + batch;
+                  {makeFlatVector<int64_t>(kNumRowsPerBatch / 2, [&](auto row) {
+                    return values[row * numBatches + batch];
                   })}));
           EXPECT_TRUE(state.hasFiles(partition));
 
           state.appendToPartition(
               partition,
               makeRowVector(
-                  {makeFlatVector<int64_t>(kNumRowsPerBatch, [&](auto row) {
-                    return row * numBatches + batch +
-                        kNumRowsPerBatch * numBatches;
+                  {makeFlatVector<int64_t>(kNumRowsPerBatch / 2, [&](auto row) {
+                    return values
+                        [(kNumRowsPerBatch / 2 + row) * numBatches + batch];
                   })}));
           EXPECT_TRUE(state.hasFiles(partition));
 
@@ -102,7 +112,8 @@ class SpillTest : public testing::Test,
         }
       }
       EXPECT_LT(
-          numPartitions * numBatches * sizeof(int64_t), state.spilledBytes());
+          2 * numPartitions * numBatches * sizeof(int64_t),
+          state.spilledBytes());
       EXPECT_EQ(expectedNumSpilledFiles, state.spilledFiles());
       spilledFiles = state.TEST_spilledFiles();
       std::unordered_set<std::string> spilledFileSet(
@@ -119,19 +130,18 @@ class SpillTest : public testing::Test,
       for (auto partition = 0; partition < state.maxPartitions(); ++partition) {
         auto merge = state.startMerge(partition, nullptr);
         // We expect all the rows in dense increasing order.
-        for (auto i = 0; i < numPartitions * numBatches * kNumRowsPerBatch;
-             ++i) {
+        for (auto i = 0; i < numBatches * kNumRowsPerBatch; ++i) {
           auto stream = merge->next();
           ASSERT_NE(nullptr, stream);
-          EXPECT_EQ(
-              i,
+          ASSERT_EQ(
+              values[i],
               stream->current()
                   .childAt(0)
                   ->asUnchecked<FlatVector<int64_t>>()
                   ->valueAt(stream->currentIndex()));
-          EXPECT_EQ(
-              i, stream->decoded(0).valueAt<int64_t>(stream->currentIndex()));
-
+          ASSERT_EQ(
+              values[i],
+              stream->decoded(0).valueAt<int64_t>(stream->currentIndex()));
           stream->pop();
         }
         ASSERT_EQ(nullptr, merge->next());
@@ -153,11 +163,19 @@ class SpillTest : public testing::Test,
 TEST_F(SpillTest, spillState) {
   // Set the target file size to a large value to avoid new file creation
   // triggered by batch write.
-  spillStateTest(1'000'000'000, 2, 10, 2 * 10);
+
+  // Test with distinct sort keys.
+  spillStateTest(1'000'000'000, 2, 10, 1, 2 * 10);
+  // Test with duplicate sort keys.
+  spillStateTest(1'000'000'000, 2, 10, 10, 2 * 10);
 }
 
 TEST_F(SpillTest, spillStateWithSmallTargetFileSize) {
   // Set the target file size to a small value to open a new file on each batch
   // write.
-  spillStateTest(1, 2, 10, 2 * 10 * 2);
+
+  // Test with distinct sort keys.
+  spillStateTest(1, 2, 10, 1, 2 * 10 * 2);
+  // Test with duplicate sort keys.
+  spillStateTest(1, 2, 10, 10, 2 * 10 * 2);
 }

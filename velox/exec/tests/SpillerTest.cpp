@@ -84,7 +84,7 @@ class SpillerTest : public exec::test::RowContainerTestBase,
   }
 
  protected:
-  void testSpill(int32_t spillPct, bool makeError = false) {
+  void testSpill(int32_t spillPct, int numDuplicates, bool makeError = false) {
     constexpr int32_t kNumRows = 100'000;
     std::shared_ptr<const RowType> rowType = ROW({
         {"bool_val", BOOLEAN()},
@@ -103,7 +103,7 @@ class SpillerTest : public exec::test::RowContainerTestBase,
              MAP(BIGINT(),
                  ROW({{"s2_int", INTEGER()}, {"s2_string", VARCHAR()}})))},
     });
-    setupSpillData(rowType, 6, kNumRows, [&](RowVectorPtr rows) {
+    setupSpillData(rowType, 6, kNumRows, numDuplicates, [&](RowVectorPtr rows) {
       // Set ordinal so that the sorted order is unambiguous.
       setSequentialValue(rows, 5);
     });
@@ -143,10 +143,13 @@ class SpillerTest : public exec::test::RowContainerTestBase,
     }
   }
 
+  // 'numDuplicates' specifies the number of duplicate rows generated for each
+  // distinct sorting key in test.
   void setupSpillData(
       std::shared_ptr<const RowType> rowType,
       int32_t numKeys,
       int32_t numRows,
+      int32_t numDuplicates,
       std::function<void(RowVectorPtr)> customizeData = {},
       std::vector<int> numRowsPerPartition = {}) {
     if (!numRowsPerPartition.empty()) {
@@ -184,7 +187,6 @@ class SpillerTest : public exec::test::RowContainerTestBase,
     do {
       RowVectorPtr batch = makeDataset(rowType, numRows, customizeData);
       if (!numRowsPerPartition.empty()) {
-        SelectivityVector selectedRows(numRows);
         for (int index = 0; index < numRows; ++index) {
           for (int i = 0; i < keys.size(); ++i) {
             DecodedVector decodedVector(*batch->childAt(i), allRows);
@@ -194,16 +196,15 @@ class SpillerTest : public exec::test::RowContainerTestBase,
           }
           const int partitionNum =
               hashBits_.partition(hashes[0], numPartitions_);
-          if (numRowsPerPartition[partitionNum] == 0) {
-            selectedRows.setValid(index, false);
-            continue;
+          // Copy 'index'th row from 'batch' to 'rowVector_' with
+          // 'numDuplicates' times. 'numDuplicates' is the number of duplicates
+          // per each distinct row key.
+          for (int i = 0;
+               i < numDuplicates && --numRowsPerPartition[partitionNum] >= 0;
+               ++i) {
+            rowVector_->copy(batch.get(), numFilledRows++, index, 1);
           }
-          --numRowsPerPartition[partitionNum];
         }
-        selectedRows.updateBounds();
-        selectedRows.applyToSelected([&](auto row) {
-          rowVector_->copy(batch.get(), numFilledRows++, row, 1);
-        });
       } else {
         rowVector_ = batch;
         numFilledRows += numRows;
@@ -353,19 +354,27 @@ class SpillerTest : public exec::test::RowContainerTestBase,
 };
 
 TEST_P(SpillerTest, spilFew) {
-  testSpill(10);
+  // Test with distinct sort keys.
+  testSpill(10, 1);
+  // Test with duplicate sort keys.
+  testSpill(10, 10);
 }
 
 TEST_P(SpillerTest, spilMost) {
-  testSpill(60);
+  // Test with distinct sort keys.
+  testSpill(60, 1);
+  // Test with duplicate sort keys.
+  testSpill(60, 10);
 }
 
 TEST_P(SpillerTest, spillAll) {
-  testSpill(100);
+  // Test with distinct sort keys.
+  testSpill(100, 1);
+  testSpill(100, 10);
 }
 
 TEST_P(SpillerTest, error) {
-  testSpill(100, true);
+  testSpill(100, 1, true);
 }
 
 TEST_P(SpillerTest, spillWithEmptyPartitions) {
@@ -377,16 +386,24 @@ TEST_P(SpillerTest, spillWithEmptyPartitions) {
   auto rowType = ROW({{"long_val", BIGINT()}, {"string_val", VARCHAR()}});
   struct {
     std::vector<int> rowsPerPartition;
+    int numDuplicates;
 
     std::string debugString() const {
       return fmt::format(
-          "rowsPerPartition: [{}]", folly::join(':', rowsPerPartition));
+          "rowsPerPartition: [{}], numDuplicates: {}",
+          folly::join(':', rowsPerPartition),
+          numDuplicates);
     }
-  } testSettings[] = {
-      {{5000, 0, 0, 0}},
-      {{5'000, 5'000, 0, 1'000}},
-      {{5'000, 0, 5'000, 1'000}},
-      {{5'000, 1'000, 5'000, 0}}};
+  } testSettings[] = {// Test with distinct sort keys.
+                      {{5000, 0, 0, 0}, 1},
+                      {{5'000, 5'000, 0, 1'000}, 1},
+                      {{5'000, 0, 5'000, 1'000}, 1},
+                      {{5'000, 1'000, 5'000, 0}, 1},
+                      // Test with duplicate sort keys.
+                      {{5000, 0, 0, 0}, 10},
+                      {{5'000, 5'000, 0, 1'000}, 10},
+                      {{5'000, 0, 5'000, 1'000}, 10},
+                      {{5'000, 1'000, 5'000, 0}, 10}};
   for (auto testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     reset();
@@ -399,6 +416,7 @@ TEST_P(SpillerTest, spillWithEmptyPartitions) {
         rowType,
         1,
         numRows,
+        testData.numDuplicates,
         [&](RowVectorPtr rowVector) {
           // Set ordinal so that the sorted order is unambiguous.
           setSequentialValue(rowVector, 0, outputIndex);
@@ -440,15 +458,22 @@ TEST_P(SpillerTest, spillWithNonSpillingPartitions) {
       ROW({{"long_val", BIGINT()}, {"string_val", VARCHAR()}});
   struct {
     std::vector<int> rowsPerPartition;
+    int numDuplicates;
     int expectedSpillPartitionIndex;
 
     std::string debugString() const {
       return fmt::format(
-          "rowsPerPartition: [{}], expectedSpillPartitionIndex: {}",
+          "rowsPerPartition: [{}], numDuplicates: {}, expectedSpillPartitionIndex: {}",
           folly::join(':', rowsPerPartition),
+          numDuplicates,
           expectedSpillPartitionIndex);
     }
-  } testSettings[] = {{{5'000, 1, 0, 0}, 0}, {{1, 1, 1, 5000}, 3}};
+  } testSettings[] = {// Test with distinct sort keys.
+                      {{5'000, 1, 0, 0}, 1, 0},
+                      {{1, 1, 1, 5000}, 1, 3},
+                      // Test with duplicate sort keys.
+                      {{5'000, 1, 0, 0}, 10, 0},
+                      {{1, 1, 1, 5000}, 10, 3}};
   for (auto testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     reset();
@@ -461,6 +486,7 @@ TEST_P(SpillerTest, spillWithNonSpillingPartitions) {
         rowType,
         1,
         numRows,
+        testData.numDuplicates,
         [&](RowVectorPtr rowVector) {
           // Set ordinal so that the sorted order is unambiguous.
           setSequentialValue(rowVector, 0, outputIndex);
@@ -487,8 +513,6 @@ TEST_P(SpillerTest, spillWithNonSpillingPartitions) {
     EXPECT_GT(numRows, spiller_->spilledBytesAndRows().second);
   }
 }
-
-// TODO: add duplicated sort key test cases.
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SpillerTest,
