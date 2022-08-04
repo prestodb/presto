@@ -113,6 +113,8 @@ bool PagedInputStream::Next(const void** data, int32_t* size) {
     outputBufferPtr_ += outputBufferLength_;
     bytesReturned_ += outputBufferLength_;
     outputBufferLength_ = 0;
+    // This is a rewind of previous output, does not count for
+    // 'lastWindowSize_'.
     return true;
   }
 
@@ -183,6 +185,7 @@ bool PagedInputStream::Next(const void** data, int32_t* size) {
 
   outputBufferLength_ = 0;
   bytesReturned_ += *size;
+  lastWindowSize_ = *size;
   return true;
 }
 
@@ -239,28 +242,26 @@ void PagedInputStream::seekToPosition(
   auto uncompressedOffset = positionProvider.next();
 
   // If we are directly returning views into input, we can only backup
-  // to the beginning of the last view. If we are returning views into
-  // uncompressed data, we can backup to the beginning of the
-  // decompressed buffer
+  // to the beginning of the last view or last header, whichever is
+  // later. If we are returning views into the decompression buffer,
+  // we can backup to the beginning of the decompressed buffer
   auto alreadyRead = bytesReturned_ - bytesReturnedAtLastHeaderOffset_;
 
   // outsideOriginalWindow is true if we are returning views into
   // the input stream's buffer and we are seeking below the start of the last
-  // window.
+  // window. The last window began with a header or a window from the underlying
+  // stream. If seeking below that, we must seek the input.
   auto outsideOriginalWindow = [&]() {
     return state_ == State::ORIGINAL && compressedOffset == lastHeaderOffset_ &&
         uncompressedOffset < alreadyRead &&
-        inputBufferPtrEnd_ - inputBufferStart_ <
-        alreadyRead - uncompressedOffset;
+        lastWindowSize_ < alreadyRead - uncompressedOffset;
   };
 
   if (compressedOffset != lastHeaderOffset_ || outsideOriginalWindow()) {
     std::vector<uint64_t> positions = {compressedOffset};
     auto provider = dwio::common::PositionProvider(positions);
     input_->seekToPosition(provider);
-
     clearDecompressionState();
-
     Skip(uncompressedOffset);
   } else {
     if (uncompressedOffset < alreadyRead) {

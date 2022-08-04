@@ -19,6 +19,7 @@
 #include <folly/compression/Compression.h>
 #include <folly/compression/Zlib.h>
 #include <gtest/gtest.h>
+#include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/dwrf/common/Compression.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
@@ -29,6 +30,7 @@
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
+using namespace facebook::velox;
 using namespace folly::io;
 
 const std::string simpleFile(getExampleFilePath("simple-file.binary"));
@@ -649,6 +651,10 @@ class CompressBuffer {
     buf[2] = static_cast<char>(compressedSize >> 15);
   }
 
+  auto& data() {
+    return buf;
+  }
+
   size_t getCompressedSize() const {
     size_t header = static_cast<unsigned char>(buf[0]);
     header |= static_cast<size_t>(static_cast<unsigned char>(buf[1])) << 8;
@@ -911,9 +917,199 @@ TEST_F(TestSeek, uncompressed) {
   // the input of the PagedInputStream but is in the returned bytes of
   // it. Compressed position is start of stream (the first compression
   // header), the byte offset if 50 bytes from there.
-  std::vector<uint64_t> offsets{0, 50};
-  PositionProvider position(offsets);
-  stream->seekToPosition(position);
-  EXPECT_TRUE(stream->Next(&result, &size));
-  EXPECT_EQ(result, data.getCompressed() + 50);
+  {
+    std::vector<uint64_t> offsets{0, 50};
+    PositionProvider position(offsets);
+    stream->seekToPosition(position);
+    EXPECT_TRUE(stream->Next(&result, &size));
+    EXPECT_EQ(result, data.getCompressed() + 50);
+  }
+  {
+    std::vector<uint64_t> offsets{0, 75};
+    PositionProvider position(offsets);
+    stream->seekToPosition(position);
+    EXPECT_TRUE(stream->Next(&result, &size));
+    EXPECT_EQ(result, data.getCompressed() + 75);
+    EXPECT_EQ(22, size);
+  }
+}
+
+namespace {
+// Returns the  highest header below target. Must not request an offset that
+// falls in mid-header.
+}
+/// Like SeekableArrayInputStream but returns fixed size pages. After
+/// seek, returns the remainder of the fixed size page the seek
+/// arrived at, then the next page etc.
+class TestingSeekableInputStream : public SeekableInputStream {
+ public:
+  TestingSeekableInputStream(
+      const char* data,
+      uint64_t length,
+      uint64_t blockSize)
+      : data_(data), length_(length), blockSize_(blockSize) {}
+
+  bool Next(const void** data, int32_t* size) override {
+    if (position_ >= length_) {
+      return false;
+    }
+
+    auto bytes = bits::roundUp(position_, blockSize_) - position_;
+
+    if (!bytes) {
+      bytes = blockSize_;
+    }
+    bytes = std::min<int32_t>(bytes, length_ - position_);
+    *data = data_ + position_;
+    *size = bytes;
+    position_ += bytes;
+    lastSize_ = *size;
+    return true;
+  }
+
+  void BackUp(int32_t count) override {
+    VELOX_CHECK_LE(count, lastSize_);
+    position_ -= count;
+  }
+  bool Skip(int32_t count) override {
+    VELOX_CHECK_LE(count + position_, length_);
+    position_ += count;
+    return true;
+  }
+  google::protobuf::int64 ByteCount() const override {
+    return position_;
+  }
+
+  void seekToPosition(PositionProvider& position) override {
+    position_ = position.next();
+  }
+
+  std::string getName() const override {
+    return "testing";
+  }
+
+  size_t positionSize() override {
+    return 1;
+  }
+
+ private:
+  const char* const data_;
+  const uint64_t length_;
+  uint64_t position_{0};
+  const uint64_t blockSize_;
+  int32_t lastSize_{0};
+};
+
+TEST_F(TestSeek, uncompressedLarge) {
+  // makes test data consisting of several uncompressed runs of 256000
+  // bytes. Reads these through a stream with a window size of 550000
+  // bytes, not aligned with the uncompressed runs. Offsets in the
+  // test are in terms of byte offset in content, not including any
+  // uncompressed run headers. To each such offset corresponds a
+  // PositionProvider, an expected offset in the test data (including
+  // headers) and a read size. The read size is the distance from the
+  // byte of content to the next uncompressed run header or to the end
+  // of the read window, whichever is first.
+  constexpr int32_t kSize = 1000000;
+  constexpr int32_t kHeaderSize = 3;
+  constexpr int32_t kReadSize = 570000;
+  constexpr int32_t kRunSize = 256000;
+  std::vector<char> data;
+
+  std::vector<uint64_t> headerOffset;
+  int64_t written = 0;
+  while (written < kSize) {
+    headerOffset.push_back(data.size());
+    auto runSize = std::min<int32_t>(kRunSize, kSize - written);
+    CompressBuffer entry(runSize);
+    entry.writeUncompressedHeader(runSize);
+    for (auto i = 0; i < runSize; ++i) {
+      entry.getCompressed()[i] = static_cast<char>(i);
+    }
+    written += runSize + kHeaderSize;
+    data.insert(data.end(), entry.data().begin(), entry.data().end());
+  }
+  auto stream = createTestDecompressor(
+      CompressionKind_SNAPPY,
+      std::make_unique<TestingSeekableInputStream>(
+          data.data(), written, kReadSize),
+      kReadSize);
+  const void* result;
+  int32_t size;
+
+  std::vector<std::pair<int32_t, int32_t>> ranges{
+      {kHeaderSize, kReadSize - 10000},
+      {kReadSize - 20000, 22000},
+      {kReadSize - 10000, 15000}};
+
+  auto positionForOffset = [&](int32_t offset) -> std::vector<uint64_t> {
+    uint64_t toGo = offset;
+    for (auto i = 0; i < headerOffset.size() - 1; ++i) {
+      auto bytesInRun = headerOffset[i + 1] - headerOffset[i] - kHeaderSize;
+      if (toGo < bytesInRun) {
+        return std::vector<uint64_t>{headerOffset[i], toGo};
+      }
+      toGo -= bytesInRun;
+    }
+    return std::vector<uint64_t>{headerOffset.back(), toGo};
+  };
+
+  // Returns the address in 'data' for the 'offset'th byt of content.
+  auto addressForOffset = [&](int32_t offset) -> const char* {
+    int32_t toGo = offset;
+    for (auto i = 0; i < headerOffset.size() - 1; ++i) {
+      auto bytesInRun = headerOffset[i + 1] - headerOffset[i] - kHeaderSize;
+      if (toGo < bytesInRun) {
+        return data.data() + headerOffset[i] + kHeaderSize + toGo;
+      }
+      toGo -= bytesInRun;
+    }
+    return data.data() + headerOffset.back() + kHeaderSize + toGo;
+  };
+
+  // Returns the expected size of the window returned from Next() given the
+  // address of the first byte of the returned range. The range extends to the
+  // next run header or to the end of the read window, whichever is first.
+  auto readSizeForAddress = [&](const char* address) -> int32_t {
+    auto offset = address - data.data();
+    for (auto i = 0; i < headerOffset.size() - 1; ++i) {
+      auto bytesInRun = headerOffset[i + 1] - headerOffset[i] - kHeaderSize;
+      EXPECT_FALSE(
+          offset >= headerOffset[i] && offset < headerOffset[i] + kHeaderSize)
+          << "Address in mid-header";
+      if (offset > headerOffset[i] && offset < headerOffset[i] + bytesInRun) {
+        auto leftInRun = headerOffset[i + 1] - offset;
+        auto leftInWindow = bits::roundUp(offset, kReadSize) - offset;
+        if (!leftInWindow) {
+          // At window boundary.
+          leftInWindow = kReadSize;
+        }
+        leftInWindow = std::min<int32_t>(leftInWindow, data.size());
+        return std::min<int32_t>(leftInRun, leftInWindow);
+      }
+    }
+    EXPECT_TRUE(false) << "Address past last header";
+    return 0;
+  };
+  // Start and size of last Next as offsets to content (no headers).
+  int32_t lastReadStart = 0;
+  int32_t lastReadSize = 0;
+
+  for (auto& pair : ranges) {
+    uint64_t target = pair.first;
+    auto targetSize = pair.second;
+    auto positions = positionForOffset(target);
+    auto provider = PositionProvider(positions);
+    stream->seekToPosition(provider);
+    int32_t readSize = 0;
+    do {
+      EXPECT_TRUE(stream->Next(&result, &size));
+      EXPECT_EQ(result, addressForOffset(target + readSize));
+      EXPECT_EQ(
+          size, readSizeForAddress(reinterpret_cast<const char*>(result)));
+      lastReadStart = target + readSize;
+      lastReadSize = size;
+      readSize += size;
+    } while (readSize < targetSize);
+  }
 }
