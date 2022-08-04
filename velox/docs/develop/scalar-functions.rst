@@ -872,9 +872,10 @@ Input vectors
 The “args” parameter is an std::vector of Velox vectors containing the values
 of the function arguments. These vectors are not necessarily flat and may be
 dictionary or constant encoded. However, a deterministic function that takes
-a single argument is guaranteed to receive its only input as a flat vector.
-By default, a function is assumed to be deterministic. If that’s not the
-case, the function must override isDeterministic method to return false.
+a single argument and has default null behavior is guaranteed to receive its
+only input as a flat or constant vector. By default, a function is assumed to
+be deterministic. If that’s not the case, the function must override
+isDeterministic method to return false.
 
 .. code-block:: c++
 
