@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Range.h"
 #include "velox/vector/LazyVector.h"
 
@@ -95,6 +96,19 @@ class AggregationHook : public ValueHook {
   uint64_t* numNulls_;
 };
 
+namespace {
+template <typename TOutput, typename TInput>
+inline void updateSingleValue(TOutput& result, TInput value) {
+  if constexpr (
+      std::is_same<TOutput, double>::value ||
+      std::is_same<TOutput, float>::value) {
+    result += value;
+  } else {
+    result = checkedPlus<TOutput>(result, value);
+  }
+}
+} // namespace
+
 template <typename TValue, typename TAggregate>
 class SumHook final : public AggregationHook {
  public:
@@ -128,8 +142,9 @@ class SumHook final : public AggregationHook {
   void addValue(vector_size_t row, const void* value) override {
     auto group = findGroup(row);
     clearNull(group);
-    *reinterpret_cast<TAggregate*>(group + offset_) +=
-        *reinterpret_cast<const TValue*>(value);
+    updateSingleValue(
+        *reinterpret_cast<TAggregate*>(group + offset_),
+        *reinterpret_cast<const TValue*>(value));
   }
 };
 

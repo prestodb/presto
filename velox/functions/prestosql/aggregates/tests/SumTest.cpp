@@ -306,26 +306,74 @@ TEST_F(SumTest, nulls) {
       "SELECT a, sum(b) as sum_b FROM tmp GROUP BY 1");
 }
 
+template <typename Type>
 struct SumRow {
   char nulls;
-  int64_t sum;
+  Type sum;
 };
 
 TEST_F(SumTest, hook) {
-  SumRow sumRow;
+  SumRow<int64_t> sumRow;
   sumRow.nulls = 1;
   sumRow.sum = 0;
 
   char* row = reinterpret_cast<char*>(&sumRow);
   uint64_t numNulls = 1;
   aggregate::SumHook<int64_t, int64_t> hook(
-      offsetof(SumRow, sum), offsetof(SumRow, nulls), 1, &row, &numNulls);
+      offsetof(SumRow<int64_t>, sum),
+      offsetof(SumRow<int64_t>, nulls),
+      1,
+      &row,
+      &numNulls);
 
   int64_t value = 11;
   hook.addValue(0, &value);
   EXPECT_EQ(0, sumRow.nulls);
   EXPECT_EQ(0, numNulls);
   EXPECT_EQ(value, sumRow.sum);
+}
+
+template <typename InputType, typename ResultType>
+void testHookLimits(bool expectOverflow = false) {
+  // Pair of <limit, value to overflow>.
+  std::vector<std::pair<InputType, InputType>> limits = {
+      {std::numeric_limits<InputType>::min(), -1},
+      {std::numeric_limits<InputType>::max(), 1}};
+
+  for (const auto& [limit, overflow] : limits) {
+    SumRow<ResultType> sumRow;
+    sumRow.sum = 0;
+    ResultType expected = 0;
+    char* row = reinterpret_cast<char*>(&sumRow);
+    uint64_t numNulls = 0;
+    aggregate::SumHook<InputType, ResultType> hook(
+        offsetof(SumRow<ResultType>, sum),
+        offsetof(SumRow<ResultType>, nulls),
+        0,
+        &row,
+        &numNulls);
+
+    // Adding limit should not overflow.
+    ASSERT_NO_THROW(hook.addValue(0, &limit));
+    expected += limit;
+    EXPECT_EQ(expected, sumRow.sum);
+    // Adding overflow based on the ResultType should throw.
+    if (expectOverflow) {
+      VELOX_ASSERT_THROW(hook.addValue(0, &overflow), "overflow");
+    } else {
+      ASSERT_NO_THROW(hook.addValue(0, &overflow));
+      expected += overflow;
+      EXPECT_EQ(expected, sumRow.sum);
+    }
+  }
+}
+
+TEST_F(SumTest, hookLimits) {
+  testHookLimits<int32_t, int64_t>();
+  testHookLimits<int64_t, int64_t>(true);
+  // Float and Double do not throw an overflow error.
+  testHookLimits<float, double>();
+  testHookLimits<double, double>();
 }
 
 TEST_F(SumTest, inputTypeLimits) {
