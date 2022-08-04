@@ -132,7 +132,7 @@ class HashFunction final : public exec::VectorFunction {
       if (arg->mayHaveNulls()) {
         *selectedMinusNulls.get(rows.end()) = rows;
         selectedMinusNulls->deselectNulls(
-            arg->flatRawNulls(rows), rows.begin(), rows.end());
+            decoded->nulls(), rows.begin(), rows.end());
         selected = selectedMinusNulls.get();
       }
       switch (arg->type()->kind()) {

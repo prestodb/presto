@@ -43,9 +43,9 @@ void applyTyped(
     });
   } else {
     // (isnull(a) AND isnull(b)) || (a == b)
-    // When flatRawNulls is null it means there are no nulls.
-    auto* rawNulls0 = args[0]->flatRawNulls(rows);
-    auto* rawNulls1 = args[1]->flatRawNulls(rows);
+    // When DecodedVector::nulls() is null it means there are no nulls.
+    auto* rawNulls0 = decoded0->nulls();
+    auto* rawNulls1 = decoded1->nulls();
     rows.applyToSelected([&](vector_size_t i) {
       auto isNull0 = rawNulls0 && bits::isBitNull(rawNulls0, i);
       auto isNull1 = rawNulls1 && bits::isBitNull(rawNulls1, i);
