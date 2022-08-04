@@ -13,6 +13,8 @@
 *.class
 # Byte compiled python modules.
 *.pyc
+# egg dirs from python
+*.egg-info/
 # vim swap files
 .*.sw?
 .sw?

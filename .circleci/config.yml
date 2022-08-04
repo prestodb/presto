@@ -24,6 +24,15 @@ workflows:
       - header-check
       - linux-benchmarks-basic
 
+  # Store benchmarks to conbench on main
+  benchmark-conbench:
+    jobs:
+      - linux-benchmarks-conbench:
+          filters:
+            branches:
+              only:
+                - main
+
   # Daily documentation update
   nightly:
     triggers:
@@ -279,6 +288,61 @@ jobs:
             scripts/benchmark-runner.py compare \
                 --baseline-dump-path benchmark-basic-dumps/baseline \
                 --target-dump-path benchmark-basic-dumps/target || true
+      - store_artifacts:
+          path: '_build/debug/.ninja_log'
+      - save_cache:
+          name: "Save CCache cache"
+          key: velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
+          paths:
+            - .ccache/
+
+  linux-benchmarks-conbench:
+    executor: build
+    steps:
+      - checkout
+      - run:
+          name: "Update submodules"
+          command: |
+            git submodule sync --recursive
+            git submodule update --init --recursive
+      - run:
+          name: "Calculate merge-base date for CCache"
+          command: |
+            git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
+      - restore_cache:
+          name: "Restore CCache cache"
+          keys:
+            - velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
+      - run:
+          name: "Build Benchmarks"
+          command: |
+            mkdir -p .ccache
+            export CCACHE_DIR=$(realpath .ccache)
+            ccache -sz -M 5Gi
+            source /opt/rh/gcc-toolset-9/enable
+            make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            ccache -s
+      - run:
+          name: "Install conbench and veloxbench"
+          command: |
+            # upgrade python to 3.8 for this job
+            yum install -y python38
+            pip3.8 install conbench
+            pip3.8 install scripts/veloxbench
+      - run:
+          name: "Run Benchmarks"
+          command: |
+            # get to the directory with benchmarks
+            cd scripts/veloxbench/veloxbench
+
+            # setup .conbench file
+            touch .conbench
+            echo "url: https://velox-conbench.voltrondata.run/" >> .conbench
+            echo "email: $CONBENCH_EMAIL" >> .conbench
+            echo "password: $CONBENCH_PASSWORD" >> .conbench
+            echo "host_name: CricleCI-runner" >> .conbench
+
+            conbench cpp-micro
       - store_artifacts:
           path: '_build/debug/.ninja_log'
       - save_cache:
