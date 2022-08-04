@@ -65,7 +65,7 @@ workflows:
 executors:
   build:
     docker:
-      - image : prestocpp/velox-avx-circleci:mikesh-20220628
+      - image : prestocpp/velox-avx-circleci:mikesh-20220717
     resource_class: 2xlarge
     environment:
         CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
