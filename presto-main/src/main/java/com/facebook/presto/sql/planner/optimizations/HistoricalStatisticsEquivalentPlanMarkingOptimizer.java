@@ -23,7 +23,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.useExternalPlanStatisticsEnabled;
+import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
@@ -40,7 +40,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        if (!useExternalPlanStatisticsEnabled(session)) {
+        if (!useHistoryBasedPlanStatisticsEnabled(session)) {
             return plan;
         }
 

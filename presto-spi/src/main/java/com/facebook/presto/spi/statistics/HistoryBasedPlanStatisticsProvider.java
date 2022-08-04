@@ -23,7 +23,7 @@ import java.util.Map;
  * A simple implementation can be a key value store using provided canonical plan hashes of plan nodes.
  * More advanced implementations can parse the PlanNode, and predict statistics.
  */
-public interface ExternalPlanStatisticsProvider
+public interface HistoryBasedPlanStatisticsProvider
 {
     String getName();
 
