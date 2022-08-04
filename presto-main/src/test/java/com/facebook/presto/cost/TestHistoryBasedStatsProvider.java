@@ -18,8 +18,8 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.Estimate;
-import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
@@ -34,20 +34,20 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SystemSessionProperties.USE_EXTERNAL_PLAN_STATISTICS;
+import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
-public class TestExternalStatsProvider
+public class TestHistoryBasedStatsProvider
 {
     private final LocalQueryRunner queryRunner;
 
-    public TestExternalStatsProvider()
+    public TestHistoryBasedStatsProvider()
     {
         this.queryRunner = new LocalQueryRunner(testSessionBuilder()
-                .setSystemProperty(USE_EXTERNAL_PLAN_STATISTICS, "true")
+                .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
@@ -61,15 +61,15 @@ public class TestExternalStatsProvider
         queryRunner.installPlugin(new Plugin()
         {
             @Override
-            public Iterable<ExternalPlanStatisticsProvider> getExternalPlanStatisticsProviders()
+            public Iterable<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProviders()
             {
-                return ImmutableList.of(new TestExternalPlanStatisticsProvider());
+                return ImmutableList.of(new TestHistoryBasedPlanStatisticsProvider());
             }
         });
     }
 
     @Test
-    public void testExternalStatsCalculator()
+    public void testHistoryBasedStatsCalculator()
     {
         // Overridden stats
         assertPlan(
@@ -96,10 +96,10 @@ public class TestExternalStatsProvider
         });
     }
 
-    private static class TestExternalPlanStatisticsProvider
-            implements ExternalPlanStatisticsProvider
+    private static class TestHistoryBasedPlanStatisticsProvider
+            implements HistoryBasedPlanStatisticsProvider
     {
-        public TestExternalPlanStatisticsProvider()
+        public TestHistoryBasedPlanStatisticsProvider()
         {
         }
 

@@ -19,7 +19,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.USE_EXTERNAL_PLAN_STATISTICS;
+import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
@@ -131,7 +131,7 @@ public class TestCanonicalPlanHashes
         return testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
-                .setSystemProperty(USE_EXTERNAL_PLAN_STATISTICS, "true")
+                .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty("task_concurrency", "1")
                 .build();
     }

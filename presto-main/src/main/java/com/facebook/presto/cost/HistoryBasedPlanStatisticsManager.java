@@ -14,7 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.statistics.EmptyPlanStatisticsProvider;
-import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
+import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 
@@ -24,8 +24,8 @@ public class HistoryBasedPlanStatisticsManager
 {
     private final ObjectMapper objectMapper;
 
-    private ExternalPlanStatisticsProvider externalPlanStatisticsProvider = EmptyPlanStatisticsProvider.getInstance();
-    private boolean externalProviderAdded;
+    private HistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider = EmptyPlanStatisticsProvider.getInstance();
+    private boolean statisticsProviderAdded;
 
     @Inject
     public HistoryBasedPlanStatisticsManager(ObjectMapper objectMapper)
@@ -33,17 +33,17 @@ public class HistoryBasedPlanStatisticsManager
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
 
-    public void addExternalPlanStatisticsProviderFactory(ExternalPlanStatisticsProvider externalPlanStatisticsProvider)
+    public void addHistoryBasedPlanStatisticsProviderFactory(HistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider)
     {
-        if (externalProviderAdded) {
-            throw new IllegalStateException("externalPlanStatisticsProviderFactory can only be set once");
+        if (statisticsProviderAdded) {
+            throw new IllegalStateException("historyBasedPlanStatisticsProvider can only be set once");
         }
-        this.externalPlanStatisticsProvider = externalPlanStatisticsProvider;
-        externalProviderAdded = true;
+        this.historyBasedPlanStatisticsProvider = historyBasedPlanStatisticsProvider;
+        statisticsProviderAdded = true;
     }
 
     public HistoryBasedPlanStatisticsCalculator getHistoryBasedPlanStatisticsCalculator(StatsCalculator delegate)
     {
-        return new HistoryBasedPlanStatisticsCalculator(() -> externalPlanStatisticsProvider, delegate, objectMapper);
+        return new HistoryBasedPlanStatisticsCalculator(() -> historyBasedPlanStatisticsProvider, delegate, objectMapper);
     }
 }
