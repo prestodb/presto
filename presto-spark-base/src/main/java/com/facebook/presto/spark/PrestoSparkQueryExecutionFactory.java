@@ -1104,6 +1104,7 @@ public class PrestoSparkQueryExecutionFactory
                 SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(sparkTaskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 
                 Map<PlanFragmentId, RddAndMore<PrestoSparkSerializedPage>> inputRdds = new HashMap<>();
+                // Rdd for the children of the root
                 for (SubPlan child : root.getChildren()) {
                     inputRdds.put(child.getFragment().getId(), createRdd(child, PrestoSparkSerializedPage.class));
                 }

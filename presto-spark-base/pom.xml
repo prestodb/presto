@@ -253,7 +253,7 @@
         <dependency>
             <groupId>com.facebook.swift</groupId>
             <artifactId>spark_protocol_thrift</artifactId>
-            <version>1.0-202207080715-e6a088692e2d</version>
+            <version>1.0-202207080715-e6a088692e2c</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
