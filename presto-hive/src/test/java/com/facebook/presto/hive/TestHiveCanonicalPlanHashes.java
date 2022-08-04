@@ -30,7 +30,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.USE_EXTERNAL_PLAN_STATISTICS;
+import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -138,7 +138,7 @@ public class TestHiveCanonicalPlanHashes
     private Session createSession()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(USE_EXTERNAL_PLAN_STATISTICS, "true")
+                .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
     }
