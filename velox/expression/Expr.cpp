@@ -716,13 +716,13 @@ bool Expr::removeSureNulls(
     }
 
     if (values->mayHaveNulls()) {
-      auto nulls = values->flatRawNulls(rows);
-      if (nulls) {
+      LocalDecodedVector decoded(context, *values, rows);
+      if (auto* rawNulls = decoded->nulls()) {
         if (!result) {
           result = nullHolder.get(rows);
         }
         auto bits = result->asMutableRange().bits();
-        bits::andBits(bits, nulls, rows.begin(), rows.end());
+        bits::andBits(bits, rawNulls, rows.begin(), rows.end());
       }
     }
   }
@@ -1017,14 +1017,15 @@ void Expr::evalAll(
         remainingRows = nonNulls.get();
         assert(remainingRows); // lint
       }
-      nonNulls.get()->deselectNulls(
-          inputValues_[i]->flatRawNulls(rows),
-          remainingRows->begin(),
-          remainingRows->end());
-      if (!remainingRows->hasSelections()) {
-        releaseInputValues(context);
-        setAllNulls(rows, context, result);
-        return;
+      LocalDecodedVector decoded(context, *inputValues_[i], rows);
+      if (auto* rawNulls = decoded->nulls()) {
+        nonNulls.get()->deselectNulls(
+            rawNulls, remainingRows->begin(), remainingRows->end());
+        if (!remainingRows->hasSelections()) {
+          releaseInputValues(context);
+          setAllNulls(rows, context, result);
+          return;
+        }
       }
     }
   }
