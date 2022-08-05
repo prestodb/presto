@@ -26,6 +26,7 @@ import com.facebook.presto.resourcemanager.DistributedClusterStatsResource;
 import com.facebook.presto.resourcemanager.DistributedQueryInfoResource;
 import com.facebook.presto.resourcemanager.DistributedQueryResource;
 import com.facebook.presto.resourcemanager.DistributedResourceGroupInfoResource;
+import com.facebook.presto.resourcemanager.DistributedTaskInfoResource;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.RaftConfig;
 import com.facebook.presto.resourcemanager.RatisServer;
@@ -111,6 +112,7 @@ public class ResourceManagerModule
         jaxrsBinder(binder).bind(DistributedQueryResource.class);
         jaxrsBinder(binder).bind(DistributedQueryInfoResource.class);
         jaxrsBinder(binder).bind(DistributedClusterStatsResource.class);
+        jaxrsBinder(binder).bind(DistributedTaskInfoResource.class);
 
         httpClientBinder(binder).bindHttpClient("resourceManager", ForResourceManager.class);
         binder.bind(ResourceManagerProxy.class).in(Scopes.SINGLETON);
