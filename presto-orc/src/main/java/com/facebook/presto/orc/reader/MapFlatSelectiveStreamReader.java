@@ -68,7 +68,7 @@ import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -114,7 +114,7 @@ public class MapFlatSelectiveStreamReader
     private int readOffset;
     private int[] nestedReadOffsets;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
@@ -642,7 +642,7 @@ public class MapFlatSelectiveStreamReader
     public void startStripe(Stripe stripe)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
 
         inMapStreamSources.clear();
         valueStreamDescriptors.clear();
@@ -671,7 +671,7 @@ public class MapFlatSelectiveStreamReader
 
             int sequence = entry.getKey();
 
-            inMapStreamSources.add(missingStreamSource(BooleanInputStream.class));
+            inMapStreamSources.add(getBooleanMissingStreamSource());
 
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);

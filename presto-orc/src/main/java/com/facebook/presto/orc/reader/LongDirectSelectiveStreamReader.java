@@ -36,7 +36,8 @@ import static com.facebook.presto.common.block.ClosingBlockLease.newLease;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -52,11 +53,11 @@ public class LongDirectSelectiveStreamReader
     private final boolean nonDeterministicFilter;
     private final boolean nullsAllowed;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<LongInputStream> dataStreamSource = getLongMissingStreamSource();
     @Nullable
     private LongInputStream dataStream;
 
@@ -340,8 +341,8 @@ public class LongDirectSelectiveStreamReader
     @Override
     public void startStripe(Stripe stripe)
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(LongInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        dataStreamSource = getLongMissingStreamSource();
 
         readOffset = 0;
 
