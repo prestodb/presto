@@ -16,33 +16,32 @@
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 
 class IsNullTest : public functions::test::FunctionBaseTest {};
 
 TEST_F(IsNullTest, basic) {
   vector_size_t size = 20;
 
-  // all nulls
+  // All nulls.
   auto allNulls = makeFlatVector<int32_t>(
-      size, [](vector_size_t /*row*/) { return 0; }, vectorMaker_.nullEvery(1));
+      size, [](vector_size_t /*row*/) { return 0; }, nullEvery(1));
   auto result =
       evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({allNulls}));
   for (int i = 0; i < size; ++i) {
     EXPECT_TRUE(result->valueAt(i)) << "at " << i;
   }
 
-  // nulls in odd positions: 0, null, 2, null,...
+  // Nulls in odd positions: 0, null, 2, null,..
   auto oddNulls = makeFlatVector<int32_t>(
-      size,
-      [](vector_size_t row) { return row; },
-      vectorMaker_.nullEvery(2, 1));
+      size, [](vector_size_t row) { return row; }, nullEvery(2, 1));
   result =
       evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({oddNulls}));
   for (int i = 0; i < size; ++i) {
     EXPECT_EQ(result->valueAt(i), i % 2 == 1) << "at " << i;
   }
 
-  // no nulls
+  // No nulls.
   auto noNulls =
       makeFlatVector<int32_t>(size, [](vector_size_t row) { return row; });
   result =
@@ -52,20 +51,83 @@ TEST_F(IsNullTest, basic) {
   }
 }
 
-TEST_F(IsNullTest, somePositions) {
-  vector_size_t size = 20;
+TEST_F(IsNullTest, constant) {
+  // Non-null constant.
+  auto data = makeConstant<int32_t>(75, 1'000);
+  auto result =
+      evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({data}));
 
-  // nulls in odd positions: 0, null, 2, null,...
-  auto oddNulls = makeFlatVector<int32_t>(
-      size,
-      [](vector_size_t row) { return row; },
-      vectorMaker_.nullEvery(2, 1));
+  assertEqualVectors(makeConstant<bool>(false, 1'000), result);
 
-  auto isOdd = [](int i) { return i % 2; };
+  // Null constant.
+  data = makeConstant<int32_t>(std::nullopt, 1'000);
+  result = evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({data}));
+
+  assertEqualVectors(makeConstant<bool>(true, 1'000), result);
+}
+
+TEST_F(IsNullTest, dictionary) {
+  vector_size_t size = 1'000;
+
+  // Dictionary over flat, no nulls.
+  auto flatNoNulls = makeFlatVector<int32_t>({1, 2, 3, 4});
+  auto dict = wrapInDictionary(
+      makeIndices(size, [](auto row) { return row % 4; }), size, flatNoNulls);
 
   auto result =
-      evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({oddNulls}));
-  for (int i = 0; i < size; i++) {
-    EXPECT_EQ(result->valueAt(i), isOdd(i)) << "at " << i;
+      evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({dict}));
+
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_EQ(result->valueAt(i), dict->isNullAt(i)) << "at " << i;
+  }
+
+  // Dictionary with nulls over no-nulls flat vector.
+  dict = BaseVector::wrapInDictionary(
+      makeNulls(size, nullEvery(5)),
+      makeIndices(size, [](auto row) { return row % 4; }),
+      size,
+      flatNoNulls);
+
+  result = evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({dict}));
+
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_EQ(result->valueAt(i), dict->isNullAt(i)) << "at " << i;
+  }
+
+  // Dictionary over flat vector with nulls.
+  auto flatWithNulls = makeNullableFlatVector<int32_t>({1, 2, std::nullopt, 4});
+  dict = wrapInDictionary(
+      makeIndices(size, [](auto row) { return row % 4; }), size, flatWithNulls);
+
+  result = evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({dict}));
+
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_EQ(result->valueAt(i), dict->isNullAt(i)) << "at " << i;
+  }
+
+  // Dictionary with nulls over flat vector with nulls.
+  dict = BaseVector::wrapInDictionary(
+      makeNulls(size, nullEvery(5)),
+      makeIndices(size, [](auto row) { return row % 4; }),
+      size,
+      flatWithNulls);
+
+  result = evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({dict}));
+
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_EQ(result->valueAt(i), dict->isNullAt(i)) << "at " << i;
+  }
+
+  // Dictionary with nulls over constant.
+  dict = BaseVector::wrapInDictionary(
+      makeNulls(size, nullEvery(5)),
+      makeIndices(size, [](auto row) { return 2; }),
+      size,
+      makeConstant<int32_t>(75, 10));
+
+  result = evaluate<SimpleVector<bool>>("is_null(c0)", makeRowVector({dict}));
+
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_EQ(result->valueAt(i), dict->isNullAt(i)) << "at " << i;
   }
 }
