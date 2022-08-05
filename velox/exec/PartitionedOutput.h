@@ -224,6 +224,7 @@ class PartitionedOutput : public Operator {
   SelectivityVector rows_;
   SelectivityVector nullRows_;
   std::vector<uint32_t> partitions_;
+  std::vector<DecodedVector> decodedVectors_;
 };
 
 } // namespace facebook::velox::exec
