@@ -50,7 +50,9 @@ import static com.facebook.presto.orc.reader.ReaderUtils.packByteArrayAndOffsets
 import static com.facebook.presto.orc.reader.ReaderUtils.packByteArrayOffsetsAndNulls;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.reader.SliceSelectiveStreamReader.computeTruncatedLength;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getByteArrayMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -77,11 +79,11 @@ public class SliceDirectSelectiveStreamReader
 
     private int readOffset;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     private BooleanInputStream presentStream;
-    private InputStreamSource<ByteArrayInputStream> dataStreamSource = missingStreamSource(ByteArrayInputStream.class);
+    private InputStreamSource<ByteArrayInputStream> dataStreamSource = getByteArrayMissingStreamSource();
     private ByteArrayInputStream dataStream;
-    private InputStreamSource<LongInputStream> lengthStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<LongInputStream> lengthStreamSource = getLongMissingStreamSource();
     private LongInputStream lengthStream;
 
     private boolean rowGroupOpen;
@@ -631,9 +633,9 @@ public class SliceDirectSelectiveStreamReader
     @Override
     public void startStripe(Stripe stripe)
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        lengthStreamSource = missingStreamSource(LongInputStream.class);
-        dataStreamSource = missingStreamSource(ByteArrayInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        lengthStreamSource = getLongMissingStreamSource();
+        dataStreamSource = getByteArrayMissingStreamSource();
 
         readOffset = 0;
 

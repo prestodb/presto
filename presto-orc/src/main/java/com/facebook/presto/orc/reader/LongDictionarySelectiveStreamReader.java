@@ -38,7 +38,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -62,7 +63,7 @@ public class LongDictionarySelectiveStreamReader
     private final boolean nullsAllowed;
     private final OrcLocalMemoryContext systemMemoryContext;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
@@ -72,7 +73,7 @@ public class LongDictionarySelectiveStreamReader
     private long[] dictionary;
     private byte[] dictionaryFilterStatus;
 
-    private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream inDictionaryStream;
 
@@ -321,9 +322,9 @@ public class LongDictionarySelectiveStreamReader
                 .getDictionarySize();
         dictionaryOpen = false;
 
-        inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(LongInputStream.class);
+        inDictionaryStreamSource = getBooleanMissingStreamSource();
+        presentStreamSource = getBooleanMissingStreamSource();
+        dataStreamSource = getLongMissingStreamSource();
 
         readOffset = 0;
 
