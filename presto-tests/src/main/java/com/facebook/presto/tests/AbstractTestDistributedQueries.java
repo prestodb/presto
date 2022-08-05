@@ -343,6 +343,46 @@ public abstract class AbstractTestDistributedQueries
         computeActual(session, "select REGEXP_EXTRACT('runaway_regex-is-evaluated-infinitely - xxx\"}', '.*runaway_(.*?)+-+xxx.*')");
     }
 
+    // The sample query has 2^30 leaf nodes in query plan, expect to timeout during plan statement phase.
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "The query planner exceeded the timeout of .*", timeOut = 30_000)
+    public void testQueryAnalysisTimeout()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.QUERY_ANALYZER_TIMEOUT, "1s")
+                .build();
+
+        String subQuery = "t%d AS (SELECT A.id, B.name FROM t%d A Join t%d B On A.id = B.id)";
+        String sql = " WITH t1 AS (SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c') ) AS t (id, name))";
+        int maxSubQueryDepth = 30;
+        for (int i = 1; i < maxSubQueryDepth; ++i) {
+            sql += ',';
+            sql += String.format(subQuery, i + 1, i, i);
+        }
+        sql += String.format(" SELECT * FROM t%d", 30);
+
+        computeActual(session, sql);
+    }
+
+    // The sample query has 2^30 leaf nodes in query plan, expect to timeout during plan statement phase. This is for explain queries.
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "The query planner exceeded the timeout of .*", timeOut = 30_000)
+    public void testSemanticAnalysisTimeout()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.QUERY_ANALYZER_TIMEOUT, "1s")
+                .build();
+
+        String subQuery = "t%d AS (SELECT A.id, B.name FROM t%d A Join t%d B On A.id = B.id)";
+        String sql = "EXPLAIN WITH t1 AS (SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c') ) AS t (id, name))";
+        int maxSubQueryDepth = 30;
+        for (int i = 1; i < maxSubQueryDepth; ++i) {
+            sql += ',';
+            sql += String.format(subQuery, i + 1, i, i);
+        }
+        sql += String.format(" SELECT * FROM t%d", 30);
+
+        computeActual(session, sql);
+    }
+
     @Test
     public void testInsertIntoNotNullColumn()
     {

@@ -193,7 +193,12 @@ public class SqlQueryExecution
                     parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                     warningCollector);
 
-            this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
+            try (TimeoutThread unused = new TimeoutThread(
+                    Thread.currentThread(),
+                    timeoutThreadExecutor,
+                    getQueryAnalyzerTimeout(getSession()))) {
+                this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
+            }
             stateMachine.setUpdateType(analysis.getUpdateType());
             stateMachine.setExpandedQuery(analysis.getExpandedQuery());
 
