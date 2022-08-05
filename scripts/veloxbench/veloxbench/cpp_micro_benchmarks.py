@@ -66,6 +66,8 @@ def get_run_command(output_dir, options):
 def _parse_benchmark_name(full_name):
     # TODO: Do we need something more complicated?
     # https://github.com/ursacomputing/benchmarks/blob/033eee0951adbf41931a2de95caccbac887da6ff/benchmarks/cpp_micro_benchmarks.py#L86-L103
+    if full_name[0] == "%":
+        full_name = full_name[1:]
     return {"name": full_name}
 
 
@@ -95,6 +97,10 @@ class RecordCppMicroBenchmarks(_benchmark.Benchmark):
                         results = json.load(f)
                     self.conbench.mark_new_batch()
                     for result in results:
+                        # Folly benchmark exports line separators by mistake as
+                        # an entry in the json file.
+                        if result[1] == "-":
+                            continue
                         yield self._record_result(suite, result, kwargs)
 
     def _record_result(self, suite, result, options):
