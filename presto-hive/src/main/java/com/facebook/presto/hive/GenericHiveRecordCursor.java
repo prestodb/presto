@@ -36,8 +36,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.WritableTimestampObjectInspector;
 import org.apache.hadoop.io.BinaryComparable;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
@@ -302,10 +304,17 @@ class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
-            checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongExpressedValue(fieldValue, hiveStorageTimeZone);
-            nulls[column] = false;
+            ObjectInspector fieldInspector = fieldInspectors[column];
+            if (fieldInspector instanceof WritableTimestampObjectInspector && fieldData instanceof LongWritable) {
+                longs[column] = ((LongWritable) fieldData).get() / 1000;
+                nulls[column] = false;
+            }
+            else {
+                Object fieldValue = ((PrimitiveObjectInspector) fieldInspector).getPrimitiveJavaObject(fieldData);
+                checkState(fieldValue != null, "fieldValue should not be null");
+                longs[column] = getLongExpressedValue(fieldValue, hiveStorageTimeZone);
+                nulls[column] = false;
+            }
         }
     }
 
