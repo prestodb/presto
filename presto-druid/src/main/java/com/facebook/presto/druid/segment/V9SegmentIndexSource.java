@@ -78,8 +78,6 @@ public class V9SegmentIndexSource
                 indexBuffer,
                 STRING_STRATEGY);
 
-        Interval dataInterval = Intervals.utc(indexBuffer.getLong(), indexBuffer.getLong());
-
         BitmapSerdeFactory segmentBitmapSerdeFactory;
 
         if (indexBuffer.hasRemaining()) {
@@ -113,6 +111,10 @@ public class V9SegmentIndexSource
         columns.put(TIME_COLUMN_NAME, () -> createColumnHolder(TIME_COLUMN_NAME));
 
         Indexed<String> indexed = new ListIndexed<>(availableDimensions);
+
+        // org.joda.time.Interval is used here in the public Druid API and appears in the byte code
+        // even if this loval variable is inlined.
+        Interval dataInterval = Intervals.utc(indexBuffer.getLong(), indexBuffer.getLong());
         // TODO: get rid of the time column by creating Presto's SimpleQueryableIndex impl
         return new SimpleQueryableIndex(
                 dataInterval,

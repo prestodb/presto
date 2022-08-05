@@ -245,6 +245,7 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
+        <!-- This is needed as a return value from and argument to the Druid API. -->
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
