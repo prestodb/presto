@@ -54,7 +54,7 @@ import java.util.SortedMap;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -93,7 +93,7 @@ public class MapFlatBatchStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
@@ -240,7 +240,7 @@ public class MapFlatBatchStreamReader
     public void startStripe(Stripe stripe)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
 
         inMapStreamSources.clear();
         valueStreamDescriptors.clear();
@@ -255,7 +255,7 @@ public class MapFlatBatchStreamReader
 
         // The ColumnEncoding with sequence ID 0 doesn't have any data associated with it
         for (int sequence : additionalSequenceEncodings.keySet()) {
-            inMapStreamSources.add(missingStreamSource(BooleanInputStream.class));
+            inMapStreamSources.add(getBooleanMissingStreamSource());
 
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);

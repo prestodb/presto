@@ -53,7 +53,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createNestedStreamReader;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -83,11 +84,11 @@ public class ListSelectiveStreamReader
     private final SelectiveStreamReader elementStreamReader;
     private final OrcLocalMemoryContext systemMemoryContext;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<LongInputStream> lengthStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<LongInputStream> lengthStreamSource = getLongMissingStreamSource();
     @Nullable
     private LongInputStream lengthStream;
 
@@ -709,8 +710,8 @@ public class ListSelectiveStreamReader
     public void startStripe(Stripe stripe)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        lengthStreamSource = missingStreamSource(LongInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        lengthStreamSource = getLongMissingStreamSource();
 
         readOffset = 0;
         elementReadOffset = 0;
