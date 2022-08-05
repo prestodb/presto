@@ -226,20 +226,25 @@ void HashProbe::addInput(RowVectorPtr input) {
 
   nonNullRows_.resize(input_->size());
   nonNullRows_.setAll();
-  deselectRowsWithNulls(
-      *input_, keyChannels_, nonNullRows_, *operatorCtx_->execCtx());
+
+  for (auto i = 0; i < hashers_.size(); ++i) {
+    auto key = input_->childAt(hashers_[i]->channel())->loadedVector();
+    hashers_[i]->decode(*key, nonNullRows_);
+  }
+
+  deselectRowsWithNulls(hashers_, nonNullRows_);
 
   activeRows_ = nonNullRows_;
   lookup_->hashes.resize(input_->size());
   auto mode = table_->hashMode();
   auto& buildHashers = table_->hashers();
   for (auto i = 0; i < keyChannels_.size(); ++i) {
-    auto key = input_->childAt(keyChannels_[i])->loadedVector();
     if (mode != BaseHashTable::HashMode::kHash) {
+      auto key = input_->childAt(keyChannels_[i]);
       buildHashers[i]->lookupValueIds(
           *key, activeRows_, scratchMemory_, lookup_->hashes);
     } else {
-      hashers_[i]->hash(*key, activeRows_, i > 0, lookup_->hashes);
+      hashers_[i]->hash(activeRows_, i > 0, lookup_->hashes);
     }
   }
   lookup_->rows.clear();

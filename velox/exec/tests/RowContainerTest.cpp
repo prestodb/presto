@@ -321,7 +321,8 @@ TEST_F(RowContainerTest, types) {
     auto source = batch->childAt(column);
     auto columnType = batch->type()->as<TypeKind::ROW>().childAt(column);
     VectorHasher hasher(columnType, column);
-    hasher.hash(*source, allRows, false, hashes);
+    hasher.decode(*source, allRows);
+    hasher.hash(allRows, false, hashes);
     DecodedVector decoded(*extracted, allRows);
     std::vector<uint64_t> rowHashes(kNumRows);
     data->hash(

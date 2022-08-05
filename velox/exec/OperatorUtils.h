@@ -19,13 +19,13 @@
 
 namespace facebook::velox::exec {
 
-// Deselects rows from 'rows' where any of the 'input' children
-// in 'channels' has a null.
+class VectorHasher;
+
+// Deselects rows from 'rows' where any of the vectors managed by the 'hashers'
+// has a null.
 void deselectRowsWithNulls(
-    const RowVector& input,
-    const std::vector<column_index_t>& channels,
-    SelectivityVector& rows,
-    core::ExecCtx& execCtx);
+    const std::vector<std::unique_ptr<VectorHasher>>& hashers,
+    SelectivityVector& rows);
 
 // Reusable memory needed for processing filter results.
 struct FilterEvalCtx {

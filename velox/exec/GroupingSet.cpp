@@ -82,7 +82,6 @@ GroupingSet::GroupingSet(
       rows_(mappedMemory_),
       isAdaptive_(
           operatorCtx->task()->queryCtx()->config().hashAdaptivityEnabled()),
-      execCtx_(*operatorCtx->execCtx()),
       spillPath_(makeSpillPath(isPartial, *operatorCtx)),
       pool_(*operatorCtx->pool()),
       spillExecutor_(operatorCtx->task()->queryCtx()->spillExecutor()),
@@ -176,29 +175,24 @@ void GroupingSet::addInputForActiveRows(
   lookup_->reset(activeRows_.end());
   auto mode = table_->hashMode();
   ensureInputFits(input);
+
+  for (auto i = 0; i < hashers.size(); ++i) {
+    auto key = input->childAt(hashers[i]->channel())->loadedVector();
+    hashers[i]->decode(*key, activeRows_);
+  }
+
   if (ignoreNullKeys_) {
     // A null in any of the keys disables the row.
-    deselectRowsWithNulls(*input, keyChannels_, activeRows_, execCtx_);
-    for (int32_t i = 0; i < hashers.size(); ++i) {
-      auto key = input->childAt(hashers[i]->channel())->loadedVector();
-      if (mode != BaseHashTable::HashMode::kHash) {
-        if (!hashers[i]->computeValueIds(*key, activeRows_, lookup_->hashes)) {
-          rehash = true;
-        }
-      } else {
-        hashers[i]->hash(*key, activeRows_, i > 0, lookup_->hashes);
+    deselectRowsWithNulls(hashers, activeRows_);
+  }
+
+  for (int32_t i = 0; i < hashers.size(); ++i) {
+    if (mode != BaseHashTable::HashMode::kHash) {
+      if (!hashers[i]->computeValueIds(activeRows_, lookup_->hashes)) {
+        rehash = true;
       }
-    }
-  } else {
-    for (int32_t i = 0; i < hashers.size(); ++i) {
-      auto key = input->childAt(hashers[i]->channel())->loadedVector();
-      if (mode != BaseHashTable::HashMode::kHash) {
-        if (!hashers[i]->computeValueIds(*key, activeRows_, lookup_->hashes)) {
-          rehash = true;
-        }
-      } else {
-        hashers[i]->hash(*key, activeRows_, i > 0, lookup_->hashes);
-      }
+    } else {
+      hashers[i]->hash(activeRows_, i > 0, lookup_->hashes);
     }
   }
 

@@ -49,8 +49,8 @@ void HashPartitionFunction::partition(
   for (auto i = 0; i < hashers_.size(); ++i) {
     auto& hasher = hashers_[i];
     if (hasher->channel() != kConstantChannel) {
-      hashers_[i]->hash(
-          *input.childAt(hasher->channel()), rows_, i > 0, hashes_);
+      hashers_[i]->decode(*input.childAt(hasher->channel()), rows_);
+      hashers_[i]->hash(rows_, i > 0, hashes_);
     } else {
       hashers_[i]->hashPrecomputed(rows_, i > 0, hashes_);
     }

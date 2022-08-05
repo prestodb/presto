@@ -167,12 +167,13 @@ class HashTableTest : public testing::Test {
     bool rehash = false;
     for (int32_t i = 0; i < hashers.size(); ++i) {
       auto key = input.childAt(hashers[i]->channel());
+      hashers[i]->decode(*key, rows);
       if (mode != BaseHashTable::HashMode::kHash) {
-        if (!hashers[i]->computeValueIds(*key, rows, lookup.hashes)) {
+        if (!hashers[i]->computeValueIds(rows, lookup.hashes)) {
           rehash = true;
         }
       } else {
-        hashers[i]->hash(*key, rows, i > 0, lookup.hashes);
+        hashers[i]->hash(rows, i > 0, lookup.hashes);
       }
     }
 
@@ -241,7 +242,8 @@ class HashTableTest : public testing::Test {
           if (table->hashMode() != BaseHashTable::HashMode::kHash) {
             auto hasher = table->hashers()[i].get();
             if (hasher->mayUseValueIds()) {
-              hasher->computeValueIds(*batch->childAt(i), insertedRows, dummy);
+              hasher->decode(*batch->childAt(i), insertedRows);
+              hasher->computeValueIds(insertedRows, dummy);
             }
           }
         }
@@ -362,7 +364,8 @@ class HashTableTest : public testing::Test {
             hashers[i]->lookupValueIds(
                 *key, rows, scratchMemory, lookup->hashes);
           } else {
-            hashers[i]->hash(*key, rows, i > 0, lookup->hashes);
+            hashers[i]->decode(*key, rows);
+            hashers[i]->hash(rows, i > 0, lookup->hashes);
           }
         }
       }

@@ -324,10 +324,8 @@ bool VectorHasher::makeValueIdsDecoded<bool, false>(
 }
 
 bool VectorHasher::computeValueIds(
-    const BaseVector& values,
     const SelectivityVector& rows,
     raw_vector<uint64_t>& result) {
-  decoded_.decode(values, rows);
   return VALUE_ID_TYPE_DISPATCH(makeValueIds, typeKind_, rows, result.data());
 }
 
@@ -459,11 +457,9 @@ void VectorHasher::lookupValueIds(
 }
 
 void VectorHasher::hash(
-    const BaseVector& values,
     const SelectivityVector& rows,
     bool mix,
     raw_vector<uint64_t>& result) {
-  decoded_.decode(values, rows);
   VELOX_DYNAMIC_TYPE_DISPATCH(hashValues, typeKind_, rows, mix, result.data());
 }
 
