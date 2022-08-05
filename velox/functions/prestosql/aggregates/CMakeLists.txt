@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
   add_subdirectory(benchmarks)
@@ -43,7 +44,8 @@ add_library(
   SumAggregate.cpp
   SumAggregate.h
   ValueList.cpp
-  VarianceAggregates.cpp)
+  VarianceAggregates.cpp
+  MaxSizeForStatsAggregate.cpp)
 
 target_link_libraries(velox_aggregates velox_functions_hyperloglog velox_exec
-                      ${FOLLY_WITH_DEPENDENCIES})
+                      velox_presto_serializer ${FOLLY_WITH_DEPENDENCIES})

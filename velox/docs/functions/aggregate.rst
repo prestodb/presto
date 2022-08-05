@@ -225,3 +225,10 @@ Statistical Aggregate Functions
 .. function:: var_samp(x) -> double
 
     Returns the sample variance of all input values.
+
+Miscellaneous
+-------------
+
+.. function:: max_data_size_for_stats(x) -> bigint
+
+    Returns an estimate of the the maximum in-memory size in bytes of ``x``.
