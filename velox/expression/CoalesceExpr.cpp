@@ -51,10 +51,16 @@ void CoalesceExpr::evalSpecialForm(
       context.mutableFinalSelection(), &rows, context.isFinalSelection());
   VarSetter isFinalSelection(context.mutableIsFinalSelection(), false);
 
+  exec::LocalDecodedVector decodedVector(context);
   for (int i = 0; i < inputs_.size(); i++) {
     inputs_[i]->eval(*activeRows, context, result);
 
-    const uint64_t* rawNulls = result->flatRawNulls(*activeRows);
+    if (!result->mayHaveNulls()) {
+      // No nulls left.
+    }
+
+    decodedVector.get()->decode(*result, *activeRows);
+    const uint64_t* rawNulls = decodedVector->nulls();
     if (!rawNulls) {
       // No nulls left.
       return;

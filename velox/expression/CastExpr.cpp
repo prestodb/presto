@@ -467,6 +467,7 @@ VectorPtr CastExpr::applyRow(
 template <bool castTo>
 void applyCustomTypeCast(
     VectorPtr& input,
+    DecodedVector& inputDecoded,
     const SelectivityVector& allRows,
     const SelectivityVector& nonNullRows,
     const CastOperatorPtr& castOperator,
@@ -481,13 +482,11 @@ void applyCustomTypeCast(
       "Attempting to cast from {} to itself.",
       thisType->toString());
 
-  LocalDecodedVector inputDecoded(context, *input, allRows);
-
   exec::LocalSelectivityVector baseRows(
-      *context.execCtx(), inputDecoded->base()->size());
+      *context.execCtx(), inputDecoded.base()->size());
   baseRows->clearAll();
   context.applyToSelectedNoThrow(nonNullRows, [&](auto row) {
-    baseRows->setValid(inputDecoded->index(row), true);
+    baseRows->setValid(inputDecoded.index(row), true);
   });
   baseRows->updateBounds();
 
@@ -496,16 +495,16 @@ void applyCustomTypeCast(
     context.ensureWritable(*baseRows, thisType, localResult);
 
     castOperator->castTo(
-        *inputDecoded->base(), context, *baseRows, nullOnFailure, *localResult);
+        *inputDecoded.base(), context, *baseRows, nullOnFailure, *localResult);
   } else {
     context.ensureWritable(*baseRows, otherType, localResult);
 
     castOperator->castFrom(
-        *inputDecoded->base(), context, *baseRows, nullOnFailure, *localResult);
+        *inputDecoded.base(), context, *baseRows, nullOnFailure, *localResult);
   }
 
-  if (!inputDecoded->isIdentityMapping()) {
-    localResult = inputDecoded->wrap(localResult, *input, allRows);
+  if (!inputDecoded.isIdentityMapping()) {
+    localResult = inputDecoded.wrap(localResult, *input, allRows);
   }
 
   context.moveOrCopyResult(localResult, nonNullRows, result);
@@ -519,24 +518,26 @@ void CastExpr::apply(
     const std::shared_ptr<const Type>& fromType,
     const std::shared_ptr<const Type>& toType,
     VectorPtr& result) {
+  LocalDecodedVector decoded(context, *input, rows);
+  auto* rawNulls = decoded->nulls();
+
   LocalSelectivityVector nonNullRows(*context.execCtx(), rows.end());
   *nonNullRows = rows;
-  if (input->mayHaveNulls()) {
-    nonNullRows->deselectNulls(
-        input->flatRawNulls(rows), rows.begin(), rows.end());
+  if (rawNulls) {
+    nonNullRows->deselectNulls(rawNulls, rows.begin(), rows.end());
   }
 
   LocalSelectivityVector nullRows(*context.execCtx(), rows.end());
   nullRows->clearAll();
-  if (input->mayHaveNulls()) {
+  if (rawNulls) {
     *nullRows = rows;
-    nullRows->deselectNonNulls(
-        input->flatRawNulls(rows), rows.begin(), rows.end());
+    nullRows->deselectNonNulls(rawNulls, rows.begin(), rows.end());
   }
 
   if (castToOperator_) {
     applyCustomTypeCast<true>(
         input,
+        *decoded,
         rows,
         *nonNullRows,
         castToOperator_,
@@ -548,6 +549,7 @@ void CastExpr::apply(
   } else if (castFromOperator_) {
     applyCustomTypeCast<false>(
         input,
+        *decoded,
         rows,
         *nonNullRows,
         castFromOperator_,
@@ -557,8 +559,6 @@ void CastExpr::apply(
         nullOnFailure_,
         result);
   } else {
-    LocalDecodedVector decoded(context, *input, rows);
-
     if (toType->isArray() || toType->isMap() || toType->isRow()) {
       LocalSelectivityVector translatedRows(
           *context.execCtx(), decoded->base()->size());
