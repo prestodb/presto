@@ -351,6 +351,7 @@ public class QueryMonitor
                 session.getClientInfo(),
                 session.getClientTags(),
                 session.getSource(),
+                session.getQueryFingerprint(),
                 session.getCatalog(),
                 session.getSchema(),
                 resourceGroup,

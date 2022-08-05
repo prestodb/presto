@@ -36,6 +36,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.facebook.presto.sql.fingerprint.FingerprintCreator;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -198,6 +199,10 @@ public class DispatchManager
 
             // apply system default session properties (does not override user set properties)
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType.map(Enum::name), Optional.of(selectionContext.getResourceGroupId()));
+
+            // We perform this here since this session reference is passed to the query execution in the call below.
+            session = session.withQueryFingerprint(Optional.ofNullable(
+                    FingerprintCreator.createFingerPrint(preparedQuery.getStatement())));
 
             // mark existing transaction as active
             transactionManager.activateTransaction(session, isTransactionControlStatement(preparedQuery.getStatement()), accessControl);
