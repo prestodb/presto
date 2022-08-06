@@ -89,11 +89,17 @@ class RowContainer {
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
       memory::MappedMemory* mappedMemory)
+      : RowContainer(keyTypes, std::vector<TypePtr>{}, mappedMemory) {}
+
+  RowContainer(
+      const std::vector<TypePtr>& keyTypes,
+      const std::vector<TypePtr>& dependentTypes,
+      memory::MappedMemory* mappedMemory)
       : RowContainer(
             keyTypes,
             true, // nullableKeys
             emptyAggregates(),
-            std::vector<TypePtr>(),
+            dependentTypes,
             false, // hasNext
             false, // isJoinBuild
             false, // hasProbedFlag
@@ -328,9 +334,14 @@ class RowContainer {
   // Resets the state to be as after construction. Frees memory for payload.
   void clear();
 
-  int32_t compareRows(const char* left, const char* right) {
+  int32_t compareRows(
+      const char* left,
+      const char* right,
+      const std::vector<CompareFlags>& flags = {}) {
+    VELOX_DCHECK(flags.empty() || flags.size() == keyTypes_.size());
     for (auto i = 0; i < keyTypes_.size(); ++i) {
-      auto result = compare(left, right, i);
+      auto result =
+          compare(left, right, i, flags.empty() ? CompareFlags() : flags[i]);
       if (result) {
         return result;
       }

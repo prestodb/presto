@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/vector/tests/VectorMaker.h"
@@ -263,4 +264,58 @@ TEST_F(OrderByTest, unknown) {
 
   assertQueryOrdered(
       plan, "SELECT *, null FROM tmp ORDER BY c0 DESC NULLS LAST", {0});
+}
+
+/// Verifies that Order By output batch sizes correspond to
+/// preferredOutputBatchSize.
+TEST_F(OrderByTest, outputBatchSize) {
+  struct {
+    int numRowsPerBatch;
+    int preferredOutBatchSize;
+    int expectedOutputVectors;
+
+    std::string debugString() const {
+      return fmt::format(
+          "numRowsPerBatch:{}, preferredOutBatchSize:{}, expectedOutputVectors:{}",
+          numRowsPerBatch,
+          preferredOutBatchSize,
+          expectedOutputVectors);
+    }
+  } testSettings[] = {{1024, 1024 * 1024 * 10, 1}, {1024, 1, 2}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const vector_size_t batchSize = testData.numRowsPerBatch;
+    std::vector<RowVectorPtr> rowVectors;
+    auto c0 = makeFlatVector<int64_t>(
+        batchSize, [&](vector_size_t row) { return row; }, nullEvery(5));
+    auto c1 = makeFlatVector<double>(
+        batchSize, [&](vector_size_t row) { return row; }, nullEvery(11));
+    std::vector<VectorPtr> vectors;
+    vectors.push_back(c0);
+    for (int i = 0; i < 256; ++i) {
+      vectors.push_back(c1);
+    }
+    rowVectors.push_back(makeRowVector(vectors));
+    createDuckDbTable(rowVectors);
+
+    core::PlanNodeId orderById;
+    auto plan = PlanBuilder()
+                    .values(rowVectors)
+                    .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
+                    .capturePlanNodeId(orderById)
+                    .planNode();
+    auto queryCtx = core::QueryCtx::createForTest();
+    queryCtx->setConfigOverridesUnsafe(
+        {{core::QueryConfig::kPreferredOutputBatchSize,
+          std::to_string(testData.preferredOutBatchSize)}});
+    CursorParameters params;
+    params.planNode = plan;
+    params.queryCtx = queryCtx;
+    auto task = assertQueryOrdered(
+        params, "SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST", {0});
+    EXPECT_EQ(
+        testData.expectedOutputVectors,
+        toPlanStats(task->taskStats()).at(orderById).outputVectors);
+  }
 }

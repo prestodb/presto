@@ -60,13 +60,30 @@ class OrderBy : public Operator {
  private:
   static const int32_t kBatchSizeInBytes{2 * 1024 * 1024};
 
+  /// Prepare the reusable output buffer based on the output batch size and the
+  /// remaining rows to return.
+  void prepareOutput();
+
+  const int32_t numSortKeys_;
+
+  /// The map from input column channel to the corresponding one stored in
+  /// 'data_'. The input column channel might be reordered to ensure the sorting
+  /// key columns stored first in 'data_'.
+  std::vector<IdentityProjection> columnMap_;
+  std::vector<CompareFlags> keyCompareFlags_;
+
   std::unique_ptr<RowContainer> data_;
-  std::vector<std::pair<column_index_t, core::SortOrder>> keyInfo_;
+
+  /// Maximum number of rows in the output batch.
+  uint32_t outputBatchSize_;
 
   size_t numRows_ = 0;
   size_t numRowsReturned_ = 0;
   std::vector<char*> returningRows_;
 
   bool finished_ = false;
+
+  /// Possibly reusable output vector.
+  RowVectorPtr output_;
 };
 } // namespace facebook::velox::exec

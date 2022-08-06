@@ -18,6 +18,12 @@
 
 namespace facebook::velox::exec {
 
+namespace {
+CompareFlags fromSortOrderToCompareFlags(const core::SortOrder& sortOrder) {
+  return {sortOrder.isNullsFirst(), sortOrder.isAscending(), false, false};
+}
+} // namespace
+
 OrderBy::OrderBy(
     int32_t operatorId,
     DriverCtx* driverCtx,
@@ -28,18 +34,46 @@ OrderBy::OrderBy(
           operatorId,
           orderByNode->id(),
           "OrderBy"),
-      data_(std::make_unique<RowContainer>(
-          outputType_->as<TypeKind::ROW>().children(),
-          operatorCtx_->mappedMemory())) {
-  auto type = orderByNode->outputType();
-  auto numKeys = orderByNode->sortingKeys().size();
-  for (int i = 0; i < numKeys; ++i) {
-    auto channel = exprToChannel(orderByNode->sortingKeys()[i].get(), type);
+      numSortKeys_(orderByNode->sortingKeys().size()) {
+  std::vector<TypePtr> keyTypes;
+  std::vector<TypePtr> dependentTypes;
+  // Setup column projections to store sort key columns in row container first.
+  // This enables to use the sorting facility provided by the row container. It
+  // also facilitates the sort merge read handling required by disk spilling.
+  std::unordered_set<column_index_t> keyChannelSet;
+  columnMap_.reserve(numSortKeys_);
+  keyCompareFlags_.reserve(numSortKeys_);
+  for (int i = 0; i < numSortKeys_; ++i) {
+    const auto channel =
+        exprToChannel(orderByNode->sortingKeys()[i].get(), outputType_);
     VELOX_CHECK(
         channel != kConstantChannel,
-        "OrderBy doesn't allow constant grouping keys");
-    keyInfo_.emplace_back(channel, orderByNode->sortingOrders()[i]);
+        "OrderBy doesn't allow constant sorting keys");
+    columnMap_.emplace_back(channel, i);
+    keyTypes.push_back(outputType_->childAt(channel));
+    keyCompareFlags_.push_back(
+        fromSortOrderToCompareFlags(orderByNode->sortingOrders()[i]));
+    keyChannelSet.emplace(channel);
   }
+
+  // Store non-sort key columns as dependents in row container.
+  for (column_index_t inputChannel = 0, nextOutputChannel = numSortKeys_;
+       inputChannel < outputType_->size();
+       ++inputChannel) {
+    if (keyChannelSet.count(inputChannel) != 0) {
+      continue;
+    }
+    columnMap_.emplace_back(inputChannel, nextOutputChannel++);
+    dependentTypes.push_back(outputType_->childAt(inputChannel));
+  }
+
+  // Create row container.
+  data_ = std::make_unique<RowContainer>(
+      keyTypes, dependentTypes, operatorCtx_->mappedMemory());
+
+  outputBatchSize_ = std::max<uint32_t>(
+      operatorCtx_->execCtx()->queryCtx()->config().preferredOutputBatchSize(),
+      data_->estimatedNumRowsPerBatch(kBatchSizeInBytes));
 }
 
 void OrderBy::addInput(RowVectorPtr input) {
@@ -48,10 +82,11 @@ void OrderBy::addInput(RowVectorPtr input) {
   for (int row = 0; row < input->size(); ++row) {
     rows[row] = data_->newRow();
   }
-  for (size_t col = 0; col < input->childrenSize(); ++col) {
-    DecodedVector decoded(*input->childAt(col), allRows);
+  for (const auto& columnProjection : columnMap_) {
+    DecodedVector decoded(
+        *input->childAt(columnProjection.inputChannel), allRows);
     for (int i = 0; i < input->size(); ++i) {
-      data_->store(decoded, i, rows[i], col);
+      data_->store(decoded, i, rows[i], columnProjection.outputChannel);
     }
   }
 
@@ -67,55 +102,63 @@ void OrderBy::noMoreInput() {
     return;
   }
 
+  VELOX_CHECK_EQ(numRows_, data_->numRows());
   // Sort the pointers to the rows in RowContainer (data_) instead of sorting
   // the rows.
   returningRows_.resize(numRows_);
   RowContainerIterator iter;
   data_->listRows(&iter, numRows_, returningRows_.data());
-
   std::sort(
       returningRows_.begin(),
       returningRows_.end(),
       [this](const char* leftRow, const char* rightRow) {
-        for (auto& [channelIndex, sortOrder] : keyInfo_) {
+        for (vector_size_t index = 0; index < numSortKeys_; ++index) {
           if (auto result = data_->compare(
-                  leftRow,
-                  rightRow,
-                  channelIndex,
-                  {sortOrder.isNullsFirst(), sortOrder.isAscending(), false})) {
+                  leftRow, rightRow, index, keyCompareFlags_[index])) {
             return result < 0;
           }
         }
-        return false; // lhs == rhs.
+        return false;
       });
 }
 
 RowVectorPtr OrderBy::getOutput() {
-  if (finished_ || !noMoreInput_ || returningRows_.size() == numRowsReturned_) {
+  if (finished_ || !noMoreInput_ || numRows_ == numRowsReturned_) {
     return nullptr;
   }
 
-  size_t numRows = data_->estimatedNumRowsPerBatch(kBatchSizeInBytes);
-  int32_t numRowsToReturn =
-      std::min(numRows, returningRows_.size() - numRowsReturned_);
+  prepareOutput();
 
-  VELOX_CHECK_GT(numRowsToReturn, 0);
-
-  auto result = std::dynamic_pointer_cast<RowVector>(
-      BaseVector::create(outputType_, numRowsToReturn, operatorCtx_->pool()));
-
-  for (int i = 0; i < outputType_->size(); ++i) {
+  for (const auto& identityProjection : columnMap_) {
     data_->extractColumn(
         returningRows_.data() + numRowsReturned_,
-        numRowsToReturn,
-        i,
-        result->childAt(i));
+        output_->size(),
+        identityProjection.outputChannel,
+        output_->childAt(identityProjection.inputChannel));
+  }
+  numRowsReturned_ += output_->size();
+
+  finished_ = (numRowsReturned_ == numRows_);
+  return output_;
+}
+
+void OrderBy::prepareOutput() {
+  VELOX_CHECK_GT(numRows_, numRowsReturned_);
+
+  const vector_size_t batchSize =
+      std::min<vector_size_t>(numRows_ - numRowsReturned_, outputBatchSize_);
+  if (output_ != nullptr) {
+    VectorPtr output = std::move(output_);
+    BaseVector::prepareForReuse(output, batchSize);
+    output_ = std::static_pointer_cast<RowVector>(output);
+  } else {
+    output_ = std::static_pointer_cast<RowVector>(
+        BaseVector::create(outputType_, batchSize, pool()));
   }
 
-  numRowsReturned_ += numRowsToReturn;
-
-  finished_ = (numRowsReturned_ == returningRows_.size());
-
-  return result;
+  for (auto& child : output_->children()) {
+    child->resize(batchSize);
+  }
 }
+
 } // namespace facebook::velox::exec
