@@ -323,7 +323,12 @@ StripeStreamsImpl::getIndexStreamFromCache(
     if (indexBase) {
       auto offset = info.getOffset();
       auto length = info.getLength();
-
+      if (auto cacheInput =
+              dynamic_cast<dwio::common::CacheInputStream*>(indexBase.get())) {
+        cacheInput->Skip(offset);
+        cacheInput->setRemainingBytes(length);
+        return indexBase;
+      }
       const void* start;
       int32_t ignored;
       DWIO_ENSURE(indexBase->Next(&start, &ignored), "failed to read index");

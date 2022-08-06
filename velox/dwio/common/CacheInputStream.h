@@ -48,6 +48,37 @@ class CacheInputStream : public SeekableInputStream {
   std::string getName() const override;
   size_t positionSize() override;
 
+  /// Returns a copy of 'this', ranging over the same bytes. The clone
+  /// is initially positioned at the position of 'this' and can be
+  /// moved independently within 'region_'.  This is used for first
+  /// caching a range of bytes from a file and then giving out
+  /// delimited subranges of this to callers. skip() and
+  /// setRemainingBytes() set the bounds of the window exposed by the
+  /// clone. In specific, reading protocol buffers requires a stream
+  /// that begins and ends at the exact start and end of the
+  /// serialization. Reading these from cache requires an exactly
+  /// delimited stream.
+  std::unique_ptr<CacheInputStream> clone() {
+    auto copy = std::make_unique<CacheInputStream>(
+        bufferedInput_,
+        ioStats_,
+        region_,
+        input_,
+        fileNum_,
+        tracker_,
+        trackingId_,
+        groupId_,
+        loadQuantum_);
+    copy->position_ = position_;
+    return copy;
+  }
+
+  /// Sets the stream to range over a window that starts at the current position
+  /// and is 'remainingBytes' bytes in size. 'remainingBytes' must be <=
+  /// 'region_.length - position_'. The stream cannot be used for reading
+  /// outside of the window. Use together wiht clone() and skip().
+  void setRemainingBytes(uint64_t remainingBytes);
+
  private:
   // Ensures that the current position is covered by 'pin_'.
   void loadPosition();
@@ -91,6 +122,10 @@ class CacheInputStream : public SeekableInputStream {
   uint32_t runSize_ = 0;
   // Position relative to 'region_.offset'.
   uint64_t position_ = 0;
+
+  // A restricted view over 'region'. offset is relative to 'region_'. A cloned
+  // CacheInputStream can cover a subrange of the range of the original.
+  std::optional<Region> window_;
 };
 
 } // namespace facebook::velox::dwio::common

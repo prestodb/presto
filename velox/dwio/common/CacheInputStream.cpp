@@ -53,10 +53,21 @@ bool CacheInputStream::Next(const void** buffer, int32_t* size) {
     *size = 0;
     return false;
   }
+  if (window_.has_value() &&
+      position_ >= window_.value().offset + window_.value().length) {
+    *size = 0;
+    return false;
+  }
   loadPosition();
 
   *buffer = reinterpret_cast<const void**>(run_ + offsetInRun_);
   *size = runSize_ - offsetInRun_;
+  if (window_.has_value()) {
+    auto window = window_.value();
+    if (position_ + *size > window.offset + window.length) {
+      *size = window.offset + window.length - position_;
+    }
+  }
   if (position_ + *size > region_.length) {
     *size = region_.length - position_;
   }
@@ -104,6 +115,11 @@ std::string CacheInputStream::getName() const {
 size_t CacheInputStream::positionSize() {
   // not compressed, so only need 1 position (uncompressed position)
   return 1;
+}
+
+void CacheInputStream::setRemainingBytes(uint64_t remainingBytes) {
+  VELOX_CHECK_GE(region_.length, position_ + remainingBytes);
+  window_ = Region{static_cast<uint64_t>(position_), remainingBytes};
 }
 
 namespace {

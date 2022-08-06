@@ -181,15 +181,23 @@ ReaderBase::ReaderBase(
   // load stripe index/footer cache
   if (cacheSize > 0) {
     DWIO_ENSURE_EQ(getFileFormat(), FileFormat::DWRF);
-    auto cacheBuffer =
-        std::make_shared<dwio::common::DataBuffer<char>>(pool, cacheSize);
-    input_->read(fileLength_ - tailSize, cacheSize, LogType::FOOTER)
-        ->readFully(cacheBuffer->data(), cacheSize);
-    cache_ = std::make_unique<StripeMetadataCache>(
-        postScript_->cacheMode(), *footer_, std::move(cacheBuffer));
-  }
 
-  if (input_->shouldPrefetchStripes()) {
+    if (input_->shouldPrefetchStripes()) {
+      cache_ = std::make_unique<StripeMetadataCache>(
+          postScript_->cacheMode(),
+          *footer_,
+          input_->read(fileLength_ - tailSize, cacheSize, LogType::FOOTER));
+      input_->load(LogType::FOOTER);
+    } else {
+      auto cacheBuffer =
+          std::make_shared<dwio::common::DataBuffer<char>>(pool, cacheSize);
+      input_->read(fileLength_ - tailSize, cacheSize, LogType::FOOTER)
+          ->readFully(cacheBuffer->data(), cacheSize);
+      cache_ = std::make_unique<StripeMetadataCache>(
+          postScript_->cacheMode(), *footer_, std::move(cacheBuffer));
+    }
+  }
+  if (!cache_ && input_->shouldPrefetchStripes()) {
     auto numStripes = getFooter().stripesSize();
     for (auto i = 0; i < numStripes; i++) {
       const auto& stripe = getFooter().stripes(i);

@@ -452,6 +452,67 @@ class CacheTest : public testing::Test {
   bool testRandomSeek_{true};
 };
 
+TEST_F(CacheTest, window) {
+  constexpr int32_t kMB = 1 << 20;
+  initializeCache(64 * kMB);
+  auto tracker = std::make_shared<ScanTracker>(
+      "testTracker",
+      nullptr,
+      dwio::common::ReaderOptions::kDefaultLoadQuantum,
+      groupStats_);
+  uint64_t fileId;
+  uint64_t groupId;
+  std::shared_ptr<InputStream> file =
+      inputByPath("test_for_window", fileId, groupId);
+  auto input = std::make_unique<CachedBufferedInput>(
+      *file,
+      *pool_,
+      fileId,
+      cache_.get(),
+      tracker,
+      groupId,
+      [file]() { return std::make_unique<TestInputStreamHolder>(file); },
+      ioStats_,
+      executor_.get(),
+      dwio::common::ReaderOptions::kDefaultLoadQuantum, // loadQuantum 8MB.
+      512 << 10 // Max coalesce distance 512K.
+  );
+  auto begin = 4 * kMB;
+  auto end = 17 * kMB;
+  auto stream = input->read(begin, end - begin, LogType::TEST);
+  auto cacheInput = dynamic_cast<CacheInputStream*>(stream.get());
+  EXPECT_TRUE(cacheInput != nullptr);
+  auto maxSize = cache_->sizeClasses().back() * memory::MappedMemory::kPageSize;
+  const void* buffer;
+  int32_t size;
+  int32_t numRead = 0;
+  while (numRead < end - begin) {
+    EXPECT_TRUE(stream->Next(&buffer, &size));
+    numRead += size;
+  }
+  EXPECT_FALSE(stream->Next(&buffer, &size));
+
+  // We seek to 0.5 MB below the boundary of the 8MB load quantum and make a
+  // clone to read a range on either side of the load quantum boundary.
+  std::vector<uint64_t> positions = {7 * kMB + kMB / 2};
+  auto provider = PositionProvider(positions);
+  // We seek the first stream to 7.5MB inside its range.
+  cacheInput->seekToPosition(provider);
+  // We make a second stream that ranges over a subset of the range of the first
+  // one.
+  auto clone = cacheInput->clone();
+  clone->Skip(100);
+  clone->setRemainingBytes(kMB);
+  EXPECT_TRUE(clone->Next(&buffer, &size));
+  // Half MB minus the 100 bytes skipped above should be left in the first load
+  // quantum of 8MB.
+  EXPECT_EQ(kMB / 2 - 100, size);
+  EXPECT_TRUE(clone->Next(&buffer, &size));
+  EXPECT_EQ(kMB / 2 + 100, size);
+  // There should be no more data in the window.
+  EXPECT_FALSE(clone->Next(&buffer, &size));
+}
+
 TEST_F(CacheTest, bufferedInput) {
   // Size 160 MB. Frequent evictions and not everything fits in prefetch window.
   initializeCache(160 << 20);

@@ -377,7 +377,8 @@ void SsdFile::write(std::vector<CachePin>& pins) {
     storeIndex += numWritten;
   }
 
-  if (bytesAfterCheckpoint_ > checkpointIntervalBytes_) {
+  if (checkpointIntervalBytes_ &&
+      bytesAfterCheckpoint_ > checkpointIntervalBytes_) {
     checkpoint();
   }
 }

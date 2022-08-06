@@ -482,3 +482,20 @@ target_link_libraries(
   ${FOLLY}
   ${FOLLY_BENCHMARK}
   ${FMT})
+
+add_executable(velox_dwio_cache_test CacheInputTest.cpp)
+
+add_test(velox_dwio_cache_test velox_dwio_cache_test)
+
+target_link_libraries(
+  velox_dwio_cache_test
+  ${VELOX_LINK_LIBS}
+  velox_temp_path
+  ${DOUBLE_CONVERSION}
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${FMT}
+  ${LZ4}
+  ${LZO}
+  ${ZSTD}
+  ${ZLIB_LIBRARIES}
+  ${TEST_LINK_LIBS})

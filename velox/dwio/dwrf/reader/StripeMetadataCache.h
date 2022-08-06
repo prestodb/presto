@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/common/SeekableInputStream.h"
+#include "velox/dwio/common/CacheInputStream.h"
 #include "velox/dwio/dwrf/common/Common.h"
 
 namespace facebook::velox::dwrf {
@@ -37,6 +37,14 @@ class StripeMetadataCache {
       std::vector<uint32_t>&& offsets)
       : mode_{mode}, buffer_{std::move(buffer)}, offsets_{std::move(offsets)} {}
 
+  StripeMetadataCache(
+      StripeCacheMode mode,
+      const Footer& footer,
+      std::unique_ptr<dwio::common::SeekableInputStream> input)
+      : mode_(mode), input_(std::move(input)), offsets_(getOffsets(footer)) {
+    VELOX_CHECK(dynamic_cast<dwio::common::CacheInputStream*>(input_.get()));
+  }
+
   ~StripeMetadataCache() = default;
 
   StripeMetadataCache(const StripeMetadataCache&) = delete;
@@ -48,14 +56,23 @@ class StripeMetadataCache {
     return getIndex(mode, stripeIndex) != INVALID_INDEX;
   }
 
-  std::unique_ptr<dwio::common::SeekableArrayInputStream> get(
+  std::unique_ptr<dwio::common::SeekableInputStream> get(
       StripeCacheMode mode,
       uint64_t stripeIndex) const {
     auto index = getIndex(mode, stripeIndex);
     if (index != INVALID_INDEX) {
       auto offset = offsets_[index];
-      return std::make_unique<dwio::common::SeekableArrayInputStream>(
-          buffer_->data() + offset, offsets_[index + 1] - offset);
+      if (buffer_) {
+        return std::make_unique<dwio::common::SeekableArrayInputStream>(
+            buffer_->data() + offset, offsets_[index + 1] - offset);
+      } else {
+        auto clone =
+            reinterpret_cast<dwio::common::CacheInputStream*>(input_.get())
+                ->clone();
+        clone->Skip(offset);
+        clone->setRemainingBytes(offsets_[index + 1] - offset);
+        return clone;
+      }
     }
     return {};
   }
@@ -63,7 +80,7 @@ class StripeMetadataCache {
  private:
   StripeCacheMode mode_;
   std::shared_ptr<dwio::common::DataBuffer<char>> buffer_;
-
+  std::unique_ptr<dwio::common::SeekableInputStream> input_;
   std::vector<uint32_t> offsets_;
 
   uint64_t getIndex(StripeCacheMode mode, uint64_t stripeIndex) const {
