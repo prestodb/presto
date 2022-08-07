@@ -15,6 +15,8 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.statistics.EmptyPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.sql.planner.CachingPlanHasher;
+import com.facebook.presto.sql.planner.PlanHasher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 
@@ -22,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 public class HistoryBasedPlanStatisticsManager
 {
-    private final ObjectMapper objectMapper;
+    private final PlanHasher planHasher;
 
     private HistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider = EmptyPlanStatisticsProvider.getInstance();
     private boolean statisticsProviderAdded;
@@ -30,7 +32,8 @@ public class HistoryBasedPlanStatisticsManager
     @Inject
     public HistoryBasedPlanStatisticsManager(ObjectMapper objectMapper)
     {
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        requireNonNull(objectMapper, "objectMapper is null");
+        this.planHasher = new CachingPlanHasher(objectMapper);
     }
 
     public void addHistoryBasedPlanStatisticsProviderFactory(HistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider)
@@ -44,6 +47,6 @@ public class HistoryBasedPlanStatisticsManager
 
     public HistoryBasedPlanStatisticsCalculator getHistoryBasedPlanStatisticsCalculator(StatsCalculator delegate)
     {
-        return new HistoryBasedPlanStatisticsCalculator(() -> historyBasedPlanStatisticsProvider, delegate, objectMapper);
+        return new HistoryBasedPlanStatisticsCalculator(() -> historyBasedPlanStatisticsProvider, delegate, planHasher);
     }
 }
