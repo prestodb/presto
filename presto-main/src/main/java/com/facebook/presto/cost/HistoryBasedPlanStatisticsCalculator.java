@@ -15,17 +15,17 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.PlanStatistics;
+import com.facebook.presto.sql.planner.PlanHasher;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
@@ -34,13 +34,8 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
-import static com.facebook.presto.spi.StandardErrorCode.PLAN_SERIALIZATION_ERROR;
-import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.hash.Hashing.sha256;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class HistoryBasedPlanStatisticsCalculator
@@ -48,16 +43,16 @@ public class HistoryBasedPlanStatisticsCalculator
 {
     private final Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider;
     private final StatsCalculator delegate;
-    private final ObjectMapper objectMapper;
+    private final PlanHasher planHasher;
 
     public HistoryBasedPlanStatisticsCalculator(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
             StatsCalculator delegate,
-            ObjectMapper objectMapper)
+            PlanHasher planHasher)
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.planHasher = requireNonNull(planHasher, "planHasher is null");
     }
 
     @Override
@@ -67,6 +62,12 @@ public class HistoryBasedPlanStatisticsCalculator
                 .combineStats(getStatistics(node, session, lookup));
     }
 
+    @VisibleForTesting
+    public PlanHasher getPlanHasher()
+    {
+        return planHasher;
+    }
+
     private PlanStatistics getStatistics(PlanNode planNode, Session session, Lookup lookup)
     {
         PlanNode plan = resolveGroupReferences(planNode, lookup);
@@ -74,12 +75,14 @@ public class HistoryBasedPlanStatisticsCalculator
             return PlanStatistics.empty();
         }
 
-        // TODO: generateCanonicalPlan() iterates through whole plan subtree. Consider caching/precomputing hashes.
-        Map<PlanCanonicalizationStrategy, String> allHashes = historyBasedPlanCanonicalizationStrategyList().stream()
-                .map(strategy -> generateCanonicalPlan(planNode, strategy))
-                .filter(canonicalPlan -> canonicalPlan.isPresent())
-                .collect(toImmutableMap(canonicalPlan -> canonicalPlan.get().getStrategy(), canonicalPlan -> hashPlan(canonicalPlan.get().getPlan())));
+        ImmutableMap.Builder<PlanCanonicalizationStrategy, String> allHashesBuilder = ImmutableMap.builder();
 
+        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+            Optional<String> hash = plan.getStatsEquivalentPlanNode().flatMap(node -> planHasher.hash(node, strategy));
+            hash.ifPresent(string -> allHashesBuilder.put(strategy, string));
+        }
+
+        Map<PlanCanonicalizationStrategy, String> allHashes = allHashesBuilder.build();
         List<PlanNodeWithHash> planNodeWithHashes = allHashes.values().stream()
                 .distinct()
                 .map(hash -> new PlanNodeWithHash(plan, Optional.of(hash)))
@@ -105,15 +108,5 @@ public class HistoryBasedPlanStatisticsCalculator
         return Optional.ofNullable(statistics.get(new PlanNodeWithHash(plan, Optional.empty())))
                 .map(HistoricalPlanStatistics::getLastRunStatistics)
                 .orElseGet(PlanStatistics::empty);
-    }
-
-    private String hashPlan(PlanNode plan)
-    {
-        try {
-            return sha256().hashString(objectMapper.writeValueAsString(plan), UTF_8).toString();
-        }
-        catch (JsonProcessingException e) {
-            throw new PrestoException(PLAN_SERIALIZATION_ERROR, "Cannot serialize plan to JSON", e);
-        }
     }
 }
