@@ -117,7 +117,8 @@ public class MapDirectSelectiveStreamReader
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
-            OrcAggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext,
+            boolean isLowMemory)
     {
         checkArgument(filters.keySet().stream().map(Subfield::getPath).allMatch(List::isEmpty), "filters on nested columns are not supported yet");
 
@@ -149,8 +150,8 @@ public class MapDirectSelectiveStreamReader
                         .collect(toImmutableList());
             }
 
-            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, keyOutputType, ImmutableList.of(), hiveStorageTimeZone, options, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext());
-            this.valueReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(1), ImmutableMap.of(), valueOutputType, elementRequiredSubfields, hiveStorageTimeZone, options, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext());
+            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, keyOutputType, ImmutableList.of(), hiveStorageTimeZone, options, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
+            this.valueReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(1), ImmutableMap.of(), valueOutputType, elementRequiredSubfields, hiveStorageTimeZone, options, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
         }
         else {
             this.keyReader = null;

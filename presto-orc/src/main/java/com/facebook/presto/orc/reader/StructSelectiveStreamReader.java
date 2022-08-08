@@ -110,7 +110,8 @@ public class StructSelectiveStreamReader
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
-            OrcAggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext,
+            boolean isLowMemory)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newOrcLocalMemoryContext(StructSelectiveStreamReader.class.getSimpleName());
@@ -188,7 +189,8 @@ public class StructSelectiveStreamReader
                                 hiveStorageTimeZone,
                                 options,
                                 legacyMapSubscript,
-                                systemMemoryContext.newOrcAggregatedMemoryContext());
+                                systemMemoryContext.newOrcAggregatedMemoryContext(),
+                                isLowMemory);
                         nestedReaders.put(fieldName, nestedReader);
                     }
                     else {

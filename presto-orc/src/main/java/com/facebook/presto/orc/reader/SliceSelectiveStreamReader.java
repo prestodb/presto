@@ -46,11 +46,11 @@ public class SliceSelectiveStreamReader
     private final SliceDictionarySelectiveReader dictionaryReader;
     private SelectiveStreamReader currentReader;
 
-    public SliceSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, OrcAggregatedMemoryContext systemMemoryContext)
+    public SliceSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, OrcAggregatedMemoryContext systemMemoryContext, boolean isLowMemory)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.directReader = new SliceDirectSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(SliceDirectSelectiveStreamReader.class.getSimpleName()));
-        this.dictionaryReader = new SliceDictionarySelectiveReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(SliceDictionarySelectiveReader.class.getSimpleName()));
+        this.dictionaryReader = new SliceDictionarySelectiveReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(SliceDictionarySelectiveReader.class.getSimpleName()), isLowMemory);
     }
 
     @Override

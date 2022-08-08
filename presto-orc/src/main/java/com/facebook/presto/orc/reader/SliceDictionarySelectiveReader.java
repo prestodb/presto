@@ -95,6 +95,7 @@ public class SliceDictionarySelectiveReader
     private final StreamDescriptor streamDescriptor;
     private final int maxCodePointCount;
     private final boolean isCharType;
+    private final boolean isLowMemory;
 
     private byte[] dictionaryData = EMPTY_DICTIONARY_DATA;
     private int[] dictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
@@ -139,7 +140,12 @@ public class SliceDictionarySelectiveReader
     private int outputPositionCount;
     private boolean valuesInUse;
 
-    public SliceDictionarySelectiveReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, OrcLocalMemoryContext systemMemoryContext)
+    public SliceDictionarySelectiveReader(
+            StreamDescriptor streamDescriptor,
+            Optional<TupleDomainFilter> filter,
+            Optional<Type> outputType,
+            OrcLocalMemoryContext systemMemoryContext,
+            boolean isLowMemory)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.filter = requireNonNull(filter, "filter is null").orElse(null);
@@ -151,6 +157,7 @@ public class SliceDictionarySelectiveReader
         this.maxCodePointCount = orcType == null ? 0 : orcType.getLength().orElse(-1);
         this.valueWithPadding = maxCodePointCount < 0 ? null : new byte[maxCodePointCount];
         this.isCharType = orcType.getOrcTypeKind() == CHAR;
+        this.isLowMemory = isLowMemory;
         this.outputRequired = outputType.isPresent();
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");
     }
@@ -253,7 +260,7 @@ public class SliceDictionarySelectiveReader
                 else {
                     length = inRowDictionary ? rowGroupDictionaryLength[rawIndex] : stripeDictionaryLength[rawIndex];
                 }
-                if (nonDeterministicFilter) {
+                if (evaluationStatus == null) {
                     evaluateFilter(position, index, length);
                 }
                 else {
@@ -696,9 +703,13 @@ public class SliceDictionarySelectiveReader
     private void initiateEvaluationStatus(int positionCount)
     {
         verify(positionCount > 0);
-
-        evaluationStatus = ensureCapacity(evaluationStatus, positionCount - 1);
-        fill(evaluationStatus, 0, evaluationStatus.length, FILTER_NOT_EVALUATED);
+        if (nonDeterministicFilter && !isLowMemory) {
+            evaluationStatus = ensureCapacity(evaluationStatus, positionCount - 1);
+            fill(evaluationStatus, 0, evaluationStatus.length, FILTER_NOT_EVALUATED);
+        }
+        else {
+            evaluationStatus = null;
+        }
     }
 
     private BlockLease newLease(Block block)
