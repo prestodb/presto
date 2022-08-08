@@ -379,9 +379,9 @@ TEST_P(SpillerTest, error) {
 
 TEST_P(SpillerTest, spillWithEmptyPartitions) {
   if (type_ == Spiller::Type::kOrderBy) {
-    // kOrderBy type which has only one partition, is not relevant for this
-    // test.
-    GTEST_SKIP();
+    LOG(INFO) << "kOrderBy type which has only one partition, "
+                 "is not relevant for this test.";
+    return;
   }
   auto rowType = ROW({{"long_val", BIGINT()}, {"string_val", VARCHAR()}});
   struct {
