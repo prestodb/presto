@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+#include <arrow/api.h>
 #include <arrow/c/abi.h>
+#include <arrow/c/bridge.h>
+#include <arrow/testing/gtest_util.h>
 #include <gtest/gtest.h>
 
 #include "velox/common/base/Nulls.h"
@@ -164,6 +167,16 @@ class ArrowBridgeArrayExportTest : public testing::Test {
         .release = mockArrayRelease,
         .private_data = nullptr,
     };
+  }
+
+  template <typename T>
+  BufferPtr makeBuffer(const std::vector<T>& data) {
+    auto ans = AlignedBuffer::allocate<T>(data.size(), pool_.get());
+    auto buf = ans->template asMutable<T>();
+    for (int i = 0; i < data.size(); ++i) {
+      buf[i] = data[i];
+    }
+    return ans;
   }
 
   // Boiler plate structures required by vectorMaker.
@@ -393,6 +406,185 @@ TEST_F(ArrowBridgeArrayExportTest, rowVectorEmpty) {
   arrowArray.release(&arrowArray);
 }
 
+std::shared_ptr<arrow::Array> toArrow(
+    const VectorPtr& vec,
+    memory::MemoryPool* pool) {
+  ArrowSchema schema;
+  ArrowArray array;
+  exportToArrow(vec->type(), schema);
+  exportToArrow(vec, array, pool);
+  EXPECT_OK_AND_ASSIGN(auto type, arrow::ImportType(&schema));
+  EXPECT_OK_AND_ASSIGN(auto ans, arrow::ImportArray(&array, type));
+  return ans;
+}
+
+void validateOffsets(
+    const arrow::ListArray& array,
+    const std::vector<int32_t>& offsets) {
+  ASSERT_EQ(array.length() + 1, offsets.size());
+  for (int i = 0; i < array.length(); ++i) {
+    EXPECT_EQ(array.value_offset(i), offsets[i]);
+    EXPECT_EQ(array.value_length(i), offsets[i + 1] - offsets[i]);
+  }
+}
+
+TEST_F(ArrowBridgeArrayExportTest, arraySimple) {
+  auto vec = vectorMaker_.arrayVector<int64_t>({{1, 2, 3}, {4, 5}});
+  auto array = toArrow(vec, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  EXPECT_EQ(array->null_count(), 0);
+  ASSERT_EQ(*array->type(), *arrow::list(arrow::int64()));
+  auto& listArray = static_cast<const arrow::ListArray&>(*array);
+  validateOffsets(listArray, {0, 3, 5});
+  ASSERT_EQ(*listArray.values()->type(), *arrow::int64());
+  auto& values = static_cast<const arrow::Int64Array&>(*listArray.values());
+  ASSERT_EQ(values.length(), 5);
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_EQ(values.Value(i), i + 1);
+  }
+}
+
+TEST_F(ArrowBridgeArrayExportTest, arrayGap) {
+  auto elements = vectorMaker_.flatVector<int64_t>({1, 2, 3, 4, 5});
+  elements->setNull(3, true);
+  elements->setNullCount(1);
+  auto offsets = makeBuffer<vector_size_t>({0, 3});
+  auto sizes = makeBuffer<vector_size_t>({2, 2});
+  auto vec = std::make_shared<ArrayVector>(
+      pool_.get(), ARRAY(BIGINT()), nullptr, 2, offsets, sizes, elements);
+  auto array = toArrow(vec, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  EXPECT_EQ(array->null_count(), 0);
+  ASSERT_EQ(*array->type(), *arrow::list(arrow::int64()));
+  auto& listArray = static_cast<const arrow::ListArray&>(*array);
+  validateOffsets(listArray, {0, 2, 4});
+  ASSERT_EQ(*listArray.values()->type(), *arrow::int64());
+  auto& values = static_cast<const arrow::Int64Array&>(*listArray.values());
+  EXPECT_EQ(values.null_count(), 1);
+  ASSERT_EQ(values.length(), 4);
+  EXPECT_EQ(values.Value(0), 1);
+  EXPECT_EQ(values.Value(1), 2);
+  EXPECT_TRUE(values.IsNull(2));
+  EXPECT_FALSE(values.IsNull(3));
+  EXPECT_EQ(values.Value(3), 5);
+}
+
+TEST_F(ArrowBridgeArrayExportTest, arrayReorder) {
+  auto elements = vectorMaker_.flatVector<int64_t>({1, 2, 3, 4, 5});
+  elements->setNull(3, true);
+  elements->setNullCount(1);
+  auto offsets = makeBuffer<vector_size_t>({3, 0});
+  auto sizes = makeBuffer<vector_size_t>({2, 2});
+  auto vec = std::make_shared<ArrayVector>(
+      pool_.get(), ARRAY(BIGINT()), nullptr, 2, offsets, sizes, elements);
+  auto array = toArrow(vec, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  EXPECT_EQ(array->null_count(), 0);
+  ASSERT_EQ(*array->type(), *arrow::list(arrow::int64()));
+  auto& listArray = static_cast<const arrow::ListArray&>(*array);
+  validateOffsets(listArray, {0, 2, 4});
+  ASSERT_EQ(*listArray.values()->type(), *arrow::int64());
+  auto& values = static_cast<const arrow::Int64Array&>(*listArray.values());
+  EXPECT_EQ(values.null_count(), 1);
+  ASSERT_EQ(values.length(), 4);
+  EXPECT_TRUE(values.IsNull(0));
+  EXPECT_EQ(values.Value(1), 5);
+  EXPECT_EQ(values.Value(2), 1);
+  EXPECT_EQ(values.Value(3), 2);
+}
+
+TEST_F(ArrowBridgeArrayExportTest, arrayNested) {
+  auto elements = vectorMaker_.flatVector<int64_t>({1, 2, 3, 4, 5});
+  auto vec = ({
+    auto inner = ({
+      auto offsets = makeBuffer<vector_size_t>({0, 4, 2});
+      auto sizes = makeBuffer<vector_size_t>({1, 1, 1});
+      std::make_shared<ArrayVector>(
+          pool_.get(), ARRAY(BIGINT()), nullptr, 3, offsets, sizes, elements);
+    });
+    auto offsets = makeBuffer<vector_size_t>({2, 0});
+    auto sizes = makeBuffer<vector_size_t>({1, 1});
+    std::make_shared<ArrayVector>(
+        pool_.get(), ARRAY(inner->type()), nullptr, 2, offsets, sizes, inner);
+  });
+  auto array = toArrow(vec, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(*array->type(), *arrow::list(arrow::list(arrow::int64())));
+  auto& listArray = static_cast<const arrow::ListArray&>(*array);
+  validateOffsets(listArray, {0, 1, 2});
+  auto& inner = static_cast<const arrow::ListArray&>(*listArray.values());
+  validateOffsets(inner, {0, 1, 2});
+  auto& values = static_cast<const arrow::Int64Array&>(*inner.values());
+  ASSERT_EQ(values.length(), 2);
+  EXPECT_EQ(values.Value(0), 3);
+  EXPECT_EQ(values.Value(1), 1);
+}
+
+TEST_F(ArrowBridgeArrayExportTest, mapSimple) {
+  auto allOnes = [](vector_size_t) { return 1; };
+  auto vec =
+      vectorMaker_.mapVector<int64_t, int64_t>(2, allOnes, allOnes, allOnes);
+  auto array = toArrow(vec, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  EXPECT_EQ(array->null_count(), 0);
+  ASSERT_EQ(*array->type(), *arrow::map(arrow::int64(), arrow::int64()));
+  auto& mapArray = static_cast<const arrow::MapArray&>(*array);
+  validateOffsets(mapArray, {0, 1, 2});
+  auto& keys = static_cast<const arrow::Int64Array&>(*mapArray.keys());
+  ASSERT_EQ(keys.length(), 2);
+  EXPECT_EQ(keys.Value(0), 1);
+  EXPECT_EQ(keys.Value(1), 1);
+  auto& items = static_cast<const arrow::Int64Array&>(*mapArray.items());
+  ASSERT_EQ(items.length(), 2);
+  EXPECT_EQ(items.Value(0), 1);
+  EXPECT_EQ(items.Value(1), 1);
+}
+
+TEST_F(ArrowBridgeArrayExportTest, mapNested) {
+  auto vec = ({
+    auto ident = [](vector_size_t i) { return i; };
+    auto inner = ({
+      auto keys = vectorMaker_.flatVector<int32_t>(5, ident);
+      auto values = keys;
+      auto offsets = makeBuffer<vector_size_t>({0, 4, 2});
+      auto sizes = makeBuffer<vector_size_t>({1, 1, 1});
+      auto type = MAP(INTEGER(), INTEGER());
+      std::make_shared<MapVector>(
+          pool_.get(), type, nullptr, 3, offsets, sizes, keys, values);
+    });
+    auto offsets = makeBuffer<vector_size_t>({2, 0});
+    auto sizes = makeBuffer<vector_size_t>({1, 1});
+    auto keys = vectorMaker_.flatVector<int32_t>(3, ident);
+    auto type = MAP(INTEGER(), MAP(INTEGER(), INTEGER()));
+    std::make_shared<MapVector>(
+        pool_.get(), type, nullptr, 2, offsets, sizes, keys, inner);
+  });
+  auto array = toArrow(vec, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  EXPECT_EQ(array->null_count(), 0);
+  ASSERT_EQ(
+      *array->type(),
+      *arrow::map(arrow::int32(), arrow::map(arrow::int32(), arrow::int32())));
+  auto& mapArray = static_cast<const arrow::MapArray&>(*array);
+  validateOffsets(mapArray, {0, 1, 2});
+  {
+    auto& keys = static_cast<const arrow::Int32Array&>(*mapArray.keys());
+    ASSERT_EQ(keys.length(), 2);
+    EXPECT_EQ(keys.Value(0), 2);
+    EXPECT_EQ(keys.Value(1), 0);
+  }
+  auto& inner = static_cast<const arrow::MapArray&>(*mapArray.items());
+  validateOffsets(inner, {0, 1, 2});
+  auto& keys = static_cast<const arrow::Int32Array&>(*inner.keys());
+  ASSERT_EQ(keys.length(), 2);
+  EXPECT_EQ(keys.Value(0), 2);
+  EXPECT_EQ(keys.Value(1), 0);
+  auto& values = static_cast<const arrow::Int32Array&>(*inner.items());
+  ASSERT_EQ(values.length(), 2);
+  EXPECT_EQ(values.Value(0), 2);
+  EXPECT_EQ(values.Value(1), 0);
+}
+
 TEST_F(ArrowBridgeArrayExportTest, unsupported) {
   ArrowArray arrowArray;
   VectorPtr vector;
@@ -403,15 +595,6 @@ TEST_F(ArrowBridgeArrayExportTest, unsupported) {
 
   // Dates.
   vector = vectorMaker_.flatVectorNullable<Date>({});
-  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
-
-  // Arrays.
-  vector = vectorMaker_.arrayVector<int64_t>({{1, 2, 3}, {4, 5}});
-  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
-
-  // Maps.
-  auto lambda = [](vector_size_t /* row */) { return 1; };
-  vector = vectorMaker_.mapVector<int64_t, int64_t>(2, lambda, lambda, lambda);
   EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Constant encoding.
@@ -751,6 +934,72 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     testImportRowEmpty();
   }
 
+ private:
+  template <typename F>
+  void testArrowRoundTrip(const arrow::Array& array, F validateVector) {
+    ArrowSchema schema;
+    ArrowArray data;
+    ASSERT_OK(arrow::ExportType(*array.type(), &schema));
+    ASSERT_OK(arrow::ExportArray(array, &data));
+    auto vec = importFromArrow(schema, data, pool_.get());
+    validateVector(*vec);
+    if (isViewer()) {
+      // These release calls just decrease the refcount; there are still
+      // references to keep the data alive from the original Arrow array.
+      schema.release(&schema);
+      data.release(&data);
+    } else {
+      EXPECT_FALSE(schema.release);
+      EXPECT_FALSE(data.release);
+    }
+    exportToArrow(vec->type(), schema);
+    exportToArrow(vec, data);
+    ASSERT_OK_AND_ASSIGN(auto arrowType, arrow::ImportType(&schema));
+    ASSERT_OK_AND_ASSIGN(auto array2, arrow::ImportArray(&data, arrowType));
+    ASSERT_OK(array2->ValidateFull());
+    VLOG(1) << array2->ToString();
+    EXPECT_TRUE(array2->Equals(array));
+  }
+
+ protected:
+  void testImportArray() {
+    auto vb = std::make_shared<arrow::Int32Builder>();
+    arrow::ListBuilder lb(arrow::default_memory_pool(), vb);
+    ASSERT_OK(lb.Append());
+    ASSERT_OK(vb->Append(1));
+    ASSERT_OK(lb.AppendNull());
+    ASSERT_OK(lb.Append());
+    ASSERT_OK(vb->Append(2));
+    ASSERT_OK(vb->Append(3));
+    ASSERT_OK(lb.AppendEmptyValue());
+    ASSERT_OK_AND_ASSIGN(auto array, lb.Finish());
+    testArrowRoundTrip(*array, [](const BaseVector& vec) {
+      ASSERT_EQ(*vec.type(), *ARRAY(INTEGER()));
+      EXPECT_EQ(vec.size(), 4);
+    });
+  }
+
+  void testImportMap() {
+    auto kb = std::make_shared<arrow::Int32Builder>(); // key builder
+    auto ib = std::make_shared<arrow::Int32Builder>(); // item builder
+    arrow::MapBuilder mb(arrow::default_memory_pool(), kb, ib);
+    ASSERT_OK(mb.Append());
+    ASSERT_OK(kb->Append(1));
+    ASSERT_OK(ib->Append(2));
+    ASSERT_OK(mb.AppendNull());
+    ASSERT_OK(mb.Append());
+    ASSERT_OK(kb->Append(2));
+    ASSERT_OK(ib->Append(4));
+    ASSERT_OK(kb->Append(3));
+    ASSERT_OK(ib->Append(6));
+    ASSERT_OK(mb.AppendEmptyValue());
+    ASSERT_OK_AND_ASSIGN(auto array, mb.Finish());
+    testArrowRoundTrip(*array, [](const BaseVector& vec) {
+      ASSERT_EQ(*vec.type(), *MAP(INTEGER(), INTEGER()));
+      EXPECT_EQ(vec.size(), 4);
+    });
+  }
+
   void testImportFailures() {
     ArrowSchema arrowSchema;
     ArrowArray arrowArray;
@@ -843,6 +1092,14 @@ TEST_F(ArrowBridgeArrayImportAsViewerTest, row) {
   testImportRow();
 }
 
+TEST_F(ArrowBridgeArrayImportAsViewerTest, array) {
+  testImportArray();
+}
+
+TEST_F(ArrowBridgeArrayImportAsViewerTest, map) {
+  testImportMap();
+}
+
 TEST_F(ArrowBridgeArrayImportAsViewerTest, failures) {
   testImportFailures();
 }
@@ -876,6 +1133,14 @@ TEST_F(ArrowBridgeArrayImportAsOwnerTest, string) {
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, row) {
   testImportRow();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, array) {
+  testImportArray();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, map) {
+  testImportMap();
 }
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, failures) {
