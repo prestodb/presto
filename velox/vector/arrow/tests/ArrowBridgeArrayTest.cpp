@@ -32,6 +32,12 @@ using namespace facebook::velox;
 void mockSchemaRelease(ArrowSchema*) {}
 void mockArrayRelease(ArrowArray*) {}
 
+void exportToArrow(const TypePtr& type, ArrowSchema& out) {
+  auto pool =
+      &facebook::velox::memory::getProcessDefaultMemoryManager().getRoot();
+  exportToArrow(BaseVector::create(type, 0, pool), out);
+}
+
 class ArrowBridgeArrayExportTest : public testing::Test {
  protected:
   template <typename T>
@@ -411,7 +417,7 @@ std::shared_ptr<arrow::Array> toArrow(
     memory::MemoryPool* pool) {
   ArrowSchema schema;
   ArrowArray array;
-  exportToArrow(vec->type(), schema);
+  exportToArrow(vec, schema);
   exportToArrow(vec, array, pool);
   EXPECT_OK_AND_ASSIGN(auto type, arrow::ImportType(&schema));
   EXPECT_OK_AND_ASSIGN(auto ans, arrow::ImportArray(&array, type));
@@ -585,6 +591,57 @@ TEST_F(ArrowBridgeArrayExportTest, mapNested) {
   EXPECT_EQ(values.Value(1), 0);
 }
 
+TEST_F(ArrowBridgeArrayExportTest, dictionarySimple) {
+  auto vec = BaseVector::wrapInDictionary(
+      nullptr,
+      allocateIndices(3, pool_.get()),
+      3,
+      vectorMaker_.flatVector<int64_t>({1, 2, 3}));
+  auto array = toArrow(vec, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(*array->type(), *arrow::dictionary(arrow::int32(), arrow::int64()));
+  auto& dict = static_cast<const arrow::DictionaryArray&>(*array);
+  auto& indices = static_cast<const arrow::Int32Array&>(*dict.indices());
+  ASSERT_EQ(indices.length(), 3);
+  EXPECT_EQ(indices.Value(0), 0);
+  EXPECT_EQ(indices.Value(1), 0);
+  EXPECT_EQ(indices.Value(2), 0);
+  auto& values = static_cast<const arrow::Int64Array&>(*dict.dictionary());
+  ASSERT_EQ(values.length(), 3);
+  EXPECT_EQ(values.Value(0), 1);
+  EXPECT_EQ(values.Value(1), 2);
+  EXPECT_EQ(values.Value(2), 3);
+}
+
+TEST_F(ArrowBridgeArrayExportTest, dictionaryNested) {
+  auto vec = ({
+    auto indices = makeBuffer<vector_size_t>({1, 2, 0});
+    auto wrapped = vectorMaker_.flatVector<int64_t>({1, 2, 3});
+    auto inner = BaseVector::wrapInDictionary(nullptr, indices, 3, wrapped);
+    auto offsets = makeBuffer<vector_size_t>({2, 0});
+    auto sizes = makeBuffer<vector_size_t>({1, 1});
+    std::make_shared<ArrayVector>(
+        pool_.get(), ARRAY(inner->type()), nullptr, 2, offsets, sizes, inner);
+  });
+  auto array = toArrow(vec, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(
+      *array->type(),
+      *arrow::list(arrow::dictionary(arrow::int32(), arrow::int64())));
+  auto& list = static_cast<const arrow::ListArray&>(*array);
+  validateOffsets(list, {0, 1, 2});
+  auto& dict = static_cast<const arrow::DictionaryArray&>(*list.values());
+  auto& indices = static_cast<const arrow::Int32Array&>(*dict.indices());
+  ASSERT_EQ(indices.length(), 2);
+  EXPECT_EQ(indices.Value(0), 0);
+  EXPECT_EQ(indices.Value(1), 1);
+  auto& values = static_cast<const arrow::Int64Array&>(*dict.dictionary());
+  ASSERT_EQ(values.length(), 3);
+  EXPECT_EQ(values.Value(0), 1);
+  EXPECT_EQ(values.Value(1), 2);
+  EXPECT_EQ(values.Value(2), 3);
+}
+
 TEST_F(ArrowBridgeArrayExportTest, unsupported) {
   ArrowArray arrowArray;
   VectorPtr vector;
@@ -599,12 +656,6 @@ TEST_F(ArrowBridgeArrayExportTest, unsupported) {
 
   // Constant encoding.
   vector = BaseVector::createConstant(variant(10), 10, pool_.get());
-  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
-
-  // Dictionary encoding.
-  BufferPtr indices = allocateIndices(3, pool_.get());
-  vector = BaseVector::wrapInDictionary(
-      BufferPtr(), indices, 3, vectorMaker_.flatVector<int64_t>({1, 2, 3}));
   EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 }
 
@@ -952,12 +1003,11 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
       EXPECT_FALSE(schema.release);
       EXPECT_FALSE(data.release);
     }
-    exportToArrow(vec->type(), schema);
-    exportToArrow(vec, data);
+    exportToArrow(vec, schema);
+    exportToArrow(vec, data, pool_.get());
     ASSERT_OK_AND_ASSIGN(auto arrowType, arrow::ImportType(&schema));
     ASSERT_OK_AND_ASSIGN(auto array2, arrow::ImportArray(&data, arrowType));
     ASSERT_OK(array2->ValidateFull());
-    VLOG(1) << array2->ToString();
     EXPECT_TRUE(array2->Equals(array));
   }
 
@@ -997,6 +1047,23 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     testArrowRoundTrip(*array, [](const BaseVector& vec) {
       ASSERT_EQ(*vec.type(), *MAP(INTEGER(), INTEGER()));
       EXPECT_EQ(vec.size(), 4);
+    });
+  }
+
+  void testImportDictionary() {
+    arrow::Dictionary32Builder<arrow::Int64Type> b;
+    for (int i = 0; i < 60; ++i) {
+      if (i % 7 == 0) {
+        ASSERT_OK(b.AppendNull());
+      } else {
+        ASSERT_OK(b.Append(i % 11));
+      }
+    }
+    ASSERT_OK_AND_ASSIGN(auto array, b.Finish());
+    testArrowRoundTrip(*array, [](const BaseVector& vec) {
+      ASSERT_EQ(*vec.type(), *BIGINT());
+      EXPECT_EQ(vec.encoding(), VectorEncoding::Simple::DICTIONARY);
+      EXPECT_EQ(vec.size(), 60);
     });
   }
 
@@ -1100,6 +1167,10 @@ TEST_F(ArrowBridgeArrayImportAsViewerTest, map) {
   testImportMap();
 }
 
+TEST_F(ArrowBridgeArrayImportAsViewerTest, dictionary) {
+  testImportDictionary();
+}
+
 TEST_F(ArrowBridgeArrayImportAsViewerTest, failures) {
   testImportFailures();
 }
@@ -1141,6 +1212,10 @@ TEST_F(ArrowBridgeArrayImportAsOwnerTest, array) {
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, map) {
   testImportMap();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, dictionary) {
+  testImportDictionary();
 }
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, failures) {

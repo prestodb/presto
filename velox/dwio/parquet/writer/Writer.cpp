@@ -25,7 +25,7 @@ void Writer::write(const RowVectorPtr& data) {
   ArrowArray array;
   ArrowSchema schema;
   exportToArrow(data, array, &pool_);
-  exportToArrow(data->type(), schema);
+  exportToArrow(data, schema);
   PARQUET_ASSIGN_OR_THROW(
       auto recordBatch, arrow::ImportRecordBatch(&array, &schema));
   auto table = arrow::Table::Make(

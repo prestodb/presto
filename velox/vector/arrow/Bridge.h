@@ -60,7 +60,7 @@ void exportToArrow(
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
-/// Export a generic Velox Type to an ArrowSchema.
+/// Export the type of a Velox vector to an ArrowSchema.
 ///
 /// The guidelines on API usage and memory management are the same as the ones
 /// described for the VectorPtr->ArrowArray export function.
@@ -77,7 +77,9 @@ void exportToArrow(
 ///
 ///   arrowSchema.release(&arrowSchema);
 ///
-void exportToArrow(const TypePtr& type, ArrowSchema& arrowSchema);
+/// NOTE: Since Arrow couples type and encoding, we need both Velox type and
+/// actual data (containing encoding) to create an ArrowSchema.
+void exportToArrow(const VectorPtr&, ArrowSchema&);
 
 /// Import an ArrowSchema into a Velox Type object.
 ///

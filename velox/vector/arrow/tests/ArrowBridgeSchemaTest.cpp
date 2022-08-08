@@ -27,6 +27,12 @@ namespace {
 using namespace facebook::velox;
 static void mockRelease(ArrowSchema*) {}
 
+void exportToArrow(const TypePtr& type, ArrowSchema& out) {
+  auto pool =
+      &facebook::velox::memory::getProcessDefaultMemoryManager().getRoot();
+  exportToArrow(BaseVector::create(type, 0, pool), out);
+}
+
 class ArrowBridgeSchemaExportTest : public testing::Test {
  protected:
   void testScalarType(const TypePtr& type, const char* arrowFormat) {
