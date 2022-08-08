@@ -617,7 +617,8 @@ public class OrcSelectiveRecordReader
                         hiveStorageTimeZone,
                         options,
                         legacyMapSubscript,
-                        systemMemoryContext);
+                        systemMemoryContext,
+                        false);
             }
         }
         return streamReaders;

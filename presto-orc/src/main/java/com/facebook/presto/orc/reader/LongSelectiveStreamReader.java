@@ -46,11 +46,17 @@ public class LongSelectiveStreamReader
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
             Optional<Type> outputType,
-            OrcAggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext,
+            boolean isLowMemory)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         directReader = new LongDirectSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(LongSelectiveStreamReader.class.getSimpleName()));
-        dictionaryReader = new LongDictionarySelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(LongSelectiveStreamReader.class.getSimpleName()));
+        dictionaryReader = new LongDictionarySelectiveStreamReader(
+                streamDescriptor,
+                filter,
+                outputType,
+                systemMemoryContext.newOrcLocalMemoryContext(LongSelectiveStreamReader.class.getSimpleName()),
+                isLowMemory);
     }
 
     @Override

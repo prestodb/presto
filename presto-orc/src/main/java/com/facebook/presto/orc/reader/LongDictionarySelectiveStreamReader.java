@@ -62,6 +62,7 @@ public class LongDictionarySelectiveStreamReader
     private final boolean nonDeterministicFilter;
     private final boolean nullsAllowed;
     private final OrcLocalMemoryContext systemMemoryContext;
+    private final boolean isLowMemory;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
@@ -89,7 +90,8 @@ public class LongDictionarySelectiveStreamReader
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
             Optional<Type> outputType,
-            OrcLocalMemoryContext systemMemoryContext)
+            OrcLocalMemoryContext systemMemoryContext,
+            boolean isLowMemory)
     {
         super(outputType);
         requireNonNull(filter, "filter is null");
@@ -98,6 +100,7 @@ public class LongDictionarySelectiveStreamReader
         this.filter = filter.orElse(null);
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.isDictionaryOwner = true;
+        this.isLowMemory = isLowMemory;
 
         nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
         nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
@@ -201,7 +204,7 @@ public class LongDictionarySelectiveStreamReader
                     int id = (int) value;
                     value = dictionary[id];
 
-                    if (!nonDeterministicFilter) {
+                    if (dictionaryFilterStatus != null) {
                         if (dictionaryFilterStatus[id] == FILTER_NOT_EVALUATED) {
                             if (filter.testLong(value)) {
                                 dictionaryFilterStatus[id] = FILTER_PASSED;
@@ -279,9 +282,12 @@ public class LongDictionarySelectiveStreamReader
             DictionaryResult dictionaryResult = dictionaryProvider.getDictionary(streamDescriptor, dictionary, dictionarySize);
             dictionary = dictionaryResult.dictionaryBuffer();
             isDictionaryOwner = dictionaryResult.isBufferOwner();
-            if (filter != null && !nonDeterministicFilter) {
+            if (!isLowMemory && filter != null && !nonDeterministicFilter) {
                 dictionaryFilterStatus = ensureCapacity(dictionaryFilterStatus, dictionarySize);
                 Arrays.fill(dictionaryFilterStatus, 0, dictionarySize, FILTER_NOT_EVALUATED);
+            }
+            else {
+                dictionaryFilterStatus = null;
             }
         }
         dictionaryOpen = true;
