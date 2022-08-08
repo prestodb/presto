@@ -106,6 +106,8 @@ class Config {
   static Entry<bool> MAP_FLAT_DISABLE_DICT_ENCODING_STRING;
   static Entry<bool> MAP_FLAT_DICT_SHARE;
   static Entry<const std::vector<uint32_t>> MAP_FLAT_COLS;
+  static Entry<const std::vector<std::vector<std::string>>>
+      MAP_FLAT_COLS_STRUCT_KEYS;
   static Entry<uint32_t> MAP_FLAT_MAX_KEYS;
   static Entry<uint64_t> MAX_DICTIONARY_SIZE;
   static Entry<uint64_t> STRIPE_SIZE;

@@ -748,18 +748,8 @@ void getUniqueKeys(
     }
   }
 
-  uniqueKeys.insert(uniqueKeys.end(), seenKeys.begin(), seenKeys.end());
-}
-
-void printStructs(const std::vector<VectorPtr>& batches) {
-  for (int i = 0; i < batches.size(); i++) {
-    auto rowStruct = std::dynamic_pointer_cast<RowVector>(batches[i]);
-    ASSERT_TRUE(rowStruct);
-    LOG(INFO) << "Batch " << i << ":";
-    for (int j = 0; j < rowStruct->size(); j++) {
-      LOG(INFO) << j << ": " << rowStruct->toString(j);
-    }
-  }
+  uniqueKeys.clear();
+  uniqueKeys.insert(uniqueKeys.end(), seenKeys.cbegin(), seenKeys.cend());
 }
 
 template <typename TKEY, typename TVALUE>
@@ -813,8 +803,6 @@ void mapToStruct(
       }
     }
   }
-
-  // printStructs(batches);
 }
 
 template <typename TKEY, typename TVALUE>
@@ -845,7 +833,15 @@ void testMapWriter(
       ASSERT_NO_FATAL_FAILURE(getUniqueKeys<TKEY>(uniqueKeys, batches));
       ASSERT_NO_FATAL_FAILURE(
           (mapToStruct<TKEY, TVALUE>(pool, structs, uniqueKeys)));
-      // printStructs(structs);
+      std::vector<std::string> uniqueKeysString;
+      uniqueKeysString.reserve(uniqueKeys.size());
+      std::transform(
+          uniqueKeys.cbegin(),
+          uniqueKeys.cend(),
+          std::back_inserter(uniqueKeysString),
+          [](const auto& e) { return folly::to<std::string>(e); });
+      ASSERT_EQ(writerDataTypeWithId->column, 0);
+      config->set(Config::MAP_FLAT_COLS_STRUCT_KEYS, {uniqueKeysString});
     }
 
     config->set(Config::FLATTEN_MAP, true);

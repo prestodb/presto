@@ -141,6 +141,36 @@ Config::Entry<const std::vector<uint32_t>> Config::MAP_FLAT_COLS(
       return result;
     });
 
+Config::Entry<const std::vector<std::vector<std::string>>>
+    Config::MAP_FLAT_COLS_STRUCT_KEYS(
+        "orc.map.flat.cols.struct.keys",
+        {},
+        [](const std::vector<std::vector<std::string>>& val) {
+          std::vector<std::string> columns;
+          columns.reserve(val.size());
+          std::transform(
+              val.cbegin(),
+              val.cend(),
+              std::back_inserter(columns),
+              [](const auto& v) { return folly::join(",", v); });
+          return folly::join(";", columns);
+        },
+        [](const std::string& val) {
+          std::vector<std::string> partialResult;
+          folly::split(";", val, partialResult);
+          std::vector<std::vector<std::string>> result;
+          std::transform(
+              partialResult.cbegin(),
+              partialResult.cend(),
+              std::back_inserter(result),
+              [](const auto& str) {
+                std::vector<std::string> res;
+                folly::split(",", str, res);
+                return res;
+              });
+          return result;
+        });
+
 Config::Entry<uint32_t> Config::MAP_FLAT_MAX_KEYS(
     "orc.map.flat.max.keys",
     20000);
