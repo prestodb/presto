@@ -930,15 +930,18 @@ template <typename T>
 struct ParseDateTimeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  std::optional<JodaFormatter> format_;
+  std::shared_ptr<DateTimeFormatter> format_;
   std::optional<int64_t> sessionTzID_;
+  bool isConstFormat_ = false;
 
   FOLLY_ALWAYS_INLINE void initialize(
       const core::QueryConfig& config,
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* format) {
     if (format != nullptr) {
-      format_.emplace(*format);
+      format_ = buildJodaDateTimeFormatter(
+          std::string_view(format->data(), format->size()));
+      isConstFormat_ = true;
     }
 
     auto sessionTzName = config.sessionTimezone();
@@ -951,15 +954,20 @@ struct ParseDateTimeFunction {
       out_type<TimestampWithTimezone>& result,
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& format) {
-    auto jodaResult = format_.has_value() ? format_->parse(input)
-                                          : JodaFormatter(format).parse(input);
+    if (!isConstFormat_) {
+      format_ = buildJodaDateTimeFormatter(
+          std::string_view(format.data(), format.size()));
+    }
+    auto dateTimeResult =
+        format_->parse(std::string_view(input.data(), input.size()));
 
     // If timezone was not parsed, fallback to the session timezone. If there's
     // no session timezone, fallback to 0 (GMT).
-    int16_t timezoneId = jodaResult.timezoneId != -1 ? jodaResult.timezoneId
-                                                     : sessionTzID_.value_or(0);
-    jodaResult.timestamp.toGMT(timezoneId);
-    result = std::make_tuple(jodaResult.timestamp.toMillis(), timezoneId);
+    int16_t timezoneId = dateTimeResult.timezoneId != -1
+        ? dateTimeResult.timezoneId
+        : sessionTzID_.value_or(0);
+    dateTimeResult.timestamp.toGMT(timezoneId);
+    result = std::make_tuple(dateTimeResult.timestamp.toMillis(), timezoneId);
     return true;
   }
 };

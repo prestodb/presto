@@ -530,7 +530,7 @@ JodaResult JodaFormatter::parse(const std::string& input) {
   }
 
   // Convert the parsed date/time into a timestamp.
-  int32_t daysSinceEpoch = util::fromDate(
+  int32_t daysSinceEpoch = util::daysSinceEpochFromDate(
       jodaDate.getYear(), jodaDate.getMonth(), jodaDate.getDay());
   int64_t microsSinceMidnight = util::fromTime(
       jodaDate.hour, jodaDate.minute, jodaDate.second, jodaDate.microsecond);

@@ -1846,6 +1846,17 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
   EXPECT_EQ(
       TimestampWithTimezone(86400000, 0),
       parseDatetime("1970-01-02", "YYYY-MM-dd"));
+  EXPECT_EQ(
+      TimestampWithTimezone(86400000, 0),
+      parseDatetime("19700102", "YYYYMMdd"));
+  EXPECT_EQ(
+      TimestampWithTimezone(86400000, 0), parseDatetime("19700102", "YYYYMdd"));
+  EXPECT_EQ(
+      TimestampWithTimezone(86400000, 0), parseDatetime("19700102", "YYYYMMd"));
+  EXPECT_EQ(
+      TimestampWithTimezone(86400000, 0), parseDatetime("19700102", "YYYYMd"));
+  EXPECT_EQ(
+      TimestampWithTimezone(86400000, 0), parseDatetime("19700102", "YYYYMd"));
 
   // 118860000 is the number of milliseconds since epoch at 1970-01-02
   // 09:01:00.000 UTC.

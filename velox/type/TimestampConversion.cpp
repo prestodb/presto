@@ -128,28 +128,24 @@ bool parseDoubleDigit(
   return false;
 }
 
-bool isLeapYear(int32_t year) {
-  return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-}
-
-bool isValidDate(int32_t year, int32_t month, int32_t day) {
-  if (month < 1 || month > 12) {
+bool isValidWeekDate(int32_t weekYear, int32_t weekOfYear, int32_t dayOfWeek) {
+  if (dayOfWeek < 1 || dayOfWeek > 7) {
     return false;
   }
-  if (year < kMinYear || year > kMaxYear) {
+  if (weekOfYear < 1 || weekOfYear > 52) {
     return false;
   }
-  if (day < 1) {
+  if (weekYear < kMinYear || weekYear > kMaxYear) {
     return false;
   }
-  return isLeapYear(year) ? day <= kLeapDays[month] : day <= kNormalDays[month];
+  return true;
 }
 
 bool tryParseDateString(
     const char* buf,
     size_t len,
     size_t& pos,
-    int32_t& daysSinceEpoch,
+    int64_t& daysSinceEpoch,
     bool strict) {
   pos = 0;
   if (len == 0) {
@@ -258,7 +254,7 @@ bool tryParseDateString(
     }
   }
 
-  daysSinceEpoch = fromDate(year, month, day);
+  daysSinceEpoch = daysSinceEpochFromDate(year, month, day);
   return true;
 }
 
@@ -420,8 +416,39 @@ bool tryParseUTCOffsetString(
 
 } // namespace
 
-int32_t fromDate(int32_t year, int32_t month, int32_t day) {
-  int32_t daysSinceEpoch = 0;
+bool isLeapYear(int32_t year) {
+  return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+}
+
+bool isValidDate(int32_t year, int32_t month, int32_t day) {
+  if (month < 1 || month > 12) {
+    return false;
+  }
+  if (year < kMinYear || year > kMaxYear) {
+    return false;
+  }
+  if (day < 1) {
+    return false;
+  }
+  return isLeapYear(year) ? day <= kLeapDays[month] : day <= kNormalDays[month];
+}
+
+bool isValidDayOfYear(int32_t year, int32_t dayOfYear) {
+  if (year < kMinYear || year > kMaxYear) {
+    return false;
+  }
+  if (dayOfYear < 1 || dayOfYear > 365 + isLeapYear(year)) {
+    return false;
+  }
+  return true;
+}
+
+int32_t getMaxDayOfMonth(int32_t year, int32_t month) {
+  return isLeapYear(year) ? kLeapDays[month] : kNormalDays[month];
+}
+
+int64_t daysSinceEpochFromDate(int32_t year, int32_t month, int32_t day) {
+  int64_t daysSinceEpoch = 0;
 
   if (!isValidDate(year, month, day)) {
     VELOX_USER_FAIL("Date out of range: {}-{}-{}", year, month, day);
@@ -441,8 +468,33 @@ int32_t fromDate(int32_t year, int32_t month, int32_t day) {
   return daysSinceEpoch;
 }
 
-int32_t fromDateString(const char* str, size_t len) {
-  int32_t daysSinceEpoch;
+int64_t daysSinceEpochFromWeekDate(
+    int32_t weekYear,
+    int32_t weekOfYear,
+    int32_t dayOfWeek) {
+  if (!isValidWeekDate(weekYear, weekOfYear, dayOfWeek)) {
+    VELOX_USER_FAIL(
+        "Date out of range: {}-{}-{}", weekYear, weekOfYear, dayOfWeek);
+  }
+
+  int64_t daysSinceEpochOfJanFourth = daysSinceEpochFromDate(weekYear, 1, 4);
+  int32_t firstDayOfWeekYear =
+      extractISODayOfTheWeek(daysSinceEpochOfJanFourth);
+
+  return daysSinceEpochOfJanFourth - (firstDayOfWeekYear - 1) +
+      7 * (weekOfYear - 1) + dayOfWeek - 1;
+}
+
+int64_t daysSinceEpochFromDayOfYear(int32_t year, int32_t dayOfYear) {
+  if (!isValidDayOfYear(year, dayOfYear)) {
+    VELOX_USER_FAIL("Day of year out of range: {}", dayOfYear);
+  }
+  int64_t startOfYear = daysSinceEpochFromDate(year, 1, 1);
+  return startOfYear + (dayOfYear - 1);
+}
+
+int64_t fromDateString(const char* str, size_t len) {
+  int64_t daysSinceEpoch;
   size_t pos = 0;
 
   if (!tryParseDateString(str, len, pos, daysSinceEpoch, true)) {
@@ -451,6 +503,32 @@ int32_t fromDateString(const char* str, size_t len) {
         std::string(str, len));
   }
   return daysSinceEpoch;
+}
+
+int32_t extractISODayOfTheWeek(int32_t daysSinceEpoch) {
+  // date of 0 is 1970-01-01, which was a Thursday (4)
+  // -7 = 4
+  // -6 = 5
+  // -5 = 6
+  // -4 = 7
+  // -3 = 1
+  // -2 = 2
+  // -1 = 3
+  // 0  = 4
+  // 1  = 5
+  // 2  = 6
+  // 3  = 7
+  // 4  = 1
+  // 5  = 2
+  // 6  = 3
+  // 7  = 4
+  if (daysSinceEpoch < 0) {
+    // negative date: start off at 4 and cycle downwards
+    return (7 - ((-int64_t(daysSinceEpoch) + 3) % 7));
+  } else {
+    // positive date: start off at 4 and cycle upwards
+    return ((int64_t(daysSinceEpoch) + 3) % 7) + 1;
+  }
 }
 
 int64_t
@@ -476,7 +554,7 @@ int64_t fromTimeString(const char* str, size_t len) {
   return microsSinceMidnight;
 }
 
-Timestamp fromDatetime(int32_t daysSinceEpoch, int64_t microsSinceMidnight) {
+Timestamp fromDatetime(int64_t daysSinceEpoch, int64_t microsSinceMidnight) {
   int64_t secondsSinceEpoch =
       static_cast<int64_t>(daysSinceEpoch) * kSecsPerDay;
   secondsSinceEpoch += microsSinceMidnight / kMicrosPerSec;
@@ -498,7 +576,7 @@ void parserError(const char* str, size_t len) {
 
 Timestamp fromTimestampString(const char* str, size_t len) {
   size_t pos;
-  int32_t daysSinceEpoch;
+  int64_t daysSinceEpoch;
   int64_t microsSinceMidnight;
 
   if (!tryParseDateString(str, len, pos, daysSinceEpoch, false)) {

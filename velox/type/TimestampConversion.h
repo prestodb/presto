@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include "velox/type/Timestamp.h"
 
 namespace facebook::velox::util {
@@ -35,28 +36,53 @@ constexpr const int64_t kNanosPerMicro{1000};
 constexpr const int32_t kSecsPerHour{kSecsPerMinute * kMinsPerHour};
 constexpr const int32_t kSecsPerDay{kSecsPerHour * kHoursPerDay};
 
-constexpr const int32_t kMinYear{-290307};
-constexpr const int32_t kMaxYear{294247};
+// Max and min year correspond to Joda datetime min and max
+constexpr const int32_t kMinYear{-292275055};
+constexpr const int32_t kMaxYear{292278994};
 
 constexpr const int32_t kYearInterval{400};
 constexpr const int32_t kDaysPerYearInterval{146097};
+
+// Returns true if leap year, false otherwise
+bool isLeapYear(int32_t year);
+
+// Returns true if year, month, day corresponds to valid date, false otherwise
+bool isValidDate(int32_t year, int32_t month, int32_t day);
+
+// Returns true if yday of year is valid for given year
+bool isValidDayOfYear(int32_t year, int32_t dayOfYear);
+
+// Returns max day of month for inputted month of inputted year
+int32_t getMaxDayOfMonth(int32_t year, int32_t month);
 
 /// Date conversions.
 
 /// Returns the (signed) number of days since unix epoch (1970-01-01).
 /// Throws VeloxUserError if the date is invalid.
-int32_t fromDate(int32_t year, int32_t month, int32_t day);
+int64_t daysSinceEpochFromDate(int32_t year, int32_t month, int32_t day);
+
+/// Returns the (signed) number of days since unix epoch (1970-01-01).
+int64_t daysSinceEpochFromWeekDate(
+    int32_t weekYear,
+    int32_t weekOfYear,
+    int32_t dayOfWeek);
+
+/// Returns the (signed) number of days since unix epoch (1970-01-01).
+int64_t daysSinceEpochFromDayOfYear(int32_t year, int32_t dayOfYear);
 
 /// Returns the (signed) number of days since unix epoch (1970-01-01), following
 /// the "YYYY-MM-DD" format (ISO 8601). ' ', '/' and '\' are also acceptable
 /// separators. Negative years and a trailing "(BC)" are also supported.
 ///
 /// Throws VeloxUserError if the format or date is invalid.
-int32_t fromDateString(const char* buf, size_t len);
+int64_t fromDateString(const char* buf, size_t len);
 
-inline int32_t fromDateString(const StringView& str) {
+inline int64_t fromDateString(const StringView& str) {
   return fromDateString(str.data(), str.size());
 }
+
+// Extracts the day of the week from the number of days since epoch
+int32_t extractISODayOfTheWeek(int32_t daysSinceEpoch);
 
 /// Time conversions.
 
@@ -85,6 +111,6 @@ inline Timestamp fromTimestampString(const StringView& str) {
   return fromTimestampString(str.data(), str.size());
 }
 
-Timestamp fromDatetime(int32_t daysSinceEpoch, int64_t microsSinceMidnight);
+Timestamp fromDatetime(int64_t daysSinceEpoch, int64_t microsSinceMidnight);
 
 } // namespace facebook::velox::util

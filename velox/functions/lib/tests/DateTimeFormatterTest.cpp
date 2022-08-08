@@ -15,12 +15,15 @@
  */
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include <velox/common/base/VeloxException.h>
+#include <velox/type/StringView.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/DateTimeFormatterBuilder.h"
 #include "velox/type/TimestampConversion.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 #include <gtest/gtest.h>
+#include <string>
 
 using namespace facebook::velox;
 
@@ -28,6 +31,36 @@ namespace facebook::velox::functions {
 
 class DateTimeFormatterTest : public testing::Test {
  protected:
+  static constexpr std::string_view monthsFull[] = {
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+  };
+
+  static constexpr std::string_view monthsShort[] = {
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+  };
+
   void testTokenRange(
       char specifier,
       int numTokenStart,
@@ -39,6 +72,28 @@ class DateTimeFormatterTest : public testing::Test {
       expected = {DateTimeToken(FormatPattern{token, i})};
       EXPECT_EQ(expected, buildJodaDateTimeFormatter(pattern)->tokens());
     }
+  }
+
+  auto parseAll(const std::string_view& input, const std::string_view& format) {
+    return buildJodaDateTimeFormatter(format)->parse(input);
+  }
+
+  Timestamp parse(
+      const std::string_view& input,
+      const std::string_view& format) {
+    return parseAll(input, format).timestamp;
+  }
+
+  // Parses and returns the timezone converted back to string, to ease
+  // verifiability.
+  std::string parseTZ(
+      const std::string_view& input,
+      const std::string_view& format) {
+    auto result = buildJodaDateTimeFormatter(format)->parse(input);
+    if (result.timezoneId == 0) {
+      return "+00:00";
+    }
+    return util::getTimeZoneName(result.timezoneId);
   }
 };
 
@@ -308,6 +363,625 @@ TEST_F(JodaDateTimeFormatterTest, invalidJodaBuild) {
 
   // Empty format string
   EXPECT_THROW(buildJodaDateTimeFormatter(""), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, invalid) {
+  // Parse:
+  EXPECT_THROW(parse("", ""), VeloxUserError);
+  EXPECT_THROW(parse(" ", ""), VeloxUserError);
+  EXPECT_THROW(parse("", " "), VeloxUserError);
+  EXPECT_THROW(parse("", "Y '"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseEra) {
+  // Normal era cases
+  EXPECT_EQ(util::fromTimestampString("-100-01-01"), parse("BC 101", "G Y"));
+  EXPECT_EQ(util::fromTimestampString("101-01-01"), parse("AD 101", "G Y"));
+  EXPECT_EQ(util::fromTimestampString("-100-01-01"), parse("bc 101", "G Y"));
+  EXPECT_EQ(util::fromTimestampString("101-01-01"), parse("ad 101", "G Y"));
+
+  // Era specifier with 'y' specifier
+  EXPECT_EQ(util::fromTimestampString("101-01-01"), parse("BC 101", "G y"));
+  EXPECT_EQ(util::fromTimestampString("2012-01-01"), parse("BC 2012", "G y"));
+  EXPECT_EQ(
+      util::fromTimestampString("-101-01-01"), parse("AD 2012 -101", "G Y y"));
+  EXPECT_EQ(
+      util::fromTimestampString("2012-01-01"), parse("BC 101 2012", "G Y y"));
+  EXPECT_EQ(
+      util::fromTimestampString("-2011-01-01"), parse("BC 2000 2012", "G y Y"));
+  EXPECT_EQ(
+      util::fromTimestampString("-2011-01-01"),
+      parse("BC 2000 2012 BC", "G y Y G"));
+  EXPECT_EQ(
+      util::fromTimestampString("-2014-01-01"),
+      parse("BC 1 BC 2015", "G y G Y"));
+  EXPECT_EQ(
+      util::fromTimestampString("2015-01-01"),
+      parse("BC 0 BC 2015 AD", "G y G Y G"));
+  EXPECT_EQ(
+      util::fromTimestampString("2015-01-01"),
+      parse("AD 0 AD 2015", "G y G Y"));
+  EXPECT_EQ(
+      util::fromTimestampString("-2011-01-01"),
+      parse("BC 0 BC 2015 2 2012 BC", "G y G Y y Y G"));
+  EXPECT_EQ(
+      util::fromTimestampString("2012-01-01"),
+      parse("AD 0 AD 2015 2 2012 AD", "G y G Y y Y G"));
+
+  // Invalid cases
+  EXPECT_THROW(parse("FG", "G"), VeloxUserError);
+  EXPECT_THROW(parse("AC", "G"), VeloxUserError);
+  EXPECT_THROW(parse("BD", "G"), VeloxUserError);
+  EXPECT_THROW(parse("aD", "G"), VeloxUserError);
+  EXPECT_THROW(parse("Ad", "G"), VeloxUserError);
+  EXPECT_THROW(parse("bC", "G"), VeloxUserError);
+  EXPECT_THROW(parse("Bc", "G"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseYearOfEra) {
+  // By the default, assume epoch.
+  EXPECT_EQ(util::fromTimestampString("1970-01-01"), parse(" ", " "));
+
+  // Number of times the token is repeated doesn't change the parsing behavior.
+  EXPECT_EQ(util::fromTimestampString("2134-01-01"), parse("2134", "Y"));
+  EXPECT_EQ(util::fromTimestampString("2134-01-01"), parse("2134", "YYYYYYYY"));
+
+  // Probe the year of era range. Joda only supports positive years.
+  EXPECT_EQ(util::fromTimestampString("294247-01-01"), parse("294247", "Y"));
+  EXPECT_EQ(util::fromTimestampString("0001-01-01"), parse("1", "Y"));
+  EXPECT_THROW(parse("292278994", "Y"), VeloxUserError);
+  EXPECT_THROW(parse("0", "Y"), VeloxUserError);
+  EXPECT_THROW(parse("-1", "Y"), VeloxUserError);
+  EXPECT_THROW(parse("  ", " Y "), VeloxUserError);
+  EXPECT_THROW(parse(" 1 2", "Y Y"), VeloxUserError);
+
+  // Last token read overwrites:
+  EXPECT_EQ(
+      util::fromTimestampString("0005-01-01"), parse("1 2 3 4 5", "Y Y Y Y Y"));
+
+  // Throws on consumption of plus sign
+  EXPECT_THROW(parse("+100", "Y"), VeloxUserError);
+}
+
+// Same semantic as YEAR_OF_ERA, except that it accepts zero and negative years.
+TEST_F(JodaDateTimeFormatterTest, parseYear) {
+  EXPECT_EQ(util::fromTimestampString("123-01-01"), parse("123", "y"));
+  EXPECT_EQ(util::fromTimestampString("321-01-01"), parse("321", "yyyyyyyy"));
+
+  EXPECT_EQ(util::fromTimestampString("0-01-01"), parse("0", "y"));
+  EXPECT_EQ(util::fromTimestampString("-1-01-01"), parse("-1", "y"));
+  EXPECT_EQ(util::fromTimestampString("-1234-01-01"), parse("-1234", "y"));
+
+  // Last token read overwrites:
+  EXPECT_EQ(util::fromTimestampString("0-01-01"), parse("123 0", "Y y"));
+
+  // 2 'y' token case
+  EXPECT_EQ(util::fromTimestampString("2012-01-01"), parse("12", "yy"));
+  EXPECT_EQ(util::fromTimestampString("2069-01-01"), parse("69", "yy"));
+  EXPECT_EQ(util::fromTimestampString("1970-01-01"), parse("70", "yy"));
+  EXPECT_EQ(util::fromTimestampString("1999-01-01"), parse("99", "yy"));
+  EXPECT_EQ(util::fromTimestampString("0002-01-01"), parse("2", "yy"));
+  EXPECT_EQ(util::fromTimestampString("0210-01-01"), parse("210", "yy"));
+  EXPECT_EQ(util::fromTimestampString("0001-01-01"), parse("1", "yy"));
+  EXPECT_EQ(util::fromTimestampString("2001-01-01"), parse("01", "yy"));
+
+  // Plus sign consumption valid when y operator is not followed by another
+  // specifier
+  EXPECT_EQ(util::fromTimestampString("10-01-01"), parse("+10", "y"));
+  EXPECT_EQ(util::fromTimestampString("99-02-01"), parse("+99 02", "y M"));
+  EXPECT_EQ(util::fromTimestampString("10-10-01"), parse("10 +10", "M y"));
+  EXPECT_EQ(util::fromTimestampString("100-02-01"), parse("2+100", "My"));
+  EXPECT_THROW(parse("+10001", "yM"), VeloxUserError);
+  EXPECT_THROW(parse("++100", "y"), VeloxUserError);
+
+  // Probe the year range
+  EXPECT_THROW(parse("-292275056", "y"), VeloxUserError);
+  EXPECT_THROW(parse("292278995", "y"), VeloxUserError);
+  EXPECT_EQ(
+      util::fromTimestampString("292278994-01-01"), parse("292278994", "y"));
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseWeekYear) {
+  // Covers entire range of possible week year start dates (12-29 to 01-04)
+  EXPECT_EQ(
+      util::fromTimestampString("1969-12-29 00:00:00"), parse("1970", "x"));
+  EXPECT_EQ(
+      util::fromTimestampString("2024-12-30 00:00:00"), parse("2025", "x"));
+  EXPECT_EQ(
+      util::fromTimestampString("1934-12-31 00:00:00"), parse("1935", "x"));
+  EXPECT_EQ(
+      util::fromTimestampString("1990-01-01 00:00:00"), parse("1990", "x"));
+  EXPECT_EQ(
+      util::fromTimestampString("0204-01-02 00:00:00"), parse("204", "x"));
+  EXPECT_EQ(
+      util::fromTimestampString("-0102-01-03 00:00:00"), parse("-102", "x"));
+  EXPECT_EQ(
+      util::fromTimestampString("-0108-01-04 00:00:00"), parse("-108", "x"));
+  EXPECT_EQ(
+      util::fromTimestampString("-1002-12-31 00:00:00"), parse("-1001", "x"));
+
+  // Plus sign consumption valid when x operator is not followed by another
+  // specifier
+  EXPECT_EQ(util::fromTimestampString("10-01-04"), parse("+10", "x"));
+  EXPECT_EQ(util::fromTimestampString("0098-12-29"), parse("+99 01", "x w"));
+  EXPECT_EQ(util::fromTimestampString("0099-01-05"), parse("+99 02", "x w"));
+  EXPECT_EQ(util::fromTimestampString("10-03-08"), parse("10 +10", "w x"));
+  EXPECT_EQ(util::fromTimestampString("100-01-11"), parse("2+100", "wx"));
+  EXPECT_THROW(parse("+10001", "xM"), VeloxUserError);
+  EXPECT_THROW(parse("++100", "x"), VeloxUserError);
+
+  // Probe week year range
+  EXPECT_THROW(parse("-292275055", "x"), VeloxUserError);
+  EXPECT_THROW(parse("292278994", "x"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseCenturyOfEra) {
+  // Probe century range
+  EXPECT_EQ(
+      util::fromTimestampString("292278900-01-01 00:00:00"),
+      parse("2922789", "CCCCCCC"));
+  EXPECT_EQ(util::fromTimestampString("00-01-01 00:00:00"), parse("0", "C"));
+
+  // Invalid century values
+  EXPECT_THROW(parse("-1", "CCCCCCC"), VeloxUserError);
+  EXPECT_THROW(parse("2922790", "CCCCCCC"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseMonth) {
+  // Joda has this weird behavior where if minute or hour is specified, year
+  // falls back to 2000, instead of epoch (1970)  ¯\_(ツ)_/¯
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("1", "M"));
+  EXPECT_EQ(util::fromTimestampString("2000-07-01"), parse(" 7", " MM"));
+  EXPECT_EQ(util::fromTimestampString("2000-11-01"), parse("11-", "M-"));
+  EXPECT_EQ(util::fromTimestampString("2000-12-01"), parse("-12-", "-M-"));
+
+  EXPECT_THROW(parse("0", "M"), VeloxUserError);
+  EXPECT_THROW(parse("13", "M"), VeloxUserError);
+  EXPECT_THROW(parse("12345", "M"), VeloxUserError);
+
+  // Ensure MMM and MMMM specifiers consume both short- and long-form month
+  // names
+  for (int i = 0; i < 12; i++) {
+    StringView buildString("2000-" + std::to_string(i + 1) + "-01");
+    EXPECT_EQ(
+        util::fromTimestampString(buildString), parse(monthsShort[i], "MMM"));
+    EXPECT_EQ(
+        util::fromTimestampString(buildString), parse(monthsFull[i], "MMM"));
+    EXPECT_EQ(
+        util::fromTimestampString(buildString), parse(monthsShort[i], "MMMM"));
+    EXPECT_EQ(
+        util::fromTimestampString(buildString), parse(monthsFull[i], "MMMM"));
+  }
+
+  // Month name invalid parse
+  EXPECT_THROW(parse("Decembr", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("Decembr", "MMMM"), VeloxUserError);
+  EXPECT_THROW(parse("Decemberary", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("Decemberary", "MMMM"), VeloxUserError);
+  EXPECT_THROW(parse("asdf", "MMM"), VeloxUserError);
+  EXPECT_THROW(parse("asdf", "MMMM"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseDayOfMonth) {
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("1", "d"));
+  EXPECT_EQ(util::fromTimestampString("2000-01-07"), parse("7 ", "dd "));
+  EXPECT_EQ(util::fromTimestampString("2000-01-11"), parse("/11", "/dd"));
+  EXPECT_EQ(util::fromTimestampString("2000-01-31"), parse("/31/", "/d/"));
+
+  EXPECT_THROW(parse("0", "d"), VeloxUserError);
+  EXPECT_THROW(parse("32", "d"), VeloxUserError);
+  EXPECT_THROW(parse("12345", "d"), VeloxUserError);
+
+  EXPECT_THROW(parse("02-31", "M-d"), VeloxUserError);
+  EXPECT_THROW(parse("04-31", "M-d"), VeloxUserError);
+
+  // Ensure all days of month are checked against final selected month
+  EXPECT_THROW(parse("1 31 20 2", "M d d M"), VeloxUserError);
+  EXPECT_THROW(parse("2 31 20 4", "M d d M"), VeloxUserError);
+  EXPECT_EQ(util::fromTimestampString("2000-01-31"), parse("2 31 1", "M d M"));
+
+  // Probe around leap year.
+  EXPECT_EQ(
+      util::fromTimestampString("2000-02-29"), parse("2000-02-29", "Y-M-d"));
+  EXPECT_THROW(parse("2001-02-29", "Y-M-d"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseDayOfYear) {
+  // Just day of year specifier should default to 2000. Also covers leap year
+  // case
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("1", "D"));
+  EXPECT_EQ(util::fromTimestampString("2000-01-07"), parse("7 ", "DD "));
+  EXPECT_EQ(util::fromTimestampString("2000-01-11"), parse("/11", "/DD"));
+  EXPECT_EQ(util::fromTimestampString("2000-01-31"), parse("/31/", "/DDD/"));
+  EXPECT_EQ(util::fromTimestampString("2000-02-01"), parse("32", "D"));
+  EXPECT_EQ(util::fromTimestampString("2000-02-29"), parse("60", "D"));
+  EXPECT_EQ(util::fromTimestampString("2000-12-30"), parse("365", "D"));
+  EXPECT_EQ(util::fromTimestampString("2000-12-31"), parse("366", "D"));
+
+  // Year specified cases
+  EXPECT_EQ(util::fromTimestampString("1950-01-01"), parse("1950 1", "y D"));
+  EXPECT_EQ(util::fromTimestampString("1950-01-07"), parse("1950 7 ", "y DD "));
+  EXPECT_EQ(
+      util::fromTimestampString("1950-01-11"), parse("1950 /11", "y /DD"));
+  EXPECT_EQ(
+      util::fromTimestampString("1950-01-31"), parse("1950 /31/", "y /DDD/"));
+  EXPECT_EQ(util::fromTimestampString("1950-02-01"), parse("1950 32", "y D"));
+  EXPECT_EQ(util::fromTimestampString("1950-03-01"), parse("1950 60", "y D"));
+  EXPECT_EQ(util::fromTimestampString("1950-12-31"), parse("1950 365", "y D"));
+  EXPECT_THROW(parse("1950 366", "Y D"), VeloxUserError);
+
+  // Negative year specified cases
+  EXPECT_EQ(util::fromTimestampString("-1950-01-01"), parse("-1950 1", "y D"));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-01-07"), parse("-1950 7 ", "y DD "));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-01-11"), parse("-1950 /11", "y /DD"));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-01-31"), parse("-1950 /31/", "y /DDD/"));
+  EXPECT_EQ(util::fromTimestampString("-1950-02-01"), parse("-1950 32", "y D"));
+  EXPECT_EQ(util::fromTimestampString("-1950-03-01"), parse("-1950 60", "y D"));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-12-31"), parse("-1950 365", "y D"));
+  EXPECT_THROW(parse("-1950 366", "Y D"), VeloxUserError);
+
+  // Ensure all days of year are checked against final selected year
+  EXPECT_THROW(parse("2000 366 2001", "y D y"), VeloxUserError);
+  EXPECT_EQ(
+      util::fromTimestampString("2000-12-31"), parse("2001 366 2000", "y D y"));
+
+  EXPECT_THROW(parse("0", "d"), VeloxUserError);
+  EXPECT_THROW(parse("367", "d"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseHourOfDay) {
+  EXPECT_EQ(util::fromTimestampString("1970-01-01 07:00:00"), parse("7", "H"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 23:00:00"), parse("23", "HH"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("0", "HHH"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 10:00:00"),
+      parse("10", "HHHHHHHH"));
+
+  // Hour of day invalid
+  EXPECT_THROW(parse("24", "H"), VeloxUserError);
+  EXPECT_THROW(parse("-1", "H"), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "H"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseClockHourOfDay) {
+  EXPECT_EQ(util::fromTimestampString("1970-01-01 07:00:00"), parse("7", "k"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("24", "kk"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"), parse("1", "kkk"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 10:00:00"),
+      parse("10", "kkkkkkkk"));
+
+  // Clock hour of day invalid
+  EXPECT_THROW(parse("25", "k"), VeloxUserError);
+  EXPECT_THROW(parse("0", "k"), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "k"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseHourOfHalfDay) {
+  EXPECT_EQ(util::fromTimestampString("1970-01-01 07:00:00"), parse("7", "K"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 11:00:00"), parse("11", "KK"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("0", "KKK"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 10:00:00"),
+      parse("10", "KKKKKKKK"));
+
+  // Hour of half day invalid
+  EXPECT_THROW(parse("12", "K"), VeloxUserError);
+  EXPECT_THROW(parse("-1", "K"), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "K"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseClockHourOfHalfDay) {
+  EXPECT_EQ(util::fromTimestampString("1970-01-01 07:00:00"), parse("7", "h"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("12", "hh"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"), parse("1", "hhh"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 10:00:00"),
+      parse("10", "hhhhhhhh"));
+
+  // Clock hour of half day invalid
+  EXPECT_THROW(parse("13", "h"), VeloxUserError);
+  EXPECT_THROW(parse("0", "h"), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "h"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseHalfOfDay) {
+  // Half of day has no effect if hour or clockhour of day is provided
+  // hour of day tests
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"), parse("7 PM", "H a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"), parse("7 AM", "H a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"), parse("7 pm", "H a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"), parse("7 am", "H a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("0 PM", "H a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("0 AM", "H a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("0 pm", "H a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("0 am", "H a"));
+
+  // clock hour of day tests
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"), parse("7 PM", "k a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"), parse("7 AM", "k a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"), parse("7 pm", "k a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"), parse("7 am", "k a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("24 PM", "k a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("24 AM", "k a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("24 pm", "k a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("24 am", "k a"));
+
+  // Half of day has effect if hour or clockhour of halfday is provided
+  // hour of halfday tests
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 12:00:00"), parse("0 PM", "K a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("0 AM", "K a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 18:00:00"), parse("6 PM", "K a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 06:00:00"), parse("6 AM", "K a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 23:00:00"), parse("11 PM", "K a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 11:00:00"), parse("11 AM", "K a"));
+
+  // clockhour of halfday tests
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 13:00:00"), parse("1 PM", "h a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"), parse("1 AM", "h a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 18:00:00"), parse("6 PM", "h a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 06:00:00"), parse("6 AM", "h a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 12:00:00"), parse("12 PM", "h a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("12 AM", "h a"));
+
+  // time gives precendent to most recent time specifier
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"),
+      parse("0 1 AM", "H h a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 13:00:00"),
+      parse("12 1 PM", "H h a"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("1 AM 0", "h a H"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 12:00:00"),
+      parse("1 AM 12", "h a H"));
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseMinute) {
+  EXPECT_EQ(util::fromTimestampString("1970-01-01 00:08:00"), parse("8", "m"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:59:00"), parse("59", "mm"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("0/", "mmm/"));
+
+  EXPECT_THROW(parse("60", "m"), VeloxUserError);
+  EXPECT_THROW(parse("-1", "m"), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "m"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseSecond) {
+  EXPECT_EQ(util::fromTimestampString("1970-01-01 00:00:09"), parse("9", "s"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:58"), parse("58", "ss"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"), parse("0/", "s/"));
+
+  EXPECT_THROW(parse("60", "s"), VeloxUserError);
+  EXPECT_THROW(parse("-1", "s"), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "s"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseTimezone) {
+  // Broken timezone offfsets; allowed formats are either "+00:00" or "+00".
+  EXPECT_THROW(parse("", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("0", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("00", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse(":00", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("+0", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("+00:", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("+00:0", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parse("12", "YYZZ"), VeloxUserError);
+
+  // GMT
+  EXPECT_EQ("+00:00", parseTZ("+00:00", "ZZ"));
+  EXPECT_EQ("+00:00", parseTZ("-00:00", "ZZ"));
+
+  // Valid long format:
+  EXPECT_EQ("+00:01", parseTZ("+00:01", "ZZ"));
+  EXPECT_EQ("-00:01", parseTZ("-00:01", "ZZ"));
+  EXPECT_EQ("+01:00", parseTZ("+01:00", "ZZ"));
+  EXPECT_EQ("+13:59", parseTZ("+13:59", "ZZ"));
+  EXPECT_EQ("-07:32", parseTZ("-07:32", "ZZ"));
+  EXPECT_EQ("+14:00", parseTZ("+14:00", "ZZ"));
+  EXPECT_EQ("-14:00", parseTZ("-14:00", "ZZ"));
+
+  // Valid long format without colon:
+  EXPECT_EQ("+00:01", parseTZ("+0001", "ZZ"));
+  EXPECT_EQ("+11:00", parseTZ("+1100", "ZZ"));
+  EXPECT_EQ("-04:30", parseTZ("-0430", "ZZ"));
+
+  // Invalid long format:
+  EXPECT_THROW(parseTZ("+14:01", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("-14:01", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+00:60", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+00:99", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+00:100", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+15:00", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+16:00", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("-15:00", "ZZ"), VeloxUserError);
+
+  // GMT short format:
+  EXPECT_EQ("+00:00", parseTZ("+00", "ZZ"));
+  EXPECT_EQ("+00:00", parseTZ("-00", "ZZ"));
+
+  // Valid short format:
+  EXPECT_EQ("+13:00", parseTZ("+13", "ZZ"));
+  EXPECT_EQ("-01:00", parseTZ("-01", "ZZ"));
+  EXPECT_EQ("-10:00", parseTZ("-10", "ZZ"));
+  EXPECT_EQ("+03:00", parseTZ("+03", "ZZ"));
+  EXPECT_EQ("-14:00", parseTZ("-14", "ZZ"));
+  EXPECT_EQ("+14:00", parseTZ("+14", "ZZ"));
+
+  // Invalid short format:
+  EXPECT_THROW(parseTZ("-15", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+15", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("+16", "ZZ"), VeloxUserError);
+  EXPECT_THROW(parseTZ("-16", "ZZ"), VeloxUserError);
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseMixedYMDFormat) {
+  // Common patterns found.
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 23:00:00"),
+      parse("2021-01-04+23:00", "YYYY-MM-dd+HH:mm"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2019-07-03 11:04:10"),
+      parse("2019-07-03 11:04:10", "YYYY-MM-dd HH:mm:ss"));
+
+  // Backwards, just for fun:
+  EXPECT_EQ(
+      util::fromTimestampString("2019-07-03 11:04:10"),
+      parse("10:04:11 03-07-2019", "ss:mm:HH dd-MM-YYYY"));
+
+  // Include timezone.
+  auto result = parseAll("2021-11-05+01:00+09:00", "YYYY-MM-dd+HH:mmZZ");
+  EXPECT_EQ(util::fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
+  EXPECT_EQ("+09:00", util::getTimeZoneName(result.timezoneId));
+
+  // Timezone offset in -hh:mm format.
+  result = parseAll("-07:232021-11-05+01:00", "ZZYYYY-MM-dd+HH:mm");
+  EXPECT_EQ(util::fromTimestampString("2021-11-05 01:00:00"), result.timestamp);
+  EXPECT_EQ("-07:23", util::getTimeZoneName(result.timezoneId));
+
+  // Timezone offset in +hhmm format.
+  result = parseAll("+01332022-03-08+13:00", "ZZYYYY-MM-dd+HH:mm");
+  EXPECT_EQ(util::fromTimestampString("2022-03-08 13:00:00"), result.timestamp);
+  EXPECT_EQ("+01:33", util::getTimeZoneName(result.timezoneId));
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseMixedWeekFormat) {
+  // Common patterns found.
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 1 13:29:21.213", "x w e HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 1 13:29:21.213", "x w e HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 4 13:29:21.213", "x w e HH:mm:ss.SSS"));
+
+  // Backwards, just for fun:
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("213.21:29:13 1 22 2021", "SSS.ss:mm:HH e w x"));
+
+  // Include timezone.
+  auto result =
+      parseAll("2021 22 1 13:29:21.213+09:00", "x w e HH:mm:ss.SSSZZ");
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"), result.timestamp);
+  EXPECT_EQ("+09:00", util::getTimeZoneName(result.timezoneId));
+
+  // Timezone offset in -hh:mm format.
+  result = parseAll("-07:232021 22 1 13:29:21.213", "ZZx w e HH:mm:ss.SSS");
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"), result.timestamp);
+  EXPECT_EQ("-07:23", util::getTimeZoneName(result.timezoneId));
+
+  // Timezone offset in +hhmm format.
+  result = parseAll("+01332021 22 1 13:29:21.213", "ZZx w e HH:mm:ss.SSS");
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"), result.timestamp);
+  EXPECT_EQ("+01:33", util::getTimeZoneName(result.timezoneId));
+}
+
+TEST_F(JodaDateTimeFormatterTest, parseFractionOfSecond) {
+  // Valid milliseconds and timezone with positive offset.
+  auto result =
+      parseAll("2022-02-23T12:15:00.364+04:00", "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+  EXPECT_EQ(
+      util::fromTimestampString("2022-02-23 12:15:00.364"), result.timestamp);
+  EXPECT_EQ("+04:00", util::getTimeZoneName(result.timezoneId));
+
+  // Valid milliseconds and timezone with negative offset.
+  result =
+      parseAll("2022-02-23T12:15:00.776-14:00", "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+  EXPECT_EQ(
+      util::fromTimestampString("2022-02-23 12:15:00.776"), result.timestamp);
+  EXPECT_EQ("-14:00", util::getTimeZoneName(result.timezoneId));
+
+  // Valid milliseconds.
+  EXPECT_EQ(
+      util::fromTimestampString("2022-02-24 02:19:33.283"),
+      parse("2022-02-24 02:19:33.283", "yyyy-MM-dd HH:mm:ss.SSS"));
+
+  // Test without milliseconds.
+  EXPECT_EQ(
+      util::fromTimestampString("2022-02-23 20:30:00"),
+      parse("2022-02-23T20:30:00", "yyyy-MM-dd'T'HH:mm:ss"));
+
+  // Assert on difference in milliseconds.
+  EXPECT_NE(
+      util::fromTimestampString("2022-02-23 12:15:00.223"),
+      parse("2022-02-23T12:15:00.776", "yyyy-MM-dd'T'HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.000"),
+      parse("000", "SSS"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.001"),
+      parse("001", "SSS"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.999"),
+      parse("999", "SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.045"),
+      parse("045", "SSS"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.450"), parse("45", "SS"));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.450"),
+      parse("45", "SSSS"));
+
+  EXPECT_THROW(parse("-1", "S"), VeloxUserError);
+  EXPECT_THROW(parse("999", "S"), VeloxUserError);
 }
 
 class MysqlDateTimeTest : public DateTimeFormatterTest {};

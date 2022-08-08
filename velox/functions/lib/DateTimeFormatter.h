@@ -169,9 +169,7 @@ class DateTimeFormatter {
     return tokens_;
   }
 
-  Timestamp parse(const std::string_view& /* input */) const {
-    VELOX_NYI("date time parsing not implemented yet");
-  }
+  DateTimeResult parse(const std::string_view& input) const;
 
   std::string format(
       const Timestamp& timestamp,
