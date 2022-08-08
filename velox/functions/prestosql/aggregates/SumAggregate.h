@@ -159,6 +159,18 @@ class SumAggregate
   }
 };
 
+/// Override 'initializeNewGroups' for float values. Make sure to use 'double'
+/// to store the intermediate results in accumulator.
+template <>
+inline void SumAggregate<float, double, float>::initializeNewGroups(
+    char** groups,
+    folly::Range<const vector_size_t*> indices) {
+  exec::Aggregate::setAllNulls(groups, indices);
+  for (auto i : indices) {
+    *exec::Aggregate::value<double>(groups[i]) = 0;
+  }
+}
+
 /// Override 'extractValues' for single aggregation over float values.
 /// Make sure to correctly read 'float' value from 'double' accumulator.
 template <>

@@ -155,12 +155,26 @@ TEST_F(SumTest, sumTinyint) {
 }
 
 TEST_F(SumTest, sumDouble) {
-  auto rowType = ROW({"c0", "c1"}, {REAL(), DOUBLE()});
-  auto vectors = makeVectors(rowType, 1000, 10);
-  createDuckDbTable(vectors);
+  // Run the test multiple times to ease reproducing the issue:
+  // https://github.com/facebookincubator/velox/issues/2198
+  for (int iter = 0; iter < 3; ++iter) {
+    SCOPED_TRACE(fmt::format("test iterations: {}", iter));
+    auto rowType = ROW({"c0", "c1"}, {REAL(), DOUBLE()});
+    auto vectors = makeVectors(rowType, 1000, 10);
+    createDuckDbTable(vectors);
 
-  testAggregations(
-      vectors, {}, {"sum(c0)", "sum(c1)"}, "SELECT sum(c0), sum(c1) FROM tmp");
+    float sum = 0;
+    for (int i = 0; i < vectors.size(); ++i) {
+      for (int j = 0; j < vectors[0]->size(); ++j) {
+        sum += vectors[i]->childAt(0)->asFlatVector<float>()->valueAt(j);
+      }
+    }
+    testAggregations(
+        vectors,
+        {},
+        {"sum(c0)", "sum(c1)"},
+        "SELECT sum(c0), sum(c1) FROM tmp");
+  }
 }
 
 TEST_F(SumTest, sumWithMask) {
