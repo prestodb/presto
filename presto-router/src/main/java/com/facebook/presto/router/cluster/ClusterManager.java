@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.router.cluster;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
@@ -23,36 +20,27 @@ import com.facebook.presto.router.scheduler.SchedulerType;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toMap;
 
 public class ClusterManager
 {
-    private static final JsonCodec<RouterSpec> CODEC = new JsonCodecFactory(
-            () -> new JsonObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
-            .jsonCodec(RouterSpec.class);
-
     private final Map<String, GroupSpec> groups;
     private final List<SelectorRuleSpec> groupSelectors;
     private final SchedulerType schedulerType;
@@ -62,32 +50,8 @@ public class ClusterManager
     @Inject
     public ClusterManager(RouterConfig config)
     {
-        RouterSpec routerSpec;
-        try {
-            routerSpec = CODEC.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile())));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        catch (IllegalArgumentException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof UnrecognizedPropertyException) {
-                UnrecognizedPropertyException ex = (UnrecognizedPropertyException) cause;
-                String message = format("Unknown property at line %s:%s: %s",
-                        ex.getLocation().getLineNr(),
-                        ex.getLocation().getColumnNr(),
-                        ex.getPropertyName());
-                throw new IllegalArgumentException(message, e);
-            }
-            if (cause instanceof JsonMappingException) {
-                // remove the extra "through reference chain" message
-                if (cause.getCause() != null) {
-                    cause = cause.getCause();
-                }
-                throw new IllegalArgumentException(cause.getMessage(), e);
-            }
-            throw e;
-        }
+        RouterSpec routerSpec = parseRouterConfig(config)
+                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
 
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
