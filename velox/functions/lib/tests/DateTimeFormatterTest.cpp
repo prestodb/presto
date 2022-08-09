@@ -435,6 +435,16 @@ TEST_F(JodaDateTimeFormatterTest, parseYearOfEra) {
   EXPECT_THROW(parse("  ", " Y "), VeloxUserError);
   EXPECT_THROW(parse(" 1 2", "Y Y"), VeloxUserError);
 
+  // 2 'Y' token case
+  EXPECT_EQ(util::fromTimestampString("2012-01-01"), parse("12", "YY"));
+  EXPECT_EQ(util::fromTimestampString("2069-01-01"), parse("69", "YY"));
+  EXPECT_EQ(util::fromTimestampString("1970-01-01"), parse("70", "YY"));
+  EXPECT_EQ(util::fromTimestampString("1999-01-01"), parse("99", "YY"));
+  EXPECT_EQ(util::fromTimestampString("0002-01-01"), parse("2", "YY"));
+  EXPECT_EQ(util::fromTimestampString("0210-01-01"), parse("210", "YY"));
+  EXPECT_EQ(util::fromTimestampString("0001-01-01"), parse("1", "YY"));
+  EXPECT_EQ(util::fromTimestampString("2001-01-01"), parse("01", "YY"));
+
   // Last token read overwrites:
   EXPECT_EQ(
       util::fromTimestampString("0005-01-01"), parse("1 2 3 4 5", "Y Y Y Y Y"));
@@ -499,6 +509,16 @@ TEST_F(JodaDateTimeFormatterTest, parseWeekYear) {
       util::fromTimestampString("-0108-01-04 00:00:00"), parse("-108", "x"));
   EXPECT_EQ(
       util::fromTimestampString("-1002-12-31 00:00:00"), parse("-1001", "x"));
+
+  // 2 'x' token case
+  EXPECT_EQ(util::fromTimestampString("2012-01-02"), parse("12", "xx"));
+  EXPECT_EQ(util::fromTimestampString("2068-12-31"), parse("69", "xx"));
+  EXPECT_EQ(util::fromTimestampString("1969-12-29"), parse("70", "xx"));
+  EXPECT_EQ(util::fromTimestampString("1999-01-04"), parse("99", "xx"));
+  EXPECT_EQ(util::fromTimestampString("0001-12-31"), parse("2", "xx"));
+  EXPECT_EQ(util::fromTimestampString("0210-01-01"), parse("210", "xx"));
+  EXPECT_EQ(util::fromTimestampString("0001-01-01"), parse("1", "xx"));
+  EXPECT_EQ(util::fromTimestampString("2001-01-01"), parse("01", "xx"));
 
   // Plus sign consumption valid when x operator is not followed by another
   // specifier

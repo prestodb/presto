@@ -507,8 +507,16 @@ void parseFromPattern(
       }
       number *= std::pow(10, 3 - count);
     } else if (
-        curPattern.specifier == DateTimeFormatSpecifier::YEAR &&
+        (curPattern.specifier == DateTimeFormatSpecifier::YEAR ||
+         curPattern.specifier == DateTimeFormatSpecifier::YEAR_OF_ERA ||
+         curPattern.specifier == DateTimeFormatSpecifier::WEEK_YEAR) &&
         curPattern.minRepresentDigits == 2) {
+      // If abbreviated two year digit is provided in format string, try to read
+      // in two digits of year and convert to appropriate full length year The
+      // two-digit mapping is as follows: [00, 69] -> [2000, 2069]
+      //                                  [70, 99] -> [1970, 1999]
+      // If more than two digits are provided, then simply read in full year
+      // normally without conversion
       int count = 0;
       while (cur < end && cur < startPos + maxDigitConsume &&
              characterIsDigit(*cur)) {
@@ -978,6 +986,13 @@ DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
           util::isLeapYear(date.year) ? 366 : 365);
     }
   }
+
+  LOG(INFO) << "START LOG" << std::endl;
+  LOG(INFO) << "INPUT: " << input << std::endl;
+  LOG(INFO) << "YEAR: " << date.year << std::endl;
+  LOG(INFO) << "MONTH: " << date.month << std::endl;
+  LOG(INFO) << "DAY: " << date.day << std::endl;
+  LOG(INFO) << "END LOG" << std::endl << std::endl;
 
   // Convert the parsed date/time into a timestamp.
   int64_t daysSinceEpoch;
