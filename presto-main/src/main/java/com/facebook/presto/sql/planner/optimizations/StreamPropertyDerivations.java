@@ -535,6 +535,10 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitWindow(WindowNode node, List<StreamProperties> inputProperties)
         {
+            StreamProperties childProperties = Iterables.getOnlyElement(inputProperties);
+            if (childProperties.isSingleStream() && node.getPartitionBy().isEmpty() && node.getOrderingScheme().isPresent()) {
+                return StreamProperties.ordered();
+            }
             return Iterables.getOnlyElement(inputProperties);
         }
 
