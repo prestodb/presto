@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <velox/common/memory/MappedMemory.h>
 #include <velox/common/memory/Memory.h>
 #include <memory>
 #include "velox/common/memory/ByteStream.h"
@@ -34,7 +35,8 @@ class SerializedPage {
   // TODO: consider to enforce setting memory pool if possible.
   explicit SerializedPage(
       std::unique_ptr<folly::IOBuf> iobuf,
-      memory::MemoryPool* pool = nullptr);
+      memory::MemoryPool* pool = nullptr,
+      std::function<void(folly::IOBuf&)> onDestructionCb = nullptr);
 
   ~SerializedPage();
 
@@ -69,6 +71,12 @@ class SerializedPage {
   // Number of payload bytes in 'iobuf_'.
   const int64_t iobufBytes_;
   memory::MemoryPool* pool_{nullptr};
+
+  // Callback that will be called on destruction of the SerializedPage,
+  // primarily used to free externally allocated memory backing folly::IOBuf
+  // from caller. Caller is responsible to pass in proper cleanup logic to
+  // prevent any memory leak.
+  std::function<void(folly::IOBuf&)> onDestructionCb_;
 };
 
 // Queue of results retrieved from source. Owned by shared_ptr by

@@ -410,11 +410,11 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
   // limit of 'this'. This function is not virtual but calls the virtual
   // functions allocate and allocateContiguous, which can track sizes and
   // enforce caps etc.
-  void* FOLLY_NULLABLE
+  virtual void* FOLLY_NULLABLE
   allocateBytes(uint64_t bytes, uint64_t maxMallocSize = kMaxMallocBytes);
 
   // Frees memory allocated with allocateBytes().
-  void freeBytes(
+  virtual void freeBytes(
       void* FOLLY_NONNULL p,
       uint64_t size,
       uint64_t maxMallocSize = kMaxMallocBytes) noexcept;

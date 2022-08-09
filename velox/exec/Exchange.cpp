@@ -23,10 +23,12 @@ namespace facebook::velox::exec {
 
 SerializedPage::SerializedPage(
     std::unique_ptr<folly::IOBuf> iobuf,
-    memory::MemoryPool* pool)
+    memory::MemoryPool* pool,
+    std::function<void(folly::IOBuf&)> onDestructionCb)
     : iobuf_(std::move(iobuf)),
       iobufBytes_(chainBytes(*iobuf_.get())),
-      pool_(pool) {
+      pool_(pool),
+      onDestructionCb_(onDestructionCb) {
   VELOX_CHECK_NOT_NULL(iobuf_);
   if (pool_ != nullptr) {
     pool_->reserve(iobufBytes_);
@@ -41,7 +43,11 @@ SerializedPage::SerializedPage(
 }
 
 SerializedPage::~SerializedPage() {
-  if (pool_ != nullptr) {
+  if (onDestructionCb_) {
+    onDestructionCb_(*iobuf_.get());
+  }
+  if (pool_) {
+    // Release the tracked memory consumption for the query
     pool_->release(iobufBytes_);
   }
 }

@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/caching/AsyncDataCache.h"
+#include <velox/common/base/BitUtil.h>
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
 
@@ -610,6 +611,16 @@ bool AsyncDataCache::allocateContiguous(
     return mappedMemory_->allocateContiguous(
         numPages, collateral, allocation, beforeAllocCB);
   });
+}
+
+void* FOLLY_NULLABLE
+AsyncDataCache::allocateBytes(uint64_t bytes, uint64_t maxMallocSize) {
+  void* result = nullptr;
+  makeSpace(bits::roundUp(bytes, kPageSize) / kPageSize, [&]() {
+    result = mappedMemory_->allocateBytes(bytes, maxMallocSize);
+    return result != nullptr;
+  });
+  return result;
 }
 
 void AsyncDataCache::incrementNew(uint64_t size) {

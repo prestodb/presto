@@ -15,6 +15,7 @@
  */
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include <gtest/gtest.h>
+#include <velox/common/memory/MappedMemory.h>
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -371,17 +372,44 @@ TEST_F(PartitionedOutputBufferManagerTest, errorInQueue) {
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, serializedPage) {
-  auto iobuf = folly::IOBuf::create(128);
-  std::string payload = "abcdefghijklmnopq";
-  size_t payloadSize = payload.size();
-  std::memcpy(iobuf->writableData(), payload.data(), payloadSize);
-  iobuf->append(payloadSize);
-
-  EXPECT_EQ(0, pool_->getCurrentBytes());
+  const uint64_t kBufferSize = 128;
+  // IOBuf managed memory case
   {
-    auto serializedPage =
-        std::make_shared<SerializedPage>(std::move(iobuf), pool_.get());
-    EXPECT_EQ(payloadSize, pool_->getCurrentBytes());
+    auto iobuf = folly::IOBuf::create(kBufferSize);
+    std::string payload = "abcdefghijklmnopq";
+    size_t payloadSize = payload.size();
+    std::memcpy(iobuf->writableData(), payload.data(), payloadSize);
+    iobuf->append(payloadSize);
+
+    EXPECT_EQ(0, pool_->getCurrentBytes());
+    {
+      auto serializedPage =
+          std::make_shared<SerializedPage>(std::move(iobuf), pool_.get());
+      EXPECT_EQ(payloadSize, pool_->getCurrentBytes());
+    }
+    EXPECT_EQ(0, pool_->getCurrentBytes());
   }
-  EXPECT_EQ(0, pool_->getCurrentBytes());
+
+  // External managed memory case
+  {
+    auto mappedMemory = memory::MappedMemory::getInstance();
+    void* buffer = mappedMemory->allocateBytes(kBufferSize);
+    auto iobuf = folly::IOBuf::wrapBuffer(buffer, kBufferSize);
+    std::string payload = "abcdefghijklmnopq";
+    std::memcpy(iobuf->writableData(), payload.data(), payload.size());
+
+    EXPECT_EQ(0, pool_->getCurrentBytes());
+    EXPECT_EQ(mappedMemory->allocateBytesStats().totalSmall, kBufferSize);
+    {
+      auto serializedPage = std::make_shared<SerializedPage>(
+          std::move(iobuf),
+          pool_.get(),
+          [mappedMemory, kBufferSize](auto& iobuf) {
+            mappedMemory->freeBytes(iobuf.writableData(), kBufferSize);
+          });
+      EXPECT_EQ(kBufferSize, pool_->getCurrentBytes());
+    }
+    EXPECT_EQ(0, pool_->getCurrentBytes());
+    EXPECT_EQ(mappedMemory->allocateBytesStats().totalSmall, 0);
+  }
 }
