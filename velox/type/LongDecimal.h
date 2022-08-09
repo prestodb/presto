@@ -41,6 +41,10 @@ struct LongDecimal {
     return unscaledValue_;
   }
 
+  void setUnscaledValue(const int128_t& unscaledValue) {
+    unscaledValue_ = unscaledValue;
+  }
+
   bool operator==(const LongDecimal& other) const {
     return unscaledValue_ == other.unscaledValue_;
   }

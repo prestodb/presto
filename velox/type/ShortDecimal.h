@@ -33,6 +33,10 @@ struct ShortDecimal {
     return unscaledValue_;
   }
 
+  void setUnscaledValue(const int64_t unscaledValue) {
+    unscaledValue_ = unscaledValue;
+  }
+
   bool operator==(const ShortDecimal& other) const {
     return unscaledValue_ == other.unscaledValue_;
   }

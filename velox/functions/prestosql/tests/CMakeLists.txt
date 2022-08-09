@@ -38,6 +38,7 @@ add_executable(
   CeilFloorTest.cpp
   ComparisonsTest.cpp
   DateTimeFunctionsTest.cpp
+  DecimalArithmeticTest.cpp
   ElementAtTest.cpp
   HyperLogLogCastTest.cpp
   HyperLogLogFunctionsTest.cpp
