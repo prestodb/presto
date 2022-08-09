@@ -137,6 +137,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ13Plan();
     case 14:
       return getQ14Plan();
+    case 15:
+      return getQ15Plan();
     case 18:
       return getQ18Plan();
     case 19:
@@ -888,6 +890,88 @@ TpchPlan TpchQueryBuilder::getQ14Plan() const {
   context.plan = std::move(plan);
   context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
   context.dataFiles[partScanNodeId] = getTableFilePaths(kPart);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getQ15Plan() const {
+  std::vector<std::string> lineitemColumns = {
+      "l_suppkey", "l_shipdate", "l_extendedprice", "l_discount"};
+  std::vector<std::string> supplierColumns = {
+      "s_suppkey", "s_name", "s_address", "s_phone"};
+
+  const auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
+  const auto supplierSelectedRowType = getRowType(kSupplier, supplierColumns);
+  const auto& supplierFileColumns = getFileColumnNames(kSupplier);
+
+  const std::string shipDateFilter = formatDateFilter(
+      "l_shipdate", lineitemSelectedRowType, "'1996-01-01'", "'1996-03-31'");
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId lineitemScanNodeIdSubQuery;
+  core::PlanNodeId lineitemScanNodeId;
+  core::PlanNodeId supplierScanNodeId;
+
+  auto maxRevenue =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(
+              kLineitem,
+              lineitemSelectedRowType,
+              lineitemFileColumns,
+              {shipDateFilter})
+          .capturePlanNodeId(lineitemScanNodeId)
+          .project(
+              {"l_suppkey",
+               "l_extendedprice * (1.0 - l_discount) as part_revenue"})
+          .partialAggregation(
+              {"l_suppkey"}, {"sum(part_revenue) as total_revenue"})
+          .localPartition({})
+          .finalAggregation()
+          .singleAggregation({}, {"max(total_revenue) as max_revenue"})
+          .planNode();
+
+  auto supplierWithMaxRevenue =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(
+              kLineitem,
+              lineitemSelectedRowType,
+              lineitemFileColumns,
+              {shipDateFilter})
+          .capturePlanNodeId(lineitemScanNodeIdSubQuery)
+          .project(
+              {"l_suppkey as supplier_no",
+               "l_extendedprice * (1.0 - l_discount) as part_revenue"})
+          .partialAggregation(
+              {"supplier_no"}, {"sum(part_revenue) as total_revenue"})
+          .localPartition({})
+          .finalAggregation()
+          .hashJoin(
+              {"total_revenue"},
+              {"max_revenue"},
+              maxRevenue,
+              "",
+              {"supplier_no", "total_revenue"})
+          .planNode();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kSupplier, supplierSelectedRowType, supplierFileColumns)
+          .capturePlanNodeId(supplierScanNodeId)
+          .hashJoin(
+              {"s_suppkey"},
+              {"supplier_no"},
+              supplierWithMaxRevenue,
+              "",
+              {"s_suppkey", "s_name", "s_address", "s_phone", "total_revenue"})
+          .orderBy({"s_suppkey"}, false)
+          .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[lineitemScanNodeIdSubQuery] = getTableFilePaths(kLineitem);
+  context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFiles[supplierScanNodeId] = getTableFilePaths(kSupplier);
   context.dataFileFormat = format_;
   return context;
 }
