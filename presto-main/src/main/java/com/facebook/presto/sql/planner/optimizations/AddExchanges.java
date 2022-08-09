@@ -497,8 +497,8 @@ public class AddExchanges
 
             if (child.getProperties().isSingleNode()) {
                 // current plan so far is single node, so local properties are effectively global properties
-                // skip the SortNode if the local properties guarantee ordering on Sort keys
-                // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
+                // don't need an extra exchange if the node is already sorted on the desired columns
+                // a later optimization will remove this sort node
                 List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
                 for (VariableReferenceExpression variable : node.getOrderingScheme().getOrderByVariables()) {
                     desiredProperties.add(new SortingProperty<>(variable, node.getOrderingScheme().getOrdering(variable)));
@@ -506,7 +506,7 @@ public class AddExchanges
 
                 if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
                         .noneMatch(Optional::isPresent)) {
-                    return child;
+                    return rebaseAndDeriveProperties(node, child);
                 }
             }
 

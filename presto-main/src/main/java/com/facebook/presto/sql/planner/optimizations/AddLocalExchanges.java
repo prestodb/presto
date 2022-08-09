@@ -24,6 +24,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -187,6 +188,20 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, StreamPreferredProperties parentPreferences)
         {
+            // Remove sort if the child is already sorted and in a single stream
+            // TODO: extract to its own optimization after AddLocalExchanges once the
+            // constraint optimization framework is in a better state to be extended
+            PlanWithProperties childPlan = planAndEnforce(node.getSource(), any(), singleStream());
+            if (childPlan.getProperties().isSingleStream() && childPlan.getProperties().isOrdered()) {
+                OrderingScheme orderingScheme = node.getOrderingScheme();
+                List<LocalProperty<VariableReferenceExpression>> desiredProperties = orderingScheme.getOrderByVariables().stream()
+                        .map(variable -> new SortingProperty<>(variable, orderingScheme.getOrdering(variable)))
+                        .collect(toImmutableList());
+                if (LocalProperties.match(childPlan.getProperties().getLocalProperties(), desiredProperties).stream().noneMatch(Optional::isPresent)) {
+                    return childPlan;
+                }
+            }
+
             if (isDistributedSortEnabled(session)) {
                 PlanWithProperties sortPlan = planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
 
