@@ -49,10 +49,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.StandardErrorCode.HEADER_MODIFICATION_ATTEMPT;
 import static com.facebook.presto.server.WebUiResource.UI_ENDPOINT;
 import static com.facebook.presto.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static com.facebook.presto.server.security.oauth2.OAuth2TokenExchangeResource.TOKEN_ENDPOINT;
+import static com.facebook.presto.spi.StandardErrorCode.HEADER_MODIFICATION_ATTEMPT;
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
@@ -250,12 +250,6 @@ public class AuthenticationFilter
         return allowForwardedHttps && Strings.nullToEmpty(request.getHeader(HttpHeaders.X_FORWARDED_PROTO)).equalsIgnoreCase(HTTPS_PROTOCOL);
     }
 
-    private boolean isWebUiRequest(HttpServletRequest request)
-    {
-        String pathInfo = request.getPathInfo();
-        return pathInfo == null || pathInfo.equals(UI_ENDPOINT) || pathInfo.startsWith("/ui");
-    }
-
     public static class ModifiedHttpServletRequest
             extends HttpServletRequestWrapper
     {
@@ -293,5 +287,11 @@ public class AuthenticationFilter
             }
             return super.getHeaders(name);
         }
+    }
+
+    private boolean isWebUiRequest(HttpServletRequest request)
+    {
+        String pathInfo = request.getPathInfo();
+        return pathInfo == null || pathInfo.equals(UI_ENDPOINT) || pathInfo.startsWith("/ui");
     }
 }

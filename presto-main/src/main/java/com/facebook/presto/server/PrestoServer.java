@@ -87,7 +87,6 @@ import static com.facebook.airlift.discovery.client.ServiceAnnouncement.serviceA
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.OAUTH2;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.Objects.requireNonNull;
 
