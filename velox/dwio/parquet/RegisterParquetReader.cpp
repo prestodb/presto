@@ -37,10 +37,6 @@ void registerParquetReaderFactory(ParquetReaderType parquetReaderType) {
   }
 }
 
-void registerParquetReaderFactory() {
-  registerParquetReaderFactory(ParquetReaderType::DUCKDB);
-}
-
 void unregisterParquetReaderFactory() {
   dwio::common::unregisterReaderFactory(dwio::common::FileFormat::PARQUET);
 }
