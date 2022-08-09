@@ -13,31 +13,21 @@
  */
 package com.facebook.presto.router.predictor;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.spi.PrestoException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -48,9 +38,6 @@ import static java.util.Objects.requireNonNull;
 public class PredictorManager
 {
     private static final Logger log = Logger.get(PredictorManager.class);
-    private static final JsonCodec<RouterSpec> CODEC = new JsonCodecFactory(
-            () -> new JsonObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
-            .jsonCodec(RouterSpec.class);
 
     private final RemoteQueryFactory remoteQueryFactory;
     private final URI uri;
@@ -116,42 +103,5 @@ public class PredictorManager
             log.error("Error in fetching memory prediction", e);
         }
         return Optional.empty();
-    }
-
-    private static Optional<RouterSpec> parseRouterConfig(RouterConfig config)
-    {
-        Optional<RouterSpec> routerSpec;
-        try {
-            routerSpec = Optional.of(CODEC.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile()))));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        catch (IllegalArgumentException e) {
-            handleConfigIllegalArgumentException(e);
-            throw e;
-        }
-
-        return routerSpec;
-    }
-
-    private static void handleConfigIllegalArgumentException(IllegalArgumentException e)
-    {
-        Throwable cause = e.getCause();
-        if (cause instanceof UnrecognizedPropertyException) {
-            UnrecognizedPropertyException ex = (UnrecognizedPropertyException) cause;
-            String message = format("Unknown property at line %s:%s: %s",
-                    ex.getLocation().getLineNr(),
-                    ex.getLocation().getColumnNr(),
-                    ex.getPropertyName());
-            throw new IllegalArgumentException(message, e);
-        }
-        if (cause instanceof JsonMappingException) {
-            // remove the extra "through reference chain" message
-            if (cause.getCause() != null) {
-                cause = cause.getCause();
-            }
-            throw new IllegalArgumentException(cause.getMessage(), e);
-        }
     }
 }
