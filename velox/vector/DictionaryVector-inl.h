@@ -188,34 +188,5 @@ xsimd::batch<T> DictionaryVector<T>::loadSIMDValueBufferAt(
   }
 }
 
-template <typename T>
-const uint64_t* DictionaryVector<T>::flatRawNulls(
-    const SelectivityVector& rows) {
-  VELOX_DCHECK(initialized_);
-  if (!mayHaveNulls()) {
-    return nullptr;
-  }
-  loadedVector();
-  if (flatNullsBuffer_) {
-    return flatNullsBuffer_->as<uint64_t>();
-  }
-  if (!dictionaryValues_->mayHaveNulls()) {
-    return BaseVector::rawNulls_;
-  }
-  int32_t bytes = BaseVector::byteSize<bool>(BaseVector::length_);
-  flatNullsBuffer_ = AlignedBuffer::allocate<char>(bytes, this->pool());
-  auto flatNulls = flatNullsBuffer_->asMutable<uint64_t>();
-  memset(flatNulls, bits::kNotNullByte, flatNullsBuffer_->capacity());
-  SelectivityVector allRows(dictionaryValues_->size());
-  auto valueNulls = dictionaryValues_->flatRawNulls(allRows);
-  for (int32_t i = 0; i < BaseVector::length_; ++i) {
-    if (BaseVector::isNullAt(i) ||
-        bits::isBitNull(valueNulls, rawIndices_[i])) {
-      bits::setNull(flatNulls, i);
-    }
-  }
-  return flatNulls;
-}
-
 } // namespace velox
 } // namespace facebook

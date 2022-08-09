@@ -163,21 +163,6 @@ class ConstantVector final : public SimpleVector<T> {
     VELOX_FAIL("setNull not supported on ConstantVector");
   }
 
-  const uint64_t* flatRawNulls(const SelectivityVector& rows) override {
-    VELOX_DCHECK(initialized_);
-    if (isNull_) {
-      if (BaseVector::nulls_ &&
-          BaseVector::nulls_->capacity() / 8 >= rows.size()) {
-        return BaseVector::rawNulls_;
-      }
-      BaseVector::nulls_ = AlignedBuffer::allocate<bool>(
-          rows.size(), BaseVector::pool(), bits::kNull);
-      BaseVector::rawNulls_ = BaseVector::nulls_->as<uint64_t>();
-      return BaseVector::rawNulls_;
-    }
-    return nullptr;
-  }
-
   const T valueAtFast(vector_size_t /*idx*/) const {
     VELOX_DCHECK(initialized_);
     return value_;

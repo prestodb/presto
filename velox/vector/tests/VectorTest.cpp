@@ -441,7 +441,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     // on the wrapping and via the translation of DecodedVector.
     SelectivityVector allRows(sourceSize);
     DecodedVector decoded(*source, allRows);
-    auto flatNulls = source->flatRawNulls(allRows);
     auto base = decoded.base();
     auto nulls = decoded.nulls();
     auto indices = decoded.indices();
@@ -453,12 +452,12 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
             << source->toString(sourceIdx);
 
         // We check the same with 'decoded'.
-        if (nulls && bits::isBitNull(nulls, sourceIdx)) {
+        if (source->isNullAt(sourceIdx)) {
           EXPECT_TRUE(decoded.isNullAt(sourceIdx));
-          EXPECT_TRUE(bits::isBitNull(flatNulls, sourceIdx));
+          EXPECT_TRUE(nulls && bits::isBitNull(nulls, sourceIdx));
           EXPECT_TRUE(target->isNullAt(i));
         } else {
-          EXPECT_FALSE(flatNulls && bits::isBitNull(flatNulls, sourceIdx));
+          EXPECT_FALSE(nulls && bits::isBitNull(nulls, sourceIdx));
           EXPECT_FALSE(decoded.isNullAt(sourceIdx));
           EXPECT_FALSE(target->isNullAt(i));
           EXPECT_TRUE(target->equalValueAt(
@@ -468,11 +467,11 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         EXPECT_TRUE(target->equalValueAt(source.get(), i, oddSource[i]));
         // We check the same with 'decoded'.
         auto sourceIdx = oddSource[i];
-        if (nulls && bits::isBitNull(nulls, sourceIdx)) {
-          EXPECT_TRUE(bits::isBitNull(flatNulls, sourceIdx));
+        if (source->isNullAt(sourceIdx)) {
+          EXPECT_TRUE(nulls && bits::isBitNull(nulls, sourceIdx));
           EXPECT_TRUE(target->isNullAt(i));
         } else {
-          EXPECT_FALSE(flatNulls && bits::isBitNull(flatNulls, sourceIdx));
+          EXPECT_FALSE(nulls && bits::isBitNull(nulls, sourceIdx));
           EXPECT_FALSE(target->isNullAt(i));
           EXPECT_TRUE(target->equalValueAt(
               base, i, indices ? indices[sourceIdx] : sourceIdx));

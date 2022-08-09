@@ -77,8 +77,6 @@ class DictionaryVector : public SimpleVector<T> {
 
   bool isNullAt(vector_size_t idx) const override;
 
-  const uint64_t* flatRawNulls(const SelectivityVector& rows) override;
-
   const T valueAtFast(vector_size_t idx) const;
 
   /**
@@ -128,8 +126,7 @@ class DictionaryVector : public SimpleVector<T> {
 
   uint64_t retainedSize() const override {
     return BaseVector::retainedSize() + dictionaryValues_->retainedSize() +
-        indices_->capacity() +
-        (flatNullsBuffer_ ? flatNullsBuffer_->capacity() : 0);
+        indices_->capacity();
   }
 
   bool isConstant(const SelectivityVector& rows) const override {
@@ -182,21 +179,6 @@ class DictionaryVector : public SimpleVector<T> {
     return true;
   }
 
-  void addNulls(const uint64_t* bits, const SelectivityVector& rows) override {
-    flatNullsBuffer_ = nullptr;
-    BaseVector::addNulls(bits, rows);
-  }
-
-  void clearNulls(const SelectivityVector& rows) override {
-    flatNullsBuffer_ = nullptr;
-    BaseVector::clearNulls(rows);
-  }
-
-  void clearNulls(vector_size_t begin, vector_size_t end) override {
-    flatNullsBuffer_ = nullptr;
-    BaseVector::clearNulls(begin, end);
-  }
-
   std::string toString(vector_size_t index) const override {
     if (BaseVector::isNullAt(index)) {
       return "null";
@@ -242,7 +224,6 @@ class DictionaryVector : public SimpleVector<T> {
   // Caches 'scalarDictionaryValues_->getRawValues()' if 'dictionaryValues_'
   // is a FlatVector<T>.
   const T* rawDictionaryValues_ = nullptr;
-  BufferPtr flatNullsBuffer_;
   bool initialized_{false};
 };
 

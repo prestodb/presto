@@ -246,10 +246,6 @@ class LazyVector : public BaseVector {
     return loadedVector()->isNullAt(index);
   }
 
-  const uint64_t* flatRawNulls(const SelectivityVector& rows) override {
-    return loadedVector()->flatRawNulls(rows);
-  }
-
   uint64_t retainedSize() const override {
     return isLoaded() ? loadedVector()->retainedSize()
                       : BaseVector::retainedSize();

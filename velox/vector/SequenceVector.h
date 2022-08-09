@@ -62,17 +62,6 @@ class SequenceVector : public SimpleVector<T> {
     return sequenceValues_->mayHaveNullsRecursive();
   }
 
-  const uint64_t* flatRawNulls(const SelectivityVector& rows) override {
-    if (flatNullsBuffer_) {
-      return flatNullsBuffer_->as<uint64_t>();
-    }
-    loadedVector();
-    if (!sequenceValues_->mayHaveNulls()) {
-      return nullptr;
-    }
-    return computeFlatNulls(rows);
-  }
-
   bool isNullAtFast(vector_size_t idx) const;
 
   bool isNullAt(vector_size_t idx) const override {
@@ -188,13 +177,10 @@ class SequenceVector : public SimpleVector<T> {
   // Prepares for use after construction.
   void setInternalState();
 
-  const uint64_t* computeFlatNulls(const SelectivityVector& rows);
-
   bool checkLoadRange(size_t idx, size_t count) const;
 
   std::shared_ptr<BaseVector> sequenceValues_;
   SimpleVector<T>* scalarSequenceValues_ = nullptr;
-  BufferPtr flatNullsBuffer_;
   BufferPtr sequenceLengths_;
   // Caches 'sequenceLengths_->as<vector_size_t>()'
   const vector_size_t* lengths_ = nullptr;

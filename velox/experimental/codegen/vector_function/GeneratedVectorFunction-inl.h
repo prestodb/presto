@@ -245,10 +245,12 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
       // only proccess indices where all inputs are not nulls
       auto rowsNotNull = rows;
 
-      auto deselectNull = [&rowsNotNull, &rows](const VectorPtr& arg) {
-        if (arg->mayHaveNulls() && arg->getNullCount() != 0) {
-          rowsNotNull.deselectNulls(
-              arg->flatRawNulls(rows), rows.begin(), rows.end());
+      auto deselectNull = [&](const VectorPtr& arg) {
+        if (arg->mayHaveNulls()) {
+          exec::LocalDecodedVector decodedVector(context, *arg, rowsNotNull);
+          if (auto* rawNulls = decodedVector->nulls()) {
+            rowsNotNull.deselectNulls(rawNulls, rows.begin(), rows.end());
+          }
         }
       };
 
