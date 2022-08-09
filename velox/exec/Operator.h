@@ -339,6 +339,8 @@ class Operator {
   virtual void close() {
     input_ = nullptr;
     results_.clear();
+    // Release the unused memory reservation on close.
+    operatorCtx_->pool()->getMemoryUsageTracker()->release();
   }
 
   // Returns true if 'this' never has more output rows than input rows.

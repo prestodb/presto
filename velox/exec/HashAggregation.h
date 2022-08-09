@@ -47,8 +47,6 @@ class HashAggregation : public Operator {
   bool isFinished() override;
 
   void close() override {
-    // Release the unused memory reservation on close.
-    operatorCtx_->pool()->getMemoryUsageTracker()->release();
     Operator::close();
     groupingSet_.reset();
   }
