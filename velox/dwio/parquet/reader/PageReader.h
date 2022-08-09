@@ -21,6 +21,7 @@
 #include "velox/dwio/common/DirectDecoder.h"
 #include "velox/dwio/common/SelectiveColumnReader.h"
 #include "velox/dwio/parquet/reader/ParquetTypeWithId.h"
+#include "velox/dwio/parquet/reader/RleDecoder.h"
 #include "velox/vector/BaseVector.h"
 
 namespace facebook::velox::parquet {
@@ -56,6 +57,10 @@ class PageReader {
   template <typename Visitor>
   void readWithVisitor(Visitor& visitor);
 
+  // skips 'numValues' top level rows, touching null flags only. Non-null values
+  // are not prepared for reading.
+  void skipNullsOnly(int64_t numValues);
+
   /// Reads 'numValues' null flags into 'nulls' and advances the
   /// decoders by as much. The read may span several pages. If there
   /// are no nulls, buffer may be set to nullptr.
@@ -70,6 +75,15 @@ class PageReader {
   // rows. Returns the number of non-nulls skipped. The range is the
   // current page.
   int32_t skipNulls(int32_t numRows);
+
+  // True if the current page holds dictionary indices.
+  bool isDictionary() const {
+    return encoding_ == thrift::Encoding::PLAIN_DICTIONARY ||
+        encoding_ == thrift::Encoding::RLE_DICTIONARY;
+  }
+
+  // Initializes a filter result cache for the dictionary in 'state'.
+  void makeFilterCache(dwio::common::ScanState& state);
 
   // Makes a decoder based on 'encoding_' for bytes from ''pageData_' to
   // 'pageData_' + 'encodedDataSize_'.
@@ -145,8 +159,8 @@ class PageReader {
   BufferPtr tempNulls_;
   BufferPtr nullsInReadRange_;
   BufferPtr multiPageNulls_;
-  std::unique_ptr<arrow::util::RleDecoder> repeatDecoder_;
-  std::unique_ptr<arrow::util::RleDecoder> defineDecoder_;
+  std::unique_ptr<RleDecoder<false>> repeatDecoder_;
+  std::unique_ptr<RleDecoder<false>> defineDecoder_;
 
   // Encoding of current page.
   thrift::Encoding::type encoding_;
@@ -166,6 +180,10 @@ class PageReader {
   // First byte of uncompressed encoded data. Contains the encoded data as a
   // contiguous run of bytes.
   const char* pageData_{nullptr};
+
+  // Dictionary contents.
+  dwio::common::DictionaryValues dictionary_;
+  thrift::Encoding::type dictionaryEncoding_;
 
   // Offset of current page's header from start of ColumnChunk.
   uint64_t pageStart_{0};
@@ -214,7 +232,7 @@ class PageReader {
 
   // Decoders. Only one will be set at a time.
   std::unique_ptr<dwio::common::DirectDecoder<true>> directDecoder_;
-
+  std::unique_ptr<RleDecoder<false>> rleDecoder_;
   // Add decoders for other encodings here.
 };
 
@@ -238,11 +256,39 @@ void PageReader::readWithVisitor(Visitor& visitor) {
     int32_t numValuesBeforePage = reader.numValues();
     visitor.setNumValuesBias(numValuesBeforePage);
     visitor.setRows(pageRows);
+    auto& scanState = reader.scanState();
+    bool useDictionary = false;
+    if (isDictionary()) {
+      useDictionary = true;
+      if (scanState.dictionary.values != dictionary_.values) {
+        scanState.dictionary = dictionary_;
+        if (hasFilter) {
+          makeFilterCache(scanState);
+        }
+        scanState.updateRawState();
+      }
+    } else {
+      if (scanState.dictionary.values) {
+        reader.dedictionarize();
+        scanState.dictionary.clear();
+      }
+    }
+
     if (nulls) {
       nullsFromFastPath = dwio::common::useFastPath<Visitor, true>(visitor);
-      directDecoder_->readWithVisitor<true>(nulls, visitor);
+      if (useDictionary) {
+        auto dictVisitor = visitor.toDictionaryColumnVisitor();
+        rleDecoder_->readWithVisitor<true>(nulls, dictVisitor);
+      } else {
+        directDecoder_->readWithVisitor<true>(nulls, visitor);
+      }
     } else {
-      directDecoder_->readWithVisitor<false>(nulls, visitor);
+      if (useDictionary) {
+        auto dictVisitor = visitor.toDictionaryColumnVisitor();
+        rleDecoder_->readWithVisitor<false>(nullptr, dictVisitor);
+      } else {
+        directDecoder_->readWithVisitor<false>(nulls, visitor);
+      }
     }
     if (currentVisitorRow_ < numVisitorRows_ || isMultiPage) {
       if (mayProduceNulls) {

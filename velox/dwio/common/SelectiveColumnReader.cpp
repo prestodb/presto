@@ -65,7 +65,7 @@ void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
   }
   if (readOffset_ < offset) {
     if (readsNullsOnly) {
-      formatData_->skipNulls(offset - readOffset_);
+      formatData_->skipNulls(offset - readOffset_, true);
     } else {
       skip(offset - readOffset_);
     }

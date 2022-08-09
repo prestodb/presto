@@ -37,7 +37,18 @@ struct DictionaryValues {
 
   // Number of valid elements in 'values'.
   int32_t numValues{0};
+
+  // True if values are in ascending order.
+  bool sorted{false};
+
+  void clear() {
+    values = nullptr;
+    strings = nullptr;
+    numValues = 0;
+    sorted = false;
+  }
 };
+
 struct RawDictionaryState {
   const void* values{nullptr};
   int32_t numValues{0};
@@ -69,6 +80,13 @@ struct RawScanState {
 struct ScanState {
   // Copies the owned values of 'this' into 'rawState'.
   void updateRawState();
+
+  void clear() {
+    dictionary.clear();
+    dictionary2.clear();
+    inDictionary = nullptr;
+    updateRawState();
+  }
 
   // Dictionary values when there s a dictionary in scope for decoding.
   DictionaryValues dictionary;
@@ -387,6 +405,14 @@ class SelectiveColumnReader {
   // readsNullsOnly() is true.
   template <typename T>
   void filterNulls(RowSet rows, bool isNull, bool extractValues);
+
+  // If 'this' has values set for returning as dictionary-encoded,
+  // converts these values to flat so that additional values can be
+  // added without reference to dictionary. Resets dictionary info in
+  // 'scanState_'. No-op for non-string readers. This is needed when
+  // scanning a Parquet ColumnChunk that begins with dictionaries and
+  // converts to direct in mid-read.
+  virtual void dedictionarize() {}
 
  protected:
   template <typename T>

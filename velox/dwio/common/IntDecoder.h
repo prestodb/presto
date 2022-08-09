@@ -42,6 +42,10 @@ class IntDecoder {
         useVInts(useVInts),
         numBytes(numBytes) {}
 
+  // Constructs for use in Parquet /Alphawhere the buffer is always preloaded.
+  IntDecoder(const char* FOLLY_NONNULL start, const char* FOLLY_NONNULL end)
+      : bufferStart(start), bufferEnd(end), useVInts(false), numBytes(0) {}
+
   virtual ~IntDecoder() = default;
 
   /**
@@ -62,10 +66,15 @@ class IntDecoder {
    * @param nulls If the pointer is null, all values are read. If the
    *    pointer is not null, positions that are true are skipped.
    */
-  virtual void
-  next(int64_t* data, uint64_t numValues, const uint64_t* nulls) = 0;
+  virtual void next(
+      int64_t* FOLLY_NONNULL data,
+      uint64_t numValues,
+      const uint64_t* FOLLY_NULLABLE nulls) = 0;
 
-  virtual void next(int32_t* data, uint64_t numValues, const uint64_t* nulls) {
+  virtual void next(
+      int32_t* FOLLY_NONNULL data,
+      uint64_t numValues,
+      const uint64_t* FOLLY_NULLABLE nulls) {
     if (numValues <= 4) {
       int64_t temp[4];
       next(temp, numValues, nulls);
@@ -81,17 +90,23 @@ class IntDecoder {
     }
   }
 
-  virtual void
-  nextInts(int32_t* data, uint64_t numValues, const uint64_t* nulls) {
+  virtual void nextInts(
+      int32_t* FOLLY_NONNULL data,
+      uint64_t numValues,
+      const uint64_t* FOLLY_NULLABLE nulls) {
     narrow(data, numValues, nulls);
   }
 
-  virtual void
-  nextShorts(int16_t* data, uint64_t numValues, const uint64_t* nulls) {
+  virtual void nextShorts(
+      int16_t* FOLLY_NONNULL data,
+      uint64_t numValues,
+      const uint64_t* FOLLY_NULLABLE nulls) {
     narrow(data, numValues, nulls);
   }
 
-  virtual void nextLengths(int32_t* /*values*/, int32_t /*numValues*/) {
+  virtual void nextLengths(
+      int32_t* FOLLY_NONNULL /*values*/,
+      int32_t /*numValues*/) {
     VELOX_FAIL("A length decoder should be a RLEv1");
   }
 
@@ -111,21 +126,59 @@ class IntDecoder {
 
   // Reads 'size' consecutive T' and stores then in 'result'.
   template <typename T>
-  void bulkRead(uint64_t size, T* result);
+  void bulkRead(uint64_t size, T* FOLLY_NONNULL result);
 
   // Reads data at positions 'rows' to 'result'. 'initialRow' is the
   // row number of the first unread element of 'this'. if rows is {10}
   // and 'initialRow' is 9, then this skips one element and reads the
   // next element into 'result'.
   template <typename T>
-  void bulkReadRows(RowSet rows, T* result, int32_t initialRow = 0);
+  void
+  bulkReadRows(RowSet rows, T* FOLLY_NONNULL result, int32_t initialRow = 0);
+
+  /// Copies bit fields starting at 'bitOffset'th bit of 'bits' into
+  /// 'result'.  The indices of the fields are in 'rows' and their
+  /// bit-width is 'bitWidth'.  'rowBias' is subtracted from each
+  /// index in 'rows' before calculating the bit field's position. The
+  /// bit fields are considered little endian. 'bufferEnd' is the address of the
+  /// first undefined byte after the buffer containing the bits. If non-null,
+  /// extra-wide memory accesses will not be used at thee end of the range to
+  /// stay under 'bufferEnd'.
+  template <typename T>
+  static void decodeBitsLE(
+      const uint64_t* FOLLY_NONNULL bits,
+      int32_t bitOffset,
+      RowSet rows,
+      int32_t rowBias,
+      uint8_t bitWidth,
+      const char* FOLLY_NULLABLE bufferEnd,
+      T* FOLLY_NONNULL result);
+
+  // Loads a bit field from 'ptr' + bitOffset for up to 'bitWidth' bits. makes
+  // sure not to access bytes past lastSafeWord + 7.
+  static inline uint64_t safeLoadBits(
+      const char* FOLLY_NONNULL ptr,
+      int32_t bitOffset,
+      uint8_t bitWidth,
+      const char* FOLLY_NONNULL lastSafeWord) {
+    VELOX_DCHECK_GE(7, bitOffset);
+    VELOX_DCHECK_GE(56, bitWidth);
+    if (ptr < lastSafeWord) {
+      return *reinterpret_cast<const uint64_t*>(ptr) >> bitOffset;
+    }
+    int32_t byteWidth = bits::roundUp(bitOffset + bitWidth, 8) / 8;
+    return bits::loadPartialWord(
+               reinterpret_cast<const uint8_t*>(ptr), byteWidth) >>
+        bitOffset;
+  }
 
  protected:
   template <typename T>
-  void bulkReadFixed(uint64_t size, T* result);
+  void bulkReadFixed(uint64_t size, T* FOLLY_NONNULL result);
 
   template <typename T>
-  void bulkReadRowsFixed(RowSet rows, int32_t initialRow, T* result);
+  void
+  bulkReadRowsFixed(RowSet rows, int32_t initialRow, T* FOLLY_NONNULL result);
 
   signed char readByte();
 
@@ -151,8 +204,10 @@ class IntDecoder {
   //       this by directly supporting deserialization into the correct
   //       target data type
   template <typename T>
-  void
-  narrow(T* const data, const uint64_t numValues, const uint64_t* const nulls) {
+  void narrow(
+      T* FOLLY_NONNULL const data,
+      const uint64_t numValues,
+      const uint64_t* FOLLY_NULLABLE const nulls) {
     DWIO_ENSURE_LE(numBytes, sizeof(T))
     std::array<int64_t, 64> buf;
     uint64_t remain = numValues;
@@ -173,8 +228,8 @@ class IntDecoder {
   }
 
   const std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
-  const char* bufferStart;
-  const char* bufferEnd;
+  const char* FOLLY_NULLABLE bufferStart;
+  const char* FOLLY_NULLABLE bufferEnd;
   const bool useVInts;
   const uint32_t numBytes;
 };

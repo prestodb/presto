@@ -2405,6 +2405,129 @@ template void IntDecoder<false>::bulkReadRows(
     int16_t* result,
     int32_t initialRow);
 
+template <bool isSigned>
+template <typename T>
+// static
+void IntDecoder<isSigned>::decodeBitsLE(
+    const uint64_t* FOLLY_NONNULL bits,
+    int32_t bitOffset,
+    RowSet rows,
+    int32_t rowBias,
+    uint8_t bitWidth,
+    const char* bufferEnd,
+    T* FOLLY_NONNULL result) {
+  uint64_t mask = bits::lowMask(bitWidth);
+  auto numRows = rows.size();
+  if (bitWidth > 56) {
+    for (auto i = 0; i < numRows; ++i) {
+      auto bit = bitOffset + (rows[i] - rowBias) * bitWidth;
+      result[i] = bits::detail::loadBits<T>(bits, bit, bitWidth) & mask;
+    }
+    return;
+  }
+  auto FOLLY_NONNULL lastSafe = bufferEnd - sizeof(uint64_t);
+  int32_t numSafeRows = numRows;
+  bool anyUnsafe = false;
+  if (bufferEnd) {
+    const char* endByte = reinterpret_cast<const char*>(bits) +
+        bits::roundUp(bitOffset + (rows.back() - rowBias + 1) * bitWidth, 8) /
+            8;
+    // redzone is the number of bytes at the end of the accessed range that
+    // could overflow the buffer if accessed 64 its wide.
+    int64_t redZone =
+        sizeof(uint64_t) - static_cast<int64_t>(bufferEnd - endByte);
+    if (redZone > 0) {
+      anyUnsafe = true;
+      auto numRed = (redZone + 1) * 8 / bitWidth;
+      int32_t lastSafeIndex = rows.back() - numRed;
+      --numSafeRows;
+      for (; numSafeRows >= 1; --numSafeRows) {
+        if (rows[numSafeRows - 1] < lastSafeIndex) {
+          break;
+        }
+      }
+    }
+  }
+  for (auto i = 0; i < numSafeRows; ++i) {
+    auto bit = bitOffset + (rows[i] - rowBias) * bitWidth;
+    auto byte = bit / 8;
+    auto shift = bit & 7;
+    result[i] = (*reinterpret_cast<const uint64_t*>(
+                     reinterpret_cast<const char*>(bits) + byte) >>
+                 shift) &
+        mask;
+  }
+  if (anyUnsafe) {
+    auto lastSafeWord = bufferEnd - sizeof(uint64_t);
+    assert(lastSafeWord); // lint
+    for (auto i = numSafeRows; i < numRows; ++i) {
+      auto bit = bitOffset + (rows[i] - rowBias) * bitWidth;
+      auto byte = bit / 8;
+      auto shift = bit & 7;
+      result[i] = IntDecoder<isSigned>::safeLoadBits(
+                      reinterpret_cast<const char*>(bits) + byte,
+                      shift,
+                      bitWidth,
+                      lastSafeWord) &
+          mask;
+    }
+  }
+}
+
+template void IntDecoder<false>::decodeBitsLE(
+    const uint64_t* FOLLY_NONNULL bits,
+    int32_t bitOffset,
+    RowSet rows,
+    int32_t rowBias,
+    uint8_t bitWidth,
+    const char* FOLLY_NULLABLE bufferEnd,
+    int32_t* FOLLY_NONNULL result);
+
+template void IntDecoder<false>::decodeBitsLE(
+    const uint64_t* FOLLY_NONNULL bits,
+    int32_t bitOffset,
+    RowSet rows,
+    int32_t rowBias,
+    uint8_t bitWidth,
+    const char* FOLLY_NULLABLE bufferEnd,
+    int64_t* FOLLY_NONNULL result);
+
+template void IntDecoder<true>::decodeBitsLE(
+    const uint64_t* FOLLY_NONNULL bits,
+    int32_t bitOffset,
+    RowSet rows,
+    int32_t rowBias,
+    uint8_t bitWidth,
+    const char* FOLLY_NULLABLE bufferEnd,
+    int32_t* FOLLY_NONNULL result);
+
+template void IntDecoder<true>::decodeBitsLE(
+    const uint64_t* FOLLY_NONNULL bits,
+    int32_t bitOffset,
+    RowSet rows,
+    int32_t rowBias,
+    uint8_t bitWidth,
+    const char* FOLLY_NULLABLE bufferEnd,
+    int64_t* FOLLY_NONNULL result);
+
+template void IntDecoder<false>::decodeBitsLE(
+    const uint64_t* FOLLY_NONNULL bits,
+    int32_t bitOffset,
+    RowSet rows,
+    int32_t rowBias,
+    uint8_t bitWidth,
+    const char* FOLLY_NULLABLE bufferEnd,
+    int16_t* FOLLY_NONNULL result);
+
+template void IntDecoder<true>::decodeBitsLE(
+    const uint64_t* FOLLY_NONNULL bits,
+    int32_t bitOffset,
+    RowSet rows,
+    int32_t rowBias,
+    uint8_t bitWidth,
+    const char* FOLLY_NULLABLE bufferEnd,
+    int16_t* FOLLY_NONNULL result);
+
 #ifdef CODEGEN_BULK_VARINTS
 // Codegen for vint bulk decode. This is to document how varintSwitch
 // and similar functions were made and how to regenerate modified

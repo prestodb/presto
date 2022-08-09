@@ -1026,8 +1026,10 @@ class DictionaryColumnVisitor
 template <typename T, typename TFilter, typename ExtractValues, bool isDense>
 DictionaryColumnVisitor<T, TFilter, ExtractValues, isDense>
 ColumnVisitor<T, TFilter, ExtractValues, isDense>::toDictionaryColumnVisitor() {
-  return DictionaryColumnVisitor<T, TFilter, ExtractValues, isDense>(
+  auto result = DictionaryColumnVisitor<T, TFilter, ExtractValues, isDense>(
       filter_, reader_, RowSet(rows_ + rowIndex_, numRows_), values_);
+  result.numValuesBias_ = numValuesBias_;
+  return result;
 }
 
 template <typename TFilter, typename ExtractValues, bool isDense>

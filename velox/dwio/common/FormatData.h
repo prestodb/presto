@@ -37,23 +37,33 @@ class FormatData {
   }
 
   /// Reads nulls if the format has nulls separate from the encoded
-  /// data. If there are no nulls, 'nulls' is set to nullptr, else to a
-  /// suitable sized and padded Buffer. 'incomingNulls' may be given if
-  /// there are enclosing level nulls that should be merged into the
-  /// read reasult. If provided, this has 'numValues' bits and each
-  /// zero marks an incoming null for which no bit is read from the
-  /// nulls stream of 'this'. For Parquet, 'nulls' is always set to
-  /// nullptr because nulls are represented by the data pages
-  /// themselves.
+  /// data. If there are no nulls, 'nulls' is set to nullptr, else to
+  /// a suitable sized and padded Buffer. 'incomingNulls' may be given
+  /// if there are enclosing level nulls that should be merged into
+  /// the read reasult. If provided, this has 'numValues' bits and
+  /// each zero marks an incoming null for which no bit is read from
+  /// the nulls stream of 'this'. For Parquet, 'nulls' is always set
+  /// to nullptr because nulls are represented by the data pages
+  /// themselves. If 'nullsOnly' is true, formats like Parquet will
+  /// access the nulls in the pages in range and return the
+  /// concatenated nulls in 'nulls'. This is done when only null flags
+  /// of a column are of interest, e.g. is null filter.
   virtual void readNulls(
       vector_size_t numValues,
       const uint64_t* incomingNulls,
-      BufferPtr& nulls) = 0;
+      BufferPtr& nulls,
+      bool nullsOnly = false) = 0;
 
-  /// Reads 'numValues' bits of null flags and returns the number of non-nulls
-  /// in the read null flags. No-op for formats that do not have separate null
-  /// flags, e.g. Parquet.
-  virtual uint64_t skipNulls(uint64_t numValues) = 0;
+  /// Reads 'numValues' bits of null flags and returns the number of
+  /// non-nulls in the read null flags. If 'nullsOnly' is false this
+  /// is a no-op for formats like Parquet where the null flags are
+  /// mixed with the data. For those cases, skip deals with the nulls
+  /// and the data. If reading nulls only, 'nullsOnly' is true and
+  /// then the reader is advanced by 'numValues' null flags without
+  /// touching the data also in formats where nulls and data are
+  /// mixed. This latter case applies only to queries which do not
+  /// touch the data of the column, e.g. a is null filter.
+  virtual uint64_t skipNulls(uint64_t numValues, bool nullsOnly = false) = 0;
 
   /// Skips 'numValues' top level rows and returns the number of
   /// non-null top level rows skipped. For ORC, reverts to

@@ -51,22 +51,6 @@ class ParquetData : public dwio::common::FormatData {
         maxRepeat_(type_->maxRepeat_),
         rowsInRowGroup_(-1) {}
 
-  /// true if no nulls in the current row group
-  bool isNonNull() {
-    VELOX_CHECK_NE(kNoRowGroup, rowGroupIndex_);
-    if (maxDefine_ == 0) {
-      return true;
-    }
-    auto& columnChunk = rowGroups_[rowGroupIndex_].columns[type_->column];
-    VELOX_CHECK(columnChunk.__isset.meta_data);
-    auto& metaData = columnChunk.meta_data;
-    if (metaData.__isset.statistics) {
-      return false;
-    }
-    auto& stats = metaData.statistics;
-    return (stats.__isset.null_count && stats.null_count == 0);
-  }
-
   /// Prepares to read data for 'index'th row group.
   void enqueueRowGroup(uint32_t index, dwio::common::BufferedInput& input);
 
@@ -95,15 +79,28 @@ class ParquetData : public dwio::common::FormatData {
   }
 
   void readNulls(
-      vector_size_t /*numValues*/,
-      const uint64_t* /*incomingNulls*/,
-      BufferPtr& nulls) override {
+      vector_size_t numValues,
+      const uint64_t* incomingNulls,
+      BufferPtr& nulls,
+      bool nullsOnly = false) override {
+    // If the query accesses only nulls, read the nulls from the pages in range.
+    if (nullsOnly) {
+      readNullsOnly(numValues, nulls);
+      return;
+    }
     // There are no column-level nulls in Parquet, only page-level ones, so this
     // is always non-null.
     nulls = nullptr;
   }
 
-  uint64_t skipNulls(uint64_t numValues) override {
+  uint64_t skipNulls(uint64_t numValues, bool nullsOnly) override {
+    // If we are seeking a column where nulls and data are read, the skip is
+    // done in skip(). If we are reading nulls only, this is called with
+    // 'nullsOnly' set and is responsible for reading however many nulls or
+    // pages it takes to skip 'numValues' top level rows.
+    if (nullsOnly) {
+      reader_->skipNullsOnly(numValues);
+    }
     return numValues;
   }
 
@@ -120,16 +117,12 @@ class ParquetData : public dwio::common::FormatData {
   }
 
  protected:
-  static constexpr int32_t kNoRowGroup = -1;
-
   memory::MemoryPool& pool_;
   std::shared_ptr<const ParquetTypeWithId> type_;
   const std::vector<thrift::RowGroup>& rowGroups_;
   // Streams for this column in each of 'rowGroups_'. Will be created on or
   // ahead of first use, not at construction.
   std::vector<std::unique_ptr<dwio::common::SeekableInputStream>> streams_;
-
-  int32_t rowGroupIndex_{kNoRowGroup};
 
   const uint32_t maxDefine_;
   const uint32_t maxRepeat_;

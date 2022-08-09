@@ -207,7 +207,7 @@ class DirectDecoder : public IntDecoder<isSigned> {
             hasHook ? velox::iota(numRows, visitor.innerNonNullRows())
                     : nullptr,
             visitor.rawValues(numRows),
-            visitor.outputRows(numRows),
+            hasFilter ? visitor.outputRows(numRows) : nullptr,
             numValues,
             *super::inputStream,
             super::bufferStart,

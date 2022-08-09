@@ -16,6 +16,7 @@
 
 #include "velox/dwio/parquet/reader/PageReader.h"
 #include "velox/dwio/common/BufferUtil.h"
+#include "velox/dwio/common/ColumnVisitors.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
 
 #include <arrow/util/rle_encoding.h>
@@ -166,18 +167,18 @@ void PageReader::prepareDataPageV1(const PageHeader& pageHeader, int64_t row) {
   if (maxRepeat_ > 0) {
     uint32_t repeatLength = readField<int32_t>(pageData_);
     pageData_ += repeatLength;
-    repeatDecoder_ = std::make_unique<arrow::util::RleDecoder>(
-        reinterpret_cast<const uint8_t*>(pageData_),
-        repeatLength,
+    repeatDecoder_ = std::make_unique<RleDecoder<false>>(
+        pageData_,
+        pageData_ + repeatLength,
         arrow::bit_util::NumRequiredBits(maxRepeat_));
     pageData_ += repeatLength;
   }
 
   if (maxDefine_ > 0) {
     auto defineLength = readField<uint32_t>(pageData_);
-    defineDecoder_ = std::make_unique<arrow::util::RleDecoder>(
-        reinterpret_cast<const uint8_t*>(pageData_),
-        defineLength,
+    defineDecoder_ = std::make_unique<RleDecoder<false>>(
+        pageData_,
+        pageData_ + defineLength,
         arrow::bit_util::NumRequiredBits(maxDefine_));
     pageData_ += defineLength;
   }
@@ -204,16 +205,16 @@ void PageReader::prepareDataPageV2(const PageHeader& pageHeader, int64_t row) {
   pageData_ = readBytes(bytes, pageBuffer_);
 
   if (repeatLength) {
-    repeatDecoder_ = std::make_unique<arrow::util::RleDecoder>(
-        reinterpret_cast<const uint8_t*>(pageData_),
-        repeatLength,
+    repeatDecoder_ = std::make_unique<RleDecoder<false>>(
+        pageData_,
+        pageData_ + repeatLength,
         arrow::bit_util::NumRequiredBits(maxRepeat_));
   }
 
   if (maxDefine_ > 0) {
-    defineDecoder_ = std::make_unique<arrow::util::RleDecoder>(
-        reinterpret_cast<const uint8_t*>(pageData_ + repeatLength),
-        defineLength,
+    defineDecoder_ = std::make_unique<RleDecoder<false>>(
+        pageData_ + repeatLength,
+        pageData_ + repeatLength + defineLength,
         arrow::bit_util::NumRequiredBits(maxDefine_));
   }
   auto levelsSize = repeatLength + defineLength;
@@ -230,8 +231,53 @@ void PageReader::prepareDataPageV2(const PageHeader& pageHeader, int64_t row) {
   makeDecoder();
 }
 
-void PageReader::prepareDictionary(const PageHeader& /*pageHeader*/) {
-  VELOX_NYI();
+void PageReader::prepareDictionary(const PageHeader& pageHeader) {
+  dictionary_.numValues = pageHeader.dictionary_page_header.num_values;
+  dictionaryEncoding_ = pageHeader.dictionary_page_header.encoding;
+  dictionary_.sorted = pageHeader.dictionary_page_header.__isset.is_sorted &&
+      pageHeader.dictionary_page_header.is_sorted;
+  VELOX_CHECK(
+      dictionaryEncoding_ == Encoding::PLAIN_DICTIONARY ||
+      dictionaryEncoding_ == Encoding::PLAIN);
+
+  auto parquetType = type_->parquetType_.value();
+  switch (parquetType) {
+    case thrift::Type::INT32:
+    case thrift::Type::INT64:
+    case thrift::Type::FLOAT:
+    case thrift::Type::DOUBLE: {
+      int32_t typeSize = (parquetType == thrift::Type::INT32 ||
+                          parquetType == thrift::Type::FLOAT)
+          ? sizeof(float)
+          : sizeof(double);
+      auto numBytes = dictionary_.numValues * typeSize;
+      dictionary_.values = AlignedBuffer::allocate<char>(numBytes, &pool_);
+      dwio::common::readBytes(
+          numBytes,
+          inputStream_.get(),
+          dictionary_.values->asMutable<char>(),
+          bufferStart_,
+          bufferEnd_);
+      break;
+    }
+    case thrift::Type::INT96:
+    case thrift::Type::BYTE_ARRAY:
+    case thrift::Type::FIXED_LEN_BYTE_ARRAY:
+    default:
+      VELOX_UNSUPPORTED(
+          "Parquet type {} not supported for dictionary", parquetType);
+  }
+}
+
+void PageReader::makeFilterCache(dwio::common::ScanState& state) {
+  VELOX_CHECK(
+      !state.dictionary2.values, "Parquet supports only one dictionary");
+  state.filterCache.resize(state.dictionary.numValues);
+  simd::memset(
+      state.filterCache.data(),
+      dwio::common::FilterResult::kUnknown,
+      state.filterCache.size());
+  state.rawState.filterCache = state.filterCache.data();
 }
 
 namespace {
@@ -253,8 +299,8 @@ void PageReader::makeDecoder() {
   switch (encoding_) {
     case Encoding::RLE_DICTIONARY:
     case Encoding::PLAIN_DICTIONARY:
-    case Encoding::DELTA_BINARY_PACKED:
-      VELOX_UNSUPPORTED("Encoding not supported yet");
+      rleDecoder_ = std::make_unique<RleDecoder<false>>(
+          pageData_ + 1, pageData_ + encodedDataSize_, pageData_[0]);
       break;
     case Encoding::PLAIN:
       directDecoder_ = std::make_unique<dwio::common::DirectDecoder<true>>(
@@ -263,8 +309,9 @@ void PageReader::makeDecoder() {
           false,
           parquetTypeBytes(type_->parquetType_.value()));
       break;
+    case Encoding::DELTA_BINARY_PACKED:
     default:
-      throw std::runtime_error("Unsupported page encoding");
+      VELOX_UNSUPPORTED("Encoding not supported yet");
   }
 }
 
@@ -284,8 +331,12 @@ void PageReader::skip(int64_t numRows) {
   toSkip = skipNulls(toSkip);
 
   // Skip the decoder
-  if (directDecoder_) {
+  if (isDictionary()) {
+    rleDecoder_->skip(toSkip);
+  } else if (directDecoder_) {
     directDecoder_->skip(toSkip);
+  } else {
+    VELOX_FAIL("No decoder to skip");
   }
 }
 
@@ -293,16 +344,34 @@ int32_t PageReader::skipNulls(int32_t numValues) {
   if (!defineDecoder_) {
     return numValues;
   }
-  dwio::common::ensureCapacity<char>(tempNulls_, numValues, &pool_);
+  VELOX_CHECK_EQ(1, maxDefine_);
+  dwio::common::ensureCapacity<bool>(tempNulls_, numValues, &pool_);
   tempNulls_->setSize(0);
-  defineDecoder_->GetBatch<uint8_t>(
-      tempNulls_->asMutable<uint8_t>(), numValues);
-  auto bytes = tempNulls_->as<uint8_t>();
-  int32_t numPresent = 0;
-  for (auto i = 0; i < numValues; ++i) {
-    numPresent += bytes[i] == 1;
+  bool allOnes;
+  defineDecoder_->readBits(
+      numValues, tempNulls_->asMutable<uint64_t>(), &allOnes);
+  if (allOnes) {
+    return numValues;
   }
-  return numPresent;
+  auto words = tempNulls_->as<uint64_t>();
+  return bits::countBits(words, 0, numValues);
+}
+
+void PageReader::skipNullsOnly(int64_t numRows) {
+  if (!numRows && firstUnvisited_ != rowOfPage_ + numRowsInPage_) {
+    // Return if no skip and position not at end of page or before first page.
+    return;
+  }
+  auto toSkip = numRows;
+  if (firstUnvisited_ + numRows >= rowOfPage_ + numRowsInPage_) {
+    readNextPage(firstUnvisited_ + numRows);
+    firstUnvisited_ += numRows;
+    toSkip = firstUnvisited_ - rowOfPage_;
+  }
+  firstUnvisited_ += numRows;
+
+  // Skip nulls
+  skipNulls(toSkip);
 }
 
 void PageReader::readNullsOnly(int64_t numValues, BufferPtr& buffer) {
@@ -321,6 +390,7 @@ void PageReader::readNullsOnly(int64_t numValues, BufferPtr& buffer) {
     auto nulls = readNulls(numRead, nullsInReadRange_);
     toRead -= numRead;
     nullConcatenation_.append(nulls, 0, numRead);
+    firstUnvisited_ += numRead;
   }
   buffer = nullConcatenation_.buffer();
 }
@@ -331,19 +401,11 @@ PageReader::readNulls(int32_t numValues, BufferPtr& buffer) {
     buffer = nullptr;
     return nullptr;
   }
-  dwio::common::ensureCapacity<char>(tempNulls_, numValues, &pool_);
+  VELOX_CHECK_EQ(1, maxDefine_);
   dwio::common::ensureCapacity<bool>(buffer, numValues, &pool_);
-  tempNulls_->setSize(0);
-  defineDecoder_->GetBatch<uint8_t>(
-      tempNulls_->asMutable<uint8_t>(), numValues);
-  auto nullBytes = tempNulls_->as<uint8_t>();
-  auto intNulls = buffer->asMutable<int32_t>();
-  int32_t nullsIndex = 0;
-  for (auto i = 0; i < numValues; i += 32) {
-    auto flags = xsimd::load_unaligned(nullBytes + i);
-    intNulls[nullsIndex++] = simd::toBitMask(flags != 0);
-  }
-  return buffer->as<uint64_t>();
+  bool allOnes;
+  defineDecoder_->readBits(numValues, buffer->asMutable<uint64_t>(), &allOnes);
+  return allOnes ? nullptr : buffer->as<uint64_t>();
 }
 
 void PageReader::startVisit(folly::Range<const vector_size_t*> rows) {
