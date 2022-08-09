@@ -289,6 +289,7 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharEnumParametricType.VARCHAR_ENUM;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.aggregation.AlternativeArbitraryAggregationFunction.ALTERNATIVE_ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.AlternativeMaxAggregationFunction.ALTERNATIVE_MAX;
 import static com.facebook.presto.operator.aggregation.AlternativeMinAggregationFunction.ALTERNATIVE_MIN;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
@@ -898,6 +899,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         // Replace some aggregations for Velox to override intermediate aggregation type.
         if (featuresConfig.isUseAlternativeFunctionSignatures()) {
+            builder.override(ARBITRARY_AGGREGATION, ALTERNATIVE_ARBITRARY_AGGREGATION);
             builder.override(MAX_AGGREGATION, ALTERNATIVE_MAX);
             builder.override(MIN_AGGREGATION, ALTERNATIVE_MIN);
             builder.override(MAX_BY, ALTERNATIVE_MAX_BY);
