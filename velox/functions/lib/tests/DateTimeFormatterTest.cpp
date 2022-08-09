@@ -1075,6 +1075,9 @@ TEST_F(MysqlDateTimeTest, invalidBuild) {
   EXPECT_THROW(buildMysqlDateTimeFormatter("%u"), VeloxUserError);
   EXPECT_THROW(buildMysqlDateTimeFormatter("%V"), VeloxUserError);
   EXPECT_THROW(buildMysqlDateTimeFormatter("%w"), VeloxUserError);
+
+  // Empty format string
+  EXPECT_THROW(buildMysqlDateTimeFormatter(""), VeloxUserError);
 }
 
 TEST_F(MysqlDateTimeTest, formatYear) {
