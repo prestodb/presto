@@ -27,7 +27,7 @@ NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 
 # Install all velox and folly dependencies.
-sudo apt install -y \
+sudo --preserve-env apt install -y \
   g++ \
   cmake \
   ccache \
@@ -51,7 +51,8 @@ sudo apt install -y \
   liblzo2-dev \
   protobuf-compiler \
   bison \
-  flex
+  flex \
+  tzdata
 
 function run_and_time {
   time "$@"

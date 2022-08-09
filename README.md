@@ -126,6 +126,18 @@ Note that,
   * On ARM
     * Neon
 
+### Building Velox with docker-compose
+
+If you don't want to install the system dependencies required to build Velox,
+you can also build and run tests for Velox on a docker container
+using [docker-compose](https://docs.docker.com/compose/).
+Use the following commands:
+
+```shell
+$ docker-compose build ubuntu-cpp
+$ docker-compose run ubuntu-cpp
+```
+
 ## Contributing
 
 Check our [contributing guide](CONTRIBUTING.md) to learn about how to
