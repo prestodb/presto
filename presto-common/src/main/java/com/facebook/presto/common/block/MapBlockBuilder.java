@@ -23,6 +23,7 @@ import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
@@ -632,5 +633,39 @@ public class MapBlockBuilder
         if (!assertion) {
             throw new AssertionError(message);
         }
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        if (currentEntryOpened) {
+            return false;
+        }
+        MapBlockBuilder other = (MapBlockBuilder) obj;
+        return this.positionCount == other.positionCount &&
+                Arrays.equals(this.mapIsNull, other.mapIsNull) &&
+                Arrays.equals(this.offsets, other.offsets) &&
+                Objects.equals(this.keyBlockBuilder, other.keyBlockBuilder) &&
+                Objects.equals(this.valueBlockBuilder, other.valueBlockBuilder);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        if (currentEntryOpened) {
+            return super.hashCode();
+        }
+        return Objects.hash(
+                positionCount,
+                Arrays.hashCode(mapIsNull),
+                Arrays.hashCode(offsets),
+                keyBlockBuilder,
+                valueBlockBuilder);
     }
 }

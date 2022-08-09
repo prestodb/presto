@@ -68,6 +68,7 @@ import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
@@ -1152,5 +1153,20 @@ public abstract class AbstractTestDistributedQueries
         assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
                         "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
                 "VALUES (1, '0 00:00:01.000')");
+    }
+
+    @Test
+    public void testCSECompilation()
+    {
+        String sql = "SELECT " +
+                "FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v1, " +
+                "FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v2 " +
+                "FROM (select map() map1, '' name) CROSS JOIN ( SELECT MAP() AS other_map ) risk_map";
+        try {
+            computeActual(sql);
+        }
+        catch (RuntimeException e) {
+            fail("Query failed with exception", e);
+        }
     }
 }

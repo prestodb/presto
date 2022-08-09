@@ -20,6 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -349,5 +350,35 @@ public class ByteArrayBlockBuilder
     public int getOffsetBase()
     {
         return 0;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        ByteArrayBlockBuilder other = (ByteArrayBlockBuilder) obj;
+        return this.positionCount == other.positionCount &&
+                this.hasNullValue == other.hasNullValue &&
+                this.hasNonNullValue == other.hasNonNullValue &&
+                Arrays.equals(this.valueIsNull, other.valueIsNull) &&
+                Arrays.equals(this.values, other.values) &&
+                this.retainedSizeInBytes == other.retainedSizeInBytes;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(
+                positionCount,
+                hasNullValue,
+                hasNonNullValue,
+                Arrays.hashCode(valueIsNull),
+                Arrays.hashCode(values),
+                retainedSizeInBytes);
     }
 }

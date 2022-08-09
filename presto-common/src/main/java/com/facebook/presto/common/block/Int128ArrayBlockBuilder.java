@@ -22,6 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -230,10 +231,10 @@ public class Int128ArrayBlockBuilder
      * Get the Slice starting at {@code this.positionOffset + offset} in the value at {@code position} with {@code length} bytes.
      *
      * @param position The logical position of the 128-bit integer in the values array.
-     *                 For example, position = 0 refers to the 128-bit integer at values[2] and values[3] if this.positionOffset = 1.
+     * For example, position = 0 refers to the 128-bit integer at values[2] and values[3] if this.positionOffset = 1.
      * @param offset The offset to the position in the unit of 128-bit integers.
-     *               For example, offset = 1 means the next position (one 128-bit integer or 16 bytes) to the specified position.
-     *               This means we always compare bytes starting at 128-bit integer boundaries.
+     * For example, offset = 1 means the next position (one 128-bit integer or 16 bytes) to the specified position.
+     * This means we always compare bytes starting at 128-bit integer boundaries.
      * @param length The length in bytes. It has to be a multiple of 16.
      */
     @Override
@@ -253,10 +254,10 @@ public class Int128ArrayBlockBuilder
      * Get the Slice starting at {@code offset} in the value at {@code internalPosition} with {@code length} bytes.
      *
      * @param internalPosition The physical position of the 128-bit integer in the values array.
-     *                         For example, internalPosition = 1 refers to the 128-bit integer at values[2] and values[3]
+     * For example, internalPosition = 1 refers to the 128-bit integer at values[2] and values[3]
      * @param offset The offset to the position in the unit of 128-bit integers.
-     *                       For example, offset = 1 means the next position (one 128-bit integer or 16 bytes) to the specified position.
-     *                       This means we always compare bytes starting at 128-bit integer boundaries.
+     * For example, offset = 1 means the next position (one 128-bit integer or 16 bytes) to the specified position.
+     * This means we always compare bytes starting at 128-bit integer boundaries.
      * @param length The length in bytes. It has to be a multiple of 16.
      */
     @Override
@@ -461,5 +462,35 @@ public class Int128ArrayBlockBuilder
     public int getOffsetBase()
     {
         return 0;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        Int128ArrayBlockBuilder other = (Int128ArrayBlockBuilder) obj;
+        return this.positionCount == other.positionCount &&
+                hasNullValue == other.hasNullValue &&
+                hasNonNullValue == other.hasNonNullValue &&
+                Arrays.equals(this.valueIsNull, other.valueIsNull) &&
+                Arrays.equals(this.values, other.values) &&
+                this.retainedSizeInBytes == other.retainedSizeInBytes;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(
+                positionCount,
+                hasNullValue,
+                hasNonNullValue,
+                Arrays.hashCode(valueIsNull),
+                Arrays.hashCode(values),
+                retainedSizeInBytes);
     }
 }

@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
@@ -338,5 +339,39 @@ public class RowBlockBuilder
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries);
         }
         return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[newSize + 1], new boolean[newSize]);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        if (currentEntryOpened) {
+            return false;
+        }
+        RowBlockBuilder other = (RowBlockBuilder) obj;
+        return this.positionCount == other.positionCount &&
+                this.hasNullRow == other.hasNullRow &&
+                Arrays.equals(this.rowIsNull, other.rowIsNull) &&
+                Arrays.equals(this.fieldBlockOffsets, other.fieldBlockOffsets) &&
+                Arrays.equals(this.fieldBlockBuilders, other.fieldBlockBuilders);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        if (currentEntryOpened) {
+            return super.hashCode();
+        }
+        return Objects.hash(
+                positionCount,
+                hasNullRow,
+                Arrays.hashCode(rowIsNull),
+                Arrays.hashCode(fieldBlockOffsets),
+                Arrays.hashCode(fieldBlockBuilders));
     }
 }

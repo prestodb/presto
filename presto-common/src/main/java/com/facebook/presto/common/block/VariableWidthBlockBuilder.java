@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -484,5 +485,37 @@ public class VariableWidthBlockBuilder
     public int getOffsetBase()
     {
         return 0;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        if (currentEntrySize > 0) {
+            return false;
+        }
+        VariableWidthBlockBuilder other = (VariableWidthBlockBuilder) obj;
+        return this.positions == other.positions &&
+                Objects.equals(this.sliceOutput.slice(), other.sliceOutput.slice()) &&
+                Arrays.equals(this.offsets, other.offsets) &&
+                this.hasNullValue == other.hasNullValue &&
+                Arrays.equals(this.valueIsNull, other.valueIsNull) &&
+                this.arraysRetainedSizeInBytes == other.arraysRetainedSizeInBytes;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(positions,
+                sliceOutput.slice(),
+                Arrays.hashCode(offsets),
+                hasNullValue,
+                Arrays.hashCode(valueIsNull),
+                arraysRetainedSizeInBytes);
     }
 }

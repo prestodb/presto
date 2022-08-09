@@ -20,6 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.ArrayBlock.createArrayBlockInternal;
@@ -336,5 +337,40 @@ public class ArrayBlockBuilder
     public String toString()
     {
         return format("ArrayBlockBuilder(%d){positionCount=%d}", hashCode(), getPositionCount());
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        if (currentEntryOpened) {
+            return false;
+        }
+        ArrayBlockBuilder other = (ArrayBlockBuilder) obj;
+        return this.positionCount == other.positionCount &&
+                Arrays.equals(this.valueIsNull, other.valueIsNull) &&
+                Objects.equals(this.values, other.values) &&
+                Arrays.equals(this.offsets, other.offsets) &&
+                this.hasNullValue == other.hasNullValue &&
+                this.retainedSizeInBytes == other.retainedSizeInBytes;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        if (currentEntryOpened) {
+            return super.hashCode();
+        }
+        return Objects.hash(positionCount,
+                Arrays.hashCode(valueIsNull),
+                values,
+                Arrays.hashCode(offsets),
+                hasNullValue,
+                retainedSizeInBytes);
     }
 }
