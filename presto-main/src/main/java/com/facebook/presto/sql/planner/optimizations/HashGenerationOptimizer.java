@@ -112,7 +112,7 @@ public class HashGenerationOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, functionAndTypeManager), new HashComputationSet());
+            PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, functionAndTypeManager).accept(plan, new HashComputationSet());
             return result.getNode();
         }
         return plan;
@@ -793,12 +793,20 @@ public class HashGenerationOptimizer
 
         private PlanWithProperties plan(PlanNode node, HashComputationSet parentPreference)
         {
-            PlanWithProperties result = node.accept(this, parentPreference);
+            PlanWithProperties result = accept(node, parentPreference);
             checkState(
                     result.getNode().getOutputVariables().containsAll(result.getHashVariables().values()),
                     "Node %s declares hash variables not in the output",
                     result.getNode().getClass().getSimpleName());
-            return result;
+            return new PlanWithProperties(result.getNode().assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode()), result.getHashVariables());
+        }
+
+        private PlanWithProperties accept(PlanNode node, HashComputationSet context)
+        {
+            PlanWithProperties result = node.accept(this, context);
+            return new PlanWithProperties(
+                    result.getNode().assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode()),
+                    result.getHashVariables());
         }
     }
 
