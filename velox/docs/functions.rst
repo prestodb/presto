@@ -60,56 +60,58 @@ for :doc:`all <functions/coverage>` and :doc:`most used
     ======================================  ======================================  ======================================  ==  ======================================
     Scalar Functions                                                                                                            Aggregate Functions
     ======================================================================================================================  ==  ======================================
-    :func:`abs`                             :func:`empty_approx_set`                :func:`pow`                                 :func:`approx_distinct`
-    :func:`acos`                            :func:`eq`                              :func:`power`                               :func:`approx_percentile`
-    :func:`array_constructor`               :func:`exp`                             :func:`quarter`                             :func:`approx_set`
-    :func:`array_distinct`                  :func:`filter`                          :func:`radians`                             :func:`arbitrary`
-    :func:`array_duplicates`                :func:`floor`                           :func:`rand`                                :func:`array_agg`
-    :func:`array_except`                    :func:`from_base`                       :func:`random`                              :func:`avg`
-    :func:`array_intersect`                 :func:`from_base64`                     :func:`reduce`                              :func:`bitwise_and_agg`
-    :func:`array_join`                      :func:`from_hex`                        :func:`regexp_extract`                      :func:`bitwise_or_agg`
-    :func:`array_max`                       :func:`from_unixtime`                   :func:`regexp_extract_all`                  :func:`bool_and`
-    :func:`array_min`                       :func:`greatest`                        :func:`regexp_like`                         :func:`bool_or`
-    :func:`array_position`                  :func:`gt`                              :func:`regexp_replace`                      :func:`checksum`
-    :func:`arrays_overlap`                  :func:`gte`                             :func:`replace`                             :func:`corr`
-    :func:`asin`                            :func:`hour`                            :func:`reverse`                             :func:`count`
-    :func:`atan`                            in                                      :func:`round`                               :func:`count_if`
-    :func:`atan2`                           :func:`infinity`                        :func:`rpad`                                :func:`covar_pop`
-    :func:`between`                         :func:`is_finite`                       :func:`rtrim`                               :func:`covar_samp`
-    :func:`bit_count`                       :func:`is_infinite`                     :func:`second`                              :func:`every`
-    :func:`bitwise_and`                     :func:`is_nan`                          :func:`sha256`                              :func:`histogram`
-    :func:`bitwise_arithmetic_shift_right`  :func:`is_null`                         :func:`sign`                                :func:`map_agg`
-    :func:`bitwise_left_shift`              :func:`json_extract_scalar`             :func:`sin`                                 :func:`max`
-    :func:`bitwise_logical_shift_right`     :func:`least`                           :func:`slice`                               :func:`max_by`
-    :func:`bitwise_not`                     :func:`length`                          :func:`split`                               :func:`merge`
-    :func:`bitwise_or`                      :func:`like`                            :func:`split_part`                          :func:`min`
-    :func:`bitwise_right_shift`             :func:`ln`                              :func:`sqrt`                                :func:`min_by`
-    :func:`bitwise_right_shift_arithmetic`  :func:`log10`                           :func:`strpos`                              :func:`stddev`
-    :func:`bitwise_shift_left`              :func:`log2`                            :func:`subscript`                           :func:`stddev_pop`
-    :func:`bitwise_xor`                     :func:`lower`                           :func:`substr`                              :func:`stddev_samp`
-    :func:`cardinality`                     :func:`lpad`                            :func:`tan`                                 :func:`sum`
-    :func:`cbrt`                            :func:`lt`                              :func:`tanh`                                :func:`var_pop`
-    :func:`ceil`                            :func:`lte`                             :func:`to_base`                             :func:`var_samp`
-    :func:`ceiling`                         :func:`ltrim`                           :func:`to_base64`                           :func:`variance`
-    :func:`chr`                             :func:`map`                             :func:`to_hex`
-    :func:`clamp`                           :func:`map_concat`                      :func:`to_unixtime`
-    :func:`codepoint`                       :func:`map_concat_empty_nulls`          :func:`to_utf8`
-    :func:`concat`                          :func:`map_entries`                     :func:`transform`
-    :func:`contains`                        :func:`map_filter`                      :func:`trim`
-    :func:`cos`                             :func:`map_keys`                        :func:`upper`
-    :func:`cosh`                            :func:`map_values`                      :func:`url_decode`
-    :func:`date_add`                        :func:`md5`                             :func:`url_encode`
-    :func:`date_diff`                       :func:`millisecond`                     :func:`url_extract_fragment`
-    :func:`date_format`                     :func:`minus`                           :func:`url_extract_host`
-    :func:`date_parse`                      :func:`minute`                          :func:`url_extract_parameter`
-    :func:`date_trunc`                      :func:`mod`                             :func:`url_extract_path`
-    :func:`day`                             :func:`month`                           :func:`url_extract_port`
-    :func:`day_of_month`                    :func:`multiply`                        :func:`url_extract_protocol`
-    :func:`day_of_week`                     :func:`nan`                             :func:`url_extract_query`
-    :func:`day_of_year`                     :func:`negate`                          :func:`width_bucket`
-    :func:`distinct_from`                   :func:`neq`                             :func:`xxhash64`
-    :func:`divide`                          not                                     :func:`year`
-    :func:`dow`                             :func:`parse_datetime`                  :func:`year_of_week`
-    :func:`doy`                             :func:`pi`                              :func:`yow`
-    :func:`element_at`                      :func:`plus`                            :func:`zip`
+    :func:`abs`                             :func:`e`                               :func:`plus`                                :func:`approx_distinct`               
+    :func:`acos`                            :func:`element_at`                      :func:`pow`                                 :func:`approx_most_frequent`          
+    :func:`array_constructor`               :func:`empty_approx_set`                :func:`power`                               :func:`approx_percentile`             
+    :func:`array_distinct`                  :func:`eq`                              :func:`quarter`                             :func:`approx_set`                    
+    :func:`array_duplicates`                :func:`exp`                             :func:`radians`                             :func:`arbitrary`                     
+    :func:`array_except`                    :func:`filter`                          :func:`rand`                                :func:`array_agg`                     
+    :func:`array_intersect`                 :func:`floor`                           :func:`random`                              :func:`avg`                           
+    :func:`array_join`                      :func:`format_datetime`                 :func:`reduce`                              :func:`bitwise_and_agg`               
+    :func:`array_max`                       :func:`from_base`                       :func:`regexp_extract`                      :func:`bitwise_or_agg`                
+    :func:`array_min`                       :func:`from_base64`                     :func:`regexp_extract_all`                  :func:`bool_and`                      
+    :func:`array_position`                  :func:`from_hex`                        :func:`regexp_like`                         :func:`bool_or`                       
+    :func:`array_sort`                      :func:`from_unixtime`                   :func:`regexp_replace`                      :func:`checksum`                      
+    :func:`arrays_overlap`                  :func:`greatest`                        :func:`replace`                             :func:`corr`                          
+    :func:`asin`                            :func:`gt`                              :func:`reverse`                             :func:`count`                         
+    :func:`atan`                            :func:`gte`                             :func:`round`                               :func:`count_if`                      
+    :func:`atan2`                           :func:`hour`                            :func:`rpad`                                :func:`covar_pop`                     
+    :func:`between`                         in                                      :func:`rtrim`                               :func:`covar_samp`                    
+    :func:`bit_count`                       :func:`infinity`                        :func:`second`                              :func:`every`                         
+    :func:`bitwise_and`                     :func:`is_finite`                       :func:`sha256`                              :func:`histogram`                     
+    :func:`bitwise_arithmetic_shift_right`  :func:`is_infinite`                     :func:`sha512`                              :func:`map_agg`                       
+    :func:`bitwise_left_shift`              :func:`is_nan`                          :func:`sign`                                :func:`map_union`                     
+    :func:`bitwise_logical_shift_right`     :func:`is_null`                         :func:`sin`                                 :func:`max`                           
+    :func:`bitwise_not`                     :func:`json_extract_scalar`             :func:`slice`                               :func:`max_by`                        
+    :func:`bitwise_or`                      :func:`least`                           :func:`split`                               :func:`max_data_size_for_stats`       
+    :func:`bitwise_right_shift`             :func:`length`                          :func:`split_part`                          :func:`merge`                         
+    :func:`bitwise_right_shift_arithmetic`  :func:`like`                            :func:`sqrt`                                :func:`min`                           
+    :func:`bitwise_shift_left`              :func:`ln`                              :func:`strpos`                              :func:`min_by`                        
+    :func:`bitwise_xor`                     :func:`log10`                           :func:`subscript`                           :func:`stddev`                        
+    :func:`cardinality`                     :func:`log2`                            :func:`substr`                              :func:`stddev_pop`                    
+    :func:`cbrt`                            :func:`lower`                           :func:`tan`                                 :func:`stddev_samp`                   
+    :func:`ceil`                            :func:`lpad`                            :func:`tanh`                                :func:`sum`                           
+    :func:`ceiling`                         :func:`lt`                              :func:`to_base`                             :func:`var_pop`                       
+    :func:`chr`                             :func:`lte`                             :func:`to_base64`                           :func:`var_samp`                      
+    :func:`clamp`                           :func:`ltrim`                           :func:`to_hex`                              :func:`variance`                      
+    :func:`codepoint`                       :func:`map`                             :func:`to_unixtime`                                                               
+    :func:`combinations`                    :func:`map_concat`                      :func:`to_utf8`                                                                   
+    :func:`concat`                          :func:`map_concat_empty_nulls`          :func:`transform`                                                                 
+    :func:`contains`                        :func:`map_entries`                     :func:`trim`                                                                      
+    :func:`cos`                             :func:`map_filter`                      :func:`upper`                                                                     
+    :func:`cosh`                            :func:`map_keys`                        :func:`url_decode`                                                                
+    :func:`date_add`                        :func:`map_values`                      :func:`url_encode`                                                                
+    :func:`date_diff`                       :func:`md5`                             :func:`url_extract_fragment`                                                      
+    :func:`date_format`                     :func:`millisecond`                     :func:`url_extract_host`                                                          
+    :func:`date_parse`                      :func:`minus`                           :func:`url_extract_parameter`                                                     
+    :func:`date_trunc`                      :func:`minute`                          :func:`url_extract_path`                                                          
+    :func:`day`                             :func:`mod`                             :func:`url_extract_port`                                                          
+    :func:`day_of_month`                    :func:`month`                           :func:`url_extract_protocol`                                                      
+    :func:`day_of_week`                     :func:`multiply`                        :func:`url_extract_query`                                                         
+    :func:`day_of_year`                     :func:`nan`                             :func:`width_bucket`                                                              
+    :func:`degrees`                         :func:`negate`                          :func:`xxhash64`                                                                  
+    :func:`distinct_from`                   :func:`neq`                             :func:`year`                                                                      
+    :func:`divide`                          not                                     :func:`year_of_week`                                                              
+    :func:`dow`                             :func:`parse_datetime`                  :func:`yow`                                                                       
+    :func:`doy`                             :func:`pi`                              :func:`zip`                                                                       
     ======================================  ======================================  ======================================  ==  ======================================

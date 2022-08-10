@@ -78,6 +78,14 @@ Array Functions
 
     Returns the cardinality (size) of the array ``x``.
 
+.. function:: combinations(array(T), n) -> array(array(T))
+
+    Returns ``n``- element combinations of the input ``array``. If the input array has no duplicates, combinations returns ``n``- element subsets. Order of subgroup is deterministic but unspecified. Order of elements within a subgroup are deterministic but unspecified. ``n`` must not be greater than 5, and the total size of subgroups generated must be smaller than 100000. ::
+
+        SELECT combinations(ARRAY['foo', 'bar', 'boo'],2); --[['foo', 'bar'], ['foo', 'boo']['bar', 'boo']]
+        SELECT combinations(ARRAY[1,2,3,4,5],3); --[[1,2,3], [1,2,4], [1,3,4], [2,3,4]]
+        SELECT combinations(ARRAY[1,2,2],2); --[[1,2],[1,2],[2,2]]
+
 .. function:: contains(x, element) -> boolean
 
     Returns true if the array ``x`` contains the ``element``.
